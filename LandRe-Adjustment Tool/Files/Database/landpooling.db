@@ -1,0 +1,9 @@
+/*create table names (
+    ID int not Null   primary key, 
+    FirstName text, 
+    LastName text
+);*/
+
+select* from names where(
+    ID=1
+);

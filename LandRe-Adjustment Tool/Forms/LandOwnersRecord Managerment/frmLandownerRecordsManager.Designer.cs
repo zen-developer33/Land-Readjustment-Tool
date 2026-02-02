@@ -1,0 +1,231 @@
+namespace Land_Readjustment_Tool.Forms
+{
+    partial class frmLandownerRecordsManager
+    {
+        private System.ComponentModel.IContainer components = null;
+
+        protected override void Dispose(bool disposing)
+        {
+            if (disposing && (components != null))
+            {
+                components.Dispose();
+            }
+            base.Dispose(disposing);
+        }
+
+        #region Windows Form Designer generated code
+
+        private void InitializeComponent()
+        {
+            DataGridViewCellStyle dataGridViewCellStyle1 = new DataGridViewCellStyle();
+            toolStrip1 = new ToolStrip();
+            btnAdd = new ToolStripButton();
+            btnEdit = new ToolStripButton();
+            btnDelete = new ToolStripButton();
+            toolStripSeparator1 = new ToolStripSeparator();
+            toolStripLabel1 = new ToolStripLabel();
+            txtSearch = new ToolStripTextBox();
+            toolStripSeparator2 = new ToolStripSeparator();
+            btnRefresh = new ToolStripDropDownButton();
+            saveToolStripButton = new ToolStripButton();
+            panel1 = new Panel();
+            lblPaginationInfo = new Label();
+            lblTotalRecords = new Label();
+            dgvRecords = new DataGridView();
+            toolStrip1.SuspendLayout();
+            panel1.SuspendLayout();
+            ((System.ComponentModel.ISupportInitialize)dgvRecords).BeginInit();
+            SuspendLayout();
+            // 
+            // toolStrip1
+            // 
+            toolStrip1.AutoSize = false;
+            toolStrip1.ImageScalingSize = new Size(48, 48);
+            toolStrip1.Items.AddRange(new ToolStripItem[] { btnAdd, btnEdit, btnDelete, toolStripSeparator1, toolStripLabel1, txtSearch, toolStripSeparator2, btnRefresh, saveToolStripButton });
+            toolStrip1.Location = new Point(0, 0);
+            toolStrip1.Name = "toolStrip1";
+            toolStrip1.Size = new Size(1400, 74);
+            toolStrip1.TabIndex = 0;
+            toolStrip1.Text = "toolStrip1";
+            // 
+            // btnAdd
+            // 
+            btnAdd.BackgroundImageLayout = ImageLayout.None;
+            btnAdd.Image = Properties.Resources.icons8_add_25__1_;
+            btnAdd.ImageScaling = ToolStripItemImageScaling.None;
+            btnAdd.ImageTransparentColor = Color.Magenta;
+            btnAdd.Name = "btnAdd";
+            btnAdd.Size = new Size(41, 71);
+            btnAdd.Text = "Add";
+            btnAdd.TextImageRelation = TextImageRelation.ImageAboveText;
+            btnAdd.ToolTipText = "Add Record";
+            btnAdd.Click += btnAdd_Click;
+            // 
+            // btnEdit
+            // 
+            btnEdit.Image = Properties.Resources.edit_icon;
+            btnEdit.ImageScaling = ToolStripItemImageScaling.None;
+            btnEdit.ImageTransparentColor = Color.Magenta;
+            btnEdit.Name = "btnEdit";
+            btnEdit.Size = new Size(39, 71);
+            btnEdit.Text = "Edit";
+            btnEdit.TextImageRelation = TextImageRelation.ImageAboveText;
+            btnEdit.ToolTipText = "Edit Record";
+            btnEdit.Click += btnEdit_Click;
+            // 
+            // btnDelete
+            // 
+            btnDelete.Image = Properties.Resources.delete_icon_25;
+            btnDelete.ImageScaling = ToolStripItemImageScaling.None;
+            btnDelete.ImageTransparentColor = Color.Magenta;
+            btnDelete.Name = "btnDelete";
+            btnDelete.Size = new Size(57, 71);
+            btnDelete.Text = "Delete";
+            btnDelete.TextImageRelation = TextImageRelation.ImageAboveText;
+            btnDelete.ToolTipText = "Delete Record";
+            btnDelete.Click += btnDelete_Click;
+            // 
+            // toolStripSeparator1
+            // 
+            toolStripSeparator1.Name = "toolStripSeparator1";
+            toolStripSeparator1.Size = new Size(6, 74);
+            // 
+            // toolStripLabel1
+            // 
+            toolStripLabel1.AutoToolTip = true;
+            toolStripLabel1.Image = Properties.Resources.find_icon1;
+            toolStripLabel1.ImageScaling = ToolStripItemImageScaling.None;
+            toolStripLabel1.Name = "toolStripLabel1";
+            toolStripLabel1.Size = new Size(142, 71);
+            toolStripLabel1.Text = "Search keyword ";
+            toolStripLabel1.TextImageRelation = TextImageRelation.TextBeforeImage;
+            // 
+            // txtSearch
+            // 
+            txtSearch.Name = "txtSearch";
+            txtSearch.Size = new Size(300, 74);
+
+            txtSearch.TextChanged += txtSearch_TextChanged;
+            // 
+            // toolStripSeparator2
+            // 
+            toolStripSeparator2.Name = "toolStripSeparator2";
+            toolStripSeparator2.Size = new Size(6, 74);
+            // 
+            // btnRefresh
+            // 
+            btnRefresh.Image = Properties.Resources.icons8_refresh_25;
+            btnRefresh.ImageScaling = ToolStripItemImageScaling.None;
+            btnRefresh.ImageTransparentColor = Color.Magenta;
+            btnRefresh.Name = "btnRefresh";
+            btnRefresh.Size = new Size(97, 71);
+            btnRefresh.Text = "Refresh";
+            btnRefresh.ToolTipText = "Refresh Records";
+            btnRefresh.Click += btnRefresh_Click;
+            // 
+            // saveToolStripButton
+            // 
+            saveToolStripButton.Image = Properties.Resources.diskette4;
+            saveToolStripButton.ImageScaling = ToolStripItemImageScaling.None;
+            saveToolStripButton.ImageTransparentColor = Color.Magenta;
+            saveToolStripButton.Name = "saveToolStripButton";
+            saveToolStripButton.Size = new Size(74, 71);
+            saveToolStripButton.Text = "Save";
+            saveToolStripButton.ToolTipText = "Save to Database ";
+            // 
+            // panel1
+            // 
+            panel1.Anchor = AnchorStyles.Bottom | AnchorStyles.Left | AnchorStyles.Right;
+            panel1.Controls.Add(lblPaginationInfo);
+            panel1.Controls.Add(lblTotalRecords);
+            panel1.Location = new Point(0, 601);
+            panel1.Name = "panel1";
+            panel1.Size = new Size(1388, 50);
+            panel1.TabIndex = 2;
+            // 
+            // lblPaginationInfo
+            // 
+            lblPaginationInfo.Anchor = AnchorStyles.Bottom | AnchorStyles.Left;
+            lblPaginationInfo.AutoSize = true;
+            lblPaginationInfo.Location = new Point(3, 24);
+            lblPaginationInfo.Name = "lblPaginationInfo";
+            lblPaginationInfo.Size = new Size(191, 20);
+            lblPaginationInfo.TabIndex = 3;
+            lblPaginationInfo.Text = "Showing 1 to 6 of 6 records";
+            // 
+            // lblTotalRecords
+            // 
+            lblTotalRecords.Anchor = AnchorStyles.Bottom | AnchorStyles.Left;
+            lblTotalRecords.AutoSize = true;
+            lblTotalRecords.Font = new Font("Segoe UI", 9F, FontStyle.Bold);
+            lblTotalRecords.Location = new Point(3, 4);
+            lblTotalRecords.Name = "lblTotalRecords";
+            lblTotalRecords.Size = new Size(121, 20);
+            lblTotalRecords.TabIndex = 0;
+            lblTotalRecords.Text = "Total Records: 6";
+            // 
+            // dgvRecords
+            // 
+            dgvRecords.AllowUserToAddRows = false;
+            dgvRecords.AllowUserToDeleteRows = false;
+            dgvRecords.AllowUserToOrderColumns = true;
+            dgvRecords.Anchor = AnchorStyles.Top | AnchorStyles.Bottom | AnchorStyles.Left | AnchorStyles.Right;
+            dgvRecords.BackgroundColor = SystemColors.ControlLight;
+            dgvRecords.ColumnHeadersHeightSizeMode = DataGridViewColumnHeadersHeightSizeMode.AutoSize;
+            dataGridViewCellStyle1.Alignment = DataGridViewContentAlignment.MiddleLeft;
+            dataGridViewCellStyle1.BackColor = SystemColors.Window;
+            dataGridViewCellStyle1.Font = new Font("Segoe UI", 9F);
+            dataGridViewCellStyle1.ForeColor = SystemColors.ControlText;
+            dataGridViewCellStyle1.SelectionBackColor = Color.SkyBlue;
+            dataGridViewCellStyle1.SelectionForeColor = SystemColors.HighlightText;
+            dataGridViewCellStyle1.WrapMode = DataGridViewTriState.False;
+            dgvRecords.DefaultCellStyle = dataGridViewCellStyle1;
+            dgvRecords.Location = new Point(0, 77);
+            dgvRecords.Name = "dgvRecords";
+            dgvRecords.ReadOnly = true;
+            dgvRecords.RowHeadersVisible = false;
+            dgvRecords.RowHeadersWidth = 51;
+            dgvRecords.SelectionMode = DataGridViewSelectionMode.FullRowSelect;
+            dgvRecords.Size = new Size(1388, 518);
+            dgvRecords.TabIndex = 1;
+            // 
+            // frmLandownerRecordsManager
+            // 
+            AutoScaleDimensions = new SizeF(8F, 20F);
+            AutoScaleMode = AutoScaleMode.Font;
+            ClientSize = new Size(1400, 653);
+            Controls.Add(panel1);
+            Controls.Add(dgvRecords);
+            Controls.Add(toolStrip1);
+            MinimumSize = new Size(1200, 700);
+            Name = "frmLandownerRecordsManager";
+            ShowIcon = false;
+            StartPosition = FormStartPosition.CenterScreen;
+            Text = "Landowner Records Manager";
+            Load += frmLandownerRecordsManager_Load;
+            toolStrip1.ResumeLayout(false);
+            toolStrip1.PerformLayout();
+            panel1.ResumeLayout(false);
+            panel1.PerformLayout();
+            ((System.ComponentModel.ISupportInitialize)dgvRecords).EndInit();
+            ResumeLayout(false);
+        }
+
+        #endregion
+
+        private ToolStrip toolStrip1;
+        private ToolStripButton btnAdd;
+        private ToolStripButton btnEdit;
+        private ToolStripButton btnDelete;
+        private ToolStripSeparator toolStripSeparator1;
+        private ToolStripLabel toolStripLabel1;
+        private ToolStripTextBox txtSearch;
+        private ToolStripSeparator toolStripSeparator2;
+        private ToolStripDropDownButton btnRefresh;
+        private DataGridView dgvRecords;
+        private Panel panel1;
+        private Label lblTotalRecords;
+        private Label lblPaginationInfo;
+        private ToolStripButton saveToolStripButton;
+    }
+}
