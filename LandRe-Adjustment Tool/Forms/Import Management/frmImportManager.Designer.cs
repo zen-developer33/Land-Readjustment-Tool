@@ -28,9 +28,9 @@
         /// </summary>
         private void InitializeComponent()
         {
-            DataGridViewCellStyle dataGridViewCellStyle4 = new DataGridViewCellStyle();
-            DataGridViewCellStyle dataGridViewCellStyle5 = new DataGridViewCellStyle();
-            DataGridViewCellStyle dataGridViewCellStyle6 = new DataGridViewCellStyle();
+            DataGridViewCellStyle dataGridViewCellStyle1 = new DataGridViewCellStyle();
+            DataGridViewCellStyle dataGridViewCellStyle2 = new DataGridViewCellStyle();
+            DataGridViewCellStyle dataGridViewCellStyle3 = new DataGridViewCellStyle();
             lblProgress = new Label();
             lblStatusBar = new Label();
             progressBar = new ProgressBar();
@@ -91,7 +91,7 @@
             // 
             lblProgress.Anchor = AnchorStyles.Bottom | AnchorStyles.Left;
             lblProgress.AutoSize = true;
-            lblProgress.Location = new Point(12, 530);
+            lblProgress.Location = new Point(12, 570);
             lblProgress.Name = "lblProgress";
             lblProgress.Size = new Size(117, 20);
             lblProgress.TabIndex = 8;
@@ -102,7 +102,7 @@
             lblStatusBar.Anchor = AnchorStyles.Bottom | AnchorStyles.Left;
             lblStatusBar.AutoSize = true;
             lblStatusBar.Font = new Font("Segoe UI", 9F, FontStyle.Italic);
-            lblStatusBar.Location = new Point(12, 563);
+            lblStatusBar.Location = new Point(12, 603);
             lblStatusBar.Name = "lblStatusBar";
             lblStatusBar.Size = new Size(269, 20);
             lblStatusBar.TabIndex = 9;
@@ -111,23 +111,23 @@
             // progressBar
             // 
             progressBar.Anchor = AnchorStyles.Bottom | AnchorStyles.Left | AnchorStyles.Right;
-            progressBar.Location = new Point(135, 527);
+            progressBar.Location = new Point(135, 567);
             progressBar.Name = "progressBar";
-            progressBar.Size = new Size(1371, 25);
+            progressBar.Size = new Size(1285, 25);
             progressBar.TabIndex = 7;
             // 
             // grpStep2
             // 
+            grpStep2.Anchor = AnchorStyles.Top | AnchorStyles.Bottom | AnchorStyles.Left | AnchorStyles.Right;
             grpStep2.Controls.Add(label2);
             grpStep2.Controls.Add(btnClearMapping);
             grpStep2.Controls.Add(btnAutoMap);
             grpStep2.Controls.Add(btnApplyMapping);
             grpStep2.Controls.Add(dgvMapping);
-            grpStep2.Dock = DockStyle.Fill;
             grpStep2.Font = new Font("Segoe UI", 9F, FontStyle.Bold);
             grpStep2.Location = new Point(0, 0);
             grpStep2.Name = "grpStep2";
-            grpStep2.Size = new Size(432, 521);
+            grpStep2.Size = new Size(353, 561);
             grpStep2.TabIndex = 2;
             grpStep2.TabStop = false;
             grpStep2.Text = "Step 2: Map Fields";
@@ -146,7 +146,7 @@
             // 
             btnClearMapping.Anchor = AnchorStyles.Bottom | AnchorStyles.Right;
             btnClearMapping.Font = new Font("Segoe UI", 9F);
-            btnClearMapping.Location = new Point(218, 474);
+            btnClearMapping.Location = new Point(139, 514);
             btnClearMapping.Name = "btnClearMapping";
             btnClearMapping.Size = new Size(79, 35);
             btnClearMapping.TabIndex = 43;
@@ -158,7 +158,7 @@
             // 
             btnAutoMap.Anchor = AnchorStyles.Bottom | AnchorStyles.Right;
             btnAutoMap.Font = new Font("Segoe UI", 9F);
-            btnAutoMap.Location = new Point(121, 474);
+            btnAutoMap.Location = new Point(42, 514);
             btnAutoMap.Name = "btnAutoMap";
             btnAutoMap.Size = new Size(91, 35);
             btnAutoMap.TabIndex = 42;
@@ -171,7 +171,7 @@
             btnApplyMapping.Anchor = AnchorStyles.Bottom | AnchorStyles.Right;
             btnApplyMapping.BackColor = SystemColors.ControlLightLight;
             btnApplyMapping.Font = new Font("Segoe UI", 9F);
-            btnApplyMapping.Location = new Point(303, 474);
+            btnApplyMapping.Location = new Point(224, 514);
             btnApplyMapping.Name = "btnApplyMapping";
             btnApplyMapping.Size = new Size(122, 35);
             btnApplyMapping.TabIndex = 41;
@@ -187,20 +187,20 @@
             dgvMapping.AutoSizeColumnsMode = DataGridViewAutoSizeColumnsMode.AllCells;
             dgvMapping.BackgroundColor = SystemColors.ControlLight;
             dgvMapping.ColumnHeadersHeightSizeMode = DataGridViewColumnHeadersHeightSizeMode.AutoSize;
-            dataGridViewCellStyle4.Alignment = DataGridViewContentAlignment.MiddleLeft;
-            dataGridViewCellStyle4.BackColor = SystemColors.Window;
-            dataGridViewCellStyle4.Font = new Font("Segoe UI", 9F, FontStyle.Regular, GraphicsUnit.Point, 0);
-            dataGridViewCellStyle4.ForeColor = SystemColors.ControlText;
-            dataGridViewCellStyle4.SelectionBackColor = SystemColors.Highlight;
-            dataGridViewCellStyle4.SelectionForeColor = SystemColors.HighlightText;
-            dataGridViewCellStyle4.WrapMode = DataGridViewTriState.False;
-            dgvMapping.DefaultCellStyle = dataGridViewCellStyle4;
+            dataGridViewCellStyle1.Alignment = DataGridViewContentAlignment.MiddleLeft;
+            dataGridViewCellStyle1.BackColor = SystemColors.Window;
+            dataGridViewCellStyle1.Font = new Font("Segoe UI", 9F, FontStyle.Regular, GraphicsUnit.Point, 0);
+            dataGridViewCellStyle1.ForeColor = SystemColors.ControlText;
+            dataGridViewCellStyle1.SelectionBackColor = SystemColors.Highlight;
+            dataGridViewCellStyle1.SelectionForeColor = SystemColors.HighlightText;
+            dataGridViewCellStyle1.WrapMode = DataGridViewTriState.False;
+            dgvMapping.DefaultCellStyle = dataGridViewCellStyle1;
             dgvMapping.Location = new Point(3, 63);
             dgvMapping.Name = "dgvMapping";
             dgvMapping.RowHeadersWidth = 51;
-            dataGridViewCellStyle5.Font = new Font("Microsoft Sans Serif", 9F, FontStyle.Regular, GraphicsUnit.Point, 0);
-            dgvMapping.RowsDefaultCellStyle = dataGridViewCellStyle5;
-            dgvMapping.Size = new Size(425, 405);
+            dataGridViewCellStyle2.Font = new Font("Microsoft Sans Serif", 9F, FontStyle.Regular, GraphicsUnit.Point, 0);
+            dgvMapping.RowsDefaultCellStyle = dataGridViewCellStyle2;
+            dgvMapping.Size = new Size(346, 445);
             dgvMapping.TabIndex = 40;
             // 
             // grpStep1
@@ -219,7 +219,7 @@
             grpStep1.Font = new Font("Segoe UI", 9F, FontStyle.Bold);
             grpStep1.Location = new Point(3, 3);
             grpStep1.Name = "grpStep1";
-            grpStep1.Size = new Size(570, 172);
+            grpStep1.Size = new Size(563, 172);
             grpStep1.TabIndex = 1;
             grpStep1.TabStop = false;
             grpStep1.Text = "Step 1: Load Data File";
@@ -342,12 +342,12 @@
             grpStep4.Controls.Add(lblValidationLabel);
             grpStep4.Controls.Add(lblValidationStatus);
             grpStep4.Font = new Font("Segoe UI", 9F, FontStyle.Bold);
-            grpStep4.Location = new Point(579, 3);
+            grpStep4.Location = new Point(572, 3);
             grpStep4.Name = "grpStep4";
             grpStep4.Size = new Size(494, 172);
             grpStep4.TabIndex = 4;
             grpStep4.TabStop = false;
-            grpStep4.Text = "\\";
+            grpStep4.Text = "Step 2: Validata and Save";
             // 
             // btnCancel
             // 
@@ -469,7 +469,7 @@
             grpStep3.Font = new Font("Segoe UI", 9F, FontStyle.Bold);
             grpStep3.Location = new Point(0, 181);
             grpStep3.Name = "grpStep3";
-            grpStep3.Size = new Size(1073, 334);
+            grpStep3.Size = new Size(1066, 374);
             grpStep3.TabIndex = 5;
             grpStep3.TabStop = false;
             grpStep3.Text = "Step 3: Review && Edit Records";
@@ -478,7 +478,7 @@
             // 
             btnReMapFields.Anchor = AnchorStyles.Bottom | AnchorStyles.Right;
             btnReMapFields.Font = new Font("Segoe UI", 9F);
-            btnReMapFields.Location = new Point(930, 293);
+            btnReMapFields.Location = new Point(923, 333);
             btnReMapFields.Name = "btnReMapFields";
             btnReMapFields.Size = new Size(137, 35);
             btnReMapFields.TabIndex = 48;
@@ -490,7 +490,7 @@
             // 
             btnRemoveSelected.Anchor = AnchorStyles.Bottom | AnchorStyles.Left;
             btnRemoveSelected.Font = new Font("Segoe UI", 9F);
-            btnRemoveSelected.Location = new Point(135, 293);
+            btnRemoveSelected.Location = new Point(135, 333);
             btnRemoveSelected.Name = "btnRemoveSelected";
             btnRemoveSelected.Size = new Size(146, 35);
             btnRemoveSelected.TabIndex = 46;
@@ -505,29 +505,30 @@
             dgvRecords.Anchor = AnchorStyles.Top | AnchorStyles.Bottom | AnchorStyles.Left | AnchorStyles.Right;
             dgvRecords.BackgroundColor = SystemColors.ControlLight;
             dgvRecords.ColumnHeadersHeight = 29;
-            dataGridViewCellStyle6.Alignment = DataGridViewContentAlignment.MiddleLeft;
-            dataGridViewCellStyle6.BackColor = SystemColors.Window;
-            dataGridViewCellStyle6.Font = new Font("Segoe UI", 9F, FontStyle.Regular, GraphicsUnit.Point, 0);
-            dataGridViewCellStyle6.ForeColor = SystemColors.ControlText;
-            dataGridViewCellStyle6.SelectionBackColor = SystemColors.Highlight;
-            dataGridViewCellStyle6.SelectionForeColor = SystemColors.HighlightText;
-            dataGridViewCellStyle6.WrapMode = DataGridViewTriState.False;
-            dgvRecords.DefaultCellStyle = dataGridViewCellStyle6;
+            dataGridViewCellStyle3.Alignment = DataGridViewContentAlignment.MiddleLeft;
+            dataGridViewCellStyle3.BackColor = SystemColors.Window;
+            dataGridViewCellStyle3.Font = new Font("Segoe UI", 9F, FontStyle.Regular, GraphicsUnit.Point, 0);
+            dataGridViewCellStyle3.ForeColor = SystemColors.ControlText;
+            dataGridViewCellStyle3.SelectionBackColor = SystemColors.Highlight;
+            dataGridViewCellStyle3.SelectionForeColor = SystemColors.HighlightText;
+            dataGridViewCellStyle3.WrapMode = DataGridViewTriState.False;
+            dgvRecords.DefaultCellStyle = dataGridViewCellStyle3;
             dgvRecords.Location = new Point(12, 26);
             dgvRecords.Name = "dgvRecords";
             dgvRecords.ReadOnly = true;
             dgvRecords.RowHeadersWidth = 51;
-            dgvRecords.RowsDefaultCellStyle = dataGridViewCellStyle5;
+            dgvRecords.RowsDefaultCellStyle = dataGridViewCellStyle2;
             dgvRecords.SelectionMode = DataGridViewSelectionMode.FullRowSelect;
-            dgvRecords.Size = new Size(1055, 261);
+            dgvRecords.Size = new Size(1048, 301);
             dgvRecords.TabIndex = 0;
+            dgvRecords.CellContentClick += dgvRecords_CellContentClick;
             // 
             // btnFixErrors
             // 
             btnFixErrors.Anchor = AnchorStyles.Bottom | AnchorStyles.Left;
             btnFixErrors.BackColor = SystemColors.ControlLightLight;
             btnFixErrors.Font = new Font("Segoe UI", 9F);
-            btnFixErrors.Location = new Point(287, 293);
+            btnFixErrors.Location = new Point(287, 333);
             btnFixErrors.Name = "btnFixErrors";
             btnFixErrors.Size = new Size(216, 35);
             btnFixErrors.TabIndex = 44;
@@ -539,7 +540,7 @@
             // 
             btnEditRecord.Anchor = AnchorStyles.Bottom | AnchorStyles.Left;
             btnEditRecord.Font = new Font("Segoe UI", 9F);
-            btnEditRecord.Location = new Point(11, 293);
+            btnEditRecord.Location = new Point(11, 333);
             btnEditRecord.Name = "btnEditRecord";
             btnEditRecord.Size = new Size(118, 35);
             btnEditRecord.TabIndex = 45;
@@ -558,14 +559,14 @@
             SCImportManager.Panel1.Controls.Add(grpStep3);
             SCImportManager.Panel1.Controls.Add(grpStep4);
             SCImportManager.Panel1.Controls.Add(grpStep1);
-            SCImportManager.Panel1MinSize = 895;
+            SCImportManager.Panel1MinSize = 500;
             // 
             // SCImportManager.Panel2
             // 
             SCImportManager.Panel2.Controls.Add(grpStep2);
             SCImportManager.Panel2MinSize = 300;
-            SCImportManager.Size = new Size(1512, 521);
-            SCImportManager.SplitterDistance = 1076;
+            SCImportManager.Size = new Size(1426, 561);
+            SCImportManager.SplitterDistance = 1069;
             SCImportManager.TabIndex = 0;
             // 
             // pnlStepStatus
@@ -577,9 +578,9 @@
             pnlStepStatus.Controls.Add(lblStep2Status);
             pnlStepStatus.Controls.Add(lblStep3Status);
             pnlStepStatus.Controls.Add(lblStep4Status);
-            pnlStepStatus.Location = new Point(12, 590);
+            pnlStepStatus.Location = new Point(12, 630);
             pnlStepStatus.Name = "pnlStepStatus";
-            pnlStepStatus.Size = new Size(1488, 35);
+            pnlStepStatus.Size = new Size(1402, 35);
             pnlStepStatus.TabIndex = 10;
             // 
             // lblStep1Status
@@ -630,7 +631,7 @@
             // 
             AutoScaleDimensions = new SizeF(8F, 20F);
             AutoScaleMode = AutoScaleMode.Font;
-            ClientSize = new Size(1512, 635);
+            ClientSize = new Size(1426, 675);
             Controls.Add(pnlStepStatus);
             Controls.Add(lblStatusBar);
             Controls.Add(lblProgress);

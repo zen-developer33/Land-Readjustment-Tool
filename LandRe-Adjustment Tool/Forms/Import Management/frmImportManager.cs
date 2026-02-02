@@ -20,7 +20,7 @@ namespace Land_Readjustment_Tool.Forms
         private DataSet? _excelDataSet;
         private DataTable? _selectedSheet;
         private Dictionary<string, string> _fieldMappings = new();
-        private BindingList<OriginalLandParcelWithLandOwner> _importedRecords = new();
+        private SortableBindingList<OriginalLandParcelWithLandOwner> _importedRecords = new();
         private List<ValidationError> _validationErrors = new();
         private HashSet<int> _deletedRowIndices = new();
         private HashSet<int> _editedRowIndices = new();
@@ -292,31 +292,32 @@ namespace Land_Readjustment_Tool.Forms
             _isDeduplicationDone = false;
             _deduplicationResult = null;
             _fieldMappings.Clear();
-            
+
             dgvRecords.DataSource = null;
             dgvRecords.Rows.Clear();
             dgvMapping.Rows.Clear();
-            
+
             // Reset UI
             lblValidationStatus.Text = "Not Validated";
             lblValidationStatus.ForeColor = Color.Gray;
             lblRecordsReady.Text = "N/A";
             lblTotalRecords.Text = "0";
-            
+
             // Reset steps
             DisableStep2();
             DisableStep3();
             DisableStep4();
-            
+
             // Reset step status indicators
             InitializeStepStatusIndicators();
-            
+
             UpdateStatusBar("Data cleared. Ready for new import.");
         }
 
         // ==================== STEP 2: MAP FIELDS ====================
         private void EnableStep2()
         {
+            SCImportManager.Panel2Collapsed = false;
             grpStep2.Enabled = true;
             PopulateFieldMappings();
         }
@@ -388,19 +389,19 @@ namespace Land_Readjustment_Tool.Forms
             var mappingRules = new Dictionary<string[], string>
             {
                 // Parcel / Plot Number
-                { new[] { 
+                { new[] {
                     "parcel", "plot", "kitta", "kittano", "kita",
                     "कित्ता", "कित्ता नं", "कित्ता नम्बर", "कित्ता न.", "कि.नं", "कि.न."
                 }, "ParcelNo" },
 
                 // Province
-                { new[] { 
-                    "province", "pradesh", 
+                { new[] {
+                    "province", "pradesh",
                     "प्रदेश", "प्रदेश नं", "प्रदेश नम्बर"
                 }, "Province" },
 
                 // District
-                { new[] { 
+                { new[] {
                     "district", "jilla", "zilla",
                     "जिल्ला", "जि."
                 }, "District" },
@@ -408,7 +409,7 @@ namespace Land_Readjustment_Tool.Forms
                 // Municipality / Village / Local Government
                 { new[] {
                     "municipality", "village", "gapa", "napa", "gaupalika", "nagarpalika", "local",
-                    "गा.पा", "न.पा", "गा.पा.", "न.पा.", "गाउँपालिका", "नगरपालिका", "पालिका", 
+                    "गा.पा", "न.पा", "गा.पा.", "न.पा.", "गाउँपालिका", "नगरपालिका", "पालिका",
                     "स्थानीय तह", "गाविस", "गा.वि.स.", "नगर"
                 }, "MunicipalityVillage" },
 
@@ -439,7 +440,7 @@ namespace Land_Readjustment_Tool.Forms
                 // Father / Spouse Name
                 { new[] {
                     "father", "spouse", "husband", "wife", "guardian", "baba", "buwa", "pita",
-                    "बाबु", "बुबा", "पिता", "पति", "पत्नी", "श्रीमान", "श्रीमती", 
+                    "बाबु", "बुबा", "पिता", "पति", "पत्नी", "श्रीमान", "श्रीमती",
                     "बाबु/पति", "बाबुको नाम", "पिताको नाम", "पति/पत्नी"
                 }, "FatherSpouse" },
 
@@ -581,6 +582,7 @@ namespace Land_Readjustment_Tool.Forms
                 SourceData = _selectedSheet!,
                 FieldMappings = _fieldMappings
             });
+            SCImportManager.Panel2Collapsed = true;
         }
 
         private Dictionary<string, string> BuildFieldMappings()
@@ -633,9 +635,11 @@ namespace Land_Readjustment_Tool.Forms
         private void InitializeRecordsDataGridView()
         {
             dgvRecords.AutoGenerateColumns = false;
+            dgvRecords.AutoSizeColumnsMode = DataGridViewAutoSizeColumnsMode.None;
             dgvRecords.AllowUserToAddRows = false;
             dgvRecords.AllowUserToDeleteRows = false;
             dgvRecords.AllowUserToResizeRows = false;
+            dgvRecords.AllowUserToResizeColumns = true;
             dgvRecords.SelectionMode = DataGridViewSelectionMode.FullRowSelect;
             dgvRecords.MultiSelect = true;
             dgvRecords.ReadOnly = true;
@@ -648,7 +652,7 @@ namespace Land_Readjustment_Tool.Forms
             dgvRecords.CellBorderStyle = DataGridViewCellBorderStyle.Single;
             dgvRecords.GridColor = Color.FromArgb(220, 220, 220);
 
-        
+
             // Make headers styled
             dgvRecords.ColumnHeadersDefaultCellStyle.Font = new Font("Segoe UI", 9F, FontStyle.Bold);
             dgvRecords.ColumnHeadersDefaultCellStyle.BackColor = Color.FromArgb(45, 65, 95);
@@ -670,14 +674,14 @@ namespace Land_Readjustment_Tool.Forms
         {
             // Row number is 1-based for user display
             string rowNumber = (e.RowIndex + 1).ToString();
-            
+
             // Calculate bounds for the row header
             var headerBounds = new Rectangle(
-                e.RowBounds.Left, 
-                e.RowBounds.Top, 
-                dgvRecords.RowHeadersWidth - 4, 
+                e.RowBounds.Left,
+                e.RowBounds.Top,
+                dgvRecords.RowHeadersWidth - 4,
                 e.RowBounds.Height);
-            
+
             // Use TextRenderer for crisp text rendering
             TextRenderer.DrawText(
                 e.Graphics,
@@ -705,7 +709,8 @@ namespace Land_Readjustment_Tool.Forms
                     Name = property.Name,
                     HeaderText = FormatHeaderText(property.Name),
                     DataPropertyName = property.Name,
-                    AutoSizeMode = DataGridViewAutoSizeColumnMode.AllCells
+                    AutoSizeMode = DataGridViewAutoSizeColumnMode.None,
+                    SortMode = DataGridViewColumnSortMode.NotSortable
                 });
             }
         }
@@ -1208,7 +1213,7 @@ namespace Land_Readjustment_Tool.Forms
             };
         }
 
-        private OperationResult SaveToDatabaseOperation(List<OriginalLandParcelWithLandOwner> records, 
+        private OperationResult SaveToDatabaseOperation(List<OriginalLandParcelWithLandOwner> records,
             OwnerDeduplicationService.DeduplicationResult? deduplicationResult, BackgroundWorker worker)
         {
             worker.ReportProgress(10);
@@ -1261,11 +1266,11 @@ namespace Land_Readjustment_Tool.Forms
                 {
                     // Use the deduplication result for proper owner mapping
                     worker.ReportProgress(40);
-                    
+
                     // Save unique owners and get parcel-to-owner mapping
                     var parcelToOwnerMap = repository.SaveUniqueOwnersFromDeduplication(deduplicationResult);
                     savedOwners = deduplicationResult.UniqueOwners.Count;
-                    
+
                     worker.ReportProgress(60);
 
                     // Save parcels with proper owner references
@@ -1277,7 +1282,7 @@ namespace Land_Readjustment_Tool.Forms
                     worker.ReportProgress(40);
                     var ownerMap = repository.ExtractAndSaveUniqueOwners(records);
                     savedOwners = ownerMap.Count;
-                    
+
                     worker.ReportProgress(60);
                     savedParcels = repository.SaveParcels(records, ownerMap);
                 }
@@ -1387,7 +1392,7 @@ namespace Land_Readjustment_Tool.Forms
 
             lblStatusBar1.Text = $"Status: File loaded with {sheetNames.Count} sheet(s)";
             lblStatusBar1.ForeColor = Color.Green;
-            
+
             UpdateStepStatus(1, StepStatus.Success, $"Loaded ({sheetNames.Count} sheets)");
             UpdateStepStatus(2, StepStatus.InProgress, "Ready to map");
         }
@@ -1395,7 +1400,8 @@ namespace Land_Readjustment_Tool.Forms
         // ==================== DATA TRANSFORMATION HANDLER ====================
         private void HandleDataTransformed(TransformationResult result)
         {
-            _importedRecords = new BindingList<OriginalLandParcelWithLandOwner>(result.AllOriginalRecords);
+            _importedRecords = new SortableBindingList<OriginalLandParcelWithLandOwner>(result.AllOriginalRecords);
+            SortRecordsByParcelNo();
             _validationErrors = result.ValidationErrors;
             _isValidated = true;
             _isDeduplicationDone = false;
@@ -1406,7 +1412,7 @@ namespace Land_Readjustment_Tool.Forms
 
             // Update step statuses
             UpdateStepStatus(2, StepStatus.Success, $"Mapped ({result.TotalRecords} records)");
-            
+
             if (result.HasErrors)
             {
                 UpdateStepStatus(3, StepStatus.Error, $"{result.InvalidRecords.Count} errors");
@@ -1418,8 +1424,8 @@ namespace Land_Readjustment_Tool.Forms
                 UpdateStepStatus(4, StepStatus.Pending, "Ready when validated");
             }
 
-            string skippedInfo = result.SkippedRows > 0 
-                ? $"Skipped Rows (empty/missing required fields): {result.SkippedRows}\n" 
+            string skippedInfo = result.SkippedRows > 0
+                ? $"Skipped Rows (empty/missing required fields): {result.SkippedRows}\n"
                 : "";
 
             string message = $"Data transformation complete!\n\n" +
@@ -1468,7 +1474,7 @@ namespace Land_Readjustment_Tool.Forms
         private void HandleDataSaved(string message)
         {
             UpdateStepStatus(4, StepStatus.Success, "Saved!");
-            
+
             MessageBox.Show(message, "Save Complete",
                 MessageBoxButtons.OK, MessageBoxIcon.Information);
 
@@ -1577,7 +1583,7 @@ namespace Land_Readjustment_Tool.Forms
                 if (totalDuplicateGroups == 0)
                 {
                     // No duplicates found at all
-                    string noDupMessage = _isDeduplicationDone 
+                    string noDupMessage = _isDeduplicationDone
                         ? "Re-analysis complete!\n\n" +
                           $"✅ No remaining duplicates found.\n" +
                           $"🔍 Unique Landowners: {_deduplicationResult.UniqueOwners.Count}\n\n" +
@@ -1587,10 +1593,10 @@ namespace Land_Readjustment_Tool.Forms
                           $"🔍 Unique Landowners: {_deduplicationResult.UniqueOwners.Count}\n" +
                           $"👤 Anonymous Owners: {_deduplicationResult.AnonymousOwnersCreated}\n\n" +
                           "No action needed.";
-                    
+
                     MessageBox.Show(noDupMessage, "No Duplicates Found",
                         MessageBoxButtons.OK, MessageBoxIcon.Information);
-                    
+
                     _isDeduplicationDone = true;
                     UpdateStepStatus(3, StepStatus.Success, "No duplicates");
                     UpdateStepStatus(4, StepStatus.InProgress, "Ready to save");
@@ -1625,11 +1631,11 @@ namespace Land_Readjustment_Tool.Forms
                                 // Just refresh the UI
                                 _isDeduplicationDone = true;
                                 RefreshDataGridView();
-                                
+
                                 // Update step statuses
                                 UpdateStepStatus(3, StepStatus.Success, "Deduplicated");
                                 UpdateStepStatus(4, StepStatus.InProgress, "Ready to save");
-                                
+
                                 MessageBox.Show(
                                     "Duplicate resolution complete!\n\n" +
                                     "Owner data has been normalized and duplicates have been merged.\n\n" +
@@ -1697,11 +1703,11 @@ namespace Land_Readjustment_Tool.Forms
             // Apply changes to the actual records in _importedRecords
             // Since ToList() returns references to the same objects, changes are reflected
             OwnerDeduplicationService.ApplyDeduplicationToRecords(_importedRecords.ToList(), _deduplicationResult);
-            
+
             _isDeduplicationDone = true;
 
             RefreshDataGridView();
-            
+
             // Update step statuses
             UpdateStepStatus(3, StepStatus.Success, "Deduplicated");
             UpdateStepStatus(4, StepStatus.InProgress, "Ready to save");
@@ -1718,11 +1724,13 @@ namespace Land_Readjustment_Tool.Forms
             {
                 // Store current position
                 int currentRow = dgvRecords.CurrentRow?.Index ?? 0;
-                
+
+                SortRecordsByParcelNo();
+
                 // Rebind to force refresh
                 dgvRecords.DataSource = null;
                 dgvRecords.DataSource = _importedRecords;
-                
+
                 // Restore position if valid
                 if (currentRow >= 0 && currentRow < dgvRecords.Rows.Count)
                 {
@@ -1733,8 +1741,33 @@ namespace Land_Readjustment_Tool.Forms
             {
                 dgvRecords.ResumeLayout();
             }
-            
+
             UpdateRecordCount();
+        }
+
+        private void SortRecordsByParcelNo()
+        {
+            var sortedRecords = _importedRecords
+                .OrderBy(record => TryParseParcelNo(record.ParcelNo, out var parcelNo) ? parcelNo : int.MaxValue)
+                .ThenBy(record => record.ParcelNo)
+                .ToList();
+
+            _importedRecords.Clear();
+            foreach (var record in sortedRecords)
+            {
+                _importedRecords.Add(record);
+            }
+        }
+
+        private static bool TryParseParcelNo(string? value, out int parcelNo)
+        {
+            if (string.IsNullOrWhiteSpace(value))
+            {
+                parcelNo = 0;
+                return false;
+            }
+
+            return int.TryParse(value.Trim(), out parcelNo);
         }
 
         private void SCImportManager_Panel1_Paint(object sender, PaintEventArgs e)
@@ -1742,6 +1775,10 @@ namespace Land_Readjustment_Tool.Forms
 
         }
 
+        private void dgvRecords_CellContentClick(object sender, DataGridViewCellEventArgs e)
+        {
+
+        }
     }
 
     // ==================== HELPER CLASSES ====================
@@ -1778,6 +1815,62 @@ namespace Land_Readjustment_Tool.Forms
             var property = dgv.GetType().GetProperty("DoubleBuffered",
                 System.Reflection.BindingFlags.Instance | System.Reflection.BindingFlags.NonPublic);
             property?.SetValue(dgv, setting, null);
+        }
+    }
+
+    internal class SortableBindingList<T> : BindingList<T>
+    {
+        private bool _isSorted;
+        private ListSortDirection _sortDirection;
+        private PropertyDescriptor? _sortProperty;
+
+        public SortableBindingList() : base()
+        {
+        }
+
+        public SortableBindingList(IList<T> list) : base(list)
+        {
+        }
+
+        protected override bool SupportsSortingCore => true;
+        protected override bool IsSortedCore => _isSorted;
+        protected override PropertyDescriptor? SortPropertyCore => _sortProperty;
+        protected override ListSortDirection SortDirectionCore => _sortDirection;
+
+        protected override void ApplySortCore(PropertyDescriptor prop, ListSortDirection direction)
+        {
+            if (prop == null)
+            {
+                return;
+            }
+
+            var items = Items as List<T>;
+            if (items == null)
+            {
+                return;
+            }
+
+            var sorted = direction == ListSortDirection.Ascending
+                ? items.OrderBy(item => prop.GetValue(item)).ToList()
+                : items.OrderByDescending(item => prop.GetValue(item)).ToList();
+
+            items.Clear();
+            foreach (var item in sorted)
+            {
+                items.Add(item);
+            }
+
+            _sortProperty = prop;
+            _sortDirection = direction;
+            _isSorted = true;
+
+            OnListChanged(new ListChangedEventArgs(ListChangedType.Reset, -1));
+        }
+
+        protected override void RemoveSortCore()
+        {
+            _isSorted = false;
+            _sortProperty = null;
         }
     }
 }
