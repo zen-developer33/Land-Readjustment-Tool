@@ -1061,6 +1061,8 @@ namespace Land_Readjustment_Tool.Forms
             int existingParcelCount = GetExistingParcelCount();
             int existingOwnerCount = GetExistingOwnerCount();
 
+            bool replaceExisting = false;
+
             if (existingParcelCount > 0 || existingOwnerCount > 0)
             {
                 var warningResult = MessageBox.Show(
@@ -1068,16 +1070,35 @@ namespace Land_Readjustment_Tool.Forms
                     $"The database already contains:\n" +
                     $"• {existingOwnerCount} Landowner(s)\n" +
                     $"• {existingParcelCount} Land Parcel(s)\n\n" +
-                    $"Importing new data may create duplicate records if the same parcels already exist.\n\n" +
-                    $"Do you want to proceed with the import?\n\n" +
-                    $"Click 'Yes' to continue importing (duplicates will be skipped).\n" +
-                    $"Click 'No' to cancel and review existing data first.",
+                    $"How would you like to proceed?\n\n" +
+                    $"• Click 'Yes' to REPLACE all existing data with new import\n" +
+                    $"• Click 'No' to ADD to existing data (duplicates will be skipped)\n" +
+                    $"• Click 'Cancel' to abort the import",
                     "Existing Data Warning",
-                    MessageBoxButtons.YesNo,
+                    MessageBoxButtons.YesNoCancel,
                     MessageBoxIcon.Warning);
 
-                if (warningResult != DialogResult.Yes)
+                if (warningResult == DialogResult.Cancel)
                     return;
+
+                replaceExisting = (warningResult == DialogResult.Yes);
+
+                if (replaceExisting)
+                {
+                    var confirmReplace = MessageBox.Show(
+                        $"⚠️ CONFIRM DATA REPLACEMENT\n\n" +
+                        $"You are about to DELETE:\n" +
+                        $"• {existingOwnerCount} Landowner(s)\n" +
+                        $"• {existingParcelCount} Land Parcel(s)\n\n" +
+                        $"This action CANNOT be undone!\n\n" +
+                        $"Are you absolutely sure you want to proceed?",
+                        "Confirm Replace",
+                        MessageBoxButtons.YesNo,
+                        MessageBoxIcon.Exclamation);
+
+                    if (confirmReplace != DialogResult.Yes)
+                        return;
+                }
             }
 
             // Show summary before saving
@@ -1101,7 +1122,8 @@ namespace Land_Readjustment_Tool.Forms
             {
                 OperationType = OperationType.SaveToDatabase,
                 Records = _importedRecords.ToList(),
-                DeduplicationResult = _deduplicationResult
+                DeduplicationResult = _deduplicationResult,
+                ReplaceExistingData = replaceExisting
             });
         }
 
@@ -1163,7 +1185,7 @@ namespace Land_Readjustment_Tool.Forms
                 OperationType.LoadFile => LoadFileOperation(operation.FilePath!, worker!),
                 OperationType.TransformData => TransformDataOperation(operation.SourceData!, operation.FieldMappings!, worker!),
                 OperationType.ValidateData => ValidateDataOperation(operation.Records!, worker!),
-                OperationType.SaveToDatabase => SaveToDatabaseOperation(operation.Records!, operation.DeduplicationResult, worker!),
+                OperationType.SaveToDatabase => SaveToDatabaseOperation(operation.Records!, operation.DeduplicationResult, operation.ReplaceExistingData, worker!),
                 _ => new OperationResult { Success = false, Message = "Unknown operation" }
             };
         }
@@ -1214,7 +1236,7 @@ namespace Land_Readjustment_Tool.Forms
         }
 
         private OperationResult SaveToDatabaseOperation(List<OriginalLandParcelWithLandOwner> records,
-            OwnerDeduplicationService.DeduplicationResult? deduplicationResult, BackgroundWorker worker)
+            OwnerDeduplicationService.DeduplicationResult? deduplicationResult, bool replaceExisting, BackgroundWorker worker)
         {
             worker.ReportProgress(10);
 
@@ -1259,6 +1281,14 @@ namespace Land_Readjustment_Tool.Forms
                 worker.ReportProgress(20);
 
                 var repository = new LandOwnerRepository(connection);
+
+                // Clear existing data if replace option was selected
+                if (replaceExisting)
+                {
+                    repository.ClearAllData();
+                    worker.ReportProgress(30);
+                }
+
                 int savedParcels = 0;
                 int savedOwners = 0;
 
@@ -1798,6 +1828,7 @@ namespace Land_Readjustment_Tool.Forms
         public Dictionary<string, string>? FieldMappings { get; set; }
         public List<OriginalLandParcelWithLandOwner>? Records { get; set; }
         public OwnerDeduplicationService.DeduplicationResult? DeduplicationResult { get; set; }
+        public bool ReplaceExistingData { get; set; }
     }
 
     internal class OperationResult
