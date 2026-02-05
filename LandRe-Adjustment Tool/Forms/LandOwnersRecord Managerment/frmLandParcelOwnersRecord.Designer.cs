@@ -45,9 +45,6 @@
             label4 = new Label();
             cbMapSheet = new ComboBox();
             label5 = new Label();
-            groupBox2 = new GroupBox();
-            label6 = new Label();
-            cbLandOwnership = new ComboBox();
             groupBox3 = new GroupBox();
             txtToArea = new TextBox();
             txtFromArea = new TextBox();
@@ -59,9 +56,9 @@
             txtParcelNo = new TextBox();
             label10 = new Label();
             label11 = new Label();
-            btnApplyFilterSearch = new Button();
-            btnClearFilterSearch = new Button();
-            chkQuikFilterSearch = new CheckBox();
+            btnApplyFilter = new Button();
+            btnClearFilter = new Button();
+            chkToggleQuickFilter = new CheckBox();
             panel1 = new Panel();
             lblSelectedRecords = new Label();
             panel3 = new Panel();
@@ -78,9 +75,14 @@
             saveToolStripButton = new ToolStripButton();
             toolStripSeparator1 = new ToolStripSeparator();
             toolStripButton1 = new ToolStripButton();
+            btnClearSearch = new Button();
+            btnApplySearch = new Button();
+            chkToggleQuickSearch = new CheckBox();
+            cbLandOwnership = new ComboBox();
+            label6 = new Label();
+            groupBox2 = new GroupBox();
             grpFilterByMapSheet.SuspendLayout();
             groupBox1.SuspendLayout();
-            groupBox2.SuspendLayout();
             groupBox3.SuspendLayout();
             groupBox4.SuspendLayout();
             panel1.SuspendLayout();
@@ -88,6 +90,7 @@
             ((System.ComponentModel.ISupportInitialize)dgvRecords).BeginInit();
             panel2.SuspendLayout();
             toolStrip1.SuspendLayout();
+            groupBox2.SuspendLayout();
             SuspendLayout();
             // 
             // grpFilterByMapSheet
@@ -106,7 +109,7 @@
             grpFilterByMapSheet.Margin = new Padding(3, 4, 3, 4);
             grpFilterByMapSheet.Name = "grpFilterByMapSheet";
             grpFilterByMapSheet.Padding = new Padding(3, 4, 3, 4);
-            grpFilterByMapSheet.Size = new Size(652, 89);
+            grpFilterByMapSheet.Size = new Size(576, 89);
             grpFilterByMapSheet.TabIndex = 1;
             grpFilterByMapSheet.TabStop = false;
             grpFilterByMapSheet.Text = "Filter By Location";
@@ -118,7 +121,7 @@
             cbWardNo.Location = new Point(493, 54);
             cbWardNo.Margin = new Padding(3, 4, 3, 4);
             cbWardNo.Name = "cbWardNo";
-            cbWardNo.Size = new Size(148, 28);
+            cbWardNo.Size = new Size(71, 28);
             cbWardNo.TabIndex = 8;
             cbWardNo.SelectedIndexChanged += comboBox3_SelectedIndexChanged;
             // 
@@ -203,7 +206,7 @@
             groupBox1.Controls.Add(cbMapSheet);
             groupBox1.Font = new Font("Segoe UI", 9F, FontStyle.Bold);
             groupBox1.ForeColor = Color.FromArgb(45, 65, 95);
-            groupBox1.Location = new Point(667, 47);
+            groupBox1.Location = new Point(591, 47);
             groupBox1.Margin = new Padding(3, 4, 3, 4);
             groupBox1.Name = "groupBox1";
             groupBox1.Padding = new Padding(3, 4, 3, 4);
@@ -231,7 +234,7 @@
             cbMapSheet.Location = new Point(18, 54);
             cbMapSheet.Margin = new Padding(3, 4, 3, 4);
             cbMapSheet.Name = "cbMapSheet";
-            cbMapSheet.Size = new Size(148, 28);
+            cbMapSheet.Size = new Size(154, 28);
             cbMapSheet.TabIndex = 10;
             // 
             // label5
@@ -244,42 +247,6 @@
             label5.Size = new Size(284, 28);
             label5.TabIndex = 11;
             label5.Text = "Original Land Parcel Records";
-            // 
-            // groupBox2
-            // 
-            groupBox2.Controls.Add(label6);
-            groupBox2.Controls.Add(cbLandOwnership);
-            groupBox2.Font = new Font("Segoe UI", 9F, FontStyle.Bold);
-            groupBox2.ForeColor = Color.FromArgb(45, 65, 95);
-            groupBox2.Location = new Point(851, 47);
-            groupBox2.Margin = new Padding(3, 4, 3, 4);
-            groupBox2.Name = "groupBox2";
-            groupBox2.Padding = new Padding(3, 4, 3, 4);
-            groupBox2.Size = new Size(175, 89);
-            groupBox2.TabIndex = 12;
-            groupBox2.TabStop = false;
-            groupBox2.Text = "Filter By Ownership";
-            // 
-            // label6
-            // 
-            label6.AutoSize = true;
-            label6.Font = new Font("Segoe UI", 9F);
-            label6.ForeColor = Color.Black;
-            label6.Location = new Point(18, 29);
-            label6.Name = "label6";
-            label6.Size = new Size(118, 20);
-            label6.TabIndex = 11;
-            label6.Text = "Land Ownership:";
-            // 
-            // cbLandOwnership
-            // 
-            cbLandOwnership.DropDownStyle = ComboBoxStyle.DropDownList;
-            cbLandOwnership.Font = new Font("Segoe UI", 9F);
-            cbLandOwnership.Location = new Point(18, 54);
-            cbLandOwnership.Margin = new Padding(3, 4, 3, 4);
-            cbLandOwnership.Name = "cbLandOwnership";
-            cbLandOwnership.Size = new Size(148, 28);
-            cbLandOwnership.TabIndex = 10;
             // 
             // groupBox3
             // 
@@ -364,7 +331,7 @@
             groupBox4.Margin = new Padding(3, 4, 3, 4);
             groupBox4.Name = "groupBox4";
             groupBox4.Padding = new Padding(3, 4, 3, 4);
-            groupBox4.Size = new Size(446, 88);
+            groupBox4.Size = new Size(631, 88);
             groupBox4.TabIndex = 10;
             groupBox4.TabStop = false;
             groupBox4.Text = "Search by";
@@ -374,7 +341,7 @@
             txtLandOwner.BorderStyle = BorderStyle.FixedSingle;
             txtLandOwner.Location = new Point(156, 54);
             txtLandOwner.Name = "txtLandOwner";
-            txtLandOwner.Size = new Size(278, 27);
+            txtLandOwner.Size = new Size(466, 27);
             txtLandOwner.TabIndex = 14;
             // 
             // txtParcelNo
@@ -392,9 +359,9 @@
             label10.ForeColor = Color.Black;
             label10.Location = new Point(156, 30);
             label10.Name = "label10";
-            label10.Size = new Size(135, 20);
+            label10.Size = new Size(144, 20);
             label10.TabIndex = 5;
-            label10.Text = "Land Owner Name:";
+            label10.Text = "Land Owner's Name:";
             // 
             // label11
             // 
@@ -407,46 +374,49 @@
             label11.TabIndex = 2;
             label11.Text = "Parcel No.";
             // 
-            // btnApplyFilterSearch
+            // btnApplyFilter
             // 
-            btnApplyFilterSearch.Cursor = Cursors.Hand;
-            btnApplyFilterSearch.Font = new Font("Segoe UI", 9F, FontStyle.Bold, GraphicsUnit.Point, 0);
-            btnApplyFilterSearch.Image = Properties.Resources.find_icon1;
-            btnApplyFilterSearch.Location = new Point(775, 188);
-            btnApplyFilterSearch.Name = "btnApplyFilterSearch";
-            btnApplyFilterSearch.Size = new Size(98, 44);
-            btnApplyFilterSearch.TabIndex = 20;
-            btnApplyFilterSearch.Text = "Apply";
-            btnApplyFilterSearch.TextImageRelation = TextImageRelation.ImageBeforeText;
-            btnApplyFilterSearch.UseVisualStyleBackColor = false;
+            btnApplyFilter.Cursor = Cursors.Hand;
+            btnApplyFilter.Font = new Font("Segoe UI", 9F, FontStyle.Bold, GraphicsUnit.Point, 0);
+            btnApplyFilter.Image = Properties.Resources.business_15653292__1_;
+            btnApplyFilter.Location = new Point(956, 85);
+            btnApplyFilter.Name = "btnApplyFilter";
+            btnApplyFilter.Size = new Size(140, 44);
+            btnApplyFilter.TabIndex = 20;
+            btnApplyFilter.Text = "Apply Filter";
+            btnApplyFilter.TextImageRelation = TextImageRelation.ImageBeforeText;
+            btnApplyFilter.UseVisualStyleBackColor = false;
             // 
-            // btnClearFilterSearch
+            // btnClearFilter
             // 
-            btnClearFilterSearch.Cursor = Cursors.Hand;
-            btnClearFilterSearch.Font = new Font("Segoe UI", 9F, FontStyle.Bold, GraphicsUnit.Point, 0);
-            btnClearFilterSearch.Location = new Point(879, 188);
-            btnClearFilterSearch.Name = "btnClearFilterSearch";
-            btnClearFilterSearch.Size = new Size(92, 44);
-            btnClearFilterSearch.TabIndex = 21;
-            btnClearFilterSearch.Text = "Clear";
-            btnClearFilterSearch.TextImageRelation = TextImageRelation.ImageBeforeText;
+            btnClearFilter.Cursor = Cursors.Hand;
+            btnClearFilter.Font = new Font("Segoe UI", 9F, FontStyle.Bold, GraphicsUnit.Point, 0);
+            btnClearFilter.Location = new Point(1102, 85);
+            btnClearFilter.Name = "btnClearFilter";
+            btnClearFilter.Size = new Size(92, 44);
+            btnClearFilter.TabIndex = 21;
+            btnClearFilter.Text = "Clear";
+            btnClearFilter.TextImageRelation = TextImageRelation.ImageBeforeText;
             // 
-            // chkQuikFilterSearch
+            // chkToggleQuickFilter
             // 
-            chkQuikFilterSearch.AutoSize = true;
-            chkQuikFilterSearch.Location = new Point(775, 158);
-            chkQuikFilterSearch.Name = "chkQuikFilterSearch";
-            chkQuikFilterSearch.Size = new Size(205, 24);
-            chkQuikFilterSearch.TabIndex = 22;
-            chkQuikFilterSearch.Text = "Toggle Quick Filter/Search";
-            chkQuikFilterSearch.UseVisualStyleBackColor = true;
+            chkToggleQuickFilter.AutoSize = true;
+            chkToggleQuickFilter.Location = new Point(956, 57);
+            chkToggleQuickFilter.Name = "chkToggleQuickFilter";
+            chkToggleQuickFilter.Size = new Size(155, 24);
+            chkToggleQuickFilter.TabIndex = 22;
+            chkToggleQuickFilter.Text = "Toggle Quick Filter";
+            chkToggleQuickFilter.UseVisualStyleBackColor = true;
             // 
             // panel1
             // 
             panel1.BackColor = SystemColors.ControlLightLight;
-            panel1.Controls.Add(chkQuikFilterSearch);
-            panel1.Controls.Add(btnClearFilterSearch);
-            panel1.Controls.Add(btnApplyFilterSearch);
+            panel1.Controls.Add(chkToggleQuickSearch);
+            panel1.Controls.Add(btnClearSearch);
+            panel1.Controls.Add(btnApplySearch);
+            panel1.Controls.Add(chkToggleQuickFilter);
+            panel1.Controls.Add(btnClearFilter);
+            panel1.Controls.Add(btnApplyFilter);
             panel1.Controls.Add(groupBox4);
             panel1.Controls.Add(groupBox3);
             panel1.Controls.Add(groupBox2);
@@ -645,6 +615,76 @@
             toolStripButton1.TextDirection = ToolStripTextDirection.Horizontal;
             toolStripButton1.ToolTipText = "Add Record";
             // 
+            // btnClearSearch
+            // 
+            btnClearSearch.Cursor = Cursors.Hand;
+            btnClearSearch.Font = new Font("Segoe UI", 9F, FontStyle.Bold, GraphicsUnit.Point, 0);
+            btnClearSearch.Location = new Point(1102, 188);
+            btnClearSearch.Name = "btnClearSearch";
+            btnClearSearch.Size = new Size(92, 44);
+            btnClearSearch.TabIndex = 24;
+            btnClearSearch.Text = "Clear";
+            btnClearSearch.TextImageRelation = TextImageRelation.ImageBeforeText;
+            // 
+            // btnApplySearch
+            // 
+            btnApplySearch.Cursor = Cursors.Hand;
+            btnApplySearch.Font = new Font("Segoe UI", 9F, FontStyle.Bold, GraphicsUnit.Point, 0);
+            btnApplySearch.Image = Properties.Resources.find_icon1;
+            btnApplySearch.Location = new Point(956, 188);
+            btnApplySearch.Name = "btnApplySearch";
+            btnApplySearch.Size = new Size(140, 44);
+            btnApplySearch.TabIndex = 23;
+            btnApplySearch.Text = "Apply Search";
+            btnApplySearch.TextImageRelation = TextImageRelation.ImageBeforeText;
+            btnApplySearch.UseVisualStyleBackColor = false;
+            // 
+            // chkToggleQuickSearch
+            // 
+            chkToggleQuickSearch.AutoSize = true;
+            chkToggleQuickSearch.Location = new Point(956, 160);
+            chkToggleQuickSearch.Name = "chkToggleQuickSearch";
+            chkToggleQuickSearch.Size = new Size(166, 24);
+            chkToggleQuickSearch.TabIndex = 25;
+            chkToggleQuickSearch.Text = "Toggle Quick Search";
+            chkToggleQuickSearch.UseVisualStyleBackColor = true;
+            // 
+            // cbLandOwnership
+            // 
+            cbLandOwnership.DropDownStyle = ComboBoxStyle.DropDownList;
+            cbLandOwnership.Font = new Font("Segoe UI", 9F);
+            cbLandOwnership.Location = new Point(18, 54);
+            cbLandOwnership.Margin = new Padding(3, 4, 3, 4);
+            cbLandOwnership.Name = "cbLandOwnership";
+            cbLandOwnership.Size = new Size(148, 28);
+            cbLandOwnership.TabIndex = 10;
+            // 
+            // label6
+            // 
+            label6.AutoSize = true;
+            label6.Font = new Font("Segoe UI", 9F);
+            label6.ForeColor = Color.Black;
+            label6.Location = new Point(18, 29);
+            label6.Name = "label6";
+            label6.Size = new Size(118, 20);
+            label6.TabIndex = 11;
+            label6.Text = "Land Ownership:";
+            // 
+            // groupBox2
+            // 
+            groupBox2.Controls.Add(label6);
+            groupBox2.Controls.Add(cbLandOwnership);
+            groupBox2.Font = new Font("Segoe UI", 9F, FontStyle.Bold);
+            groupBox2.ForeColor = Color.FromArgb(45, 65, 95);
+            groupBox2.Location = new Point(775, 47);
+            groupBox2.Margin = new Padding(3, 4, 3, 4);
+            groupBox2.Name = "groupBox2";
+            groupBox2.Padding = new Padding(3, 4, 3, 4);
+            groupBox2.Size = new Size(175, 89);
+            groupBox2.TabIndex = 12;
+            groupBox2.TabStop = false;
+            groupBox2.Text = "Filter By Ownership";
+            // 
             // frmLandParcelOwnersRecord
             // 
             AutoScaleDimensions = new SizeF(8F, 20F);
@@ -660,8 +700,6 @@
             grpFilterByMapSheet.PerformLayout();
             groupBox1.ResumeLayout(false);
             groupBox1.PerformLayout();
-            groupBox2.ResumeLayout(false);
-            groupBox2.PerformLayout();
             groupBox3.ResumeLayout(false);
             groupBox3.PerformLayout();
             groupBox4.ResumeLayout(false);
@@ -674,6 +712,8 @@
             panel2.ResumeLayout(false);
             toolStrip1.ResumeLayout(false);
             toolStrip1.PerformLayout();
+            groupBox2.ResumeLayout(false);
+            groupBox2.PerformLayout();
             ResumeLayout(false);
         }
 
@@ -692,9 +732,6 @@
         private Label label4;
         private ComboBox cbMapSheet;
         private Label label5;
-        private GroupBox groupBox2;
-        private Label label6;
-        private ComboBox cbLandOwnership;
         private GroupBox groupBox3;
         private TextBox txtToArea;
         private TextBox txtFromArea;
@@ -706,9 +743,9 @@
         private TextBox txtParcelNo;
         private Label label10;
         private Label label11;
-        private Button btnApplyFilterSearch;
-        private Button btnClearFilterSearch;
-        private CheckBox chkQuikFilterSearch;
+        private Button btnApplyFilter;
+        private Button btnClearFilter;
+        private CheckBox chkToggleQuickFilter;
         private Panel panel1;
         private Label lblSelectedRecords;
         private Panel panel3;
@@ -725,5 +762,11 @@
         private ToolStripButton saveToolStripButton;
         private ToolStripSeparator toolStripSeparator1;
         private ToolStripButton toolStripButton1;
+        private Button btnClearSearch;
+        private Button btnApplySearch;
+        private CheckBox chkToggleQuickSearch;
+        private GroupBox groupBox2;
+        private Label label6;
+        private ComboBox cbLandOwnership;
     }
 }
