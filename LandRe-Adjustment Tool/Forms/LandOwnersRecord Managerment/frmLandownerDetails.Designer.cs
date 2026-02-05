@@ -60,14 +60,15 @@ namespace Land_Readjustment_Tool.Forms
             pnlLeft.Controls.Add(picPhoto);
             pnlLeft.Location = new Point(12, 12);
             pnlLeft.Name = "pnlLeft";
-            pnlLeft.Size = new Size(350, 690);
+            pnlLeft.Size = new Size(256, 618);
             pnlLeft.TabIndex = 0;
             // 
             // btnAttachDocument
             // 
-            btnAttachDocument.Location = new Point(15, 390);
+            btnAttachDocument.Anchor = AnchorStyles.Top | AnchorStyles.Left | AnchorStyles.Right;
+            btnAttachDocument.Location = new Point(14, 340);
             btnAttachDocument.Name = "btnAttachDocument";
-            btnAttachDocument.Size = new Size(320, 30);
+            btnAttachDocument.Size = new Size(226, 30);
             btnAttachDocument.TabIndex = 6;
             btnAttachDocument.Text = "+ Attach Document";
             btnAttachDocument.UseVisualStyleBackColor = true;
@@ -75,11 +76,12 @@ namespace Land_Readjustment_Tool.Forms
             // 
             // btnDeleteDocument
             // 
+            btnDeleteDocument.Anchor = AnchorStyles.Top | AnchorStyles.Left | AnchorStyles.Right;
             btnDeleteDocument.ImageAlign = ContentAlignment.MiddleLeft;
-            btnDeleteDocument.Location = new Point(15, 645);
+            btnDeleteDocument.Location = new Point(15, 566);
             btnDeleteDocument.Name = "btnDeleteDocument";
             btnDeleteDocument.Padding = new Padding(5, 0, 5, 0);
-            btnDeleteDocument.Size = new Size(320, 35);
+            btnDeleteDocument.Size = new Size(226, 35);
             btnDeleteDocument.TabIndex = 5;
             btnDeleteDocument.Text = "Delete";
             btnDeleteDocument.UseVisualStyleBackColor = true;
@@ -87,10 +89,11 @@ namespace Land_Readjustment_Tool.Forms
             // 
             // lstDocuments
             // 
+            lstDocuments.Anchor = AnchorStyles.Top | AnchorStyles.Left | AnchorStyles.Right;
             lstDocuments.FormattingEnabled = true;
-            lstDocuments.Location = new Point(15, 425);
+            lstDocuments.Location = new Point(15, 376);
             lstDocuments.Name = "lstDocuments";
-            lstDocuments.Size = new Size(320, 184);
+            lstDocuments.Size = new Size(226, 184);
             lstDocuments.TabIndex = 4;
             lstDocuments.DoubleClick += lstDocuments_DoubleClick;
             // 
@@ -98,7 +101,7 @@ namespace Land_Readjustment_Tool.Forms
             // 
             lblAttachDocuments.AutoSize = true;
             lblAttachDocuments.Font = new Font("Segoe UI", 9F, FontStyle.Bold);
-            lblAttachDocuments.Location = new Point(15, 365);
+            lblAttachDocuments.Location = new Point(14, 306);
             lblAttachDocuments.Name = "lblAttachDocuments";
             lblAttachDocuments.Size = new Size(140, 20);
             lblAttachDocuments.TabIndex = 3;
@@ -106,11 +109,12 @@ namespace Land_Readjustment_Tool.Forms
             // 
             // btnUploadPhoto
             // 
+            btnUploadPhoto.Anchor = AnchorStyles.Top | AnchorStyles.Left | AnchorStyles.Right;
             btnUploadPhoto.ImageAlign = ContentAlignment.MiddleLeft;
-            btnUploadPhoto.Location = new Point(15, 315);
+            btnUploadPhoto.Location = new Point(15, 259);
             btnUploadPhoto.Name = "btnUploadPhoto";
             btnUploadPhoto.Padding = new Padding(5, 0, 5, 0);
-            btnUploadPhoto.Size = new Size(320, 35);
+            btnUploadPhoto.Size = new Size(226, 35);
             btnUploadPhoto.TabIndex = 1;
             btnUploadPhoto.Text = "Upload Photo...";
             btnUploadPhoto.UseVisualStyleBackColor = true;
@@ -118,10 +122,12 @@ namespace Land_Readjustment_Tool.Forms
             // 
             // picPhoto
             // 
+            picPhoto.BackgroundImage = Properties.Resources.Portrait_Placeholder;
+            picPhoto.BackgroundImageLayout = ImageLayout.Zoom;
             picPhoto.BorderStyle = BorderStyle.FixedSingle;
-            picPhoto.Location = new Point(15, 15);
+            picPhoto.Location = new Point(15, 3);
             picPhoto.Name = "picPhoto";
-            picPhoto.Size = new Size(180, 210);
+            picPhoto.Size = new Size(225, 250);
             picPhoto.SizeMode = PictureBoxSizeMode.Zoom;
             picPhoto.TabIndex = 0;
             picPhoto.TabStop = false;
@@ -143,9 +149,9 @@ namespace Land_Readjustment_Tool.Forms
             pnlRight.Controls.Add(lblFatherSpouse);
             pnlRight.Controls.Add(txtName);
             pnlRight.Controls.Add(lblName);
-            pnlRight.Location = new Point(368, 12);
+            pnlRight.Location = new Point(274, 12);
             pnlRight.Name = "pnlRight";
-            pnlRight.Size = new Size(850, 690);
+            pnlRight.Size = new Size(944, 618);
             pnlRight.TabIndex = 1;
             // 
             // txtAddress
@@ -155,7 +161,7 @@ namespace Land_Readjustment_Tool.Forms
             txtAddress.Multiline = true;
             txtAddress.Name = "txtAddress";
             txtAddress.ScrollBars = ScrollBars.Vertical;
-            txtAddress.Size = new Size(675, 250);
+            txtAddress.Size = new Size(769, 250);
             txtAddress.TabIndex = 13;
             // 
             // lblAddress
@@ -174,7 +180,7 @@ namespace Land_Readjustment_Tool.Forms
             cmbLandUse.FormattingEnabled = true;
             cmbLandUse.Location = new Point(160, 360);
             cmbLandUse.Name = "cmbLandUse";
-            cmbLandUse.Size = new Size(675, 28);
+            cmbLandUse.Size = new Size(769, 28);
             cmbLandUse.TabIndex = 11;
             // 
             // lblLandUse
@@ -191,7 +197,7 @@ namespace Land_Readjustment_Tool.Forms
             txtAreaSqm.Anchor = AnchorStyles.Top | AnchorStyles.Left | AnchorStyles.Right;
             txtAreaSqm.Location = new Point(160, 300);
             txtAreaSqm.Name = "txtAreaSqm";
-            txtAreaSqm.Size = new Size(675, 27);
+            txtAreaSqm.Size = new Size(769, 27);
             txtAreaSqm.TabIndex = 9;
             // 
             // lblAreaSqm
@@ -208,7 +214,7 @@ namespace Land_Readjustment_Tool.Forms
             txtParcelNo.Anchor = AnchorStyles.Top | AnchorStyles.Left | AnchorStyles.Right;
             txtParcelNo.Location = new Point(160, 240);
             txtParcelNo.Name = "txtParcelNo";
-            txtParcelNo.Size = new Size(675, 27);
+            txtParcelNo.Size = new Size(769, 27);
             txtParcelNo.TabIndex = 7;
             // 
             // lblParcelNo
@@ -225,7 +231,7 @@ namespace Land_Readjustment_Tool.Forms
             txtCitizenshipNo.Anchor = AnchorStyles.Top | AnchorStyles.Left | AnchorStyles.Right;
             txtCitizenshipNo.Location = new Point(160, 180);
             txtCitizenshipNo.Name = "txtCitizenshipNo";
-            txtCitizenshipNo.Size = new Size(675, 27);
+            txtCitizenshipNo.Size = new Size(769, 27);
             txtCitizenshipNo.TabIndex = 5;
             // 
             // lblCitizenshipNo
@@ -242,7 +248,7 @@ namespace Land_Readjustment_Tool.Forms
             txtFatherSpouse.Anchor = AnchorStyles.Top | AnchorStyles.Left | AnchorStyles.Right;
             txtFatherSpouse.Location = new Point(160, 120);
             txtFatherSpouse.Name = "txtFatherSpouse";
-            txtFatherSpouse.Size = new Size(675, 27);
+            txtFatherSpouse.Size = new Size(769, 27);
             txtFatherSpouse.TabIndex = 3;
             // 
             // lblFatherSpouse
@@ -259,7 +265,7 @@ namespace Land_Readjustment_Tool.Forms
             txtName.Anchor = AnchorStyles.Top | AnchorStyles.Left | AnchorStyles.Right;
             txtName.Location = new Point(160, 60);
             txtName.Name = "txtName";
-            txtName.Size = new Size(675, 27);
+            txtName.Size = new Size(769, 27);
             txtName.TabIndex = 1;
             // 
             // lblName
@@ -277,7 +283,7 @@ namespace Land_Readjustment_Tool.Forms
             pnlBottom.Controls.Add(lblTotalRecords);
             pnlBottom.Controls.Add(btnClose);
             pnlBottom.Controls.Add(btnSaveChanges);
-            pnlBottom.Location = new Point(12, 708);
+            pnlBottom.Location = new Point(12, 648);
             pnlBottom.Name = "pnlBottom";
             pnlBottom.Size = new Size(1206, 60);
             pnlBottom.TabIndex = 2;
@@ -324,7 +330,7 @@ namespace Land_Readjustment_Tool.Forms
             // 
             AutoScaleDimensions = new SizeF(8F, 20F);
             AutoScaleMode = AutoScaleMode.Font;
-            ClientSize = new Size(1230, 780);
+            ClientSize = new Size(1230, 720);
             Controls.Add(pnlBottom);
             Controls.Add(pnlRight);
             Controls.Add(pnlLeft);

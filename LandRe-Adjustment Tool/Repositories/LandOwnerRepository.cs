@@ -166,6 +166,28 @@ namespace Land_Readjustment_Tool.Repositories
             return Convert.ToInt32(cmd.ExecuteScalar()) > 0;
         }
 
+        public bool ParcelExists(string? parcelNo, string? mapSheetNo, int? excludeParcelId = null)
+        {
+            if (string.IsNullOrWhiteSpace(parcelNo) || string.IsNullOrWhiteSpace(mapSheetNo))
+                return false;
+
+            string sql = "SELECT COUNT(*) FROM tblOriginalLandParcels WHERE ParcelNo = @ParcelNo AND MapSheetNo = @MapSheetNo";
+            if (excludeParcelId.HasValue)
+            {
+                sql += " AND ParcelId <> @ParcelId";
+            }
+
+            using var cmd = new SQLiteCommand(sql, _connection);
+            cmd.Parameters.AddWithValue("@ParcelNo", parcelNo);
+            cmd.Parameters.AddWithValue("@MapSheetNo", mapSheetNo);
+            if (excludeParcelId.HasValue)
+            {
+                cmd.Parameters.AddWithValue("@ParcelId", excludeParcelId.Value);
+            }
+
+            return Convert.ToInt32(cmd.ExecuteScalar()) > 0;
+        }
+
         /// <summary>
         /// Gets or creates owner ID within a transaction
         /// </summary>

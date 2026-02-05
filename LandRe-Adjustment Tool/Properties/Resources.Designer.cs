@@ -101,6 +101,16 @@ namespace Land_Readjustment_Tool.Properties {
         }
         
         /// <summary>
+        ///   Looks up a localized resource of type System.Drawing.Bitmap.
+        /// </summary>
+        internal static System.Drawing.Bitmap business_1565329211 {
+            get {
+                object obj = ResourceManager.GetObject("business_1565329211", resourceCulture);
+                return ((System.Drawing.Bitmap)(obj));
+            }
+        }
+        
+        /// <summary>
         ///   Looks up a localized resource of type System.Byte[].
         /// </summary>
         internal static byte[] delete_icon {
@@ -276,6 +286,16 @@ namespace Land_Readjustment_Tool.Properties {
         internal static System.Drawing.Bitmap icons8_refresh_25 {
             get {
                 object obj = ResourceManager.GetObject("icons8-refresh-25", resourceCulture);
+                return ((System.Drawing.Bitmap)(obj));
+            }
+        }
+        
+        /// <summary>
+        ///   Looks up a localized resource of type System.Drawing.Bitmap.
+        /// </summary>
+        internal static System.Drawing.Bitmap Portrait_Placeholder {
+            get {
+                object obj = ResourceManager.GetObject("Portrait_Placeholder", resourceCulture);
                 return ((System.Drawing.Bitmap)(obj));
             }
         }

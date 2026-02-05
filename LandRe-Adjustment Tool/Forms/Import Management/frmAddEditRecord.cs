@@ -7,23 +7,28 @@ namespace Land_Readjustment_Tool.Forms
         private bool _isEditMode = false;
         private BaselineLandParceRecord _currentRecord;
         private int _recordIndex = -1;
+        private readonly Func<string?, string?, int?, bool>? _parcelExists;
+        private int? _parcelId;
 
         public BaselineLandParceRecord Record { get; private set; }
         public bool IsDeleted { get; private set; } = false;
 
         // Constructor for ADD mode
-        public frmAddEditRecord()
+        public frmAddEditRecord(Func<string?, string?, int?, bool>? parcelExists = null)
         {
             InitializeComponent();
+            _parcelExists = parcelExists;
             SetAddMode();
         }
 
         // Constructor for EDIT mode
-        public frmAddEditRecord(BaselineLandParceRecord record, int recordIndex)
+        public frmAddEditRecord(BaselineLandParceRecord record, int recordIndex, Func<string?, string?, int?, bool>? parcelExists = null)
         {
             InitializeComponent();
             _currentRecord = record;
             _recordIndex = recordIndex;
+            _parcelId = recordIndex;
+            _parcelExists = parcelExists;
             SetEditMode();
             LoadRecordData();
         }
@@ -172,6 +177,22 @@ namespace Land_Readjustment_Tool.Forms
                     MessageBoxButtons.OK, MessageBoxIcon.Warning);
                 _ = txtAreaInSqm.Focus();
                 return false;
+            }
+
+            if (_parcelExists != null)
+            {
+                string parcelNo = txtParcelNo.Text.Trim();
+                string mapSheetNo = txtMapSheetNo.Text.Trim();
+                if (_parcelExists(parcelNo, mapSheetNo, _parcelId))
+                {
+                    _ = MessageBox.Show(
+                        $"The Parcel No.: {parcelNo} already exists in the mapsheet: {mapSheetNo}.",
+                        "Duplicate Parcel",
+                        MessageBoxButtons.OK,
+                        MessageBoxIcon.Warning);
+                    _ = txtParcelNo.Focus();
+                    return false;
+                }
             }
 
             return true;
