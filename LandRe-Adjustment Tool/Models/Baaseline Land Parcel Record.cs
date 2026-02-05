@@ -110,11 +110,11 @@ namespace Land_Readjustment_Tool.Models
         public double? AreaInSqm { get; set; }
 
         [Category("Area")]
-        [Description("Area expressed in Ropani-Aana-Paisa-Dam format")]
+        [Description("Area expressed in Local Land Measurement Unit(Ropani-Aana-Paisa-Dam) format")]
         public string? AreaInRAPD { get; set; }
 
         [Category("Area")]
-        [Description("Area expressed in Bigha-Kattha-Dhur format")]
+        [Description("Area expressed in Local Land Measurement Unit(Bigha-Kattha-Dhur) format")]
         public string? AreaInBKD { get; set; }
 
         /* ===============================
@@ -122,11 +122,11 @@ namespace Land_Readjustment_Tool.Models
            =============================== */
 
         [Category("Registry References")]
-        [Description("Moth number from land registry")]
+        [Description("Book number from Official land registry")]
         public string? MothNo { get; set; }
 
         [Category("Registry References")]
-        [Description("Paana number from land registry")]
+        [Description("Page number from Official land registry Book")]
         public string? PaanaNo { get; set; }
 
         /* ===============================

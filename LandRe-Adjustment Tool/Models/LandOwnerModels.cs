@@ -47,6 +47,7 @@ namespace Land_Readjustment_Tool.Models
         public string MapSheetNo { get; set; } = string.Empty;
         public string? IsTenant { get; set; }
         public string? LandUse { get; set; }
+        public string? LandOwnershipType { get; set; }
         public double? AreaInSqm { get; set; }
         public string? AreaInRAPD { get; set; }
         public string? AreaInBKD { get; set; }

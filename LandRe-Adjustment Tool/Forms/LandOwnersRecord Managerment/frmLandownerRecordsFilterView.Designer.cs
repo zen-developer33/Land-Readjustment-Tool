@@ -17,9 +17,9 @@
 
         private void InitializeComponent()
         {
-            DataGridViewCellStyle dataGridViewCellStyle10 = new DataGridViewCellStyle();
-            DataGridViewCellStyle dataGridViewCellStyle11 = new DataGridViewCellStyle();
-            DataGridViewCellStyle dataGridViewCellStyle12 = new DataGridViewCellStyle();
+            DataGridViewCellStyle dataGridViewCellStyle4 = new DataGridViewCellStyle();
+            DataGridViewCellStyle dataGridViewCellStyle5 = new DataGridViewCellStyle();
+            DataGridViewCellStyle dataGridViewCellStyle6 = new DataGridViewCellStyle();
             pnlHeader = new Panel();
             lblFormTitle = new Label();
             picLogo = new PictureBox();
@@ -75,7 +75,7 @@
             pnlHeader.Location = new Point(0, 0);
             pnlHeader.Margin = new Padding(3, 4, 3, 4);
             pnlHeader.Name = "pnlHeader";
-            pnlHeader.Size = new Size(1600, 80);
+            pnlHeader.Size = new Size(1600, 72);
             pnlHeader.TabIndex = 0;
             // 
             // lblFormTitle
@@ -110,11 +110,11 @@
             pnlFilters.Controls.Add(btnClearFilters);
             pnlFilters.Controls.Add(btnExportFiltered);
             pnlFilters.Dock = DockStyle.Top;
-            pnlFilters.Location = new Point(0, 80);
+            pnlFilters.Location = new Point(0, 72);
             pnlFilters.Margin = new Padding(3, 4, 3, 4);
             pnlFilters.Name = "pnlFilters";
             pnlFilters.Padding = new Padding(11, 13, 11, 13);
-            pnlFilters.Size = new Size(1600, 173);
+            pnlFilters.Size = new Size(1600, 154);
             pnlFilters.TabIndex = 1;
             // 
             // grpFilterByMapSheet
@@ -377,11 +377,11 @@
             pnlActions.Controls.Add(btnRefresh);
             pnlActions.Controls.Add(btnViewDetails);
             pnlActions.Dock = DockStyle.Top;
-            pnlActions.Location = new Point(0, 253);
+            pnlActions.Location = new Point(0, 226);
             pnlActions.Margin = new Padding(3, 4, 3, 4);
             pnlActions.Name = "pnlActions";
             pnlActions.Padding = new Padding(11, 7, 11, 7);
-            pnlActions.Size = new Size(1600, 66);
+            pnlActions.Size = new Size(1600, 86);
             pnlActions.TabIndex = 2;
             // 
             // btnAdd
@@ -500,7 +500,7 @@
             lblFilteredRecords.AutoSize = true;
             lblFilteredRecords.Font = new Font("Segoe UI", 9F);
             lblFilteredRecords.ForeColor = Color.FromArgb(40, 167, 69);
-            lblFilteredRecords.Location = new Point(206, 13);
+            lblFilteredRecords.Location = new Point(197, 13);
             lblFilteredRecords.Name = "lblFilteredRecords";
             lblFilteredRecords.Size = new Size(131, 20);
             lblFilteredRecords.TabIndex = 1;
@@ -511,7 +511,7 @@
             lblSelectedRecords.AutoSize = true;
             lblSelectedRecords.Font = new Font("Segoe UI", 9F);
             lblSelectedRecords.ForeColor = Color.FromArgb(0, 123, 255);
-            lblSelectedRecords.Location = new Point(400, 13);
+            lblSelectedRecords.Location = new Point(405, 13);
             lblSelectedRecords.Name = "lblSelectedRecords";
             lblSelectedRecords.Size = new Size(81, 20);
             lblSelectedRecords.TabIndex = 2;
@@ -520,7 +520,7 @@
             // progressBar
             // 
             progressBar.Anchor = AnchorStyles.Top | AnchorStyles.Right;
-            progressBar.Location = new Point(1371, 13);
+            progressBar.Location = new Point(1166, 12);
             progressBar.Margin = new Padding(3, 4, 3, 4);
             progressBar.Name = "progressBar";
             progressBar.Size = new Size(206, 27);
@@ -533,31 +533,31 @@
             dgvRecords.AllowUserToAddRows = false;
             dgvRecords.AllowUserToDeleteRows = false;
             dgvRecords.AllowUserToOrderColumns = true;
-            dataGridViewCellStyle10.BackColor = Color.FromArgb(248, 249, 250);
-            dgvRecords.AlternatingRowsDefaultCellStyle = dataGridViewCellStyle10;
+            dataGridViewCellStyle4.BackColor = Color.FromArgb(248, 249, 250);
+            dgvRecords.AlternatingRowsDefaultCellStyle = dataGridViewCellStyle4;
             dgvRecords.Anchor = AnchorStyles.Top | AnchorStyles.Bottom | AnchorStyles.Left | AnchorStyles.Right;
             dgvRecords.BackgroundColor = Color.White;
             dgvRecords.BorderStyle = BorderStyle.None;
             dgvRecords.CellBorderStyle = DataGridViewCellBorderStyle.SingleHorizontal;
             dgvRecords.ColumnHeadersBorderStyle = DataGridViewHeaderBorderStyle.None;
-            dataGridViewCellStyle11.Alignment = DataGridViewContentAlignment.MiddleLeft;
-            dataGridViewCellStyle11.BackColor = Color.FromArgb(45, 65, 95);
-            dataGridViewCellStyle11.Font = new Font("Segoe UI", 9F, FontStyle.Bold);
-            dataGridViewCellStyle11.ForeColor = Color.White;
-            dataGridViewCellStyle11.SelectionBackColor = Color.FromArgb(45, 65, 95);
-            dataGridViewCellStyle11.SelectionForeColor = Color.White;
-            dataGridViewCellStyle11.WrapMode = DataGridViewTriState.False;
-            dgvRecords.ColumnHeadersDefaultCellStyle = dataGridViewCellStyle11;
+            dataGridViewCellStyle5.Alignment = DataGridViewContentAlignment.MiddleLeft;
+            dataGridViewCellStyle5.BackColor = Color.FromArgb(45, 65, 95);
+            dataGridViewCellStyle5.Font = new Font("Segoe UI", 9F, FontStyle.Bold);
+            dataGridViewCellStyle5.ForeColor = Color.White;
+            dataGridViewCellStyle5.SelectionBackColor = Color.FromArgb(45, 65, 95);
+            dataGridViewCellStyle5.SelectionForeColor = Color.White;
+            dataGridViewCellStyle5.WrapMode = DataGridViewTriState.False;
+            dgvRecords.ColumnHeadersDefaultCellStyle = dataGridViewCellStyle5;
             dgvRecords.ColumnHeadersHeight = 36;
             dgvRecords.ColumnHeadersHeightSizeMode = DataGridViewColumnHeadersHeightSizeMode.DisableResizing;
-            dataGridViewCellStyle12.Alignment = DataGridViewContentAlignment.MiddleLeft;
-            dataGridViewCellStyle12.BackColor = Color.White;
-            dataGridViewCellStyle12.Font = new Font("Segoe UI", 9F);
-            dataGridViewCellStyle12.ForeColor = Color.FromArgb(33, 37, 41);
-            dataGridViewCellStyle12.SelectionBackColor = Color.FromArgb(0, 123, 255);
-            dataGridViewCellStyle12.SelectionForeColor = Color.White;
-            dataGridViewCellStyle12.WrapMode = DataGridViewTriState.False;
-            dgvRecords.DefaultCellStyle = dataGridViewCellStyle12;
+            dataGridViewCellStyle6.Alignment = DataGridViewContentAlignment.MiddleLeft;
+            dataGridViewCellStyle6.BackColor = Color.White;
+            dataGridViewCellStyle6.Font = new Font("Segoe UI", 9F);
+            dataGridViewCellStyle6.ForeColor = Color.FromArgb(33, 37, 41);
+            dataGridViewCellStyle6.SelectionBackColor = Color.FromArgb(0, 123, 255);
+            dataGridViewCellStyle6.SelectionForeColor = Color.White;
+            dataGridViewCellStyle6.WrapMode = DataGridViewTriState.False;
+            dgvRecords.DefaultCellStyle = dataGridViewCellStyle6;
             dgvRecords.EnableHeadersVisualStyles = false;
             dgvRecords.GridColor = Color.FromArgb(222, 226, 230);
             dgvRecords.Location = new Point(0, 320);

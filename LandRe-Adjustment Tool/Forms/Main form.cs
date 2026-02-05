@@ -1,4 +1,5 @@
 ﻿using Land_Readjustment_Tool.Forms;
+using Land_Readjustment_Tool.Forms.LandOwnersRecord_Managerment;
 using Land_Readjustment_Tool.Models;
 using Land_Readjustment_Tool.Repositories;
 using Land_Readjustment_Tool.Services;
@@ -539,8 +540,10 @@ namespace Land_Readjustment_Tool
 
         private void viewEditRecordToolStripMenuItem_Click(object sender, EventArgs e)
         {
-            var filterForm = new frmLandownerRecordsFilterView(CurrentProject.Info.ProjectPath);
-            filterForm.Show();
+            var form = new frmLandParcelOwnersRecord ();
+            form.Show();
+            //var filterForm = new frmLandownerRecordsFilterView(CurrentProject.Info.ProjectPath);
+            //filterForm.Show();
 
             //var Form = new frmLandownerRecordsManager(CurrentProject.Info.ProjectPath);
             //Form.Show();

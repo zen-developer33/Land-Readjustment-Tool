@@ -62,7 +62,7 @@ namespace Land_Readjustment_Tool.Services
                     CitizenshipIssuedDistrict TEXT,
                     CitizenshipIssuedDate TEXT,
                     PermanentAddress TEXT,
-                    ContactNumber TEXT,
+                    ContactInfo TEXT,
                     PhotoPath TEXT,
                     DocumentsFolderPath TEXT,
                     IsAnonymous INTEGER DEFAULT 0,
@@ -98,8 +98,7 @@ namespace Land_Readjustment_Tool.Services
                     MapSheetNo TEXT NOT NULL,
                     IsTenant TEXT,
                     LandUse TEXT,
-                    AreaInSqm REAL,
-                    AreaInRAPD TEXT,
+                    AreaInRAPD TEXT N0T NULL,
                     AreaInBKD TEXT,
                     MothNo TEXT,
                     PaanaNo TEXT,
@@ -115,7 +114,7 @@ namespace Land_Readjustment_Tool.Services
             using var cmd = new SQLiteCommand(sql, connection);
             cmd.ExecuteNonQuery();
 
-            // Create indexes
+            // Create indexes for efficient search and filter
             CreateIndex(connection, "idx_parcel_no", "tblOriginalLandParcels", "ParcelNo");
             CreateIndex(connection, "idx_mapsheet_no", "tblOriginalLandParcels", "MapSheetNo");
             CreateIndex(connection, "idx_landowner_fk", "tblOriginalLandParcels", "LandOwnerId");
