@@ -20,7 +20,7 @@ namespace Land_Readjustment_Tool.Forms
         private DataSet? _excelDataSet;
         private DataTable? _selectedSheet;
         private Dictionary<string, string> _fieldMappings = new();
-        private SortableBindingList<OriginalLandParcelWithLandOwner> _importedRecords = new();
+        private SortableBindingList<BaselineLandParceRecord> _importedRecords = new();
         private List<ValidationError> _validationErrors = new();
         private HashSet<int> _deletedRowIndices = new();
         private HashSet<int> _editedRowIndices = new();
@@ -170,7 +170,7 @@ namespace Land_Readjustment_Tool.Forms
         {
             grpStep1.Enabled = true;
             btnBrowse.Enabled = true;
-            btnLoadFile.Enabled = false;
+
             cbSelectSheet.Enabled = false;
             btnImportData.Enabled = false;
         }
@@ -205,7 +205,7 @@ namespace Land_Readjustment_Tool.Forms
             if (filePath != null)
             {
                 txtFilePath.Text = filePath;
-                btnLoadFile.Enabled = true;
+
 
                 string ext = Path.GetExtension(filePath).ToLower();
                 cmbFileType.SelectedItem = ext == ".csv" ? "CSV (.csv)" : "Excel (.xlsx)";
@@ -229,10 +229,6 @@ namespace Land_Readjustment_Tool.Forms
             });
         }
 
-        private void btnLoadFile_Click(object sender, EventArgs e)
-        {
-
-        }
 
         private void btnImportData_Click(object sender, EventArgs e)
         {
@@ -320,6 +316,8 @@ namespace Land_Readjustment_Tool.Forms
             SCImportManager.Panel2Collapsed = false;
             grpStep2.Enabled = true;
             PopulateFieldMappings();
+            btnAutoMap.Focus();
+            btnAutoMap.BackColor = Color.DodgerBlue;
         }
 
         private void DisableStep2()
@@ -361,7 +359,7 @@ namespace Land_Readjustment_Tool.Forms
             dgvMapping.Columns.Add(sourceColumn);
 
             // Add rows for each model property
-            foreach (var prop in typeof(OriginalLandParcelWithLandOwner).GetProperties())
+            foreach (var prop in typeof(BaselineLandParceRecord).GetProperties())
             {
                 int rowIndex = dgvMapping.Rows.Add();
                 dgvMapping.Rows[rowIndex].Cells["TargetField"].Value = prop.Name;
@@ -382,10 +380,14 @@ namespace Land_Readjustment_Tool.Forms
             AutoMapFields();
             MessageBox.Show("Auto-mapping completed. Please review the mappings.",
                 "Auto-Map", MessageBoxButtons.OK, MessageBoxIcon.Information);
+            UpdateStatusBar("Auto-mapping Completed. Please review the mappings.");
+
+            btnApplyMapping.Focus();
         }
 
         private void AutoMapFields()
         {
+
             var mappingRules = new Dictionary<string[], string>
             {
                 // Parcel / Plot Number
@@ -410,7 +412,7 @@ namespace Land_Readjustment_Tool.Forms
                 { new[] {
                     "municipality", "village", "gapa", "napa", "gaupalika", "nagarpalika", "local",
                     "गा.पा", "न.पा", "गा.पा.", "न.पा.", "गाउँपालिका", "नगरपालिका", "पालिका",
-                    "स्थानीय तह", "गाविस", "गा.वि.स.", "नगर"
+                    "स्थानीय तह", "गाविस", "गा.वि.स.", "नगर","गाउँ"
                 }, "MunicipalityVillage" },
 
                 // Ward Number
@@ -421,9 +423,8 @@ namespace Land_Readjustment_Tool.Forms
 
                 // Parcel Location / Tole
                 { new[] {
-                    "location", "parcel location", "tole", "place", "tol",
-                    "टोल", "टोल/ठाउँ", "ठाउँ", "स्थान", "जग्गाको स्थान"
-                }, "ParcelLocation" },
+                    "location", "parcel location", "tole", "place", "tol"
+                                    }, "ParcelLocation" },
 
                 // Map Sheet Number
                 { new[] {
@@ -469,6 +470,12 @@ namespace Land_Readjustment_Tool.Forms
                     "जारी मिति", "ना.प्र. मिति", "जारी गरेको मिति", "नागरिकता मिति","जारि मिति", "जारी मीति", "जारी मिती"
                 }, "citizenshipIssuedDate" },
 
+                // Contact Info
+                { new[] {
+                    "contact", "phone", "email", "mobile",
+                    "सम्पर्क न.", "फोन", "मोबाईल", "मोबाइल","ई-मेल", "ई-मेल", "मेल"
+                }, "Contactinfo" },
+
                 // Tenant / Mohi
                 { new[] {
                     "tenant", "mohi", "kisaan", "kisan",
@@ -484,8 +491,16 @@ namespace Land_Readjustment_Tool.Forms
                 // Land Use
                 { new[] {
                     "use", "landuse", "land use", "upayog", "prayog",
-                    "प्रयोग", "उपयोग", "जग्गा प्रयोग", "जग्गाको किसिम", "जमिन प्रकार"
+                    "प्रयोग", "उपयोग", "जग्गा प्रयोग", "जग्गाको किसिम"
                 }, "LandUse" },
+
+                
+                // Land Ownership Type
+
+                { new[] {
+                    "ownership", "type", 
+                    "स्वामित्व", "प्रकार", 
+                }, "LandOwnershipType" },
 
                 // Area (Square Meter)
                 { new[] {
@@ -609,13 +624,13 @@ namespace Land_Readjustment_Tool.Forms
         {
             missingFields = new List<string>();
 
-            if (!_fieldMappings.ContainsKey(nameof(OriginalLandParcelWithLandOwner.ParcelNo)))
+            if (!_fieldMappings.ContainsKey(nameof(BaselineLandParceRecord.ParcelNo)))
                 missingFields.Add("Parcel No");
 
-            if (!_fieldMappings.ContainsKey(nameof(OriginalLandParcelWithLandOwner.MapSheetNo)))
+            if (!_fieldMappings.ContainsKey(nameof(BaselineLandParceRecord.MapSheetNo)))
                 missingFields.Add("Map Sheet No");
 
-            if (!_fieldMappings.ContainsKey(nameof(OriginalLandParcelWithLandOwner.AreaInSqm)))
+            if (!_fieldMappings.ContainsKey(nameof(BaselineLandParceRecord.AreaInSqm)))
                 missingFields.Add("Area (sq.m)");
 
             return missingFields.Count == 0;
@@ -702,7 +717,7 @@ namespace Land_Readjustment_Tool.Forms
         {
             dgvRecords.Columns.Clear();
 
-            foreach (var property in typeof(OriginalLandParcelWithLandOwner).GetProperties())
+            foreach (var property in typeof(BaselineLandParceRecord).GetProperties())
             {
                 dgvRecords.Columns.Add(new DataGridViewTextBoxColumn
                 {
@@ -1218,7 +1233,7 @@ namespace Land_Readjustment_Tool.Forms
             };
         }
 
-        private OperationResult ValidateDataOperation(List<OriginalLandParcelWithLandOwner> records, BackgroundWorker worker)
+        private OperationResult ValidateDataOperation(List<BaselineLandParceRecord> records, BackgroundWorker worker)
         {
             worker.ReportProgress(30);
             var dt = ConvertRecordsToDataTable(records);
@@ -1235,7 +1250,7 @@ namespace Land_Readjustment_Tool.Forms
             };
         }
 
-        private OperationResult SaveToDatabaseOperation(List<OriginalLandParcelWithLandOwner> records,
+        private OperationResult SaveToDatabaseOperation(List<BaselineLandParceRecord> records,
             OwnerDeduplicationService.DeduplicationResult? deduplicationResult, bool replaceExisting, BackgroundWorker worker)
         {
             worker.ReportProgress(10);
@@ -1276,7 +1291,7 @@ namespace Land_Readjustment_Tool.Forms
 
                 // Schema should already exist from project creation
                 // Just ensure it exists without dropping/recreating
-                LandOwnerDatabaseSchema.CreateSchema(connection);
+                DatabaseSchema.CreateSchema(connection);
 
                 worker.ReportProgress(20);
 
@@ -1337,10 +1352,10 @@ namespace Land_Readjustment_Tool.Forms
             }
         }
 
-        private DataTable ConvertRecordsToDataTable(List<OriginalLandParcelWithLandOwner> records)
+        private DataTable ConvertRecordsToDataTable(List<BaselineLandParceRecord> records)
         {
             var dt = new DataTable();
-            var properties = typeof(OriginalLandParcelWithLandOwner).GetProperties();
+            var properties = typeof(BaselineLandParceRecord).GetProperties();
 
             foreach (var prop in properties)
             {
@@ -1430,7 +1445,7 @@ namespace Land_Readjustment_Tool.Forms
         // ==================== DATA TRANSFORMATION HANDLER ====================
         private void HandleDataTransformed(TransformationResult result)
         {
-            _importedRecords = new SortableBindingList<OriginalLandParcelWithLandOwner>(result.AllOriginalRecords);
+            _importedRecords = new SortableBindingList<BaselineLandParceRecord>(result.AllOriginalRecords);
             SortRecordsByParcelNo();
             _validationErrors = result.ValidationErrors;
             _isValidated = true;
@@ -1519,6 +1534,7 @@ namespace Land_Readjustment_Tool.Forms
 
         private void UpdateStatusBar(string message)
         {
+            lblStatusBar.ForeColor = Color.Green;
             lblStatusBar.Text = $"Status: {message}";
         }
 
@@ -1826,7 +1842,7 @@ namespace Land_Readjustment_Tool.Forms
         public string? FilePath { get; set; }
         public DataTable? SourceData { get; set; }
         public Dictionary<string, string>? FieldMappings { get; set; }
-        public List<OriginalLandParcelWithLandOwner>? Records { get; set; }
+        public List<BaselineLandParceRecord>? Records { get; set; }
         public OwnerDeduplicationService.DeduplicationResult? DeduplicationResult { get; set; }
         public bool ReplaceExistingData { get; set; }
     }

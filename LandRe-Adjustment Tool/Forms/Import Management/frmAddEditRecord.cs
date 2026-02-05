@@ -5,10 +5,10 @@ namespace Land_Readjustment_Tool.Forms
     public partial class frmAddEditRecord : Form
     {
         private bool _isEditMode = false;
-        private OriginalLandParcelWithLandOwner _currentRecord;
+        private BaselineLandParceRecord _currentRecord;
         private int _recordIndex = -1;
 
-        public OriginalLandParcelWithLandOwner Record { get; private set; }
+        public BaselineLandParceRecord Record { get; private set; }
         public bool IsDeleted { get; private set; } = false;
 
         // Constructor for ADD mode
@@ -19,7 +19,7 @@ namespace Land_Readjustment_Tool.Forms
         }
 
         // Constructor for EDIT mode
-        public frmAddEditRecord(OriginalLandParcelWithLandOwner record, int recordIndex)
+        public frmAddEditRecord(BaselineLandParceRecord record, int recordIndex)
         {
             InitializeComponent();
             _currentRecord = record;
@@ -113,9 +113,9 @@ namespace Land_Readjustment_Tool.Forms
             txtRemarks.Text = _currentRecord.Remarks ?? "";
         }
 
-        private OriginalLandParcelWithLandOwner GetRecordFromForm()
+        private BaselineLandParceRecord GetRecordFromForm()
         {
-            var record = new OriginalLandParcelWithLandOwner
+            var record = new BaselineLandParceRecord
             {
                 ParcelNo = txtParcelNo.Text.Trim(),
                 MapSheetNo = txtMapSheetNo.Text.Trim(),

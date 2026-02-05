@@ -60,7 +60,7 @@ namespace Land_Readjustment_Tool.Services
                     continue;
                 }
 
-                var record = new OriginalLandParcelWithLandOwner();
+                var record = new BaselineLandParceRecord();
                 var rowErrors = new List<string>();
 
                 try
@@ -124,7 +124,7 @@ namespace Land_Readjustment_Tool.Services
                 DataRow row = sourceData.Rows[i];
                 int rowNumber = i + 1;
 
-                var record = new OriginalLandParcelWithLandOwner();
+                var record = new BaselineLandParceRecord();
                 var rowErrors = new List<string>();
 
                 try
@@ -192,9 +192,9 @@ namespace Land_Readjustment_Tool.Services
                 return true;
 
             // Check if all required fields are missing
-            string? parcelNo = GetMappedValue(row, fieldMappings, nameof(OriginalLandParcelWithLandOwner.ParcelNo));
-            string? mapSheetNo = GetMappedValue(row, fieldMappings, nameof(OriginalLandParcelWithLandOwner.MapSheetNo));
-            string? areaInSqm = GetMappedValue(row, fieldMappings, nameof(OriginalLandParcelWithLandOwner.AreaInSqm));
+            string? parcelNo = GetMappedValue(row, fieldMappings, nameof(BaselineLandParceRecord.ParcelNo));
+            string? mapSheetNo = GetMappedValue(row, fieldMappings, nameof(BaselineLandParceRecord.MapSheetNo));
+            string? areaInSqm = GetMappedValue(row, fieldMappings, nameof(BaselineLandParceRecord.AreaInSqm));
 
             bool allRequiredFieldsMissing = 
                 string.IsNullOrWhiteSpace(parcelNo) &&
@@ -276,12 +276,12 @@ namespace Land_Readjustment_Tool.Services
         // ==================== PROPERTY MAPPING ====================
 
         private static void SetPropertyValue(
-            OriginalLandParcelWithLandOwner record,
+            BaselineLandParceRecord record,
             string propertyName,
             object value,
             List<string> errors)
         {
-            var property = typeof(OriginalLandParcelWithLandOwner).GetProperty(propertyName);
+            var property = typeof(BaselineLandParceRecord).GetProperty(propertyName);
             if (property == null) return;
 
             try
@@ -343,7 +343,7 @@ namespace Land_Readjustment_Tool.Services
         // ==================== BASE BUSINESS RULES ====================
 
         private static void ValidateBusinessRules(
-            OriginalLandParcelWithLandOwner record,
+            BaselineLandParceRecord record,
             int rowNumber,
             List<string> errors)
         {
@@ -361,7 +361,7 @@ namespace Land_Readjustment_Tool.Services
         /// Validates a single record and returns a list of validation errors.
         /// Returns empty list if record is valid.
         /// </summary>
-        public static List<string> ValidateSingleRecord(OriginalLandParcelWithLandOwner record, int rowNumber)
+        public static List<string> ValidateSingleRecord(BaselineLandParceRecord record, int rowNumber)
         {
             var errors = new List<string>();
             ValidateBusinessRules(record, rowNumber, errors);
@@ -373,9 +373,9 @@ namespace Land_Readjustment_Tool.Services
 
     public class TransformationResult
     {
-        public List<OriginalLandParcelWithLandOwner> ValidRecords { get; set; } = new();
-        public List<OriginalLandParcelWithLandOwner> InvalidRecords { get; set; } = new();
-        public List<OriginalLandParcelWithLandOwner> AllOriginalRecords { get; set; } = new();
+        public List<BaselineLandParceRecord> ValidRecords { get; set; } = new();
+        public List<BaselineLandParceRecord> InvalidRecords { get; set; } = new();
+        public List<BaselineLandParceRecord> AllOriginalRecords { get; set; } = new();
         public List<ValidationError> ValidationErrors { get; set; } = new();
         public int SkippedRows { get; set; } = 0;
 
@@ -386,7 +386,7 @@ namespace Land_Readjustment_Tool.Services
     public class ValidationError
     {
         public int RowNumber { get; set; }
-        public OriginalLandParcelWithLandOwner? RecordData { get; set; }
+        public BaselineLandParceRecord? RecordData { get; set; }
         public List<string> Errors { get; set; } = new();
 
         public string ErrorSummary => $"Row {RowNumber}: {string.Join("; ", Errors)}";

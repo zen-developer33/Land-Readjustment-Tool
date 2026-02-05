@@ -3,19 +3,47 @@ using System.Data.SQLite;
 namespace Land_Readjustment_Tool.Services
 {
     /// <summary>
-    /// Database schema manager for landowner records
-    /// Creates and manages tables: tblLandOwner, tblOriginalLandParcels
+    /// Database schema manager for all application tables
+    /// Creates and manages tables: ProjectInfo, tblLandOwner, tblOriginalLandParcels
     /// </summary>
-    public class LandOwnerDatabaseSchema
+    public class DatabaseSchema
     {
         /// <summary>
-        /// Creates all required tables for landowner management
+        /// Creates all required database tables
         /// </summary>
         public static void CreateSchema(SQLiteConnection connection)
         {
+            CreateProjectInfoTable(connection);
             CreateLandOwnerTable(connection);
             CreateOriginalLandParcelsTable(connection);
-            MigrateAddressToParcelLocation(connection);
+        }
+
+        /// <summary>
+        /// Creates ProjectInfo table - stores project metadata
+        /// </summary>
+        private static void CreateProjectInfoTable(SQLiteConnection connection)
+        {
+            string sql = @"
+                CREATE TABLE IF NOT EXISTS ProjectInfo (
+                    GUID TEXT PRIMARY KEY,
+                    ProjectName TEXT,
+                    ProjectPath TEXT,
+                    CreatedDate TEXT,
+                    ApprovalDate TEXT,
+                    Province TEXT,
+                    District TEXT,
+                    Municipality TEXT,
+                    WardNo TEXT,
+                    ProjectSite TEXT,
+                    ImplementingAgency TEXT,
+                    ConsultingAgency TEXT,
+                    ProjectNotes TEXT
+                );";
+
+            using (var cmd = new SQLiteCommand(sql, connection))
+            {
+                _ = cmd.ExecuteNonQuery();
+            }
         }
 
         /// <summary>
@@ -110,11 +138,11 @@ namespace Land_Readjustment_Tool.Services
         {
             string sql = @"
                 SELECT COUNT(*) FROM sqlite_master 
-                WHERE type='table' AND name IN ('tblLandOwner', 'tblOriginalLandParcels');";
+                WHERE type='table' AND name IN ('ProjectInfo', 'tblLandOwner', 'tblOriginalLandParcels');";
 
             using var cmd = new SQLiteCommand(sql, connection);
             long count = (long)cmd.ExecuteScalar();
-            return count == 2;
+            return count == 3;
         }
 
         /// <summary>
@@ -127,14 +155,15 @@ namespace Land_Readjustment_Tool.Services
         }
 
         /// <summary>
-        /// Drops all landowner-related tables
+        /// Drops all application tables
         /// </summary>
         public static void DropTables(SQLiteConnection connection)
         {
             string[] dropStatements = new[]
             {
                 "DROP TABLE IF EXISTS tblOriginalLandParcels;",
-                "DROP TABLE IF EXISTS tblLandOwner;"
+                "DROP TABLE IF EXISTS tblLandOwner;",
+                "DROP TABLE IF EXISTS ProjectInfo;"
             };
 
             foreach (var sql in dropStatements)
@@ -166,63 +195,6 @@ namespace Land_Readjustment_Tool.Services
             catch
             {
                 return false;
-            }
-        }
-
-        /// <summary>
-        /// Migrates schema to move ParcelLocation from owner to parcel table
-        /// and adds WardNo column to parcel table
-        /// </summary>
-        private static void MigrateAddressToParcelLocation(SQLiteConnection connection)
-        {
-            try
-            {
-                // Check if tblOriginalLandParcels exists
-                string checkTableSql = "SELECT name FROM sqlite_master WHERE type='table' AND name='tblOriginalLandParcels';";
-                using var checkCmd = new SQLiteCommand(checkTableSql, connection);
-                var tableExists = checkCmd.ExecuteScalar();
-                
-                if (tableExists == null)
-                    return; // Table doesn't exist yet, no migration needed
-                
-                // Check current column names in parcels table
-                string pragmaSql = "PRAGMA table_info(tblOriginalLandParcels);";
-                bool hasWardNo = false;
-                bool hasParcelLocation = false;
-                
-                using (var cmd = new SQLiteCommand(pragmaSql, connection))
-                using (var reader = cmd.ExecuteReader())
-                {
-                    while (reader.Read())
-                    {
-                        string columnName = reader.GetString(1);
-                        if (columnName == "WardNo")
-                            hasWardNo = true;
-                        if (columnName == "ParcelLocation")
-                            hasParcelLocation = true;
-                    }
-                }
-                
-                // Add WardNo column if missing
-                if (!hasWardNo)
-                {
-                    string addWardNoSql = "ALTER TABLE tblOriginalLandParcels ADD COLUMN WardNo TEXT;";
-                    using var addCmd = new SQLiteCommand(addWardNoSql, connection);
-                    addCmd.ExecuteNonQuery();
-                }
-                
-                // Add ParcelLocation column if missing
-                if (!hasParcelLocation)
-                {
-                    string addParcelLocationSql = "ALTER TABLE tblOriginalLandParcels ADD COLUMN ParcelLocation TEXT;";
-                    using var addCmd = new SQLiteCommand(addParcelLocationSql, connection);
-                    addCmd.ExecuteNonQuery();
-                }
-            }
-            catch (Exception ex)
-            {
-                // Log or handle migration error - but don't crash the app
-                System.Diagnostics.Debug.WriteLine($"Migration warning: {ex.Message}");
             }
         }
     }

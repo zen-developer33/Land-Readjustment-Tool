@@ -5,7 +5,7 @@ namespace Land_Readjustment_Tool.Models
 {
     public class ProjectInfo
     {
-        // Category: General Meta Data
+        // Category: General
         public Guid GUID { get; set; } = Guid.NewGuid(); // Unique identifier for DB
         public string ProjectName { get; set; } = "";
         public string ProjectPath { get; set; } = "";
@@ -17,6 +17,8 @@ namespace Land_Readjustment_Tool.Models
 
         // Category: Stakeholders
         public ProjectStakeholders Stakeholders { get; set; } = new();
+
+        public string ProjectNotes { get; set; } = "";
     }
 
     // Add this new class for global access

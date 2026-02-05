@@ -91,7 +91,7 @@ namespace Land_Readjustment_Tool.Services
         /// 4. If only name+father matches, flag for review
         /// </summary>
         public static DeduplicationResult ExtractUniqueOwners(
-            List<OriginalLandParcelWithLandOwner> records)
+            List<BaselineLandParceRecord> records)
         {
             var result = new DeduplicationResult
             {
@@ -477,7 +477,7 @@ namespace Land_Readjustment_Tool.Services
         /// Step 1: Create initial owner list, handling anonymous cases
         /// </summary>
         private static List<UniqueOwner> CreateInitialOwnerList(
-            List<OriginalLandParcelWithLandOwner> records,
+            List<BaselineLandParceRecord> records,
             DeduplicationResult result)
         {
             var owners = new List<UniqueOwner>();
@@ -671,7 +671,7 @@ namespace Land_Readjustment_Tool.Services
         /// Updates all records with normalized owner information
         /// </summary>
         public static void ApplyDeduplicationToRecords(
-            List<OriginalLandParcelWithLandOwner> records,
+            List<BaselineLandParceRecord> records,
             DeduplicationResult deduplicationResult)
         {
             foreach (var uniqueOwner in deduplicationResult.UniqueOwners)

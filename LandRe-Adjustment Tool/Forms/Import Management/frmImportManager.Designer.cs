@@ -28,9 +28,9 @@
         /// </summary>
         private void InitializeComponent()
         {
-            DataGridViewCellStyle dataGridViewCellStyle1 = new DataGridViewCellStyle();
-            DataGridViewCellStyle dataGridViewCellStyle2 = new DataGridViewCellStyle();
-            DataGridViewCellStyle dataGridViewCellStyle3 = new DataGridViewCellStyle();
+            DataGridViewCellStyle dataGridViewCellStyle4 = new DataGridViewCellStyle();
+            DataGridViewCellStyle dataGridViewCellStyle5 = new DataGridViewCellStyle();
+            DataGridViewCellStyle dataGridViewCellStyle6 = new DataGridViewCellStyle();
             lblProgress = new Label();
             lblStatusBar = new Label();
             progressBar = new ProgressBar();
@@ -45,7 +45,6 @@
             btnImportData = new Button();
             cbSelectSheet = new ComboBox();
             label1 = new Label();
-            btnLoadFile = new Button();
             cmbFileType = new ComboBox();
             lblFileType = new Label();
             btnBrowse = new Button();
@@ -187,19 +186,19 @@
             dgvMapping.AutoSizeColumnsMode = DataGridViewAutoSizeColumnsMode.AllCells;
             dgvMapping.BackgroundColor = SystemColors.ControlLight;
             dgvMapping.ColumnHeadersHeightSizeMode = DataGridViewColumnHeadersHeightSizeMode.AutoSize;
-            dataGridViewCellStyle1.Alignment = DataGridViewContentAlignment.MiddleLeft;
-            dataGridViewCellStyle1.BackColor = SystemColors.Window;
-            dataGridViewCellStyle1.Font = new Font("Segoe UI", 9F, FontStyle.Regular, GraphicsUnit.Point, 0);
-            dataGridViewCellStyle1.ForeColor = SystemColors.ControlText;
-            dataGridViewCellStyle1.SelectionBackColor = SystemColors.Highlight;
-            dataGridViewCellStyle1.SelectionForeColor = SystemColors.HighlightText;
-            dataGridViewCellStyle1.WrapMode = DataGridViewTriState.False;
-            dgvMapping.DefaultCellStyle = dataGridViewCellStyle1;
+            dataGridViewCellStyle4.Alignment = DataGridViewContentAlignment.MiddleLeft;
+            dataGridViewCellStyle4.BackColor = SystemColors.Window;
+            dataGridViewCellStyle4.Font = new Font("Segoe UI", 9F, FontStyle.Regular, GraphicsUnit.Point, 0);
+            dataGridViewCellStyle4.ForeColor = SystemColors.ControlText;
+            dataGridViewCellStyle4.SelectionBackColor = SystemColors.Highlight;
+            dataGridViewCellStyle4.SelectionForeColor = SystemColors.HighlightText;
+            dataGridViewCellStyle4.WrapMode = DataGridViewTriState.False;
+            dgvMapping.DefaultCellStyle = dataGridViewCellStyle4;
             dgvMapping.Location = new Point(3, 63);
             dgvMapping.Name = "dgvMapping";
             dgvMapping.RowHeadersWidth = 51;
-            dataGridViewCellStyle2.Font = new Font("Microsoft Sans Serif", 9F, FontStyle.Regular, GraphicsUnit.Point, 0);
-            dgvMapping.RowsDefaultCellStyle = dataGridViewCellStyle2;
+            dataGridViewCellStyle5.Font = new Font("Microsoft Sans Serif", 9F, FontStyle.Regular, GraphicsUnit.Point, 0);
+            dgvMapping.RowsDefaultCellStyle = dataGridViewCellStyle5;
             dgvMapping.Size = new Size(346, 445);
             dgvMapping.TabIndex = 40;
             // 
@@ -210,7 +209,6 @@
             grpStep1.Controls.Add(btnImportData);
             grpStep1.Controls.Add(cbSelectSheet);
             grpStep1.Controls.Add(label1);
-            grpStep1.Controls.Add(btnLoadFile);
             grpStep1.Controls.Add(cmbFileType);
             grpStep1.Controls.Add(lblFileType);
             grpStep1.Controls.Add(btnBrowse);
@@ -265,17 +263,6 @@
             label1.TabIndex = 7;
             label1.Text = "Select Sheet:";
             // 
-            // btnLoadFile
-            // 
-            btnLoadFile.Font = new Font("Segoe UI", 9F);
-            btnLoadFile.Location = new Point(462, 35);
-            btnLoadFile.Name = "btnLoadFile";
-            btnLoadFile.Size = new Size(90, 30);
-            btnLoadFile.TabIndex = 5;
-            btnLoadFile.Text = "Load File";
-            btnLoadFile.UseVisualStyleBackColor = true;
-            btnLoadFile.Click += btnLoadFile_Click;
-            // 
             // cmbFileType
             // 
             cmbFileType.DropDownStyle = ComboBoxStyle.DropDownList;
@@ -303,7 +290,7 @@
             btnBrowse.Font = new Font("Segoe UI", 9F);
             btnBrowse.Location = new Point(366, 35);
             btnBrowse.Name = "btnBrowse";
-            btnBrowse.Size = new Size(90, 30);
+            btnBrowse.Size = new Size(108, 30);
             btnBrowse.TabIndex = 2;
             btnBrowse.Text = "Browse...";
             btnBrowse.UseVisualStyleBackColor = true;
@@ -505,19 +492,19 @@
             dgvRecords.Anchor = AnchorStyles.Top | AnchorStyles.Bottom | AnchorStyles.Left | AnchorStyles.Right;
             dgvRecords.BackgroundColor = SystemColors.ControlLight;
             dgvRecords.ColumnHeadersHeight = 29;
-            dataGridViewCellStyle3.Alignment = DataGridViewContentAlignment.MiddleLeft;
-            dataGridViewCellStyle3.BackColor = SystemColors.Window;
-            dataGridViewCellStyle3.Font = new Font("Segoe UI", 9F, FontStyle.Regular, GraphicsUnit.Point, 0);
-            dataGridViewCellStyle3.ForeColor = SystemColors.ControlText;
-            dataGridViewCellStyle3.SelectionBackColor = SystemColors.Highlight;
-            dataGridViewCellStyle3.SelectionForeColor = SystemColors.HighlightText;
-            dataGridViewCellStyle3.WrapMode = DataGridViewTriState.False;
-            dgvRecords.DefaultCellStyle = dataGridViewCellStyle3;
+            dataGridViewCellStyle6.Alignment = DataGridViewContentAlignment.MiddleLeft;
+            dataGridViewCellStyle6.BackColor = SystemColors.Window;
+            dataGridViewCellStyle6.Font = new Font("Segoe UI", 9F, FontStyle.Regular, GraphicsUnit.Point, 0);
+            dataGridViewCellStyle6.ForeColor = SystemColors.ControlText;
+            dataGridViewCellStyle6.SelectionBackColor = SystemColors.Highlight;
+            dataGridViewCellStyle6.SelectionForeColor = SystemColors.HighlightText;
+            dataGridViewCellStyle6.WrapMode = DataGridViewTriState.False;
+            dgvRecords.DefaultCellStyle = dataGridViewCellStyle6;
             dgvRecords.Location = new Point(12, 26);
             dgvRecords.Name = "dgvRecords";
             dgvRecords.ReadOnly = true;
             dgvRecords.RowHeadersWidth = 51;
-            dgvRecords.RowsDefaultCellStyle = dataGridViewCellStyle2;
+            dgvRecords.RowsDefaultCellStyle = dataGridViewCellStyle5;
             dgvRecords.SelectionMode = DataGridViewSelectionMode.FullRowSelect;
             dgvRecords.Size = new Size(1048, 301);
             dgvRecords.TabIndex = 0;

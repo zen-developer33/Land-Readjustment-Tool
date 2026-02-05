@@ -39,13 +39,13 @@ namespace Land_Readjustment_Tool.Forms
             var connection = dbHelper.GetConnection();
 
             // Ensure schema exists and is correct
-            if (!LandOwnerDatabaseSchema.HasCorrectSchema(connection))
+            if (!DatabaseSchema.HasCorrectSchema(connection))
             {
-                LandOwnerDatabaseSchema.RecreateSchema(connection);
+                DatabaseSchema.RecreateSchema(connection);
             }
             else
             {
-                LandOwnerDatabaseSchema.CreateSchema(connection);
+                DatabaseSchema.CreateSchema(connection);
             }
 
             _repository = new LandOwnerRepository(connection);
@@ -62,21 +62,31 @@ namespace Land_Readjustment_Tool.Forms
             dgvRecords.ReadOnly = true;
             dgvRecords.DoubleBuffered(true);
             dgvRecords.AlternatingRowsDefaultCellStyle.BackColor = Color.FromArgb(248, 248, 252);
-            dgvRecords.RowHeadersVisible = false;
+            dgvRecords.RowHeadersVisible = true;
+            dgvRecords.RowHeadersWidth = 50;
             dgvRecords.BorderStyle = BorderStyle.None;
             dgvRecords.CellBorderStyle = DataGridViewCellBorderStyle.SingleHorizontal;
             dgvRecords.GridColor = Color.FromArgb(220, 220, 220);
 
+            // Style row headers to match data cells (simple, no bold)
+            dgvRecords.RowHeadersDefaultCellStyle.Font = new Font("Segoe UI", 9F, FontStyle.Regular);
+            dgvRecords.RowHeadersDefaultCellStyle.Alignment = DataGridViewContentAlignment.MiddleCenter;
+            dgvRecords.RowHeadersDefaultCellStyle.BackColor = SystemColors.Control;
+            dgvRecords.RowHeadersDefaultCellStyle.ForeColor = SystemColors.ControlText;
+
             // Clear existing columns
             dgvRecords.Columns.Clear();
-
-            // Add columns for parcel and owner data
-            AddColumn("SN", "SN", 45);
+            
+            // Add columns for parcel and owner data (removed SN column)
             AddColumn("ParcelNo", "Parcel No", 80);
             AddColumn("MapSheetNo", "Map Sheet", 85);
             AddColumn("LandOwnersName", "Owner Name", 160);
             AddColumn("FatherSpouse", "Father/Spouse", 140);
+            AddColumn("PermanentAddress", "Permanent Address", 150);
+            AddColumn("CitizenshipIssueDate", "Citizenship Issue Date", 120);
+            AddColumn("CitizenshipIssueDistrict", "Citizenship Issue District", 140);
             AddColumn("CitizenshipNumber", "Citizenship No", 115);
+
             AddColumn("Gender", "Gender", 65);
             AddColumn("ParcelLocation", "Parcel Location", 140);
             AddColumn("AreaInSqm", "Area (sqm)", 90);
@@ -91,6 +101,15 @@ namespace Land_Readjustment_Tool.Forms
             AddColumn("MunicipalityVillage", "Municipality", 100);
             AddColumn("Remarks", "Remarks", 120);
 
+            // Enable sorting for specific columns
+            //dgvRecords.Columns["ParcelNo"].DefaultCellStyle.Alignment = DataGridViewContentAlignment.MiddleCenter;
+            //dgvRecords.Columns["MapSheetNo"].DefaultCellStyle.Alignment = DataGridViewContentAlignment.MiddleCenter;
+            //dgvRecords.Columns["ParcelNo"].HeaderCell.Style.Alignment = DataGridViewContentAlignment.MiddleCenter;
+            //dgvRecords.Columns["MapSheetNo"].HeaderCell.Style.Alignment = DataGridViewContentAlignment.MiddleCenter;
+            dgvRecords.Columns["ParcelNo"]?.SortMode = DataGridViewColumnSortMode.Automatic;
+            dgvRecords.Columns["MapSheetNo"]?.SortMode = DataGridViewColumnSortMode.Automatic;
+            dgvRecords.Columns["LandOwnersName"]?.SortMode = DataGridViewColumnSortMode.Automatic;
+
             // Make headers styled
             dgvRecords.ColumnHeadersDefaultCellStyle.Font = new Font("Segoe UI", 9F, FontStyle.Bold);
             dgvRecords.ColumnHeadersDefaultCellStyle.BackColor = Color.FromArgb(45, 65, 95);
@@ -99,9 +118,35 @@ namespace Land_Readjustment_Tool.Forms
             dgvRecords.EnableHeadersVisualStyles = false;
             dgvRecords.DefaultCellStyle.Font = new Font("Segoe UI", 9F);
             dgvRecords.RowTemplate.Height = 28;
-
+            
             dgvRecords.SelectionChanged += DgvRecords_SelectionChanged;
             dgvRecords.CellDoubleClick += DgvRecords_CellDoubleClick;
+            dgvRecords.RowPostPaint += DgvRecords_RowPostPaint;
+        }
+
+        /// <summary>
+        /// Paints row numbers in the row header for each visible row
+        /// </summary>
+        private void DgvRecords_RowPostPaint(object? sender, DataGridViewRowPostPaintEventArgs e)
+        {
+            // Row number is 1-based for user display
+            string rowNumber = (e.RowIndex + 1).ToString();
+
+            // Calculate bounds for the row header
+            var headerBounds = new Rectangle(
+                e.RowBounds.Left,
+                e.RowBounds.Top,
+                dgvRecords.RowHeadersWidth - 4,
+                e.RowBounds.Height);
+
+            // Use TextRenderer for crisp text rendering with same font as data cells
+            TextRenderer.DrawText(
+                e.Graphics,
+                rowNumber,
+                dgvRecords.DefaultCellStyle.Font,
+                headerBounds,
+                dgvRecords.RowHeadersDefaultCellStyle.ForeColor,
+                TextFormatFlags.VerticalCenter | TextFormatFlags.HorizontalCenter);
         }
 
         private void AddColumn(string dataPropertyName, string headerText, int width)
@@ -126,12 +171,12 @@ namespace Land_Readjustment_Tool.Forms
 
                 // Convert to display models
                 _allRecords = new List<ParcelOwnerDisplayModel>();
-                int sn = 1;
+
                 foreach (var parcel in parcels)
                 {
                     _allRecords.Add(new ParcelOwnerDisplayModel
                     {
-                        SN = sn++,
+
                         ParcelId = parcel.ParcelId,
                         LandOwnerId = parcel.LandOwnerId,
                         ParcelNo = parcel.ParcelNo,
@@ -142,7 +187,10 @@ namespace Land_Readjustment_Tool.Forms
                         LandOwnersName = parcel.Owner?.LandOwnersName ?? "",
                         FatherSpouse = parcel.Owner?.FatherSpouse ?? "",
                         CitizenshipNumber = parcel.Owner?.CitizenshipNumber ?? "",
+                        CitizenshipIssueDate = parcel.Owner?.CitizenshipIssuedDate,
+                        citizenshipIssueDistrict = parcel.Owner?.CitizenshipIssuedDistrict ?? "",
                         Gender = parcel.Owner?.Gender ?? "",
+
                         ParcelLocation = parcel.ParcelLocation ?? "",
                         PermanentAddress = parcel.Owner?.PermanentAddress ?? "",
                         AreaInSqm = parcel.AreaInSqm,
@@ -157,6 +205,14 @@ namespace Land_Readjustment_Tool.Forms
                 }
 
                 _totalRecords = _allRecords.Count;
+
+                // Sort records by MapSheetNo first, then by ParcelNo (with natural numeric sorting)
+                _allRecords = _allRecords
+                    .OrderBy(r => TryParseInt(r.MapSheetNo, out int mapSheet) ? mapSheet : int.MaxValue)
+                    .ThenBy(r => r.MapSheetNo)
+                    .ThenBy(r => TryParseInt(r.ParcelNo, out int parcelNo) ? parcelNo : int.MaxValue)
+                    .ThenBy(r => r.ParcelNo)
+                    .ToList();
 
                 // Bind all records to the grid
                 _displayedRecords = new BindingList<ParcelOwnerDisplayModel>(_allRecords);
@@ -190,6 +246,19 @@ namespace Land_Readjustment_Tool.Forms
             {
                 lblPaginationInfo.Text = $"Showing all {_totalRecords} records";
             }
+        }
+
+        /// <summary>
+        /// Helper method to parse string to int for natural numeric sorting
+        /// </summary>
+        private static bool TryParseInt(string? value, out int result)
+        {
+            if (string.IsNullOrWhiteSpace(value))
+            {
+                result = 0;
+                return false;
+            }
+            return int.TryParse(value.Trim(), out result);
         }
 
         private void DgvRecords_SelectionChanged(object? sender, EventArgs e)
@@ -234,7 +303,7 @@ namespace Land_Readjustment_Tool.Forms
             }
         }
 
-        private void SaveNewRecord(OriginalLandParcelWithLandOwner record)
+        private void SaveNewRecord(BaselineLandParceRecord record)
         {
             // First, create or get the owner
             var owner = new LandOwner
@@ -248,7 +317,7 @@ namespace Land_Readjustment_Tool.Forms
             };
 
             // Use the deduplication service to find or create owner
-            var records = new List<OriginalLandParcelWithLandOwner> { record };
+            var records = new List<BaselineLandParceRecord> { record };
             var ownerMap = _repository.ExtractAndSaveUniqueOwners(records);
 
             // Save the parcel (ParcelLocation is saved with the parcel, not owner)
@@ -303,7 +372,7 @@ namespace Land_Readjustment_Tool.Forms
             }
         }
 
-        private void UpdateExistingRecord(int parcelId, int landOwnerId, OriginalLandParcelWithLandOwner record)
+        private void UpdateExistingRecord(int parcelId, int landOwnerId, BaselineLandParceRecord record)
         {
             // Update owner info (without ParcelLocation - it belongs to parcel)
             var owner = new LandOwner
@@ -466,9 +535,9 @@ namespace Land_Readjustment_Tool.Forms
             lblTotalRecords.Text = $"Total Records: {_totalRecords}";
         }
 
-        private OriginalLandParcelWithLandOwner ConvertToEditableRecord(ParcelOwnerDisplayModel model)
+        private BaselineLandParceRecord ConvertToEditableRecord(ParcelOwnerDisplayModel model)
         {
-            return new OriginalLandParcelWithLandOwner
+            return new BaselineLandParceRecord
             {
                 ParcelNo = model.ParcelNo,
                 MapSheetNo = model.MapSheetNo,
@@ -505,7 +574,7 @@ namespace Land_Readjustment_Tool.Forms
     /// </summary>
     public class ParcelOwnerDisplayModel
     {
-        public int SN { get; set; }
+
         public int ParcelId { get; set; }
         public int LandOwnerId { get; set; }
         
@@ -515,6 +584,7 @@ namespace Land_Readjustment_Tool.Forms
         public string Province { get; set; } = "";
         public string District { get; set; } = "";
         public string MunicipalityVillage { get; set; } = "";
+        public string WardNo { get; set; } = "";
         public double? AreaInSqm { get; set; }
         public string AreaInRAPD { get; set; } = "";
         public string AreaInBKD { get; set; } = "";
@@ -528,6 +598,8 @@ namespace Land_Readjustment_Tool.Forms
         public string LandOwnersName { get; set; } = "";
         public string FatherSpouse { get; set; } = "";
         public string CitizenshipNumber { get; set; } = "";
+        public string CitizenshipIssueDate { get; set; } = "";
+        public string citizenshipIssueDistrict { get; set; } = "";
         public string Gender { get; set; } = "";
         public string ParcelLocation { get; set; } = "";
         public string PermanentAddress { get; set; } = "";

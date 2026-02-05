@@ -44,7 +44,7 @@ namespace Land_Readjustment_Tool.Forms
             toolStrip1.Items.AddRange(new ToolStripItem[] { btnAdd, btnEdit, btnDelete, toolStripSeparator1, toolStripLabel1, txtSearch, toolStripSeparator2, btnRefresh, saveToolStripButton });
             toolStrip1.Location = new Point(0, 0);
             toolStrip1.Name = "toolStrip1";
-            toolStrip1.Size = new Size(1400, 74);
+            toolStrip1.Size = new Size(1368, 74);
             toolStrip1.TabIndex = 0;
             toolStrip1.Text = "toolStrip1";
             // 
@@ -102,9 +102,9 @@ namespace Land_Readjustment_Tool.Forms
             // 
             // txtSearch
             // 
+            txtSearch.BorderStyle = BorderStyle.FixedSingle;
             txtSearch.Name = "txtSearch";
             txtSearch.Size = new Size(300, 74);
-
             txtSearch.TextChanged += txtSearch_TextChanged;
             // 
             // toolStripSeparator2
@@ -138,9 +138,9 @@ namespace Land_Readjustment_Tool.Forms
             panel1.Anchor = AnchorStyles.Bottom | AnchorStyles.Left | AnchorStyles.Right;
             panel1.Controls.Add(lblPaginationInfo);
             panel1.Controls.Add(lblTotalRecords);
-            panel1.Location = new Point(0, 601);
+            panel1.Location = new Point(0, 683);
             panel1.Name = "panel1";
-            panel1.Size = new Size(1388, 50);
+            panel1.Size = new Size(1356, 50);
             panel1.TabIndex = 2;
             // 
             // lblPaginationInfo
@@ -186,14 +186,14 @@ namespace Land_Readjustment_Tool.Forms
             dgvRecords.RowHeadersVisible = false;
             dgvRecords.RowHeadersWidth = 51;
             dgvRecords.SelectionMode = DataGridViewSelectionMode.FullRowSelect;
-            dgvRecords.Size = new Size(1388, 518);
+            dgvRecords.Size = new Size(1356, 600);
             dgvRecords.TabIndex = 1;
             // 
             // frmLandownerRecordsManager
             // 
             AutoScaleDimensions = new SizeF(8F, 20F);
             AutoScaleMode = AutoScaleMode.Font;
-            ClientSize = new Size(1400, 653);
+            ClientSize = new Size(1368, 735);
             Controls.Add(panel1);
             Controls.Add(dgvRecords);
             Controls.Add(toolStrip1);

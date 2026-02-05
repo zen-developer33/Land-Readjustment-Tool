@@ -59,7 +59,6 @@
             label8 = new Label();
             projectInfoBindingSource = new BindingSource(components);
             groupBox4 = new GroupBox();
-            dateTimePicker1 = new DateTimePicker();
             textBox1 = new TextBox();
             groupBox1.SuspendLayout();
             groupBox2.SuspendLayout();
@@ -126,6 +125,7 @@
             groupBox2.Controls.Add(txtApprovalDate);
             groupBox2.Name = "groupBox2";
             groupBox2.TabStop = false;
+            groupBox2.Tag = "";
             // 
             // dtpApprovalDate
             // 
@@ -244,16 +244,9 @@
             // groupBox4
             // 
             resources.ApplyResources(groupBox4, "groupBox4");
-            groupBox4.Controls.Add(dateTimePicker1);
             groupBox4.Controls.Add(textBox1);
             groupBox4.Name = "groupBox4";
             groupBox4.TabStop = false;
-            // 
-            // dateTimePicker1
-            // 
-            resources.ApplyResources(dateTimePicker1, "dateTimePicker1");
-            dateTimePicker1.Format = DateTimePickerFormat.Custom;
-            dateTimePicker1.Name = "dateTimePicker1";
             // 
             // textBox1
             // 
@@ -320,7 +313,6 @@
         private BindingSource projectInfoBindingSource;
         private DateTimePicker dtpApprovalDate;
         private GroupBox groupBox4;
-        private DateTimePicker dateTimePicker1;
         private TextBox textBox1;
     }
 }

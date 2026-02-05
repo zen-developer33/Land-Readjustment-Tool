@@ -10,10 +10,10 @@ namespace Land_Readjustment_Tool.Forms
     public partial class frmValidationErrors : Form
     {
         private List<ValidationError> _errors;
-        private BindingList<OriginalLandParcelWithLandOwner> _records;
+        private BindingList<BaselineLandParceRecord> _records;
         private BindingSource _errorBindingSource;
 
-        public frmValidationErrors(List<ValidationError> errors, BindingList<OriginalLandParcelWithLandOwner> records)
+        public frmValidationErrors(List<ValidationError> errors, BindingList<BaselineLandParceRecord> records)
         {
             InitializeComponent();
             _errors = errors;

@@ -28,12 +28,8 @@ namespace Land_Readjustment_Tool.Services
             _connection = new SQLiteConnection($"Data Source={_dbPath};Version=3;");
             _connection.Open();
 
-            if (isNew)
-            {
-                CreateSchemaTables();
-            }
-
-            LandOwnerDatabaseSchema.CreateSchema(_connection);
+            // Create all database tables (ProjectInfo, LandOwner, Parcels, etc.)
+            DatabaseSchema.CreateSchema(_connection);
         }
 
         public SQLiteConnection GetConnection()
@@ -49,35 +45,6 @@ namespace Land_Readjustment_Tool.Services
             }
 
             return _connection;
-        }
-
-        private void CreateSchemaTables()
-        {
-            if (_connection == null)
-            {
-                throw new InvalidOperationException("Connection is not initialized.");
-            }
-
-            string createProjectInfoTable = @"
-                CREATE TABLE IF NOT EXISTS ProjectInfo (
-                    GUID TEXT PRIMARY KEY,
-                    ProjectName TEXT,
-                    ProjectPath TEXT,
-                    CreatedDate TEXT,
-                    ApprovalDate TEXT,
-                    Province TEXT,
-                    District TEXT,
-                    Municipality TEXT,
-                    WardNo TEXT,
-                    ProjectSite TEXT,
-                    ImplementingAgency TEXT,
-                    ConsultingAgency TEXT
-                );";
-
-            using (var cmd = new SQLiteCommand(createProjectInfoTable, _connection))
-            {
-                _ = cmd.ExecuteNonQuery();
-            }
         }
     }
 }

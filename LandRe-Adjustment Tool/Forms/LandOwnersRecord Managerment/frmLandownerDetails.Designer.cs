@@ -17,14 +17,13 @@ namespace Land_Readjustment_Tool.Forms
 
         private void InitializeComponent()
         {
-            System.ComponentModel.ComponentResourceManager resources = new System.ComponentModel.ComponentResourceManager(typeof(frmLandownerDetails));
             pnlLeft = new Panel();
+            btnAttachDocument = new Button();
             btnDeleteDocument = new Button();
             lstDocuments = new ListBox();
             lblAttachDocuments = new Label();
             btnUploadPhoto = new Button();
             picPhoto = new PictureBox();
-            btnAttachDocument = new Button();
             pnlRight = new Panel();
             txtAddress = new TextBox();
             lblAddress = new Label();
@@ -64,9 +63,18 @@ namespace Land_Readjustment_Tool.Forms
             pnlLeft.Size = new Size(350, 690);
             pnlLeft.TabIndex = 0;
             // 
+            // btnAttachDocument
+            // 
+            btnAttachDocument.Location = new Point(15, 390);
+            btnAttachDocument.Name = "btnAttachDocument";
+            btnAttachDocument.Size = new Size(320, 30);
+            btnAttachDocument.TabIndex = 6;
+            btnAttachDocument.Text = "+ Attach Document";
+            btnAttachDocument.UseVisualStyleBackColor = true;
+            btnAttachDocument.Click += btnAttachDocument_Click;
+            // 
             // btnDeleteDocument
             // 
-            //btnDeleteDocument.Image = Properties.Resources.delete_small;
             btnDeleteDocument.ImageAlign = ContentAlignment.MiddleLeft;
             btnDeleteDocument.Location = new Point(15, 645);
             btnDeleteDocument.Name = "btnDeleteDocument";
@@ -80,7 +88,6 @@ namespace Land_Readjustment_Tool.Forms
             // lstDocuments
             // 
             lstDocuments.FormattingEnabled = true;
-            lstDocuments.ItemHeight = 20;
             lstDocuments.Location = new Point(15, 425);
             lstDocuments.Name = "lstDocuments";
             lstDocuments.Size = new Size(320, 184);
@@ -93,13 +100,12 @@ namespace Land_Readjustment_Tool.Forms
             lblAttachDocuments.Font = new Font("Segoe UI", 9F, FontStyle.Bold);
             lblAttachDocuments.Location = new Point(15, 365);
             lblAttachDocuments.Name = "lblAttachDocuments";
-            lblAttachDocuments.Size = new Size(136, 20);
+            lblAttachDocuments.Size = new Size(140, 20);
             lblAttachDocuments.TabIndex = 3;
             lblAttachDocuments.Text = "Attach Documents";
             // 
             // btnUploadPhoto
             // 
-            //btnUploadPhoto.Image = Properties.Resources.upload_icon;
             btnUploadPhoto.ImageAlign = ContentAlignment.MiddleLeft;
             btnUploadPhoto.Location = new Point(15, 315);
             btnUploadPhoto.Name = "btnUploadPhoto";
@@ -115,20 +121,10 @@ namespace Land_Readjustment_Tool.Forms
             picPhoto.BorderStyle = BorderStyle.FixedSingle;
             picPhoto.Location = new Point(15, 15);
             picPhoto.Name = "picPhoto";
-            picPhoto.Size = new Size(320, 285);
+            picPhoto.Size = new Size(180, 210);
             picPhoto.SizeMode = PictureBoxSizeMode.Zoom;
             picPhoto.TabIndex = 0;
             picPhoto.TabStop = false;
-            // 
-            // btnAttachDocument
-            // 
-            btnAttachDocument.Location = new Point(15, 390);
-            btnAttachDocument.Name = "btnAttachDocument";
-            btnAttachDocument.Size = new Size(320, 30);
-            btnAttachDocument.TabIndex = 6;
-            btnAttachDocument.Text = "+ Attach Document";
-            btnAttachDocument.UseVisualStyleBackColor = true;
-            btnAttachDocument.Click += btnAttachDocument_Click;
             // 
             // pnlRight
             // 
@@ -203,7 +199,7 @@ namespace Land_Readjustment_Tool.Forms
             lblAreaSqm.AutoSize = true;
             lblAreaSqm.Location = new Point(15, 303);
             lblAreaSqm.Name = "lblAreaSqm";
-            lblAreaSqm.Size = new Size(88, 20);
+            lblAreaSqm.Size = new Size(85, 20);
             lblAreaSqm.TabIndex = 8;
             lblAreaSqm.Text = "Area (sqm):";
             // 
@@ -292,14 +288,13 @@ namespace Land_Readjustment_Tool.Forms
             lblTotalRecords.Font = new Font("Segoe UI", 9F, FontStyle.Bold);
             lblTotalRecords.Location = new Point(15, 20);
             lblTotalRecords.Name = "lblTotalRecords";
-            lblTotalRecords.Size = new Size(115, 20);
+            lblTotalRecords.Size = new Size(121, 20);
             lblTotalRecords.TabIndex = 2;
             lblTotalRecords.Text = "Total Records: 6";
             // 
             // btnClose
             // 
             btnClose.Anchor = AnchorStyles.Top | AnchorStyles.Right;
-            //btnClose.Image = Properties.Resources.close_icon;
             btnClose.ImageAlign = ContentAlignment.MiddleLeft;
             btnClose.Location = new Point(1070, 10);
             btnClose.Name = "btnClose";
@@ -314,7 +309,6 @@ namespace Land_Readjustment_Tool.Forms
             // btnSaveChanges
             // 
             btnSaveChanges.Anchor = AnchorStyles.Top | AnchorStyles.Right;
-            //btnSaveChanges.Image = Properties.Resources.save_icon;
             btnSaveChanges.ImageAlign = ContentAlignment.MiddleLeft;
             btnSaveChanges.Location = new Point(900, 10);
             btnSaveChanges.Name = "btnSaveChanges";
@@ -335,7 +329,6 @@ namespace Land_Readjustment_Tool.Forms
             Controls.Add(pnlRight);
             Controls.Add(pnlLeft);
             FormBorderStyle = FormBorderStyle.FixedDialog;
-            Icon = (Icon)resources.GetObject("$this.Icon");
             MaximizeBox = false;
             MinimizeBox = false;
             Name = "frmLandownerDetails";

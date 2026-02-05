@@ -6,10 +6,13 @@ using System.ComponentModel;
 using System.Diagnostics;
 namespace Land_Readjustment_Tool
 {
+
+
     public partial class frmMain : Form
     {
+        private string AppTitle = "RePlot";
         private DatabaseHelper _dbHelper;
-        private BindingList<OriginalLandParcelWithLandOwner> _OriginalParcelWithOwnerBindingList;
+        private BindingList<BaselineLandParceRecord> _OriginalParcelWithOwnerBindingList;
 
         private TransformationResult transformResult = new();
 
@@ -19,7 +22,7 @@ namespace Land_Readjustment_Tool
         {
 
             InitializeComponent();
-
+            UpdateWindowTitle();
             this.AutoScaleMode = AutoScaleMode.Dpi;
             FormClosing += frmMain_FormClosing;
             CurrentProject.StateChanged += OnProjectStateChanged;
@@ -30,6 +33,17 @@ namespace Land_Readjustment_Tool
             UpdateWindowTitle();
         }
 
+        private void UpdateWindowTitle()
+        {
+            if (!CurrentProject.IsOpen || CurrentProject.Info == null)
+            {
+                Text = AppTitle;
+                return;
+            }
+            
+            var baseTitle = $"{CurrentProject.Info.ProjectName} - {AppTitle}";
+            Text = CurrentProject.HasUnsavedChanges ? $"{CurrentProject.Info.ProjectName}* - {AppTitle}" : baseTitle;
+        }
 
         private void AreaConverterToolStripMenuItem_Click(object sender, EventArgs e)
         {
@@ -59,6 +73,12 @@ namespace Land_Readjustment_Tool
 
         private void ExitToolStripMenuItem_Click_1(object sender, EventArgs e)
         {
+            if(MessageBox.Show("Are you sure you want to exit the application?", "Confirm Exit", MessageBoxButtons.YesNo, MessageBoxIcon.Question) == DialogResult.No)
+            {
+                return;
+            }
+
+
             if (!HandleUnsavedChangesOnClose())
             {
                 return;
@@ -235,8 +255,6 @@ namespace Land_Readjustment_Tool
                 // Save the project
                 SaveCurrentProjectWithBackup();
 
-                _ = MessageBox.Show("Project saved successfully.", "Success",
-                    MessageBoxButtons.OK, MessageBoxIcon.Information);
             }
             catch (Exception ex)
             {
@@ -495,13 +513,20 @@ namespace Land_Readjustment_Tool
 
         private void importToolStripMenuItem_Click(object sender, EventArgs e)
         {
-            if (!CurrentProject.IsOpen)
+            if (!CurrentProject.IsOpen || CurrentProject.Info == null)
             {
                 MessageBox.Show("Please open or create a project first.", "No Project",
                     MessageBoxButtons.OK, MessageBoxIcon.Warning);
                 return;
             }
 
+            if (string.IsNullOrWhiteSpace(CurrentProject.Info.ProjectPath))
+            {
+                MessageBox.Show("Project path is invalid. Please save the project first.", "Invalid Project",
+                    MessageBoxButtons.OK, MessageBoxIcon.Warning);
+                return;
+            }
+           
             using (var importForm = new frmImportManager(CurrentProject.Info.ProjectPath))
             {
                 if (importForm.ShowDialog() == DialogResult.OK)
@@ -514,18 +539,12 @@ namespace Land_Readjustment_Tool
 
         private void viewEditRecordToolStripMenuItem_Click(object sender, EventArgs e)
         {
+            var filterForm = new frmLandownerRecordsFilterView(CurrentProject.Info.ProjectPath);
+            filterForm.Show();
 
+            //var Form = new frmLandownerRecordsManager(CurrentProject.Info.ProjectPath);
+            //Form.Show();
 
-            if (!CurrentProject.IsOpen)
-            {
-                MessageBox.Show("Please open or create a project first.", "No Project",
-                    MessageBoxButtons.OK, MessageBoxIcon.Warning);
-                return;
-            }
-
-            var viewForm = new frmLandownerRecordsManager(CurrentProject.Info.ProjectPath);
-            viewForm.ShowDialog();
-            Console.WriteLine("B");
         }
 
         private void toolStripSeparator1_Click(object sender, EventArgs e)
@@ -617,17 +636,7 @@ namespace Land_Readjustment_Tool
             UpdateWindowTitle();
         }
 
-        private void UpdateWindowTitle()
-        {
-            if (!CurrentProject.IsOpen || CurrentProject.Info == null)
-            {
-                Text = "Land Pooling";
-                return;
-            }
-
-            var baseTitle = $"{CurrentProject.Info.ProjectName} - Land Readjustment Tool";
-            Text = CurrentProject.HasUnsavedChanges ? $"{baseTitle} *" : baseTitle;
-        }
+       
 
         private void projectSettingToolStripMenuItem_Click(object sender, EventArgs e)
         {

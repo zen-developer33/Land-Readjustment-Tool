@@ -75,7 +75,7 @@ namespace Land_Readjustment_Tool.Repositories
         /// Saves parcels using the parcel-to-owner map from deduplication
         /// </summary>
         public int SaveParcelsWithDeduplication(
-            List<OriginalLandParcelWithLandOwner> records, 
+            List<BaselineLandParceRecord> records, 
             Dictionary<int, int> parcelToOwnerMap)
         {
             int savedCount = 0;
@@ -218,7 +218,7 @@ namespace Land_Readjustment_Tool.Repositories
         /// Extracts unique owners from imported records and saves them
         /// Returns dictionary mapping unique keys to LandOwnerId
         /// </summary>
-        public Dictionary<string, int> ExtractAndSaveUniqueOwners(List<OriginalLandParcelWithLandOwner> records)
+        public Dictionary<string, int> ExtractAndSaveUniqueOwners(List<BaselineLandParceRecord> records)
         {
             var ownerMap = new Dictionary<string, int>();
             var uniqueOwners = new Dictionary<string, LandOwner>();
@@ -255,7 +255,7 @@ namespace Land_Readjustment_Tool.Repositories
         /// <summary>
         /// Saves parcels with references to their owners
         /// </summary>
-        public int SaveParcels(List<OriginalLandParcelWithLandOwner> records, Dictionary<string, int> ownerMap)
+        public int SaveParcels(List<BaselineLandParceRecord> records, Dictionary<string, int> ownerMap)
         {
             int savedCount = 0;
 
@@ -487,7 +487,7 @@ namespace Land_Readjustment_Tool.Repositories
         /// <summary>
         /// Gets owner key for deduplication
         /// </summary>
-        private string GetOwnerKey(OriginalLandParcelWithLandOwner record)
+        private string GetOwnerKey(BaselineLandParceRecord record)
         {
             return $"{record.LandOwnersName?.Trim().ToUpper()}|{record.FatherSpouse?.Trim().ToUpper()}|{record.CitizenshipNumber?.Trim()}";
         }

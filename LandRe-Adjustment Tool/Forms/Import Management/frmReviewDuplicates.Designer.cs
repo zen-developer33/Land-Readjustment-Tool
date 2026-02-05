@@ -68,15 +68,15 @@ namespace Land_Readjustment_Tool.Forms
             pnlButtons.Controls.Add(btnToggleShowMerged);
             pnlButtons.Controls.Add(btnAcceptAll);
             pnlButtons.Dock = DockStyle.Bottom;
-            pnlButtons.Location = new Point(0, 701);
+            pnlButtons.Location = new Point(0, 770);
             pnlButtons.Name = "pnlButtons";
-            pnlButtons.Size = new Size(1668, 60);
+            pnlButtons.Size = new Size(1507, 60);
             pnlButtons.TabIndex = 2;
             // 
             // btnCancel
             // 
             btnCancel.Anchor = AnchorStyles.Top | AnchorStyles.Right;
-            btnCancel.Location = new Point(1548, 13);
+            btnCancel.Location = new Point(1387, 13);
             btnCancel.Name = "btnCancel";
             btnCancel.Size = new Size(108, 38);
             btnCancel.TabIndex = 3;
@@ -139,7 +139,7 @@ namespace Land_Readjustment_Tool.Forms
             btnAcceptAll.BackColor = SystemColors.Control;
             btnAcceptAll.Font = new Font("Segoe UI", 9F, FontStyle.Regular, GraphicsUnit.Point, 0);
             btnAcceptAll.ForeColor = Color.Black;
-            btnAcceptAll.Location = new Point(1347, 13);
+            btnAcceptAll.Location = new Point(1186, 13);
             btnAcceptAll.Name = "btnAcceptAll";
             btnAcceptAll.Size = new Size(195, 38);
             btnAcceptAll.TabIndex = 2;
@@ -162,8 +162,8 @@ namespace Land_Readjustment_Tool.Forms
             // splitContainer1.Panel2
             // 
             splitContainer1.Panel2.Controls.Add(grpComparison);
-            splitContainer1.Size = new Size(1668, 761);
-            splitContainer1.SplitterDistance = 926;
+            splitContainer1.Size = new Size(1507, 830);
+            splitContainer1.SplitterDistance = 841;
             splitContainer1.TabIndex = 5;
             // 
             // lblStats
@@ -184,9 +184,9 @@ namespace Land_Readjustment_Tool.Forms
             lblInstructions.ForeColor = Color.FromArgb(40, 40, 40);
             lblInstructions.Location = new Point(17, 29);
             lblInstructions.Name = "lblInstructions";
-            lblInstructions.Size = new Size(799, 20);
+            lblInstructions.Size = new Size(775, 20);
             lblInstructions.TabIndex = 6;
-            lblInstructions.Text = "Review each potential duplicate pair. Click \"Merge\" if they are the same person, or \"Keep Separate\" if they are different.";
+            lblInstructions.Text = "Review each potential duplicates. Click \"Merge\" if they are the same person, or \"Keep Separate\" if they are different.";
             // 
             // dgvDuplicateGroups
             // 
@@ -212,7 +212,7 @@ namespace Land_Readjustment_Tool.Forms
             dgvDuplicateGroups.ReadOnly = true;
             dgvDuplicateGroups.RowHeadersWidth = 51;
             dgvDuplicateGroups.SelectionMode = DataGridViewSelectionMode.FullRowSelect;
-            dgvDuplicateGroups.Size = new Size(920, 637);
+            dgvDuplicateGroups.Size = new Size(835, 706);
             dgvDuplicateGroups.TabIndex = 5;
             // 
             // colGroupNumber
@@ -231,7 +231,7 @@ namespace Land_Readjustment_Tool.Forms
             colBestOwnerName.MinimumWidth = 6;
             colBestOwnerName.Name = "colBestOwnerName";
             colBestOwnerName.ReadOnly = true;
-            colBestOwnerName.Width = 165;
+            colBestOwnerName.Width = 151;
             // 
             // colOwnerCount
             // 
@@ -278,7 +278,7 @@ namespace Land_Readjustment_Tool.Forms
             grpComparison.ForeColor = Color.FromArgb(35, 35, 35);
             grpComparison.Location = new Point(3, 3);
             grpComparison.Name = "grpComparison";
-            grpComparison.Size = new Size(732, 692);
+            grpComparison.Size = new Size(656, 761);
             grpComparison.TabIndex = 1;
             grpComparison.TabStop = false;
             grpComparison.Text = "Compare Potential Duplicates";
@@ -308,7 +308,7 @@ namespace Land_Readjustment_Tool.Forms
             dgvGroupOwners.ReadOnly = true;
             dgvGroupOwners.RowHeadersWidth = 51;
             dgvGroupOwners.SelectionMode = DataGridViewSelectionMode.CellSelect;
-            dgvGroupOwners.Size = new Size(726, 637);
+            dgvGroupOwners.Size = new Size(650, 706);
             dgvGroupOwners.TabIndex = 4;
             dgvGroupOwners.TabStop = false;
             // 
@@ -366,19 +366,18 @@ namespace Land_Readjustment_Tool.Forms
             lblGroupOwners.Font = new Font("Segoe UI", 9F, FontStyle.Regular, GraphicsUnit.Point, 0);
             lblGroupOwners.Location = new Point(6, 26);
             lblGroupOwners.Name = "lblGroupOwners";
-            lblGroupOwners.Size = new Size(122, 20);
+            lblGroupOwners.Size = new Size(187, 20);
             lblGroupOwners.TabIndex = 3;
-            lblGroupOwners.Text = "Owners in Group:";
+            lblGroupOwners.Text = "Duplicate Owners in Group";
             // 
             // frmReviewDuplicates
             // 
             AutoScaleDimensions = new SizeF(8F, 20F);
             AutoScaleMode = AutoScaleMode.Font;
-            ClientSize = new Size(1668, 761);
+            ClientSize = new Size(1507, 830);
             Controls.Add(pnlButtons);
             Controls.Add(splitContainer1);
             Font = new Font("Segoe UI", 9F, FontStyle.Regular, GraphicsUnit.Point, 0);
-            FormBorderStyle = FormBorderStyle.FixedSingle;
             MinimizeBox = false;
             Name = "frmReviewDuplicates";
             ShowIcon = false;

@@ -15,7 +15,7 @@ namespace Land_Readjustment_Tool.Forms
     public partial class frmReviewDuplicates : Form
     {
         private List<OwnerDeduplicationService.DuplicateGroup> _duplicateGroups;
-        private BindingList<OriginalLandParcelWithLandOwner> _allRecords;
+        private BindingList<BaselineLandParceRecord> _allRecords;
 		private OwnerDeduplicationService.DeduplicationResult _deduplicationResult;
 		private Stack<Dictionary<int, UserDecision>> _undoStack = new();
 		private bool _showMergedRows = false;
@@ -28,7 +28,7 @@ namespace Land_Readjustment_Tool.Forms
 
         public frmReviewDuplicates(
             OwnerDeduplicationService.DeduplicationResult deduplicationResult,
-            BindingList<OriginalLandParcelWithLandOwner> allRecords)
+            BindingList<BaselineLandParceRecord> allRecords)
         {
             InitializeComponent();
             _deduplicationResult = deduplicationResult;

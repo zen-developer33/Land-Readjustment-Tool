@@ -88,7 +88,7 @@
             mainMenuStrip.Location = new Point(0, 0);
             mainMenuStrip.Name = "mainMenuStrip";
             mainMenuStrip.Padding = new Padding(5, 2, 0, 2);
-            mainMenuStrip.Size = new Size(1088, 28);
+            mainMenuStrip.Size = new Size(998, 28);
             mainMenuStrip.TabIndex = 0;
             mainMenuStrip.Text = "menuStrip1";
             // 
@@ -235,14 +235,14 @@
             // importToolStripMenuItem
             // 
             importToolStripMenuItem.Name = "importToolStripMenuItem";
-            importToolStripMenuItem.Size = new Size(224, 26);
+            importToolStripMenuItem.Size = new Size(207, 26);
             importToolStripMenuItem.Text = "Import";
             importToolStripMenuItem.Click += importToolStripMenuItem_Click;
             // 
             // viewEditRecordToolStripMenuItem
             // 
             viewEditRecordToolStripMenuItem.Name = "viewEditRecordToolStripMenuItem";
-            viewEditRecordToolStripMenuItem.Size = new Size(224, 26);
+            viewEditRecordToolStripMenuItem.Size = new Size(207, 26);
             viewEditRecordToolStripMenuItem.Text = "View/Edit Record";
             viewEditRecordToolStripMenuItem.Click += viewEditRecordToolStripMenuItem_Click;
             // 
@@ -318,8 +318,8 @@
             // splitContainer1.Panel2
             // 
             splitContainer1.Panel2.Controls.Add(flowLayoutPanel1);
-            splitContainer1.Size = new Size(1088, 587);
-            splitContainer1.SplitterDistance = 263;
+            splitContainer1.Size = new Size(998, 569);
+            splitContainer1.SplitterDistance = 241;
             splitContainer1.TabIndex = 3;
             splitContainer1.Visible = false;
             // 
@@ -340,8 +340,8 @@
             // 
             splitContainer2.Panel2.Controls.Add(label1);
             splitContainer2.Panel2.Paint += splitContainer2_Panel2_Paint;
-            splitContainer2.Size = new Size(263, 587);
-            splitContainer2.SplitterDistance = 286;
+            splitContainer2.Size = new Size(241, 569);
+            splitContainer2.SplitterDistance = 277;
             splitContainer2.SplitterWidth = 5;
             splitContainer2.TabIndex = 0;
             // 
@@ -355,7 +355,7 @@
             grpLayer.Name = "grpLayer";
             grpLayer.Padding = new Padding(4);
             grpLayer.RightToLeft = RightToLeft.No;
-            grpLayer.Size = new Size(256, 282);
+            grpLayer.Size = new Size(234, 273);
             grpLayer.TabIndex = 0;
             grpLayer.TabStop = false;
             grpLayer.Text = "Layers";
@@ -367,7 +367,7 @@
             treeView1.Location = new Point(6, 19);
             treeView1.Margin = new Padding(4);
             treeView1.Name = "treeView1";
-            treeView1.Size = new Size(242, 255);
+            treeView1.Size = new Size(220, 246);
             treeView1.TabIndex = 0;
             // 
             // label1
@@ -390,7 +390,7 @@
             flowLayoutPanel1.Location = new Point(0, 0);
             flowLayoutPanel1.Margin = new Padding(2);
             flowLayoutPanel1.Name = "flowLayoutPanel1";
-            flowLayoutPanel1.Size = new Size(821, 587);
+            flowLayoutPanel1.Size = new Size(753, 569);
             flowLayoutPanel1.TabIndex = 0;
             // 
             // importDataToolStripMenuItem
@@ -410,7 +410,7 @@
             AutoScaleDimensions = new SizeF(120F, 120F);
             AutoScaleMode = AutoScaleMode.Dpi;
             BackColor = SystemColors.ControlLightLight;
-            ClientSize = new Size(1088, 615);
+            ClientSize = new Size(998, 597);
             Controls.Add(splitContainer1);
             Controls.Add(mainMenuStrip);
             DoubleBuffered = true;
@@ -418,7 +418,7 @@
             MainMenuStrip = mainMenuStrip;
             Margin = new Padding(2);
             Name = "frmMain";
-            Text = "Land Pooling";
+            Text = "RePlot";
             WindowState = FormWindowState.Maximized;
             Load += frmMain_Load;
             mainMenuStrip.ResumeLayout(false);

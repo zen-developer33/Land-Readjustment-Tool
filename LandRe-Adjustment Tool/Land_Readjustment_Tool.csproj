@@ -8,7 +8,7 @@
     <UseWindowsForms>true</UseWindowsForms>
     <ImplicitUsings>enable</ImplicitUsings>
     <StartupObject>Land_Readjustment_Tool.Program</StartupObject>
-    <ApplicationIcon>Application Icon.ico</ApplicationIcon>
+    <ApplicationIcon>Resources\RePlot.ico</ApplicationIcon>
     <PlatformTarget>x64</PlatformTarget>
   </PropertyGroup>
 
@@ -19,7 +19,7 @@
   </ItemGroup>
 
   <ItemGroup>
-    <Content Include="Application Icon.ico" />
+    <Content Include="Resources\RePlot.ico" />
   </ItemGroup>
 
   <ItemGroup>
