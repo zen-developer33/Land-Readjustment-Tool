@@ -66,9 +66,9 @@ namespace Land_Readjustment_Tool.Forms
             // btnAttachDocument
             // 
             btnAttachDocument.Anchor = AnchorStyles.Top | AnchorStyles.Left | AnchorStyles.Right;
-            btnAttachDocument.Location = new Point(14, 340);
+            btnAttachDocument.Location = new Point(14, 329);
             btnAttachDocument.Name = "btnAttachDocument";
-            btnAttachDocument.Size = new Size(226, 30);
+            btnAttachDocument.Size = new Size(226, 41);
             btnAttachDocument.TabIndex = 6;
             btnAttachDocument.Text = "+ Attach Document";
             btnAttachDocument.UseVisualStyleBackColor = true;
@@ -125,9 +125,9 @@ namespace Land_Readjustment_Tool.Forms
             picPhoto.BackgroundImage = Properties.Resources.Portrait_Placeholder;
             picPhoto.BackgroundImageLayout = ImageLayout.Zoom;
             picPhoto.BorderStyle = BorderStyle.FixedSingle;
-            picPhoto.Location = new Point(15, 3);
+            picPhoto.Location = new Point(3, 3);
             picPhoto.Name = "picPhoto";
-            picPhoto.Size = new Size(225, 250);
+            picPhoto.Size = new Size(151, 177);
             picPhoto.SizeMode = PictureBoxSizeMode.Zoom;
             picPhoto.TabIndex = 0;
             picPhoto.TabStop = false;
