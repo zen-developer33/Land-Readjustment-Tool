@@ -626,6 +626,7 @@ namespace Land_Readjustment_Tool.Forms.LandOwnersRecord_Managerment
 
         private void TxtSearch_TextChanged(object? sender, EventArgs e)
         {
+            btnApplySearch.Focus();
             if (chkToggleQuickSearch.Checked)
             {
                 ApplySearchFilters(showValidationMessage: false);
@@ -642,6 +643,26 @@ namespace Land_Readjustment_Tool.Forms.LandOwnersRecord_Managerment
 
         private void RadioButton_CheckedChanged(object? sender, EventArgs e)
         {
+            
+            
+            if (rbRopanee.Checked)
+            {
+                //double ropanee = AreaConverterService.SqmToRopani(double.Parse(txtFromArea.Text));
+                //txtFromArea.Text = ropanee.ToString();
+                //ropanee = AreaConverterService.SqmToRopani(double.Parse(txtToArea.Text));
+                //txtToArea.Text = ropanee.ToString();
+                txtFromArea.PlaceholderText = "Ropanee";
+                txtToArea.PlaceholderText = "Ropanee";
+            }
+            else
+            {
+                //double  sqm= AreaConverterService.RopaniDecimalToSqm(double.Parse(txtFromArea.Text));
+                //txtFromArea.Text = sqm.ToString();
+                // sqm = AreaConverterService.RopaniDecimalToSqm(double.Parse(txtToArea.Text));
+                //txtToArea.Text = sqm.ToString();
+                txtFromArea.PlaceholderText = "sq.m.";
+                txtToArea.PlaceholderText = "sq.m.";
+            }
             if (chkToggleQuickFilter.Checked)
             {
                 ApplyFilters(showValidationMessage: false);
@@ -922,6 +943,11 @@ namespace Land_Readjustment_Tool.Forms.LandOwnersRecord_Managerment
         #endregion
 
         private void saveToolStripButton_Click(object sender, EventArgs e)
+        {
+
+        }
+
+        private void rbRopanee_CheckedChanged(object sender, EventArgs e)
         {
 
         }
