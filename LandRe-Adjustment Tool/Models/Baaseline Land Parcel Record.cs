@@ -82,16 +82,23 @@ namespace Land_Readjustment_Tool.Models
         public string? PermanentAddress { get; set; }
 
         [Category("Address")]
-        [Description("Contact number or contact information")]
-        public string? ContactInfo { get; set; }
+        [Description("Temporary address of land owner")]
+        public string? TempoaryAddress { get; set; }
+
+        [Category("Conatct Information")]
+        [Description("Contact number of land owner")]
+        public string? ContactNumber { get; set; }
+
+        [Description("E-mail Address of land owner")]
+        public string? EmailID { get; set; }
 
         /* ===============================
-           Tenancy & Use
+           Other Parcel Information
            =============================== */
 
         [Category("Tenancy")]
         [Description("Indicates whether the parcel has a tenant (Mohi)")]
-        public string? IsTenant { get; set; }
+        public string? Tenant { get; set; }
 
         [Category("Land Classification")]
         [Description("Land use type (Residential, Agricultural, etc.)")]
@@ -99,7 +106,7 @@ namespace Land_Readjustment_Tool.Models
 
         [Category("Land Classification")]
         [Description("Ownership type (Individual, Joint, Guthi, etc.)")]
-        public string? LandOwnershipType { get; set; }
+        public string? LandOwnershipType { get; set; } // Single, Joint, Government, Guthi,etc.
 
         /* ===============================
            Area Information (As Recorded)

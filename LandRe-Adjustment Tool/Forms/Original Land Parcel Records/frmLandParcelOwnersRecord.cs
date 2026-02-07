@@ -93,6 +93,7 @@ namespace Land_Readjustment_Tool.Forms.LandOwnersRecord_Managerment
             // Radio button changes
             rbSqm.CheckedChanged += RadioButton_CheckedChanged;
             rbRopanee.CheckedChanged += RadioButton_CheckedChanged;
+            rbAana.CheckedChanged += RadioButton_CheckedChanged;
 
             // Text changes for quick search
             txtParcelNo.TextChanged += TxtSearch_TextChanged;
@@ -388,23 +389,20 @@ namespace Land_Readjustment_Tool.Forms.LandOwnersRecord_Managerment
             double fromArea = ParseAreaValue(txtFromArea.Text, 0);
             double toArea = ParseAreaValue(txtToArea.Text, _maxAreaSqm > 0 ? _maxAreaSqm : double.MaxValue);
 
-            // Convert from Ropani to sqm if Ropanee is selected
-            if (rbRopanee.Checked)
-            {
-                fromArea = AreaConverterService.RopaniDecimalToSqm(fromArea);
-                toArea = AreaConverterService.RopaniDecimalToSqm(toArea);
-            }
+            // Determine the selected unit for comparison
+            bool isRopaneeMode = rbRopanee.Checked;
+            bool isAanaMode = rbAana.Checked;
 
             // Validate: From area should not be greater than To area
             if (fromArea > 0 && toArea < double.MaxValue && fromArea > toArea)
             {
                 if (showValidationMessage)
                 {
-                    string unit = rbRopanee.Checked ? "Ropani" : "sqm";
-                    string fromDisplay = rbRopanee.Checked
+                    string unit = isRopaneeMode ? "Ropani" : isAanaMode ? "Aana" : "sqm";
+                    string fromDisplay = (isRopaneeMode || isAanaMode)
                         ? ParseAreaValue(txtFromArea.Text, 0).ToString("F2")
                         : txtFromArea.Text;
-                    string toDisplay = rbRopanee.Checked
+                    string toDisplay = (isRopaneeMode || isAanaMode)
                         ? ParseAreaValue(txtToArea.Text, 0).ToString("F2")
                         : txtToArea.Text;
 
@@ -419,14 +417,49 @@ namespace Land_Readjustment_Tool.Forms.LandOwnersRecord_Managerment
                 return records; // Ignore invalid area range in quick mode
             }
 
-            if (fromArea <= 0 && toArea >= _maxAreaSqm)
-                return records;
+            // Skip filtering if range covers all
+            if (isRopaneeMode)
+            {
+                double maxRopani = _maxAreaSqm / 508.74; // Convert max sqm to Ropani
+                if (fromArea <= 0 && toArea >= maxRopani)
+                    return records;
+            }
+            else if (isAanaMode)
+            {
+                double maxAana = _maxAreaSqm / 31.796875; // Convert max sqm to Aana
+                if (fromArea <= 0 && toArea >= maxAana)
+                    return records;
+            }
+            else
+            {
+                if (fromArea <= 0 && toArea >= _maxAreaSqm)
+                    return records;
+            }
 
             return records.Where(r =>
             {
                 double? areaSqm = AreaConverterService.GetAreaInSqm(r.AreaInSqm, r.AreaInRAPD, r.AreaInBKD);
                 if (!areaSqm.HasValue) return false;
-                return areaSqm.Value >= fromArea && areaSqm.Value <= toArea;
+
+                // Convert the parcel area to the selected unit
+                double areaInSelectedUnit;
+                if (isRopaneeMode)
+                {
+                    // Convert sqm to Ropani
+                    areaInSelectedUnit = AreaConverterService.SqmToRopani(areaSqm.Value);
+                }
+                else if (isAanaMode)
+                {
+                    // Convert sqm to Aana (1 Aana = 31.796875 sqm)
+                    areaInSelectedUnit = areaSqm.Value / 31.796875;
+                }
+                else
+                {
+                    // sqm mode - no conversion needed
+                    areaInSelectedUnit = areaSqm.Value;
+                }
+
+                return areaInSelectedUnit >= fromArea && areaInSelectedUnit <= toArea;
             });
         }
 
@@ -643,8 +676,8 @@ namespace Land_Readjustment_Tool.Forms.LandOwnersRecord_Managerment
 
         private void RadioButton_CheckedChanged(object? sender, EventArgs e)
         {
-            
-            
+
+
             if (rbRopanee.Checked)
             {
                 //double ropanee = AreaConverterService.SqmToRopani(double.Parse(txtFromArea.Text));
@@ -654,7 +687,7 @@ namespace Land_Readjustment_Tool.Forms.LandOwnersRecord_Managerment
                 txtFromArea.PlaceholderText = "Ropanee";
                 txtToArea.PlaceholderText = "Ropanee";
             }
-            else
+            else if (rbSqm.Checked)
             {
                 //double  sqm= AreaConverterService.RopaniDecimalToSqm(double.Parse(txtFromArea.Text));
                 //txtFromArea.Text = sqm.ToString();
@@ -662,6 +695,11 @@ namespace Land_Readjustment_Tool.Forms.LandOwnersRecord_Managerment
                 //txtToArea.Text = sqm.ToString();
                 txtFromArea.PlaceholderText = "sq.m.";
                 txtToArea.PlaceholderText = "sq.m.";
+            }
+            else
+            {
+                txtFromArea.PlaceholderText = "Aana";
+                txtToArea.PlaceholderText = "Aana";
             }
             if (chkToggleQuickFilter.Checked)
             {
@@ -833,7 +871,7 @@ namespace Land_Readjustment_Tool.Forms.LandOwnersRecord_Managerment
             var parcel = _allRecords.FirstOrDefault(r => r.ParcelId == model.ParcelId);
             if (parcel == null) return;
 
-            using var detailsForm = new frmLandownerDetails(_projectPath, parcel);
+            using var detailsForm = new frmLandownerDetails_2(_projectPath, parcel);
             detailsForm.ShowDialog();
 
             // Refresh after details form closes in case changes were made
@@ -876,7 +914,7 @@ namespace Land_Readjustment_Tool.Forms.LandOwnersRecord_Managerment
                 MunicipalityVillage = record.MunicipalityVillage,
                 WardNo = record.WardNo,
                 ParcelLocation = record.ParcelLocation,
-                IsTenant = record.IsTenant,
+                IsTenant = record.Tenant,
                 LandUse = record.LandUse,
                 AreaInSqm = record.AreaInSqm,
                 AreaInRAPD = record.AreaInRAPD,
@@ -904,7 +942,7 @@ namespace Land_Readjustment_Tool.Forms.LandOwnersRecord_Managerment
                 Gender = parcel.Owner?.Gender,
                 CitizenshipNumber = parcel.Owner?.CitizenshipNumber,
                 PermanentAddress = parcel.Owner?.PermanentAddress,
-                IsTenant = parcel.IsTenant,
+                Tenant = parcel.IsTenant,
                 LandUse = parcel.LandUse,
                 LandOwnershipType = parcel.LandOwnershipType,
                 AreaInSqm = parcel.AreaInSqm,
@@ -948,6 +986,11 @@ namespace Land_Readjustment_Tool.Forms.LandOwnersRecord_Managerment
         }
 
         private void rbRopanee_CheckedChanged(object sender, EventArgs e)
+        {
+
+        }
+
+        private void lblSelectedRecords_Click(object sender, EventArgs e)
         {
 
         }

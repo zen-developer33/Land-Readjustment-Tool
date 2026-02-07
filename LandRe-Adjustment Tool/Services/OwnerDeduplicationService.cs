@@ -90,8 +90,11 @@ namespace Land_Readjustment_Tool.Services
         /// 3. If name+father matches AND citizenship also matches (or one is missing), auto-merge
         /// 4. If only name+father matches, flag for review
         /// </summary>
+        /// <param name="records">List of records to analyze</param>
+        /// <param name="excludeAnonymous">When true, skips records with "Anonymous" or "Unknown" in the name (used for subsequent deduplication runs)</param>
         public static DeduplicationResult ExtractUniqueOwners(
-            List<BaselineLandParceRecord> records)
+            List<BaselineLandParceRecord> records,
+            bool excludeAnonymous = false)
         {
             var result = new DeduplicationResult
             {
@@ -99,7 +102,7 @@ namespace Land_Readjustment_Tool.Services
             };
             
             // Step 1: Handle anonymous owners and create initial owner list
-            var potentialOwners = CreateInitialOwnerList(records, result);
+            var potentialOwners = CreateInitialOwnerList(records, result, excludeAnonymous);
 
             var uniqueOwners = new List<UniqueOwner>();
             var processedIndices = new HashSet<int>();
@@ -476,9 +479,13 @@ namespace Land_Readjustment_Tool.Services
         /// <summary>
         /// Step 1: Create initial owner list, handling anonymous cases
         /// </summary>
+        /// <param name="records">List of records to process</param>
+        /// <param name="result">Deduplication result to populate</param>
+        /// <param name="excludeAnonymous">When true, excludes owners with "Anonymous" or "Unknown" in their name</param>
         private static List<UniqueOwner> CreateInitialOwnerList(
             List<BaselineLandParceRecord> records,
-            DeduplicationResult result)
+            DeduplicationResult result,
+            bool excludeAnonymous = false)
         {
             var owners = new List<UniqueOwner>();
             int anonymousCounter = 1;
@@ -495,6 +502,19 @@ namespace Land_Readjustment_Tool.Services
                     isAnonymous = true;
                     anonymousCounter++;
                     result.AnonymousOwnersCreated++;
+                }
+                
+                // Check if owner name contains "Anonymous" or "Unknown" (case-insensitive)
+                string ownerNameLower = record.LandOwnersName.ToLower();
+                if (ownerNameLower.Contains("anonymous") || ownerNameLower.Contains("unknown"))
+                {
+                    isAnonymous = true;
+                }
+                
+                // Skip anonymous owners if requested (for subsequent deduplication runs)
+                if (excludeAnonymous && isAnonymous)
+                {
+                    continue;
                 }
 
                 var owner = new UniqueOwner

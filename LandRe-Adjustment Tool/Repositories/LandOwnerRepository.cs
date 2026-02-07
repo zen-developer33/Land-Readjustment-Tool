@@ -122,7 +122,7 @@ namespace Land_Readjustment_Tool.Repositories
                     cmd.Parameters.AddWithValue("@WardNo", record.WardNo ?? "");
                     cmd.Parameters.AddWithValue("@ParcelLocation", record.ParcelLocation ?? "");
                     cmd.Parameters.AddWithValue("@MapSheetNo", record.MapSheetNo ?? "");
-                    cmd.Parameters.AddWithValue("@IsTenant", record.IsTenant ?? "");
+                    cmd.Parameters.AddWithValue("@IsTenant", record.Tenant ?? "");
                     cmd.Parameters.AddWithValue("@LandUse", record.LandUse ?? "");
                     cmd.Parameters.AddWithValue("@AreaInSqm", record.AreaInSqm ?? (object)DBNull.Value);
                     cmd.Parameters.AddWithValue("@AreaInRAPD", record.AreaInRAPD ?? "");
@@ -311,7 +311,7 @@ namespace Land_Readjustment_Tool.Repositories
                     cmd.Parameters.AddWithValue("@WardNo", record.WardNo ?? "");
                     cmd.Parameters.AddWithValue("@ParcelLocation", record.ParcelLocation ?? "");
                     cmd.Parameters.AddWithValue("@MapSheetNo", record.MapSheetNo ?? "");
-                    cmd.Parameters.AddWithValue("@IsTenant", record.IsTenant ?? "");
+                    cmd.Parameters.AddWithValue("@IsTenant", record.Tenant ?? "");
                     cmd.Parameters.AddWithValue("@LandUse", record.LandUse ?? "");
                     cmd.Parameters.AddWithValue("@AreaInSqm", record.AreaInSqm ?? (object)DBNull.Value);
                     cmd.Parameters.AddWithValue("@AreaInRAPD", record.AreaInRAPD ?? "");
@@ -521,6 +521,84 @@ namespace Land_Readjustment_Tool.Repositories
         {
             string sql = "SELECT COUNT(*) FROM tblOriginalLandParcels";
             using var cmd = new SQLiteCommand(sql, _connection);
+            return Convert.ToInt32(cmd.ExecuteScalar());
+        }
+
+        /// <summary>
+        /// Gets all parcels for a specific owner
+        /// </summary>
+        public List<OriginalLandParcel> GetParcelsByOwnerId(int landOwnerId)
+        {
+            var parcels = new List<OriginalLandParcel>();
+
+            string sql = @"
+                SELECT 
+                    p.ParcelId, p.LandOwnerId, p.ParcelNo, p.Province, p.District, 
+                    p.MunicipalityVillage, p.WardNo, p.ParcelLocation, p.MapSheetNo, p.IsTenant, p.LandUse, 
+                    p.AreaInSqm, p.AreaInRAPD, p.AreaInBKD, p.MothNo, p.PaanaNo, 
+                    p.Remarks, p.IsValid, p.LandOwnershipType,
+                    o.LandOwnersName, o.FatherSpouse, o.Gender, o.CitizenshipNumber, 
+                    o.PermanentAddress, o.PhotoPath, o.DocumentsFolderPath, o.IsAnonymous
+                FROM tblOriginalLandParcels p
+                INNER JOIN tblLandOwner o ON p.LandOwnerId = o.LandOwnerId
+                WHERE p.LandOwnerId = @LandOwnerId
+                ORDER BY p.MapSheetNo, p.ParcelNo";
+
+            using var cmd = new SQLiteCommand(sql, _connection);
+            cmd.Parameters.AddWithValue("@LandOwnerId", landOwnerId);
+            using var reader = cmd.ExecuteReader();
+
+            while (reader.Read())
+            {
+                var parcel = new OriginalLandParcel
+                {
+                    ParcelId = reader.GetInt32(reader.GetOrdinal("ParcelId")),
+                    LandOwnerId = reader.GetInt32(reader.GetOrdinal("LandOwnerId")),
+                    ParcelNo = reader.GetString(reader.GetOrdinal("ParcelNo")),
+                    Province = GetNullableString(reader, "Province"),
+                    District = GetNullableString(reader, "District"),
+                    MunicipalityVillage = GetNullableString(reader, "MunicipalityVillage"),
+                    WardNo = GetNullableString(reader, "WardNo"),
+                    ParcelLocation = GetNullableString(reader, "ParcelLocation"),
+                    MapSheetNo = reader.GetString(reader.GetOrdinal("MapSheetNo")),
+                    IsTenant = GetNullableString(reader, "IsTenant"),
+                    LandUse = GetNullableString(reader, "LandUse"),
+                    LandOwnershipType = GetNullableString(reader, "LandOwnershipType"),
+                    AreaInSqm = GetNullableDouble(reader, "AreaInSqm"),
+                    AreaInRAPD = GetNullableString(reader, "AreaInRAPD"),
+                    AreaInBKD = GetNullableString(reader, "AreaInBKD"),
+                    MothNo = GetNullableString(reader, "MothNo"),
+                    PaanaNo = GetNullableString(reader, "PaanaNo"),
+                    Remarks = GetNullableString(reader, "Remarks"),
+                    IsValid = reader.GetInt32(reader.GetOrdinal("IsValid")) == 1,
+                    Owner = new LandOwner
+                    {
+                        LandOwnerId = reader.GetInt32(reader.GetOrdinal("LandOwnerId")),
+                        LandOwnersName = reader.GetString(reader.GetOrdinal("LandOwnersName")),
+                        FatherSpouse = GetNullableString(reader, "FatherSpouse"),
+                        Gender = GetNullableString(reader, "Gender"),
+                        CitizenshipNumber = GetNullableString(reader, "CitizenshipNumber"),
+                        PermanentAddress = GetNullableString(reader, "PermanentAddress"),
+                        PhotoPath = GetNullableString(reader, "PhotoPath"),
+                        DocumentsFolderPath = GetNullableString(reader, "DocumentsFolderPath"),
+                        IsAnonymous = GetNullableInt(reader, "IsAnonymous") == 1
+                    }
+                };
+
+                parcels.Add(parcel);
+            }
+
+            return parcels;
+        }
+
+        /// <summary>
+        /// Gets count of parcels owned by a specific owner
+        /// </summary>
+        public int GetParcelCountByOwnerId(int landOwnerId)
+        {
+            string sql = "SELECT COUNT(*) FROM tblOriginalLandParcels WHERE LandOwnerId = @LandOwnerId";
+            using var cmd = new SQLiteCommand(sql, _connection);
+            cmd.Parameters.AddWithValue("@LandOwnerId", landOwnerId);
             return Convert.ToInt32(cmd.ExecuteScalar());
         }
 

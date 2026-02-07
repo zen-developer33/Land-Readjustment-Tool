@@ -36,26 +36,28 @@ namespace Land_Readjustment_Tool.Forms
         private void SetAddMode()
         {
             _isEditMode = false;
-            this.Text = "Add New Land Owner Record";
+            this.Text = "Add New Parcel Record";
 
             btnAdd.Visible = true;
-            btnAdd.Visible = true;
+
             btnUpdate.Visible = false;
             btnDelete.Visible = false;
 
             ClearAllFields();
+            txtParcelNo.Focus();
         }
 
         private void SetEditMode()
         {
             _isEditMode = true;
-            this.Text = "Edit Land Owner Record";
-
+            this.Text = "Edit Parcel Record";
+            txtParcelNo.Focus();
             btnAdd.Visible = false;
             btnUpdate.Visible = true;
             btnUpdate.Enabled = true;
             btnDelete.Visible = true;
             btnDelete.Enabled = true;
+            
         }
 
         private void ClearAllFields()
@@ -70,7 +72,7 @@ namespace Land_Readjustment_Tool.Forms
             cmbGender.SelectedIndex = -1;
             txtCitizenshipNumber.Clear();
             RbtnNo.Checked = true;
-            txtAddress.Clear();
+            txtPermanentAddress.Clear();
             cmbLandUse.SelectedIndex = -1;
             txtAreaInSqm.Clear();
             txtAreaInRAPD.Clear();
@@ -100,8 +102,8 @@ namespace Land_Readjustment_Tool.Forms
             }
 
             txtCitizenshipNumber.Text = _currentRecord.CitizenshipNumber ?? "";
-            RbtnYes.Checked = _currentRecord.IsTenant == "Yes";
-            txtAddress.Text = _currentRecord.ParcelLocation ?? "";
+            RbtnYes.Checked = _currentRecord.Tenant == "Yes";
+            txtPermanentAddress.Text = _currentRecord.ParcelLocation ?? "";
 
             // Set land use combobox
             if (!string.IsNullOrWhiteSpace(_currentRecord.LandUse))
@@ -131,8 +133,8 @@ namespace Land_Readjustment_Tool.Forms
                 FatherSpouse = txtFatherSpouse.Text.Trim(),
                 Gender = cmbGender.SelectedItem?.ToString() ?? "",
                 CitizenshipNumber = txtCitizenshipNumber.Text.Trim(),
-                IsTenant = RbtnNo.Checked ? "No" : RbtnYes.Checked ? "Yes" : "",
-                ParcelLocation = txtAddress.Text.Trim(),
+                Tenant = RbtnNo.Checked ? "No" : RbtnYes.Checked ? "Yes" : "",
+                ParcelLocation = txtPermanentAddress.Text.Trim(),
                 LandUse = cmbLandUse.SelectedItem?.ToString() ?? "",
                 AreaInRAPD = txtAreaInRAPD.Text.Trim(),
                 AreaInBKD = txtAreaInBKD.Text.Trim(),
@@ -250,6 +252,16 @@ namespace Land_Readjustment_Tool.Forms
         }
 
         private void frmAddEditRecord_Load(object sender, EventArgs e)
+        {
+
+        }
+
+        private void groupBox3_Enter(object sender, EventArgs e)
+        {
+
+        }
+
+        private void groupBox1_Enter(object sender, EventArgs e)
         {
 
         }

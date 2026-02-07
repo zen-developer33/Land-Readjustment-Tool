@@ -28,9 +28,9 @@
         /// </summary>
         private void InitializeComponent()
         {
-            DataGridViewCellStyle dataGridViewCellStyle4 = new DataGridViewCellStyle();
-            DataGridViewCellStyle dataGridViewCellStyle5 = new DataGridViewCellStyle();
-            DataGridViewCellStyle dataGridViewCellStyle6 = new DataGridViewCellStyle();
+            DataGridViewCellStyle dataGridViewCellStyle1 = new DataGridViewCellStyle();
+            DataGridViewCellStyle dataGridViewCellStyle2 = new DataGridViewCellStyle();
+            DataGridViewCellStyle dataGridViewCellStyle3 = new DataGridViewCellStyle();
             System.ComponentModel.ComponentResourceManager resources = new System.ComponentModel.ComponentResourceManager(typeof(frmLandParcelOwnersRecord));
             grpFilterByMapSheet = new GroupBox();
             cbWardNo = new ComboBox();
@@ -46,6 +46,7 @@
             cbMapSheet = new ComboBox();
             label5 = new Label();
             groupBox3 = new GroupBox();
+            rbAana = new RadioButton();
             txtToArea = new TextBox();
             txtFromArea = new TextBox();
             rbRopanee = new RadioButton();
@@ -162,10 +163,10 @@
             // 
             cbDistrict.DropDownStyle = ComboBoxStyle.DropDownList;
             cbDistrict.Font = new Font("Segoe UI", 9F);
-            cbDistrict.Location = new Point(139, 54);
+            cbDistrict.Location = new Point(152, 54);
             cbDistrict.Margin = new Padding(3, 4, 3, 4);
             cbDistrict.Name = "cbDistrict";
-            cbDistrict.Size = new Size(135, 28);
+            cbDistrict.Size = new Size(122, 28);
             cbDistrict.TabIndex = 4;
             // 
             // label1
@@ -173,7 +174,7 @@
             label1.AutoSize = true;
             label1.Font = new Font("Segoe UI", 9F);
             label1.ForeColor = Color.Black;
-            label1.Location = new Point(139, 29);
+            label1.Location = new Point(152, 29);
             label1.Name = "label1";
             label1.Size = new Size(59, 20);
             label1.TabIndex = 5;
@@ -186,7 +187,7 @@
             cbProvince.Location = new Point(19, 54);
             cbProvince.Margin = new Padding(3, 4, 3, 4);
             cbProvince.Name = "cbProvince";
-            cbProvince.Size = new Size(112, 28);
+            cbProvince.Size = new Size(127, 28);
             cbProvince.TabIndex = 1;
             // 
             // lblMapSheet
@@ -234,7 +235,7 @@
             cbMapSheet.Location = new Point(18, 54);
             cbMapSheet.Margin = new Padding(3, 4, 3, 4);
             cbMapSheet.Name = "cbMapSheet";
-            cbMapSheet.Size = new Size(132, 28);
+            cbMapSheet.Size = new Size(137, 28);
             cbMapSheet.TabIndex = 10;
             // 
             // label5
@@ -250,6 +251,7 @@
             // 
             // groupBox3
             // 
+            groupBox3.Controls.Add(rbAana);
             groupBox3.Controls.Add(txtToArea);
             groupBox3.Controls.Add(txtFromArea);
             groupBox3.Controls.Add(rbRopanee);
@@ -261,19 +263,31 @@
             groupBox3.Margin = new Padding(3, 4, 3, 4);
             groupBox3.Name = "groupBox3";
             groupBox3.Padding = new Padding(3, 4, 3, 4);
-            groupBox3.Size = new Size(195, 89);
+            groupBox3.Size = new Size(252, 89);
             groupBox3.TabIndex = 13;
             groupBox3.TabStop = false;
             groupBox3.Text = "Filter by Area Range";
+            // 
+            // rbAana
+            // 
+            rbAana.AutoSize = true;
+            rbAana.Font = new Font("Microsoft Sans Serif", 9F);
+            rbAana.ForeColor = SystemColors.ControlText;
+            rbAana.Location = new Point(184, 27);
+            rbAana.Name = "rbAana";
+            rbAana.Size = new Size(66, 22);
+            rbAana.TabIndex = 17;
+            rbAana.Text = "Aana ";
+            rbAana.UseVisualStyleBackColor = true;
             // 
             // txtToArea
             // 
             txtToArea.BorderStyle = BorderStyle.FixedSingle;
             txtToArea.Font = new Font("Microsoft Sans Serif", 9F);
-            txtToArea.Location = new Point(120, 55);
+            txtToArea.Location = new Point(147, 55);
             txtToArea.Name = "txtToArea";
             txtToArea.PlaceholderText = "sq.m.";
-            txtToArea.Size = new Size(67, 24);
+            txtToArea.Size = new Size(95, 24);
             txtToArea.TabIndex = 16;
             txtToArea.TextAlign = HorizontalAlignment.Center;
             // 
@@ -284,7 +298,7 @@
             txtFromArea.Location = new Point(16, 55);
             txtFromArea.Name = "txtFromArea";
             txtFromArea.PlaceholderText = "sq.m.";
-            txtFromArea.Size = new Size(67, 24);
+            txtFromArea.Size = new Size(96, 24);
             txtFromArea.TabIndex = 15;
             txtFromArea.TextAlign = HorizontalAlignment.Center;
             // 
@@ -293,11 +307,11 @@
             rbRopanee.AutoSize = true;
             rbRopanee.Font = new Font("Microsoft Sans Serif", 9F);
             rbRopanee.ForeColor = SystemColors.ControlText;
-            rbRopanee.Location = new Point(89, 27);
+            rbRopanee.Location = new Point(92, 27);
             rbRopanee.Name = "rbRopanee";
-            rbRopanee.Size = new Size(89, 22);
+            rbRopanee.Size = new Size(76, 22);
             rbRopanee.TabIndex = 16;
-            rbRopanee.Text = "Ropanee";
+            rbRopanee.Text = "Ropani";
             rbRopanee.UseVisualStyleBackColor = true;
             rbRopanee.CheckedChanged += rbRopanee_CheckedChanged;
             // 
@@ -320,7 +334,7 @@
             label8.AutoSize = true;
             label8.Font = new Font("Segoe UI", 9F);
             label8.ForeColor = Color.Black;
-            label8.Location = new Point(89, 57);
+            label8.Location = new Point(118, 57);
             label8.Name = "label8";
             label8.Size = new Size(23, 20);
             label8.TabIndex = 13;
@@ -346,21 +360,21 @@
             // txtLandOwner
             // 
             txtLandOwner.BorderStyle = BorderStyle.FixedSingle;
-            txtLandOwner.Font = new Font("Microsoft Sans Serif", 9F);
+            txtLandOwner.Font = new Font("Segoe UI", 9F);
             txtLandOwner.Location = new Point(188, 54);
             txtLandOwner.Name = "txtLandOwner";
             txtLandOwner.PlaceholderText = "Search by Land Owner";
-            txtLandOwner.Size = new Size(483, 24);
+            txtLandOwner.Size = new Size(483, 27);
             txtLandOwner.TabIndex = 14;
             // 
             // txtParcelNo
             // 
             txtParcelNo.BorderStyle = BorderStyle.FixedSingle;
-            txtParcelNo.Font = new Font("Microsoft Sans Serif", 9F);
+            txtParcelNo.Font = new Font("Segoe UI", 9F);
             txtParcelNo.Location = new Point(16, 54);
             txtParcelNo.Name = "txtParcelNo";
             txtParcelNo.PlaceholderText = "Search by Parcel No.";
-            txtParcelNo.Size = new Size(151, 24);
+            txtParcelNo.Size = new Size(151, 27);
             txtParcelNo.TabIndex = 12;
             // 
             // label10
@@ -391,7 +405,7 @@
             btnApplyFilter.Enabled = false;
             btnApplyFilter.Font = new Font("Segoe UI", 9F, FontStyle.Bold, GraphicsUnit.Point, 0);
             btnApplyFilter.Image = Properties.Resources.business_1565329211;
-            btnApplyFilter.Location = new Point(1082, 88);
+            btnApplyFilter.Location = new Point(1143, 91);
             btnApplyFilter.Name = "btnApplyFilter";
             btnApplyFilter.Size = new Size(140, 44);
             btnApplyFilter.TabIndex = 20;
@@ -403,9 +417,9 @@
             // 
             btnClearFilter.Cursor = Cursors.Hand;
             btnClearFilter.Font = new Font("Segoe UI", 9F, FontStyle.Bold, GraphicsUnit.Point, 0);
-            btnClearFilter.Location = new Point(1228, 88);
+            btnClearFilter.Location = new Point(1289, 91);
             btnClearFilter.Name = "btnClearFilter";
-            btnClearFilter.Size = new Size(73, 44);
+            btnClearFilter.Size = new Size(67, 44);
             btnClearFilter.TabIndex = 21;
             btnClearFilter.Text = "Clear";
             btnClearFilter.TextImageRelation = TextImageRelation.ImageBeforeText;
@@ -415,7 +429,7 @@
             chkToggleQuickFilter.AutoSize = true;
             chkToggleQuickFilter.Checked = true;
             chkToggleQuickFilter.CheckState = CheckState.Checked;
-            chkToggleQuickFilter.Location = new Point(1082, 60);
+            chkToggleQuickFilter.Location = new Point(1143, 63);
             chkToggleQuickFilter.Name = "chkToggleQuickFilter";
             chkToggleQuickFilter.Size = new Size(155, 24);
             chkToggleQuickFilter.TabIndex = 22;
@@ -440,8 +454,9 @@
             panel1.Dock = DockStyle.Top;
             panel1.Location = new Point(0, 0);
             panel1.Name = "panel1";
-            panel1.Size = new Size(1312, 249);
+            panel1.Size = new Size(1363, 249);
             panel1.TabIndex = 2;
+
             // 
             // chkToggleQuickSearch
             // 
@@ -486,11 +501,11 @@
             groupBox2.Controls.Add(cbLandOwnership);
             groupBox2.Font = new Font("Segoe UI", 9F, FontStyle.Bold);
             groupBox2.ForeColor = Color.FromArgb(45, 65, 95);
-            groupBox2.Location = new Point(700, 47);
+            groupBox2.Location = new Point(711, 47);
             groupBox2.Margin = new Padding(3, 4, 3, 4);
             groupBox2.Name = "groupBox2";
             groupBox2.Padding = new Padding(3, 4, 3, 4);
-            groupBox2.Size = new Size(175, 89);
+            groupBox2.Size = new Size(164, 89);
             groupBox2.TabIndex = 12;
             groupBox2.TabStop = false;
             groupBox2.Text = "Filter By Ownership";
@@ -513,7 +528,7 @@
             cbLandOwnership.Location = new Point(18, 54);
             cbLandOwnership.Margin = new Padding(3, 4, 3, 4);
             cbLandOwnership.Name = "cbLandOwnership";
-            cbLandOwnership.Size = new Size(148, 28);
+            cbLandOwnership.Size = new Size(139, 28);
             cbLandOwnership.TabIndex = 10;
             // 
             // lblSelectedRecords
@@ -526,6 +541,7 @@
             lblSelectedRecords.Size = new Size(81, 20);
             lblSelectedRecords.TabIndex = 21;
             lblSelectedRecords.Text = "Selected: 0";
+            lblSelectedRecords.Click += lblSelectedRecords_Click;
             // 
             // panel3
             // 
@@ -533,9 +549,9 @@
             panel3.Controls.Add(lblTotalRecords);
             panel3.Controls.Add(lblFilteredRecords);
             panel3.Controls.Add(lblSelectedRecords);
-            panel3.Location = new Point(0, 825);
+            panel3.Location = new Point(0, 709);
             panel3.Name = "panel3";
-            panel3.Size = new Size(1312, 71);
+            panel3.Size = new Size(1363, 71);
             panel3.TabIndex = 20;
             // 
             // lblTotalRecords
@@ -565,31 +581,31 @@
             dgvRecords.AllowUserToAddRows = false;
             dgvRecords.AllowUserToDeleteRows = false;
             dgvRecords.AllowUserToOrderColumns = true;
-            dataGridViewCellStyle4.BackColor = Color.FromArgb(248, 249, 250);
-            dgvRecords.AlternatingRowsDefaultCellStyle = dataGridViewCellStyle4;
+            dataGridViewCellStyle1.BackColor = Color.FromArgb(248, 249, 250);
+            dgvRecords.AlternatingRowsDefaultCellStyle = dataGridViewCellStyle1;
             dgvRecords.Anchor = AnchorStyles.Top | AnchorStyles.Bottom | AnchorStyles.Left | AnchorStyles.Right;
             dgvRecords.BackgroundColor = Color.White;
             dgvRecords.BorderStyle = BorderStyle.None;
             dgvRecords.CellBorderStyle = DataGridViewCellBorderStyle.SingleHorizontal;
             dgvRecords.ColumnHeadersBorderStyle = DataGridViewHeaderBorderStyle.None;
-            dataGridViewCellStyle5.Alignment = DataGridViewContentAlignment.MiddleLeft;
-            dataGridViewCellStyle5.BackColor = Color.FromArgb(45, 65, 95);
-            dataGridViewCellStyle5.Font = new Font("Segoe UI", 9F, FontStyle.Bold);
-            dataGridViewCellStyle5.ForeColor = Color.White;
-            dataGridViewCellStyle5.SelectionBackColor = Color.FromArgb(45, 65, 95);
-            dataGridViewCellStyle5.SelectionForeColor = Color.White;
-            dataGridViewCellStyle5.WrapMode = DataGridViewTriState.False;
-            dgvRecords.ColumnHeadersDefaultCellStyle = dataGridViewCellStyle5;
+            dataGridViewCellStyle2.Alignment = DataGridViewContentAlignment.MiddleLeft;
+            dataGridViewCellStyle2.BackColor = Color.FromArgb(45, 65, 95);
+            dataGridViewCellStyle2.Font = new Font("Segoe UI", 9F, FontStyle.Bold);
+            dataGridViewCellStyle2.ForeColor = Color.White;
+            dataGridViewCellStyle2.SelectionBackColor = Color.FromArgb(45, 65, 95);
+            dataGridViewCellStyle2.SelectionForeColor = Color.White;
+            dataGridViewCellStyle2.WrapMode = DataGridViewTriState.False;
+            dgvRecords.ColumnHeadersDefaultCellStyle = dataGridViewCellStyle2;
             dgvRecords.ColumnHeadersHeight = 36;
             dgvRecords.ColumnHeadersHeightSizeMode = DataGridViewColumnHeadersHeightSizeMode.DisableResizing;
-            dataGridViewCellStyle6.Alignment = DataGridViewContentAlignment.MiddleLeft;
-            dataGridViewCellStyle6.BackColor = Color.White;
-            dataGridViewCellStyle6.Font = new Font("Segoe UI", 9F);
-            dataGridViewCellStyle6.ForeColor = Color.FromArgb(33, 37, 41);
-            dataGridViewCellStyle6.SelectionBackColor = Color.FromArgb(0, 123, 255);
-            dataGridViewCellStyle6.SelectionForeColor = Color.White;
-            dataGridViewCellStyle6.WrapMode = DataGridViewTriState.False;
-            dgvRecords.DefaultCellStyle = dataGridViewCellStyle6;
+            dataGridViewCellStyle3.Alignment = DataGridViewContentAlignment.MiddleLeft;
+            dataGridViewCellStyle3.BackColor = Color.White;
+            dataGridViewCellStyle3.Font = new Font("Segoe UI", 9F);
+            dataGridViewCellStyle3.ForeColor = Color.FromArgb(33, 37, 41);
+            dataGridViewCellStyle3.SelectionBackColor = Color.FromArgb(0, 123, 255);
+            dataGridViewCellStyle3.SelectionForeColor = Color.White;
+            dataGridViewCellStyle3.WrapMode = DataGridViewTriState.False;
+            dgvRecords.DefaultCellStyle = dataGridViewCellStyle3;
             dgvRecords.EnableHeadersVisualStyles = false;
             dgvRecords.GridColor = Color.FromArgb(222, 226, 230);
             dgvRecords.Location = new Point(9, 68);
@@ -599,7 +615,7 @@
             dgvRecords.RowHeadersWidth = 50;
             dgvRecords.RowTemplate.Height = 28;
             dgvRecords.SelectionMode = DataGridViewSelectionMode.FullRowSelect;
-            dgvRecords.Size = new Size(1303, 495);
+            dgvRecords.Size = new Size(1354, 379);
             dgvRecords.TabIndex = 19;
             // 
             // panel2
@@ -609,7 +625,7 @@
             panel2.Controls.Add(dgvRecords);
             panel2.Location = new Point(0, 252);
             panel2.Name = "panel2";
-            panel2.Size = new Size(1312, 567);
+            panel2.Size = new Size(1363, 451);
             panel2.TabIndex = 18;
             // 
             // toolStrip1
@@ -619,7 +635,7 @@
             toolStrip1.Items.AddRange(new ToolStripItem[] { btnAdd, btnEdit, btnDelete, toolStripSeparator2, toolStripDropDownButton1, saveToolStripButton, toolStripSeparator1, toolStripButton1 });
             toolStrip1.Location = new Point(0, 0);
             toolStrip1.Name = "toolStrip1";
-            toolStrip1.Size = new Size(1312, 64);
+            toolStrip1.Size = new Size(1363, 64);
             toolStrip1.TabIndex = 23;
             toolStrip1.Text = "toolStrip1";
             // 
@@ -705,13 +721,15 @@
             // 
             // frmLandParcelOwnersRecord
             // 
-            AutoScaleMode = AutoScaleMode.Inherit;
-            ClientSize = new Size(1312, 899);
+            AutoScaleDimensions = new SizeF(8F, 20F);
+            AutoScaleMode = AutoScaleMode.Font;
+            ClientSize = new Size(1363, 783);
             Controls.Add(panel3);
             Controls.Add(panel1);
             Controls.Add(panel2);
             MinimumSize = new Size(1330, 0);
             Name = "frmLandParcelOwnersRecord";
+            RightToLeft = RightToLeft.No;
             StartPosition = FormStartPosition.CenterScreen;
             Text = "frmLandParcelOwnersRecord";
             Load += frmLandParcelOwnersRecord_Load;
@@ -788,5 +806,6 @@
         private Label label6;
         private ComboBox cbLandOwnership;
         private ToolStripButton toolStripButton2;
+        private RadioButton rbAana;
     }
 }

@@ -62,4 +62,35 @@ namespace Land_Readjustment_Tool.Models
         // Navigation property
         public LandOwner? Owner { get; set; }
     }
+
+    /// <summary>
+    /// Display model for showing parcel and owner information in DataGridView
+    /// Flattens the Owner navigation property for grid binding
+    /// </summary>
+    public class ParcelOwnerDisplayModel
+    {
+        public int ParcelId { get; set; }
+        public int LandOwnerId { get; set; }
+        public string ParcelNo { get; set; } = string.Empty;
+        public string MapSheetNo { get; set; } = string.Empty;
+        public string Province { get; set; } = string.Empty;
+        public string District { get; set; } = string.Empty;
+        public string MunicipalityVillage { get; set; } = string.Empty;
+        public string LandOwnersName { get; set; } = string.Empty;
+        public string FatherSpouse { get; set; } = string.Empty;
+        public string CitizenshipNumber { get; set; } = string.Empty;
+        public string CitizenshipIssueDate { get; set; } = string.Empty;
+        public string citizenshipIssueDistrict { get; set; } = string.Empty;
+        public string Gender { get; set; } = string.Empty;
+        public string ParcelLocation { get; set; } = string.Empty;
+        public string PermanentAddress { get; set; } = string.Empty;
+        public double? AreaInSqm { get; set; }
+        public string AreaInRAPD { get; set; } = string.Empty;
+        public string AreaInBKD { get; set; } = string.Empty;
+        public string LandUse { get; set; } = string.Empty;
+        public string IsTenant { get; set; } = string.Empty;
+        public string MothNo { get; set; } = string.Empty;
+        public string PaanaNo { get; set; } = string.Empty;
+        public string Remarks { get; set; } = string.Empty;
+    }
 }

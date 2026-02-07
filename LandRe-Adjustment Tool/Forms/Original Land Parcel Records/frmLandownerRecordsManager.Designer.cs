@@ -59,7 +59,7 @@ namespace Land_Readjustment_Tool.Forms
             btnAdd.Text = "Add";
             btnAdd.TextImageRelation = TextImageRelation.ImageAboveText;
             btnAdd.ToolTipText = "Add Record";
-            btnAdd.Click += btnAdd_Click;
+
             // 
             // btnEdit
             // 
@@ -71,7 +71,7 @@ namespace Land_Readjustment_Tool.Forms
             btnEdit.Text = "Edit";
             btnEdit.TextImageRelation = TextImageRelation.ImageAboveText;
             btnEdit.ToolTipText = "Edit Record";
-            btnEdit.Click += btnEdit_Click;
+
             // 
             // btnDelete
             // 
@@ -83,7 +83,7 @@ namespace Land_Readjustment_Tool.Forms
             btnDelete.Text = "Delete";
             btnDelete.TextImageRelation = TextImageRelation.ImageAboveText;
             btnDelete.ToolTipText = "Delete Record";
-            btnDelete.Click += btnDelete_Click;
+
             // 
             // toolStripSeparator1
             // 
@@ -105,7 +105,7 @@ namespace Land_Readjustment_Tool.Forms
             txtSearch.BorderStyle = BorderStyle.FixedSingle;
             txtSearch.Name = "txtSearch";
             txtSearch.Size = new Size(300, 74);
-            txtSearch.TextChanged += txtSearch_TextChanged;
+
             // 
             // toolStripSeparator2
             // 
@@ -121,7 +121,6 @@ namespace Land_Readjustment_Tool.Forms
             btnRefresh.Size = new Size(97, 71);
             btnRefresh.Text = "Refresh";
             btnRefresh.ToolTipText = "Refresh Records";
-            btnRefresh.Click += btnRefresh_Click;
             // 
             // saveToolStripButton
             // 
@@ -202,7 +201,7 @@ namespace Land_Readjustment_Tool.Forms
             ShowIcon = false;
             StartPosition = FormStartPosition.CenterScreen;
             Text = "Landowner Records Manager";
-            Load += frmLandownerRecordsManager_Load;
+
             toolStrip1.ResumeLayout(false);
             toolStrip1.PerformLayout();
             panel1.ResumeLayout(false);

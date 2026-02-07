@@ -1617,7 +1617,9 @@ namespace Land_Readjustment_Tool.Forms
             try
             {
                 // STEP 1: Extract unique owners with fuzzy matching on CURRENT data
-                _deduplicationResult = OwnerDeduplicationService.ExtractUniqueOwners(_importedRecords.ToList());
+                // On subsequent runs (when _isDeduplicationDone is true), exclude anonymous owners from matching
+                bool excludeAnonymous = _isDeduplicationDone;
+                _deduplicationResult = OwnerDeduplicationService.ExtractUniqueOwners(_importedRecords.ToList(), excludeAnonymous);
 
                 // STEP 2: Count actual duplicates
                 int autoMergedCount = _deduplicationResult.AutoMergedCount;
@@ -1632,7 +1634,8 @@ namespace Land_Readjustment_Tool.Forms
                     string noDupMessage = _isDeduplicationDone
                         ? "Re-analysis complete!\n\n" +
                           $"✅ No remaining duplicates found.\n" +
-                          $"🔍 Unique Landowners: {_deduplicationResult.UniqueOwners.Count}\n\n" +
+                          $"🔍 Unique Landowners: {_deduplicationResult.UniqueOwners.Count}\n" +
+                          $"📌 Note: Anonymous/Unknown owners were excluded from this analysis.\n\n" +
                           "All records are properly deduplicated."
                         : "Deduplication Analysis Complete!\n\n" +
                           $"✅ No duplicates found in the data.\n" +
@@ -1657,6 +1660,12 @@ namespace Land_Readjustment_Tool.Forms
                                 $"👤 Anonymous(Unknown) Owners: {_deduplicationResult.AnonymousOwnersCreated}\n" +
                                 $"🔗 Auto-Merged (Citizenship+Name Match): {autoMergedCount}\n" +
                                 $"⚠ Needs Review (Name+Father Match ≥85%): {reviewNeededCount}";
+                
+                // Add note if this is a re-run
+                if (excludeAnonymous)
+                {
+                    message += $"\n\n📌 Note: Anonymous/Unknown owners were excluded from this analysis.";
+                }
 
                 // STEP 5: Check if there are potential duplicates needing manual review
                 if (reviewNeededCount > 0)
