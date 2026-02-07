@@ -21,7 +21,7 @@ namespace Land_Readjustment_Tool.Forms
             pnlTop = new Panel();
             lblParcelCount = new Label();
             dgvParcels = new DataGridView();
-            button1 = new Button();
+            btnClose = new Button();
             pnlTop.SuspendLayout();
             ((System.ComponentModel.ISupportInitialize)dgvParcels).BeginInit();
             SuspendLayout();
@@ -74,21 +74,22 @@ namespace Land_Readjustment_Tool.Forms
             dgvParcels.Size = new Size(783, 392);
             dgvParcels.TabIndex = 1;
             // 
-            // button1
+            // btnClose
             // 
-            button1.Anchor = AnchorStyles.Bottom | AnchorStyles.Right;
-            button1.Location = new Point(680, 439);
-            button1.Name = "button1";
-            button1.Size = new Size(94, 29);
-            button1.TabIndex = 2;
-            button1.Text = "OK";
-            button1.UseVisualStyleBackColor = true;
+            btnClose.Anchor = AnchorStyles.Bottom | AnchorStyles.Right;
+            btnClose.Location = new Point(680, 439);
+            btnClose.Name = "btnClose";
+            btnClose.Size = new Size(94, 29);
+            btnClose.TabIndex = 2;
+            btnClose.Text = "Close";
+            btnClose.UseVisualStyleBackColor = true;
             // 
             // frmOwnerParcels
             // 
             AutoScaleMode = AutoScaleMode.Inherit;
+            CancelButton = btnClose;
             ClientSize = new Size(783, 475);
-            Controls.Add(button1);
+            Controls.Add(btnClose);
             Controls.Add(dgvParcels);
             Controls.Add(pnlTop);
             FormBorderStyle = FormBorderStyle.FixedDialog;
@@ -112,5 +113,6 @@ namespace Land_Readjustment_Tool.Forms
         private Label lblParcelCount;
         private DataGridView dgvParcels;
         private Button button1;
+        private Button btnClose;
     }
 }

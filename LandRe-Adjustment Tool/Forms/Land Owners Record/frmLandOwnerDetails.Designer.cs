@@ -40,7 +40,7 @@
             txtIssueDate = new TextBox();
             txtIssueDistrict = new TextBox();
             txtCitizenshipNo = new TextBox();
-            txtGender = new TextBox();
+            cbGender = new ComboBox();
             txtFatherSpouse = new TextBox();
             label2 = new Label();
             label1 = new Label();
@@ -78,7 +78,7 @@
             // 
             pnlPhoto.Controls.Add(btnUploadChangePhoto);
             pnlPhoto.Controls.Add(picPhoto);
-            pnlPhoto.Location = new Point(13, 55);
+            pnlPhoto.Location = new Point(13, 59);
             pnlPhoto.Margin = new Padding(4);
             pnlPhoto.Name = "pnlPhoto";
             pnlPhoto.Size = new Size(245, 290);
@@ -88,16 +88,17 @@
             // btnUploadChangePhoto
             // 
             btnUploadChangePhoto.Anchor = AnchorStyles.Top | AnchorStyles.Left | AnchorStyles.Right;
-            btnUploadChangePhoto.Image = Properties.Resources.icons8_photo_25;
+            btnUploadChangePhoto.Image = Properties.Resources.icons8_upload_25;
             btnUploadChangePhoto.ImageAlign = ContentAlignment.MiddleRight;
-            btnUploadChangePhoto.Location = new Point(22, 247);
+            btnUploadChangePhoto.Location = new Point(4, 247);
             btnUploadChangePhoto.Margin = new Padding(4);
             btnUploadChangePhoto.Name = "btnUploadChangePhoto";
-            btnUploadChangePhoto.Size = new Size(198, 36);
-            btnUploadChangePhoto.TabIndex = 1;
+            btnUploadChangePhoto.Size = new Size(237, 36);
+            btnUploadChangePhoto.TabIndex = 11;
             btnUploadChangePhoto.Text = "Upload/Change Photo";
             btnUploadChangePhoto.TextImageRelation = TextImageRelation.ImageBeforeText;
             btnUploadChangePhoto.UseVisualStyleBackColor = true;
+            btnUploadChangePhoto.Click += btnUploadChangePhoto_Click;
             // 
             // picPhoto
             // 
@@ -121,7 +122,7 @@
             lblNameLabel.Name = "lblNameLabel";
             lblNameLabel.Size = new Size(154, 31);
             lblNameLabel.TabIndex = 0;
-            lblNameLabel.Text = "Full Name:";
+            lblNameLabel.Text = "*Full Name:";
             lblNameLabel.TextAlign = ContentAlignment.MiddleLeft;
             // 
             // lblFatherSpouseLabel
@@ -163,17 +164,18 @@
             // txtFullName
             // 
             txtFullName.BorderStyle = BorderStyle.FixedSingle;
+            txtFullName.Font = new Font("Segoe UI", 9F);
             txtFullName.Location = new Point(205, 30);
             txtFullName.Name = "txtFullName";
             txtFullName.Size = new Size(257, 27);
-            txtFullName.TabIndex = 12;
+            txtFullName.TabIndex = 1;
             // 
             // grpOwnerInfo
             // 
             grpOwnerInfo.Controls.Add(txtIssueDate);
             grpOwnerInfo.Controls.Add(txtIssueDistrict);
             grpOwnerInfo.Controls.Add(txtCitizenshipNo);
-            grpOwnerInfo.Controls.Add(txtGender);
+            grpOwnerInfo.Controls.Add(cbGender);
             grpOwnerInfo.Controls.Add(txtFatherSpouse);
             grpOwnerInfo.Controls.Add(label2);
             grpOwnerInfo.Controls.Add(txtFullName);
@@ -183,54 +185,62 @@
             grpOwnerInfo.Controls.Add(lblFatherSpouseLabel);
             grpOwnerInfo.Controls.Add(lblNameLabel);
             grpOwnerInfo.Font = new Font("Segoe UI", 9F, FontStyle.Bold, GraphicsUnit.Point, 0);
-            grpOwnerInfo.Location = new Point(266, 55);
+            grpOwnerInfo.Location = new Point(266, 59);
             grpOwnerInfo.Margin = new Padding(4);
             grpOwnerInfo.Name = "grpOwnerInfo";
             grpOwnerInfo.Padding = new Padding(4);
             grpOwnerInfo.Size = new Size(469, 239);
-            grpOwnerInfo.TabIndex = 2;
+            grpOwnerInfo.TabIndex = 100;
             grpOwnerInfo.TabStop = false;
             grpOwnerInfo.Text = "Personal Information";
             // 
             // txtIssueDate
             // 
             txtIssueDate.BorderStyle = BorderStyle.FixedSingle;
+            txtIssueDate.Font = new Font("Segoe UI", 9F);
             txtIssueDate.Location = new Point(205, 195);
             txtIssueDate.Name = "txtIssueDate";
             txtIssueDate.Size = new Size(257, 27);
-            txtIssueDate.TabIndex = 12;
+            txtIssueDate.TabIndex = 6;
             // 
             // txtIssueDistrict
             // 
             txtIssueDistrict.BorderStyle = BorderStyle.FixedSingle;
+            txtIssueDistrict.Font = new Font("Segoe UI", 9F);
             txtIssueDistrict.Location = new Point(205, 162);
             txtIssueDistrict.Name = "txtIssueDistrict";
             txtIssueDistrict.Size = new Size(257, 27);
-            txtIssueDistrict.TabIndex = 12;
+            txtIssueDistrict.TabIndex = 5;
             // 
             // txtCitizenshipNo
             // 
             txtCitizenshipNo.BorderStyle = BorderStyle.FixedSingle;
+            txtCitizenshipNo.Font = new Font("Segoe UI", 9F);
             txtCitizenshipNo.Location = new Point(205, 129);
             txtCitizenshipNo.Name = "txtCitizenshipNo";
             txtCitizenshipNo.Size = new Size(257, 27);
-            txtCitizenshipNo.TabIndex = 12;
+            txtCitizenshipNo.TabIndex = 4;
             // 
-            // txtGender
+            // cbGender
             // 
-            txtGender.BorderStyle = BorderStyle.FixedSingle;
-            txtGender.Location = new Point(205, 96);
-            txtGender.Name = "txtGender";
-            txtGender.Size = new Size(257, 27);
-            txtGender.TabIndex = 12;
+            cbGender.DropDownStyle = ComboBoxStyle.DropDownList;
+            cbGender.Font = new Font("Segoe UI", 9F);
+            cbGender.FormattingEnabled = true;
+            cbGender.Items.AddRange(new object[] { "Male", "Female", "Other" });
+            cbGender.Location = new Point(205, 96);
+            cbGender.Name = "cbGender";
+            cbGender.Size = new Size(257, 28);
+            cbGender.TabIndex = 12;
+            cbGender.Tag = "3";
             // 
             // txtFatherSpouse
             // 
             txtFatherSpouse.BorderStyle = BorderStyle.FixedSingle;
+            txtFatherSpouse.Font = new Font("Segoe UI", 9F);
             txtFatherSpouse.Location = new Point(205, 63);
             txtFatherSpouse.Name = "txtFatherSpouse";
             txtFatherSpouse.Size = new Size(257, 27);
-            txtFatherSpouse.TabIndex = 12;
+            txtFatherSpouse.TabIndex = 2;
             // 
             // label2
             // 
@@ -267,22 +277,23 @@
             groupBox1.Controls.Add(txtPermanentAddress);
             groupBox1.Controls.Add(label8);
             groupBox1.Font = new Font("Segoe UI", 9F, FontStyle.Bold, GraphicsUnit.Point, 0);
-            groupBox1.Location = new Point(267, 302);
+            groupBox1.Location = new Point(267, 306);
             groupBox1.Margin = new Padding(4);
             groupBox1.Name = "groupBox1";
             groupBox1.Padding = new Padding(4);
             groupBox1.Size = new Size(468, 170);
-            groupBox1.TabIndex = 2;
+            groupBox1.TabIndex = 101;
             groupBox1.TabStop = false;
             groupBox1.Text = "Address and Contact Info";
             // 
             // txtEmailID
             // 
             txtEmailID.BorderStyle = BorderStyle.FixedSingle;
+            txtEmailID.Font = new Font("Segoe UI", 9F);
             txtEmailID.Location = new Point(205, 129);
             txtEmailID.Name = "txtEmailID";
             txtEmailID.Size = new Size(256, 27);
-            txtEmailID.TabIndex = 12;
+            txtEmailID.TabIndex = 10;
             // 
             // label5
             // 
@@ -299,10 +310,11 @@
             // txtContactNumber
             // 
             txtContactNumber.BorderStyle = BorderStyle.FixedSingle;
+            txtContactNumber.Font = new Font("Segoe UI", 9F);
             txtContactNumber.Location = new Point(205, 96);
             txtContactNumber.Name = "txtContactNumber";
             txtContactNumber.Size = new Size(256, 27);
-            txtContactNumber.TabIndex = 12;
+            txtContactNumber.TabIndex = 9;
             // 
             // label4
             // 
@@ -319,10 +331,11 @@
             // txtTemporaryAddress
             // 
             txtTemporaryAddress.BorderStyle = BorderStyle.FixedSingle;
+            txtTemporaryAddress.Font = new Font("Segoe UI", 9F);
             txtTemporaryAddress.Location = new Point(205, 63);
             txtTemporaryAddress.Name = "txtTemporaryAddress";
             txtTemporaryAddress.Size = new Size(256, 27);
-            txtTemporaryAddress.TabIndex = 12;
+            txtTemporaryAddress.TabIndex = 8;
             // 
             // label3
             // 
@@ -339,10 +352,11 @@
             // txtPermanentAddress
             // 
             txtPermanentAddress.BorderStyle = BorderStyle.FixedSingle;
+            txtPermanentAddress.Font = new Font("Segoe UI", 9F);
             txtPermanentAddress.Location = new Point(205, 30);
             txtPermanentAddress.Name = "txtPermanentAddress";
             txtPermanentAddress.Size = new Size(256, 27);
-            txtPermanentAddress.TabIndex = 12;
+            txtPermanentAddress.TabIndex = 7;
             // 
             // label8
             // 
@@ -362,11 +376,13 @@
             btnCancel.Location = new Point(637, 14);
             btnCancel.Margin = new Padding(4);
             btnCancel.Name = "btnCancel";
-            btnCancel.Size = new Size(98, 40);
+            btnCancel.Size = new Size(98, 37);
             btnCancel.TabIndex = 13;
             btnCancel.Text = "Cancel";
+            btnCancel.TextAlign = ContentAlignment.MiddleRight;
             btnCancel.TextImageRelation = TextImageRelation.ImageBeforeText;
             btnCancel.UseVisualStyleBackColor = true;
+            btnCancel.Click += btnCancel_Click;
             // 
             // btnAttachViewDocuments
             // 
@@ -377,8 +393,8 @@
             btnAttachViewDocuments.Margin = new Padding(4);
             btnAttachViewDocuments.Name = "btnAttachViewDocuments";
             btnAttachViewDocuments.Size = new Size(346, 42);
-            btnAttachViewDocuments.TabIndex = 0;
-            btnAttachViewDocuments.Text = "Attach/View Documents (2)";
+            btnAttachViewDocuments.TabIndex = 12;
+            btnAttachViewDocuments.Text = "Attach/View Documents (0)";
             btnAttachViewDocuments.TextImageRelation = TextImageRelation.ImageBeforeText;
             btnAttachViewDocuments.UseVisualStyleBackColor = true;
             btnAttachViewDocuments.Click += btnAttachViewDocuments_Click;
@@ -393,9 +409,10 @@
             btnViewParcels.Name = "btnViewParcels";
             btnViewParcels.Size = new Size(346, 42);
             btnViewParcels.TabIndex = 1;
-            btnViewParcels.Text = "View Parcels Owned (3)";
+            btnViewParcels.Text = "View Parcels Owned (0)";
             btnViewParcels.TextImageRelation = TextImageRelation.ImageBeforeText;
             btnViewParcels.UseVisualStyleBackColor = true;
+            btnViewParcels.Click += btnViewParcels_Click;
             // 
             // grpSummary
             // 
@@ -405,7 +422,7 @@
             grpSummary.Controls.Add(label11);
             grpSummary.Controls.Add(label12);
             grpSummary.Font = new Font("Segoe UI", 9F, FontStyle.Bold, GraphicsUnit.Point, 0);
-            grpSummary.Location = new Point(13, 349);
+            grpSummary.Location = new Point(13, 353);
             grpSummary.Margin = new Padding(4);
             grpSummary.Name = "grpSummary";
             grpSummary.Padding = new Padding(4);
@@ -418,12 +435,12 @@
             // 
             lblParcelCount.Font = new Font("Segoe UI", 9F, FontStyle.Bold);
             lblParcelCount.ForeColor = Color.Black;
-            lblParcelCount.Location = new Point(133, 24);
+            lblParcelCount.Location = new Point(129, 24);
             lblParcelCount.Margin = new Padding(4, 0, 4, 0);
             lblParcelCount.Name = "lblParcelCount";
             lblParcelCount.Size = new Size(55, 31);
             lblParcelCount.TabIndex = 3;
-            lblParcelCount.Text = "3";
+            lblParcelCount.Text = "-";
             lblParcelCount.TextAlign = ContentAlignment.MiddleLeft;
             // 
             // lblAreaLocal
@@ -435,7 +452,7 @@
             lblAreaLocal.Name = "lblAreaLocal";
             lblAreaLocal.Size = new Size(104, 22);
             lblAreaLocal.TabIndex = 3;
-            lblAreaLocal.Text = "R-A-P-D";
+            lblAreaLocal.Text = "-";
             lblAreaLocal.TextAlign = ContentAlignment.MiddleLeft;
             // 
             // lblAreasqm
@@ -447,7 +464,7 @@
             lblAreasqm.Name = "lblAreasqm";
             lblAreasqm.Size = new Size(113, 31);
             lblAreasqm.TabIndex = 3;
-            lblAreasqm.Text = "1234.45 sq.m.";
+            lblAreasqm.Text = "-";
             lblAreasqm.TextAlign = ContentAlignment.MiddleLeft;
             // 
             // label11
@@ -479,7 +496,8 @@
             // 
             label7.AutoSize = true;
             label7.Font = new Font("Segoe UI", 12F, FontStyle.Bold, GraphicsUnit.Point, 0);
-            label7.Location = new Point(12, 14);
+            label7.ForeColor = Color.MidnightBlue;
+            label7.Location = new Point(35, 14);
             label7.Name = "label7";
             label7.Size = new Size(202, 28);
             label7.TabIndex = 15;
@@ -489,12 +507,13 @@
             // 
             btnSave.Font = new Font("Segoe UI", 9F, FontStyle.Regular, GraphicsUnit.Point, 0);
             btnSave.Image = Properties.Resources.diskette21;
-            btnSave.Location = new Point(543, 14);
+            btnSave.Location = new Point(479, 13);
             btnSave.Margin = new Padding(4);
             btnSave.Name = "btnSave";
-            btnSave.Size = new Size(86, 40);
+            btnSave.Size = new Size(150, 37);
             btnSave.TabIndex = 13;
             btnSave.Text = "Save";
+            btnSave.TextAlign = ContentAlignment.MiddleRight;
             btnSave.TextImageRelation = TextImageRelation.ImageBeforeText;
             btnSave.UseVisualStyleBackColor = true;
             btnSave.Click += btnSave_Click;
@@ -504,32 +523,33 @@
             groupBox2.Controls.Add(btnAttachViewDocuments);
             groupBox2.Controls.Add(btnViewParcels);
             groupBox2.Font = new Font("Segoe UI", 9F, FontStyle.Bold, GraphicsUnit.Point, 0);
-            groupBox2.Location = new Point(13, 480);
+            groupBox2.Location = new Point(13, 484);
             groupBox2.Margin = new Padding(4);
             groupBox2.Name = "groupBox2";
             groupBox2.Padding = new Padding(4);
             groupBox2.Size = new Size(722, 79);
-            groupBox2.TabIndex = 2;
+            groupBox2.TabIndex = 102;
             groupBox2.TabStop = false;
             groupBox2.Text = "Actions";
             // 
             // btnClose
             // 
-            btnClose.Location = new Point(637, 567);
+            btnClose.Location = new Point(637, 571);
             btnClose.Margin = new Padding(4);
             btnClose.Name = "btnClose";
             btnClose.Size = new Size(98, 37);
-            btnClose.TabIndex = 16;
+            btnClose.TabIndex = 14;
             btnClose.Text = "Close";
             btnClose.TextImageRelation = TextImageRelation.ImageBeforeText;
             btnClose.UseVisualStyleBackColor = true;
+            btnClose.Click += btnClose_Click;
             // 
             // frmLandOwnerDetails
             // 
             AutoScaleDimensions = new SizeF(8F, 20F);
             AutoScaleMode = AutoScaleMode.Font;
             CancelButton = btnClose;
-            ClientSize = new Size(741, 612);
+            ClientSize = new Size(741, 614);
             Controls.Add(btnClose);
             Controls.Add(btnSave);
             Controls.Add(label7);
@@ -539,6 +559,8 @@
             Controls.Add(grpSummary);
             Controls.Add(grpOwnerInfo);
             Controls.Add(pnlPhoto);
+            FormBorderStyle = FormBorderStyle.FixedDialog;
+            MaximizeBox = false;
             Name = "frmLandOwnerDetails";
             Text = "frmLandOwnerDetails";
             Load += frmLandOwnerDetails_Load;
@@ -567,7 +589,7 @@
         private GroupBox grpOwnerInfo;
         private TextBox txtIssueDistrict;
         private TextBox txtCitizenshipNo;
-        private TextBox txtGender;
+        private ComboBox cbGender;
         private TextBox txtFatherSpouse;
         private Label label1;
         private TextBox txtIssueDate;

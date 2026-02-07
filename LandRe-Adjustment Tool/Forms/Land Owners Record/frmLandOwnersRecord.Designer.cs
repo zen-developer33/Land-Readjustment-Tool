@@ -59,7 +59,6 @@ namespace Land_Readjustment_Tool.Forms
             btnAdd.Text = "Add";
             btnAdd.TextImageRelation = TextImageRelation.ImageAboveText;
             btnAdd.ToolTipText = "Add Record";
-
             // 
             // btnEdit
             // 
@@ -71,7 +70,6 @@ namespace Land_Readjustment_Tool.Forms
             btnEdit.Text = "Edit";
             btnEdit.TextImageRelation = TextImageRelation.ImageAboveText;
             btnEdit.ToolTipText = "Edit Record";
-
             // 
             // btnDelete
             // 
@@ -83,7 +81,6 @@ namespace Land_Readjustment_Tool.Forms
             btnDelete.Text = "Delete";
             btnDelete.TextImageRelation = TextImageRelation.ImageAboveText;
             btnDelete.ToolTipText = "Delete Record";
-
             // 
             // toolStripSeparator1
             // 
@@ -105,7 +102,6 @@ namespace Land_Readjustment_Tool.Forms
             txtSearch.BorderStyle = BorderStyle.FixedSingle;
             txtSearch.Name = "txtSearch";
             txtSearch.Size = new Size(300, 74);
-
             // 
             // toolStripSeparator2
             // 
@@ -188,7 +184,7 @@ namespace Land_Readjustment_Tool.Forms
             dgvRecords.Size = new Size(1356, 600);
             dgvRecords.TabIndex = 1;
             // 
-            // frmLandownerRecordsManager
+            // frmLandOwnersRecord
             // 
             AutoScaleDimensions = new SizeF(8F, 20F);
             AutoScaleMode = AutoScaleMode.Font;
@@ -197,11 +193,11 @@ namespace Land_Readjustment_Tool.Forms
             Controls.Add(dgvRecords);
             Controls.Add(toolStrip1);
             MinimumSize = new Size(1200, 700);
-            Name = "frmLandownerRecordsManager";
+            Name = "frmLandOwnersRecord";
             ShowIcon = false;
             StartPosition = FormStartPosition.CenterScreen;
             Text = "Landowner Records Manager";
-
+            Load += frmLandOwnersRecord_Load;
             toolStrip1.ResumeLayout(false);
             toolStrip1.PerformLayout();
             panel1.ResumeLayout(false);

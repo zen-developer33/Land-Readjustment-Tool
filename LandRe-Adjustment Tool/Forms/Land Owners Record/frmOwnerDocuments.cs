@@ -219,5 +219,10 @@ namespace Land_Readjustment_Tool.Forms
                     MessageBoxButtons.OK, MessageBoxIcon.Error);
             }
         }
+
+        private void frmOwnerDocuments_Load(object sender, EventArgs e)
+        {
+
+        }
     }
 }

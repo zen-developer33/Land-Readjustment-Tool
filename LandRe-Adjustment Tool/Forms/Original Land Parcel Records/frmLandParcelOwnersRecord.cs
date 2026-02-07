@@ -1,4 +1,5 @@
-﻿using Land_Readjustment_Tool.Models;
+﻿using Land_Readjustment_Tool.Forms.Land_Owners_Record;
+using Land_Readjustment_Tool.Models;
 using Land_Readjustment_Tool.Repositories;
 using Land_Readjustment_Tool.Services;
 using System.ComponentModel;
@@ -737,13 +738,23 @@ namespace Land_Readjustment_Tool.Forms.LandOwnersRecord_Managerment
                 TextFormatFlags.VerticalCenter | TextFormatFlags.HorizontalCenter);
         }
 
+        private void DgvRecords_Leave(object? sender, EventArgs e)
+        {
+            dgvRecords.ClearSelection();
+        }
+
+        private void DgvRecords_MouseLeave(object? sender, EventArgs e)
+        {
+            dgvRecords.ClearSelection();
+        }
+
         #endregion
 
         #region CRUD Operations
 
         private void BtnAdd_Click(object? sender, EventArgs e)
         {
-            using var addForm = new frmAddEditRecord(_repository.ParcelExists);
+            using var addForm = new frmAddEditRecord(_repository.ParcelExists, ownerFieldsReadOnly: true);
             if (addForm.ShowDialog() == DialogResult.OK)
             {
                 try
@@ -781,7 +792,7 @@ namespace Land_Readjustment_Tool.Forms.LandOwnersRecord_Managerment
 
             var record = ConvertToEditableRecord(parcel);
 
-            using var editForm = new frmAddEditRecord(record, model.ParcelId, _repository.ParcelExists);
+            using var editForm = new frmAddEditRecord(record, model.ParcelId, _repository.ParcelExists, ownerFieldsReadOnly: true);
             if (editForm.ShowDialog() == DialogResult.OK)
             {
                 try
@@ -871,7 +882,7 @@ namespace Land_Readjustment_Tool.Forms.LandOwnersRecord_Managerment
             var parcel = _allRecords.FirstOrDefault(r => r.ParcelId == model.ParcelId);
             if (parcel == null) return;
 
-            using var detailsForm = new frmLandownerDetails(_projectPath, parcel, isReadOnly: true);
+            using var detailsForm = new frmLandOwnerDetails(parcel.LandOwnerId, readOnlyMode: true);
             detailsForm.ShowDialog();
 
             // Refresh after details form closes in case changes were made
@@ -886,27 +897,111 @@ namespace Land_Readjustment_Tool.Forms.LandOwnersRecord_Managerment
         private void SaveNewRecord(BaselineLandParceRecord record)
         {
             var records = new List<BaselineLandParceRecord> { record };
-            var ownerMap = _repository.ExtractAndSaveUniqueOwners(records);
-            _repository.SaveParcels(records, ownerMap);
+
+            // Step 1: Run owner deduplication on the single record
+            var deduplicationResult = OwnerDeduplicationService.ExtractUniqueOwners(records, excludeAnonymous: false);
+
+            // Step 2: If there are duplicates needing review, show the review form
+            if (deduplicationResult.DuplicatesNeedingReview.Count > 0)
+            {
+                var bindingList = new BindingList<BaselineLandParceRecord>(records);
+                using var reviewForm = new frmReviewDuplicates(deduplicationResult, bindingList);
+                
+                if (reviewForm.ShowDialog() != DialogResult.OK)
+                {
+                    // User cancelled the review
+                    return;
+                }
+
+                // The deduplicationResult was modified in-place by the review form
+                // No need to retrieve it - just use the same reference
+            }
+
+            // Step 3: Save using the deduplication result
+            var parcelToOwnerMap = _repository.SaveUniqueOwnersFromDeduplication(deduplicationResult);
+            int savedCount = _repository.SaveParcelsWithDeduplication(records, parcelToOwnerMap);
+
+            if (savedCount == 0)
+            {
+                throw new Exception("Failed to save parcel - it may be a duplicate.");
+            }
         }
 
-        private void UpdateExistingRecord(int parcelId, int landOwnerId, BaselineLandParceRecord record)
+        private void UpdateExistingRecord(int parcelId, int existingLandOwnerId, BaselineLandParceRecord record)
         {
-            var owner = new LandOwner
-            {
-                LandOwnerId = landOwnerId,
-                LandOwnersName = record.LandOwnersName ?? "",
-                FatherSpouse = record.FatherSpouse,
-                Gender = record.Gender,
-                CitizenshipNumber = record.CitizenshipNumber,
-                PermanentAddress = record.PermanentAddress
-            };
-            _repository.UpdateOwner(owner);
+            // Step 1: Check if owner information has changed
+            var existingParcel = _allRecords.FirstOrDefault(p => p.ParcelId == parcelId);
+            bool ownerChanged = false;
 
+            if (existingParcel?.Owner != null)
+            {
+                ownerChanged = existingParcel.Owner.LandOwnersName != (record.LandOwnersName ?? "") ||
+                               existingParcel.Owner.FatherSpouse != record.FatherSpouse ||
+                               existingParcel.Owner.CitizenshipNumber != record.CitizenshipNumber;
+            }
+
+            int landOwnerIdToUse = existingLandOwnerId;
+
+            if (ownerChanged)
+            {
+                // Step 2: Run owner deduplication to find if this owner already exists
+                var records = new List<BaselineLandParceRecord> { record };
+                var deduplicationResult = OwnerDeduplicationService.ExtractUniqueOwners(records, excludeAnonymous: false);
+
+                // Step 3: If there are duplicates needing review, show the review form
+                if (deduplicationResult.DuplicatesNeedingReview.Count > 0)
+                {
+                    var bindingList = new BindingList<BaselineLandParceRecord>(records);
+                    using var reviewForm = new frmReviewDuplicates(deduplicationResult, bindingList);
+                    
+                    if (reviewForm.ShowDialog() != DialogResult.OK)
+                    {
+                        // User cancelled the review
+                        return;
+                    }
+
+                    // The deduplicationResult was modified in-place by the review form
+                }
+
+                // Step 4: Save or get the owner ID
+                var parcelToOwnerMap = _repository.SaveUniqueOwnersFromDeduplication(deduplicationResult);
+                
+                // The first (and only) record in our list is at index 0
+                if (parcelToOwnerMap.TryGetValue(0, out int newOwnerId))
+                {
+                    landOwnerIdToUse = newOwnerId;
+                }
+                else
+                {
+                    throw new Exception("Failed to get owner ID after deduplication.");
+                }
+            }
+            else
+            {
+                // Step 5: Owner info hasn't changed, just update the existing owner record
+                var owner = new LandOwner
+                {
+                    LandOwnerId = existingLandOwnerId,
+                    LandOwnersName = record.LandOwnersName ?? "",
+                    FatherSpouse = record.FatherSpouse,
+                    Gender = record.Gender,
+                    CitizenshipNumber = record.CitizenshipNumber,
+                    CitizenshipIssuedDistrict = record.CitizenshipIssuedDistrict,
+                    CitizenshipIssuedDate = record.citizenshipIssuedDate, // lowercase 'c' property
+                    PermanentAddress = record.PermanentAddress,
+                    TemporaryAddress = record.TempoaryAddress, // Note: typo in model - 'Tempoary'
+                    ContactNumber = record.ContactNumber,
+                    EmailID = record.EmailID,
+                    ModifiedDate = DateTime.Now
+                };
+                _repository.UpdateOwner(owner);
+            }
+
+            // Step 6: Update the parcel with the correct owner ID
             var parcel = new OriginalLandParcel
             {
                 ParcelId = parcelId,
-                LandOwnerId = landOwnerId,
+                LandOwnerId = landOwnerIdToUse,
                 ParcelNo = record.ParcelNo ?? "",
                 MapSheetNo = record.MapSheetNo ?? "",
                 Province = record.Province,
@@ -916,6 +1011,7 @@ namespace Land_Readjustment_Tool.Forms.LandOwnersRecord_Managerment
                 ParcelLocation = record.ParcelLocation,
                 IsTenant = record.Tenant,
                 LandUse = record.LandUse,
+                LandOwnershipType = record.LandOwnershipType,
                 AreaInSqm = record.AreaInSqm,
                 AreaInRAPD = record.AreaInRAPD,
                 AreaInBKD = record.AreaInBKD,

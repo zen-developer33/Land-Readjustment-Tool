@@ -1,28 +1,37 @@
 ﻿using Land_Readjustment_Tool.Models;
+using Land_Readjustment_Tool.Repositories;
 using Land_Readjustment_Tool.Services;
+using System.Data.SQLite;
 
 namespace Land_Readjustment_Tool.Forms
 {
     public partial class frmAddEditRecord : Form
     {
         private bool _isEditMode = false;
+        private bool _ownerFieldsReadOnly = false;
         private BaselineLandParceRecord _currentRecord;
         private int _recordIndex = -1;
         private readonly Func<string?, string?, int?, bool>? _parcelExists;
         private int? _parcelId;
+        private LandOwnerRepository? _repository;
+        private SQLiteConnection? _connection;
+        private List<BaselineLandParceRecord>? _importedRecords;
 
         public BaselineLandParceRecord Record { get; private set; }
         public bool IsDeleted { get; private set; } = false;
 
-        // Constructor for ADD mode
+        // Constructor for ADD mode (Import Manager - all fields editable)
         public frmAddEditRecord(Func<string?, string?, int?, bool>? parcelExists = null)
         {
             InitializeComponent();
             _parcelExists = parcelExists;
+            _ownerFieldsReadOnly = false;
+            InitializeMapSheetLookup();
+            ConfigureInputBehavior();
             SetAddMode();
         }
 
-        // Constructor for EDIT mode
+        // Constructor for EDIT mode (basic - all fields editable, no owner lookup source)
         public frmAddEditRecord(BaselineLandParceRecord record, int recordIndex, Func<string?, string?, int?, bool>? parcelExists = null)
         {
             InitializeComponent();
@@ -30,6 +39,51 @@ namespace Land_Readjustment_Tool.Forms
             _recordIndex = recordIndex;
             _parcelId = recordIndex;
             _parcelExists = parcelExists;
+            _ownerFieldsReadOnly = false;
+            InitializeMapSheetLookup();
+            ConfigureInputBehavior();
+            SetEditMode();
+            LoadRecordData();
+        }
+
+        // Constructor for EDIT mode (Import Manager - all fields editable, with imported records for owner lookup)
+        public frmAddEditRecord(BaselineLandParceRecord record, int recordIndex, Func<string?, string?, int?, bool>? parcelExists, List<BaselineLandParceRecord> importedRecords)
+        {
+            InitializeComponent();
+            _currentRecord = record;
+            _recordIndex = recordIndex;
+            _parcelId = recordIndex;
+            _parcelExists = parcelExists;
+            _ownerFieldsReadOnly = false;
+            _importedRecords = importedRecords;
+            InitializeMapSheetLookup();
+            ConfigureInputBehavior();
+            SetEditMode();
+            LoadRecordData();
+        }
+
+        // Constructor for ADD mode (LandParcelRecords - owner fields read-only with lookup)
+        public frmAddEditRecord(Func<string?, string?, int?, bool>? parcelExists, bool ownerFieldsReadOnly)
+        {
+            InitializeComponent();
+            _parcelExists = parcelExists;
+            _ownerFieldsReadOnly = ownerFieldsReadOnly;
+            InitializeMapSheetLookup();
+            ConfigureInputBehavior();
+            SetAddMode();
+        }
+
+        // Constructor for EDIT mode (LandParcelRecords - owner fields read-only with lookup)
+        public frmAddEditRecord(BaselineLandParceRecord record, int recordIndex, Func<string?, string?, int?, bool>? parcelExists, bool ownerFieldsReadOnly)
+        {
+            InitializeComponent();
+            _currentRecord = record;
+            _recordIndex = recordIndex;
+            _parcelId = recordIndex;
+            _parcelExists = parcelExists;
+            _ownerFieldsReadOnly = ownerFieldsReadOnly;
+            InitializeMapSheetLookup();
+            ConfigureInputBehavior();
             SetEditMode();
             LoadRecordData();
         }
@@ -61,11 +115,136 @@ namespace Land_Readjustment_Tool.Forms
             
         }
 
+        private void ConfigureInputBehavior()
+        {
+            txtAreaInRAPD.ReadOnly = true;
+            txtAreaInBKD.ReadOnly = true;
+
+            txtAreaInSqm.TextChanged += TxtAreaInSqm_TextChanged;
+            txtAreaInSqm.KeyPress += TxtAreaInSqm_KeyPress;
+            txtParcelNo.KeyPress += TxtParcelNo_KeyPress;
+            FormClosing += FrmAddEditRecord_FormClosing;
+
+            // Always show load button for owner lookup
+            btnLoadOwnerDetails.Visible = true;
+            btnLoadOwnerDetails.Enabled = true;
+            btnLoadOwnerDetails.Click += BtnLoadOwnerDetails_Click;
+
+            // Configure owner fields based on mode
+            if (_ownerFieldsReadOnly)
+            {
+                SetOwnerFieldsReadOnly();
+            }
+        }
+
+        private void SetOwnerFieldsReadOnly()
+        {
+            txtLandOwnersName.ReadOnly = true;
+            txtFatherSpouse.ReadOnly = true;
+            cmbGender.Enabled = false;
+            txtCitizenshipNumber.ReadOnly = true;
+            txtIssueDistrict.ReadOnly = true;
+            txtIssueDate.ReadOnly = true;
+            txtPermanentAddress.ReadOnly = true;
+            txtTemporaryAddress.ReadOnly = true;
+            txtContactNo.ReadOnly = true;
+            txtEmailID.ReadOnly = true;
+        }
+
+        private void BtnLoadOwnerDetails_Click(object? sender, EventArgs e)
+        {
+            frmOwnerLookup lookupForm;
+
+            // If we have imported records, use them for owner lookup (Import Manager mode)
+            if (_importedRecords != null && _importedRecords.Count > 0)
+            {
+                lookupForm = new frmOwnerLookup(_importedRecords);
+            }
+            // Otherwise use the repository (LandParcelRecords mode)
+            else if (_repository != null)
+            {
+                lookupForm = new frmOwnerLookup(_repository);
+            }
+            else
+            {
+                MessageBox.Show("No owner data available for lookup.", "Error",
+                    MessageBoxButtons.OK, MessageBoxIcon.Error);
+                return;
+            }
+
+            using (lookupForm)
+            {
+                if (lookupForm.ShowDialog() == DialogResult.OK && lookupForm.SelectedOwner != null)
+                {
+                    LoadOwnerToForm(lookupForm.SelectedOwner);
+                }
+            }
+        }
+
+        private void LoadOwnerToForm(LandOwner owner)
+        {
+            txtLandOwnersName.Text = owner.LandOwnersName ?? "";
+            txtFatherSpouse.Text = owner.FatherSpouse ?? "";
+
+            if (!string.IsNullOrWhiteSpace(owner.Gender))
+            {
+                int genderIndex = cmbGender.FindStringExact(owner.Gender);
+                cmbGender.SelectedIndex = genderIndex >= 0 ? genderIndex : -1;
+            }
+            else
+            {
+                cmbGender.SelectedIndex = -1;
+            }
+
+            txtCitizenshipNumber.Text = owner.CitizenshipNumber ?? "";
+            txtIssueDistrict.Text = owner.CitizenshipIssuedDistrict ?? "";
+            txtIssueDate.Text = owner.CitizenshipIssuedDate ?? "";
+            txtPermanentAddress.Text = owner.PermanentAddress ?? "";
+            txtTemporaryAddress.Text = owner.TemporaryAddress ?? "";
+            txtContactNo.Text = owner.ContactNumber ?? "";
+            txtEmailID.Text = owner.EmailID ?? "";
+        }
+
+        private void InitializeMapSheetLookup()
+        {
+            cbMapSheetNo.DropDownStyle = ComboBoxStyle.DropDown;
+            cbMapSheetNo.AutoCompleteMode = AutoCompleteMode.SuggestAppend;
+            cbMapSheetNo.AutoCompleteSource = AutoCompleteSource.ListItems;
+
+            if (CurrentProject.Info == null || string.IsNullOrWhiteSpace(CurrentProject.Info.ProjectPath))
+            {
+                return;
+            }
+
+            try
+            {
+                var dbHelper = new DatabaseHelper(CurrentProject.Info.ProjectPath);
+                dbHelper.InitializeDatabase();
+                _connection = dbHelper.GetConnection();
+                _repository = new LandOwnerRepository(_connection);
+
+                var mapSheets = _repository.GetUniqueMapSheets();
+                cbMapSheetNo.BeginUpdate();
+                cbMapSheetNo.Items.Clear();
+                foreach (var mapSheet in mapSheets)
+                {
+                    cbMapSheetNo.Items.Add(mapSheet);
+                }
+                cbMapSheetNo.EndUpdate();
+            }
+            catch (Exception ex)
+            {
+                _ = MessageBox.Show($"Failed to load map sheets: {ex.Message}", "Error",
+                    MessageBoxButtons.OK, MessageBoxIcon.Error);
+            }
+        }
+
         private void ClearAllFields()
         {
             // Parcel Identification
             txtParcelNo.Clear();
-            txtMapSheetNo.Clear();
+            cbMapSheetNo.SelectedIndex = -1;
+            cbMapSheetNo.Text = string.Empty;
 
             // Administrative Information
             txtProvince.Clear();
@@ -111,7 +290,19 @@ namespace Land_Readjustment_Tool.Forms
 
             // Parcel Identification
             txtParcelNo.Text = _currentRecord.ParcelNo ?? "";
-            txtMapSheetNo.Text = _currentRecord.MapSheetNo ?? "";
+            if (!string.IsNullOrWhiteSpace(_currentRecord.MapSheetNo))
+            {
+                int mapSheetIndex = cbMapSheetNo.FindStringExact(_currentRecord.MapSheetNo);
+                cbMapSheetNo.SelectedIndex = mapSheetIndex >= 0 ? mapSheetIndex : -1;
+                if (mapSheetIndex < 0)
+                {
+                    cbMapSheetNo.Text = _currentRecord.MapSheetNo;
+                }
+            }
+            else
+            {
+                cbMapSheetNo.SelectedIndex = -1;
+            }
 
             // Administrative Information
             txtProvince.Text = _currentRecord.Province ?? "";
@@ -176,7 +367,7 @@ namespace Land_Readjustment_Tool.Forms
             {
                 // Parcel Identification
                 ParcelNo = txtParcelNo.Text.Trim(),
-                MapSheetNo = txtMapSheetNo.Text.Trim(),
+                MapSheetNo = cbMapSheetNo.Text.Trim(),
 
                 // Administrative Information
                 Province = txtProvince.Text.Trim(),
@@ -236,11 +427,11 @@ namespace Land_Readjustment_Tool.Forms
             }
 
             // Required: MapSheetNo
-            if (string.IsNullOrWhiteSpace(txtMapSheetNo.Text))
+            if (string.IsNullOrWhiteSpace(cbMapSheetNo.Text))
             {
                 _ = MessageBox.Show("Map Sheet No is required.", "Validation Error",
                     MessageBoxButtons.OK, MessageBoxIcon.Warning);
-                _ = txtMapSheetNo.Focus();
+                _ = cbMapSheetNo.Focus();
                 return false;
             }
 
@@ -256,7 +447,7 @@ namespace Land_Readjustment_Tool.Forms
             if (_parcelExists != null)
             {
                 string parcelNo = txtParcelNo.Text.Trim();
-                string mapSheetNo = txtMapSheetNo.Text.Trim();
+                string mapSheetNo = cbMapSheetNo.Text.Trim();
                 if (_parcelExists(parcelNo, mapSheetNo, _parcelId))
                 {
                     _ = MessageBox.Show(
@@ -326,6 +517,78 @@ namespace Land_Readjustment_Tool.Forms
         private void frmAddEditRecord_Load(object sender, EventArgs e)
         {
 
+        }
+
+        private void TxtAreaInSqm_TextChanged(object? sender, EventArgs e)
+        {
+            if (double.TryParse(txtAreaInSqm.Text.Trim(), out double area) && area > 0)
+            {
+                txtAreaInRAPD.Text = AreaConverterService.SqmToRAPDString(area);
+                txtAreaInBKD.Text = AreaConverterService.SqmToBKDString(area);
+            }
+            else
+            {
+                txtAreaInRAPD.Clear();
+                txtAreaInBKD.Clear();
+            }
+        }
+
+        private void TxtAreaInSqm_KeyPress(object? sender, KeyPressEventArgs e)
+        {
+            if (char.IsControl(e.KeyChar))
+                return;
+
+            if (char.IsDigit(e.KeyChar))
+                return;
+
+            if (e.KeyChar == '.' && sender is TextBox textBox && !textBox.Text.Contains('.'))
+                return;
+
+            e.Handled = true;
+        }
+
+        private void TxtParcelNo_KeyPress(object? sender, KeyPressEventArgs e)
+        {
+            if (char.IsControl(e.KeyChar))
+                return;
+
+            if (char.IsDigit(e.KeyChar))
+                return;
+
+            e.Handled = true;
+        }
+
+        private void FrmAddEditRecord_FormClosing(object? sender, FormClosingEventArgs e)
+        {
+            if (DialogResult == DialogResult.OK || DialogResult == DialogResult.Cancel)
+                return;
+
+            var result = MessageBox.Show(
+                "Do you want to save changes before closing?",
+                "Save Changes",
+                MessageBoxButtons.YesNoCancel,
+                MessageBoxIcon.Question);
+
+            if (result == DialogResult.Cancel)
+            {
+                e.Cancel = true;
+                return;
+            }
+
+            if (result == DialogResult.No)
+            {
+                DialogResult = DialogResult.Cancel;
+                return;
+            }
+
+            if (ValidateRecord())
+            {
+                Record = GetRecordFromForm();
+                DialogResult = DialogResult.OK;
+                return;
+            }
+
+            e.Cancel = true;
         }
 
         private void groupBox3_Enter(object sender, EventArgs e)

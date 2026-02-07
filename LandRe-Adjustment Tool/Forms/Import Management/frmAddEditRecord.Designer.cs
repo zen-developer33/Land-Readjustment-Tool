@@ -24,14 +24,15 @@ namespace Land_Readjustment_Tool.Forms
         private void InitializeComponent()
         {
             grpBasicInfo = new GroupBox();
-            txtMapSheetNo = new TextBox();
             lblMapSheetNo = new Label();
             txtParcelNo = new TextBox();
             lblParcelNo = new Label();
+            cbMapSheetNo = new ComboBox();
             txtMunicipalityVillage = new TextBox();
             txtDistrict = new TextBox();
             txtProvince = new TextBox();
             grpOwnerInfo = new GroupBox();
+            btnLoadOwnerDetails = new Button();
             txtIssueDate = new TextBox();
             label6 = new Label();
             txtIssueDistrict = new TextBox();
@@ -98,10 +99,10 @@ namespace Land_Readjustment_Tool.Forms
             // 
             // grpBasicInfo
             // 
-            grpBasicInfo.Controls.Add(txtMapSheetNo);
             grpBasicInfo.Controls.Add(lblMapSheetNo);
             grpBasicInfo.Controls.Add(txtParcelNo);
             grpBasicInfo.Controls.Add(lblParcelNo);
+            grpBasicInfo.Controls.Add(cbMapSheetNo);
             grpBasicInfo.Font = new Font("Segoe UI", 9F, FontStyle.Bold);
             grpBasicInfo.Location = new Point(12, 12);
             grpBasicInfo.Name = "grpBasicInfo";
@@ -111,20 +112,11 @@ namespace Land_Readjustment_Tool.Forms
             grpBasicInfo.Tag = "100";
             grpBasicInfo.Text = "Parcel Identification";
             // 
-            // txtMapSheetNo
-            // 
-            txtMapSheetNo.Anchor = AnchorStyles.Top | AnchorStyles.Left | AnchorStyles.Right;
-            txtMapSheetNo.Font = new Font("Segoe UI", 9F);
-            txtMapSheetNo.Location = new Point(328, 30);
-            txtMapSheetNo.Name = "txtMapSheetNo";
-            txtMapSheetNo.Size = new Size(142, 27);
-            txtMapSheetNo.TabIndex = 2;
-            // 
             // lblMapSheetNo
             // 
             lblMapSheetNo.AutoSize = true;
             lblMapSheetNo.Font = new Font("Segoe UI", 9F);
-            lblMapSheetNo.Location = new Point(208, 33);
+            lblMapSheetNo.Location = new Point(194, 33);
             lblMapSheetNo.Name = "lblMapSheetNo";
             lblMapSheetNo.Size = new Size(117, 20);
             lblMapSheetNo.TabIndex = 2;
@@ -136,7 +128,7 @@ namespace Land_Readjustment_Tool.Forms
             txtParcelNo.Font = new Font("Segoe UI", 9F);
             txtParcelNo.Location = new Point(106, 30);
             txtParcelNo.Name = "txtParcelNo";
-            txtParcelNo.Size = new Size(96, 27);
+            txtParcelNo.Size = new Size(82, 27);
             txtParcelNo.TabIndex = 1;
             // 
             // lblParcelNo
@@ -148,6 +140,18 @@ namespace Land_Readjustment_Tool.Forms
             lblParcelNo.Size = new Size(85, 20);
             lblParcelNo.TabIndex = 0;
             lblParcelNo.Text = "Parcel No: *";
+            // 
+            // cbMapSheetNo
+            // 
+            cbMapSheetNo.Anchor = AnchorStyles.Top | AnchorStyles.Left | AnchorStyles.Right;
+            cbMapSheetNo.FlatStyle = FlatStyle.Flat;
+            cbMapSheetNo.Font = new Font("Segoe UI", 9F);
+            cbMapSheetNo.FormattingEnabled = true;
+            cbMapSheetNo.Items.AddRange(new object[] { "Male", "Female", "Other" });
+            cbMapSheetNo.Location = new Point(317, 29);
+            cbMapSheetNo.Name = "cbMapSheetNo";
+            cbMapSheetNo.Size = new Size(150, 28);
+            cbMapSheetNo.TabIndex = 9;
             // 
             // txtMunicipalityVillage
             // 
@@ -178,6 +182,7 @@ namespace Land_Readjustment_Tool.Forms
             // 
             // grpOwnerInfo
             // 
+            grpOwnerInfo.Controls.Add(btnLoadOwnerDetails);
             grpOwnerInfo.Controls.Add(txtIssueDate);
             grpOwnerInfo.Controls.Add(label6);
             grpOwnerInfo.Controls.Add(txtIssueDistrict);
@@ -198,6 +203,17 @@ namespace Land_Readjustment_Tool.Forms
             grpOwnerInfo.TabStop = false;
             grpOwnerInfo.Tag = "100";
             grpOwnerInfo.Text = "Owner Information";
+            // 
+            // btnLoadOwnerDetails
+            // 
+            btnLoadOwnerDetails.Anchor = AnchorStyles.Top | AnchorStyles.Right;
+            btnLoadOwnerDetails.Font = new Font("Segoe UI Semibold", 9F, FontStyle.Bold, GraphicsUnit.Point, 0);
+            btnLoadOwnerDetails.Location = new Point(411, 28);
+            btnLoadOwnerDetails.Name = "btnLoadOwnerDetails";
+            btnLoadOwnerDetails.Size = new Size(56, 31);
+            btnLoadOwnerDetails.TabIndex = 28;
+            btnLoadOwnerDetails.Text = "Load";
+            btnLoadOwnerDetails.UseVisualStyleBackColor = true;
             // 
             // txtIssueDate
             // 
@@ -303,7 +319,8 @@ namespace Land_Readjustment_Tool.Forms
             txtLandOwnersName.Font = new Font("Segoe UI", 9F);
             txtLandOwnersName.Location = new Point(180, 30);
             txtLandOwnersName.Name = "txtLandOwnersName";
-            txtLandOwnersName.Size = new Size(290, 27);
+            txtLandOwnersName.PlaceholderText = "Type new or Load Existing ";
+            txtLandOwnersName.Size = new Size(287, 27);
             txtLandOwnersName.TabIndex = 7;
             // 
             // lblLandOwnersName
@@ -817,7 +834,6 @@ namespace Land_Readjustment_Tool.Forms
         private Panel pnlButtons;
         private TextBox txtParcelNo;
         private Label lblParcelNo;
-        private TextBox txtMapSheetNo;
         private Label lblMapSheetNo;
         private TextBox txtProvince;
         private TextBox txtDistrict;
@@ -873,5 +889,7 @@ namespace Land_Readjustment_Tool.Forms
         private Label label20;
         private ComboBox cmbLandUse;
         private TextBox txtTenant;
+        private ComboBox cbMapSheetNo;
+        private Button btnLoadOwnerDetails;
     }
 }

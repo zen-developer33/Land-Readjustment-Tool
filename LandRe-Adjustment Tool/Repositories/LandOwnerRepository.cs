@@ -1,6 +1,5 @@
 using Land_Readjustment_Tool.Models;
 using Land_Readjustment_Tool.Services;
-using System.Data;
 using System.Data.SQLite;
 
 namespace Land_Readjustment_Tool.Repositories
@@ -26,7 +25,7 @@ namespace Land_Readjustment_Tool.Repositories
         {
             var parcelToOwnerMap = new Dictionary<int, int>(); // Maps parcel index to LandOwnerId
             var hasNewOwners = false;
-            
+
             using var transaction = _connection.BeginTransaction();
             try
             {
@@ -75,7 +74,7 @@ namespace Land_Readjustment_Tool.Repositories
         /// Saves parcels using the parcel-to-owner map from deduplication
         /// </summary>
         public int SaveParcelsWithDeduplication(
-            List<BaselineLandParceRecord> records, 
+            List<BaselineLandParceRecord> records,
             Dictionary<int, int> parcelToOwnerMap)
         {
             int savedCount = 0;
@@ -87,7 +86,7 @@ namespace Land_Readjustment_Tool.Repositories
                 for (int i = 0; i < records.Count; i++)
                 {
                     var record = records[i];
-                    
+
                     // Get owner ID from the map
                     if (!parcelToOwnerMap.TryGetValue(i, out int ownerId))
                     {
@@ -116,26 +115,26 @@ namespace Land_Readjustment_Tool.Repositories
                         )";
 
                     using var cmd = new SQLiteCommand(sql, _connection, transaction);
-                    cmd.Parameters.AddWithValue("@LandOwnerId", ownerId);
-                    cmd.Parameters.AddWithValue("@ParcelNo", record.ParcelNo ?? "");
-                    cmd.Parameters.AddWithValue("@Province", record.Province ?? "");
-                    cmd.Parameters.AddWithValue("@District", record.District ?? "");
-                    cmd.Parameters.AddWithValue("@MunicipalityVillage", record.MunicipalityVillage ?? "");
-                    cmd.Parameters.AddWithValue("@WardNo", record.WardNo ?? "");
-                    cmd.Parameters.AddWithValue("@ParcelLocation", record.ParcelLocation ?? "");
-                    cmd.Parameters.AddWithValue("@MapSheetNo", record.MapSheetNo ?? "");
-                    cmd.Parameters.AddWithValue("@Tenant", record.Tenant ?? "");
-                    cmd.Parameters.AddWithValue("@LandUse", record.LandUse ?? "");
-                    cmd.Parameters.AddWithValue("@LandOwnershipType", record.LandOwnershipType ?? "");
-                    cmd.Parameters.AddWithValue("@AreaInSqm", record.AreaInSqm ?? (object)DBNull.Value);
-                    cmd.Parameters.AddWithValue("@AreaInRAPD", record.AreaInRAPD ?? "");
-                    cmd.Parameters.AddWithValue("@AreaInBKD", record.AreaInBKD ?? "");
-                    cmd.Parameters.AddWithValue("@MothNo", record.MothNo ?? "");
-                    cmd.Parameters.AddWithValue("@PaanaNo", record.PaanaNo ?? "");
-                    cmd.Parameters.AddWithValue("@Remarks", record.Remarks ?? "");
-                    cmd.Parameters.AddWithValue("@IsValid", 1);
+                    _ = cmd.Parameters.AddWithValue("@LandOwnerId", ownerId);
+                    _ = cmd.Parameters.AddWithValue("@ParcelNo", record.ParcelNo ?? "");
+                    _ = cmd.Parameters.AddWithValue("@Province", record.Province ?? "");
+                    _ = cmd.Parameters.AddWithValue("@District", record.District ?? "");
+                    _ = cmd.Parameters.AddWithValue("@MunicipalityVillage", record.MunicipalityVillage ?? "");
+                    _ = cmd.Parameters.AddWithValue("@WardNo", record.WardNo ?? "");
+                    _ = cmd.Parameters.AddWithValue("@ParcelLocation", record.ParcelLocation ?? "");
+                    _ = cmd.Parameters.AddWithValue("@MapSheetNo", record.MapSheetNo ?? "");
+                    _ = cmd.Parameters.AddWithValue("@Tenant", record.Tenant ?? "");
+                    _ = cmd.Parameters.AddWithValue("@LandUse", record.LandUse ?? "");
+                    _ = cmd.Parameters.AddWithValue("@LandOwnershipType", record.LandOwnershipType ?? "");
+                    _ = cmd.Parameters.AddWithValue("@AreaInSqm", record.AreaInSqm ?? (object)DBNull.Value);
+                    _ = cmd.Parameters.AddWithValue("@AreaInRAPD", record.AreaInRAPD ?? "");
+                    _ = cmd.Parameters.AddWithValue("@AreaInBKD", record.AreaInBKD ?? "");
+                    _ = cmd.Parameters.AddWithValue("@MothNo", record.MothNo ?? "");
+                    _ = cmd.Parameters.AddWithValue("@PaanaNo", record.PaanaNo ?? "");
+                    _ = cmd.Parameters.AddWithValue("@Remarks", record.Remarks ?? "");
+                    _ = cmd.Parameters.AddWithValue("@IsValid", 1);
 
-                    cmd.ExecuteNonQuery();
+                    _ = cmd.ExecuteNonQuery();
                     savedCount++;
                 }
 
@@ -164,9 +163,192 @@ namespace Land_Readjustment_Tool.Repositories
 
             string sql = "SELECT COUNT(*) FROM tblOriginalLandParcels WHERE ParcelNo = @ParcelNo AND MapSheetNo = @MapSheetNo";
             using var cmd = new SQLiteCommand(sql, _connection, transaction);
-            cmd.Parameters.AddWithValue("@ParcelNo", parcelNo);
-            cmd.Parameters.AddWithValue("@MapSheetNo", mapSheetNo);
+            _ = cmd.Parameters.AddWithValue("@ParcelNo", parcelNo);
+            _ = cmd.Parameters.AddWithValue("@MapSheetNo", mapSheetNo);
             return Convert.ToInt32(cmd.ExecuteScalar()) > 0;
+        }
+
+        public int GetNextAnonymousOwnerNumber()
+        {
+            const string sql = @"
+                SELECT LandOwnersName
+                FROM tblLandOwner
+                WHERE IsAnonymous = 1
+                   OR LOWER(LandOwnersName) LIKE 'anonymous owner %'";
+
+            int maxNumber = 0;
+            using var cmd = new SQLiteCommand(sql, _connection);
+            using var reader = cmd.ExecuteReader();
+            while (reader.Read())
+            {
+                var name = reader["LandOwnersName"]?.ToString();
+                if (string.IsNullOrWhiteSpace(name))
+                    continue;
+
+                var parts = name.Trim().Split(' ', StringSplitOptions.RemoveEmptyEntries);
+                if (parts.Length == 0)
+                    continue;
+
+                if (int.TryParse(parts[^1], out int number))
+                {
+                    maxNumber = Math.Max(maxNumber, number);
+                }
+            }
+
+            return maxNumber + 1;
+        }
+
+        /// <summary>
+        /// Checks if an owner with the same name, father/spouse, and citizenship number already exists
+        /// </summary>
+        /// <param name="name">Owner's name</param>
+        /// <param name="fatherSpouse">Father/spouse name</param>
+        /// <param name="citizenshipNumber">Citizenship number</param>
+        /// <param name="excludeOwnerId">Owner ID to exclude from check (for edit mode)</param>
+        /// <returns>True if a duplicate exists</returns>
+        public bool OwnerExists(string? name, string? fatherSpouse, string? citizenshipNumber, int? excludeOwnerId = null)
+        {
+            string sql = @"
+                SELECT COUNT(*) FROM tblLandOwner 
+                WHERE LOWER(TRIM(LandOwnersName)) = LOWER(TRIM(@LandOwnersName))
+                AND LOWER(TRIM(COALESCE(FatherSpouse, ''))) = LOWER(TRIM(@FatherSpouse))
+                AND LOWER(TRIM(COALESCE(CitizenshipNumber, ''))) = LOWER(TRIM(@CitizenshipNumber))";
+
+            if (excludeOwnerId.HasValue)
+            {
+                sql += " AND LandOwnerId != @ExcludeOwnerId";
+            }
+
+            using var cmd = new SQLiteCommand(sql, _connection);
+            _ = cmd.Parameters.AddWithValue("@LandOwnersName", name?.Trim() ?? "");
+            _ = cmd.Parameters.AddWithValue("@FatherSpouse", fatherSpouse?.Trim() ?? "");
+            _ = cmd.Parameters.AddWithValue("@CitizenshipNumber", citizenshipNumber?.Trim() ?? "");
+            
+            if (excludeOwnerId.HasValue)
+            {
+                _ = cmd.Parameters.AddWithValue("@ExcludeOwnerId", excludeOwnerId.Value);
+            }
+
+            return Convert.ToInt32(cmd.ExecuteScalar()) > 0;
+        }
+
+        public int CreateOwner(LandOwner owner)
+        {
+            const string insertSql = @"
+                INSERT INTO tblLandOwner (
+                    LandOwnersName, FatherSpouse, Gender, CitizenshipNumber,
+                    CitizenshipIssuedDistrict, CitizenshipIssuedDate,
+                    PermanentAddress, TemporaryAddress, ContactNumber, EmailID,
+                    IsAnonymous, CreatedDate
+                ) VALUES (
+                    @LandOwnersName, @FatherSpouse, @Gender, @CitizenshipNumber,
+                    @CitizenshipIssuedDistrict, @CitizenshipIssuedDate,
+                    @PermanentAddress, @TemporaryAddress, @ContactNumber, @EmailID,
+                    @IsAnonymous, @CreatedDate
+                );
+                SELECT last_insert_rowid();";
+
+            using var cmd = new SQLiteCommand(insertSql, _connection);
+            _ = cmd.Parameters.AddWithValue("@LandOwnersName", owner.LandOwnersName);
+            _ = cmd.Parameters.AddWithValue("@FatherSpouse", owner.FatherSpouse ?? "");
+            _ = cmd.Parameters.AddWithValue("@Gender", owner.Gender ?? "");
+            _ = cmd.Parameters.AddWithValue("@CitizenshipNumber", owner.CitizenshipNumber ?? "");
+            _ = cmd.Parameters.AddWithValue("@CitizenshipIssuedDistrict", owner.CitizenshipIssuedDistrict ?? "");
+            _ = cmd.Parameters.AddWithValue("@CitizenshipIssuedDate", owner.CitizenshipIssuedDate ?? "");
+            _ = cmd.Parameters.AddWithValue("@PermanentAddress", owner.PermanentAddress ?? "");
+            _ = cmd.Parameters.AddWithValue("@TemporaryAddress", owner.TemporaryAddress ?? "");
+            _ = cmd.Parameters.AddWithValue("@ContactNumber", owner.ContactNumber ?? "");
+            _ = cmd.Parameters.AddWithValue("@EmailID", owner.EmailID ?? "");
+            _ = cmd.Parameters.AddWithValue("@IsAnonymous", owner.IsAnonymous ? 1 : 0);
+            _ = cmd.Parameters.AddWithValue("@CreatedDate", owner.CreatedDate.ToString("yyyy-MM-dd HH:mm:ss"));
+
+            int ownerId = Convert.ToInt32(cmd.ExecuteScalar());
+            CurrentProject.MarkAsModified();
+            return ownerId;
+        }
+
+        public int InsertParcel(OriginalLandParcel parcel)
+        {
+            const string sql = @"
+                INSERT INTO tblOriginalLandParcels (
+                    LandOwnerId, ParcelNo, Province, District, MunicipalityVillage,
+                    WardNo, ParcelLocation, MapSheetNo, Tenant, LandUse, LandOwnershipType,
+                    AreaInSqm, AreaInRAPD, AreaInBKD,
+                    MothNo, PaanaNo, Remarks, IsValid
+                ) VALUES (
+                    @LandOwnerId, @ParcelNo, @Province, @District, @MunicipalityVillage,
+                    @WardNo, @ParcelLocation, @MapSheetNo, @Tenant, @LandUse, @LandOwnershipType,
+                    @AreaInSqm, @AreaInRAPD, @AreaInBKD,
+                    @MothNo, @PaanaNo, @Remarks, @IsValid
+                );
+                SELECT last_insert_rowid();";
+
+            using var cmd = new SQLiteCommand(sql, _connection);
+            _ = cmd.Parameters.AddWithValue("@LandOwnerId", parcel.LandOwnerId);
+            _ = cmd.Parameters.AddWithValue("@ParcelNo", parcel.ParcelNo ?? "");
+            _ = cmd.Parameters.AddWithValue("@Province", parcel.Province ?? "");
+            _ = cmd.Parameters.AddWithValue("@District", parcel.District ?? "");
+            _ = cmd.Parameters.AddWithValue("@MunicipalityVillage", parcel.MunicipalityVillage ?? "");
+            _ = cmd.Parameters.AddWithValue("@WardNo", parcel.WardNo ?? "");
+            _ = cmd.Parameters.AddWithValue("@ParcelLocation", parcel.ParcelLocation ?? "");
+            _ = cmd.Parameters.AddWithValue("@MapSheetNo", parcel.MapSheetNo ?? "");
+            _ = cmd.Parameters.AddWithValue("@Tenant", parcel.IsTenant ?? "");
+            _ = cmd.Parameters.AddWithValue("@LandUse", parcel.LandUse ?? "");
+            _ = cmd.Parameters.AddWithValue("@LandOwnershipType", parcel.LandOwnershipType ?? "");
+            _ = cmd.Parameters.AddWithValue("@AreaInSqm", parcel.AreaInSqm ?? (object)DBNull.Value);
+            _ = cmd.Parameters.AddWithValue("@AreaInRAPD", parcel.AreaInRAPD ?? "");
+            _ = cmd.Parameters.AddWithValue("@AreaInBKD", parcel.AreaInBKD ?? "");
+            _ = cmd.Parameters.AddWithValue("@MothNo", parcel.MothNo ?? "");
+            _ = cmd.Parameters.AddWithValue("@PaanaNo", parcel.PaanaNo ?? "");
+            _ = cmd.Parameters.AddWithValue("@Remarks", parcel.Remarks ?? "");
+            _ = cmd.Parameters.AddWithValue("@IsValid", parcel.IsValid ? 1 : 0);
+
+            int parcelId = Convert.ToInt32(cmd.ExecuteScalar());
+            CurrentProject.MarkAsModified();
+            return parcelId;
+        }
+
+        public bool UpdateParcelOwnerId(int parcelId, int landOwnerId)
+        {
+            const string sql = @"
+                UPDATE tblOriginalLandParcels
+                SET LandOwnerId = @LandOwnerId, ModifiedDate = @ModifiedDate
+                WHERE ParcelId = @ParcelId";
+
+            using var cmd = new SQLiteCommand(sql, _connection);
+            _ = cmd.Parameters.AddWithValue("@ParcelId", parcelId);
+            _ = cmd.Parameters.AddWithValue("@LandOwnerId", landOwnerId);
+            _ = cmd.Parameters.AddWithValue("@ModifiedDate", DateTime.Now.ToString("yyyy-MM-dd HH:mm:ss"));
+
+            var updated = cmd.ExecuteNonQuery() > 0;
+            if (updated)
+            {
+                CurrentProject.MarkAsModified();
+            }
+            return updated;
+        }
+
+        public List<string> GetUniqueMapSheets()
+        {
+            var mapSheets = new List<string>();
+            const string sql = @"
+                SELECT DISTINCT MapSheetNo
+                FROM tblOriginalLandParcels
+                WHERE MapSheetNo IS NOT NULL AND TRIM(MapSheetNo) <> ''
+                ORDER BY MapSheetNo";
+
+            using var cmd = new SQLiteCommand(sql, _connection);
+            using var reader = cmd.ExecuteReader();
+            while (reader.Read())
+            {
+                var mapSheet = reader["MapSheetNo"]?.ToString();
+                if (!string.IsNullOrWhiteSpace(mapSheet))
+                {
+                    mapSheets.Add(mapSheet.Trim());
+                }
+            }
+
+            return mapSheets;
         }
 
         public bool ParcelExists(string? parcelNo, string? mapSheetNo, int? excludeParcelId = null)
@@ -181,11 +363,11 @@ namespace Land_Readjustment_Tool.Repositories
             }
 
             using var cmd = new SQLiteCommand(sql, _connection);
-            cmd.Parameters.AddWithValue("@ParcelNo", parcelNo);
-            cmd.Parameters.AddWithValue("@MapSheetNo", mapSheetNo);
+            _ = cmd.Parameters.AddWithValue("@ParcelNo", parcelNo);
+            _ = cmd.Parameters.AddWithValue("@MapSheetNo", mapSheetNo);
             if (excludeParcelId.HasValue)
             {
-                cmd.Parameters.AddWithValue("@ParcelId", excludeParcelId.Value);
+                _ = cmd.Parameters.AddWithValue("@ParcelId", excludeParcelId.Value);
             }
 
             return Convert.ToInt32(cmd.ExecuteScalar()) > 0;
@@ -205,9 +387,9 @@ namespace Land_Readjustment_Tool.Repositories
 
             using (var cmd = new SQLiteCommand(selectSql, _connection, transaction))
             {
-                cmd.Parameters.AddWithValue("@LandOwnersName", owner.LandOwnersName);
-                cmd.Parameters.AddWithValue("@FatherSpouse", owner.FatherSpouse ?? "");
-                cmd.Parameters.AddWithValue("@CitizenshipNumber", owner.CitizenshipNumber ?? "");
+                _ = cmd.Parameters.AddWithValue("@LandOwnersName", owner.LandOwnersName);
+                _ = cmd.Parameters.AddWithValue("@FatherSpouse", owner.FatherSpouse ?? "");
+                _ = cmd.Parameters.AddWithValue("@CitizenshipNumber", owner.CitizenshipNumber ?? "");
 
                 var result = cmd.ExecuteScalar();
                 if (result != null && result != DBNull.Value)
@@ -233,18 +415,18 @@ namespace Land_Readjustment_Tool.Repositories
 
             using (var cmd = new SQLiteCommand(insertSql, _connection, transaction))
             {
-                cmd.Parameters.AddWithValue("@LandOwnersName", owner.LandOwnersName);
-                cmd.Parameters.AddWithValue("@FatherSpouse", owner.FatherSpouse ?? "");
-                cmd.Parameters.AddWithValue("@Gender", owner.Gender ?? "");
-                cmd.Parameters.AddWithValue("@CitizenshipNumber", owner.CitizenshipNumber ?? "");
-                cmd.Parameters.AddWithValue("@CitizenshipIssuedDistrict", owner.CitizenshipIssuedDistrict ?? "");
-                cmd.Parameters.AddWithValue("@CitizenshipIssuedDate", owner.CitizenshipIssuedDate ?? "");
-                cmd.Parameters.AddWithValue("@PermanentAddress", owner.PermanentAddress ?? "");
-                cmd.Parameters.AddWithValue("@TemporaryAddress", owner.TemporaryAddress ?? "");
-                cmd.Parameters.AddWithValue("@ContactNumber", owner.ContactNumber ?? "");
-                cmd.Parameters.AddWithValue("@EmailID", owner.EmailID ?? "");
-                cmd.Parameters.AddWithValue("@IsAnonymous", owner.IsAnonymous ? 1 : 0);
-                cmd.Parameters.AddWithValue("@CreatedDate", owner.CreatedDate.ToString("yyyy-MM-dd HH:mm:ss"));
+                _ = cmd.Parameters.AddWithValue("@LandOwnersName", owner.LandOwnersName);
+                _ = cmd.Parameters.AddWithValue("@FatherSpouse", owner.FatherSpouse ?? "");
+                _ = cmd.Parameters.AddWithValue("@Gender", owner.Gender ?? "");
+                _ = cmd.Parameters.AddWithValue("@CitizenshipNumber", owner.CitizenshipNumber ?? "");
+                _ = cmd.Parameters.AddWithValue("@CitizenshipIssuedDistrict", owner.CitizenshipIssuedDistrict ?? "");
+                _ = cmd.Parameters.AddWithValue("@CitizenshipIssuedDate", owner.CitizenshipIssuedDate ?? "");
+                _ = cmd.Parameters.AddWithValue("@PermanentAddress", owner.PermanentAddress ?? "");
+                _ = cmd.Parameters.AddWithValue("@TemporaryAddress", owner.TemporaryAddress ?? "");
+                _ = cmd.Parameters.AddWithValue("@ContactNumber", owner.ContactNumber ?? "");
+                _ = cmd.Parameters.AddWithValue("@EmailID", owner.EmailID ?? "");
+                _ = cmd.Parameters.AddWithValue("@IsAnonymous", owner.IsAnonymous ? 1 : 0);
+                _ = cmd.Parameters.AddWithValue("@CreatedDate", owner.CreatedDate.ToString("yyyy-MM-dd HH:mm:ss"));
 
                 return (Convert.ToInt32(cmd.ExecuteScalar()), true);
             }
@@ -263,7 +445,7 @@ namespace Land_Readjustment_Tool.Repositories
             foreach (var record in records)
             {
                 string key = GetOwnerKey(record);
-                
+
                 if (!uniqueOwners.ContainsKey(key))
                 {
                     uniqueOwners[key] = new LandOwner
@@ -294,6 +476,7 @@ namespace Land_Readjustment_Tool.Repositories
         public int SaveParcels(List<BaselineLandParceRecord> records, Dictionary<string, int> ownerMap)
         {
             int savedCount = 0;
+            int skippedCount = 0;
 
             using var transaction = _connection.BeginTransaction();
             try
@@ -301,9 +484,20 @@ namespace Land_Readjustment_Tool.Repositories
                 foreach (var record in records)
                 {
                     string ownerKey = GetOwnerKey(record);
-                    if (!ownerMap.ContainsKey(ownerKey)) continue;
+                    if (!ownerMap.ContainsKey(ownerKey))
+                    {
+                        skippedCount++;
+                        continue;
+                    }
 
                     int ownerId = ownerMap[ownerKey];
+
+                    // Check if parcel already exists (avoid duplicates)
+                    if (ParcelExists(record.ParcelNo, record.MapSheetNo, transaction))
+                    {
+                        skippedCount++;
+                        continue;
+                    }
 
                     string sql = @"
                         INSERT INTO tblOriginalLandParcels (
@@ -319,26 +513,26 @@ namespace Land_Readjustment_Tool.Repositories
                         )";
 
                     using var cmd = new SQLiteCommand(sql, _connection, transaction);
-                    cmd.Parameters.AddWithValue("@LandOwnerId", ownerId);
-                    cmd.Parameters.AddWithValue("@ParcelNo", record.ParcelNo ?? "");
-                    cmd.Parameters.AddWithValue("@Province", record.Province ?? "");
-                    cmd.Parameters.AddWithValue("@District", record.District ?? "");
-                    cmd.Parameters.AddWithValue("@MunicipalityVillage", record.MunicipalityVillage ?? "");
-                    cmd.Parameters.AddWithValue("@WardNo", record.WardNo ?? "");
-                    cmd.Parameters.AddWithValue("@ParcelLocation", record.ParcelLocation ?? "");
-                    cmd.Parameters.AddWithValue("@MapSheetNo", record.MapSheetNo ?? "");
-                    cmd.Parameters.AddWithValue("@Tenant", record.Tenant ?? "");
-                    cmd.Parameters.AddWithValue("@LandUse", record.LandUse ?? "");
-                    cmd.Parameters.AddWithValue("@LandOwnershipType", record.LandOwnershipType ?? "");
-                    cmd.Parameters.AddWithValue("@AreaInSqm", record.AreaInSqm ?? (object)DBNull.Value);
-                    cmd.Parameters.AddWithValue("@AreaInRAPD", record.AreaInRAPD ?? "");
-                    cmd.Parameters.AddWithValue("@AreaInBKD", record.AreaInBKD ?? "");
-                    cmd.Parameters.AddWithValue("@MothNo", record.MothNo ?? "");
-                    cmd.Parameters.AddWithValue("@PaanaNo", record.PaanaNo ?? "");
-                    cmd.Parameters.AddWithValue("@Remarks", record.Remarks ?? "");
-                    cmd.Parameters.AddWithValue("@IsValid", 1);
+                    _ = cmd.Parameters.AddWithValue("@LandOwnerId", ownerId);
+                    _ = cmd.Parameters.AddWithValue("@ParcelNo", record.ParcelNo ?? "");
+                    _ = cmd.Parameters.AddWithValue("@Province", record.Province ?? "");
+                    _ = cmd.Parameters.AddWithValue("@District", record.District ?? "");
+                    _ = cmd.Parameters.AddWithValue("@MunicipalityVillage", record.MunicipalityVillage ?? "");
+                    _ = cmd.Parameters.AddWithValue("@WardNo", record.WardNo ?? "");
+                    _ = cmd.Parameters.AddWithValue("@ParcelLocation", record.ParcelLocation ?? "");
+                    _ = cmd.Parameters.AddWithValue("@MapSheetNo", record.MapSheetNo ?? "");
+                    _ = cmd.Parameters.AddWithValue("@Tenant", record.Tenant ?? "");
+                    _ = cmd.Parameters.AddWithValue("@LandUse", record.LandUse ?? "");
+                    _ = cmd.Parameters.AddWithValue("@LandOwnershipType", record.LandOwnershipType ?? "");
+                    _ = cmd.Parameters.AddWithValue("@AreaInSqm", record.AreaInSqm ?? (object)DBNull.Value);
+                    _ = cmd.Parameters.AddWithValue("@AreaInRAPD", record.AreaInRAPD ?? "");
+                    _ = cmd.Parameters.AddWithValue("@AreaInBKD", record.AreaInBKD ?? "");
+                    _ = cmd.Parameters.AddWithValue("@MothNo", record.MothNo ?? "");
+                    _ = cmd.Parameters.AddWithValue("@PaanaNo", record.PaanaNo ?? "");
+                    _ = cmd.Parameters.AddWithValue("@Remarks", record.Remarks ?? "");
+                    _ = cmd.Parameters.AddWithValue("@IsValid", 1);
 
-                    cmd.ExecuteNonQuery();
+                    _ = cmd.ExecuteNonQuery();
                     savedCount++;
                 }
 
@@ -371,9 +565,9 @@ namespace Land_Readjustment_Tool.Repositories
 
             using (var cmd = new SQLiteCommand(selectSql, _connection))
             {
-                cmd.Parameters.AddWithValue("@LandOwnersName", owner.LandOwnersName);
-                cmd.Parameters.AddWithValue("@FatherSpouse", owner.FatherSpouse ?? "");
-                cmd.Parameters.AddWithValue("@CitizenshipNumber", owner.CitizenshipNumber ?? "");
+                _ = cmd.Parameters.AddWithValue("@LandOwnersName", owner.LandOwnersName);
+                _ = cmd.Parameters.AddWithValue("@FatherSpouse", owner.FatherSpouse ?? "");
+                _ = cmd.Parameters.AddWithValue("@CitizenshipNumber", owner.CitizenshipNumber ?? "");
 
                 var result = cmd.ExecuteScalar();
                 if (result != null)
@@ -399,18 +593,18 @@ namespace Land_Readjustment_Tool.Repositories
 
             using (var cmd = new SQLiteCommand(insertSql, _connection))
             {
-                cmd.Parameters.AddWithValue("@LandOwnersName", owner.LandOwnersName);
-                cmd.Parameters.AddWithValue("@FatherSpouse", owner.FatherSpouse ?? "");
-                cmd.Parameters.AddWithValue("@Gender", owner.Gender ?? "");
-                cmd.Parameters.AddWithValue("@CitizenshipNumber", owner.CitizenshipNumber ?? "");
-                cmd.Parameters.AddWithValue("@CitizenshipIssuedDistrict", owner.CitizenshipIssuedDistrict ?? "");
-                cmd.Parameters.AddWithValue("@CitizenshipIssuedDate", owner.CitizenshipIssuedDate ?? "");
-                cmd.Parameters.AddWithValue("@PermanentAddress", owner.PermanentAddress ?? "");
-                cmd.Parameters.AddWithValue("@TemporaryAddress", owner.TemporaryAddress ?? "");
-                cmd.Parameters.AddWithValue("@ContactNumber", owner.ContactNumber ?? "");
-                cmd.Parameters.AddWithValue("@EmailID", owner.EmailID ?? "");
-                cmd.Parameters.AddWithValue("@IsAnonymous", owner.IsAnonymous ? 1 : 0);
-                cmd.Parameters.AddWithValue("@CreatedDate", owner.CreatedDate.ToString("yyyy-MM-dd HH:mm:ss"));
+                _ = cmd.Parameters.AddWithValue("@LandOwnersName", owner.LandOwnersName);
+                _ = cmd.Parameters.AddWithValue("@FatherSpouse", owner.FatherSpouse ?? "");
+                _ = cmd.Parameters.AddWithValue("@Gender", owner.Gender ?? "");
+                _ = cmd.Parameters.AddWithValue("@CitizenshipNumber", owner.CitizenshipNumber ?? "");
+                _ = cmd.Parameters.AddWithValue("@CitizenshipIssuedDistrict", owner.CitizenshipIssuedDistrict ?? "");
+                _ = cmd.Parameters.AddWithValue("@CitizenshipIssuedDate", owner.CitizenshipIssuedDate ?? "");
+                _ = cmd.Parameters.AddWithValue("@PermanentAddress", owner.PermanentAddress ?? "");
+                _ = cmd.Parameters.AddWithValue("@TemporaryAddress", owner.TemporaryAddress ?? "");
+                _ = cmd.Parameters.AddWithValue("@ContactNumber", owner.ContactNumber ?? "");
+                _ = cmd.Parameters.AddWithValue("@EmailID", owner.EmailID ?? "");
+                _ = cmd.Parameters.AddWithValue("@IsAnonymous", owner.IsAnonymous ? 1 : 0);
+                _ = cmd.Parameters.AddWithValue("@CreatedDate", owner.CreatedDate.ToString("yyyy-MM-dd HH:mm:ss"));
 
                 var ownerId = Convert.ToInt32(cmd.ExecuteScalar());
                 CurrentProject.MarkAsModified();
@@ -424,11 +618,11 @@ namespace Land_Readjustment_Tool.Repositories
         public void UpdateOwnerPhoto(int ownerId, string photoPath)
         {
             string sql = "UPDATE tblLandOwner SET PhotoPath = @PhotoPath, ModifiedDate = @ModifiedDate WHERE LandOwnerId = @OwnerId";
-            
+
             using var cmd = new SQLiteCommand(sql, _connection);
-            cmd.Parameters.AddWithValue("@PhotoPath", photoPath);
-            cmd.Parameters.AddWithValue("@ModifiedDate", DateTime.Now.ToString("yyyy-MM-dd HH:mm:ss"));
-            cmd.Parameters.AddWithValue("@OwnerId", ownerId);
+            _ = cmd.Parameters.AddWithValue("@PhotoPath", photoPath);
+            _ = cmd.Parameters.AddWithValue("@ModifiedDate", DateTime.Now.ToString("yyyy-MM-dd HH:mm:ss"));
+            _ = cmd.Parameters.AddWithValue("@OwnerId", ownerId);
             if (cmd.ExecuteNonQuery() > 0)
             {
                 CurrentProject.MarkAsModified();
@@ -441,11 +635,11 @@ namespace Land_Readjustment_Tool.Repositories
         public void UpdateOwnerDocumentsFolder(int ownerId, string folderPath)
         {
             string sql = "UPDATE tblLandOwner SET DocumentsFolderPath = @FolderPath, ModifiedDate = @ModifiedDate WHERE LandOwnerId = @OwnerId";
-            
+
             using var cmd = new SQLiteCommand(sql, _connection);
-            cmd.Parameters.AddWithValue("@FolderPath", folderPath);
-            cmd.Parameters.AddWithValue("@ModifiedDate", DateTime.Now.ToString("yyyy-MM-dd HH:mm:ss"));
-            cmd.Parameters.AddWithValue("@OwnerId", ownerId);
+            _ = cmd.Parameters.AddWithValue("@FolderPath", folderPath);
+            _ = cmd.Parameters.AddWithValue("@ModifiedDate", DateTime.Now.ToString("yyyy-MM-dd HH:mm:ss"));
+            _ = cmd.Parameters.AddWithValue("@OwnerId", ownerId);
             if (cmd.ExecuteNonQuery() > 0)
             {
                 CurrentProject.MarkAsModified();
@@ -584,7 +778,7 @@ namespace Land_Readjustment_Tool.Repositories
                 ORDER BY p.MapSheetNo, p.ParcelNo";
 
             using var cmd = new SQLiteCommand(sql, _connection);
-            cmd.Parameters.AddWithValue("@LandOwnerId", landOwnerId);
+            _ = cmd.Parameters.AddWithValue("@LandOwnerId", landOwnerId);
             using var reader = cmd.ExecuteReader();
 
             while (reader.Read())
@@ -642,7 +836,7 @@ namespace Land_Readjustment_Tool.Repositories
         {
             string sql = "SELECT COUNT(*) FROM tblOriginalLandParcels WHERE LandOwnerId = @LandOwnerId";
             using var cmd = new SQLiteCommand(sql, _connection);
-            cmd.Parameters.AddWithValue("@LandOwnerId", landOwnerId);
+            _ = cmd.Parameters.AddWithValue("@LandOwnerId", landOwnerId);
             return Convert.ToInt32(cmd.ExecuteScalar());
         }
 
@@ -685,14 +879,14 @@ namespace Land_Readjustment_Tool.Repositories
                 string deleteParcels = "DELETE FROM tblOriginalLandParcels";
                 using (var cmd = new SQLiteCommand(deleteParcels, _connection, transaction))
                 {
-                    cmd.ExecuteNonQuery();
+                    _ = cmd.ExecuteNonQuery();
                 }
 
                 // Then delete owners
                 string deleteOwners = "DELETE FROM tblLandOwner";
                 using (var cmd = new SQLiteCommand(deleteOwners, _connection, transaction))
                 {
-                    cmd.ExecuteNonQuery();
+                    _ = cmd.ExecuteNonQuery();
                 }
 
                 transaction.Commit();
@@ -712,7 +906,7 @@ namespace Land_Readjustment_Tool.Repositories
         {
             string sql = "DELETE FROM tblOriginalLandParcels WHERE ParcelId = @ParcelId";
             using var cmd = new SQLiteCommand(sql, _connection);
-            cmd.Parameters.AddWithValue("@ParcelId", parcelId);
+            _ = cmd.Parameters.AddWithValue("@ParcelId", parcelId);
             var deleted = cmd.ExecuteNonQuery() > 0;
             if (deleted)
             {
@@ -733,15 +927,15 @@ namespace Land_Readjustment_Tool.Repositories
                 string deleteParcels = "DELETE FROM tblOriginalLandParcels WHERE LandOwnerId = @LandOwnerId";
                 using (var cmd = new SQLiteCommand(deleteParcels, _connection, transaction))
                 {
-                    cmd.Parameters.AddWithValue("@LandOwnerId", landOwnerId);
-                    cmd.ExecuteNonQuery();
+                    _ = cmd.Parameters.AddWithValue("@LandOwnerId", landOwnerId);
+                    _ = cmd.ExecuteNonQuery();
                 }
 
                 // Delete the owner
                 string deleteOwner = "DELETE FROM tblLandOwner WHERE LandOwnerId = @LandOwnerId";
                 using (var cmd = new SQLiteCommand(deleteOwner, _connection, transaction))
                 {
-                    cmd.Parameters.AddWithValue("@LandOwnerId", landOwnerId);
+                    _ = cmd.Parameters.AddWithValue("@LandOwnerId", landOwnerId);
                     int result = cmd.ExecuteNonQuery();
                     transaction.Commit();
                     if (result > 0)
@@ -787,24 +981,24 @@ namespace Land_Readjustment_Tool.Repositories
                 WHERE ParcelId = @ParcelId";
 
             using var cmd = new SQLiteCommand(sql, _connection);
-            cmd.Parameters.AddWithValue("@ParcelId", parcel.ParcelId);
-            cmd.Parameters.AddWithValue("@ParcelNo", parcel.ParcelNo);
-            cmd.Parameters.AddWithValue("@Province", parcel.Province ?? "");
-            cmd.Parameters.AddWithValue("@District", parcel.District ?? "");
-            cmd.Parameters.AddWithValue("@MunicipalityVillage", parcel.MunicipalityVillage ?? "");
-            cmd.Parameters.AddWithValue("@WardNo", parcel.WardNo ?? "");
-            cmd.Parameters.AddWithValue("@ParcelLocation", parcel.ParcelLocation ?? "");
-            cmd.Parameters.AddWithValue("@MapSheetNo", parcel.MapSheetNo);
-            cmd.Parameters.AddWithValue("@Tenant", parcel.IsTenant ?? "");
-            cmd.Parameters.AddWithValue("@LandUse", parcel.LandUse ?? "");
-            cmd.Parameters.AddWithValue("@LandOwnershipType", parcel.LandOwnershipType ?? "");
-            cmd.Parameters.AddWithValue("@AreaInSqm", parcel.AreaInSqm ?? (object)DBNull.Value);
-            cmd.Parameters.AddWithValue("@AreaInRAPD", parcel.AreaInRAPD ?? "");
-            cmd.Parameters.AddWithValue("@AreaInBKD", parcel.AreaInBKD ?? "");
-            cmd.Parameters.AddWithValue("@MothNo", parcel.MothNo ?? "");
-            cmd.Parameters.AddWithValue("@PaanaNo", parcel.PaanaNo ?? "");
-            cmd.Parameters.AddWithValue("@Remarks", parcel.Remarks ?? "");
-            cmd.Parameters.AddWithValue("@ModifiedDate", DateTime.Now.ToString("yyyy-MM-dd HH:mm:ss"));
+            _ = cmd.Parameters.AddWithValue("@ParcelId", parcel.ParcelId);
+            _ = cmd.Parameters.AddWithValue("@ParcelNo", parcel.ParcelNo);
+            _ = cmd.Parameters.AddWithValue("@Province", parcel.Province ?? "");
+            _ = cmd.Parameters.AddWithValue("@District", parcel.District ?? "");
+            _ = cmd.Parameters.AddWithValue("@MunicipalityVillage", parcel.MunicipalityVillage ?? "");
+            _ = cmd.Parameters.AddWithValue("@WardNo", parcel.WardNo ?? "");
+            _ = cmd.Parameters.AddWithValue("@ParcelLocation", parcel.ParcelLocation ?? "");
+            _ = cmd.Parameters.AddWithValue("@MapSheetNo", parcel.MapSheetNo);
+            _ = cmd.Parameters.AddWithValue("@Tenant", parcel.IsTenant ?? "");
+            _ = cmd.Parameters.AddWithValue("@LandUse", parcel.LandUse ?? "");
+            _ = cmd.Parameters.AddWithValue("@LandOwnershipType", parcel.LandOwnershipType ?? "");
+            _ = cmd.Parameters.AddWithValue("@AreaInSqm", parcel.AreaInSqm ?? (object)DBNull.Value);
+            _ = cmd.Parameters.AddWithValue("@AreaInRAPD", parcel.AreaInRAPD ?? "");
+            _ = cmd.Parameters.AddWithValue("@AreaInBKD", parcel.AreaInBKD ?? "");
+            _ = cmd.Parameters.AddWithValue("@MothNo", parcel.MothNo ?? "");
+            _ = cmd.Parameters.AddWithValue("@PaanaNo", parcel.PaanaNo ?? "");
+            _ = cmd.Parameters.AddWithValue("@Remarks", parcel.Remarks ?? "");
+            _ = cmd.Parameters.AddWithValue("@ModifiedDate", DateTime.Now.ToString("yyyy-MM-dd HH:mm:ss"));
 
             var updated = cmd.ExecuteNonQuery() > 0;
             if (updated)
@@ -831,22 +1025,24 @@ namespace Land_Readjustment_Tool.Repositories
                     TemporaryAddress = @TemporaryAddress,
                     ContactNumber = @ContactNumber,
                     EmailID = @EmailID,
+                    IsAnonymous = @IsAnonymous,
                     ModifiedDate = @ModifiedDate
                 WHERE LandOwnerId = @LandOwnerId";
 
             using var cmd = new SQLiteCommand(sql, _connection);
-            cmd.Parameters.AddWithValue("@LandOwnerId", owner.LandOwnerId);
-            cmd.Parameters.AddWithValue("@LandOwnersName", owner.LandOwnersName);
-            cmd.Parameters.AddWithValue("@FatherSpouse", owner.FatherSpouse ?? "");
-            cmd.Parameters.AddWithValue("@Gender", owner.Gender ?? "");
-            cmd.Parameters.AddWithValue("@CitizenshipNumber", owner.CitizenshipNumber ?? "");
-            cmd.Parameters.AddWithValue("@CitizenshipIssuedDistrict", owner.CitizenshipIssuedDistrict ?? "");
-            cmd.Parameters.AddWithValue("@CitizenshipIssuedDate", owner.CitizenshipIssuedDate ?? "");
-            cmd.Parameters.AddWithValue("@PermanentAddress", owner.PermanentAddress ?? "");
-            cmd.Parameters.AddWithValue("@TemporaryAddress", owner.TemporaryAddress ?? "");
-            cmd.Parameters.AddWithValue("@ContactNumber", owner.ContactNumber ?? "");
-            cmd.Parameters.AddWithValue("@EmailID", owner.EmailID ?? "");
-            cmd.Parameters.AddWithValue("@ModifiedDate", DateTime.Now.ToString("yyyy-MM-dd HH:mm:ss"));
+            _ = cmd.Parameters.AddWithValue("@LandOwnerId", owner.LandOwnerId);
+            _ = cmd.Parameters.AddWithValue("@LandOwnersName", owner.LandOwnersName);
+            _ = cmd.Parameters.AddWithValue("@FatherSpouse", owner.FatherSpouse ?? "");
+            _ = cmd.Parameters.AddWithValue("@Gender", owner.Gender ?? "");
+            _ = cmd.Parameters.AddWithValue("@CitizenshipNumber", owner.CitizenshipNumber ?? "");
+            _ = cmd.Parameters.AddWithValue("@CitizenshipIssuedDistrict", owner.CitizenshipIssuedDistrict ?? "");
+            _ = cmd.Parameters.AddWithValue("@CitizenshipIssuedDate", owner.CitizenshipIssuedDate ?? "");
+            _ = cmd.Parameters.AddWithValue("@PermanentAddress", owner.PermanentAddress ?? "");
+            _ = cmd.Parameters.AddWithValue("@TemporaryAddress", owner.TemporaryAddress ?? "");
+            _ = cmd.Parameters.AddWithValue("@ContactNumber", owner.ContactNumber ?? "");
+            _ = cmd.Parameters.AddWithValue("@EmailID", owner.EmailID ?? "");
+            _ = cmd.Parameters.AddWithValue("@IsAnonymous", owner.IsAnonymous ? 1 : 0);
+            _ = cmd.Parameters.AddWithValue("@ModifiedDate", DateTime.Now.ToString("yyyy-MM-dd HH:mm:ss"));
 
             var updated = cmd.ExecuteNonQuery() > 0;
             if (updated)
@@ -876,7 +1072,7 @@ namespace Land_Readjustment_Tool.Repositories
                 WHERE p.ParcelId = @ParcelId";
 
             using var cmd = new SQLiteCommand(sql, _connection);
-            cmd.Parameters.AddWithValue("@ParcelId", parcelId);
+            _ = cmd.Parameters.AddWithValue("@ParcelId", parcelId);
             using var reader = cmd.ExecuteReader();
 
             if (reader.Read())
@@ -965,6 +1161,114 @@ namespace Land_Readjustment_Tool.Repositories
             }
 
             return owners;
+        }
+
+        /// <summary>
+        /// Gets a single land owner by ID
+        /// </summary>
+        public LandOwner? GetOwnerById(int landOwnerId)
+        {
+            string sql = @"
+                SELECT LandOwnerId, LandOwnersName, FatherSpouse, Gender, CitizenshipNumber,
+                       CitizenshipIssuedDistrict, CitizenshipIssuedDate, PermanentAddress,
+                       TemporaryAddress, ContactNumber, EmailID, PhotoPath, DocumentsFolderPath,
+                       IsAnonymous, CreatedDate, ModifiedDate
+                FROM tblLandOwner
+                WHERE LandOwnerId = @LandOwnerId";
+
+            using var cmd = new SQLiteCommand(sql, _connection);
+            _ = cmd.Parameters.AddWithValue("@LandOwnerId", landOwnerId);
+
+            using var reader = cmd.ExecuteReader();
+            if (reader.Read())
+            {
+                return new LandOwner
+                {
+                    LandOwnerId = reader.GetInt32(reader.GetOrdinal("LandOwnerId")),
+                    LandOwnersName = reader.GetString(reader.GetOrdinal("LandOwnersName")),
+                    FatherSpouse = GetNullableString(reader, "FatherSpouse"),
+                    Gender = GetNullableString(reader, "Gender"),
+                    CitizenshipNumber = GetNullableString(reader, "CitizenshipNumber"),
+                    CitizenshipIssuedDistrict = GetNullableString(reader, "CitizenshipIssuedDistrict"),
+                    CitizenshipIssuedDate = GetNullableString(reader, "CitizenshipIssuedDate"),
+                    PermanentAddress = GetNullableString(reader, "PermanentAddress"),
+                    TemporaryAddress = GetNullableString(reader, "TemporaryAddress"),
+                    ContactNumber = GetNullableString(reader, "ContactNumber"),
+                    EmailID = GetNullableString(reader, "EmailID"),
+                    PhotoPath = GetNullableString(reader, "PhotoPath"),
+                    DocumentsFolderPath = GetNullableString(reader, "DocumentsFolderPath"),
+                    IsAnonymous = GetNullableInt(reader, "IsAnonymous") == 1,
+                    CreatedDate = reader.GetDateTime(reader.GetOrdinal("CreatedDate")),
+                    ModifiedDate = GetNullableDateTime(reader, "ModifiedDate")
+                };
+            }
+
+            return null;
+        }
+
+        /// <summary>
+        /// Gets the total area in square meters for all parcels owned by a specific owner
+        /// </summary>
+        public double GetTotalAreaByOwnerId(int landOwnerId)
+        {
+            string sql = @"
+                SELECT SUM(AreaInSqm) as TotalArea
+                FROM tblOriginalLandParcels
+                WHERE LandOwnerId = @LandOwnerId";
+
+            using var cmd = new SQLiteCommand(sql, _connection);
+            _ = cmd.Parameters.AddWithValue("@LandOwnerId", landOwnerId);
+
+            var result = cmd.ExecuteScalar();
+            return result != null && result != DBNull.Value ? Convert.ToDouble(result) : 0.0;
+        }
+
+        /// <summary>
+        /// Gets the count of documents for a specific owner
+        /// </summary>
+        public int GetDocumentCountByOwnerId(int landOwnerId)
+        {
+            var owner = GetOwnerById(landOwnerId);
+            if (owner == null || string.IsNullOrWhiteSpace(owner.DocumentsFolderPath))
+                return 0;
+
+            string projectDir = Path.GetDirectoryName(CurrentProject.Info.ProjectPath) ?? "";
+            string docsPath = Path.Combine(projectDir, owner.DocumentsFolderPath);
+
+            if (!Directory.Exists(docsPath))
+                return 0;
+
+            return Directory.GetFiles(docsPath).Length;
+        }
+
+        /// <summary>
+        /// Updates the photo path for a specific owner
+        /// </summary>
+        public void UpdateOwnerPhotoPath(int landOwnerId, string photoPath)
+        {
+            string sql = @"
+                UPDATE tblLandOwner 
+                SET PhotoPath = @PhotoPath, ModifiedDate = @ModifiedDate
+                WHERE LandOwnerId = @LandOwnerId";
+
+            using var cmd = new SQLiteCommand(sql, _connection);
+            _ = cmd.Parameters.AddWithValue("@PhotoPath", photoPath);
+            _ = cmd.Parameters.AddWithValue("@ModifiedDate", DateTime.Now);
+            _ = cmd.Parameters.AddWithValue("@LandOwnerId", landOwnerId);
+
+            _ = cmd.ExecuteNonQuery();
+            CurrentProject.MarkAsModified();
+        }
+
+        // Helper method for reading nullable DateTime from SQLiteDataReader
+        private static DateTime? GetNullableDateTime(SQLiteDataReader reader, string columnName)
+        {
+            int ordinal = reader.GetOrdinal(columnName);
+            if (reader.IsDBNull(ordinal))
+                return null;
+
+            string dateString = reader.GetString(ordinal);
+            return DateTime.TryParse(dateString, out DateTime result) ? result : null;
         }
     }
 }

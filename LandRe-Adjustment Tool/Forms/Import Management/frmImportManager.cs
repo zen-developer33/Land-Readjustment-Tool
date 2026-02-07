@@ -780,6 +780,9 @@ namespace Land_Readjustment_Tool.Forms
             {
                 dgvRecords.DataSource = _importedRecords;
                 UpdateRecordCount();
+
+                // Clear selection after loading
+                dgvRecords.ClearSelection();
             }
             finally
             {
@@ -865,7 +868,7 @@ namespace Land_Readjustment_Tool.Forms
                 return false;
             };
 
-            using (var editForm = new frmAddEditRecord(record, rowIndex, parcelExists))
+            using (var editForm = new frmAddEditRecord(record, rowIndex, parcelExists, _importedRecords.ToList()))
             {
                 if (editForm.ShowDialog() == DialogResult.OK)
                 {
@@ -1323,6 +1326,7 @@ namespace Land_Readjustment_Tool.Forms
 
                 int savedParcels = 0;
                 int savedOwners = 0;
+                int skippedDuplicates = 0;
 
                 if (deduplicationResult != null && deduplicationResult.UniqueOwners.Count > 0)
                 {
@@ -1337,6 +1341,7 @@ namespace Land_Readjustment_Tool.Forms
 
                     // Save parcels with proper owner references
                     savedParcels = repository.SaveParcelsWithDeduplication(records, parcelToOwnerMap);
+                    skippedDuplicates = records.Count - savedParcels;
                 }
                 else
                 {
@@ -1347,16 +1352,24 @@ namespace Land_Readjustment_Tool.Forms
 
                     worker.ReportProgress(60);
                     savedParcels = repository.SaveParcels(records, ownerMap);
+                    skippedDuplicates = records.Count - savedParcels;
                 }
 
                 worker.ReportProgress(100);
 
+                string resultMessage = $"Successfully saved to database!\n\n" +
+                                      $"• Unique Landowners: {savedOwners}\n" +
+                                      $"• Land Parcels: {savedParcels}";
+                
+                if (skippedDuplicates > 0)
+                {
+                    resultMessage += $"\n• Skipped Duplicates: {skippedDuplicates}";
+                }
+
                 return new OperationResult
                 {
                     Success = true,
-                    Message = $"Successfully saved to database!\n\n" +
-                              $"• Unique Landowners: {savedOwners}\n" +
-                              $"• Land Parcels: {savedParcels}"
+                    Message = resultMessage
                 };
             }
             catch (Exception ex)

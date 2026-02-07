@@ -17,7 +17,7 @@
 
         private void InitializeComponent()
         {
-            DataGridViewCellStyle dataGridViewCellStyle1 = new DataGridViewCellStyle();
+            DataGridViewCellStyle dataGridViewCellStyle2 = new DataGridViewCellStyle();
             toolStrip1 = new ToolStrip();
             btnAttach = new ToolStripButton();
             btnOpen = new ToolStripButton();
@@ -28,6 +28,7 @@
             colFileName = new DataGridViewTextBoxColumn();
             colFileType = new DataGridViewTextBoxColumn();
             colFileSize = new DataGridViewTextBoxColumn();
+            btnClose = new Button();
             toolStrip1.SuspendLayout();
             ((System.ComponentModel.ISupportInitialize)dgvDocuments).BeginInit();
             SuspendLayout();
@@ -39,7 +40,7 @@
             toolStrip1.Items.AddRange(new ToolStripItem[] { btnAttach, btnOpen, btnDelete, toolStripSeparator1, lblDocCount });
             toolStrip1.Location = new Point(0, 0);
             toolStrip1.Name = "toolStrip1";
-            toolStrip1.Size = new Size(634, 45);
+            toolStrip1.Size = new Size(650, 45);
             toolStrip1.TabIndex = 0;
             // 
             // btnAttach
@@ -86,22 +87,22 @@
             dgvDocuments.BackgroundColor = SystemColors.ControlLight;
             dgvDocuments.ColumnHeadersHeightSizeMode = DataGridViewColumnHeadersHeightSizeMode.AutoSize;
             dgvDocuments.Columns.AddRange(new DataGridViewColumn[] { colFileName, colFileType, colFileSize });
-            dataGridViewCellStyle1.Alignment = DataGridViewContentAlignment.MiddleLeft;
-            dataGridViewCellStyle1.BackColor = SystemColors.Window;
-            dataGridViewCellStyle1.Font = new Font("Segoe UI", 9F);
-            dataGridViewCellStyle1.ForeColor = SystemColors.ControlText;
-            dataGridViewCellStyle1.SelectionBackColor = Color.SkyBlue;
-            dataGridViewCellStyle1.SelectionForeColor = SystemColors.HighlightText;
-            dataGridViewCellStyle1.WrapMode = DataGridViewTriState.False;
-            dgvDocuments.DefaultCellStyle = dataGridViewCellStyle1;
-            dgvDocuments.Location = new Point(0, 49);
+            dataGridViewCellStyle2.Alignment = DataGridViewContentAlignment.MiddleLeft;
+            dataGridViewCellStyle2.BackColor = SystemColors.Window;
+            dataGridViewCellStyle2.Font = new Font("Segoe UI", 9F);
+            dataGridViewCellStyle2.ForeColor = SystemColors.ControlText;
+            dataGridViewCellStyle2.SelectionBackColor = Color.SkyBlue;
+            dataGridViewCellStyle2.SelectionForeColor = SystemColors.HighlightText;
+            dataGridViewCellStyle2.WrapMode = DataGridViewTriState.False;
+            dgvDocuments.DefaultCellStyle = dataGridViewCellStyle2;
+            dgvDocuments.Location = new Point(7, 49);
             dgvDocuments.Margin = new Padding(4);
             dgvDocuments.Name = "dgvDocuments";
             dgvDocuments.ReadOnly = true;
             dgvDocuments.RowHeadersVisible = false;
             dgvDocuments.RowHeadersWidth = 51;
             dgvDocuments.SelectionMode = DataGridViewSelectionMode.FullRowSelect;
-            dgvDocuments.Size = new Size(634, 280);
+            dgvDocuments.Size = new Size(637, 411);
             dgvDocuments.TabIndex = 1;
             dgvDocuments.CellDoubleClick += dgvDocuments_CellDoubleClick;
             // 
@@ -129,10 +130,22 @@
             colFileSize.ReadOnly = true;
             colFileSize.Width = 125;
             // 
+            // btnClose
+            // 
+            btnClose.Anchor = AnchorStyles.Bottom | AnchorStyles.Right;
+            btnClose.Location = new Point(544, 467);
+            btnClose.Name = "btnClose";
+            btnClose.Size = new Size(94, 29);
+            btnClose.TabIndex = 3;
+            btnClose.Text = "Close";
+            btnClose.UseVisualStyleBackColor = true;
+            // 
             // frmOwnerDocuments
             // 
             AutoScaleMode = AutoScaleMode.None;
-            ClientSize = new Size(634, 333);
+            CancelButton = btnClose;
+            ClientSize = new Size(650, 502);
+            Controls.Add(btnClose);
             Controls.Add(dgvDocuments);
             Controls.Add(toolStrip1);
             FormBorderStyle = FormBorderStyle.FixedSingle;
@@ -143,6 +156,7 @@
             ShowIcon = false;
             StartPosition = FormStartPosition.CenterParent;
             Text = "Owner Documents";
+            Load += frmOwnerDocuments_Load;
             toolStrip1.ResumeLayout(false);
             toolStrip1.PerformLayout();
             ((System.ComponentModel.ISupportInitialize)dgvDocuments).EndInit();
@@ -161,5 +175,6 @@
         private DataGridViewTextBoxColumn colFileName;
         private DataGridViewTextBoxColumn colFileType;
         private DataGridViewTextBoxColumn colFileSize;
+        private Button btnClose;
     }
 }

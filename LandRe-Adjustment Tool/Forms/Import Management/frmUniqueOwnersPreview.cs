@@ -32,6 +32,13 @@ namespace Land_Readjustment_Tool.Forms
                 row.Cells["Citizenship"].Value = owner.CitizenshipNumber;
                 row.Cells["PermanentAddress"].Value = owner.PermanentAddress;
             }
+
+            // Clear selection after loading
+            dgvUniqueOwners.ClearSelection();
+
+            // Wire up events to clear selection when focus leaves
+            dgvUniqueOwners.Leave += DgvUniqueOwners_Leave;
+            dgvUniqueOwners.MouseLeave += DgvUniqueOwners_MouseLeave;
         }
 
         /// <summary>
@@ -53,6 +60,16 @@ namespace Land_Readjustment_Tool.Forms
                 headerBounds,
                 dgvUniqueOwners.RowHeadersDefaultCellStyle.ForeColor,
                 TextFormatFlags.VerticalCenter | TextFormatFlags.Right);
+        }
+
+        private void DgvUniqueOwners_Leave(object? sender, EventArgs e)
+        {
+            dgvUniqueOwners.ClearSelection();
+        }
+
+        private void DgvUniqueOwners_MouseLeave(object? sender, EventArgs e)
+        {
+            dgvUniqueOwners.ClearSelection();
         }
 
         private void InitializeComponent()
