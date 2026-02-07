@@ -734,6 +734,7 @@ namespace Land_Readjustment_Tool.Forms
             // cbOwnershipType
             // 
             cbOwnershipType.Anchor = AnchorStyles.Top | AnchorStyles.Left | AnchorStyles.Right;
+            cbOwnershipType.DropDownStyle = ComboBoxStyle.DropDownList;
             cbOwnershipType.Font = new Font("Segoe UI", 9F);
             cbOwnershipType.FormattingEnabled = true;
             cbOwnershipType.Items.AddRange(new object[] { "Private (Single)", "Private (Joint)", "Public (Government)", "Trust (Guthi)" });

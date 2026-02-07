@@ -1,4 +1,5 @@
 ﻿using Land_Readjustment_Tool.Models;
+using Land_Readjustment_Tool.Services;
 
 namespace Land_Readjustment_Tool.Forms
 {
@@ -62,23 +63,45 @@ namespace Land_Readjustment_Tool.Forms
 
         private void ClearAllFields()
         {
+            // Parcel Identification
             txtParcelNo.Clear();
             txtMapSheetNo.Clear();
+
+            // Administrative Information
             txtProvince.Clear();
             txtDistrict.Clear();
             txtMunicipalityVillage.Clear();
+            txtWardNo.Clear();
+
+            // Owner Information
             txtLandOwnersName.Clear();
             txtFatherSpouse.Clear();
             cmbGender.SelectedIndex = -1;
             txtCitizenshipNumber.Clear();
-            RbtnNo.Checked = true;
+            txtIssueDistrict.Clear();
+            txtIssueDate.Clear();
+
+            // Address & Contact
             txtPermanentAddress.Clear();
+            txtTemporaryAddress.Clear();
+            txtContactNo.Clear();
+            txtEmailID.Clear();
+
+            // Other Parcel Information
+            txtTenant.Clear();
+            cbOwnershipType.SelectedIndex = -1;
             cmbLandUse.SelectedIndex = -1;
+
+            // Area Information
             txtAreaInSqm.Clear();
             txtAreaInRAPD.Clear();
             txtAreaInBKD.Clear();
+
+            // Registry References
             txtMothNo.Clear();
             txtPaanaNo.Clear();
+
+            // Remarks
             txtRemarks.Clear();
         }
 
@@ -86,37 +109,64 @@ namespace Land_Readjustment_Tool.Forms
         {
             if (_currentRecord == null) return;
 
+            // Parcel Identification
             txtParcelNo.Text = _currentRecord.ParcelNo ?? "";
             txtMapSheetNo.Text = _currentRecord.MapSheetNo ?? "";
+
+            // Administrative Information
             txtProvince.Text = _currentRecord.Province ?? "";
             txtDistrict.Text = _currentRecord.District ?? "";
             txtMunicipalityVillage.Text = _currentRecord.MunicipalityVillage ?? "";
+            txtWardNo.Text = _currentRecord.WardNo ?? "";
+
+            // Owner Information
             txtLandOwnersName.Text = _currentRecord.LandOwnersName ?? "";
             txtFatherSpouse.Text = _currentRecord.FatherSpouse ?? "";
 
-            // Set gender combobox
             if (!string.IsNullOrWhiteSpace(_currentRecord.Gender))
             {
                 int genderIndex = cmbGender.FindStringExact(_currentRecord.Gender);
                 cmbGender.SelectedIndex = genderIndex >= 0 ? genderIndex : -1;
             }
 
+            // Citizenship Information
             txtCitizenshipNumber.Text = _currentRecord.CitizenshipNumber ?? "";
-            RbtnYes.Checked = _currentRecord.Tenant == "Yes";
-            txtPermanentAddress.Text = _currentRecord.ParcelLocation ?? "";
+            txtIssueDistrict.Text = _currentRecord.CitizenshipIssuedDistrict ?? "";
+            txtIssueDate.Text = _currentRecord.citizenshipIssuedDate ?? "";
 
-            // Set land use combobox
+            // Address & Contact
+            txtPermanentAddress.Text = _currentRecord.PermanentAddress ?? "";
+            txtTemporaryAddress.Text = _currentRecord.TempoaryAddress ?? "";
+            txtContactNo.Text = _currentRecord.ContactNumber ?? "";
+            txtEmailID.Text = _currentRecord.EmailID ?? "";
+
+            // Other Parcel Information
+            txtTenant.Text = _currentRecord.Tenant ?? "";
+
+            if (!string.IsNullOrWhiteSpace(_currentRecord.LandOwnershipType))
+            {
+                int ownershipIndex = cbOwnershipType.FindStringExact(_currentRecord.LandOwnershipType);
+                cbOwnershipType.SelectedIndex = ownershipIndex >= 0 ? ownershipIndex : -1;
+                if (ownershipIndex < 0)
+                    cbOwnershipType.Text = _currentRecord.LandOwnershipType;
+            }
+
             if (!string.IsNullOrWhiteSpace(_currentRecord.LandUse))
             {
                 int landUseIndex = cmbLandUse.FindStringExact(_currentRecord.LandUse);
                 cmbLandUse.SelectedIndex = landUseIndex >= 0 ? landUseIndex : -1;
             }
 
+            // Area Information
             txtAreaInSqm.Text = _currentRecord.AreaInSqm?.ToString() ?? "";
             txtAreaInRAPD.Text = _currentRecord.AreaInRAPD ?? "";
             txtAreaInBKD.Text = _currentRecord.AreaInBKD ?? "";
+
+            // Registry References
             txtMothNo.Text = _currentRecord.MothNo ?? "";
             txtPaanaNo.Text = _currentRecord.PaanaNo ?? "";
+
+            // Remarks
             txtRemarks.Text = _currentRecord.Remarks ?? "";
         }
 
@@ -124,29 +174,51 @@ namespace Land_Readjustment_Tool.Forms
         {
             var record = new BaselineLandParceRecord
             {
+                // Parcel Identification
                 ParcelNo = txtParcelNo.Text.Trim(),
                 MapSheetNo = txtMapSheetNo.Text.Trim(),
+
+                // Administrative Information
                 Province = txtProvince.Text.Trim(),
                 District = txtDistrict.Text.Trim(),
                 MunicipalityVillage = txtMunicipalityVillage.Text.Trim(),
+                WardNo = txtWardNo.Text.Trim(),
+
+                // Owner Information
                 LandOwnersName = txtLandOwnersName.Text.Trim(),
                 FatherSpouse = txtFatherSpouse.Text.Trim(),
                 Gender = cmbGender.SelectedItem?.ToString() ?? "",
+
+                // Citizenship Information
                 CitizenshipNumber = txtCitizenshipNumber.Text.Trim(),
-                Tenant = RbtnNo.Checked ? "No" : RbtnYes.Checked ? "Yes" : "",
-                ParcelLocation = txtPermanentAddress.Text.Trim(),
+                CitizenshipIssuedDistrict = txtIssueDistrict.Text.Trim(),
+                citizenshipIssuedDate = txtIssueDate.Text.Trim(),
+
+                // Address & Contact
+                PermanentAddress = txtPermanentAddress.Text.Trim(),
+                TempoaryAddress = txtTemporaryAddress.Text.Trim(),
+                ContactNumber = txtContactNo.Text.Trim(),
+                EmailID = txtEmailID.Text.Trim(),
+
+                // Other Parcel Information
+                Tenant = txtTenant.Text.Trim(),
+                LandOwnershipType = cbOwnershipType.SelectedItem?.ToString() ?? cbOwnershipType.Text.Trim(),
                 LandUse = cmbLandUse.SelectedItem?.ToString() ?? "",
-                AreaInRAPD = txtAreaInRAPD.Text.Trim(),
-                AreaInBKD = txtAreaInBKD.Text.Trim(),
+
+                // Registry References
                 MothNo = txtMothNo.Text.Trim(),
                 PaanaNo = txtPaanaNo.Text.Trim(),
+
+                // Remarks
                 Remarks = txtRemarks.Text.Trim()
             };
 
-            // Parse AreaInSqm
+            // Parse AreaInSqm and auto-calculate RAPD and BKD
             if (double.TryParse(txtAreaInSqm.Text.Trim(), out double area))
             {
                 record.AreaInSqm = area;
+                record.AreaInRAPD = AreaConverterService.SqmToRAPDString(area);
+                record.AreaInBKD = AreaConverterService.SqmToBKDString(area);
             }
 
             return record;

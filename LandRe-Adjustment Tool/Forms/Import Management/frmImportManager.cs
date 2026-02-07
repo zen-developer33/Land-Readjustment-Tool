@@ -474,13 +474,13 @@ namespace Land_Readjustment_Tool.Forms
                 { new[] {
                     "contact", "phone", "email", "mobile",
                     "सम्पर्क न.", "फोन", "मोबाईल", "मोबाइल","ई-मेल", "ई-मेल", "मेल"
-                }, "Contactinfo" },
+                }, "ContactNumber" },
 
                 // Tenant / Mohi
                 { new[] {
                     "tenant", "mohi", "kisaan", "kisan",
                     "मोही", "किसान", "बटाईदार", "मोही/किसान"
-                }, "IsTenant" },
+                }, "Tenant" },
 
                 // Permanent Address
                 { new[] {
@@ -498,8 +498,8 @@ namespace Land_Readjustment_Tool.Forms
                 // Land Ownership Type
 
                 { new[] {
-                    "ownership", "type", 
-                    "स्वामित्व", "प्रकार", 
+                    "ownership", "type", "ownershiptype",
+                    "स्वामित्व", "प्रकार", "स्वामित्व प्रकार"
                 }, "LandOwnershipType" },
 
                 // Area (Square Meter)
@@ -848,7 +848,24 @@ namespace Land_Readjustment_Tool.Forms
             if (rowIndex < 0 || rowIndex >= _importedRecords.Count) return;
 
             var record = _importedRecords[rowIndex];
-            using (var editForm = new frmAddEditRecord(record, rowIndex))
+
+            // Duplicate parcel check delegate: checks if a parcel already exists in the binding list
+            Func<string?, string?, int?, bool> parcelExists = (parcelNo, mapSheetNo, excludeIndex) =>
+            {
+                for (int i = 0; i < _importedRecords.Count; i++)
+                {
+                    if (i == excludeIndex) continue;
+                    var r = _importedRecords[i];
+                    if (string.Equals(r.ParcelNo?.Trim(), parcelNo?.Trim(), StringComparison.OrdinalIgnoreCase) &&
+                        string.Equals(r.MapSheetNo?.Trim(), mapSheetNo?.Trim(), StringComparison.OrdinalIgnoreCase))
+                    {
+                        return true;
+                    }
+                }
+                return false;
+            };
+
+            using (var editForm = new frmAddEditRecord(record, rowIndex, parcelExists))
             {
                 if (editForm.ShowDialog() == DialogResult.OK)
                 {
@@ -1446,6 +1463,10 @@ namespace Land_Readjustment_Tool.Forms
         private void HandleDataTransformed(TransformationResult result)
         {
             _importedRecords = new SortableBindingList<BaselineLandParceRecord>(result.AllOriginalRecords);
+
+            // Auto-calculate RAPD and BKD from AreaInSqm, and auto-detect Ownership Type
+            PostProcessImportedRecords();
+
             SortRecordsByParcelNo();
             _validationErrors = result.ValidationErrors;
             _isValidated = true;
@@ -1486,6 +1507,104 @@ namespace Land_Readjustment_Tool.Forms
             MessageBox.Show(message, "Transformation Complete",
                 MessageBoxButtons.OK,
                 result.HasErrors ? MessageBoxIcon.Warning : MessageBoxIcon.Information);
+        }
+
+        // ==================== POST-IMPORT PROCESSING ====================
+
+        /// <summary>
+        /// Auto-calculates RAPD and BKD from AreaInSqm and auto-detects Ownership Type
+        /// for all imported records. Called once after data transformation.
+        /// </summary>
+        private void PostProcessImportedRecords()
+        {
+            foreach (var record in _importedRecords)
+            {
+                // Auto-calculate Area (R-A-P-D) and Area (B-K-D) from AreaInSqm
+                if (record.AreaInSqm.HasValue && record.AreaInSqm.Value > 0)
+                {
+                    record.AreaInRAPD = AreaConverterService.SqmToRAPDString(record.AreaInSqm.Value);
+                    record.AreaInBKD = AreaConverterService.SqmToBKDString(record.AreaInSqm.Value);
+                }
+
+                // Auto-detect Ownership Type if not already set
+                if (string.IsNullOrWhiteSpace(record.LandOwnershipType))
+                {
+                    record.LandOwnershipType = DetectOwnershipType(record.LandOwnersName, null);
+                }
+                else
+                {
+                    // Even if set, try to refine based on keywords in existing value + name
+                    string detected = DetectOwnershipType(record.LandOwnersName, record.LandOwnershipType);
+                    if (!string.IsNullOrWhiteSpace(detected))
+                    {
+                        record.LandOwnershipType = detected;
+                    }
+                }
+            }
+        }
+
+        /// <summary>
+        /// Detects ownership type from owner name and/or existing ownership type field.
+        /// Priority: Guthi > Public > Joint > Single (default).
+        /// Checks Devanagari and English keywords.
+        /// </summary>
+        private static string DetectOwnershipType(string? ownerName, string? existingType)
+        {
+            string nameLower = (ownerName ?? "").Trim().ToLower();
+            string typeLower = (existingType ?? "").Trim().ToLower();
+            string combined = $"{typeLower} {nameLower}";
+
+            // Check for Guthi (Trust) keywords
+            string[] guthiKeywords = ["guthi", "गुठी", "गुठि"];
+            if (guthiKeywords.Any(k => combined.Contains(k, StringComparison.OrdinalIgnoreCase)))
+                return "Trust (Guthi)";
+
+            // Check for Public (Government) keywords
+            string[] publicKeywords = ["public", "government", "सार्वजनिक", "सार्वाजनिक", "सरकारी", "सार्वाजिनिक"];
+            if (publicKeywords.Any(k => combined.Contains(k, StringComparison.OrdinalIgnoreCase)))
+                return "Public (Government)";
+
+            // Check for Joint keywords in ownership type field
+            string[] jointKeywords = ["joint", "संयुक्त", "sanyukta"];
+            if (jointKeywords.Any(k => combined.Contains(k, StringComparison.OrdinalIgnoreCase)))
+                return "Private (Joint)";
+
+            // Check if owner name has multiple names separated by delimiters (indicates Joint ownership)
+            if (!string.IsNullOrWhiteSpace(ownerName) && HasMultipleOwnerNames(ownerName))
+                return "Private (Joint)";
+
+            // Check for Single keywords
+            string[] singleKeywords = ["niji", "single", "व्यक्ति", "निजि", "निजी", "व्यक्तिगत"];
+            if (singleKeywords.Any(k => combined.Contains(k, StringComparison.OrdinalIgnoreCase)))
+                return "Private (Single)";
+
+            // Default: if owner name exists and no special keywords, assume Private (Single)
+            if (!string.IsNullOrWhiteSpace(ownerName))
+                return "Private (Single)";
+
+            return "";
+        }
+
+        /// <summary>
+        /// Checks if the owner name contains multiple names separated by common delimiters:
+        /// comma, slash (/), "र" (Nepali "and"), "एवम्", "तथा", "and", ampersand (&amp;)
+        /// </summary>
+        private static bool HasMultipleOwnerNames(string ownerName)
+        {
+            string trimmed = ownerName.Trim();
+
+            // Split by common delimiters
+            string[] delimiters = [",", "/", " र ", " एवम् ", " तथा ", " and ", "&"];
+            foreach (string delimiter in delimiters)
+            {
+                string[] parts = trimmed.Split(delimiter, StringSplitOptions.RemoveEmptyEntries);
+                // Each part must have at least 2 characters to be considered a real name
+                int realNameCount = parts.Count(p => p.Trim().Length >= 2);
+                if (realNameCount >= 2)
+                    return true;
+            }
+
+            return false;
         }
 
         private void HandleDataValidated(TransformationResult result)

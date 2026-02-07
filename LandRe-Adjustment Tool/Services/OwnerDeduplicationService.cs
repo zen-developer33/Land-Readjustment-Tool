@@ -39,6 +39,8 @@ namespace Land_Readjustment_Tool.Services
             public string? FatherSpouse { get; set; }
             public string? Gender { get; set; }
             public string? CitizenshipNumber { get; set; }
+            public string? CitizenshipIssuedDistrict { get; set; }
+            public string? CitizenshipIssuedDate { get; set; }
             public string? PermanentAddress { get; set; }
             public List<int> ParcelIndices { get; set; } = new(); // Indices in original list
             public bool IsAnonymous { get; set; }
@@ -523,6 +525,8 @@ namespace Land_Readjustment_Tool.Services
                     FatherSpouse = record.FatherSpouse?.Trim(),
                     Gender = record.Gender?.Trim(),
                     CitizenshipNumber = record.CitizenshipNumber?.Trim(),
+                    CitizenshipIssuedDistrict = record.CitizenshipIssuedDistrict?.Trim(),
+                    CitizenshipIssuedDate = record.citizenshipIssuedDate?.Trim(),
                     PermanentAddress = record.PermanentAddress?.Trim(),
                     ParcelIndices = new List<int> { i },
                     IsAnonymous = isAnonymous
@@ -556,6 +560,8 @@ namespace Land_Readjustment_Tool.Services
                 FatherSpouse = baseOwner.FatherSpouse ?? owners.FirstOrDefault(o => !string.IsNullOrWhiteSpace(o.FatherSpouse))?.FatherSpouse,
                 Gender = baseOwner.Gender ?? owners.FirstOrDefault(o => !string.IsNullOrWhiteSpace(o.Gender))?.Gender,
                 CitizenshipNumber = baseOwner.CitizenshipNumber ?? owners.FirstOrDefault(o => !string.IsNullOrWhiteSpace(o.CitizenshipNumber))?.CitizenshipNumber,
+                CitizenshipIssuedDistrict = baseOwner.CitizenshipIssuedDistrict ?? owners.FirstOrDefault(o => !string.IsNullOrWhiteSpace(o.CitizenshipIssuedDistrict))?.CitizenshipIssuedDistrict,
+                CitizenshipIssuedDate = baseOwner.CitizenshipIssuedDate ?? owners.FirstOrDefault(o => !string.IsNullOrWhiteSpace(o.CitizenshipIssuedDate))?.CitizenshipIssuedDate,
                 PermanentAddress = baseOwner.PermanentAddress ?? owners.FirstOrDefault(o => !string.IsNullOrWhiteSpace(o.PermanentAddress))?.PermanentAddress,
                 ParcelIndices = allIndices,
                 IsAnonymous = baseOwner.IsAnonymous
@@ -576,6 +582,8 @@ namespace Land_Readjustment_Tool.Services
             FatherSpouse = owner1.FatherSpouse,
             Gender = owner1.Gender,
             CitizenshipNumber = owner1.CitizenshipNumber,
+            CitizenshipIssuedDistrict = owner1.CitizenshipIssuedDistrict,
+            CitizenshipIssuedDate = owner1.CitizenshipIssuedDate,
             PermanentAddress = owner1.PermanentAddress,
             ParcelIndices = owner1Indices.ToList(),
             IsAnonymous = owner1.IsAnonymous
@@ -586,6 +594,8 @@ namespace Land_Readjustment_Tool.Services
             FatherSpouse = owner2.FatherSpouse,
             Gender = owner2.Gender,
             CitizenshipNumber = owner2.CitizenshipNumber,
+            CitizenshipIssuedDistrict = owner2.CitizenshipIssuedDistrict,
+            CitizenshipIssuedDate = owner2.CitizenshipIssuedDate,
             PermanentAddress = owner2.PermanentAddress,
             ParcelIndices = owner2Indices.ToList(),
             IsAnonymous = owner2.IsAnonymous

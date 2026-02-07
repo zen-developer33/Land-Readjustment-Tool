@@ -68,6 +68,7 @@
             flowLayoutPanel1 = new FlowLayoutPanel();
             importDataToolStripMenuItem = new ToolStripMenuItem();
             viewEditRecordsToolStripMenuItem = new ToolStripMenuItem();
+            landOwnerDataToolStripMenuItem = new ToolStripMenuItem();
             mainMenuStrip.SuspendLayout();
             ((System.ComponentModel.ISupportInitialize)splitContainer1).BeginInit();
             splitContainer1.Panel1.SuspendLayout();
@@ -218,7 +219,7 @@
             // 
             // dataToolStripMenuItem
             // 
-            dataToolStripMenuItem.DropDownItems.AddRange(new ToolStripItem[] { ViewDataToolStripMenuItem });
+            dataToolStripMenuItem.DropDownItems.AddRange(new ToolStripItem[] { ViewDataToolStripMenuItem, landOwnerDataToolStripMenuItem });
             dataToolStripMenuItem.Name = "dataToolStripMenuItem";
             dataToolStripMenuItem.Size = new Size(55, 24);
             dataToolStripMenuItem.Text = "Data";
@@ -235,14 +236,14 @@
             // importToolStripMenuItem
             // 
             importToolStripMenuItem.Name = "importToolStripMenuItem";
-            importToolStripMenuItem.Size = new Size(207, 26);
+            importToolStripMenuItem.Size = new Size(224, 26);
             importToolStripMenuItem.Text = "Import";
             importToolStripMenuItem.Click += importToolStripMenuItem_Click;
             // 
             // viewEditRecordToolStripMenuItem
             // 
             viewEditRecordToolStripMenuItem.Name = "viewEditRecordToolStripMenuItem";
-            viewEditRecordToolStripMenuItem.Size = new Size(207, 26);
+            viewEditRecordToolStripMenuItem.Size = new Size(224, 26);
             viewEditRecordToolStripMenuItem.Text = "View/Edit Record";
             viewEditRecordToolStripMenuItem.Click += viewEditRecordToolStripMenuItem_Click;
             // 
@@ -319,7 +320,7 @@
             // 
             splitContainer1.Panel2.Controls.Add(flowLayoutPanel1);
             splitContainer1.Size = new Size(998, 569);
-            splitContainer1.SplitterDistance = 241;
+            splitContainer1.SplitterDistance = 240;
             splitContainer1.TabIndex = 3;
             splitContainer1.Visible = false;
             // 
@@ -340,7 +341,7 @@
             // 
             splitContainer2.Panel2.Controls.Add(label1);
             splitContainer2.Panel2.Paint += splitContainer2_Panel2_Paint;
-            splitContainer2.Size = new Size(241, 569);
+            splitContainer2.Size = new Size(240, 569);
             splitContainer2.SplitterDistance = 277;
             splitContainer2.SplitterWidth = 5;
             splitContainer2.TabIndex = 0;
@@ -355,7 +356,7 @@
             grpLayer.Name = "grpLayer";
             grpLayer.Padding = new Padding(4);
             grpLayer.RightToLeft = RightToLeft.No;
-            grpLayer.Size = new Size(234, 273);
+            grpLayer.Size = new Size(233, 273);
             grpLayer.TabIndex = 0;
             grpLayer.TabStop = false;
             grpLayer.Text = "Layers";
@@ -367,7 +368,7 @@
             treeView1.Location = new Point(6, 19);
             treeView1.Margin = new Padding(4);
             treeView1.Name = "treeView1";
-            treeView1.Size = new Size(220, 246);
+            treeView1.Size = new Size(219, 246);
             treeView1.TabIndex = 0;
             // 
             // label1
@@ -390,7 +391,7 @@
             flowLayoutPanel1.Location = new Point(0, 0);
             flowLayoutPanel1.Margin = new Padding(2);
             flowLayoutPanel1.Name = "flowLayoutPanel1";
-            flowLayoutPanel1.Size = new Size(753, 569);
+            flowLayoutPanel1.Size = new Size(754, 569);
             flowLayoutPanel1.TabIndex = 0;
             // 
             // importDataToolStripMenuItem
@@ -404,6 +405,12 @@
             viewEditRecordsToolStripMenuItem.Name = "viewEditRecordsToolStripMenuItem";
             viewEditRecordsToolStripMenuItem.Size = new Size(213, 26);
             viewEditRecordsToolStripMenuItem.Text = "View/Edit Records";
+            // 
+            // landOwnerDataToolStripMenuItem
+            // 
+            landOwnerDataToolStripMenuItem.Name = "landOwnerDataToolStripMenuItem";
+            landOwnerDataToolStripMenuItem.Size = new Size(294, 26);
+            landOwnerDataToolStripMenuItem.Text = "Land Owner Data";
             // 
             // frmMain
             // 
@@ -479,5 +486,6 @@
         private ToolStripMenuItem viewEditRecordsToolStripMenuItem;
         private ToolStripMenuItem importToolStripMenuItem;
         private ToolStripMenuItem viewEditRecordToolStripMenuItem;
+        private ToolStripMenuItem landOwnerDataToolStripMenuItem;
     }
 }

@@ -15,7 +15,7 @@ namespace Land_Readjustment_Tool.Repositories
 
         public LandOwnerRepository(SQLiteConnection connection)
         {
-            _connection = connection;
+            _connection = connection ?? throw new ArgumentNullException(nameof(connection));
         }
 
         /// <summary>
@@ -105,11 +105,13 @@ namespace Land_Readjustment_Tool.Repositories
                     string sql = @"
                         INSERT INTO tblOriginalLandParcels (
                             LandOwnerId, ParcelNo, Province, District, MunicipalityVillage,
-                            WardNo, ParcelLocation, MapSheetNo, IsTenant, LandUse, AreaInSqm, AreaInRAPD, AreaInBKD,
+                            WardNo, ParcelLocation, MapSheetNo, Tenant, LandUse, LandOwnershipType,
+                            AreaInSqm, AreaInRAPD, AreaInBKD,
                             MothNo, PaanaNo, Remarks, IsValid
                         ) VALUES (
                             @LandOwnerId, @ParcelNo, @Province, @District, @MunicipalityVillage,
-                            @WardNo, @ParcelLocation, @MapSheetNo, @IsTenant, @LandUse, @AreaInSqm, @AreaInRAPD, @AreaInBKD,
+                            @WardNo, @ParcelLocation, @MapSheetNo, @Tenant, @LandUse, @LandOwnershipType,
+                            @AreaInSqm, @AreaInRAPD, @AreaInBKD,
                             @MothNo, @PaanaNo, @Remarks, @IsValid
                         )";
 
@@ -122,8 +124,9 @@ namespace Land_Readjustment_Tool.Repositories
                     cmd.Parameters.AddWithValue("@WardNo", record.WardNo ?? "");
                     cmd.Parameters.AddWithValue("@ParcelLocation", record.ParcelLocation ?? "");
                     cmd.Parameters.AddWithValue("@MapSheetNo", record.MapSheetNo ?? "");
-                    cmd.Parameters.AddWithValue("@IsTenant", record.Tenant ?? "");
+                    cmd.Parameters.AddWithValue("@Tenant", record.Tenant ?? "");
                     cmd.Parameters.AddWithValue("@LandUse", record.LandUse ?? "");
+                    cmd.Parameters.AddWithValue("@LandOwnershipType", record.LandOwnershipType ?? "");
                     cmd.Parameters.AddWithValue("@AreaInSqm", record.AreaInSqm ?? (object)DBNull.Value);
                     cmd.Parameters.AddWithValue("@AreaInRAPD", record.AreaInRAPD ?? "");
                     cmd.Parameters.AddWithValue("@AreaInBKD", record.AreaInBKD ?? "");
@@ -216,9 +219,15 @@ namespace Land_Readjustment_Tool.Repositories
             // Insert new owner
             string insertSql = @"
                 INSERT INTO tblLandOwner (
-                    LandOwnersName, FatherSpouse, Gender, CitizenshipNumber, PermanentAddress, IsAnonymous, CreatedDate
+                    LandOwnersName, FatherSpouse, Gender, CitizenshipNumber,
+                    CitizenshipIssuedDistrict, CitizenshipIssuedDate,
+                    PermanentAddress, TemporaryAddress, ContactNumber, EmailID,
+                    IsAnonymous, CreatedDate
                 ) VALUES (
-                    @LandOwnersName, @FatherSpouse, @Gender, @CitizenshipNumber, @PermanentAddress, @IsAnonymous, @CreatedDate
+                    @LandOwnersName, @FatherSpouse, @Gender, @CitizenshipNumber,
+                    @CitizenshipIssuedDistrict, @CitizenshipIssuedDate,
+                    @PermanentAddress, @TemporaryAddress, @ContactNumber, @EmailID,
+                    @IsAnonymous, @CreatedDate
                 );
                 SELECT last_insert_rowid();";
 
@@ -228,7 +237,12 @@ namespace Land_Readjustment_Tool.Repositories
                 cmd.Parameters.AddWithValue("@FatherSpouse", owner.FatherSpouse ?? "");
                 cmd.Parameters.AddWithValue("@Gender", owner.Gender ?? "");
                 cmd.Parameters.AddWithValue("@CitizenshipNumber", owner.CitizenshipNumber ?? "");
+                cmd.Parameters.AddWithValue("@CitizenshipIssuedDistrict", owner.CitizenshipIssuedDistrict ?? "");
+                cmd.Parameters.AddWithValue("@CitizenshipIssuedDate", owner.CitizenshipIssuedDate ?? "");
                 cmd.Parameters.AddWithValue("@PermanentAddress", owner.PermanentAddress ?? "");
+                cmd.Parameters.AddWithValue("@TemporaryAddress", owner.TemporaryAddress ?? "");
+                cmd.Parameters.AddWithValue("@ContactNumber", owner.ContactNumber ?? "");
+                cmd.Parameters.AddWithValue("@EmailID", owner.EmailID ?? "");
                 cmd.Parameters.AddWithValue("@IsAnonymous", owner.IsAnonymous ? 1 : 0);
                 cmd.Parameters.AddWithValue("@CreatedDate", owner.CreatedDate.ToString("yyyy-MM-dd HH:mm:ss"));
 
@@ -294,11 +308,13 @@ namespace Land_Readjustment_Tool.Repositories
                     string sql = @"
                         INSERT INTO tblOriginalLandParcels (
                             LandOwnerId, ParcelNo, Province, District, MunicipalityVillage,
-                            WardNo, ParcelLocation, MapSheetNo, IsTenant, LandUse, AreaInSqm, AreaInRAPD, AreaInBKD,
+                            WardNo, ParcelLocation, MapSheetNo, Tenant, LandUse, LandOwnershipType,
+                            AreaInSqm, AreaInRAPD, AreaInBKD,
                             MothNo, PaanaNo, Remarks, IsValid
                         ) VALUES (
                             @LandOwnerId, @ParcelNo, @Province, @District, @MunicipalityVillage,
-                            @WardNo, @ParcelLocation, @MapSheetNo, @IsTenant, @LandUse, @AreaInSqm, @AreaInRAPD, @AreaInBKD,
+                            @WardNo, @ParcelLocation, @MapSheetNo, @Tenant, @LandUse, @LandOwnershipType,
+                            @AreaInSqm, @AreaInRAPD, @AreaInBKD,
                             @MothNo, @PaanaNo, @Remarks, @IsValid
                         )";
 
@@ -311,8 +327,9 @@ namespace Land_Readjustment_Tool.Repositories
                     cmd.Parameters.AddWithValue("@WardNo", record.WardNo ?? "");
                     cmd.Parameters.AddWithValue("@ParcelLocation", record.ParcelLocation ?? "");
                     cmd.Parameters.AddWithValue("@MapSheetNo", record.MapSheetNo ?? "");
-                    cmd.Parameters.AddWithValue("@IsTenant", record.Tenant ?? "");
+                    cmd.Parameters.AddWithValue("@Tenant", record.Tenant ?? "");
                     cmd.Parameters.AddWithValue("@LandUse", record.LandUse ?? "");
+                    cmd.Parameters.AddWithValue("@LandOwnershipType", record.LandOwnershipType ?? "");
                     cmd.Parameters.AddWithValue("@AreaInSqm", record.AreaInSqm ?? (object)DBNull.Value);
                     cmd.Parameters.AddWithValue("@AreaInRAPD", record.AreaInRAPD ?? "");
                     cmd.Parameters.AddWithValue("@AreaInBKD", record.AreaInBKD ?? "");
@@ -349,8 +366,8 @@ namespace Land_Readjustment_Tool.Repositories
             string selectSql = @"
                 SELECT LandOwnerId FROM tblLandOwner
                 WHERE LandOwnersName = @LandOwnersName 
-                AND FatherSpouse = @FatherSpouse 
-                AND CitizenshipNumber = @CitizenshipNumber";
+                AND COALESCE(FatherSpouse, '') = COALESCE(@FatherSpouse, '')
+                AND COALESCE(CitizenshipNumber, '') = COALESCE(@CitizenshipNumber, '')";
 
             using (var cmd = new SQLiteCommand(selectSql, _connection))
             {
@@ -368,9 +385,15 @@ namespace Land_Readjustment_Tool.Repositories
             // Insert new owner
             string insertSql = @"
                 INSERT INTO tblLandOwner (
-                    LandOwnersName, FatherSpouse, Gender, CitizenshipNumber, PermanentAddress, CreatedDate
+                    LandOwnersName, FatherSpouse, Gender, CitizenshipNumber,
+                    CitizenshipIssuedDistrict, CitizenshipIssuedDate,
+                    PermanentAddress, TemporaryAddress, ContactNumber, EmailID,
+                    IsAnonymous, CreatedDate
                 ) VALUES (
-                    @LandOwnersName, @FatherSpouse, @Gender, @CitizenshipNumber, @PermanentAddress, @CreatedDate
+                    @LandOwnersName, @FatherSpouse, @Gender, @CitizenshipNumber,
+                    @CitizenshipIssuedDistrict, @CitizenshipIssuedDate,
+                    @PermanentAddress, @TemporaryAddress, @ContactNumber, @EmailID,
+                    @IsAnonymous, @CreatedDate
                 );
                 SELECT last_insert_rowid();";
 
@@ -380,7 +403,13 @@ namespace Land_Readjustment_Tool.Repositories
                 cmd.Parameters.AddWithValue("@FatherSpouse", owner.FatherSpouse ?? "");
                 cmd.Parameters.AddWithValue("@Gender", owner.Gender ?? "");
                 cmd.Parameters.AddWithValue("@CitizenshipNumber", owner.CitizenshipNumber ?? "");
+                cmd.Parameters.AddWithValue("@CitizenshipIssuedDistrict", owner.CitizenshipIssuedDistrict ?? "");
+                cmd.Parameters.AddWithValue("@CitizenshipIssuedDate", owner.CitizenshipIssuedDate ?? "");
                 cmd.Parameters.AddWithValue("@PermanentAddress", owner.PermanentAddress ?? "");
+                cmd.Parameters.AddWithValue("@TemporaryAddress", owner.TemporaryAddress ?? "");
+                cmd.Parameters.AddWithValue("@ContactNumber", owner.ContactNumber ?? "");
+                cmd.Parameters.AddWithValue("@EmailID", owner.EmailID ?? "");
+                cmd.Parameters.AddWithValue("@IsAnonymous", owner.IsAnonymous ? 1 : 0);
                 cmd.Parameters.AddWithValue("@CreatedDate", owner.CreatedDate.ToString("yyyy-MM-dd HH:mm:ss"));
 
                 var ownerId = Convert.ToInt32(cmd.ExecuteScalar());
@@ -433,13 +462,15 @@ namespace Land_Readjustment_Tool.Repositories
             string sql = @"
                 SELECT 
                     p.ParcelId, p.LandOwnerId, p.ParcelNo, p.Province, p.District, 
-                    p.MunicipalityVillage, p.WardNo, p.ParcelLocation, p.MapSheetNo, p.IsTenant, p.LandUse, 
+                    p.MunicipalityVillage, p.WardNo, p.ParcelLocation, p.MapSheetNo, p.Tenant, p.LandUse, p.LandOwnershipType,
                     p.AreaInSqm, p.AreaInRAPD, p.AreaInBKD, p.MothNo, p.PaanaNo, 
                     p.Remarks, p.IsValid,
                     o.LandOwnersName, o.FatherSpouse, o.Gender, o.CitizenshipNumber, 
-                    o.PermanentAddress, o.PhotoPath, o.DocumentsFolderPath, o.IsAnonymous
+                    o.CitizenshipIssuedDistrict, o.CitizenshipIssuedDate, o.PermanentAddress, 
+                    o.TemporaryAddress, o.ContactNumber, o.EmailID,
+                    o.PhotoPath, o.DocumentsFolderPath, o.IsAnonymous
                 FROM tblOriginalLandParcels p
-                INNER JOIN tblLandOwner o ON p.LandOwnerId = o.LandOwnerId
+                LEFT JOIN tblLandOwner o ON p.LandOwnerId = o.LandOwnerId
                 ORDER BY p.ParcelId";
 
             using var cmd = new SQLiteCommand(sql, _connection);
@@ -458,8 +489,9 @@ namespace Land_Readjustment_Tool.Repositories
                     WardNo = GetNullableString(reader, "WardNo"),
                     ParcelLocation = GetNullableString(reader, "ParcelLocation"),
                     MapSheetNo = reader.GetString(reader.GetOrdinal("MapSheetNo")),
-                    IsTenant = GetNullableString(reader, "IsTenant"),
+                    IsTenant = GetNullableString(reader, "Tenant"),
                     LandUse = GetNullableString(reader, "LandUse"),
+                    LandOwnershipType = GetNullableString(reader, "LandOwnershipType"),
                     AreaInSqm = GetNullableDouble(reader, "AreaInSqm"),
                     AreaInRAPD = GetNullableString(reader, "AreaInRAPD"),
                     AreaInBKD = GetNullableString(reader, "AreaInBKD"),
@@ -467,14 +499,19 @@ namespace Land_Readjustment_Tool.Repositories
                     PaanaNo = GetNullableString(reader, "PaanaNo"),
                     Remarks = GetNullableString(reader, "Remarks"),
                     IsValid = reader.GetInt32(reader.GetOrdinal("IsValid")) == 1,
-                    Owner = new LandOwner
+                    Owner = reader.IsDBNull(reader.GetOrdinal("LandOwnersName")) ? null : new LandOwner
                     {
                         LandOwnerId = reader.GetInt32(reader.GetOrdinal("LandOwnerId")),
                         LandOwnersName = reader.GetString(reader.GetOrdinal("LandOwnersName")),
                         FatherSpouse = GetNullableString(reader, "FatherSpouse"),
                         Gender = GetNullableString(reader, "Gender"),
                         CitizenshipNumber = GetNullableString(reader, "CitizenshipNumber"),
+                        CitizenshipIssuedDistrict = GetNullableString(reader, "CitizenshipIssuedDistrict"),
+                        CitizenshipIssuedDate = GetNullableString(reader, "CitizenshipIssuedDate"),
                         PermanentAddress = GetNullableString(reader, "PermanentAddress"),
+                        TemporaryAddress = GetNullableString(reader, "TemporaryAddress"),
+                        ContactNumber = GetNullableString(reader, "ContactNumber"),
+                        EmailID = GetNullableString(reader, "EmailID"),
                         PhotoPath = GetNullableString(reader, "PhotoPath"),
                         DocumentsFolderPath = GetNullableString(reader, "DocumentsFolderPath"),
                         IsAnonymous = GetNullableInt(reader, "IsAnonymous") == 1
@@ -534,11 +571,13 @@ namespace Land_Readjustment_Tool.Repositories
             string sql = @"
                 SELECT 
                     p.ParcelId, p.LandOwnerId, p.ParcelNo, p.Province, p.District, 
-                    p.MunicipalityVillage, p.WardNo, p.ParcelLocation, p.MapSheetNo, p.IsTenant, p.LandUse, 
+                    p.MunicipalityVillage, p.WardNo, p.ParcelLocation, p.MapSheetNo, p.Tenant, p.LandUse, 
                     p.AreaInSqm, p.AreaInRAPD, p.AreaInBKD, p.MothNo, p.PaanaNo, 
                     p.Remarks, p.IsValid, p.LandOwnershipType,
                     o.LandOwnersName, o.FatherSpouse, o.Gender, o.CitizenshipNumber, 
-                    o.PermanentAddress, o.PhotoPath, o.DocumentsFolderPath, o.IsAnonymous
+                    o.CitizenshipIssuedDistrict, o.CitizenshipIssuedDate, o.PermanentAddress, 
+                    o.TemporaryAddress, o.ContactNumber, o.EmailID,
+                    o.PhotoPath, o.DocumentsFolderPath, o.IsAnonymous
                 FROM tblOriginalLandParcels p
                 INNER JOIN tblLandOwner o ON p.LandOwnerId = o.LandOwnerId
                 WHERE p.LandOwnerId = @LandOwnerId
@@ -561,7 +600,7 @@ namespace Land_Readjustment_Tool.Repositories
                     WardNo = GetNullableString(reader, "WardNo"),
                     ParcelLocation = GetNullableString(reader, "ParcelLocation"),
                     MapSheetNo = reader.GetString(reader.GetOrdinal("MapSheetNo")),
-                    IsTenant = GetNullableString(reader, "IsTenant"),
+                    IsTenant = GetNullableString(reader, "Tenant"),
                     LandUse = GetNullableString(reader, "LandUse"),
                     LandOwnershipType = GetNullableString(reader, "LandOwnershipType"),
                     AreaInSqm = GetNullableDouble(reader, "AreaInSqm"),
@@ -578,7 +617,12 @@ namespace Land_Readjustment_Tool.Repositories
                         FatherSpouse = GetNullableString(reader, "FatherSpouse"),
                         Gender = GetNullableString(reader, "Gender"),
                         CitizenshipNumber = GetNullableString(reader, "CitizenshipNumber"),
+                        CitizenshipIssuedDistrict = GetNullableString(reader, "CitizenshipIssuedDistrict"),
+                        CitizenshipIssuedDate = GetNullableString(reader, "CitizenshipIssuedDate"),
                         PermanentAddress = GetNullableString(reader, "PermanentAddress"),
+                        TemporaryAddress = GetNullableString(reader, "TemporaryAddress"),
+                        ContactNumber = GetNullableString(reader, "ContactNumber"),
+                        EmailID = GetNullableString(reader, "EmailID"),
                         PhotoPath = GetNullableString(reader, "PhotoPath"),
                         DocumentsFolderPath = GetNullableString(reader, "DocumentsFolderPath"),
                         IsAnonymous = GetNullableInt(reader, "IsAnonymous") == 1
@@ -730,8 +774,9 @@ namespace Land_Readjustment_Tool.Repositories
                     WardNo = @WardNo,
                     ParcelLocation = @ParcelLocation,
                     MapSheetNo = @MapSheetNo,
-                    IsTenant = @IsTenant,
+                    Tenant = @Tenant,
                     LandUse = @LandUse,
+                    LandOwnershipType = @LandOwnershipType,
                     AreaInSqm = @AreaInSqm,
                     AreaInRAPD = @AreaInRAPD,
                     AreaInBKD = @AreaInBKD,
@@ -750,8 +795,9 @@ namespace Land_Readjustment_Tool.Repositories
             cmd.Parameters.AddWithValue("@WardNo", parcel.WardNo ?? "");
             cmd.Parameters.AddWithValue("@ParcelLocation", parcel.ParcelLocation ?? "");
             cmd.Parameters.AddWithValue("@MapSheetNo", parcel.MapSheetNo);
-            cmd.Parameters.AddWithValue("@IsTenant", parcel.IsTenant ?? "");
+            cmd.Parameters.AddWithValue("@Tenant", parcel.IsTenant ?? "");
             cmd.Parameters.AddWithValue("@LandUse", parcel.LandUse ?? "");
+            cmd.Parameters.AddWithValue("@LandOwnershipType", parcel.LandOwnershipType ?? "");
             cmd.Parameters.AddWithValue("@AreaInSqm", parcel.AreaInSqm ?? (object)DBNull.Value);
             cmd.Parameters.AddWithValue("@AreaInRAPD", parcel.AreaInRAPD ?? "");
             cmd.Parameters.AddWithValue("@AreaInBKD", parcel.AreaInBKD ?? "");
@@ -779,7 +825,12 @@ namespace Land_Readjustment_Tool.Repositories
                     FatherSpouse = @FatherSpouse,
                     Gender = @Gender,
                     CitizenshipNumber = @CitizenshipNumber,
+                    CitizenshipIssuedDistrict = @CitizenshipIssuedDistrict,
+                    CitizenshipIssuedDate = @CitizenshipIssuedDate,
                     PermanentAddress = @PermanentAddress,
+                    TemporaryAddress = @TemporaryAddress,
+                    ContactNumber = @ContactNumber,
+                    EmailID = @EmailID,
                     ModifiedDate = @ModifiedDate
                 WHERE LandOwnerId = @LandOwnerId";
 
@@ -789,7 +840,12 @@ namespace Land_Readjustment_Tool.Repositories
             cmd.Parameters.AddWithValue("@FatherSpouse", owner.FatherSpouse ?? "");
             cmd.Parameters.AddWithValue("@Gender", owner.Gender ?? "");
             cmd.Parameters.AddWithValue("@CitizenshipNumber", owner.CitizenshipNumber ?? "");
+            cmd.Parameters.AddWithValue("@CitizenshipIssuedDistrict", owner.CitizenshipIssuedDistrict ?? "");
+            cmd.Parameters.AddWithValue("@CitizenshipIssuedDate", owner.CitizenshipIssuedDate ?? "");
             cmd.Parameters.AddWithValue("@PermanentAddress", owner.PermanentAddress ?? "");
+            cmd.Parameters.AddWithValue("@TemporaryAddress", owner.TemporaryAddress ?? "");
+            cmd.Parameters.AddWithValue("@ContactNumber", owner.ContactNumber ?? "");
+            cmd.Parameters.AddWithValue("@EmailID", owner.EmailID ?? "");
             cmd.Parameters.AddWithValue("@ModifiedDate", DateTime.Now.ToString("yyyy-MM-dd HH:mm:ss"));
 
             var updated = cmd.ExecuteNonQuery() > 0;
@@ -808,11 +864,13 @@ namespace Land_Readjustment_Tool.Repositories
             string sql = @"
                 SELECT 
                     p.ParcelId, p.LandOwnerId, p.ParcelNo, p.Province, p.District, 
-                    p.MunicipalityVillage, p.WardNo, p.ParcelLocation, p.MapSheetNo, p.IsTenant, p.LandUse, 
+                    p.MunicipalityVillage, p.WardNo, p.ParcelLocation, p.MapSheetNo, p.Tenant, p.LandUse, p.LandOwnershipType,
                     p.AreaInSqm, p.AreaInRAPD, p.AreaInBKD, p.MothNo, p.PaanaNo, 
                     p.Remarks, p.IsValid,
                     o.LandOwnersName, o.FatherSpouse, o.Gender, o.CitizenshipNumber, 
-                    o.PermanentAddress, o.PhotoPath, o.DocumentsFolderPath, o.IsAnonymous
+                    o.CitizenshipIssuedDistrict, o.CitizenshipIssuedDate, o.PermanentAddress, 
+                    o.TemporaryAddress, o.ContactNumber, o.EmailID,
+                    o.PhotoPath, o.DocumentsFolderPath, o.IsAnonymous
                 FROM tblOriginalLandParcels p
                 INNER JOIN tblLandOwner o ON p.LandOwnerId = o.LandOwnerId
                 WHERE p.ParcelId = @ParcelId";
@@ -834,8 +892,9 @@ namespace Land_Readjustment_Tool.Repositories
                     WardNo = GetNullableString(reader, "WardNo"),
                     ParcelLocation = GetNullableString(reader, "ParcelLocation"),
                     MapSheetNo = reader.GetString(reader.GetOrdinal("MapSheetNo")),
-                    IsTenant = GetNullableString(reader, "IsTenant"),
+                    IsTenant = GetNullableString(reader, "Tenant"),
                     LandUse = GetNullableString(reader, "LandUse"),
+                    LandOwnershipType = GetNullableString(reader, "LandOwnershipType"),
                     AreaInSqm = GetNullableDouble(reader, "AreaInSqm"),
                     AreaInRAPD = GetNullableString(reader, "AreaInRAPD"),
                     AreaInBKD = GetNullableString(reader, "AreaInBKD"),
@@ -850,7 +909,12 @@ namespace Land_Readjustment_Tool.Repositories
                         FatherSpouse = GetNullableString(reader, "FatherSpouse"),
                         Gender = GetNullableString(reader, "Gender"),
                         CitizenshipNumber = GetNullableString(reader, "CitizenshipNumber"),
+                        CitizenshipIssuedDistrict = GetNullableString(reader, "CitizenshipIssuedDistrict"),
+                        CitizenshipIssuedDate = GetNullableString(reader, "CitizenshipIssuedDate"),
                         PermanentAddress = GetNullableString(reader, "PermanentAddress"),
+                        TemporaryAddress = GetNullableString(reader, "TemporaryAddress"),
+                        ContactNumber = GetNullableString(reader, "ContactNumber"),
+                        EmailID = GetNullableString(reader, "EmailID"),
                         PhotoPath = GetNullableString(reader, "PhotoPath"),
                         DocumentsFolderPath = GetNullableString(reader, "DocumentsFolderPath"),
                         IsAnonymous = GetNullableInt(reader, "IsAnonymous") == 1
@@ -870,7 +934,9 @@ namespace Land_Readjustment_Tool.Repositories
 
             string sql = @"
                 SELECT LandOwnerId, LandOwnersName, FatherSpouse, Gender, CitizenshipNumber,
-                       PermanentAddress, PhotoPath, DocumentsFolderPath, IsAnonymous, CreatedDate
+                       CitizenshipIssuedDistrict, CitizenshipIssuedDate,
+                       PermanentAddress, TemporaryAddress, ContactNumber, EmailID,
+                       PhotoPath, DocumentsFolderPath, IsAnonymous, CreatedDate
                 FROM tblLandOwner
                 ORDER BY LandOwnersName";
 
@@ -886,7 +952,12 @@ namespace Land_Readjustment_Tool.Repositories
                     FatherSpouse = GetNullableString(reader, "FatherSpouse"),
                     Gender = GetNullableString(reader, "Gender"),
                     CitizenshipNumber = GetNullableString(reader, "CitizenshipNumber"),
+                    CitizenshipIssuedDistrict = GetNullableString(reader, "CitizenshipIssuedDistrict"),
+                    CitizenshipIssuedDate = GetNullableString(reader, "CitizenshipIssuedDate"),
                     PermanentAddress = GetNullableString(reader, "PermanentAddress"),
+                    TemporaryAddress = GetNullableString(reader, "TemporaryAddress"),
+                    ContactNumber = GetNullableString(reader, "ContactNumber"),
+                    EmailID = GetNullableString(reader, "EmailID"),
                     PhotoPath = GetNullableString(reader, "PhotoPath"),
                     DocumentsFolderPath = GetNullableString(reader, "DocumentsFolderPath"),
                     IsAnonymous = GetNullableInt(reader, "IsAnonymous") == 1

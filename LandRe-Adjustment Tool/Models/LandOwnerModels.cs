@@ -14,7 +14,9 @@ namespace Land_Readjustment_Tool.Models
         public string? CitizenshipIssuedDistrict { get; set; }
         public string? CitizenshipIssuedDate { get; set; }
         public string? PermanentAddress { get; set; }
+        public string? TemporaryAddress { get; set; }
         public string? ContactNumber { get; set; }
+        public string? EmailID { get; set; }
         public string? PhotoPath { get; set; }
         public string? DocumentsFolderPath { get; set; }
         public bool IsAnonymous { get; set; }

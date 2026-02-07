@@ -1,6 +1,6 @@
 namespace Land_Readjustment_Tool.Forms
 {
-    partial class frmLandownerRecordsManager
+    partial class frmLandOwnersRecord
     {
         private System.ComponentModel.IContainer components = null;
 

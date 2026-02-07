@@ -41,7 +41,7 @@ namespace Land_Readjustment_Tool
                 Text = AppTitle;
                 return;
             }
-            
+
             var baseTitle = $"{CurrentProject.Info.ProjectName} - {AppTitle}";
             Text = CurrentProject.HasUnsavedChanges ? $"{CurrentProject.Info.ProjectName}* - {AppTitle}" : baseTitle;
         }
@@ -74,7 +74,7 @@ namespace Land_Readjustment_Tool
 
         private void ExitToolStripMenuItem_Click_1(object sender, EventArgs e)
         {
-            if(MessageBox.Show("Are you sure you want to exit the application?", "Confirm Exit", MessageBoxButtons.YesNo, MessageBoxIcon.Question) == DialogResult.No)
+            if (MessageBox.Show("Are you sure you want to exit the application?", "Confirm Exit", MessageBoxButtons.YesNo, MessageBoxIcon.Question) == DialogResult.No)
             {
                 return;
             }
@@ -516,23 +516,23 @@ namespace Land_Readjustment_Tool
         {
             if (!CurrentProject.IsOpen || CurrentProject.Info == null)
             {
-                MessageBox.Show("Please open or create a project first.", "No Project",
+                _ = MessageBox.Show("Please open or create a project first.", "No Project",
                     MessageBoxButtons.OK, MessageBoxIcon.Warning);
                 return;
             }
 
             if (string.IsNullOrWhiteSpace(CurrentProject.Info.ProjectPath))
             {
-                MessageBox.Show("Project path is invalid. Please save the project first.", "Invalid Project",
+                _ = MessageBox.Show("Project path is invalid. Please save the project first.", "Invalid Project",
                     MessageBoxButtons.OK, MessageBoxIcon.Warning);
                 return;
             }
-           
+
             using (var importForm = new frmImportManager(CurrentProject.Info.ProjectPath))
             {
                 if (importForm.ShowDialog() == DialogResult.OK)
                 {
-                    MessageBox.Show($"Successfully imported {importForm.ImportedCount} records!",
+                    _ = MessageBox.Show($"Successfully imported {importForm.ImportedCount} records!",
                         "Import Complete", MessageBoxButtons.OK, MessageBoxIcon.Information);
                 }
             }
@@ -540,7 +540,7 @@ namespace Land_Readjustment_Tool
 
         private void viewEditRecordToolStripMenuItem_Click(object sender, EventArgs e)
         {
-            var form = new frmLandParcelOwnersRecord ();
+            var form = new frmLandParcelOwnersRecord();
             form.Show();
             //var filterForm = new frmLandownerRecordsFilterView(CurrentProject.Info.ProjectPath);
             //filterForm.Show();
@@ -561,11 +561,6 @@ namespace Land_Readjustment_Tool
         }
 
         private void ViewDataToolStripMenuItem_Click(object sender, EventArgs e)
-        {
-
-        }
-
-        private void importToolStripMenuItem1_Click(object sender, EventArgs e)
         {
 
         }
@@ -639,7 +634,7 @@ namespace Land_Readjustment_Tool
             UpdateWindowTitle();
         }
 
-       
+
 
         private void projectSettingToolStripMenuItem_Click(object sender, EventArgs e)
         {

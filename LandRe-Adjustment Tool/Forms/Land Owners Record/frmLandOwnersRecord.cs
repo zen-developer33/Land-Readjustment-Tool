@@ -9,10 +9,10 @@ namespace Land_Readjustment_Tool.Forms
     /// <summary>
     /// Main form for viewing, editing, and managing land parcel ownership records
     /// </summary>
-    public partial class frmLandownerRecordsManager : Form
+    public partial class frmLandOwnersRecord : Form
     {
        
-        public frmLandownerRecordsManager()
+        public frmLandOwnersRecord()
         {
             InitializeComponent();
           }
