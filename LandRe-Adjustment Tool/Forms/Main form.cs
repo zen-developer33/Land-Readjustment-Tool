@@ -155,6 +155,7 @@ namespace Land_Readjustment_Tool
             backupProjectToolStripMenuItem.Enabled = true;
             closeProjectToolStripMenuItem.Enabled = true;
             ViewDataToolStripMenuItem.Enabled = true;
+            landOwnerDataToolStripMenuItem.Enabled = true;
             startReplotWorkspaceToolStripMenuItem.Enabled = true;
         }
 
@@ -547,7 +548,19 @@ namespace Land_Readjustment_Tool
 
             //var Form = new frmLandownerRecordsManager(CurrentProject.Info.ProjectPath);
             //Form.Show();
+        }
 
+        private void landOwnerDataToolStripMenuItem_Click(object sender, EventArgs e)
+        {
+            if (!CurrentProject.IsOpen || CurrentProject.Info == null)
+            {
+                MessageBox.Show("Please open or create a project first.", "No Project",
+                    MessageBoxButtons.OK, MessageBoxIcon.Warning);
+                return;
+            }
+
+            var form = new frmLandOwnersRecord();
+            form.Show();
         }
 
         private void toolStripSeparator1_Click(object sender, EventArgs e)

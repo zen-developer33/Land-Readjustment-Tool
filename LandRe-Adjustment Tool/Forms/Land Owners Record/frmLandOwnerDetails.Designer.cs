@@ -58,11 +58,11 @@
             btnViewParcels = new Button();
             grpSummary = new GroupBox();
             lblParcelCount = new Label();
+            lblAreaLocal = new Label();
+            lblAreasqm = new Label();
             label11 = new Label();
             label12 = new Label();
             label7 = new Label();
-            lblAreasqm = new Label();
-            lblAreaLocal = new Label();
             btnSave = new Button();
             groupBox2 = new GroupBox();
             btnClose = new Button();
@@ -426,6 +426,30 @@
             lblParcelCount.Text = "3";
             lblParcelCount.TextAlign = ContentAlignment.MiddleLeft;
             // 
+            // lblAreaLocal
+            // 
+            lblAreaLocal.Font = new Font("Segoe UI", 9F, FontStyle.Bold);
+            lblAreaLocal.ForeColor = Color.Black;
+            lblAreaLocal.Location = new Point(129, 83);
+            lblAreaLocal.Margin = new Padding(4, 0, 4, 0);
+            lblAreaLocal.Name = "lblAreaLocal";
+            lblAreaLocal.Size = new Size(104, 22);
+            lblAreaLocal.TabIndex = 3;
+            lblAreaLocal.Text = "R-A-P-D";
+            lblAreaLocal.TextAlign = ContentAlignment.MiddleLeft;
+            // 
+            // lblAreasqm
+            // 
+            lblAreasqm.Font = new Font("Segoe UI", 9F, FontStyle.Bold);
+            lblAreasqm.ForeColor = Color.Black;
+            lblAreasqm.Location = new Point(129, 55);
+            lblAreasqm.Margin = new Padding(4, 0, 4, 0);
+            lblAreasqm.Name = "lblAreasqm";
+            lblAreasqm.Size = new Size(113, 31);
+            lblAreasqm.TabIndex = 3;
+            lblAreasqm.Text = "1234.45 sq.m.";
+            lblAreasqm.TextAlign = ContentAlignment.MiddleLeft;
+            // 
             // label11
             // 
             label11.Font = new Font("Segoe UI", 9F);
@@ -460,30 +484,6 @@
             label7.Size = new Size(202, 28);
             label7.TabIndex = 15;
             label7.Text = "Land Owner's Detail";
-            // 
-            // lblAreasqm
-            // 
-            lblAreasqm.Font = new Font("Segoe UI", 9F, FontStyle.Bold);
-            lblAreasqm.ForeColor = Color.Black;
-            lblAreasqm.Location = new Point(129, 55);
-            lblAreasqm.Margin = new Padding(4, 0, 4, 0);
-            lblAreasqm.Name = "lblAreasqm";
-            lblAreasqm.Size = new Size(113, 31);
-            lblAreasqm.TabIndex = 3;
-            lblAreasqm.Text = "1234.45 sq.m.";
-            lblAreasqm.TextAlign = ContentAlignment.MiddleLeft;
-            // 
-            // lblAreaLocal
-            // 
-            lblAreaLocal.Font = new Font("Segoe UI", 9F, FontStyle.Bold);
-            lblAreaLocal.ForeColor = Color.Black;
-            lblAreaLocal.Location = new Point(129, 83);
-            lblAreaLocal.Margin = new Padding(4, 0, 4, 0);
-            lblAreaLocal.Name = "lblAreaLocal";
-            lblAreaLocal.Size = new Size(104, 22);
-            lblAreaLocal.TabIndex = 3;
-            lblAreaLocal.Text = "R-A-P-D";
-            lblAreaLocal.TextAlign = ContentAlignment.MiddleLeft;
             // 
             // btnSave
             // 
@@ -541,6 +541,7 @@
             Controls.Add(pnlPhoto);
             Name = "frmLandOwnerDetails";
             Text = "frmLandOwnerDetails";
+            Load += frmLandOwnerDetails_Load;
             pnlPhoto.ResumeLayout(false);
             ((System.ComponentModel.ISupportInitialize)picPhoto).EndInit();
             grpOwnerInfo.ResumeLayout(false);

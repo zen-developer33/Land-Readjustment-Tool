@@ -456,7 +456,6 @@
             panel1.Name = "panel1";
             panel1.Size = new Size(1363, 249);
             panel1.TabIndex = 2;
-
             // 
             // chkToggleQuickSearch
             // 
@@ -718,6 +717,7 @@
             toolStripButton1.Text = "View Land Owners Details";
             toolStripButton1.TextDirection = ToolStripTextDirection.Horizontal;
             toolStripButton1.ToolTipText = "Add Record";
+            toolStripButton1.Click += toolStripButton1_Click;
             // 
             // frmLandParcelOwnersRecord
             // 

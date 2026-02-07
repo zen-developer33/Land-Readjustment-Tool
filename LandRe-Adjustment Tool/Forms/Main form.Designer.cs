@@ -408,9 +408,11 @@
             // 
             // landOwnerDataToolStripMenuItem
             // 
+            landOwnerDataToolStripMenuItem.Enabled = false;
             landOwnerDataToolStripMenuItem.Name = "landOwnerDataToolStripMenuItem";
             landOwnerDataToolStripMenuItem.Size = new Size(294, 26);
             landOwnerDataToolStripMenuItem.Text = "Land Owner Data";
+            landOwnerDataToolStripMenuItem.Click += landOwnerDataToolStripMenuItem_Click;
             // 
             // frmMain
             // 

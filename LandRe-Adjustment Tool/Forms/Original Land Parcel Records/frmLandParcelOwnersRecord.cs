@@ -715,7 +715,7 @@ namespace Land_Readjustment_Tool.Forms.LandOwnersRecord_Managerment
         private void DgvRecords_CellDoubleClick(object? sender, DataGridViewCellEventArgs e)
         {
             if (e.RowIndex < 0) return;
-            ViewLandOwnerDetails();
+            EditSelectedRecord();
         }
 
         private void DgvRecords_RowPostPaint(object? sender, DataGridViewRowPostPaintEventArgs e)
@@ -871,7 +871,7 @@ namespace Land_Readjustment_Tool.Forms.LandOwnersRecord_Managerment
             var parcel = _allRecords.FirstOrDefault(r => r.ParcelId == model.ParcelId);
             if (parcel == null) return;
 
-            using var detailsForm = new frmLandownerDetails_2(_projectPath, parcel);
+            using var detailsForm = new frmLandownerDetails(_projectPath, parcel, isReadOnly: true);
             detailsForm.ShowDialog();
 
             // Refresh after details form closes in case changes were made
@@ -991,6 +991,11 @@ namespace Land_Readjustment_Tool.Forms.LandOwnersRecord_Managerment
         }
 
         private void lblSelectedRecords_Click(object sender, EventArgs e)
+        {
+
+        }
+
+        private void toolStripButton1_Click(object sender, EventArgs e)
         {
 
         }

@@ -39,5 +39,10 @@ namespace Land_Readjustment_Tool.Forms.Land_Owners_Record
         {
 
         }
+
+        private void frmLandOwnerDetails_Load(object sender, EventArgs e)
+        {
+
+        }
     }
 }
