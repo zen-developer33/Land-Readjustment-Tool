@@ -28,9 +28,9 @@
         /// </summary>
         private void InitializeComponent()
         {
-            DataGridViewCellStyle dataGridViewCellStyle1 = new DataGridViewCellStyle();
-            DataGridViewCellStyle dataGridViewCellStyle2 = new DataGridViewCellStyle();
-            DataGridViewCellStyle dataGridViewCellStyle3 = new DataGridViewCellStyle();
+            DataGridViewCellStyle dataGridViewCellStyle7 = new DataGridViewCellStyle();
+            DataGridViewCellStyle dataGridViewCellStyle8 = new DataGridViewCellStyle();
+            DataGridViewCellStyle dataGridViewCellStyle9 = new DataGridViewCellStyle();
             System.ComponentModel.ComponentResourceManager resources = new System.ComponentModel.ComponentResourceManager(typeof(frmLandParcelOwnersRecord));
             grpFilterByMapSheet = new GroupBox();
             cbWardNo = new ComboBox();
@@ -211,7 +211,7 @@
             groupBox1.Margin = new Padding(3, 4, 3, 4);
             groupBox1.Name = "groupBox1";
             groupBox1.Padding = new Padding(3, 4, 3, 4);
-            groupBox1.Size = new Size(161, 89);
+            groupBox1.Size = new Size(172, 89);
             groupBox1.TabIndex = 10;
             groupBox1.TabStop = false;
             groupBox1.Text = "Filter By Map Sheet";
@@ -235,7 +235,7 @@
             cbMapSheet.Location = new Point(18, 54);
             cbMapSheet.Margin = new Padding(3, 4, 3, 4);
             cbMapSheet.Name = "cbMapSheet";
-            cbMapSheet.Size = new Size(137, 28);
+            cbMapSheet.Size = new Size(148, 28);
             cbMapSheet.TabIndex = 10;
             // 
             // label5
@@ -313,7 +313,6 @@
             rbRopanee.TabIndex = 16;
             rbRopanee.Text = "Ropani";
             rbRopanee.UseVisualStyleBackColor = true;
-            rbRopanee.CheckedChanged += rbRopanee_CheckedChanged;
             // 
             // rbSqm
             // 
@@ -540,7 +539,6 @@
             lblSelectedRecords.Size = new Size(81, 20);
             lblSelectedRecords.TabIndex = 21;
             lblSelectedRecords.Text = "Selected: 0";
-            lblSelectedRecords.Click += lblSelectedRecords_Click;
             // 
             // panel3
             // 
@@ -580,31 +578,31 @@
             dgvRecords.AllowUserToAddRows = false;
             dgvRecords.AllowUserToDeleteRows = false;
             dgvRecords.AllowUserToOrderColumns = true;
-            dataGridViewCellStyle1.BackColor = Color.FromArgb(248, 249, 250);
-            dgvRecords.AlternatingRowsDefaultCellStyle = dataGridViewCellStyle1;
+            dataGridViewCellStyle7.BackColor = Color.FromArgb(248, 249, 250);
+            dgvRecords.AlternatingRowsDefaultCellStyle = dataGridViewCellStyle7;
             dgvRecords.Anchor = AnchorStyles.Top | AnchorStyles.Bottom | AnchorStyles.Left | AnchorStyles.Right;
             dgvRecords.BackgroundColor = Color.White;
             dgvRecords.BorderStyle = BorderStyle.None;
             dgvRecords.CellBorderStyle = DataGridViewCellBorderStyle.SingleHorizontal;
             dgvRecords.ColumnHeadersBorderStyle = DataGridViewHeaderBorderStyle.None;
-            dataGridViewCellStyle2.Alignment = DataGridViewContentAlignment.MiddleLeft;
-            dataGridViewCellStyle2.BackColor = Color.FromArgb(45, 65, 95);
-            dataGridViewCellStyle2.Font = new Font("Segoe UI", 9F, FontStyle.Bold);
-            dataGridViewCellStyle2.ForeColor = Color.White;
-            dataGridViewCellStyle2.SelectionBackColor = Color.FromArgb(45, 65, 95);
-            dataGridViewCellStyle2.SelectionForeColor = Color.White;
-            dataGridViewCellStyle2.WrapMode = DataGridViewTriState.False;
-            dgvRecords.ColumnHeadersDefaultCellStyle = dataGridViewCellStyle2;
+            dataGridViewCellStyle8.Alignment = DataGridViewContentAlignment.MiddleLeft;
+            dataGridViewCellStyle8.BackColor = Color.FromArgb(45, 65, 95);
+            dataGridViewCellStyle8.Font = new Font("Segoe UI", 9F, FontStyle.Bold);
+            dataGridViewCellStyle8.ForeColor = Color.White;
+            dataGridViewCellStyle8.SelectionBackColor = Color.FromArgb(45, 65, 95);
+            dataGridViewCellStyle8.SelectionForeColor = Color.White;
+            dataGridViewCellStyle8.WrapMode = DataGridViewTriState.False;
+            dgvRecords.ColumnHeadersDefaultCellStyle = dataGridViewCellStyle8;
             dgvRecords.ColumnHeadersHeight = 36;
             dgvRecords.ColumnHeadersHeightSizeMode = DataGridViewColumnHeadersHeightSizeMode.DisableResizing;
-            dataGridViewCellStyle3.Alignment = DataGridViewContentAlignment.MiddleLeft;
-            dataGridViewCellStyle3.BackColor = Color.White;
-            dataGridViewCellStyle3.Font = new Font("Segoe UI", 9F);
-            dataGridViewCellStyle3.ForeColor = Color.FromArgb(33, 37, 41);
-            dataGridViewCellStyle3.SelectionBackColor = Color.FromArgb(0, 123, 255);
-            dataGridViewCellStyle3.SelectionForeColor = Color.White;
-            dataGridViewCellStyle3.WrapMode = DataGridViewTriState.False;
-            dgvRecords.DefaultCellStyle = dataGridViewCellStyle3;
+            dataGridViewCellStyle9.Alignment = DataGridViewContentAlignment.MiddleLeft;
+            dataGridViewCellStyle9.BackColor = Color.White;
+            dataGridViewCellStyle9.Font = new Font("Segoe UI", 9F);
+            dataGridViewCellStyle9.ForeColor = Color.FromArgb(33, 37, 41);
+            dataGridViewCellStyle9.SelectionBackColor = Color.FromArgb(0, 123, 255);
+            dataGridViewCellStyle9.SelectionForeColor = Color.White;
+            dataGridViewCellStyle9.WrapMode = DataGridViewTriState.False;
+            dgvRecords.DefaultCellStyle = dataGridViewCellStyle9;
             dgvRecords.EnableHeadersVisualStyles = false;
             dgvRecords.GridColor = Color.FromArgb(222, 226, 230);
             dgvRecords.Location = new Point(9, 68);
@@ -692,14 +690,13 @@
             // 
             // saveToolStripButton
             // 
-            saveToolStripButton.Image = Properties.Resources.diskette4;
+            saveToolStripButton.Image = Properties.Resources.diskette22;
             saveToolStripButton.ImageScaling = ToolStripItemImageScaling.None;
             saveToolStripButton.ImageTransparentColor = Color.Magenta;
             saveToolStripButton.Name = "saveToolStripButton";
-            saveToolStripButton.Size = new Size(74, 61);
+            saveToolStripButton.Size = new Size(64, 61);
             saveToolStripButton.Text = "Save";
             saveToolStripButton.ToolTipText = "Save to Database ";
-            saveToolStripButton.Click += saveToolStripButton_Click;
             // 
             // toolStripSeparator1
             // 
@@ -717,7 +714,6 @@
             toolStripButton1.Text = "View Land Owners Details";
             toolStripButton1.TextDirection = ToolStripTextDirection.Horizontal;
             toolStripButton1.ToolTipText = "Add Record";
-            toolStripButton1.Click += toolStripButton1_Click;
             // 
             // frmLandParcelOwnersRecord
             // 

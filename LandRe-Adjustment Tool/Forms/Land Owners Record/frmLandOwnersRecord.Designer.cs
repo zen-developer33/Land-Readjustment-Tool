@@ -18,6 +18,7 @@ namespace Land_Readjustment_Tool.Forms
         private void InitializeComponent()
         {
             DataGridViewCellStyle dataGridViewCellStyle1 = new DataGridViewCellStyle();
+            System.ComponentModel.ComponentResourceManager resources = new System.ComponentModel.ComponentResourceManager(typeof(frmLandOwnersRecord));
             toolStrip1 = new ToolStrip();
             btnAdd = new ToolStripButton();
             btnEdit = new ToolStripButton();
@@ -32,6 +33,7 @@ namespace Land_Readjustment_Tool.Forms
             lblPaginationInfo = new Label();
             lblTotalRecords = new Label();
             dgvRecords = new DataGridView();
+            toolStripButton1 = new ToolStripButton();
             toolStrip1.SuspendLayout();
             panel1.SuspendLayout();
             ((System.ComponentModel.ISupportInitialize)dgvRecords).BeginInit();
@@ -41,7 +43,7 @@ namespace Land_Readjustment_Tool.Forms
             // 
             toolStrip1.AutoSize = false;
             toolStrip1.ImageScalingSize = new Size(48, 48);
-            toolStrip1.Items.AddRange(new ToolStripItem[] { btnAdd, btnEdit, btnDelete, toolStripSeparator1, toolStripLabel1, txtSearch, toolStripSeparator2, btnRefresh, saveToolStripButton });
+            toolStrip1.Items.AddRange(new ToolStripItem[] { btnAdd, btnEdit, btnDelete, toolStripSeparator1, toolStripLabel1, txtSearch, toolStripSeparator2, btnRefresh, saveToolStripButton, toolStripButton1 });
             toolStrip1.Location = new Point(0, 0);
             toolStrip1.Name = "toolStrip1";
             toolStrip1.Size = new Size(1368, 74);
@@ -120,11 +122,11 @@ namespace Land_Readjustment_Tool.Forms
             // 
             // saveToolStripButton
             // 
-            saveToolStripButton.Image = Properties.Resources.diskette4;
+            saveToolStripButton.Image = Properties.Resources.diskette2;
             saveToolStripButton.ImageScaling = ToolStripItemImageScaling.None;
             saveToolStripButton.ImageTransparentColor = Color.Magenta;
             saveToolStripButton.Name = "saveToolStripButton";
-            saveToolStripButton.Size = new Size(74, 71);
+            saveToolStripButton.Size = new Size(64, 71);
             saveToolStripButton.Text = "Save";
             saveToolStripButton.ToolTipText = "Save to Database ";
             // 
@@ -184,6 +186,15 @@ namespace Land_Readjustment_Tool.Forms
             dgvRecords.Size = new Size(1356, 600);
             dgvRecords.TabIndex = 1;
             // 
+            // toolStripButton1
+            // 
+            toolStripButton1.DisplayStyle = ToolStripItemDisplayStyle.Image;
+            toolStripButton1.Image = (Image)resources.GetObject("toolStripButton1.Image");
+            toolStripButton1.ImageTransparentColor = Color.Magenta;
+            toolStripButton1.Name = "toolStripButton1";
+            toolStripButton1.Size = new Size(52, 71);
+            toolStripButton1.Text = "toolStripButton1";
+            // 
             // frmLandOwnersRecord
             // 
             AutoScaleDimensions = new SizeF(8F, 20F);
@@ -222,5 +233,6 @@ namespace Land_Readjustment_Tool.Forms
         private Label lblTotalRecords;
         private Label lblPaginationInfo;
         private ToolStripButton saveToolStripButton;
+        private ToolStripButton toolStripButton1;
     }
 }

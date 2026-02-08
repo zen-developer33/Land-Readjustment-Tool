@@ -508,7 +508,11 @@ namespace Land_Readjustment_Tool
 
         private void frmMain_Load(object sender, EventArgs e)
         {
-
+            if (CurrentProject.IsOpen)
+            {
+                UpdateWindowTitle();
+                InitializeProjectWorkspace();
+            }
         }
 
 

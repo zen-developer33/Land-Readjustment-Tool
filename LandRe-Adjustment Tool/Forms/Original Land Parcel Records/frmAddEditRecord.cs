@@ -117,8 +117,10 @@ namespace Land_Readjustment_Tool.Forms
 
         private void ConfigureInputBehavior()
         {
+            
             txtAreaInRAPD.ReadOnly = true;
             txtAreaInBKD.ReadOnly = true;
+            txtParcelNo.Focus();
 
             txtAreaInSqm.TextChanged += TxtAreaInSqm_TextChanged;
             txtAreaInSqm.KeyPress += TxtAreaInSqm_KeyPress;

@@ -376,7 +376,7 @@
             btnCancel.Location = new Point(637, 14);
             btnCancel.Margin = new Padding(4);
             btnCancel.Name = "btnCancel";
-            btnCancel.Size = new Size(98, 37);
+            btnCancel.Size = new Size(98, 46);
             btnCancel.TabIndex = 13;
             btnCancel.Text = "Cancel";
             btnCancel.TextAlign = ContentAlignment.MiddleRight;
@@ -510,7 +510,7 @@
             btnSave.Location = new Point(479, 13);
             btnSave.Margin = new Padding(4);
             btnSave.Name = "btnSave";
-            btnSave.Size = new Size(150, 37);
+            btnSave.Size = new Size(150, 47);
             btnSave.TabIndex = 13;
             btnSave.Text = "Save";
             btnSave.TextAlign = ContentAlignment.MiddleRight;

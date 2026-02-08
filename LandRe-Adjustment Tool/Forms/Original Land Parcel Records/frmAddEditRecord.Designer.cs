@@ -483,17 +483,17 @@ namespace Land_Readjustment_Tool.Forms
             pnlButtons.Controls.Add(btnAdd);
             pnlButtons.Controls.Add(btnDelete);
             pnlButtons.Dock = DockStyle.Bottom;
-            pnlButtons.Location = new Point(0, 613);
+            pnlButtons.Location = new Point(0, 612);
             pnlButtons.Name = "pnlButtons";
-            pnlButtons.Size = new Size(935, 55);
+            pnlButtons.Size = new Size(935, 68);
             pnlButtons.TabIndex = 4;
             // 
             // btnCancel
             // 
             btnCancel.Anchor = AnchorStyles.Top | AnchorStyles.Right;
-            btnCancel.Location = new Point(823, 10);
+            btnCancel.Location = new Point(842, 10);
             btnCancel.Name = "btnCancel";
-            btnCancel.Size = new Size(100, 35);
+            btnCancel.Size = new Size(81, 46);
             btnCancel.TabIndex = 28;
             btnCancel.Text = "Cancel";
             btnCancel.UseVisualStyleBackColor = true;
@@ -502,33 +502,40 @@ namespace Land_Readjustment_Tool.Forms
             // btnUpdate
             // 
             btnUpdate.Anchor = AnchorStyles.Top | AnchorStyles.Right;
-            btnUpdate.Location = new Point(611, 10);
+            btnUpdate.Image = Properties.Resources.diskette2;
+            btnUpdate.Location = new Point(630, 10);
             btnUpdate.Name = "btnUpdate";
-            btnUpdate.Size = new Size(100, 35);
+            btnUpdate.Size = new Size(100, 46);
             btnUpdate.TabIndex = 26;
             btnUpdate.Text = "Update";
+            btnUpdate.TextImageRelation = TextImageRelation.ImageBeforeText;
             btnUpdate.UseVisualStyleBackColor = true;
             btnUpdate.Click += btnUpdate_Click;
             // 
             // btnAdd
             // 
             btnAdd.Anchor = AnchorStyles.Top | AnchorStyles.Right;
-            btnAdd.Location = new Point(734, 10);
+            btnAdd.Image = Properties.Resources.icons8_add_25__1_;
+            btnAdd.Location = new Point(753, 10);
             btnAdd.Name = "btnAdd";
-            btnAdd.Size = new Size(83, 35);
+            btnAdd.Size = new Size(83, 46);
             btnAdd.TabIndex = 27;
             btnAdd.Text = "Add";
+            btnAdd.TextAlign = ContentAlignment.MiddleRight;
+            btnAdd.TextImageRelation = TextImageRelation.ImageBeforeText;
             btnAdd.UseVisualStyleBackColor = true;
             btnAdd.Click += btnAdd_Click;
             // 
             // btnDelete
             // 
             btnDelete.Anchor = AnchorStyles.Top | AnchorStyles.Right;
-            btnDelete.Location = new Point(717, 10);
+            btnDelete.Image = Properties.Resources.delete_icon;
+            btnDelete.Location = new Point(736, 10);
             btnDelete.Name = "btnDelete";
-            btnDelete.Size = new Size(100, 35);
+            btnDelete.Size = new Size(100, 46);
             btnDelete.TabIndex = 27;
             btnDelete.Text = "Delete";
+            btnDelete.TextImageRelation = TextImageRelation.ImageBeforeText;
             btnDelete.UseVisualStyleBackColor = true;
             btnDelete.Click += btnDelete_Click;
             // 
@@ -787,7 +794,7 @@ namespace Land_Readjustment_Tool.Forms
             AutoScaleDimensions = new SizeF(8F, 20F);
             AutoScaleMode = AutoScaleMode.Font;
             AutoScroll = true;
-            ClientSize = new Size(935, 668);
+            ClientSize = new Size(935, 680);
             Controls.Add(pnlButtons);
             Controls.Add(grpRemarks);
             Controls.Add(groupBox6);

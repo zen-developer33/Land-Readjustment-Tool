@@ -1,4 +1,6 @@
 ﻿
+
+using Land_Readjustment_Tool.Forms;
 using System.Text;
 
 
@@ -16,8 +18,7 @@ namespace Land_Readjustment_Tool
             Application.EnableVisualStyles();
             Application.SetCompatibleTextRenderingDefault(false);
 
-            Application.Run(new frmMain());
-            
+            Application.Run(new frmStartup());
 
             //Application.Run(new frmLandownersRecord());
         }

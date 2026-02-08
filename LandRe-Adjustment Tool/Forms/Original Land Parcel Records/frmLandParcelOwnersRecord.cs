@@ -906,7 +906,7 @@ namespace Land_Readjustment_Tool.Forms.LandOwnersRecord_Managerment
             {
                 var bindingList = new BindingList<BaselineLandParceRecord>(records);
                 using var reviewForm = new frmReviewDuplicates(deduplicationResult, bindingList);
-                
+
                 if (reviewForm.ShowDialog() != DialogResult.OK)
                 {
                     // User cancelled the review
@@ -953,7 +953,7 @@ namespace Land_Readjustment_Tool.Forms.LandOwnersRecord_Managerment
                 {
                     var bindingList = new BindingList<BaselineLandParceRecord>(records);
                     using var reviewForm = new frmReviewDuplicates(deduplicationResult, bindingList);
-                    
+
                     if (reviewForm.ShowDialog() != DialogResult.OK)
                     {
                         // User cancelled the review
@@ -965,7 +965,7 @@ namespace Land_Readjustment_Tool.Forms.LandOwnersRecord_Managerment
 
                 // Step 4: Save or get the owner ID
                 var parcelToOwnerMap = _repository.SaveUniqueOwnersFromDeduplication(deduplicationResult);
-                
+
                 // The first (and only) record in our list is at index 0
                 if (parcelToOwnerMap.TryGetValue(0, out int newOwnerId))
                 {
@@ -1075,26 +1075,6 @@ namespace Land_Readjustment_Tool.Forms.LandOwnersRecord_Managerment
         private void radioButton3_CheckedChanged(object sender, EventArgs e) { }
 
         #endregion
-
-        private void saveToolStripButton_Click(object sender, EventArgs e)
-        {
-
-        }
-
-        private void rbRopanee_CheckedChanged(object sender, EventArgs e)
-        {
-
-        }
-
-        private void lblSelectedRecords_Click(object sender, EventArgs e)
-        {
-
-        }
-
-        private void toolStripButton1_Click(object sender, EventArgs e)
-        {
-
-        }
     }
 
     #region Display Model
