@@ -224,6 +224,7 @@
             // cbGender
             // 
             cbGender.DropDownStyle = ComboBoxStyle.DropDownList;
+            cbGender.FlatStyle = FlatStyle.System;
             cbGender.Font = new Font("Segoe UI", 9F);
             cbGender.FormattingEnabled = true;
             cbGender.Items.AddRange(new object[] { "Male", "Female", "Other" });
