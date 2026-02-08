@@ -155,7 +155,7 @@ namespace Land_Readjustment_Tool
             projectSettingToolStripMenuItem.Enabled = true;
             backupProjectToolStripMenuItem.Enabled = true;
             closeProjectToolStripMenuItem.Enabled = true;
-            ViewDataToolStripMenuItem.Enabled = true;
+            ImportParcelOwnerShipRecords.Enabled = true;
             landOwnerDataToolStripMenuItem.Enabled = true;
             startReplotWorkspaceToolStripMenuItem.Enabled = true;
         }
@@ -518,7 +518,7 @@ namespace Land_Readjustment_Tool
 
 
 
-        private void importToolStripMenuItem_Click(object sender, EventArgs e)
+        private void ImportParcelOwnershipRecords_Click(object sender, EventArgs e)
         {
             if (!CurrentProject.IsOpen || CurrentProject.Info == null)
             {
@@ -534,7 +534,7 @@ namespace Land_Readjustment_Tool
                 return;
             }
 
-            using (var importForm = new frmImportManager(CurrentProject.Info.ProjectPath))
+            using (var importForm = new frmImportParcelOwnershipRecords(CurrentProject.Info.ProjectPath))
             {
                 if (importForm.ShowDialog() == DialogResult.OK)
                 {
@@ -646,7 +646,7 @@ namespace Land_Readjustment_Tool
             closeProjectToolStripMenuItem.Enabled = false;
             backupProjectToolStripMenuItem.Enabled = false;
             restoreFromBackupToolStripMenuItem.Enabled = false;
-            ViewDataToolStripMenuItem.Enabled = false;
+            ImportParcelOwnerShipRecords.Enabled = false;
             startReplotWorkspaceToolStripMenuItem.Enabled = false;
 
             UpdateWindowTitle();
@@ -655,6 +655,12 @@ namespace Land_Readjustment_Tool
 
 
         private void projectSettingToolStripMenuItem_Click(object sender, EventArgs e)
+        {
+
+        }
+
+
+        private void baseMapsToolStripMenuItem_Click(object sender, EventArgs e)
         {
 
         }

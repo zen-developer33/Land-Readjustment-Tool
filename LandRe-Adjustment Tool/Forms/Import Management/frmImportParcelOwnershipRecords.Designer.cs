@@ -1,6 +1,6 @@
 ﻿namespace Land_Readjustment_Tool.Forms
 {
-    partial class frmImportManager
+    partial class frmImportParcelOwnershipRecords
     {
         /// <summary>
         /// Required designer variable.
@@ -614,7 +614,7 @@
             lblStep4Status.TabIndex = 3;
             lblStep4Status.Text = "Step 4: ⏳ Pending";
             // 
-            // frmImportManager
+            // frmImportParcelOwnershipRecords
             // 
             AutoScaleDimensions = new SizeF(8F, 20F);
             AutoScaleMode = AutoScaleMode.Font;
@@ -624,8 +624,8 @@
             Controls.Add(lblProgress);
             Controls.Add(progressBar);
             Controls.Add(SCImportManager);
-            Name = "frmImportManager";
-            Text = "Import Manager";
+            Name = "frmImportParcelOwnershipRecords";
+            Text = "Import Parcel Ownership Records";
             Load += frmImportManager_Load;
             grpStep2.ResumeLayout(false);
             grpStep2.PerformLayout();

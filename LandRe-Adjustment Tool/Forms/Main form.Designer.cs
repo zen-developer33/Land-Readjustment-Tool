@@ -48,9 +48,20 @@
             backupProjectToolStripMenuItem = new ToolStripMenuItem();
             restoreFromBackupToolStripMenuItem = new ToolStripMenuItem();
             dataToolStripMenuItem = new ToolStripMenuItem();
-            ViewDataToolStripMenuItem = new ToolStripMenuItem();
-            importToolStripMenuItem = new ToolStripMenuItem();
+            importDataToolStripMenuItem1 = new ToolStripMenuItem();
+            ImportParcelOwnerShipRecords = new ToolStripMenuItem();
+            toolStripSeparator5 = new ToolStripSeparator();
+            importCadastralDataDXFDWGShapefileToolStripMenuItem = new ToolStripMenuItem();
+            ImportProjectBoundaryDXFDWGToolStripMenuItem = new ToolStripMenuItem();
+            toolStripSeparator6 = new ToolStripSeparator();
+            baseMapsToolStripMenuItem = new ToolStripMenuItem();
+            geotiffToolStripMenuItem = new ToolStripMenuItem();
+            mBTilesToolStripMenuItem = new ToolStripMenuItem();
+            xYZToolStripMenuItem = new ToolStripMenuItem();
+            topographicalMapToolStripMenuItem = new ToolStripMenuItem();
             viewEditRecordToolStripMenuItem = new ToolStripMenuItem();
+            landOwnerDataToolStripMenuItem = new ToolStripMenuItem();
+            importToolStripMenuItem = new ToolStripMenuItem();
             contributionToolStripMenuItem = new ToolStripMenuItem();
             replottingToolStripMenuItem = new ToolStripMenuItem();
             startReplotWorkspaceToolStripMenuItem = new ToolStripMenuItem();
@@ -68,7 +79,6 @@
             flowLayoutPanel1 = new FlowLayoutPanel();
             importDataToolStripMenuItem = new ToolStripMenuItem();
             viewEditRecordsToolStripMenuItem = new ToolStripMenuItem();
-            landOwnerDataToolStripMenuItem = new ToolStripMenuItem();
             mainMenuStrip.SuspendLayout();
             ((System.ComponentModel.ISupportInitialize)splitContainer1).BeginInit();
             splitContainer1.Panel1.SuspendLayout();
@@ -219,26 +229,79 @@
             // 
             // dataToolStripMenuItem
             // 
-            dataToolStripMenuItem.DropDownItems.AddRange(new ToolStripItem[] { ViewDataToolStripMenuItem, landOwnerDataToolStripMenuItem });
+            dataToolStripMenuItem.DropDownItems.AddRange(new ToolStripItem[] { importDataToolStripMenuItem1, viewEditRecordToolStripMenuItem, landOwnerDataToolStripMenuItem, importToolStripMenuItem });
             dataToolStripMenuItem.Name = "dataToolStripMenuItem";
             dataToolStripMenuItem.Size = new Size(55, 24);
             dataToolStripMenuItem.Text = "Data";
             // 
-            // ViewDataToolStripMenuItem
+            // importDataToolStripMenuItem1
             // 
-            ViewDataToolStripMenuItem.DropDownItems.AddRange(new ToolStripItem[] { importToolStripMenuItem, viewEditRecordToolStripMenuItem });
-            ViewDataToolStripMenuItem.Enabled = false;
-            ViewDataToolStripMenuItem.Name = "ViewDataToolStripMenuItem";
-            ViewDataToolStripMenuItem.Size = new Size(294, 26);
-            ViewDataToolStripMenuItem.Text = "Land/Parcel Ownership Record";
-            ViewDataToolStripMenuItem.Click += ViewDataToolStripMenuItem_Click;
+            importDataToolStripMenuItem1.DropDownItems.AddRange(new ToolStripItem[] { ImportParcelOwnerShipRecords, toolStripSeparator5, importCadastralDataDXFDWGShapefileToolStripMenuItem, ImportProjectBoundaryDXFDWGToolStripMenuItem, toolStripSeparator6, baseMapsToolStripMenuItem, topographicalMapToolStripMenuItem });
+            importDataToolStripMenuItem1.Name = "importDataToolStripMenuItem1";
+            importDataToolStripMenuItem1.Size = new Size(224, 26);
+            importDataToolStripMenuItem1.Text = "Import Data";
             // 
-            // importToolStripMenuItem
+            // ImportParcelOwnerShipRecords
             // 
-            importToolStripMenuItem.Name = "importToolStripMenuItem";
-            importToolStripMenuItem.Size = new Size(224, 26);
-            importToolStripMenuItem.Text = "Import";
-            importToolStripMenuItem.Click += importToolStripMenuItem_Click;
+            ImportParcelOwnerShipRecords.Enabled = false;
+            ImportParcelOwnerShipRecords.Name = "ImportParcelOwnerShipRecords";
+            ImportParcelOwnerShipRecords.Size = new Size(342, 26);
+            ImportParcelOwnerShipRecords.Text = "Parcel Ownership Records (Excel/CSV)";
+            ImportParcelOwnerShipRecords.Click += ImportParcelOwnershipRecords_Click;
+            // 
+            // toolStripSeparator5
+            // 
+            toolStripSeparator5.Name = "toolStripSeparator5";
+            toolStripSeparator5.Size = new Size(339, 6);
+            // 
+            // importCadastralDataDXFDWGShapefileToolStripMenuItem
+            // 
+            importCadastralDataDXFDWGShapefileToolStripMenuItem.Name = "importCadastralDataDXFDWGShapefileToolStripMenuItem";
+            importCadastralDataDXFDWGShapefileToolStripMenuItem.Size = new Size(342, 26);
+            importCadastralDataDXFDWGShapefileToolStripMenuItem.Text = "Cadastral Map (DXF/DWG/Shapefile)";
+            // 
+            // ImportProjectBoundaryDXFDWGToolStripMenuItem
+            // 
+            ImportProjectBoundaryDXFDWGToolStripMenuItem.Name = "ImportProjectBoundaryDXFDWGToolStripMenuItem";
+            ImportProjectBoundaryDXFDWGToolStripMenuItem.Size = new Size(342, 26);
+            ImportProjectBoundaryDXFDWGToolStripMenuItem.Text = "Project Boundary (DXF/DWG)";
+            // 
+            // toolStripSeparator6
+            // 
+            toolStripSeparator6.Name = "toolStripSeparator6";
+            toolStripSeparator6.Size = new Size(339, 6);
+            // 
+            // baseMapsToolStripMenuItem
+            // 
+            baseMapsToolStripMenuItem.DropDownItems.AddRange(new ToolStripItem[] { geotiffToolStripMenuItem, mBTilesToolStripMenuItem, xYZToolStripMenuItem });
+            baseMapsToolStripMenuItem.Name = "baseMapsToolStripMenuItem";
+            baseMapsToolStripMenuItem.Size = new Size(342, 26);
+            baseMapsToolStripMenuItem.Text = "Raster Base Map";
+            baseMapsToolStripMenuItem.Click += baseMapsToolStripMenuItem_Click;
+            // 
+            // geotiffToolStripMenuItem
+            // 
+            geotiffToolStripMenuItem.Name = "geotiffToolStripMenuItem";
+            geotiffToolStripMenuItem.Size = new Size(224, 26);
+            geotiffToolStripMenuItem.Text = "GeoTIFF";
+            // 
+            // mBTilesToolStripMenuItem
+            // 
+            mBTilesToolStripMenuItem.Name = "mBTilesToolStripMenuItem";
+            mBTilesToolStripMenuItem.Size = new Size(224, 26);
+            mBTilesToolStripMenuItem.Text = "MBTiles";
+            // 
+            // xYZToolStripMenuItem
+            // 
+            xYZToolStripMenuItem.Name = "xYZToolStripMenuItem";
+            xYZToolStripMenuItem.Size = new Size(224, 26);
+            xYZToolStripMenuItem.Text = "XYZTiles";
+            // 
+            // topographicalMapToolStripMenuItem
+            // 
+            topographicalMapToolStripMenuItem.Name = "topographicalMapToolStripMenuItem";
+            topographicalMapToolStripMenuItem.Size = new Size(342, 26);
+            topographicalMapToolStripMenuItem.Text = "Topographical Map  (DXF/DWG)";
             // 
             // viewEditRecordToolStripMenuItem
             // 
@@ -246,6 +309,19 @@
             viewEditRecordToolStripMenuItem.Size = new Size(224, 26);
             viewEditRecordToolStripMenuItem.Text = "View/Edit Record";
             viewEditRecordToolStripMenuItem.Click += viewEditRecordToolStripMenuItem_Click;
+            // 
+            // landOwnerDataToolStripMenuItem
+            // 
+            landOwnerDataToolStripMenuItem.Enabled = false;
+            landOwnerDataToolStripMenuItem.Name = "landOwnerDataToolStripMenuItem";
+            landOwnerDataToolStripMenuItem.Size = new Size(224, 26);
+            landOwnerDataToolStripMenuItem.Text = "Land Owner Data";
+            landOwnerDataToolStripMenuItem.Click += landOwnerDataToolStripMenuItem_Click;
+            // 
+            // importToolStripMenuItem
+            // 
+            importToolStripMenuItem.Name = "importToolStripMenuItem";
+            importToolStripMenuItem.Size = new Size(224, 26);
             // 
             // contributionToolStripMenuItem
             // 
@@ -406,14 +482,6 @@
             viewEditRecordsToolStripMenuItem.Size = new Size(213, 26);
             viewEditRecordsToolStripMenuItem.Text = "View/Edit Records";
             // 
-            // landOwnerDataToolStripMenuItem
-            // 
-            landOwnerDataToolStripMenuItem.Enabled = false;
-            landOwnerDataToolStripMenuItem.Name = "landOwnerDataToolStripMenuItem";
-            landOwnerDataToolStripMenuItem.Size = new Size(294, 26);
-            landOwnerDataToolStripMenuItem.Text = "Land Owner Data";
-            landOwnerDataToolStripMenuItem.Click += landOwnerDataToolStripMenuItem_Click;
-            // 
             // frmMain
             // 
             AutoScaleDimensions = new SizeF(120F, 120F);
@@ -483,11 +551,21 @@
         private ToolStripMenuItem restoreFromBackupToolStripMenuItem;
         private ToolStripSeparator toolStripSeparator3;
         private ToolStripSeparator toolStripSeparator4;
-        private ToolStripMenuItem ViewDataToolStripMenuItem;
         private ToolStripMenuItem importDataToolStripMenuItem;
         private ToolStripMenuItem viewEditRecordsToolStripMenuItem;
-        private ToolStripMenuItem importToolStripMenuItem;
-        private ToolStripMenuItem viewEditRecordToolStripMenuItem;
         private ToolStripMenuItem landOwnerDataToolStripMenuItem;
+        private ToolStripMenuItem importDataToolStripMenuItem1;
+        private ToolStripMenuItem importToolStripMenuItem;
+        private ToolStripMenuItem ImportParcelOwnerShipRecords;
+        private ToolStripMenuItem importCadastralDataDXFDWGShapefileToolStripMenuItem;
+        private ToolStripMenuItem viewEditRecordToolStripMenuItem;
+        private ToolStripMenuItem baseMapsToolStripMenuItem;
+        private ToolStripMenuItem ImportProjectBoundaryDXFDWGToolStripMenuItem;
+        private ToolStripSeparator toolStripSeparator5;
+        private ToolStripMenuItem geotiffToolStripMenuItem;
+        private ToolStripMenuItem mBTilesToolStripMenuItem;
+        private ToolStripMenuItem xYZToolStripMenuItem;
+        private ToolStripSeparator toolStripSeparator6;
+        private ToolStripMenuItem topographicalMapToolStripMenuItem;
     }
 }

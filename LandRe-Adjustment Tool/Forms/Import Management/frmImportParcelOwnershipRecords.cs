@@ -14,7 +14,7 @@ namespace Land_Readjustment_Tool.Forms
     /// Step 3: Review & Edit Records (with fuzzy deduplication)
     /// Step 4: Validate & Save to Database
     /// </summary>
-    public partial class frmImportManager : Form
+    public partial class frmImportParcelOwnershipRecords : Form
     {
         // ==================== FIELDS ====================
         private DataSet? _excelDataSet;
@@ -37,7 +37,7 @@ namespace Land_Readjustment_Tool.Forms
         public int ImportedCount => _importedRecords.Count;
 
         // ==================== CONSTRUCTOR ====================
-        public frmImportManager(string projectPath)
+        public frmImportParcelOwnershipRecords(string projectPath)
         {
             InitializeComponent();
             _projectPath = projectPath;
