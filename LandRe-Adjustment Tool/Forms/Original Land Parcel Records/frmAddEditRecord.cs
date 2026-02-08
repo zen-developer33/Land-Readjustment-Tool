@@ -92,21 +92,18 @@ namespace Land_Readjustment_Tool.Forms
         {
             _isEditMode = false;
             this.Text = "Add New Parcel Record";
-
             btnAdd.Visible = true;
 
             btnUpdate.Visible = false;
             btnDelete.Visible = false;
 
             ClearAllFields();
-            txtParcelNo.Focus();
         }
 
         private void SetEditMode()
         {
             _isEditMode = true;
             this.Text = "Edit Parcel Record";
-            txtParcelNo.Focus();
             btnAdd.Visible = false;
             btnUpdate.Visible = true;
             btnUpdate.Enabled = true;
@@ -518,7 +515,7 @@ namespace Land_Readjustment_Tool.Forms
 
         private void frmAddEditRecord_Load(object sender, EventArgs e)
         {
-
+            txtParcelNo.Focus();
         }
 
         private void TxtAreaInSqm_TextChanged(object? sender, EventArgs e)

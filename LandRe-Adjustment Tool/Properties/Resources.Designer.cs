@@ -153,6 +153,26 @@ namespace Land_Readjustment_Tool.Properties {
         /// <summary>
         ///   Looks up a localized resource of type System.Drawing.Bitmap.
         /// </summary>
+        internal static System.Drawing.Bitmap ChatGPT_Image_Feb_5__2026__06_17_32_PM {
+            get {
+                object obj = ResourceManager.GetObject("ChatGPT Image Feb 5, 2026, 06_17_32 PM", resourceCulture);
+                return ((System.Drawing.Bitmap)(obj));
+            }
+        }
+        
+        /// <summary>
+        ///   Looks up a localized resource of type System.Drawing.Bitmap.
+        /// </summary>
+        internal static System.Drawing.Bitmap ChatGPT_Image_Feb_5__2026__06_17_32_PM1 {
+            get {
+                object obj = ResourceManager.GetObject("ChatGPT Image Feb 5, 2026, 06_17_32 PM1", resourceCulture);
+                return ((System.Drawing.Bitmap)(obj));
+            }
+        }
+        
+        /// <summary>
+        ///   Looks up a localized resource of type System.Drawing.Bitmap.
+        /// </summary>
         internal static System.Drawing.Bitmap delete_icon {
             get {
                 object obj = ResourceManager.GetObject("delete_icon", resourceCulture);
@@ -436,6 +456,16 @@ namespace Land_Readjustment_Tool.Properties {
         internal static System.Drawing.Bitmap Portrait_Placeholder1 {
             get {
                 object obj = ResourceManager.GetObject("Portrait_Placeholder1", resourceCulture);
+                return ((System.Drawing.Bitmap)(obj));
+            }
+        }
+        
+        /// <summary>
+        ///   Looks up a localized resource of type System.Drawing.Bitmap.
+        /// </summary>
+        internal static System.Drawing.Bitmap RePlot {
+            get {
+                object obj = ResourceManager.GetObject("RePlot", resourceCulture);
                 return ((System.Drawing.Bitmap)(obj));
             }
         }

@@ -279,6 +279,7 @@ namespace Land_Readjustment_Tool.Forms
 
         private void BtnRefresh_Click(object? sender, EventArgs e)
         {
+            txtSearch.Clear();
             LoadOwners();
         }
 
@@ -317,6 +318,16 @@ namespace Land_Readjustment_Tool.Forms
             bool hasSelection = dgvRecords.SelectedRows.Count > 0;
             btnEdit.Enabled = hasSelection;
             btnDelete.Enabled = hasSelection;
+        }
+
+        private void btnRefresh_Click_1(object sender, EventArgs e)
+        {
+
+        }
+
+        private void toolStripButton1_Click(object sender, EventArgs e)
+        {
+            this.Close();
         }
     }
 

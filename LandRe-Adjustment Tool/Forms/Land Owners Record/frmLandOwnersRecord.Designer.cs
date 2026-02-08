@@ -17,8 +17,7 @@ namespace Land_Readjustment_Tool.Forms
 
         private void InitializeComponent()
         {
-            DataGridViewCellStyle dataGridViewCellStyle1 = new DataGridViewCellStyle();
-            System.ComponentModel.ComponentResourceManager resources = new System.ComponentModel.ComponentResourceManager(typeof(frmLandOwnersRecord));
+            DataGridViewCellStyle dataGridViewCellStyle2 = new DataGridViewCellStyle();
             toolStrip1 = new ToolStrip();
             btnAdd = new ToolStripButton();
             btnEdit = new ToolStripButton();
@@ -33,7 +32,7 @@ namespace Land_Readjustment_Tool.Forms
             lblPaginationInfo = new Label();
             lblTotalRecords = new Label();
             dgvRecords = new DataGridView();
-            toolStripButton1 = new ToolStripButton();
+            btnClose = new ToolStripButton();
             toolStrip1.SuspendLayout();
             panel1.SuspendLayout();
             ((System.ComponentModel.ISupportInitialize)dgvRecords).BeginInit();
@@ -43,7 +42,7 @@ namespace Land_Readjustment_Tool.Forms
             // 
             toolStrip1.AutoSize = false;
             toolStrip1.ImageScalingSize = new Size(48, 48);
-            toolStrip1.Items.AddRange(new ToolStripItem[] { btnAdd, btnEdit, btnDelete, toolStripSeparator1, toolStripLabel1, txtSearch, toolStripSeparator2, btnRefresh, saveToolStripButton, toolStripButton1 });
+            toolStrip1.Items.AddRange(new ToolStripItem[] { btnAdd, btnEdit, btnDelete, toolStripSeparator1, toolStripLabel1, txtSearch, toolStripSeparator2, btnRefresh, saveToolStripButton, btnClose });
             toolStrip1.Location = new Point(0, 0);
             toolStrip1.Name = "toolStrip1";
             toolStrip1.Size = new Size(1368, 74);
@@ -54,6 +53,7 @@ namespace Land_Readjustment_Tool.Forms
             // 
             btnAdd.BackgroundImageLayout = ImageLayout.None;
             btnAdd.Image = Properties.Resources.icons8_add_25__1_;
+            btnAdd.ImageAlign = ContentAlignment.BottomCenter;
             btnAdd.ImageScaling = ToolStripItemImageScaling.None;
             btnAdd.ImageTransparentColor = Color.Magenta;
             btnAdd.Name = "btnAdd";
@@ -65,6 +65,7 @@ namespace Land_Readjustment_Tool.Forms
             // btnEdit
             // 
             btnEdit.Image = Properties.Resources.edit_icon;
+            btnEdit.ImageAlign = ContentAlignment.BottomCenter;
             btnEdit.ImageScaling = ToolStripItemImageScaling.None;
             btnEdit.ImageTransparentColor = Color.Magenta;
             btnEdit.Name = "btnEdit";
@@ -75,7 +76,8 @@ namespace Land_Readjustment_Tool.Forms
             // 
             // btnDelete
             // 
-            btnDelete.Image = Properties.Resources.delete_icon_25;
+            btnDelete.Image = Properties.Resources.delete_icon;
+            btnDelete.ImageAlign = ContentAlignment.BottomCenter;
             btnDelete.ImageScaling = ToolStripItemImageScaling.None;
             btnDelete.ImageTransparentColor = Color.Magenta;
             btnDelete.Name = "btnDelete";
@@ -119,6 +121,7 @@ namespace Land_Readjustment_Tool.Forms
             btnRefresh.Size = new Size(97, 71);
             btnRefresh.Text = "Refresh";
             btnRefresh.ToolTipText = "Refresh Records";
+            btnRefresh.Click += btnRefresh_Click_1;
             // 
             // saveToolStripButton
             // 
@@ -169,14 +172,14 @@ namespace Land_Readjustment_Tool.Forms
             dgvRecords.Anchor = AnchorStyles.Top | AnchorStyles.Bottom | AnchorStyles.Left | AnchorStyles.Right;
             dgvRecords.BackgroundColor = SystemColors.ControlLight;
             dgvRecords.ColumnHeadersHeightSizeMode = DataGridViewColumnHeadersHeightSizeMode.AutoSize;
-            dataGridViewCellStyle1.Alignment = DataGridViewContentAlignment.MiddleLeft;
-            dataGridViewCellStyle1.BackColor = SystemColors.Window;
-            dataGridViewCellStyle1.Font = new Font("Segoe UI", 9F);
-            dataGridViewCellStyle1.ForeColor = SystemColors.ControlText;
-            dataGridViewCellStyle1.SelectionBackColor = Color.SkyBlue;
-            dataGridViewCellStyle1.SelectionForeColor = SystemColors.HighlightText;
-            dataGridViewCellStyle1.WrapMode = DataGridViewTriState.False;
-            dgvRecords.DefaultCellStyle = dataGridViewCellStyle1;
+            dataGridViewCellStyle2.Alignment = DataGridViewContentAlignment.MiddleLeft;
+            dataGridViewCellStyle2.BackColor = SystemColors.Window;
+            dataGridViewCellStyle2.Font = new Font("Segoe UI", 9F);
+            dataGridViewCellStyle2.ForeColor = SystemColors.ControlText;
+            dataGridViewCellStyle2.SelectionBackColor = Color.SkyBlue;
+            dataGridViewCellStyle2.SelectionForeColor = SystemColors.HighlightText;
+            dataGridViewCellStyle2.WrapMode = DataGridViewTriState.False;
+            dgvRecords.DefaultCellStyle = dataGridViewCellStyle2;
             dgvRecords.Location = new Point(0, 77);
             dgvRecords.Name = "dgvRecords";
             dgvRecords.ReadOnly = true;
@@ -186,14 +189,15 @@ namespace Land_Readjustment_Tool.Forms
             dgvRecords.Size = new Size(1356, 600);
             dgvRecords.TabIndex = 1;
             // 
-            // toolStripButton1
+            // btnClose
             // 
-            toolStripButton1.DisplayStyle = ToolStripItemDisplayStyle.Image;
-            toolStripButton1.Image = (Image)resources.GetObject("toolStripButton1.Image");
-            toolStripButton1.ImageTransparentColor = Color.Magenta;
-            toolStripButton1.Name = "toolStripButton1";
-            toolStripButton1.Size = new Size(52, 71);
-            toolStripButton1.Text = "toolStripButton1";
+            btnClose.Image = Properties.Resources.delete_icon_25;
+            btnClose.ImageScaling = ToolStripItemImageScaling.None;
+            btnClose.ImageTransparentColor = Color.Magenta;
+            btnClose.Name = "btnClose";
+            btnClose.Size = new Size(74, 71);
+            btnClose.Text = "Close";
+            btnClose.Click += toolStripButton1_Click;
             // 
             // frmLandOwnersRecord
             // 
@@ -233,6 +237,6 @@ namespace Land_Readjustment_Tool.Forms
         private Label lblTotalRecords;
         private Label lblPaginationInfo;
         private ToolStripButton saveToolStripButton;
-        private ToolStripButton toolStripButton1;
+        private ToolStripButton btnClose;
     }
 }
