@@ -49,7 +49,6 @@
             restoreFromBackupToolStripMenuItem = new ToolStripMenuItem();
             dataToolStripMenuItem = new ToolStripMenuItem();
             importDataToolStripMenuItem1 = new ToolStripMenuItem();
-            ImportParcelOwnerShipRecords = new ToolStripMenuItem();
             toolStripSeparator5 = new ToolStripSeparator();
             importCadastralDataDXFDWGShapefileToolStripMenuItem = new ToolStripMenuItem();
             ImportProjectBoundaryDXFDWGToolStripMenuItem = new ToolStripMenuItem();
@@ -79,6 +78,15 @@
             flowLayoutPanel1 = new FlowLayoutPanel();
             importDataToolStripMenuItem = new ToolStripMenuItem();
             viewEditRecordsToolStripMenuItem = new ToolStripMenuItem();
+            toolStrip1 = new ToolStrip();
+            toolStripButton1 = new ToolStripButton();
+            toolStripButton2 = new ToolStripButton();
+            toolStripButton3 = new ToolStripButton();
+            toolStripSeparator7 = new ToolStripSeparator();
+            toolStripButton4 = new ToolStripButton();
+            toolStripLabel1 = new ToolStripLabel();
+            toolStripComboBox1 = new ToolStripComboBox();
+            ImportParcelOwnerShipRecords = new ToolStripMenuItem();
             mainMenuStrip.SuspendLayout();
             ((System.ComponentModel.ISupportInitialize)splitContainer1).BeginInit();
             splitContainer1.Panel1.SuspendLayout();
@@ -89,6 +97,7 @@
             splitContainer2.Panel2.SuspendLayout();
             splitContainer2.SuspendLayout();
             grpLayer.SuspendLayout();
+            toolStrip1.SuspendLayout();
             SuspendLayout();
             // 
             // mainMenuStrip
@@ -99,7 +108,7 @@
             mainMenuStrip.Location = new Point(0, 0);
             mainMenuStrip.Name = "mainMenuStrip";
             mainMenuStrip.Padding = new Padding(5, 2, 0, 2);
-            mainMenuStrip.Size = new Size(998, 28);
+            mainMenuStrip.Size = new Size(1258, 28);
             mainMenuStrip.TabIndex = 0;
             mainMenuStrip.Text = "menuStrip1";
             // 
@@ -241,14 +250,6 @@
             importDataToolStripMenuItem1.Size = new Size(224, 26);
             importDataToolStripMenuItem1.Text = "Import Data";
             // 
-            // ImportParcelOwnerShipRecords
-            // 
-            ImportParcelOwnerShipRecords.Enabled = false;
-            ImportParcelOwnerShipRecords.Name = "ImportParcelOwnerShipRecords";
-            ImportParcelOwnerShipRecords.Size = new Size(342, 26);
-            ImportParcelOwnerShipRecords.Text = "Parcel Ownership Records (Excel/CSV)";
-            ImportParcelOwnerShipRecords.Click += ImportParcelOwnershipRecords_Click;
-            // 
             // toolStripSeparator5
             // 
             toolStripSeparator5.Name = "toolStripSeparator5";
@@ -282,19 +283,19 @@
             // geotiffToolStripMenuItem
             // 
             geotiffToolStripMenuItem.Name = "geotiffToolStripMenuItem";
-            geotiffToolStripMenuItem.Size = new Size(224, 26);
+            geotiffToolStripMenuItem.Size = new Size(148, 26);
             geotiffToolStripMenuItem.Text = "GeoTIFF";
             // 
             // mBTilesToolStripMenuItem
             // 
             mBTilesToolStripMenuItem.Name = "mBTilesToolStripMenuItem";
-            mBTilesToolStripMenuItem.Size = new Size(224, 26);
+            mBTilesToolStripMenuItem.Size = new Size(148, 26);
             mBTilesToolStripMenuItem.Text = "MBTiles";
             // 
             // xYZToolStripMenuItem
             // 
             xYZToolStripMenuItem.Name = "xYZToolStripMenuItem";
-            xYZToolStripMenuItem.Size = new Size(224, 26);
+            xYZToolStripMenuItem.Size = new Size(148, 26);
             xYZToolStripMenuItem.Text = "XYZTiles";
             // 
             // topographicalMapToolStripMenuItem
@@ -395,8 +396,8 @@
             // splitContainer1.Panel2
             // 
             splitContainer1.Panel2.Controls.Add(flowLayoutPanel1);
-            splitContainer1.Size = new Size(998, 569);
-            splitContainer1.SplitterDistance = 240;
+            splitContainer1.Size = new Size(1258, 569);
+            splitContainer1.SplitterDistance = 302;
             splitContainer1.TabIndex = 3;
             splitContainer1.Visible = false;
             // 
@@ -417,7 +418,7 @@
             // 
             splitContainer2.Panel2.Controls.Add(label1);
             splitContainer2.Panel2.Paint += splitContainer2_Panel2_Paint;
-            splitContainer2.Size = new Size(240, 569);
+            splitContainer2.Size = new Size(302, 569);
             splitContainer2.SplitterDistance = 277;
             splitContainer2.SplitterWidth = 5;
             splitContainer2.TabIndex = 0;
@@ -432,7 +433,7 @@
             grpLayer.Name = "grpLayer";
             grpLayer.Padding = new Padding(4);
             grpLayer.RightToLeft = RightToLeft.No;
-            grpLayer.Size = new Size(233, 273);
+            grpLayer.Size = new Size(295, 273);
             grpLayer.TabIndex = 0;
             grpLayer.TabStop = false;
             grpLayer.Text = "Layers";
@@ -444,7 +445,7 @@
             treeView1.Location = new Point(6, 19);
             treeView1.Margin = new Padding(4);
             treeView1.Name = "treeView1";
-            treeView1.Size = new Size(219, 246);
+            treeView1.Size = new Size(281, 246);
             treeView1.TabIndex = 0;
             // 
             // label1
@@ -467,7 +468,7 @@
             flowLayoutPanel1.Location = new Point(0, 0);
             flowLayoutPanel1.Margin = new Padding(2);
             flowLayoutPanel1.Name = "flowLayoutPanel1";
-            flowLayoutPanel1.Size = new Size(754, 569);
+            flowLayoutPanel1.Size = new Size(952, 569);
             flowLayoutPanel1.TabIndex = 0;
             // 
             // importDataToolStripMenuItem
@@ -482,12 +483,83 @@
             viewEditRecordsToolStripMenuItem.Size = new Size(213, 26);
             viewEditRecordsToolStripMenuItem.Text = "View/Edit Records";
             // 
+            // toolStrip1
+            // 
+            toolStrip1.ImageScalingSize = new Size(20, 20);
+            toolStrip1.Items.AddRange(new ToolStripItem[] { toolStripButton1, toolStripButton2, toolStripButton3, toolStripSeparator7, toolStripButton4, toolStripLabel1, toolStripComboBox1 });
+            toolStrip1.Location = new Point(0, 28);
+            toolStrip1.Name = "toolStrip1";
+            toolStrip1.Size = new Size(1258, 28);
+            toolStrip1.TabIndex = 4;
+            toolStrip1.Text = "toolStrip1";
+            // 
+            // toolStripButton1
+            // 
+            toolStripButton1.DisplayStyle = ToolStripItemDisplayStyle.Image;
+            toolStripButton1.Image = (Image)resources.GetObject("toolStripButton1.Image");
+            toolStripButton1.ImageTransparentColor = Color.Magenta;
+            toolStripButton1.Name = "toolStripButton1";
+            toolStripButton1.Size = new Size(29, 25);
+            toolStripButton1.Text = "toolStripButton1";
+            // 
+            // toolStripButton2
+            // 
+            toolStripButton2.DisplayStyle = ToolStripItemDisplayStyle.Image;
+            toolStripButton2.Image = (Image)resources.GetObject("toolStripButton2.Image");
+            toolStripButton2.ImageTransparentColor = Color.Magenta;
+            toolStripButton2.Name = "toolStripButton2";
+            toolStripButton2.Size = new Size(29, 25);
+            toolStripButton2.Text = "toolStripButton2";
+            // 
+            // toolStripButton3
+            // 
+            toolStripButton3.DisplayStyle = ToolStripItemDisplayStyle.Image;
+            toolStripButton3.Image = (Image)resources.GetObject("toolStripButton3.Image");
+            toolStripButton3.ImageTransparentColor = Color.Magenta;
+            toolStripButton3.Name = "toolStripButton3";
+            toolStripButton3.Size = new Size(29, 25);
+            toolStripButton3.Text = "toolStripButton3";
+            // 
+            // toolStripSeparator7
+            // 
+            toolStripSeparator7.Name = "toolStripSeparator7";
+            toolStripSeparator7.Size = new Size(6, 28);
+            // 
+            // toolStripButton4
+            // 
+            toolStripButton4.DisplayStyle = ToolStripItemDisplayStyle.Image;
+            toolStripButton4.Image = (Image)resources.GetObject("toolStripButton4.Image");
+            toolStripButton4.ImageTransparentColor = Color.Magenta;
+            toolStripButton4.Name = "toolStripButton4";
+            toolStripButton4.Size = new Size(29, 25);
+            toolStripButton4.Text = "toolStripButton4";
+            // 
+            // toolStripLabel1
+            // 
+            toolStripLabel1.Name = "toolStripLabel1";
+            toolStripLabel1.Size = new Size(111, 25);
+            toolStripLabel1.Text = "toolStripLabel1";
+            // 
+            // toolStripComboBox1
+            // 
+            toolStripComboBox1.Name = "toolStripComboBox1";
+            toolStripComboBox1.Size = new Size(121, 28);
+            // 
+            // ImportParcelOwnerShipRecords
+            // 
+            ImportParcelOwnerShipRecords.Enabled = false;
+            ImportParcelOwnerShipRecords.Name = "ImportParcelOwnerShipRecords";
+            ImportParcelOwnerShipRecords.Size = new Size(342, 26);
+            ImportParcelOwnerShipRecords.Text = "Parcel Ownership Records (Excel/CSV)";
+            ImportParcelOwnerShipRecords.Click += ImportParcelOwnershipRecords_Click;
+            // 
             // frmMain
             // 
             AutoScaleDimensions = new SizeF(120F, 120F);
             AutoScaleMode = AutoScaleMode.Dpi;
             BackColor = SystemColors.ControlLightLight;
-            ClientSize = new Size(998, 597);
+            ClientSize = new Size(1258, 597);
+            Controls.Add(toolStrip1);
             Controls.Add(splitContainer1);
             Controls.Add(mainMenuStrip);
             DoubleBuffered = true;
@@ -510,6 +582,8 @@
             ((System.ComponentModel.ISupportInitialize)splitContainer2).EndInit();
             splitContainer2.ResumeLayout(false);
             grpLayer.ResumeLayout(false);
+            toolStrip1.ResumeLayout(false);
+            toolStrip1.PerformLayout();
             ResumeLayout(false);
             PerformLayout();
         }
@@ -556,7 +630,6 @@
         private ToolStripMenuItem landOwnerDataToolStripMenuItem;
         private ToolStripMenuItem importDataToolStripMenuItem1;
         private ToolStripMenuItem importToolStripMenuItem;
-        private ToolStripMenuItem ImportParcelOwnerShipRecords;
         private ToolStripMenuItem importCadastralDataDXFDWGShapefileToolStripMenuItem;
         private ToolStripMenuItem viewEditRecordToolStripMenuItem;
         private ToolStripMenuItem baseMapsToolStripMenuItem;
@@ -567,5 +640,14 @@
         private ToolStripMenuItem xYZToolStripMenuItem;
         private ToolStripSeparator toolStripSeparator6;
         private ToolStripMenuItem topographicalMapToolStripMenuItem;
+        private ToolStrip toolStrip1;
+        private ToolStripButton toolStripButton1;
+        private ToolStripButton toolStripButton2;
+        private ToolStripButton toolStripButton3;
+        private ToolStripSeparator toolStripSeparator7;
+        private ToolStripButton toolStripButton4;
+        private ToolStripLabel toolStripLabel1;
+        private ToolStripComboBox toolStripComboBox1;
+        private ToolStripMenuItem ImportParcelOwnerShipRecords;
     }
 }
