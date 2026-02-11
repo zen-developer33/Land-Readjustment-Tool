@@ -49,6 +49,7 @@
             restoreFromBackupToolStripMenuItem = new ToolStripMenuItem();
             dataToolStripMenuItem = new ToolStripMenuItem();
             importDataToolStripMenuItem1 = new ToolStripMenuItem();
+            ImportParcelOwnerShipRecords = new ToolStripMenuItem();
             toolStripSeparator5 = new ToolStripSeparator();
             importCadastralDataDXFDWGShapefileToolStripMenuItem = new ToolStripMenuItem();
             ImportProjectBoundaryDXFDWGToolStripMenuItem = new ToolStripMenuItem();
@@ -86,7 +87,6 @@
             toolStripButton4 = new ToolStripButton();
             toolStripLabel1 = new ToolStripLabel();
             toolStripComboBox1 = new ToolStripComboBox();
-            ImportParcelOwnerShipRecords = new ToolStripMenuItem();
             mainMenuStrip.SuspendLayout();
             ((System.ComponentModel.ISupportInitialize)splitContainer1).BeginInit();
             splitContainer1.Panel1.SuspendLayout();
@@ -247,8 +247,16 @@
             // 
             importDataToolStripMenuItem1.DropDownItems.AddRange(new ToolStripItem[] { ImportParcelOwnerShipRecords, toolStripSeparator5, importCadastralDataDXFDWGShapefileToolStripMenuItem, ImportProjectBoundaryDXFDWGToolStripMenuItem, toolStripSeparator6, baseMapsToolStripMenuItem, topographicalMapToolStripMenuItem });
             importDataToolStripMenuItem1.Name = "importDataToolStripMenuItem1";
-            importDataToolStripMenuItem1.Size = new Size(224, 26);
+            importDataToolStripMenuItem1.Size = new Size(207, 26);
             importDataToolStripMenuItem1.Text = "Import Data";
+            // 
+            // ImportParcelOwnerShipRecords
+            // 
+            ImportParcelOwnerShipRecords.Enabled = false;
+            ImportParcelOwnerShipRecords.Name = "ImportParcelOwnerShipRecords";
+            ImportParcelOwnerShipRecords.Size = new Size(342, 26);
+            ImportParcelOwnerShipRecords.Text = "Parcel Ownership Records (Excel/CSV)";
+            ImportParcelOwnerShipRecords.Click += ImportParcelOwnershipRecords_Click;
             // 
             // toolStripSeparator5
             // 
@@ -307,7 +315,7 @@
             // viewEditRecordToolStripMenuItem
             // 
             viewEditRecordToolStripMenuItem.Name = "viewEditRecordToolStripMenuItem";
-            viewEditRecordToolStripMenuItem.Size = new Size(224, 26);
+            viewEditRecordToolStripMenuItem.Size = new Size(207, 26);
             viewEditRecordToolStripMenuItem.Text = "View/Edit Record";
             viewEditRecordToolStripMenuItem.Click += viewEditRecordToolStripMenuItem_Click;
             // 
@@ -315,14 +323,14 @@
             // 
             landOwnerDataToolStripMenuItem.Enabled = false;
             landOwnerDataToolStripMenuItem.Name = "landOwnerDataToolStripMenuItem";
-            landOwnerDataToolStripMenuItem.Size = new Size(224, 26);
+            landOwnerDataToolStripMenuItem.Size = new Size(207, 26);
             landOwnerDataToolStripMenuItem.Text = "Land Owner Data";
             landOwnerDataToolStripMenuItem.Click += landOwnerDataToolStripMenuItem_Click;
             // 
             // importToolStripMenuItem
             // 
             importToolStripMenuItem.Name = "importToolStripMenuItem";
-            importToolStripMenuItem.Size = new Size(224, 26);
+            importToolStripMenuItem.Size = new Size(207, 26);
             // 
             // contributionToolStripMenuItem
             // 
@@ -545,18 +553,10 @@
             toolStripComboBox1.Name = "toolStripComboBox1";
             toolStripComboBox1.Size = new Size(121, 28);
             // 
-            // ImportParcelOwnerShipRecords
-            // 
-            ImportParcelOwnerShipRecords.Enabled = false;
-            ImportParcelOwnerShipRecords.Name = "ImportParcelOwnerShipRecords";
-            ImportParcelOwnerShipRecords.Size = new Size(342, 26);
-            ImportParcelOwnerShipRecords.Text = "Parcel Ownership Records (Excel/CSV)";
-            ImportParcelOwnerShipRecords.Click += ImportParcelOwnershipRecords_Click;
-            // 
             // frmMain
             // 
-            AutoScaleDimensions = new SizeF(120F, 120F);
-            AutoScaleMode = AutoScaleMode.Dpi;
+            AutoScaleDimensions = new SizeF(8F, 20F);
+            AutoScaleMode = AutoScaleMode.Font;
             BackColor = SystemColors.ControlLightLight;
             ClientSize = new Size(1258, 597);
             Controls.Add(toolStrip1);

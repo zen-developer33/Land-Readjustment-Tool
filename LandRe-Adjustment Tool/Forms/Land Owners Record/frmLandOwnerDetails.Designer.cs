@@ -436,10 +436,10 @@
             // 
             lblParcelCount.Font = new Font("Segoe UI", 9F, FontStyle.Bold);
             lblParcelCount.ForeColor = Color.Black;
-            lblParcelCount.Location = new Point(129, 24);
+            lblParcelCount.Location = new Point(157, 24);
             lblParcelCount.Margin = new Padding(4, 0, 4, 0);
             lblParcelCount.Name = "lblParcelCount";
-            lblParcelCount.Size = new Size(55, 31);
+            lblParcelCount.Size = new Size(27, 31);
             lblParcelCount.TabIndex = 3;
             lblParcelCount.Text = "-";
             lblParcelCount.TextAlign = ContentAlignment.MiddleLeft;
@@ -448,10 +448,10 @@
             // 
             lblAreaLocal.Font = new Font("Segoe UI", 9F, FontStyle.Bold);
             lblAreaLocal.ForeColor = Color.Black;
-            lblAreaLocal.Location = new Point(129, 83);
+            lblAreaLocal.Location = new Point(157, 83);
             lblAreaLocal.Margin = new Padding(4, 0, 4, 0);
             lblAreaLocal.Name = "lblAreaLocal";
-            lblAreaLocal.Size = new Size(104, 22);
+            lblAreaLocal.Size = new Size(76, 22);
             lblAreaLocal.TabIndex = 3;
             lblAreaLocal.Text = "-";
             lblAreaLocal.TextAlign = ContentAlignment.MiddleLeft;
@@ -460,10 +460,10 @@
             // 
             lblAreasqm.Font = new Font("Segoe UI", 9F, FontStyle.Bold);
             lblAreasqm.ForeColor = Color.Black;
-            lblAreasqm.Location = new Point(129, 55);
+            lblAreasqm.Location = new Point(157, 55);
             lblAreasqm.Margin = new Padding(4, 0, 4, 0);
             lblAreasqm.Name = "lblAreasqm";
-            lblAreasqm.Size = new Size(113, 31);
+            lblAreasqm.Size = new Size(85, 31);
             lblAreasqm.TabIndex = 3;
             lblAreasqm.Text = "-";
             lblAreasqm.TextAlign = ContentAlignment.MiddleLeft;
@@ -475,9 +475,9 @@
             label11.Location = new Point(8, 24);
             label11.Margin = new Padding(4, 0, 4, 0);
             label11.Name = "label11";
-            label11.Size = new Size(154, 31);
+            label11.Size = new Size(150, 31);
             label11.TabIndex = 2;
-            label11.Text = "Parcel Owned:";
+            label11.Text = "No. of Parcel Owned:";
             label11.TextAlign = ContentAlignment.MiddleLeft;
             // 
             // label12
@@ -487,9 +487,9 @@
             label12.Location = new Point(8, 55);
             label12.Margin = new Padding(4, 0, 4, 0);
             label12.Name = "label12";
-            label12.Size = new Size(128, 31);
+            label12.Size = new Size(141, 31);
             label12.TabIndex = 0;
-            label12.Text = "Total Land Area: ";
+            label12.Text = "Total Area Owned: ";
             label12.TextAlign = ContentAlignment.MiddleLeft;
             label12.Click += label12_Click;
             // 
