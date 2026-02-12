@@ -1,7 +1,4 @@
 ﻿using Land_Readjustment_Tool.Models;
-using System;
-using System.Collections.Generic;
-using System.Linq;
 
 namespace Land_Readjustment_Tool.Services
 {
@@ -42,6 +39,9 @@ namespace Land_Readjustment_Tool.Services
             public string? CitizenshipIssuedDistrict { get; set; }
             public string? CitizenshipIssuedDate { get; set; }
             public string? PermanentAddress { get; set; }
+            public string? TemporaryAddress { get; set; }
+            public string? ContactNumber { get; set; }
+            public string? EmailID { get; set; }
             public List<int> ParcelIndices { get; set; } = new(); // Indices in original list
             public bool IsAnonymous { get; set; }
             public int CompletenessScore => GetCompletenessScore(this);
@@ -64,17 +64,17 @@ namespace Land_Readjustment_Tool.Services
 
             // When automatically merged via citizenship, keep a reference so user can undo
             public UniqueOwner? AutoMergedOwner { get; set; }
-            
+
             // Whether this was auto-merged based on citizenship
             public bool IsAutoMerged { get; set; }
-            
+
             // Match type description
             public string MatchType { get; set; } = string.Empty;
-            
+
             // User's decision for this group (null if not decided yet)
             public UserDecisionType? UserDecision { get; set; }
         }
-        
+
         /// <summary>
         /// User's decision for a duplicate group
         /// </summary>
@@ -102,7 +102,7 @@ namespace Land_Readjustment_Tool.Services
             {
                 TotalOriginalRecords = records.Count
             };
-            
+
             // Step 1: Handle anonymous owners and create initial owner list
             var potentialOwners = CreateInitialOwnerList(records, result, excludeAnonymous);
 
@@ -112,7 +112,7 @@ namespace Land_Readjustment_Tool.Services
             // Step 2: Find citizenship-based duplicates (fuzzy match with 95% threshold)
             // Only auto-merge if citizenship matches well
             var citizenshipGroups = FindCitizenshipDuplicates(potentialOwners);
-            
+
             foreach (var group in citizenshipGroups)
             {
                 if (group.Count > 1)
@@ -120,11 +120,11 @@ namespace Land_Readjustment_Tool.Services
                     // Multiple owners with similar citizenship - auto-merge
                     var merged = MergeOwners(group);
                     uniqueOwners.Add(merged);
-                    
+
                     foreach (var owner in group)
                     {
                         foreach (var idx in owner.ParcelIndices)
-                            processedIndices.Add(idx);
+                            _ = processedIndices.Add(idx);
                     }
 
                     // Add to auto-merged list for user visibility (can undo)
@@ -153,7 +153,7 @@ namespace Land_Readjustment_Tool.Services
                 .ToList();
 
             var nameFatherGroups = FindNameFatherDuplicatesWithCitizenshipCheck(remainingOwners);
-            
+
             foreach (var group in nameFatherGroups)
             {
                 if (group.Owners.Count == 1)
@@ -191,7 +191,7 @@ namespace Land_Readjustment_Tool.Services
         {
             var groups = new List<List<UniqueOwner>>();
             var processed = new HashSet<int>();
-            
+
             // Exclude anonymous owners from citizenship-based matching
             var ownersWithCitizenship = owners
                 .Select((o, idx) => (Owner: o, Index: idx))
@@ -201,35 +201,35 @@ namespace Land_Readjustment_Tool.Services
             for (int i = 0; i < ownersWithCitizenship.Count; i++)
             {
                 if (processed.Contains(i)) continue;
-                
+
                 var current = ownersWithCitizenship[i];
                 var group = new List<UniqueOwner> { current.Owner };
-                processed.Add(i);
-                
+                _ = processed.Add(i);
+
                 string normalizedCurrent = NormalizeCitizenship(current.Owner.CitizenshipNumber!);
-                
+
                 for (int j = i + 1; j < ownersWithCitizenship.Count; j++)
                 {
                     if (processed.Contains(j)) continue;
-                    
+
                     var other = ownersWithCitizenship[j];
                     string normalizedOther = NormalizeCitizenship(other.Owner.CitizenshipNumber!);
-                    
+
                     double similarity = CalculateCharacterSimilarity(normalizedCurrent, normalizedOther);
-                    
+
                     if (similarity >= CitizenshipMatchThreshold)
                     {
                         group.Add(other.Owner);
-                        processed.Add(j);
+                        _ = processed.Add(j);
                     }
                 }
-                
+
                 groups.Add(group);
             }
-            
+
             // NOTE: Owners without citizenship are NOT added here
             // They will be processed by FindNameFatherDuplicates instead
-            
+
             return groups;
         }
 
@@ -240,33 +240,33 @@ namespace Land_Readjustment_Tool.Services
         {
             var groups = new List<DuplicateGroup>();
             var processed = new HashSet<int>();
-            
+
             for (int i = 0; i < owners.Count; i++)
             {
                 if (processed.Contains(i)) continue;
-                
+
                 var current = owners[i];
                 var group = new List<UniqueOwner> { current };
-                processed.Add(i);
-                
+                _ = processed.Add(i);
+
                 string normalizedCurrent = GetNormalizedNameFatherKey(current);
-                
+
                 for (int j = i + 1; j < owners.Count; j++)
                 {
                     if (processed.Contains(j)) continue;
-                    
+
                     var other = owners[j];
                     string normalizedOther = GetNormalizedNameFatherKey(other);
-                    
+
                     double similarity = CalculateCharacterSimilarity(normalizedCurrent, normalizedOther);
-                    
+
                     if (similarity >= NameFatherMatchThreshold)
                     {
                         group.Add(other);
-                        processed.Add(j);
+                        _ = processed.Add(j);
                     }
                 }
-                
+
                 groups.Add(new DuplicateGroup
                 {
                     Owners = group,
@@ -275,7 +275,7 @@ namespace Land_Readjustment_Tool.Services
                     CitizenshipConfidence = 0.0
                 });
             }
-            
+
             return groups;
         }
 
@@ -289,50 +289,50 @@ namespace Land_Readjustment_Tool.Services
         {
             var groups = new List<DuplicateGroup>();
             var processed = new HashSet<int>();
-            
+
             for (int i = 0; i < owners.Count; i++)
             {
                 if (processed.Contains(i)) continue;
-                
+
                 var current = owners[i];
                 var group = new List<UniqueOwner> { current };
-                processed.Add(i);
-                
+                _ = processed.Add(i);
+
                 string normalizedCurrentNameFather = GetNormalizedNameFatherKey(current);
                 string normalizedCurrentCitizenship = NormalizeCitizenship(current.CitizenshipNumber ?? "");
-                
+
                 for (int j = i + 1; j < owners.Count; j++)
                 {
                     if (processed.Contains(j)) continue;
-                    
+
                     var other = owners[j];
                     string normalizedOtherNameFather = GetNormalizedNameFatherKey(other);
-                    
+
                     double nameFatherSimilarity = CalculateCharacterSimilarity(normalizedCurrentNameFather, normalizedOtherNameFather);
-                    
+
                     if (nameFatherSimilarity >= NameFatherMatchThreshold)
                     {
                         group.Add(other);
-                        processed.Add(j);
+                        _ = processed.Add(j);
                     }
                 }
-                
+
                 // Now determine if this group should be auto-merged or needs review
                 // IMPORTANT: Never auto-merge anonymous owners - they should always be kept separate
                 bool shouldAutoMerge = false;
                 double citizenshipConfidence = 0.0;
                 double nameFatherConfidence = group.Count > 1 ? CalculateGroupSimilarity(group) : 1.0;
-                
+
                 // Check if any owner in the group is anonymous
                 bool hasAnonymousOwner = group.Any(o => o.IsAnonymous);
-                
+
                 if (group.Count > 1 && !hasAnonymousOwner)
                 {
                     // Check citizenship compatibility
                     var ownersWithCitizenship = group
                         .Where(o => !string.IsNullOrWhiteSpace(o.CitizenshipNumber))
                         .ToList();
-                    
+
                     if (ownersWithCitizenship.Count == 0)
                     {
                         // No owners have citizenship - cannot confirm based on citizenship
@@ -352,25 +352,25 @@ namespace Land_Readjustment_Tool.Services
                         bool allMatch = true;
                         double totalSimilarity = 0;
                         int comparisons = 0;
-                        
+
                         for (int k = 1; k < ownersWithCitizenship.Count; k++)
                         {
                             var otherCitizenship = NormalizeCitizenship(ownersWithCitizenship[k].CitizenshipNumber!);
                             double similarity = CalculateCharacterSimilarity(firstCitizenship, otherCitizenship);
                             totalSimilarity += similarity;
                             comparisons++;
-                            
+
                             if (similarity < CitizenshipMatchThreshold)
                             {
                                 allMatch = false;
                             }
                         }
-                        
+
                         citizenshipConfidence = comparisons > 0 ? totalSimilarity / comparisons : 0.0;
                         shouldAutoMerge = allMatch;
                     }
                 }
-                
+
                 string matchType;
                 if (group.Count == 1)
                 {
@@ -388,7 +388,7 @@ namespace Land_Readjustment_Tool.Services
                 {
                     matchType = "Name + Father Match - Citizenship Differs (Review Required)";
                 }
-                
+
                 groups.Add(new DuplicateGroup
                 {
                     Owners = group,
@@ -399,7 +399,7 @@ namespace Land_Readjustment_Tool.Services
                     MatchType = matchType
                 });
             }
-            
+
             return groups;
         }
 
@@ -410,11 +410,11 @@ namespace Land_Readjustment_Tool.Services
         {
             if (string.IsNullOrEmpty(s1) && string.IsNullOrEmpty(s2)) return 1.0;
             if (string.IsNullOrEmpty(s1) || string.IsNullOrEmpty(s2)) return 0.0;
-            
+
             // Use Levenshtein distance for character-level comparison
             int distance = LevenshteinDistance(s1, s2);
             int maxLength = Math.Max(s1.Length, s2.Length);
-            
+
             return 1.0 - ((double)distance / maxLength);
         }
 
@@ -460,10 +460,10 @@ namespace Land_Readjustment_Tool.Services
         private static double CalculateGroupSimilarity(List<UniqueOwner> group)
         {
             if (group.Count <= 1) return 1.0;
-            
+
             double totalSimilarity = 0;
             int comparisons = 0;
-            
+
             for (int i = 0; i < group.Count; i++)
             {
                 for (int j = i + 1; j < group.Count; j++)
@@ -474,7 +474,7 @@ namespace Land_Readjustment_Tool.Services
                     comparisons++;
                 }
             }
-            
+
             return comparisons > 0 ? totalSimilarity / comparisons : 1.0;
         }
 
@@ -505,14 +505,14 @@ namespace Land_Readjustment_Tool.Services
                     anonymousCounter++;
                     result.AnonymousOwnersCreated++;
                 }
-                
+
                 // Check if owner name contains "Anonymous" or "Unknown" (case-insensitive)
                 string ownerNameLower = record.LandOwnersName.ToLower();
                 if (ownerNameLower.Contains("anonymous") || ownerNameLower.Contains("unknown"))
                 {
                     isAnonymous = true;
                 }
-                
+
                 // Skip anonymous owners if requested (for subsequent deduplication runs)
                 if (excludeAnonymous && isAnonymous)
                 {
@@ -528,6 +528,9 @@ namespace Land_Readjustment_Tool.Services
                     CitizenshipIssuedDistrict = record.CitizenshipIssuedDistrict?.Trim(),
                     CitizenshipIssuedDate = record.citizenshipIssuedDate?.Trim(),
                     PermanentAddress = record.PermanentAddress?.Trim(),
+                    TemporaryAddress = record.TempoaryAddress?.Trim(),
+                    ContactNumber = record.ContactNumber?.Trim(),
+                    EmailID = record.EmailID?.Trim(),
                     ParcelIndices = new List<int> { i },
                     IsAnonymous = isAnonymous
                 };
@@ -563,6 +566,9 @@ namespace Land_Readjustment_Tool.Services
                 CitizenshipIssuedDistrict = baseOwner.CitizenshipIssuedDistrict ?? owners.FirstOrDefault(o => !string.IsNullOrWhiteSpace(o.CitizenshipIssuedDistrict))?.CitizenshipIssuedDistrict,
                 CitizenshipIssuedDate = baseOwner.CitizenshipIssuedDate ?? owners.FirstOrDefault(o => !string.IsNullOrWhiteSpace(o.CitizenshipIssuedDate))?.CitizenshipIssuedDate,
                 PermanentAddress = baseOwner.PermanentAddress ?? owners.FirstOrDefault(o => !string.IsNullOrWhiteSpace(o.PermanentAddress))?.PermanentAddress,
+                TemporaryAddress = baseOwner.TemporaryAddress ?? owners.FirstOrDefault(o => !string.IsNullOrWhiteSpace(o.TemporaryAddress))?.TemporaryAddress,
+                ContactNumber = baseOwner.ContactNumber ?? owners.FirstOrDefault(o => !string.IsNullOrWhiteSpace(o.ContactNumber))?.ContactNumber,
+                EmailID = baseOwner.EmailID ?? owners.FirstOrDefault(o => !string.IsNullOrWhiteSpace(o.EmailID))?.EmailID,
                 ParcelIndices = allIndices,
                 IsAnonymous = baseOwner.IsAnonymous
             };
@@ -585,6 +591,9 @@ namespace Land_Readjustment_Tool.Services
             CitizenshipIssuedDistrict = owner1.CitizenshipIssuedDistrict,
             CitizenshipIssuedDate = owner1.CitizenshipIssuedDate,
             PermanentAddress = owner1.PermanentAddress,
+            TemporaryAddress = owner1.TemporaryAddress,
+            ContactNumber = owner1.ContactNumber,
+            EmailID = owner1.EmailID,
             ParcelIndices = owner1Indices.ToList(),
             IsAnonymous = owner1.IsAnonymous
         },
@@ -597,7 +606,11 @@ namespace Land_Readjustment_Tool.Services
             CitizenshipIssuedDistrict = owner2.CitizenshipIssuedDistrict,
             CitizenshipIssuedDate = owner2.CitizenshipIssuedDate,
             PermanentAddress = owner2.PermanentAddress,
+            TemporaryAddress = owner2.TemporaryAddress,
+            ContactNumber = owner2.ContactNumber,
+            EmailID = owner2.EmailID,
             ParcelIndices = owner2Indices.ToList(),
+
             IsAnonymous = owner2.IsAnonymous
         }
     };
@@ -618,6 +631,9 @@ namespace Land_Readjustment_Tool.Services
             if (!string.IsNullOrWhiteSpace(owner.CitizenshipNumber)) score += 8;
             if (!string.IsNullOrWhiteSpace(owner.Gender)) score += 2;
             if (!string.IsNullOrWhiteSpace(owner.PermanentAddress)) score += 3;
+            if (!string.IsNullOrWhiteSpace(owner.TemporaryAddress)) score += 2;
+            if (!string.IsNullOrWhiteSpace(owner.ContactNumber)) score += 2;
+            if (!string.IsNullOrWhiteSpace(owner.EmailID)) score += 2;
             return score;
         }
 
@@ -633,7 +649,7 @@ namespace Land_Readjustment_Tool.Services
 
             // Convert Devanagari digits to Arabic digits
             var converted = ConvertDevanagariToArabicDigits(citizenship);
-            
+
             // Remove all non-alphanumeric characters (/, -, spaces, etc.)
             return new string(converted.Where(char.IsLetterOrDigit).ToArray()).ToUpperInvariant();
         }
@@ -645,23 +661,23 @@ namespace Land_Readjustment_Tool.Services
         private static string ConvertDevanagariToArabicDigits(string input)
         {
             if (string.IsNullOrEmpty(input)) return input;
-            
+
             var result = new System.Text.StringBuilder(input.Length);
-            
+
             foreach (char c in input)
             {
                 // Devanagari digits are in Unicode range U+0966 to U+096F
                 if (c >= '\u0966' && c <= '\u096F')
                 {
                     // Convert to Arabic digit (0-9)
-                    result.Append((char)('0' + (c - '\u0966')));
+                    _ = result.Append((char)('0' + (c - '\u0966')));
                 }
                 else
                 {
-                    result.Append(c);
+                    _ = result.Append(c);
                 }
             }
-            
+
             return result.ToString();
         }
 
@@ -676,17 +692,17 @@ namespace Land_Readjustment_Tool.Services
         public static string NormalizeString(string input)
         {
             if (string.IsNullOrWhiteSpace(input)) return string.Empty;
-            
+
             // Normalize Unicode to composed form (important for Devanagari)
             string normalized = input.Normalize(System.Text.NormalizationForm.FormC);
-            
+
             // Keep letters (including Devanagari), digits, and spaces
-            var cleaned = new string(normalized.Where(c => 
+            var cleaned = new string(normalized.Where(c =>
                 char.IsLetterOrDigit(c) || char.IsWhiteSpace(c)).ToArray());
-            
+
             // Collapse multiple spaces
             var parts = cleaned.Split(new[] { ' ' }, StringSplitOptions.RemoveEmptyEntries);
-            
+
             // Join and convert to uppercase (Devanagari has no case, so it stays unchanged)
             return string.Join(" ", parts).ToUpperInvariant();
         }
@@ -712,7 +728,7 @@ namespace Land_Readjustment_Tool.Services
                     if (index >= 0 && index < records.Count)
                     {
                         var record = records[index];
-                        
+
                         // Normalize owner information across all parcels
                         // Note: ParcelLocation stays with the parcel record, not the owner
                         record.LandOwnersName = uniqueOwner.LandOwnersName;

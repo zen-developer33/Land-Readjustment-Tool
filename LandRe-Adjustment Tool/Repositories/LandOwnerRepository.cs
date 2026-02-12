@@ -39,7 +39,12 @@ namespace Land_Readjustment_Tool.Repositories
                         FatherSpouse = uniqueOwner.FatherSpouse,
                         Gender = uniqueOwner.Gender,
                         CitizenshipNumber = uniqueOwner.CitizenshipNumber,
+                        CitizenshipIssuedDistrict = uniqueOwner.CitizenshipIssuedDistrict,
+                        CitizenshipIssuedDate = uniqueOwner.CitizenshipIssuedDate,
                         PermanentAddress = uniqueOwner.PermanentAddress,
+                        TemporaryAddress = uniqueOwner.TemporaryAddress,
+                        ContactNumber = uniqueOwner.ContactNumber,
+                        EmailID = uniqueOwner.EmailID,
                         IsAnonymous = uniqueOwner.IsAnonymous,
                         CreatedDate = DateTime.Now
                     };
@@ -455,7 +460,12 @@ namespace Land_Readjustment_Tool.Repositories
                         FatherSpouse = record.FatherSpouse,
                         Gender = record.Gender,
                         CitizenshipNumber = record.CitizenshipNumber,
+                        CitizenshipIssuedDistrict = record.CitizenshipIssuedDistrict,
+                        CitizenshipIssuedDate = record.citizenshipIssuedDate,
                         PermanentAddress = record.PermanentAddress,
+                        TemporaryAddress = record.TempoaryAddress,
+                        ContactNumber = record.ContactNumber,
+                        EmailID = record.EmailID,
                         CreatedDate = DateTime.Now
                     };
                 }
