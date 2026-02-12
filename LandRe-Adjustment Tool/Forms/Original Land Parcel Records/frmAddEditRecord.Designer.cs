@@ -214,6 +214,7 @@ namespace Land_Readjustment_Tool.Forms
             btnLoadOwnerDetails.TabIndex = 28;
             btnLoadOwnerDetails.Text = "Load";
             btnLoadOwnerDetails.UseVisualStyleBackColor = true;
+            btnLoadOwnerDetails.Click += btnLoadOwnerDetails_Click_1;
             // 
             // txtIssueDate
             // 

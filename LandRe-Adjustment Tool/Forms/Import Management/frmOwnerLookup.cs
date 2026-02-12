@@ -289,6 +289,11 @@ namespace Land_Readjustment_Tool.Forms
             }
         }
 
+        private void InitializeComponent()
+        {
+
+        }
+
         private void BtnCancel_Click(object? sender, EventArgs e)
         {
             DialogResult = DialogResult.Cancel;

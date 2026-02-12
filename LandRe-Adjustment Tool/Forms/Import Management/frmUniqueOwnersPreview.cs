@@ -76,6 +76,8 @@ namespace Land_Readjustment_Tool.Forms
         {
             DataGridViewCellStyle dataGridViewCellStyle1 = new DataGridViewCellStyle();
             DataGridViewCellStyle dataGridViewCellStyle2 = new DataGridViewCellStyle();
+            DataGridViewCellStyle dataGridViewCellStyle3 = new DataGridViewCellStyle();
+            DataGridViewCellStyle dataGridViewCellStyle4 = new DataGridViewCellStyle();
             dgvUniqueOwners = new DataGridView();
             btnOK = new Button();
             ((System.ComponentModel.ISupportInitialize)dgvUniqueOwners).BeginInit();
@@ -85,39 +87,44 @@ namespace Land_Readjustment_Tool.Forms
             // 
             dgvUniqueOwners.AllowUserToAddRows = false;
             dgvUniqueOwners.AllowUserToDeleteRows = false;
-            dgvUniqueOwners.DoubleBuffered(true);
-            dataGridViewCellStyle1.Font = new Font("Segoe UI", 9F, FontStyle.Regular, GraphicsUnit.Point, 0);
-            dgvUniqueOwners.AlternatingRowsDefaultCellStyle.BackColor = Color.FromArgb(248, 248, 252);
+            dataGridViewCellStyle1.BackColor = Color.FromArgb(248, 248, 252);
+            dgvUniqueOwners.AlternatingRowsDefaultCellStyle = dataGridViewCellStyle1;
             dgvUniqueOwners.Anchor = AnchorStyles.Top | AnchorStyles.Bottom | AnchorStyles.Left | AnchorStyles.Right;
             dgvUniqueOwners.BackgroundColor = SystemColors.Control;
-            dgvUniqueOwners.ColumnHeadersHeight = 29;
             dataGridViewCellStyle2.Alignment = DataGridViewContentAlignment.MiddleLeft;
-            dataGridViewCellStyle2.BackColor = SystemColors.Control;
-            dataGridViewCellStyle2.Font = new Font("Segoe UI", 9F, FontStyle.Regular, GraphicsUnit.Point, 0);
-            dataGridViewCellStyle2.ForeColor = SystemColors.ControlText;
+            dataGridViewCellStyle2.BackColor = Color.FromArgb(45, 65, 95);
+            dataGridViewCellStyle2.Font = new Font("Segoe UI", 9F);
+            dataGridViewCellStyle2.ForeColor = Color.White;
             dataGridViewCellStyle2.SelectionBackColor = SystemColors.Highlight;
             dataGridViewCellStyle2.SelectionForeColor = SystemColors.HighlightText;
-            dataGridViewCellStyle2.WrapMode = DataGridViewTriState.False;
-            dgvUniqueOwners.DefaultCellStyle = dataGridViewCellStyle2;
+            dataGridViewCellStyle2.WrapMode = DataGridViewTriState.True;
+            dgvUniqueOwners.ColumnHeadersDefaultCellStyle = dataGridViewCellStyle2;
+            dgvUniqueOwners.ColumnHeadersHeight = 34;
+            dataGridViewCellStyle3.Alignment = DataGridViewContentAlignment.MiddleLeft;
+            dataGridViewCellStyle3.BackColor = SystemColors.Control;
+            dataGridViewCellStyle3.Font = new Font("Segoe UI", 9F);
+            dataGridViewCellStyle3.ForeColor = SystemColors.ControlText;
+            dataGridViewCellStyle3.SelectionBackColor = SystemColors.Highlight;
+            dataGridViewCellStyle3.SelectionForeColor = SystemColors.HighlightText;
+            dataGridViewCellStyle3.WrapMode = DataGridViewTriState.False;
+            dgvUniqueOwners.DefaultCellStyle = dataGridViewCellStyle3;
+            dgvUniqueOwners.EnableHeadersVisualStyles = false;
             dgvUniqueOwners.Location = new Point(12, 12);
             dgvUniqueOwners.Name = "dgvUniqueOwners";
             dgvUniqueOwners.ReadOnly = true;
-            dgvUniqueOwners.RowHeadersVisible = true;
+            dataGridViewCellStyle4.Alignment = DataGridViewContentAlignment.MiddleCenter;
+            dataGridViewCellStyle4.BackColor = SystemColors.Control;
+            dataGridViewCellStyle4.Font = new Font("Segoe UI", 9F);
+            dataGridViewCellStyle4.ForeColor = SystemColors.WindowText;
+            dataGridViewCellStyle4.SelectionBackColor = SystemColors.Highlight;
+            dataGridViewCellStyle4.SelectionForeColor = SystemColors.HighlightText;
+            dataGridViewCellStyle4.WrapMode = DataGridViewTriState.True;
+            dgvUniqueOwners.RowHeadersDefaultCellStyle = dataGridViewCellStyle4;
             dgvUniqueOwners.RowHeadersWidth = 50;
-            dgvUniqueOwners.RowHeadersDefaultCellStyle.Alignment = DataGridViewContentAlignment.MiddleCenter;
+            dgvUniqueOwners.RowTemplate.Height = 28;
             dgvUniqueOwners.Size = new Size(694, 389);
             dgvUniqueOwners.TabIndex = 0;
-
-            // Headers styled (not bold)
-            dgvUniqueOwners.ColumnHeadersDefaultCellStyle.Font = new Font("Segoe UI", 9F, FontStyle.Regular);
-            dgvUniqueOwners.ColumnHeadersDefaultCellStyle.BackColor = Color.FromArgb(45, 65, 95);
-            dgvUniqueOwners.ColumnHeadersDefaultCellStyle.ForeColor = Color.White;
-            dgvUniqueOwners.ColumnHeadersHeight = 34;
-            dgvUniqueOwners.EnableHeadersVisualStyles = false;
-            dgvUniqueOwners.DefaultCellStyle.Font = new Font("Segoe UI", 9F);
-            dgvUniqueOwners.RowTemplate.Height = 28;
             dgvUniqueOwners.RowPostPaint += DgvUniqueOwners_RowPostPaint;
-
             // 
             // btnOK
             // 
@@ -137,6 +144,7 @@ namespace Land_Readjustment_Tool.Forms
             Controls.Add(btnOK);
             Controls.Add(dgvUniqueOwners);
             Name = "frmUniqueOwnersPreview";
+            StartPosition = FormStartPosition.CenterParent;
             Text = "Unique Owners Preview";
             Load += frmUniqueOwnersPreview_Load;
             ((System.ComponentModel.ISupportInitialize)dgvUniqueOwners).EndInit();

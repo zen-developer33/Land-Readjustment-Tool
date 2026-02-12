@@ -448,7 +448,7 @@
             // 
             lblAreaLocal.Font = new Font("Segoe UI", 9F, FontStyle.Bold);
             lblAreaLocal.ForeColor = Color.Black;
-            lblAreaLocal.Location = new Point(157, 83);
+            lblAreaLocal.Location = new Point(157, 82);
             lblAreaLocal.Margin = new Padding(4, 0, 4, 0);
             lblAreaLocal.Name = "lblAreaLocal";
             lblAreaLocal.Size = new Size(76, 22);
@@ -563,6 +563,7 @@
             FormBorderStyle = FormBorderStyle.FixedDialog;
             MaximizeBox = false;
             Name = "frmLandOwnerDetails";
+            StartPosition = FormStartPosition.CenterParent;
             Text = "frmLandOwnerDetails";
             Load += frmLandOwnerDetails_Load;
             pnlPhoto.ResumeLayout(false);

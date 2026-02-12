@@ -567,6 +567,7 @@
             MainMenuStrip = mainMenuStrip;
             Margin = new Padding(2);
             Name = "frmMain";
+            StartPosition = FormStartPosition.CenterScreen;
             Text = "RePlot";
             WindowState = FormWindowState.Maximized;
             Load += frmMain_Load;

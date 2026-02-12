@@ -625,6 +625,7 @@
             Controls.Add(progressBar);
             Controls.Add(SCImportManager);
             Name = "frmImportParcelOwnershipRecords";
+            StartPosition = FormStartPosition.CenterParent;
             Text = "Import Parcel Ownership Records";
             Load += frmImportManager_Load;
             grpStep2.ResumeLayout(false);

@@ -109,12 +109,12 @@ namespace Land_Readjustment_Tool.Forms
             btnUpdate.Enabled = true;
             btnDelete.Visible = true;
             btnDelete.Enabled = true;
-            
+
         }
 
         private void ConfigureInputBehavior()
         {
-            
+
             txtAreaInRAPD.ReadOnly = true;
             txtAreaInBKD.ReadOnly = true;
             txtParcelNo.Focus();
@@ -596,6 +596,11 @@ namespace Land_Readjustment_Tool.Forms
         }
 
         private void groupBox1_Enter(object sender, EventArgs e)
+        {
+
+        }
+
+        private void btnLoadOwnerDetails_Click_1(object sender, EventArgs e)
         {
 
         }
