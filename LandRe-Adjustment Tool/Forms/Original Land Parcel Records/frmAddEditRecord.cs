@@ -175,7 +175,9 @@ namespace Land_Readjustment_Tool.Forms
             {
                 if (lookupForm.ShowDialog() == DialogResult.OK && lookupForm.SelectedOwner != null)
                 {
-                    LoadOwnerToForm(lookupForm.SelectedOwner);
+                    var owner = _repository.GetOwnerById(lookupForm.SelectedOwner.LandOwnerId);
+
+                    LoadOwnerToForm(owner);
                 }
             }
         }

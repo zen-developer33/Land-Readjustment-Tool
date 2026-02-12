@@ -92,7 +92,10 @@ namespace Land_Readjustment_Tool.Forms
             AddColumn("FatherSpouse", "Father/Spouse", 180);
             AddColumn("Gender", "Gender", 80);
             AddColumn("CitizenshipNumber", "Citizenship No", 130);
+            AddColumn("IssuedDistrict" , "Issued District", 150);
+            AddColumn("IssuedDate", "Issued Date", 120);
             AddColumn("PermanentAddress", "Permanent Address", 250);
+            AddColumn("TemporaryAddress", "Temporary Address", 250);
             AddColumn("ContactNumber", "Contact Number", 120);
             AddColumn("EmailID", "Email", 180);
             AddColumn("ParcelCount", "Parcels", 80);
