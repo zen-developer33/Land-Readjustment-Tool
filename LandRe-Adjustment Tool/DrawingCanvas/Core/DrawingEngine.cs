@@ -17,7 +17,7 @@ namespace Land_Readjustment_Tool.DrawingCanvas.Core
         public float viewoffsetX {  get; set; }
         public float viewoffsetY { get; set; }
         public const double MIN_ZOOM = 0.0001; // Lower minimum zoom for large extents
-        public const double MAX_ZOOM = 1000000.0;
+        public const double MAX_ZOOM = 50000.0;
         public const double ZOOM_STEP = 1.4;
 
         public double ZoomScale => _zoomScale;
@@ -119,10 +119,32 @@ namespace Land_Readjustment_Tool.DrawingCanvas.Core
 
         #region Zoom Operations - CORRECTED
 
+        // Nepal UTM bounds (44N and 45N)
+        // UTM 44N: Easting 240000 to 390000, Northing 3060000 to 3180000
+        // UTM 45N: Easting 390000 to 540000, Northing 3060000 to 3180000
+        // Combined world bounds: Easting 240000 to 540000, Northing 3060000 to 3180000
+        private static readonly RectangleD NepalWorldBounds = new RectangleD(240000, 3060000, 300000, 120000);
+
+        public RectangleD WorldBounds => NepalWorldBounds;
+
+        // Helper to get min/max zoom for Nepal bounds
+        public double GetMinZoomForWorldBounds()
+        {
+            double zoomX = _canvasSize.Width / NepalWorldBounds.Width;
+            double zoomY = _canvasSize.Height / NepalWorldBounds.Height;
+            return Math.Min(zoomX, zoomY) * 0.9;
+        }
+        public double GetMaxZoomForWorldBounds()
+        {
+            return MAX_ZOOM;
+        }
+
         public void ZoomAtPoint(Point screenPoint, double zoomFactor)
         {
             double newZoomScale = _zoomScale * zoomFactor;
-            newZoomScale = Math.Max(MIN_ZOOM, Math.Min(MAX_ZOOM, newZoomScale));
+            double minZoom = GetMinZoomForWorldBounds();
+            double maxZoom = GetMaxZoomForWorldBounds();
+            newZoomScale = Math.Max(minZoom, Math.Min(maxZoom, newZoomScale));
             if (Math.Abs(newZoomScale - _zoomScale) < 0.0000001) return;
             PointD worldPoint = ScreenToWorld(screenPoint);
             _zoomScale = newZoomScale;
@@ -142,16 +164,14 @@ namespace Land_Readjustment_Tool.DrawingCanvas.Core
         {
             if (worldBounds.Width < 10.0) worldBounds.Width = 100.0;
             if (worldBounds.Height < 10.0) worldBounds.Height = 100.0;
-
             double zoomX = _canvasSize.Width / worldBounds.Width;
             double zoomY = _canvasSize.Height / worldBounds.Height;
+            double minZoom = GetMinZoomForWorldBounds();
+            double maxZoom = GetMaxZoomForWorldBounds();
             _zoomScale = Math.Min(zoomX, zoomY) * padding;
-            _zoomScale = Math.Max(MIN_ZOOM, Math.Min(MAX_ZOOM, _zoomScale));
-
-            // Safety: If zoom is at MIN_ZOOM, allow further zooming out
-            if (_zoomScale <= MIN_ZOOM + 1e-12)
-                _zoomScale = MIN_ZOOM;
-
+            _zoomScale = Math.Max(minZoom, Math.Min(maxZoom, _zoomScale));
+            if (_zoomScale <= minZoom + 1e-12)
+                _zoomScale = minZoom;
             double centerX = worldBounds.X + worldBounds.Width / 2.0;
             double centerY = worldBounds.Y + worldBounds.Height / 2.0;
             double screenCenterX = _canvasSize.Width / 2.0;
@@ -164,8 +184,10 @@ namespace Land_Readjustment_Tool.DrawingCanvas.Core
         {
             double zoomX = _canvasSize.Width / worldWidth;
             double zoomY = _canvasSize.Height / worldHeight;
+            double minZoom = GetMinZoomForWorldBounds();
+            double maxZoom = GetMaxZoomForWorldBounds();
             _zoomScale = Math.Min(zoomX, zoomY) * 0.9;
-            _zoomScale = Math.Max(MIN_ZOOM, Math.Min(MAX_ZOOM, _zoomScale));
+            _zoomScale = Math.Max(minZoom, Math.Min(maxZoom, _zoomScale));
             double screenCenterX = _canvasSize.Width / 2.0;
             double screenCenterY = _canvasSize.Height / 2.0;
             _viewOffset.X = worldCenterX - (screenCenterX / _zoomScale);
