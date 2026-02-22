@@ -1,6 +1,6 @@
 ﻿using System.Drawing.Drawing2D;
 
-namespace Drawing_Canvas_Practice
+namespace Land_Readjustment_Tool.DrawingCanvas
 {
     public partial class frmDrawingCanvas : Form
     {

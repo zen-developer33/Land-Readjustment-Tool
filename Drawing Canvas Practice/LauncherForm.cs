@@ -1,7 +1,7 @@
 ﻿using System;
 using System.Windows.Forms;
 
-namespace Drawing_Canvas_Practice
+namespace Land_Readjustment_Tool.DrawingCanvas
 {
     /// <summary>
     /// Simple launcher form to choose between old and new versions

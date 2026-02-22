@@ -1,4 +1,5 @@
-﻿using Land_Readjustment_Tool.Forms;
+﻿using Land_Readjustment_Tool.CustomControls;
+using Land_Readjustment_Tool.Forms;
 using Land_Readjustment_Tool.Forms.LandOwnersRecord_Managerment;
 using Land_Readjustment_Tool.Models;
 using Land_Readjustment_Tool.Repositories;
@@ -6,12 +7,14 @@ using Land_Readjustment_Tool.Services;
 using System.ComponentModel;
 using System.Diagnostics;
 using System.IO;
+
 namespace Land_Readjustment_Tool
 {
 
 
     public partial class frmMain : Form
     {
+        private DrawingCanvasControl _drawingCanvas;
         private string AppTitle = "RePlot";
         private DatabaseHelper _dbHelper;
         private BindingList<BaselineLandParceRecord> _OriginalParcelWithOwnerBindingList;
@@ -26,8 +29,10 @@ namespace Land_Readjustment_Tool
             InitializeComponent();
             UpdateWindowTitle();
             this.AutoScaleMode = AutoScaleMode.Dpi;
+            InitializeProjectWorkspace();
             FormClosing += frmMain_FormClosing;
             CurrentProject.StateChanged += OnProjectStateChanged;
+
         }
 
         private void OnProjectStateChanged()
@@ -509,6 +514,9 @@ namespace Land_Readjustment_Tool
 
         private void frmMain_Load(object sender, EventArgs e)
         {
+            _drawingCanvas = new DrawingCanvasControl();
+            _drawingCanvas.Dock = DockStyle.Fill;
+            splitContainer1.Panel2.Controls.Add(_drawingCanvas);
             if (CurrentProject.IsOpen)
             {
                 UpdateWindowTitle();
@@ -661,6 +669,11 @@ namespace Land_Readjustment_Tool
 
 
         private void baseMapsToolStripMenuItem_Click(object sender, EventArgs e)
+        {
+
+        }
+
+        private void toolStrip1_ItemClicked(object sender, ToolStripItemClickedEventArgs e)
         {
 
         }

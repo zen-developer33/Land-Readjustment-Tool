@@ -8,7 +8,7 @@
 // </auto-generated>
 //------------------------------------------------------------------------------
 
-namespace Drawing_Canvas_Practice.Properties {
+namespace Land_Readjustment_Tool.DrawingCanvas.Properties {
     using System;
     
     
@@ -39,7 +39,7 @@ namespace Drawing_Canvas_Practice.Properties {
         internal static global::System.Resources.ResourceManager ResourceManager {
             get {
                 if (object.ReferenceEquals(resourceMan, null)) {
-                    global::System.Resources.ResourceManager temp = new global::System.Resources.ResourceManager("Drawing_Canvas_Practice.Properties.Resources", typeof(Resources).Assembly);
+                    global::System.Resources.ResourceManager temp = new global::System.Resources.ResourceManager("Land_Readjustment_Tool.DrawingCanvas.Properties.Resources", typeof(Resources).Assembly);
                     resourceMan = temp;
                 }
                 return resourceMan;

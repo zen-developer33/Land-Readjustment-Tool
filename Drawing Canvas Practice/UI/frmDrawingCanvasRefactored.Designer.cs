@@ -1,4 +1,4 @@
-﻿namespace Drawing_Canvas_Practice.UI
+﻿namespace Land_Readjustment_Tool.DrawingCanvas.UI
 {
     partial class frmDrawingCanvasRefactored
     {

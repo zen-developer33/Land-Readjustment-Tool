@@ -1,4 +1,4 @@
-namespace Drawing_Canvas_Practice
+namespace Land_Readjustment_Tool.DrawingCanvas
 {
     internal static class Program
     {

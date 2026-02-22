@@ -113,6 +113,16 @@ namespace Land_Readjustment_Tool.Properties {
         /// <summary>
         ///   Looks up a localized resource of type System.Drawing.Bitmap.
         /// </summary>
+        internal static System.Drawing.Bitmap attach_icon4 {
+            get {
+                object obj = ResourceManager.GetObject("attach_icon4", resourceCulture);
+                return ((System.Drawing.Bitmap)(obj));
+            }
+        }
+        
+        /// <summary>
+        ///   Looks up a localized resource of type System.Drawing.Bitmap.
+        /// </summary>
         internal static System.Drawing.Bitmap business_15653292 {
             get {
                 object obj = ResourceManager.GetObject("business_15653292", resourceCulture);
@@ -126,6 +136,16 @@ namespace Land_Readjustment_Tool.Properties {
         internal static System.Drawing.Bitmap business_15653292__1_ {
             get {
                 object obj = ResourceManager.GetObject("business_15653292 (1)", resourceCulture);
+                return ((System.Drawing.Bitmap)(obj));
+            }
+        }
+        
+        /// <summary>
+        ///   Looks up a localized resource of type System.Drawing.Bitmap.
+        /// </summary>
+        internal static System.Drawing.Bitmap business_15653292__1_1 {
+            get {
+                object obj = ResourceManager.GetObject("business_15653292 (1)1", resourceCulture);
                 return ((System.Drawing.Bitmap)(obj));
             }
         }
@@ -153,9 +173,9 @@ namespace Land_Readjustment_Tool.Properties {
         /// <summary>
         ///   Looks up a localized resource of type System.Drawing.Bitmap.
         /// </summary>
-        internal static System.Drawing.Bitmap ChatGPT_Image_Feb_5__2026__06_17_32_PM {
+        internal static System.Drawing.Bitmap business_1565329212 {
             get {
-                object obj = ResourceManager.GetObject("ChatGPT Image Feb 5, 2026, 06_17_32 PM", resourceCulture);
+                object obj = ResourceManager.GetObject("business_1565329212", resourceCulture);
                 return ((System.Drawing.Bitmap)(obj));
             }
         }
@@ -163,9 +183,49 @@ namespace Land_Readjustment_Tool.Properties {
         /// <summary>
         ///   Looks up a localized resource of type System.Drawing.Bitmap.
         /// </summary>
-        internal static System.Drawing.Bitmap ChatGPT_Image_Feb_5__2026__06_17_32_PM1 {
+        internal static System.Drawing.Bitmap business_156532922 {
             get {
-                object obj = ResourceManager.GetObject("ChatGPT Image Feb 5, 2026, 06_17_32 PM1", resourceCulture);
+                object obj = ResourceManager.GetObject("business_156532922", resourceCulture);
+                return ((System.Drawing.Bitmap)(obj));
+            }
+        }
+        
+        /// <summary>
+        ///   Looks up a localized resource of type System.Drawing.Bitmap.
+        /// </summary>
+        internal static System.Drawing.Bitmap ChatGPT_Image_Feb_5__2026__06_17_26_PM {
+            get {
+                object obj = ResourceManager.GetObject("ChatGPT Image Feb 5, 2026, 06_17_26 PM", resourceCulture);
+                return ((System.Drawing.Bitmap)(obj));
+            }
+        }
+        
+        /// <summary>
+        ///   Looks up a localized resource of type System.Drawing.Bitmap.
+        /// </summary>
+        internal static System.Drawing.Bitmap ChatGPT_Image_Feb_5__2026__06_17_29_PM {
+            get {
+                object obj = ResourceManager.GetObject("ChatGPT Image Feb 5, 2026, 06_17_29 PM", resourceCulture);
+                return ((System.Drawing.Bitmap)(obj));
+            }
+        }
+        
+        /// <summary>
+        ///   Looks up a localized resource of type System.Drawing.Bitmap.
+        /// </summary>
+        internal static System.Drawing.Bitmap ChatGPT_Image_Feb_5__2026__06_17_31_PM {
+            get {
+                object obj = ResourceManager.GetObject("ChatGPT Image Feb 5, 2026, 06_17_31 PM", resourceCulture);
+                return ((System.Drawing.Bitmap)(obj));
+            }
+        }
+        
+        /// <summary>
+        ///   Looks up a localized resource of type System.Drawing.Bitmap.
+        /// </summary>
+        internal static System.Drawing.Bitmap ChatGPT_Image_Feb_5__2026__06_17_32_PM {
+            get {
+                object obj = ResourceManager.GetObject("ChatGPT Image Feb 5, 2026, 06_17_32 PM", resourceCulture);
                 return ((System.Drawing.Bitmap)(obj));
             }
         }
@@ -393,6 +453,26 @@ namespace Land_Readjustment_Tool.Properties {
         /// <summary>
         ///   Looks up a localized resource of type System.Drawing.Bitmap.
         /// </summary>
+        internal static System.Drawing.Bitmap icons8_hand_24 {
+            get {
+                object obj = ResourceManager.GetObject("icons8-hand-24", resourceCulture);
+                return ((System.Drawing.Bitmap)(obj));
+            }
+        }
+        
+        /// <summary>
+        ///   Looks up a localized resource of type System.Drawing.Bitmap.
+        /// </summary>
+        internal static System.Drawing.Bitmap icons8_line_24 {
+            get {
+                object obj = ResourceManager.GetObject("icons8-line-24", resourceCulture);
+                return ((System.Drawing.Bitmap)(obj));
+            }
+        }
+        
+        /// <summary>
+        ///   Looks up a localized resource of type System.Drawing.Bitmap.
+        /// </summary>
         internal static System.Drawing.Bitmap icons8_photo_25 {
             get {
                 object obj = ResourceManager.GetObject("icons8-photo-25", resourceCulture);
@@ -403,9 +483,69 @@ namespace Land_Readjustment_Tool.Properties {
         /// <summary>
         ///   Looks up a localized resource of type System.Drawing.Bitmap.
         /// </summary>
+        internal static System.Drawing.Bitmap icons8_polygon_24__1_ {
+            get {
+                object obj = ResourceManager.GetObject("icons8-polygon-24 (1)", resourceCulture);
+                return ((System.Drawing.Bitmap)(obj));
+            }
+        }
+        
+        /// <summary>
+        ///   Looks up a localized resource of type System.Drawing.Bitmap.
+        /// </summary>
+        internal static System.Drawing.Bitmap icons8_polyline_24 {
+            get {
+                object obj = ResourceManager.GetObject("icons8-polyline-24", resourceCulture);
+                return ((System.Drawing.Bitmap)(obj));
+            }
+        }
+        
+        /// <summary>
+        ///   Looks up a localized resource of type System.Drawing.Bitmap.
+        /// </summary>
+        internal static System.Drawing.Bitmap icons8_radius_24 {
+            get {
+                object obj = ResourceManager.GetObject("icons8-radius-24", resourceCulture);
+                return ((System.Drawing.Bitmap)(obj));
+            }
+        }
+        
+        /// <summary>
+        ///   Looks up a localized resource of type System.Drawing.Bitmap.
+        /// </summary>
+        internal static System.Drawing.Bitmap icons8_redo_24 {
+            get {
+                object obj = ResourceManager.GetObject("icons8-redo-24", resourceCulture);
+                return ((System.Drawing.Bitmap)(obj));
+            }
+        }
+        
+        /// <summary>
+        ///   Looks up a localized resource of type System.Drawing.Bitmap.
+        /// </summary>
         internal static System.Drawing.Bitmap icons8_refresh_25 {
             get {
                 object obj = ResourceManager.GetObject("icons8-refresh-25", resourceCulture);
+                return ((System.Drawing.Bitmap)(obj));
+            }
+        }
+        
+        /// <summary>
+        ///   Looks up a localized resource of type System.Drawing.Bitmap.
+        /// </summary>
+        internal static System.Drawing.Bitmap icons8_select_cursor_24 {
+            get {
+                object obj = ResourceManager.GetObject("icons8-select-cursor-24", resourceCulture);
+                return ((System.Drawing.Bitmap)(obj));
+            }
+        }
+        
+        /// <summary>
+        ///   Looks up a localized resource of type System.Drawing.Bitmap.
+        /// </summary>
+        internal static System.Drawing.Bitmap icons8_undo_24 {
+            get {
+                object obj = ResourceManager.GetObject("icons8-undo-24", resourceCulture);
                 return ((System.Drawing.Bitmap)(obj));
             }
         }
@@ -426,6 +566,36 @@ namespace Land_Readjustment_Tool.Properties {
         internal static System.Drawing.Bitmap icons8_view_25 {
             get {
                 object obj = ResourceManager.GetObject("icons8-view-25", resourceCulture);
+                return ((System.Drawing.Bitmap)(obj));
+            }
+        }
+        
+        /// <summary>
+        ///   Looks up a localized resource of type System.Drawing.Bitmap.
+        /// </summary>
+        internal static System.Drawing.Bitmap icons8_zoom_in_24__1_ {
+            get {
+                object obj = ResourceManager.GetObject("icons8-zoom-in-24 (1)", resourceCulture);
+                return ((System.Drawing.Bitmap)(obj));
+            }
+        }
+        
+        /// <summary>
+        ///   Looks up a localized resource of type System.Drawing.Bitmap.
+        /// </summary>
+        internal static System.Drawing.Bitmap icons8_zoom_out_24__1_ {
+            get {
+                object obj = ResourceManager.GetObject("icons8-zoom-out-24 (1)", resourceCulture);
+                return ((System.Drawing.Bitmap)(obj));
+            }
+        }
+        
+        /// <summary>
+        ///   Looks up a localized resource of type System.Drawing.Bitmap.
+        /// </summary>
+        internal static System.Drawing.Bitmap icons8_zoom_to_extents_24 {
+            get {
+                object obj = ResourceManager.GetObject("icons8-zoom-to-extents-24", resourceCulture);
                 return ((System.Drawing.Bitmap)(obj));
             }
         }
@@ -456,16 +626,6 @@ namespace Land_Readjustment_Tool.Properties {
         internal static System.Drawing.Bitmap Portrait_Placeholder1 {
             get {
                 object obj = ResourceManager.GetObject("Portrait_Placeholder1", resourceCulture);
-                return ((System.Drawing.Bitmap)(obj));
-            }
-        }
-        
-        /// <summary>
-        ///   Looks up a localized resource of type System.Drawing.Bitmap.
-        /// </summary>
-        internal static System.Drawing.Bitmap RePlot {
-            get {
-                object obj = ResourceManager.GetObject("RePlot", resourceCulture);
                 return ((System.Drawing.Bitmap)(obj));
             }
         }
