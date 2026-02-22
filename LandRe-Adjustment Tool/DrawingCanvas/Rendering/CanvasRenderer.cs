@@ -482,7 +482,7 @@ namespace Land_Readjustment_Tool.DrawingCanvas.Rendering
         public void RenderGrid(Graphics g, DrawingEngine engine, RectangleD bounds)
         {
             double zoomScale = engine.ZoomScale;
-            if (zoomScale < 0.001 || zoomScale > 100000)
+            if (zoomScale < 0.002 || zoomScale > 100000)
                 return;
 
             RectangleD viewport = bounds;

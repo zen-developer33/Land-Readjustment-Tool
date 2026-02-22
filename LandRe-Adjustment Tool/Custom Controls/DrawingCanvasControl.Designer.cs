@@ -36,7 +36,7 @@ namespace Land_Readjustment_Tool.CustomControls
             toolSnap = new ToolStripButton();
             toolStripButton1 = new ToolStripButton();
             btnShowDebugLog = new ToolStripButton();
-            toolStripButton2 = new ToolStripButton();
+            btnCollapseLeftPanel = new ToolStripButton();
             toolStripContainer1.ContentPanel.SuspendLayout();
             toolStripContainer1.LeftToolStripPanel.SuspendLayout();
             toolStripContainer1.TopToolStripPanel.SuspendLayout();
@@ -159,7 +159,7 @@ namespace Land_Readjustment_Tool.CustomControls
             toolStrip2.AllowItemReorder = true;
             toolStrip2.Dock = DockStyle.None;
             toolStrip2.ImageScalingSize = new Size(20, 20);
-            toolStrip2.Items.AddRange(new ToolStripItem[] { toolStripButton2, btnPan, toolStripButton6, toolStripButton7, toolStripButton8, toolStripSeparator2, btnZoom, btnZoomOut, toolStripButton5, toolStripSeparator3, toolStripLabel1, cbTheme, btnLoadShapes, btnShowHideGrid, toolSnap, toolStripButton1, btnShowDebugLog });
+            toolStrip2.Items.AddRange(new ToolStripItem[] { btnCollapseLeftPanel, btnPan, toolStripButton6, toolStripButton7, toolStripButton8, toolStripSeparator2, btnZoom, btnZoomOut, toolStripButton5, toolStripSeparator3, toolStripLabel1, cbTheme, btnLoadShapes, btnShowHideGrid, toolSnap, toolStripButton1, btnShowDebugLog });
             toolStrip2.Location = new Point(4, 0);
             toolStrip2.Name = "toolStrip2";
             toolStrip2.Size = new Size(1033, 28);
@@ -306,14 +306,14 @@ namespace Land_Readjustment_Tool.CustomControls
             btnShowDebugLog.Text = "Show Debug Logs";
             btnShowDebugLog.Click += btnShowDebugLog_Click;
             // 
-            // toolStripButton2
+            // btnCollapseLeftPanel
             // 
-            toolStripButton2.DisplayStyle = ToolStripItemDisplayStyle.Image;
-            toolStripButton2.Image = (Image)resources.GetObject("toolStripButton2.Image");
-            toolStripButton2.ImageTransparentColor = Color.Magenta;
-            toolStripButton2.Name = "toolStripButton2";
-            toolStripButton2.Size = new Size(29, 25);
-            toolStripButton2.Text = "toolStripButton2";
+            btnCollapseLeftPanel.DisplayStyle = ToolStripItemDisplayStyle.Image;
+            btnCollapseLeftPanel.Image = (Image)resources.GetObject("btnCollapseLeftPanel.Image");
+            btnCollapseLeftPanel.ImageTransparentColor = Color.Magenta;
+            btnCollapseLeftPanel.Name = "btnCollapseLeftPanel";
+            btnCollapseLeftPanel.Size = new Size(29, 25);
+            btnCollapseLeftPanel.Text = "toolStripButton2";
             // 
             // DrawingCanvasControl
             // 
@@ -367,6 +367,6 @@ namespace Land_Readjustment_Tool.CustomControls
         private ToolStripButton toolSnap;
         private ToolStripButton toolStripButton1;
         private ToolStripButton btnShowDebugLog;
-        private ToolStripButton toolStripButton2;
+        private ToolStripButton btnCollapseLeftPanel;
     }
 }

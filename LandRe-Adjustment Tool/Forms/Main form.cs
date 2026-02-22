@@ -1,12 +1,14 @@
-﻿using Land_Readjustment_Tool.CustomControls;
+﻿using System;
+using System.Windows.Forms;
+using System.ComponentModel;
+using System.Diagnostics;
+using System.IO;
+using Land_Readjustment_Tool.CustomControls;
 using Land_Readjustment_Tool.Forms;
 using Land_Readjustment_Tool.Forms.LandOwnersRecord_Managerment;
 using Land_Readjustment_Tool.Models;
 using Land_Readjustment_Tool.Repositories;
 using Land_Readjustment_Tool.Services;
-using System.ComponentModel;
-using System.Diagnostics;
-using System.IO;
 
 namespace Land_Readjustment_Tool
 {
@@ -25,14 +27,31 @@ namespace Land_Readjustment_Tool
         private ContextMenuStrip contextMenuGrid;
         public frmMain()
         {
-
             InitializeComponent();
             UpdateWindowTitle();
             this.AutoScaleMode = AutoScaleMode.Dpi;
             InitializeProjectWorkspace();
             FormClosing += frmMain_FormClosing;
             CurrentProject.StateChanged += OnProjectStateChanged;
+            // Subscribe to collapse/expand event from DrawingCanvasControl
+            drawingCanvasControl1.CollapseLeftPanelClicked += DrawingCanvasControl1_CollapseLeftPanelClicked;
+        }
 
+        private bool isLeftPanelCollapsed = false;
+        private void DrawingCanvasControl1_CollapseLeftPanelClicked(object sender, EventArgs e)
+        {
+            if (!isLeftPanelCollapsed)
+            {
+                splitContainer1.Panel1Collapsed = true;
+                // Optionally update the button icon/text here if needed
+                isLeftPanelCollapsed = true;
+            }
+            else
+            {
+                splitContainer1.Panel1Collapsed = false;
+                // Optionally update the button icon/text here if needed
+                isLeftPanelCollapsed = false;
+            }
         }
 
         private void OnProjectStateChanged()
@@ -680,166 +699,6 @@ namespace Land_Readjustment_Tool
 
 
 
-
-
-        //private void saveAsToolStripMenuItem_Click(object sender, EventArgs e)
-        //{
-        //    if (!CurrentProject.IsOpen)
-        //    {
-        //        MessageBox.Show("No project is currently open.", "Error",
-        //            MessageBoxButtons.OK, MessageBoxIcon.Warning);
-        //        return;
-        //    }
-
-        //    // Ask user if they want to copy backup files
-        //    var copyBackupsResult = MessageBox.Show(
-        //        "Do you want to copy backup files to the new project?\n\n" +
-        //        "Yes - Copy all backup history\n" +
-        //        "No - Start fresh without backups",
-        //        "Copy Backups?",
-        //        MessageBoxButtons.YesNoCancel,
-        //        MessageBoxIcon.Question);
-
-        //    if (copyBackupsResult == DialogResult.Cancel)
-        //        return;
-
-        //    bool copyBackups = (copyBackupsResult == DialogResult.Yes);
-
-        //    try
-        //    {
-        //        using SaveFileDialog saveFileDialog = new SaveFileDialog
-        //        {
-        //            Filter = "Land Pooling Project File (*.lpp)|*.lpp",
-        //            Title = "Save Project As",
-        //            FileName = CurrentProject.Info.ProjectName + ".lpp"
-        //        };
-
-        //        if (saveFileDialog.ShowDialog() != DialogResult.OK)
-        //            return;
-
-        //        Cursor = Cursors.WaitCursor;
-
-        //        string newFilePathFromDialog = saveFileDialog.FileName;
-        //        string newProjectFileName = Path.GetFileNameWithoutExtension(newFilePathFromDialog);
-        //        string newProjectFolder = Path.Combine(
-        //            Path.GetDirectoryName(newFilePathFromDialog)!,
-        //            newProjectFileName);
-        //        string newProjectFilePath = Path.Combine(newProjectFolder, Path.GetFileName(newFilePathFromDialog));
-
-        //        string oldProjectFolder = Path.GetDirectoryName(CurrentProject.Info.ProjectPath)!;
-
-        //        // Copy project folder
-        //        if (copyBackups)
-        //        {
-        //            CopyProjectFolder(oldProjectFolder, newProjectFolder); // Copy everything
-        //        }
-        //        else
-        //        {
-        //            CopyProjectFolderWithoutBackups(oldProjectFolder, newProjectFolder); // Exclude backups
-        //        }
-
-        //        // Copy database
-        //        File.Copy(CurrentProject.Info.ProjectPath, newProjectFilePath, overwrite: true);
-
-        //        // Copy backup files if requested
-        //        if (copyBackups)
-        //        {
-        //            CopyBackupFiles(CurrentProject.Info.ProjectPath, newProjectFilePath);
-        //        }
-
-        //        // Update project info
-        //        CurrentProject.Info.ProjectName = newProjectFileName;
-        //        CurrentProject.Info.ProjectPath = newProjectFilePath;
-
-        //        // Save to new database
-        //        DatabaseHelper db = new(newProjectFilePath);
-        //        db.InitializeDatabase();
-        //        ProjectInfoRepository repo = new(db.GetConnection());
-        //        repo.SaveProjectInfo(CurrentProject.Info);
-
-        //        // Update UI
-        //        this.Text = newProjectFileName + " - Land Readjustment Tool";
-        //        CurrentProject.MarkAsSaved();
-
-        //        Cursor = Cursors.Default;
-
-        //        string message = copyBackups
-        //            ? $"Project saved successfully to:\n{newProjectFolder}\n\nBackup history has been copied."
-        //            : $"Project saved successfully to:\n{newProjectFolder}\n\nNew backups will be created when you save.";
-
-        //        MessageBox.Show(message, "Success", MessageBoxButtons.OK, MessageBoxIcon.Information);
-        //    }
-        //    catch (Exception ex)
-        //    {
-        //        Cursor = Cursors.Default;
-        //        MessageBox.Show($"Failed to save project: {ex.Message}", "Error",
-        //            MessageBoxButtons.OK, MessageBoxIcon.Error);
-        //    }
-        //}
-
-        //private void CopyBackupFiles(string oldProjectPath, string newProjectPath)
-        //{
-        //    // Copy all backup files (.bak, .bak2, .bak3, .bak4, .bak5)
-        //    for (int i = 1; i <= 5; i++)
-        //    {
-        //        string oldBackup = i == 1
-        //            ? $"{oldProjectPath}.bak"
-        //            : $"{oldProjectPath}.bak{i}";
-
-        //        string newBackup = i == 1
-        //            ? $"{newProjectPath}.bak"
-        //            : $"{newProjectPath}.bak{i}";
-
-        //        if (File.Exists(oldBackup))
-        //        {
-        //            File.Copy(oldBackup, newBackup, overwrite: true);
-        //        }
-        //    }
-        //}
-
-        //private void CopyProjectFolder(string sourceFolder, string destFolder)
-        //{
-        //    // Create destination folder
-        //    Directory.CreateDirectory(destFolder);
-
-        //    // Copy ALL files (including .bak)
-        //    foreach (string file in Directory.GetFiles(sourceFolder))
-        //    {
-        //        string destFile = Path.Combine(destFolder, Path.GetFileName(file));
-        //        File.Copy(file, destFile, overwrite: true);
-        //    }
-
-        //    // Copy all subdirectories recursively
-        //    foreach (string subDir in Directory.GetDirectories(sourceFolder))
-        //    {
-        //        string destSubDir = Path.Combine(destFolder, Path.GetFileName(subDir));
-        //        CopyProjectFolder(subDir, destSubDir);
-        //    }
-        //}
-
-        //private void CopyProjectFolderWithoutBackups(string sourceFolder, string destFolder)
-        //{
-        //    // Create destination folder
-        //    Directory.CreateDirectory(destFolder);
-
-        //    // Copy files EXCEPT .bak files
-        //    foreach (string file in Directory.GetFiles(sourceFolder))
-        //    {
-        //        string fileName = Path.GetFileName(file);
-        //        if (fileName.EndsWith(".bak") || fileName.Contains(".bak"))
-        //            continue;
-
-        //        string destFile = Path.Combine(destFolder, fileName);
-        //        File.Copy(file, destFile, overwrite: true);
-        //    }
-
-        //    // Copy subdirectories recursively
-        //    foreach (string subDir in Directory.GetDirectories(sourceFolder))
-        //    {
-        //        string destSubDir = Path.Combine(destFolder, Path.GetFileName(subDir));
-        //        CopyProjectFolderWithoutBackups(subDir, destSubDir);
-        //    }
-        //}
 
     }
 }

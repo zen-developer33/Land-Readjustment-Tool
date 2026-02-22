@@ -109,6 +109,8 @@ namespace Land_Readjustment_Tool.CustomControls
         private SnapManager _snapManager = new SnapManager();
         private SnapPoint? _currentSnapPoint = null;
 
+        public event EventHandler CollapseLeftPanelClicked;
+
         public DrawingCanvasControl()
         {
             InitializeComponent();
@@ -119,6 +121,7 @@ namespace Land_Readjustment_Tool.CustomControls
             this.ResizeRedraw = true;
             InitializeDrawingSystem();
             SetupUIControls();
+            this.Load += DrawingCanvasControl_Load;
         }
 
         private void InitializeDrawingSystem()
@@ -171,6 +174,16 @@ namespace Land_Readjustment_Tool.CustomControls
             btnShowHideGrid.Text = "Hide Grid";
             panelCanvas.Invalidate();
             btnShowHideGrid.Click += btnShowHideGrid_Click!;
+        }
+
+        private void DrawingCanvasControl_Load(object sender, EventArgs e)
+        {
+            btnCollapseLeftPanel.Click += BtnCollapseLeftPanel_Click;
+        }
+
+        private void BtnCollapseLeftPanel_Click(object sender, EventArgs e)
+        {
+            CollapseLeftPanelClicked?.Invoke(this, EventArgs.Empty);
         }
 
         #region Paint Event
@@ -590,7 +603,8 @@ namespace Land_Readjustment_Tool.CustomControls
 
         private IShape CreatePreviewShape()
         {
-            if (!_drawStartPoint.HasValue || !_drawCurrentPoint.HasValue)
+            if (!_drawStartPoint.HasValue || !_drawCurrentPoint.HasValue
+                || (_currentTool == DrawingTool.Polyline && _polylineVertices.Count == 0))
                 return null;
             return _currentTool switch
             {
