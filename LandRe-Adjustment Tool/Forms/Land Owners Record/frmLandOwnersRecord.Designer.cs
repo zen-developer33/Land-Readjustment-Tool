@@ -17,7 +17,7 @@ namespace Land_Readjustment_Tool.Forms
 
         private void InitializeComponent()
         {
-            DataGridViewCellStyle dataGridViewCellStyle2 = new DataGridViewCellStyle();
+            DataGridViewCellStyle dataGridViewCellStyle1 = new DataGridViewCellStyle();
             toolStrip1 = new ToolStrip();
             btnAdd = new ToolStripButton();
             btnEdit = new ToolStripButton();
@@ -28,11 +28,11 @@ namespace Land_Readjustment_Tool.Forms
             toolStripSeparator2 = new ToolStripSeparator();
             btnRefresh = new ToolStripDropDownButton();
             saveToolStripButton = new ToolStripButton();
+            btnClose = new ToolStripButton();
             panel1 = new Panel();
             lblPaginationInfo = new Label();
             lblTotalRecords = new Label();
             dgvRecords = new DataGridView();
-            btnClose = new ToolStripButton();
             toolStrip1.SuspendLayout();
             panel1.SuspendLayout();
             ((System.ComponentModel.ISupportInitialize)dgvRecords).BeginInit();
@@ -73,6 +73,7 @@ namespace Land_Readjustment_Tool.Forms
             btnEdit.Text = "Edit";
             btnEdit.TextImageRelation = TextImageRelation.ImageAboveText;
             btnEdit.ToolTipText = "Edit Record";
+            btnEdit.Click += BtnEdit_Click;
             // 
             // btnDelete
             // 
@@ -133,6 +134,16 @@ namespace Land_Readjustment_Tool.Forms
             saveToolStripButton.Text = "Save";
             saveToolStripButton.ToolTipText = "Save to Database ";
             // 
+            // btnClose
+            // 
+            btnClose.Image = Properties.Resources.delete_icon_25;
+            btnClose.ImageScaling = ToolStripItemImageScaling.None;
+            btnClose.ImageTransparentColor = Color.Magenta;
+            btnClose.Name = "btnClose";
+            btnClose.Size = new Size(74, 71);
+            btnClose.Text = "Close";
+            btnClose.Click += toolStripButton1_Click;
+            // 
             // panel1
             // 
             panel1.Anchor = AnchorStyles.Bottom | AnchorStyles.Left | AnchorStyles.Right;
@@ -172,14 +183,14 @@ namespace Land_Readjustment_Tool.Forms
             dgvRecords.Anchor = AnchorStyles.Top | AnchorStyles.Bottom | AnchorStyles.Left | AnchorStyles.Right;
             dgvRecords.BackgroundColor = SystemColors.ControlLight;
             dgvRecords.ColumnHeadersHeightSizeMode = DataGridViewColumnHeadersHeightSizeMode.AutoSize;
-            dataGridViewCellStyle2.Alignment = DataGridViewContentAlignment.MiddleLeft;
-            dataGridViewCellStyle2.BackColor = SystemColors.Window;
-            dataGridViewCellStyle2.Font = new Font("Segoe UI", 9F);
-            dataGridViewCellStyle2.ForeColor = SystemColors.ControlText;
-            dataGridViewCellStyle2.SelectionBackColor = Color.SkyBlue;
-            dataGridViewCellStyle2.SelectionForeColor = SystemColors.HighlightText;
-            dataGridViewCellStyle2.WrapMode = DataGridViewTriState.False;
-            dgvRecords.DefaultCellStyle = dataGridViewCellStyle2;
+            dataGridViewCellStyle1.Alignment = DataGridViewContentAlignment.MiddleLeft;
+            dataGridViewCellStyle1.BackColor = SystemColors.Window;
+            dataGridViewCellStyle1.Font = new Font("Segoe UI", 9F);
+            dataGridViewCellStyle1.ForeColor = SystemColors.ControlText;
+            dataGridViewCellStyle1.SelectionBackColor = Color.SkyBlue;
+            dataGridViewCellStyle1.SelectionForeColor = SystemColors.HighlightText;
+            dataGridViewCellStyle1.WrapMode = DataGridViewTriState.False;
+            dgvRecords.DefaultCellStyle = dataGridViewCellStyle1;
             dgvRecords.Location = new Point(0, 77);
             dgvRecords.Name = "dgvRecords";
             dgvRecords.ReadOnly = true;
@@ -188,16 +199,6 @@ namespace Land_Readjustment_Tool.Forms
             dgvRecords.SelectionMode = DataGridViewSelectionMode.FullRowSelect;
             dgvRecords.Size = new Size(1356, 600);
             dgvRecords.TabIndex = 1;
-            // 
-            // btnClose
-            // 
-            btnClose.Image = Properties.Resources.delete_icon_25;
-            btnClose.ImageScaling = ToolStripItemImageScaling.None;
-            btnClose.ImageTransparentColor = Color.Magenta;
-            btnClose.Name = "btnClose";
-            btnClose.Size = new Size(74, 71);
-            btnClose.Text = "Close";
-            btnClose.Click += toolStripButton1_Click;
             // 
             // frmLandOwnersRecord
             // 

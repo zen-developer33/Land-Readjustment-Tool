@@ -29,6 +29,12 @@ namespace Land_Readjustment_Tool.Services
             _connection = new SQLiteConnection($"Data Source={_dbPath};Version=3;");
             _connection.Open();
 
+            // Enable foreign keys
+            using (var cmd = new SQLiteCommand("PRAGMA foreign_keys = ON;", _connection))
+            {
+                cmd.ExecuteNonQuery();
+            }
+
             // Create all database tables (ProjectInfo, LandOwner, Parcels, etc.)
             DatabaseSchema.CreateSchema(_connection);
         }

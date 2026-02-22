@@ -881,8 +881,11 @@ namespace Land_Readjustment_Tool.Repositories
         /// Clears all parcels and owners (for complete data replacement)
         /// Parcels must be deleted first due to foreign key constraint
         /// </summary>
-        public void ClearAllData()
+        public (int DeletedParcels, int DeletedOwners) ClearAllData()
         {
+            int deletedParcels = 0;
+            int deletedOwners = 0;
+
             using var transaction = _connection.BeginTransaction();
             try
             {
@@ -890,14 +893,14 @@ namespace Land_Readjustment_Tool.Repositories
                 string deleteParcels = "DELETE FROM tblOriginalLandParcels";
                 using (var cmd = new SQLiteCommand(deleteParcels, _connection, transaction))
                 {
-                    _ = cmd.ExecuteNonQuery();
+                    deletedParcels = cmd.ExecuteNonQuery();
                 }
 
                 // Then delete owners
                 string deleteOwners = "DELETE FROM tblLandOwner";
                 using (var cmd = new SQLiteCommand(deleteOwners, _connection, transaction))
                 {
-                    _ = cmd.ExecuteNonQuery();
+                    deletedOwners = cmd.ExecuteNonQuery();
                 }
 
                 transaction.Commit();
@@ -908,6 +911,8 @@ namespace Land_Readjustment_Tool.Repositories
                 transaction.Rollback();
                 throw;
             }
+
+            return (deletedParcels, deletedOwners);
         }
 
         /// <summary>

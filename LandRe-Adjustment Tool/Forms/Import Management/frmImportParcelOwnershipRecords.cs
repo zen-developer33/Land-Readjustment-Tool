@@ -1317,12 +1317,35 @@ namespace Land_Readjustment_Tool.Forms
 
                 var repository = new LandOwnerRepository(connection);
 
+                // Get counts before clearing
+                int initialParcelCount = repository.GetTotalRecordCount();
+                int initialOwnerCount = repository.GetAllOwners().Count;
+
                 // Clear existing data if replace option was selected
+                int deletedParcels = 0;
+                int deletedOwners = 0;
                 if (replaceExisting)
                 {
-                    repository.ClearAllData();
+                    try
+                    {
+                        var clearResult = repository.ClearAllData();
+                        deletedParcels = clearResult.DeletedParcels;
+                        deletedOwners = clearResult.DeletedOwners;
+                    }
+                    catch (Exception clearEx)
+                    {
+                        return new OperationResult
+                        {
+                            Success = false,
+                            Message = $"Failed to clear existing data: {clearEx.Message}\n\nPlease ensure the database is not locked by another application."
+                        };
+                    }
                     worker.ReportProgress(30);
                 }
+
+                // Get counts after clearing
+                int afterClearParcelCount = repository.GetTotalRecordCount();
+                int afterClearOwnerCount = repository.GetAllOwners().Count;
 
                 int savedParcels = 0;
                 int savedOwners = 0;
@@ -1358,6 +1381,10 @@ namespace Land_Readjustment_Tool.Forms
                 worker.ReportProgress(100);
 
                 string resultMessage = $"Successfully saved to database!\n\n" +
+                                      $"• Replace Existing: {(replaceExisting ? "YES" : "NO")}\n" +
+                                      $"• Initial Data: {initialOwnerCount} owners, {initialParcelCount} parcels\n" +
+                                      (replaceExisting ? $"• Deleted: {deletedOwners} owners, {deletedParcels} parcels\n" : "") +
+                                      $"• After Clear: {afterClearOwnerCount} owners, {afterClearParcelCount} parcels\n" +
                                       $"• Unique Landowners: {savedOwners}\n" +
                                       $"• Land Parcels: {savedParcels}";
                 

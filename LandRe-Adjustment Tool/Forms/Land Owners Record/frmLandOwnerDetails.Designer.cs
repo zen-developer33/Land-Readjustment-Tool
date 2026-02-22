@@ -66,6 +66,7 @@
             btnSave = new Button();
             groupBox2 = new GroupBox();
             btnClose = new Button();
+            chkEdit = new CheckBox();
             pnlPhoto.SuspendLayout();
             ((System.ComponentModel.ISupportInitialize)picPhoto).BeginInit();
             grpOwnerInfo.SuspendLayout();
@@ -374,10 +375,10 @@
             // btnCancel
             // 
             btnCancel.Image = Properties.Resources.delete_icon_251;
-            btnCancel.Location = new Point(637, 14);
+            btnCancel.Location = new Point(637, 12);
             btnCancel.Margin = new Padding(4);
             btnCancel.Name = "btnCancel";
-            btnCancel.Size = new Size(98, 46);
+            btnCancel.Size = new Size(98, 38);
             btnCancel.TabIndex = 13;
             btnCancel.Text = "Cancel";
             btnCancel.TextAlign = ContentAlignment.MiddleRight;
@@ -448,7 +449,7 @@
             // 
             lblAreaLocal.Font = new Font("Segoe UI", 9F, FontStyle.Bold);
             lblAreaLocal.ForeColor = Color.Black;
-            lblAreaLocal.Location = new Point(157, 82);
+            lblAreaLocal.Location = new Point(157, 87);
             lblAreaLocal.Margin = new Padding(4, 0, 4, 0);
             lblAreaLocal.Name = "lblAreaLocal";
             lblAreaLocal.Size = new Size(76, 22);
@@ -460,12 +461,12 @@
             // 
             lblAreasqm.Font = new Font("Segoe UI", 9F, FontStyle.Bold);
             lblAreasqm.ForeColor = Color.Black;
-            lblAreasqm.Location = new Point(157, 55);
+            lblAreasqm.Location = new Point(157, 60);
             lblAreasqm.Margin = new Padding(4, 0, 4, 0);
             lblAreasqm.Name = "lblAreasqm";
             lblAreasqm.Size = new Size(85, 31);
             lblAreasqm.TabIndex = 3;
-            lblAreasqm.Text = "-";
+            lblAreasqm.Text = "jgkjhkj";
             lblAreasqm.TextAlign = ContentAlignment.MiddleLeft;
             // 
             // label11
@@ -508,10 +509,10 @@
             // 
             btnSave.Font = new Font("Segoe UI", 9F, FontStyle.Regular, GraphicsUnit.Point, 0);
             btnSave.Image = Properties.Resources.diskette21;
-            btnSave.Location = new Point(479, 13);
+            btnSave.Location = new Point(519, 12);
             btnSave.Margin = new Padding(4);
             btnSave.Name = "btnSave";
-            btnSave.Size = new Size(150, 47);
+            btnSave.Size = new Size(110, 38);
             btnSave.TabIndex = 13;
             btnSave.Text = "Save";
             btnSave.TextAlign = ContentAlignment.MiddleRight;
@@ -545,12 +546,27 @@
             btnClose.UseVisualStyleBackColor = true;
             btnClose.Click += btnClose_Click;
             // 
+            // chkEdit
+            // 
+            chkEdit.Appearance = Appearance.Button;
+            chkEdit.Image = Properties.Resources.edit_icon1;
+            chkEdit.Location = new Point(363, 12);
+            chkEdit.Name = "chkEdit";
+            chkEdit.Size = new Size(149, 38);
+            chkEdit.TabIndex = 104;
+            chkEdit.Text = "Edit";
+            chkEdit.TextAlign = ContentAlignment.MiddleRight;
+            chkEdit.TextImageRelation = TextImageRelation.ImageBeforeText;
+            chkEdit.UseVisualStyleBackColor = true;
+            chkEdit.CheckedChanged += chkEdit_CheckedChanged;
+            // 
             // frmLandOwnerDetails
             // 
             AutoScaleDimensions = new SizeF(8F, 20F);
             AutoScaleMode = AutoScaleMode.Font;
             CancelButton = btnClose;
             ClientSize = new Size(741, 614);
+            Controls.Add(chkEdit);
             Controls.Add(btnClose);
             Controls.Add(btnSave);
             Controls.Add(label7);
@@ -618,5 +634,7 @@
         private Button btnSave;
         private GroupBox groupBox2;
         private Button btnClose;
+        private Button btnEdit;
+        private CheckBox chkEdit;
     }
 }

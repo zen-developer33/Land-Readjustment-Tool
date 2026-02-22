@@ -1,22 +1,13 @@
 ﻿using Land_Readjustment_Tool.Models;
 using Land_Readjustment_Tool.Repositories;
 using Land_Readjustment_Tool.Services;
-using Land_Readjustment_Tool.Forms;
-using System;
-using System.Collections.Generic;
-using System.ComponentModel;
-using System.Data;
-using System.Drawing;
-using System.IO;
-using System.Text;
-using System.Windows.Forms;
 
 namespace Land_Readjustment_Tool.Forms.Land_Owners_Record
 {
     public partial class frmLandOwnerDetails : Form
     {
         private readonly int _landOwnerId;
-        private readonly bool _readOnlyMode;
+        private bool _readOnlyMode;
         private readonly bool _isAddMode;
         private readonly LandOwnerRepository _repository;
         private readonly string _projectPath;
@@ -68,7 +59,7 @@ namespace Land_Readjustment_Tool.Forms.Land_Owners_Record
         private void SetAddMode()
         {
             Text = "Add New Land Owner";
-            
+
             // Clear all fields
             txtFullName.Text = "";
             txtFatherSpouse.Text = "";
@@ -89,9 +80,9 @@ namespace Land_Readjustment_Tool.Forms.Land_Owners_Record
 
             // Disable parcel and document buttons (can't view for new owner)
             btnViewParcels.Text = "View Parcels Owned (0)";
-            btnViewParcels.Enabled = false;
+
             btnAttachViewDocuments.Text = "Attach/View Documents (0)";
-            btnAttachViewDocuments.Enabled = false;
+
 
             // Show save and cancel buttons
             btnSave.Text = "Add Owner";
@@ -107,7 +98,7 @@ namespace Land_Readjustment_Tool.Forms.Land_Owners_Record
             _owner = _repository.GetOwnerById(_landOwnerId);
             if (_owner == null)
             {
-                MessageBox.Show("Owner not found!", "Error", MessageBoxButtons.OK, MessageBoxIcon.Error);
+                _ = MessageBox.Show("Owner not found!", "Error", MessageBoxButtons.OK, MessageBoxIcon.Error);
                 Close();
                 return;
             }
@@ -185,9 +176,11 @@ namespace Land_Readjustment_Tool.Forms.Land_Owners_Record
 
         private void SetReadOnlyMode(bool readOnly)
         {
+
             if (readOnly)
             {
                 // Readonly mode - disable all input controls
+
                 txtFullName.ReadOnly = true;
                 txtFatherSpouse.ReadOnly = true;
                 cbGender.Enabled = false;
@@ -212,14 +205,16 @@ namespace Land_Readjustment_Tool.Forms.Land_Owners_Record
                 txtEmailID.BackColor = readOnlyColor;
 
                 // Hide edit buttons
-                btnSave.Visible = false;
-                btnCancel.Visible = false;
+                btnSave.Enabled = false;
+                btnCancel.Enabled = false;
                 btnUploadChangePhoto.Enabled = false;
 
                 Text = "Land Owner Details (Read-Only)";
+                _readOnlyMode = true;
             }
             else
             {
+                _readOnlyMode = false;
                 Text = "Land Owner Details";
             }
         }
@@ -239,9 +234,9 @@ namespace Land_Readjustment_Tool.Forms.Land_Owners_Record
             // Validate required fields
             if (string.IsNullOrWhiteSpace(txtFullName.Text))
             {
-                MessageBox.Show("Full Name is required. Please enter the owner's name.", "Validation Error",
+                _ = MessageBox.Show("Full Name is required. Please enter the owner's name.", "Validation Error",
                     MessageBoxButtons.OK, MessageBoxIcon.Warning);
-                txtFullName.Focus();
+                _ = txtFullName.Focus();
                 return;
             }
 
@@ -305,7 +300,7 @@ namespace Land_Readjustment_Tool.Forms.Land_Owners_Record
                         {
                             string projectDir = Path.GetDirectoryName(_projectPath) ?? "";
                             string photosFolder = Path.Combine(projectDir, "OwnerPhotos");
-                            Directory.CreateDirectory(photosFolder);
+                            _ = Directory.CreateDirectory(photosFolder);
 
                             string extension = Path.GetExtension(_tempPhotoPath);
                             string fileName = $"Owner_{newOwnerId}{extension}";
@@ -322,12 +317,13 @@ namespace Land_Readjustment_Tool.Forms.Land_Owners_Record
                         }
                     }
 
-                    MessageBox.Show($"Land owner added successfully!\n\nOwner ID: {newOwnerId}\n\nYou can assign parcels to this owner from the Land Parcel Records form.",
+                    _ = MessageBox.Show($"Land owner added successfully!\n\nOwner ID: {newOwnerId}\n\nYou can assign parcels to this owner from the Land Parcel Records form.",
                         "Success",
                         MessageBoxButtons.OK, MessageBoxIcon.Information);
 
-                    DialogResult = DialogResult.OK;
-                    Close();
+                    if (DialogResult == DialogResult.OK)
+                        Close();
+
                 }
                 else
                 {
@@ -363,33 +359,66 @@ namespace Land_Readjustment_Tool.Forms.Land_Owners_Record
                     _owner.ModifiedDate = DateTime.Now;
 
                     // Save to database
-                    _repository.UpdateOwner(_owner);
+                    _ = _repository.UpdateOwner(_owner);
 
-                    MessageBox.Show("Owner details updated successfully!", "Success",
+                    _ = MessageBox.Show("Owner details updated successfully!", "Success",
                         MessageBoxButtons.OK, MessageBoxIcon.Information);
 
-                    DialogResult = DialogResult.OK;
-                    Close();
+                    SetReadOnlyMode(true);
                 }
             }
             catch (Exception ex)
             {
-                MessageBox.Show($"Failed to save owner details: {ex.Message}", "Error",
+                _ = MessageBox.Show($"Failed to save owner details: {ex.Message}", "Error",
                     MessageBoxButtons.OK, MessageBoxIcon.Error);
             }
         }
 
         private void btnEdit_Click(object sender, EventArgs e)
         {
-            // Not used in this implementation
+            enableEditing();
         }
+
+        private void enableEditing()
+        {
+            // Readonly mode - disable all input controls
+
+            txtFullName.ReadOnly = false;
+            txtFatherSpouse.ReadOnly = false;
+            cbGender.Enabled = true;
+            txtCitizenshipNo.ReadOnly = false;
+            txtIssueDistrict.ReadOnly = false;
+            txtIssueDate.ReadOnly = false;
+            txtPermanentAddress.ReadOnly = false;
+            txtTemporaryAddress.ReadOnly = false;
+            txtContactNumber.ReadOnly = false;
+            txtEmailID.ReadOnly = false;
+            // Change background to indicate readonly
+            Color editColor = Color.FromKnownColor(KnownColor.Window);
+            txtFullName.BackColor = Color.FromKnownColor(KnownColor.Window);
+            txtFatherSpouse.BackColor = editColor;
+            txtCitizenshipNo.BackColor = editColor;
+            txtIssueDistrict.BackColor = editColor;
+            txtIssueDate.BackColor = editColor;
+            txtPermanentAddress.BackColor = editColor;
+            txtTemporaryAddress.BackColor = editColor;
+            txtContactNumber.BackColor = editColor;
+            txtEmailID.BackColor = editColor;
+            // Hide edit buttons
+            btnSave.Enabled = true;
+            btnCancel.Enabled = true;
+            btnUploadChangePhoto.Enabled = true;
+            //chkEdit.Text = "Stop Editing";
+            this.Text = "Land Owner Details";
+        }
+
 
         private void btnAttachViewDocuments_Click(object sender, EventArgs e)
         {
             if (_owner == null) return;
 
-            using var docsForm = new frmOwnerDocuments(_projectPath, _owner, _repository);
-            docsForm.ShowDialog();
+            using var docsForm = new frmOwnerDocuments(_projectPath, _owner, _repository, _readOnlyMode);
+            _ = docsForm.ShowDialog();
 
             // Refresh summary after closing documents form
             LoadOwnerSummary();
@@ -405,7 +434,7 @@ namespace Land_Readjustment_Tool.Forms.Land_Owners_Record
             if (_owner == null) return;
 
             using var parcelsForm = new frmOwnerParcels(_owner, _repository);
-            parcelsForm.ShowDialog();
+            _ = parcelsForm.ShowDialog();
         }
 
         private void btnCancel_Click(object sender, EventArgs e)
@@ -437,7 +466,7 @@ namespace Land_Readjustment_Tool.Forms.Land_Owners_Record
                     picPhoto.Image = Image.FromFile(_tempPhotoPath);
                     picPhoto.SizeMode = PictureBoxSizeMode.Zoom;
 
-                    MessageBox.Show("Photo selected. It will be saved when you add the owner.", "Photo Selected",
+                    _ = MessageBox.Show("Photo selected. It will be saved when you add the owner.", "Photo Selected",
                         MessageBoxButtons.OK, MessageBoxIcon.Information);
                 }
                 else
@@ -448,7 +477,7 @@ namespace Land_Readjustment_Tool.Forms.Land_Owners_Record
                     // Create OwnerPhotos folder if it doesn't exist
                     string projectDir = Path.GetDirectoryName(_projectPath) ?? "";
                     string photosFolder = Path.Combine(projectDir, "OwnerPhotos");
-                    Directory.CreateDirectory(photosFolder);
+                    _ = Directory.CreateDirectory(photosFolder);
 
                     // Generate unique filename
                     string extension = Path.GetExtension(ofd.FileName);
@@ -466,17 +495,32 @@ namespace Land_Readjustment_Tool.Forms.Land_Owners_Record
                     // Reload photo
                     LoadPhoto();
 
-                    MessageBox.Show("Photo uploaded successfully!", "Success",
+                    _ = MessageBox.Show("Photo uploaded successfully!", "Success",
                         MessageBoxButtons.OK, MessageBoxIcon.Information);
                 }
             }
             catch (Exception ex)
             {
-                MessageBox.Show($"Failed to upload photo: {ex.Message}", "Error",
+                _ = MessageBox.Show($"Failed to upload photo: {ex.Message}", "Error",
                     MessageBoxButtons.OK, MessageBoxIcon.Error);
             }
         }
 
+        private void btnEdit_CheckedChanged(object sender, EventArgs e)
+        {
+
+        }
+
+        private void chkEdit_CheckedChanged(object sender, EventArgs e)
+        {
+            if (chkEdit.Checked)
+            {
+                enableEditing();
+                this.Text = "Land Owner Details (Edit)";
+                chkEdit.Checked = false;
+
+            }
+        }
     }
 }
 

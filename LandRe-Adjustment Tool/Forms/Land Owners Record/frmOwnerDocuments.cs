@@ -15,15 +15,20 @@ namespace Land_Readjustment_Tool.Forms
         private readonly LandOwner _owner;
         private readonly LandOwnerRepository _repository;
 
-        public frmOwnerDocuments(string projectPath, LandOwner owner, LandOwnerRepository repository)
+
+        public frmOwnerDocuments(string projectPath, LandOwner owner, LandOwnerRepository repository, bool isReadOnly)
         {
+            
             InitializeComponent();
             _projectPath = projectPath;
             _owner = owner;
             _repository = repository;
-
-            Text = $"Documents - {_owner.LandOwnersName}";
+            
+              Text = $"Documents - {_owner.LandOwnersName}";
             LoadDocuments();
+            btnAttach.Enabled = !isReadOnly;
+            btnDelete.Enabled = !isReadOnly;
+            
         }
 
         private void LoadDocuments()

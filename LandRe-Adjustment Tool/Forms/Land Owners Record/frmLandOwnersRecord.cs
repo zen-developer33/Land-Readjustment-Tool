@@ -92,7 +92,7 @@ namespace Land_Readjustment_Tool.Forms
             AddColumn("FatherSpouse", "Father/Spouse", 180);
             AddColumn("Gender", "Gender", 80);
             AddColumn("CitizenshipNumber", "Citizenship No", 130);
-            AddColumn("IssuedDistrict" , "Issued District", 150);
+            AddColumn("IssuedDistrict", "Issued District", 150);
             AddColumn("IssuedDate", "Issued Date", 120);
             AddColumn("PermanentAddress", "Permanent Address", 250);
             AddColumn("TemporaryAddress", "Temporary Address", 250);
@@ -243,7 +243,7 @@ namespace Land_Readjustment_Tool.Forms
             if (dgvRecords.SelectedRows[0].DataBoundItem is not LandOwnerDisplayModel model)
                 return;
 
-            using var detailsForm = new frmLandOwnerDetails(model.LandOwnerId, readOnlyMode: false);
+            using var detailsForm = new frmLandOwnerDetails(model.LandOwnerId, readOnlyMode: true);
             if (detailsForm.ShowDialog() == DialogResult.OK)
             {
                 LoadOwners();
@@ -331,6 +331,11 @@ namespace Land_Readjustment_Tool.Forms
         private void toolStripButton1_Click(object sender, EventArgs e)
         {
             this.Close();
+        }
+
+        private void btnEdit_Click_1(object sender, EventArgs e)
+        {
+
         }
     }
 

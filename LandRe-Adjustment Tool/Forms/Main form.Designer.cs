@@ -436,12 +436,12 @@
             grpLayer.Anchor = AnchorStyles.Top | AnchorStyles.Bottom | AnchorStyles.Left | AnchorStyles.Right;
             grpLayer.Controls.Add(treeView1);
             grpLayer.Font = new Font("Microsoft Sans Serif", 7.8F, FontStyle.Bold, GraphicsUnit.Point, 0);
-            grpLayer.Location = new Point(4, 0);
+            grpLayer.Location = new Point(4, 32);
             grpLayer.Margin = new Padding(4);
             grpLayer.Name = "grpLayer";
             grpLayer.Padding = new Padding(4);
             grpLayer.RightToLeft = RightToLeft.No;
-            grpLayer.Size = new Size(295, 273);
+            grpLayer.Size = new Size(295, 241);
             grpLayer.TabIndex = 0;
             grpLayer.TabStop = false;
             grpLayer.Text = "Layers";
@@ -450,10 +450,10 @@
             // 
             treeView1.Anchor = AnchorStyles.Top | AnchorStyles.Bottom | AnchorStyles.Left | AnchorStyles.Right;
             treeView1.CheckBoxes = true;
-            treeView1.Location = new Point(6, 19);
+            treeView1.Location = new Point(6, 23);
             treeView1.Margin = new Padding(4);
             treeView1.Name = "treeView1";
-            treeView1.Size = new Size(281, 246);
+            treeView1.Size = new Size(281, 210);
             treeView1.TabIndex = 0;
             // 
             // label1
