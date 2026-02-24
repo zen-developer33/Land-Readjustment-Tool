@@ -77,6 +77,7 @@ namespace Land_Readjustment_Tool.DrawingCanvas.Models.Shapes
             }
             catch (Exception ex)
             {
+                MessageBox.Show($"Error drawing ellipse: {ex.Message}", "Drawing Error", MessageBoxButtons.OK, MessageBoxIcon.Error);
                 // Optionally log or display error
                 // System.Diagnostics.Debug.WriteLine($"EllipseShape.Draw error: {ex.Message}");
             }

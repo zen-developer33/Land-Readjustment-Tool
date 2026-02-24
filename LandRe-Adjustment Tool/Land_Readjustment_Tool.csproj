@@ -44,7 +44,7 @@
   </ItemGroup>
 
   <ItemGroup>
-    <Compile Update="DrawingCanvas\CanvasPanel.cs">
+    <Compile Update="MapCanvas\CanvasPanel.cs">
       <SubType>Component</SubType>
     </Compile>
     <Compile Update="Properties\Resources.Designer.cs">
@@ -74,6 +74,7 @@
   </ItemGroup>
 
   <ItemGroup>
+    <Folder Include="Custom Controls\" />
     <Folder Include="Resources\NewFolder\" />
   </ItemGroup>
 

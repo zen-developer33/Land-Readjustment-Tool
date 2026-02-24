@@ -14,7 +14,7 @@ namespace Land_Readjustment_Tool.DrawingCanvas.Models.Shapes
         public PointD Center { get; set; }
         public PointD RadiusPoint { get; set; }
 
-        public CircleShape(PointD center, PointD radiusPoint) : base()
+        public CircleShape(PointD center, PointD radiusPoint) 
         {
             Center = center;
             RadiusPoint = radiusPoint;
@@ -55,7 +55,7 @@ namespace Land_Readjustment_Tool.DrawingCanvas.Models.Shapes
         }
         public override void Draw(Graphics g, Func<PointD, PointD> worldToScreen, bool isPreview = false)
         {
-            if (!IsVisible) return;
+            if (!IsVisible) return; 
 
             try
             {
