@@ -1,8 +1,10 @@
 ﻿using CsvHelper;
 using System;
+using System.ComponentModel.DataAnnotations.Schema;
 
 namespace Land_Readjustment_Tool.Models
 {
+    [NotMapped] // This attribute indicates that this class should not be mapped to a database table
     public class ProjectInfo
     {
         // Category: General

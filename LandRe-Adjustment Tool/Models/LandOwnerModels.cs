@@ -1,9 +1,12 @@
+using System.ComponentModel.DataAnnotations.Schema;
+
 namespace Land_Readjustment_Tool.Models
 {
     /// <summary>
     /// Represents a unique landowner in the system
     /// Contains only owner-specific information (personal details, identification, contact)
     /// </summary>
+    [NotMapped] // This class is not directly mapped to a database table, it's used for in-memory processing and display
     public class LandOwner
     {
         public int LandOwnerId { get; set; }

@@ -1,8 +1,10 @@
 ﻿using System.ComponentModel;
+using System.ComponentModel.DataAnnotations.Schema;
 
 namespace Land_Readjustment_Tool.Models
 {
     // Raw / Dirty data model imported from external sources
+    [NotMapped]
     public class BaselineLandParceRecord
     {
         /* ===============================
