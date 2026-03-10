@@ -931,6 +931,85 @@ namespace Land_Readjustment_Tool.Migrations
                         });
                 });
 
+            modelBuilder.Entity("Land_Readjustment_Tool.Entities.ProjectSettings", b =>
+                {
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("INTEGER");
+
+                    b.Property<string>("CanvasBackgroundColor")
+                        .IsRequired()
+                        .HasColumnType("TEXT");
+
+                    b.Property<string>("CanvasGridColor")
+                        .IsRequired()
+                        .HasColumnType("TEXT");
+
+                    b.Property<bool>("CanvasGridVisible")
+                        .HasColumnType("INTEGER");
+
+                    b.Property<string>("CoordinateSystem")
+                        .HasColumnType("TEXT");
+
+                    b.Property<string>("DateFormat")
+                        .IsRequired()
+                        .HasColumnType("TEXT");
+
+                    b.Property<string>("DefaultPaperSize")
+                        .IsRequired()
+                        .HasColumnType("TEXT");
+
+                    b.Property<int>("DefaultPrintScale")
+                        .HasColumnType("INTEGER");
+
+                    b.Property<string>("DocumentLanguage")
+                        .IsRequired()
+                        .HasColumnType("TEXT");
+
+                    b.Property<int?>("EpsgCode")
+                        .HasColumnType("INTEGER");
+
+                    b.Property<bool>("IsConfigured")
+                        .HasColumnType("INTEGER");
+
+                    b.Property<DateTime>("LastModifiedDate")
+                        .HasColumnType("TEXT");
+
+                    b.Property<string>("MapUnit")
+                        .IsRequired()
+                        .HasColumnType("TEXT");
+
+                    b.Property<double>("MinPlotAreaSqm")
+                        .HasColumnType("REAL");
+
+                    b.Property<string>("ParcelNumberFormat")
+                        .IsRequired()
+                        .HasColumnType("TEXT");
+
+                    b.Property<int>("ParcelNumberPadding")
+                        .HasColumnType("INTEGER");
+
+                    b.Property<string>("ParcelNumberPrefix")
+                        .HasColumnType("TEXT");
+
+                    b.Property<bool>("SnapEnabled")
+                        .HasColumnType("INTEGER");
+
+                    b.Property<double>("SnapTolerancePx")
+                        .HasColumnType("REAL");
+
+                    b.Property<string>("TraditionalAreaUnit")
+                        .IsRequired()
+                        .HasColumnType("TEXT");
+
+                    b.HasKey("Id");
+
+                    b.ToTable("tblProjectSettings", t =>
+                        {
+                            t.HasCheckConstraint("CK_ProjectSettings_SingleRow", "Id = 1");
+                        });
+                });
+
             modelBuilder.Entity("Land_Readjustment_Tool.Entities.ReplottedParcel", b =>
                 {
                     b.Property<int>("Id")

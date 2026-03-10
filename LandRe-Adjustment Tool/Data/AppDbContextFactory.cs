@@ -1,9 +1,7 @@
-﻿using Land_Readjustment_Tool.Data;
+﻿
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Design;
-using Microsoft.EntityFrameworkCore.Migrations;
-using NetTopologySuite.Mathematics;
-using System.Diagnostics.Metrics;
+
 
 namespace Land_Readjustment_Tool.Data
 {
