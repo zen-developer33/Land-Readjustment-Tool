@@ -43,7 +43,7 @@ namespace Land_Readjustment_Tool.Data
 
         // ── CONFIGURE CONNECTION ─────────────────────
         protected override void OnConfiguring(
-            DbContextOptionsBuilder optionsBuilder)
+    DbContextOptionsBuilder optionsBuilder)
         {
             optionsBuilder.UseSqlite(
                 $"Data Source={_dbPath}",
