@@ -1,14 +1,11 @@
-﻿using System;
-using System.Windows.Forms;
-using System.ComponentModel;
-using System.Diagnostics;
-using System.IO;
-using Land_Readjustment_Tool.CustomControls;
+﻿using Land_Readjustment_Tool.CustomControls;
+using Land_Readjustment_Tool.Data;
 using Land_Readjustment_Tool.Forms;
 using Land_Readjustment_Tool.Forms.LandOwnersRecord_Managerment;
 using Land_Readjustment_Tool.Models;
 using Land_Readjustment_Tool.Repositories;
 using Land_Readjustment_Tool.Services;
+using System.ComponentModel;
 
 namespace Land_Readjustment_Tool
 {
@@ -123,50 +120,66 @@ namespace Land_Readjustment_Tool
 
         }
 
-        private void newProjectToolStripMenuItem_Click(object sender, EventArgs e)
+        private async void newProjectToolStripMenuItem_Click(object sender, EventArgs e)
         {
-            Debug.WriteLine("A");
-            SaveFileDialog saveFileDialog = new SaveFileDialog();
-            using (saveFileDialog)
+            using SaveFileDialog saveFileDialog = new SaveFileDialog();
+            saveFileDialog.Filter =
+                "Land Pooling Project File (*.lpp)|*.lpp";
+            saveFileDialog.Title = "Create New Project";
+
+            if (saveFileDialog.ShowDialog() != DialogResult.OK)
+                return;
+
+            string filePathFromDialog = saveFileDialog.FileName;
+            string projectFileName = Path.GetFileNameWithoutExtension(
+                filePathFromDialog);
+            string projectFolder = Path.Combine(
+                Path.GetDirectoryName(filePathFromDialog)!,
+                projectFileName);
+            string projectFilePath = Path.Combine(
+                projectFolder,
+                Path.GetFileName(filePathFromDialog));
+
+            try
             {
-                saveFileDialog.Filter = "Land Pooling Project File (*.lpp)|*.lpp";
-                saveFileDialog.Title = "Create New Project";
-                if (saveFileDialog.ShowDialog() == DialogResult.OK)
+                // Create folder structure
+                Directory.CreateDirectory(projectFolder);
+                ProjectFolderCreator.CreateFolders(projectFolder);
+
+                // Create project using ProjectService
+                var service = new ProjectService();
+                var projectInfo = await service
+                    .CreateNewProjectAsync(
+                        projectFilePath,
+                        projectFileName);
+
+                // Store path in old CurrentProject
+                // keeping both systems during transition
+                CurrentProject.Info = new Models.ProjectInfo
                 {
-                    string filePathFromDialog = saveFileDialog.FileName;
-                    string projectFileName = Path.GetFileNameWithoutExtension(filePathFromDialog);
-                    string projectFolder = Path.Combine(Path.GetDirectoryName(filePathFromDialog)!, Path.GetFileNameWithoutExtension(filePathFromDialog));
-                    string projectFilePath = Path.Combine(projectFolder, Path.GetFileName(filePathFromDialog));
-                    _ = Directory.CreateDirectory(projectFolder);
+                    ProjectName = projectInfo.ProjectName,
+                    ProjectPath = projectFilePath
+                };
+                CurrentProject.MarkAsSaved();
 
-                    ProjectFolderCreator.CreateFolders(projectFolder);
+                // Open project details form
+                var frm = new frm_ProjectDetails();
+                frm.ShowDialog();
 
-                    DatabaseHelper dbHelper = new DatabaseHelper(projectFilePath);
-                    dbHelper.InitializeDatabase();
-
-                    // Create NEW project with CreatedDate = NOW
-                    ProjectInfo projectInfo = new ProjectInfo()
-                    {
-                        ProjectName = projectFileName,
-                        ProjectPath = projectFilePath,
-                        CreatedDate = DateTime.Now,  // ✅ Set ONCE when creating
-
-                    };
-                    CurrentProject.Info = projectInfo;
-
-                    // Save to database immediately
-                    ProjectInfoRepository repo = new(dbHelper.GetConnection());
-                    repo.SaveProjectInfo(projectInfo);
-                    CurrentProject.MarkAsSaved();
-
-                    frm_ProjectDetails frm_ProjectDetails = new frm_ProjectDetails();
-                    _ = frm_ProjectDetails.ShowDialog();
-
-                    UpdateWindowTitle();
-                    InitializeProjectWorkspace();
-                }
+                UpdateWindowTitle();
+                InitializeProjectWorkspace();
             }
-            Debug.WriteLine("B");
+            catch (Exception ex)
+            {
+                // Clean up context if creation failed
+                CurrentProjectContext.Close();
+
+                MessageBox.Show(
+                    $"Failed to create project: {ex.Message}",
+                    "Error",
+                    MessageBoxButtons.OK,
+                    MessageBoxIcon.Error);
+            }
         }
 
         private void InitializeProjectWorkspace()
