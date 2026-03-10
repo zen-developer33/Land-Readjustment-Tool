@@ -19,6 +19,7 @@ namespace Land_Readjustment_Tool.Data
 
         // ── DB SETS ─────────────────────────────────
         public DbSet<ProjectInfo> ProjectInfo { get; set; }
+        public DbSet<ProjectSettings> ProjectSettings { get; set; }
         public DbSet<LandOwner> LandOwners { get; set; }
         public DbSet<MalpotReference> MalpotReferences { get; set; }
         public DbSet<ImportSession> ImportSessions { get; set; }
@@ -55,8 +56,13 @@ namespace Land_Readjustment_Tool.Data
         {
             // ProjectInfo — always exactly one row
             modelBuilder.Entity<ProjectInfo>()
-                .HasCheckConstraint("CK_ProjectInfo_SingleRow",
-                    "Id = 1");
+                .ToTable(t => t.HasCheckConstraint(
+                "CK_ProjectInfo_SingleRow", "Id = 1"));
+
+            // ProjectSettings — always exactly one row
+            modelBuilder.Entity<ProjectSettings>()
+                .ToTable(t => t.HasCheckConstraint(
+                "CK_ProjectSettings_SingleRow", "Id = 1"));
 
             // MalpotReference — unique per owner per moth
             modelBuilder.Entity<MalpotReference>()
