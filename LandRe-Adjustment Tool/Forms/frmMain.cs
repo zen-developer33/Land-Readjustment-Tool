@@ -9,13 +9,12 @@ using System.ComponentModel;
 
 namespace Land_Readjustment_Tool
 {
-
-
     public partial class frmMain : Form
     {
         private DrawingCanvasControl _drawingCanvas;
         private string AppTitle = "RePlot";
         private DatabaseHelper _dbHelper;
+        private AppDbContext? _dbContext;
         private BindingList<BaselineLandParceRecord> _OriginalParcelWithOwnerBindingList;
 
         private TransformationResult transformResult = new();
