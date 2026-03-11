@@ -70,7 +70,7 @@
             // btnRestore
             // 
             btnRestore.Enabled = false;
-            btnRestore.Location = new Point(361, 407);
+            btnRestore.Location = new Point(362, 393);
             btnRestore.Margin = new Padding(3, 4, 3, 4);
             btnRestore.Name = "btnRestore";
             btnRestore.Size = new Size(86, 40);
@@ -82,7 +82,7 @@
             // btnCancel
             // 
             btnCancel.DialogResult = DialogResult.Cancel;
-            btnCancel.Location = new Point(454, 407);
+            btnCancel.Location = new Point(455, 393);
             btnCancel.Margin = new Padding(3, 4, 3, 4);
             btnCancel.Name = "btnCancel";
             btnCancel.Size = new Size(86, 40);
@@ -105,7 +105,7 @@
             AutoScaleDimensions = new SizeF(8F, 20F);
             AutoScaleMode = AutoScaleMode.Font;
             CancelButton = btnCancel;
-            ClientSize = new Size(553, 463);
+            ClientSize = new Size(553, 441);
             Controls.Add(btnCancel);
             Controls.Add(btnRestore);
             Controls.Add(lblInfo);
