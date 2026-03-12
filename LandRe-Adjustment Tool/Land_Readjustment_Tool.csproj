@@ -13,8 +13,11 @@
   </PropertyGroup>
 
   <ItemGroup>
+    <Compile Remove="Custom Controls\**" />
     <Compile Remove="Properties\Resources\**" />
+    <EmbeddedResource Remove="Custom Controls\**" />
     <EmbeddedResource Remove="Properties\Resources\**" />
+    <None Remove="Custom Controls\**" />
     <None Remove="Properties\Resources\**" />
   </ItemGroup>
 
@@ -80,7 +83,6 @@
   </ItemGroup>
 
   <ItemGroup>
-    <Folder Include="Custom Controls\" />
     <Folder Include="Resources\NewFolder\" />
   </ItemGroup>
 
