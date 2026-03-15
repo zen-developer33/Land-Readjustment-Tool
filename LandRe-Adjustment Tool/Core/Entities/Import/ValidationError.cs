@@ -3,7 +3,7 @@ using NetTopologySuite.Mathematics;
 using System.ComponentModel.DataAnnotations;
 using System.ComponentModel.DataAnnotations.Schema;
 
-namespace Land_Readjustment_Tool.Entities
+namespace Land_Readjustment_Tool.Core.Entities.Import
 {
     [Table("tblValidationErrors")]
     public class ValidationError

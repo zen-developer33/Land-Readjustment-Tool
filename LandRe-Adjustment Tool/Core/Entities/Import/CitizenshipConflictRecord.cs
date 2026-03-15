@@ -2,7 +2,7 @@
 using System.ComponentModel.DataAnnotations.Schema;
 using System.Security.Policy;
 
-namespace Land_Readjustment_Tool.Entities
+namespace Land_Readjustment_Tool.Core.Entities.Import
 {
     [Table("tblCitizenshipConflictRecords")]
     public class CitizenshipConflictRecord

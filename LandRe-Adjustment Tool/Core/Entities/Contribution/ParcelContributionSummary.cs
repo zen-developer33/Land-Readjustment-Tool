@@ -1,7 +1,9 @@
 ﻿using System.ComponentModel.DataAnnotations;
 using System.ComponentModel.DataAnnotations.Schema;
+using Land_Readjustment_Tool.Core.Entities.LandData;
+using Land_Readjustment_Tool.Core.Entities.Replotting;
 
-namespace Land_Readjustment_Tool.Entities
+namespace Land_Readjustment_Tool.Core.Entities.Contribution
 {
     [Table("tblParcelContributionSummaries")]
     public class ParcelContributionSummary

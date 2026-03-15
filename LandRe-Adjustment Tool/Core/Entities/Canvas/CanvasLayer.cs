@@ -2,7 +2,7 @@
 using System.ComponentModel.DataAnnotations.Schema;
 using System.Windows.Forms.Design.Behavior;
 
-namespace Land_Readjustment_Tool.Entities
+namespace Land_Readjustment_Tool.Core.Entities.Canvas
 {
     [Table("tblCanvasLayers")]
     public class CanvasLayer

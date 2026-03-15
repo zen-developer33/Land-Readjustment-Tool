@@ -1,8 +1,11 @@
 ﻿using System.ComponentModel.DataAnnotations;
-using Land_Readjustment_Tool.Entities;
 using System.ComponentModel.DataAnnotations.Schema;
+using Land_Readjustment_Tool.Core.Entities.Import;
+using Land_Readjustment_Tool.Core.Entities.Canvas;
+using Land_Readjustment_Tool.Core.Entities.Contribution;
+using Land_Readjustment_Tool.Core.Entities.Replotting;
 
-namespace Land_Readjustment_Tool.Entities
+namespace Land_Readjustment_Tool.Core.Entities.LandData
 {
     [Table("tblBaselineParcels")]
     public class BaselineParcel
