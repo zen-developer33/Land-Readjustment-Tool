@@ -1,5 +1,6 @@
 ﻿using Land_Readjustment_Tool.Data;
-using Land_Readjustment_Tool.Entities;
+using Land_Readjustment_Tool.Core.Entities.Project;
+using Land_Readjustment_Tool.Core.Entities.Replotting;
 using Microsoft.EntityFrameworkCore;
 using NetTopologySuite.Utilities;
 using ProjNet.CoordinateSystems;
@@ -24,7 +25,7 @@ namespace Land_Readjustment_Tool.Services
         /// Seeds default PlotType data.
         /// Creates initial ProjectInfo record.
         /// </summary>
-        public async Task<Entities.ProjectInfo> CreateNewProjectAsync(
+        public async Task<ProjectInfo> CreateNewProjectAsync(
     string projectFilePath,
     string projectName)
         {
@@ -39,7 +40,7 @@ namespace Land_Readjustment_Tool.Services
             await SeedPlotTypesAsync(context);
 
             // Create project info and default settings together
-            var projectInfo = new Entities.ProjectInfo
+            var projectInfo = new ProjectInfo
             {
                 ProjectName = projectName
             };
@@ -61,7 +62,7 @@ namespace Land_Readjustment_Tool.Services
         /// Applies any pending migrations.
         /// Returns the ProjectInfo record.
         /// </summary>
-        public async Task<Entities.ProjectInfo?> OpenProjectAsync(
+        public async Task<ProjectInfo?> OpenProjectAsync(
             string projectFilePath)
         {
             using var context = new AppDbContext(projectFilePath);

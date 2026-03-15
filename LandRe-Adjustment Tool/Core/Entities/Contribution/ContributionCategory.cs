@@ -1,9 +1,8 @@
-﻿using Land_Readjustment_Tool.Entities;
-using System.ComponentModel.DataAnnotations;
+﻿using System.ComponentModel.DataAnnotations;
 using System.ComponentModel.DataAnnotations.Schema;
 using System.Numerics;
 
-namespace Land_Readjustment_Tool.Entities
+namespace Land_Readjustment_Tool.Core.Entities.Contribution
 {
     [Table("tblContributionCategories")]
     public class ContributionCategory

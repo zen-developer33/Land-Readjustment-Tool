@@ -1,5 +1,11 @@
-﻿using Land_Readjustment_Tool.Entities;
-using Microsoft.EntityFrameworkCore;
+﻿using Microsoft.EntityFrameworkCore;
+using Land_Readjustment_Tool.Core.Entities.Project;
+using Land_Readjustment_Tool.Core.Entities.LandData;
+using Land_Readjustment_Tool.Core.Entities.Import;
+using Land_Readjustment_Tool.Core.Entities.Canvas;
+using Land_Readjustment_Tool.Core.Entities.Layout;
+using Land_Readjustment_Tool.Core.Entities.Contribution;
+using Land_Readjustment_Tool.Core.Entities.Replotting;
 using Microsoft.EntityFrameworkCore.Metadata.Internal;
 using System.Numerics;
 using System.Security.Policy;

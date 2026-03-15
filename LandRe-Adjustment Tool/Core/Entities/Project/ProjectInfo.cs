@@ -4,7 +4,7 @@ using System.ComponentModel.DataAnnotations;
 using System.ComponentModel.DataAnnotations.Schema;
 using System.Text;
 
-namespace Land_Readjustment_Tool.Entities
+namespace Land_Readjustment_Tool.Core.Entities.Project
 {
     [Table("tblProjectInfo")]
     public class ProjectInfo

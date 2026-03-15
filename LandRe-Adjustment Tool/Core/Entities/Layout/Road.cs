@@ -1,7 +1,9 @@
 ﻿using System.ComponentModel.DataAnnotations;
 using System.ComponentModel.DataAnnotations.Schema;
+using Land_Readjustment_Tool.Core.Entities.Canvas;
+using Land_Readjustment_Tool.Core.Entities.LandData;
 
-namespace Land_Readjustment_Tool.Entities
+namespace Land_Readjustment_Tool.Core.Entities.Layout
 {
     [Table("tblRoads")]
     public class Road

@@ -1,9 +1,11 @@
-﻿using netDxf.Blocks;
-using NetTopologySuite.Geometries;
+﻿using NetTopologySuite.Geometries;
 using System.ComponentModel.DataAnnotations;
 using System.ComponentModel.DataAnnotations.Schema;
+using Land_Readjustment_Tool.Core.Entities.LandData;
+using Land_Readjustment_Tool.Core.Entities.Replotting;
+using Land_Readjustment_Tool.Core.Entities.Layout;
 
-namespace Land_Readjustment_Tool.Entities
+namespace Land_Readjustment_Tool.Core.Entities.Canvas
 {
     [Table("tblCanvasObjects")]
     public class CanvasObject
