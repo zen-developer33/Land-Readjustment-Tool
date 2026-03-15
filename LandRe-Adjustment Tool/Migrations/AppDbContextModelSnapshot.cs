@@ -101,7 +101,7 @@ namespace Land_Readjustment_Tool.Migrations
 
                     b.HasIndex("MalpotReferenceId");
 
-                    b.ToTable("tblBaselineParcels");
+                    b.ToTable("tblBaselineParcels", (string)null);
                 });
 
             modelBuilder.Entity("Land_Readjustment_Tool.Entities.Block", b =>
@@ -143,7 +143,7 @@ namespace Land_Readjustment_Tool.Migrations
                     b.HasIndex("CanvasObjectId")
                         .IsUnique();
 
-                    b.ToTable("tblBlocks");
+                    b.ToTable("tblBlocks", (string)null);
                 });
 
             modelBuilder.Entity("Land_Readjustment_Tool.Entities.CanvasLayer", b =>
@@ -239,7 +239,7 @@ namespace Land_Readjustment_Tool.Migrations
 
                     b.HasKey("Id");
 
-                    b.ToTable("tblCanvasLayers");
+                    b.ToTable("tblCanvasLayers", (string)null);
                 });
 
             modelBuilder.Entity("Land_Readjustment_Tool.Entities.CanvasObject", b =>
@@ -311,7 +311,7 @@ namespace Land_Readjustment_Tool.Migrations
 
                     b.HasIndex("CanvasLayerId");
 
-                    b.ToTable("tblCanvasObjects");
+                    b.ToTable("tblCanvasObjects", (string)null);
                 });
 
             modelBuilder.Entity("Land_Readjustment_Tool.Entities.CitizenshipConflict", b =>
@@ -347,7 +347,7 @@ namespace Land_Readjustment_Tool.Migrations
 
                     b.HasIndex("ImportSessionId");
 
-                    b.ToTable("tblCitizenshipConflicts");
+                    b.ToTable("tblCitizenshipConflicts", (string)null);
                 });
 
             modelBuilder.Entity("Land_Readjustment_Tool.Entities.CitizenshipConflictRecord", b =>
@@ -371,7 +371,7 @@ namespace Land_Readjustment_Tool.Migrations
 
                     b.HasIndex("ImportedRawRecordId");
 
-                    b.ToTable("tblCitizenshipConflictRecords");
+                    b.ToTable("tblCitizenshipConflictRecords", (string)null);
                 });
 
             modelBuilder.Entity("Land_Readjustment_Tool.Entities.ContributionCategory", b =>
@@ -418,7 +418,7 @@ namespace Land_Readjustment_Tool.Migrations
 
                     b.HasKey("Id");
 
-                    b.ToTable("tblContributionCategories");
+                    b.ToTable("tblContributionCategories", (string)null);
                 });
 
             modelBuilder.Entity("Land_Readjustment_Tool.Entities.ImportSession", b =>
@@ -457,7 +457,7 @@ namespace Land_Readjustment_Tool.Migrations
 
                     b.HasKey("Id");
 
-                    b.ToTable("tblImportSessions");
+                    b.ToTable("tblImportSessions", (string)null);
                 });
 
             modelBuilder.Entity("Land_Readjustment_Tool.Entities.ImportedRawRecord", b =>
@@ -569,7 +569,7 @@ namespace Land_Readjustment_Tool.Migrations
 
                     b.HasIndex("ImportSessionId");
 
-                    b.ToTable("tblImportedRawRecords");
+                    b.ToTable("tblImportedRawRecords", (string)null);
                 });
 
             modelBuilder.Entity("Land_Readjustment_Tool.Entities.LandOwner", b =>
@@ -637,7 +637,7 @@ namespace Land_Readjustment_Tool.Migrations
                         .IsUnique()
                         .HasFilter("CitizenshipNumber IS NOT NULL");
 
-                    b.ToTable("tblLandOwners");
+                    b.ToTable("tblLandOwners", (string)null);
                 });
 
             modelBuilder.Entity("Land_Readjustment_Tool.Entities.MalpotReference", b =>
@@ -662,7 +662,7 @@ namespace Land_Readjustment_Tool.Migrations
                     b.HasIndex("LandOwnerId", "MothNo")
                         .IsUnique();
 
-                    b.ToTable("tblMalpotReferences");
+                    b.ToTable("tblMalpotReferences", (string)null);
                 });
 
             modelBuilder.Entity("Land_Readjustment_Tool.Entities.OriginalToReplottedMap", b =>
@@ -689,7 +689,7 @@ namespace Land_Readjustment_Tool.Migrations
 
                     b.HasIndex("ReplottedParcelId");
 
-                    b.ToTable("tblOriginalToReplottedMaps");
+                    b.ToTable("tblOriginalToReplottedMaps", (string)null);
                 });
 
             modelBuilder.Entity("Land_Readjustment_Tool.Entities.ParcelContribution", b =>
@@ -734,7 +734,7 @@ namespace Land_Readjustment_Tool.Migrations
 
                     b.HasIndex("ContributionCategoryId");
 
-                    b.ToTable("tblParcelContributions");
+                    b.ToTable("tblParcelContributions", (string)null);
                 });
 
             modelBuilder.Entity("Land_Readjustment_Tool.Entities.ParcelContributionSummary", b =>
@@ -798,7 +798,7 @@ namespace Land_Readjustment_Tool.Migrations
 
                     b.HasIndex("ReplottedParcelId");
 
-                    b.ToTable("tblParcelContributionSummaries");
+                    b.ToTable("tblParcelContributionSummaries", (string)null);
                 });
 
             modelBuilder.Entity("Land_Readjustment_Tool.Entities.ParcelFrontage", b =>
@@ -831,7 +831,7 @@ namespace Land_Readjustment_Tool.Migrations
 
                     b.HasIndex("RoadId");
 
-                    b.ToTable("tblParcelFrontages");
+                    b.ToTable("tblParcelFrontages", (string)null);
                 });
 
             modelBuilder.Entity("Land_Readjustment_Tool.Entities.PlotType", b =>
@@ -868,7 +868,7 @@ namespace Land_Readjustment_Tool.Migrations
                     b.HasIndex("TypeCode")
                         .IsUnique();
 
-                    b.ToTable("tblPlotTypes");
+                    b.ToTable("tblPlotTypes", (string)null);
                 });
 
             modelBuilder.Entity("Land_Readjustment_Tool.Entities.ProjectInfo", b =>
@@ -925,7 +925,7 @@ namespace Land_Readjustment_Tool.Migrations
 
                     b.HasKey("Id");
 
-                    b.ToTable("tblProjectInfo", t =>
+                    b.ToTable("tblProjectInfo", null, t =>
                         {
                             t.HasCheckConstraint("CK_ProjectInfo_SingleRow", "Id = 1");
                         });
@@ -1004,7 +1004,7 @@ namespace Land_Readjustment_Tool.Migrations
 
                     b.HasKey("Id");
 
-                    b.ToTable("tblProjectSettings", t =>
+                    b.ToTable("tblProjectSettings", null, t =>
                         {
                             t.HasCheckConstraint("CK_ProjectSettings_SingleRow", "Id = 1");
                         });
@@ -1059,7 +1059,7 @@ namespace Land_Readjustment_Tool.Migrations
 
                     b.HasIndex("PlotTypeId");
 
-                    b.ToTable("tblReplottedParcels");
+                    b.ToTable("tblReplottedParcels", (string)null);
                 });
 
             modelBuilder.Entity("Land_Readjustment_Tool.Entities.ReplottedParcelOwner", b =>
@@ -1086,7 +1086,7 @@ namespace Land_Readjustment_Tool.Migrations
 
                     b.HasIndex("ReplottedParcelId");
 
-                    b.ToTable("tblReplottedParcelOwners");
+                    b.ToTable("tblReplottedParcelOwners", (string)null);
                 });
 
             modelBuilder.Entity("Land_Readjustment_Tool.Entities.Road", b =>
@@ -1135,7 +1135,7 @@ namespace Land_Readjustment_Tool.Migrations
                     b.HasIndex("CanvasObjectId")
                         .IsUnique();
 
-                    b.ToTable("tblRoads");
+                    b.ToTable("tblRoads", (string)null);
                 });
 
             modelBuilder.Entity("Land_Readjustment_Tool.Entities.ValidationError", b =>
@@ -1174,7 +1174,7 @@ namespace Land_Readjustment_Tool.Migrations
 
                     b.HasIndex("ImportedRawRecordId");
 
-                    b.ToTable("tblValidationErrors");
+                    b.ToTable("tblValidationErrors", (string)null);
                 });
 
             modelBuilder.Entity("Land_Readjustment_Tool.Entities.BaselineParcel", b =>
