@@ -53,7 +53,7 @@
   </ItemGroup>
 
   <ItemGroup>
-    <Compile Update="MapCanvas\CanvasPanel.cs">
+    <Compile Update="UI\MapCanvas\CanvasPanel.cs">
       <SubType>Component</SubType>
     </Compile>
     <Compile Update="Properties\Resources.Designer.cs">
