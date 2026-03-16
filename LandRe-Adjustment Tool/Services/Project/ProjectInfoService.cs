@@ -69,8 +69,7 @@ namespace Land_Readjustment_Tool.Services.Project
                 // Rule 2 — end date cannot be before start date
                 if (projectInfo.ProjectStartDate.HasValue &&
                     projectInfo.ProjectEndDate.HasValue &&
-                    projectInfo.ProjectEndDate 
-                    projectInfo.ProjectStartDate)
+                    projectInfo.ProjectEndDate.Value < projectInfo.ProjectStartDate.Value)
                     throw new InvalidOperationException(
                         "Project end date cannot be " +
                         "before start date.");
