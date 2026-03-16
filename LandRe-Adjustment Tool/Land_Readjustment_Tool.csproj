@@ -89,16 +89,12 @@
   </ItemGroup>
 
   <ItemGroup>
-    <Folder Include="Core\Interfaces\" />
-    <Folder Include="Repositories\Base\" />
-    <Folder Include="Repositories\Project\" />
     <Folder Include="Repositories\LandData\" />
     <Folder Include="Repositories\Import\" />
     <Folder Include="Repositories\Canvas\" />
     <Folder Include="Repositories\Layout\" />
     <Folder Include="Repositories\Contribution\" />
     <Folder Include="Repositories\Replotting\" />
-    <Folder Include="Services\Project\" />
     <Folder Include="Services\LandData\" />
     <Folder Include="Services\Canvas\" />
     <Folder Include="Services\Layout\" />
