@@ -32,8 +32,7 @@ namespace Land_Readjustment_Tool.Infrastructure.Logging
             // which is stripped in RELEASE builds
             // Both appear in VS Output window
             var line =
-                $"[{DateTime.Now:HH:mm:ss}]" +
-                $" [{level,-5}] {message}";
+                $"[{DateTime.Now:HH:mm:ss}]" + $" [{level,-5}] {message}";
 
             Debug.WriteLine(line);
 
