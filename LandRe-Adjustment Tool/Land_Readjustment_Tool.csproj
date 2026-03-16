@@ -59,6 +59,7 @@
   </ItemGroup>
 
   <ItemGroup>
+    <Compile Update="UI\Forms\frmMain.cs" />
     <Compile Update="UI\MapCanvas\CanvasPanel.cs">
       <SubType>Component</SubType>
     </Compile>

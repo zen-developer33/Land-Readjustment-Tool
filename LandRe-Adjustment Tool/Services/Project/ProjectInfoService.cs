@@ -16,7 +16,6 @@ namespace Land_Readjustment_Tool.Services.Project
 
         /// <summary>
         /// Receives dependencies via constructor injection.
-        /// Never creates its own dependencies.
         /// </summary>
         public ProjectInfoService(
             IProjectInfoRepository repo,
@@ -35,11 +34,8 @@ namespace Land_Readjustment_Tool.Services.Project
         {
             try
             {
-                _logger.LogInfo(
-                    "Loading project info.");
-
-                return await _repo
-                    .GetProjectInfoAsync(ct);
+                _logger.LogInfo("Loading project info.");
+                return await _repo.GetProjectInfoAsync(ct);
             }
             catch (Exception ex)
             {
@@ -74,12 +70,18 @@ namespace Land_Readjustment_Tool.Services.Project
                         "Project end date cannot be " +
                         "before start date.");
 
+                // Rule 3 — gazette date cannot be in future
+                if (projectInfo.GazetteDate.HasValue &&
+                    projectInfo.GazetteDate.Value > DateTime.Now)
+                    throw new InvalidOperationException(
+                        "Gazette date cannot be " +
+                        "in the future.");
+
                 _logger.LogInfo(
                     $"Saving project info: " +
                     $"{projectInfo.ProjectName}");
 
-                await _repo.UpdateAsync(
-                    projectInfo, ct);
+                await _repo.UpdateAsync(projectInfo, ct);
 
                 _logger.LogInfo(
                     "Project info saved successfully.");
@@ -87,7 +89,7 @@ namespace Land_Readjustment_Tool.Services.Project
             catch (InvalidOperationException)
             {
                 // Business rule violation
-                // Do not log — just re-throw to form
+                // Re-throw to form — no logging needed
                 throw;
             }
             catch (Exception ex)

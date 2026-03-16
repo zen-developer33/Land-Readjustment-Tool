@@ -18,135 +18,7 @@ namespace Land_Readjustment_Tool.Migrations
 #pragma warning disable 612, 618
             modelBuilder.HasAnnotation("ProductVersion", "10.0.3");
 
-            modelBuilder.Entity("Land_Readjustment_Tool.Entities.BaselineParcel", b =>
-                {
-                    b.Property<int>("Id")
-                        .ValueGeneratedOnAdd()
-                        .HasColumnType("INTEGER");
-
-                    b.Property<Guid?>("CanvasObjectId")
-                        .HasColumnType("TEXT");
-
-                    b.Property<DateTime>("CreatedDate")
-                        .HasColumnType("TEXT");
-
-                    b.Property<string>("District")
-                        .HasColumnType("TEXT");
-
-                    b.Property<double?>("EffectiveAreaSqm")
-                        .HasColumnType("REAL");
-
-                    b.Property<string>("FullUniqueParcelCode")
-                        .IsRequired()
-                        .HasColumnType("TEXT");
-
-                    b.Property<bool>("HasTenant")
-                        .HasColumnType("INTEGER");
-
-                    b.Property<int>("ImportSessionId")
-                        .HasColumnType("INTEGER");
-
-                    b.Property<bool>("IsEffectiveAreaManual")
-                        .HasColumnType("INTEGER");
-
-                    b.Property<int>("LandOwnerId")
-                        .HasColumnType("INTEGER");
-
-                    b.Property<string>("LandUse")
-                        .HasColumnType("TEXT");
-
-                    b.Property<DateTime>("LastModifiedDate")
-                        .HasColumnType("TEXT");
-
-                    b.Property<int?>("MalpotReferenceId")
-                        .HasColumnType("INTEGER");
-
-                    b.Property<string>("MapSheetNo")
-                        .IsRequired()
-                        .HasColumnType("TEXT");
-
-                    b.Property<string>("Municipality")
-                        .HasColumnType("TEXT");
-
-                    b.Property<double>("OriginalAreaSqm")
-                        .HasColumnType("REAL");
-
-                    b.Property<string>("ParcelNo")
-                        .IsRequired()
-                        .HasColumnType("TEXT");
-
-                    b.Property<string>("Province")
-                        .HasColumnType("TEXT");
-
-                    b.Property<string>("Remarks")
-                        .HasColumnType("TEXT");
-
-                    b.Property<string>("TenantName")
-                        .HasColumnType("TEXT");
-
-                    b.Property<string>("WardNo")
-                        .HasColumnType("TEXT");
-
-                    b.HasKey("Id");
-
-                    b.HasIndex("CanvasObjectId")
-                        .IsUnique();
-
-                    b.HasIndex("FullUniqueParcelCode")
-                        .IsUnique();
-
-                    b.HasIndex("ImportSessionId");
-
-                    b.HasIndex("LandOwnerId");
-
-                    b.HasIndex("MalpotReferenceId");
-
-                    b.ToTable("tblBaselineParcels", (string)null);
-                });
-
-            modelBuilder.Entity("Land_Readjustment_Tool.Entities.Block", b =>
-                {
-                    b.Property<int>("Id")
-                        .ValueGeneratedOnAdd()
-                        .HasColumnType("INTEGER");
-
-                    b.Property<double>("BlockArea")
-                        .HasColumnType("REAL");
-
-                    b.Property<string>("BlockCode")
-                        .HasColumnType("TEXT");
-
-                    b.Property<float>("BlockDepth")
-                        .HasColumnType("REAL");
-
-                    b.Property<string>("BlockLandUse")
-                        .HasColumnType("TEXT");
-
-                    b.Property<string>("BlockName")
-                        .IsRequired()
-                        .HasColumnType("TEXT");
-
-                    b.Property<Guid?>("CanvasObjectId")
-                        .HasColumnType("TEXT");
-
-                    b.Property<DateTime>("CreatedDate")
-                        .HasColumnType("TEXT");
-
-                    b.Property<string>("Description")
-                        .HasColumnType("TEXT");
-
-                    b.Property<DateTime>("LastModifiedDate")
-                        .HasColumnType("TEXT");
-
-                    b.HasKey("Id");
-
-                    b.HasIndex("CanvasObjectId")
-                        .IsUnique();
-
-                    b.ToTable("tblBlocks", (string)null);
-                });
-
-            modelBuilder.Entity("Land_Readjustment_Tool.Entities.CanvasLayer", b =>
+            modelBuilder.Entity("Land_Readjustment_Tool.Core.Entities.Canvas.CanvasLayer", b =>
                 {
                     b.Property<int>("Id")
                         .ValueGeneratedOnAdd()
@@ -239,10 +111,10 @@ namespace Land_Readjustment_Tool.Migrations
 
                     b.HasKey("Id");
 
-                    b.ToTable("tblCanvasLayers", (string)null);
+                    b.ToTable("tblCanvasLayers");
                 });
 
-            modelBuilder.Entity("Land_Readjustment_Tool.Entities.CanvasObject", b =>
+            modelBuilder.Entity("Land_Readjustment_Tool.Core.Entities.Canvas.CanvasObject", b =>
                 {
                     b.Property<Guid>("Id")
                         .ValueGeneratedOnAdd()
@@ -311,70 +183,10 @@ namespace Land_Readjustment_Tool.Migrations
 
                     b.HasIndex("CanvasLayerId");
 
-                    b.ToTable("tblCanvasObjects", (string)null);
+                    b.ToTable("tblCanvasObjects");
                 });
 
-            modelBuilder.Entity("Land_Readjustment_Tool.Entities.CitizenshipConflict", b =>
-                {
-                    b.Property<int>("Id")
-                        .ValueGeneratedOnAdd()
-                        .HasColumnType("INTEGER");
-
-                    b.Property<string>("CitizenshipNumber")
-                        .IsRequired()
-                        .HasColumnType("TEXT");
-
-                    b.Property<string>("ConflictType")
-                        .IsRequired()
-                        .HasColumnType("TEXT");
-
-                    b.Property<int>("ImportSessionId")
-                        .HasColumnType("INTEGER");
-
-                    b.Property<bool>("IsResolved")
-                        .HasColumnType("INTEGER");
-
-                    b.Property<string>("Notes")
-                        .HasColumnType("TEXT");
-
-                    b.Property<string>("Resolution")
-                        .HasColumnType("TEXT");
-
-                    b.Property<DateTime?>("ResolvedDate")
-                        .HasColumnType("TEXT");
-
-                    b.HasKey("Id");
-
-                    b.HasIndex("ImportSessionId");
-
-                    b.ToTable("tblCitizenshipConflicts", (string)null);
-                });
-
-            modelBuilder.Entity("Land_Readjustment_Tool.Entities.CitizenshipConflictRecord", b =>
-                {
-                    b.Property<int>("Id")
-                        .ValueGeneratedOnAdd()
-                        .HasColumnType("INTEGER");
-
-                    b.Property<int>("CitizenshipConflictId")
-                        .HasColumnType("INTEGER");
-
-                    b.Property<int>("ImportedRawRecordId")
-                        .HasColumnType("INTEGER");
-
-                    b.Property<bool>("IsMarkedCorrect")
-                        .HasColumnType("INTEGER");
-
-                    b.HasKey("Id");
-
-                    b.HasIndex("CitizenshipConflictId");
-
-                    b.HasIndex("ImportedRawRecordId");
-
-                    b.ToTable("tblCitizenshipConflictRecords", (string)null);
-                });
-
-            modelBuilder.Entity("Land_Readjustment_Tool.Entities.ContributionCategory", b =>
+            modelBuilder.Entity("Land_Readjustment_Tool.Core.Entities.Contribution.ContributionCategory", b =>
                 {
                     b.Property<int>("Id")
                         .ValueGeneratedOnAdd()
@@ -418,10 +230,179 @@ namespace Land_Readjustment_Tool.Migrations
 
                     b.HasKey("Id");
 
-                    b.ToTable("tblContributionCategories", (string)null);
+                    b.ToTable("tblContributionCategories");
                 });
 
-            modelBuilder.Entity("Land_Readjustment_Tool.Entities.ImportSession", b =>
+            modelBuilder.Entity("Land_Readjustment_Tool.Core.Entities.Contribution.ParcelContribution", b =>
+                {
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("INTEGER");
+
+                    b.Property<double>("ApplicableAreaSqm")
+                        .HasColumnType("REAL");
+
+                    b.Property<int>("BaselineParcelId")
+                        .HasColumnType("INTEGER");
+
+                    b.Property<DateTime>("CalculatedDate")
+                        .HasColumnType("TEXT");
+
+                    b.Property<double>("ContributionAmountSqm")
+                        .HasColumnType("REAL");
+
+                    b.Property<int>("ContributionCategoryId")
+                        .HasColumnType("INTEGER");
+
+                    b.Property<bool>("IsManualOverride")
+                        .HasColumnType("INTEGER");
+
+                    b.Property<DateTime>("LastModifiedDate")
+                        .HasColumnType("TEXT");
+
+                    b.Property<string>("ManualOverrideReason")
+                        .HasColumnType("TEXT");
+
+                    b.Property<double?>("ManualOverrideValueSqm")
+                        .HasColumnType("REAL");
+
+                    b.Property<double>("RateApplied")
+                        .HasColumnType("REAL");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("BaselineParcelId");
+
+                    b.HasIndex("ContributionCategoryId");
+
+                    b.ToTable("tblParcelContributions");
+                });
+
+            modelBuilder.Entity("Land_Readjustment_Tool.Core.Entities.Contribution.ParcelContributionSummary", b =>
+                {
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("INTEGER");
+
+                    b.Property<double?>("AreaDifferenceSqm")
+                        .HasColumnType("REAL");
+
+                    b.Property<int>("BaselineParcelId")
+                        .HasColumnType("INTEGER");
+
+                    b.Property<double?>("CashCompensationAmount")
+                        .HasColumnType("REAL");
+
+                    b.Property<double>("EffectiveAreaSqm")
+                        .HasColumnType("REAL");
+
+                    b.Property<DateTime?>("FinalizedDate")
+                        .HasColumnType("TEXT");
+
+                    b.Property<bool>("IsFinalized")
+                        .HasColumnType("INTEGER");
+
+                    b.Property<DateTime>("LastCalculatedDate")
+                        .HasColumnType("TEXT");
+
+                    b.Property<double>("NetReturnableAreaSqm")
+                        .HasColumnType("REAL");
+
+                    b.Property<double>("OriginalAreaSqm")
+                        .HasColumnType("REAL");
+
+                    b.Property<double?>("ReplottedAreaAssignedSqm")
+                        .HasColumnType("REAL");
+
+                    b.Property<int?>("ReplottedParcelId")
+                        .HasColumnType("INTEGER");
+
+                    b.Property<double>("TotalContributionPercent")
+                        .HasColumnType("REAL");
+
+                    b.Property<double>("TotalContributionSqm")
+                        .HasColumnType("REAL");
+
+                    b.Property<double>("TotalDeductionSqm")
+                        .HasColumnType("REAL");
+
+                    b.Property<double>("TotalGeneralContributionSqm")
+                        .HasColumnType("REAL");
+
+                    b.Property<double>("TotalSpecificContributionSqm")
+                        .HasColumnType("REAL");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("BaselineParcelId")
+                        .IsUnique();
+
+                    b.HasIndex("ReplottedParcelId");
+
+                    b.ToTable("tblParcelContributionSummaries");
+                });
+
+            modelBuilder.Entity("Land_Readjustment_Tool.Core.Entities.Import.CitizenshipConflict", b =>
+                {
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("INTEGER");
+
+                    b.Property<string>("CitizenshipNumber")
+                        .IsRequired()
+                        .HasColumnType("TEXT");
+
+                    b.Property<string>("ConflictType")
+                        .IsRequired()
+                        .HasColumnType("TEXT");
+
+                    b.Property<int>("ImportSessionId")
+                        .HasColumnType("INTEGER");
+
+                    b.Property<bool>("IsResolved")
+                        .HasColumnType("INTEGER");
+
+                    b.Property<string>("Notes")
+                        .HasColumnType("TEXT");
+
+                    b.Property<string>("Resolution")
+                        .HasColumnType("TEXT");
+
+                    b.Property<DateTime?>("ResolvedDate")
+                        .HasColumnType("TEXT");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("ImportSessionId");
+
+                    b.ToTable("tblCitizenshipConflicts");
+                });
+
+            modelBuilder.Entity("Land_Readjustment_Tool.Core.Entities.Import.CitizenshipConflictRecord", b =>
+                {
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("INTEGER");
+
+                    b.Property<int>("CitizenshipConflictId")
+                        .HasColumnType("INTEGER");
+
+                    b.Property<int>("ImportedRawRecordId")
+                        .HasColumnType("INTEGER");
+
+                    b.Property<bool>("IsMarkedCorrect")
+                        .HasColumnType("INTEGER");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("CitizenshipConflictId");
+
+                    b.HasIndex("ImportedRawRecordId");
+
+                    b.ToTable("tblCitizenshipConflictRecords");
+                });
+
+            modelBuilder.Entity("Land_Readjustment_Tool.Core.Entities.Import.ImportSession", b =>
                 {
                     b.Property<int>("Id")
                         .ValueGeneratedOnAdd()
@@ -457,10 +438,10 @@ namespace Land_Readjustment_Tool.Migrations
 
                     b.HasKey("Id");
 
-                    b.ToTable("tblImportSessions", (string)null);
+                    b.ToTable("tblImportSessions");
                 });
 
-            modelBuilder.Entity("Land_Readjustment_Tool.Entities.ImportedRawRecord", b =>
+            modelBuilder.Entity("Land_Readjustment_Tool.Core.Entities.Import.ImportedRawRecord", b =>
                 {
                     b.Property<int>("Id")
                         .ValueGeneratedOnAdd()
@@ -569,10 +550,135 @@ namespace Land_Readjustment_Tool.Migrations
 
                     b.HasIndex("ImportSessionId");
 
-                    b.ToTable("tblImportedRawRecords", (string)null);
+                    b.ToTable("tblImportedRawRecords");
                 });
 
-            modelBuilder.Entity("Land_Readjustment_Tool.Entities.LandOwner", b =>
+            modelBuilder.Entity("Land_Readjustment_Tool.Core.Entities.Import.ValidationError", b =>
+                {
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("INTEGER");
+
+                    b.Property<string>("ErrorMessage")
+                        .IsRequired()
+                        .HasColumnType("TEXT");
+
+                    b.Property<string>("ErrorType")
+                        .IsRequired()
+                        .HasColumnType("TEXT");
+
+                    b.Property<string>("FieldName")
+                        .IsRequired()
+                        .HasColumnType("TEXT");
+
+                    b.Property<int>("ImportSessionId")
+                        .HasColumnType("INTEGER");
+
+                    b.Property<int>("ImportedRawRecordId")
+                        .HasColumnType("INTEGER");
+
+                    b.Property<bool>("IsResolved")
+                        .HasColumnType("INTEGER");
+
+                    b.Property<DateTime?>("ResolvedDate")
+                        .HasColumnType("TEXT");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("ImportSessionId");
+
+                    b.HasIndex("ImportedRawRecordId");
+
+                    b.ToTable("tblValidationErrors");
+                });
+
+            modelBuilder.Entity("Land_Readjustment_Tool.Core.Entities.LandData.BaselineParcel", b =>
+                {
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("INTEGER");
+
+                    b.Property<Guid?>("CanvasObjectId")
+                        .HasColumnType("TEXT");
+
+                    b.Property<DateTime>("CreatedDate")
+                        .HasColumnType("TEXT");
+
+                    b.Property<string>("District")
+                        .HasColumnType("TEXT");
+
+                    b.Property<double?>("EffectiveAreaSqm")
+                        .HasColumnType("REAL");
+
+                    b.Property<string>("FullUniqueParcelCode")
+                        .IsRequired()
+                        .HasColumnType("TEXT");
+
+                    b.Property<bool>("HasTenant")
+                        .HasColumnType("INTEGER");
+
+                    b.Property<int>("ImportSessionId")
+                        .HasColumnType("INTEGER");
+
+                    b.Property<bool>("IsEffectiveAreaManual")
+                        .HasColumnType("INTEGER");
+
+                    b.Property<int>("LandOwnerId")
+                        .HasColumnType("INTEGER");
+
+                    b.Property<string>("LandUse")
+                        .HasColumnType("TEXT");
+
+                    b.Property<DateTime>("LastModifiedDate")
+                        .HasColumnType("TEXT");
+
+                    b.Property<int?>("MalpotReferenceId")
+                        .HasColumnType("INTEGER");
+
+                    b.Property<string>("MapSheetNo")
+                        .IsRequired()
+                        .HasColumnType("TEXT");
+
+                    b.Property<string>("Municipality")
+                        .HasColumnType("TEXT");
+
+                    b.Property<double>("OriginalAreaSqm")
+                        .HasColumnType("REAL");
+
+                    b.Property<string>("ParcelNo")
+                        .IsRequired()
+                        .HasColumnType("TEXT");
+
+                    b.Property<string>("Province")
+                        .HasColumnType("TEXT");
+
+                    b.Property<string>("Remarks")
+                        .HasColumnType("TEXT");
+
+                    b.Property<string>("TenantName")
+                        .HasColumnType("TEXT");
+
+                    b.Property<string>("WardNo")
+                        .HasColumnType("TEXT");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("CanvasObjectId")
+                        .IsUnique();
+
+                    b.HasIndex("FullUniqueParcelCode")
+                        .IsUnique();
+
+                    b.HasIndex("ImportSessionId");
+
+                    b.HasIndex("LandOwnerId");
+
+                    b.HasIndex("MalpotReferenceId");
+
+                    b.ToTable("tblBaselineParcels");
+                });
+
+            modelBuilder.Entity("Land_Readjustment_Tool.Core.Entities.LandData.LandOwner", b =>
                 {
                     b.Property<int>("Id")
                         .ValueGeneratedOnAdd()
@@ -637,10 +743,10 @@ namespace Land_Readjustment_Tool.Migrations
                         .IsUnique()
                         .HasFilter("CitizenshipNumber IS NOT NULL");
 
-                    b.ToTable("tblLandOwners", (string)null);
+                    b.ToTable("tblLandOwners");
                 });
 
-            modelBuilder.Entity("Land_Readjustment_Tool.Entities.MalpotReference", b =>
+            modelBuilder.Entity("Land_Readjustment_Tool.Core.Entities.LandData.MalpotReference", b =>
                 {
                     b.Property<int>("Id")
                         .ValueGeneratedOnAdd()
@@ -662,146 +768,10 @@ namespace Land_Readjustment_Tool.Migrations
                     b.HasIndex("LandOwnerId", "MothNo")
                         .IsUnique();
 
-                    b.ToTable("tblMalpotReferences", (string)null);
+                    b.ToTable("tblMalpotReferences");
                 });
 
-            modelBuilder.Entity("Land_Readjustment_Tool.Entities.OriginalToReplottedMap", b =>
-                {
-                    b.Property<int>("Id")
-                        .ValueGeneratedOnAdd()
-                        .HasColumnType("INTEGER");
-
-                    b.Property<int>("BaselineParcelId")
-                        .HasColumnType("INTEGER");
-
-                    b.Property<double>("ContributedAreaSqm")
-                        .HasColumnType("REAL");
-
-                    b.Property<DateTime>("CreatedDate")
-                        .HasColumnType("TEXT");
-
-                    b.Property<int>("ReplottedParcelId")
-                        .HasColumnType("INTEGER");
-
-                    b.HasKey("Id");
-
-                    b.HasIndex("BaselineParcelId");
-
-                    b.HasIndex("ReplottedParcelId");
-
-                    b.ToTable("tblOriginalToReplottedMaps", (string)null);
-                });
-
-            modelBuilder.Entity("Land_Readjustment_Tool.Entities.ParcelContribution", b =>
-                {
-                    b.Property<int>("Id")
-                        .ValueGeneratedOnAdd()
-                        .HasColumnType("INTEGER");
-
-                    b.Property<double>("ApplicableAreaSqm")
-                        .HasColumnType("REAL");
-
-                    b.Property<int>("BaselineParcelId")
-                        .HasColumnType("INTEGER");
-
-                    b.Property<DateTime>("CalculatedDate")
-                        .HasColumnType("TEXT");
-
-                    b.Property<double>("ContributionAmountSqm")
-                        .HasColumnType("REAL");
-
-                    b.Property<int>("ContributionCategoryId")
-                        .HasColumnType("INTEGER");
-
-                    b.Property<bool>("IsManualOverride")
-                        .HasColumnType("INTEGER");
-
-                    b.Property<DateTime>("LastModifiedDate")
-                        .HasColumnType("TEXT");
-
-                    b.Property<string>("ManualOverrideReason")
-                        .HasColumnType("TEXT");
-
-                    b.Property<double?>("ManualOverrideValueSqm")
-                        .HasColumnType("REAL");
-
-                    b.Property<double>("RateApplied")
-                        .HasColumnType("REAL");
-
-                    b.HasKey("Id");
-
-                    b.HasIndex("BaselineParcelId");
-
-                    b.HasIndex("ContributionCategoryId");
-
-                    b.ToTable("tblParcelContributions", (string)null);
-                });
-
-            modelBuilder.Entity("Land_Readjustment_Tool.Entities.ParcelContributionSummary", b =>
-                {
-                    b.Property<int>("Id")
-                        .ValueGeneratedOnAdd()
-                        .HasColumnType("INTEGER");
-
-                    b.Property<double?>("AreaDifferenceSqm")
-                        .HasColumnType("REAL");
-
-                    b.Property<int>("BaselineParcelId")
-                        .HasColumnType("INTEGER");
-
-                    b.Property<double?>("CashCompensationAmount")
-                        .HasColumnType("REAL");
-
-                    b.Property<double>("EffectiveAreaSqm")
-                        .HasColumnType("REAL");
-
-                    b.Property<DateTime?>("FinalizedDate")
-                        .HasColumnType("TEXT");
-
-                    b.Property<bool>("IsFinalized")
-                        .HasColumnType("INTEGER");
-
-                    b.Property<DateTime>("LastCalculatedDate")
-                        .HasColumnType("TEXT");
-
-                    b.Property<double>("NetReturnableAreaSqm")
-                        .HasColumnType("REAL");
-
-                    b.Property<double>("OriginalAreaSqm")
-                        .HasColumnType("REAL");
-
-                    b.Property<double?>("ReplottedAreaAssignedSqm")
-                        .HasColumnType("REAL");
-
-                    b.Property<int?>("ReplottedParcelId")
-                        .HasColumnType("INTEGER");
-
-                    b.Property<double>("TotalContributionPercent")
-                        .HasColumnType("REAL");
-
-                    b.Property<double>("TotalContributionSqm")
-                        .HasColumnType("REAL");
-
-                    b.Property<double>("TotalDeductionSqm")
-                        .HasColumnType("REAL");
-
-                    b.Property<double>("TotalGeneralContributionSqm")
-                        .HasColumnType("REAL");
-
-                    b.Property<double>("TotalSpecificContributionSqm")
-                        .HasColumnType("REAL");
-
-                    b.HasKey("Id");
-
-                    b.HasIndex("BaselineParcelId")
-                        .IsUnique();
-
-                    b.HasIndex("ReplottedParcelId");
-
-                    b.ToTable("tblParcelContributionSummaries", (string)null);
-                });
-
-            modelBuilder.Entity("Land_Readjustment_Tool.Entities.ParcelFrontage", b =>
+            modelBuilder.Entity("Land_Readjustment_Tool.Core.Entities.LandData.ParcelFrontage", b =>
                 {
                     b.Property<int>("Id")
                         .ValueGeneratedOnAdd()
@@ -831,14 +801,33 @@ namespace Land_Readjustment_Tool.Migrations
 
                     b.HasIndex("RoadId");
 
-                    b.ToTable("tblParcelFrontages", (string)null);
+                    b.ToTable("tblParcelFrontages");
                 });
 
-            modelBuilder.Entity("Land_Readjustment_Tool.Entities.PlotType", b =>
+            modelBuilder.Entity("Land_Readjustment_Tool.Core.Entities.Layout.Block", b =>
                 {
                     b.Property<int>("Id")
                         .ValueGeneratedOnAdd()
                         .HasColumnType("INTEGER");
+
+                    b.Property<double>("BlockArea")
+                        .HasColumnType("REAL");
+
+                    b.Property<string>("BlockCode")
+                        .HasColumnType("TEXT");
+
+                    b.Property<float>("BlockDepth")
+                        .HasColumnType("REAL");
+
+                    b.Property<string>("BlockLandUse")
+                        .HasColumnType("TEXT");
+
+                    b.Property<string>("BlockName")
+                        .IsRequired()
+                        .HasColumnType("TEXT");
+
+                    b.Property<Guid?>("CanvasObjectId")
+                        .HasColumnType("TEXT");
 
                     b.Property<DateTime>("CreatedDate")
                         .HasColumnType("TEXT");
@@ -846,32 +835,67 @@ namespace Land_Readjustment_Tool.Migrations
                     b.Property<string>("Description")
                         .HasColumnType("TEXT");
 
-                    b.Property<int>("DisplayOrder")
-                        .HasColumnType("INTEGER");
-
-                    b.Property<bool>("IsActive")
-                        .HasColumnType("INTEGER");
-
-                    b.Property<bool>("IsSystemDefault")
-                        .HasColumnType("INTEGER");
-
-                    b.Property<string>("TypeCode")
-                        .IsRequired()
-                        .HasColumnType("TEXT");
-
-                    b.Property<string>("TypeName")
-                        .IsRequired()
+                    b.Property<DateTime>("LastModifiedDate")
                         .HasColumnType("TEXT");
 
                     b.HasKey("Id");
 
-                    b.HasIndex("TypeCode")
+                    b.HasIndex("CanvasObjectId")
                         .IsUnique();
 
-                    b.ToTable("tblPlotTypes", (string)null);
+                    b.ToTable("tblBlocks");
                 });
 
-            modelBuilder.Entity("Land_Readjustment_Tool.Entities.ProjectInfo", b =>
+            modelBuilder.Entity("Land_Readjustment_Tool.Core.Entities.Layout.Road", b =>
+                {
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("INTEGER");
+
+                    b.Property<Guid?>("CanvasObjectId")
+                        .HasColumnType("TEXT");
+
+                    b.Property<DateTime>("CreatedDate")
+                        .HasColumnType("TEXT");
+
+                    b.Property<string>("Description")
+                        .HasColumnType("TEXT");
+
+                    b.Property<DateTime>("LastModifiedDate")
+                        .HasColumnType("TEXT");
+
+                    b.Property<double?>("RightOfWayWidth")
+                        .HasColumnType("REAL");
+
+                    b.Property<string>("RoadCode")
+                        .HasColumnType("TEXT");
+
+                    b.Property<string>("RoadName")
+                        .IsRequired()
+                        .HasColumnType("TEXT");
+
+                    b.Property<string>("RoadStatus")
+                        .IsRequired()
+                        .HasColumnType("TEXT");
+
+                    b.Property<string>("RoadType")
+                        .HasColumnType("TEXT");
+
+                    b.Property<double>("RoadWidth")
+                        .HasColumnType("REAL");
+
+                    b.Property<string>("SurfaceType")
+                        .HasColumnType("TEXT");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("CanvasObjectId")
+                        .IsUnique();
+
+                    b.ToTable("tblRoads");
+                });
+
+            modelBuilder.Entity("Land_Readjustment_Tool.Core.Entities.Project.ProjectInfo", b =>
                 {
                     b.Property<int>("Id")
                         .ValueGeneratedOnAdd()
@@ -886,10 +910,10 @@ namespace Land_Readjustment_Tool.Migrations
                     b.Property<string>("District")
                         .HasColumnType("TEXT");
 
-                    b.Property<string>("GazetteNotificationNumber")
+                    b.Property<DateTime?>("GazetteDate")
                         .HasColumnType("TEXT");
 
-                    b.Property<DateTime?>("GazzeteDate")
+                    b.Property<string>("GazetteNotificationNumber")
                         .HasColumnType("TEXT");
 
                     b.Property<string>("ImplementingAgency")
@@ -925,13 +949,13 @@ namespace Land_Readjustment_Tool.Migrations
 
                     b.HasKey("Id");
 
-                    b.ToTable("tblProjectInfo", null, t =>
+                    b.ToTable("tblProjectInfo", t =>
                         {
                             t.HasCheckConstraint("CK_ProjectInfo_SingleRow", "Id = 1");
                         });
                 });
 
-            modelBuilder.Entity("Land_Readjustment_Tool.Entities.ProjectSettings", b =>
+            modelBuilder.Entity("Land_Readjustment_Tool.Core.Entities.Project.ProjectSettings", b =>
                 {
                     b.Property<int>("Id")
                         .ValueGeneratedOnAdd()
@@ -1004,13 +1028,77 @@ namespace Land_Readjustment_Tool.Migrations
 
                     b.HasKey("Id");
 
-                    b.ToTable("tblProjectSettings", null, t =>
+                    b.ToTable("tblProjectSettings", t =>
                         {
                             t.HasCheckConstraint("CK_ProjectSettings_SingleRow", "Id = 1");
                         });
                 });
 
-            modelBuilder.Entity("Land_Readjustment_Tool.Entities.ReplottedParcel", b =>
+            modelBuilder.Entity("Land_Readjustment_Tool.Core.Entities.Replotting.OriginalToReplottedMap", b =>
+                {
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("INTEGER");
+
+                    b.Property<int>("BaselineParcelId")
+                        .HasColumnType("INTEGER");
+
+                    b.Property<double>("ContributedAreaSqm")
+                        .HasColumnType("REAL");
+
+                    b.Property<DateTime>("CreatedDate")
+                        .HasColumnType("TEXT");
+
+                    b.Property<int>("ReplottedParcelId")
+                        .HasColumnType("INTEGER");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("BaselineParcelId");
+
+                    b.HasIndex("ReplottedParcelId");
+
+                    b.ToTable("tblOriginalToReplottedMaps");
+                });
+
+            modelBuilder.Entity("Land_Readjustment_Tool.Core.Entities.Replotting.PlotType", b =>
+                {
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("INTEGER");
+
+                    b.Property<DateTime>("CreatedDate")
+                        .HasColumnType("TEXT");
+
+                    b.Property<string>("Description")
+                        .HasColumnType("TEXT");
+
+                    b.Property<int>("DisplayOrder")
+                        .HasColumnType("INTEGER");
+
+                    b.Property<bool>("IsActive")
+                        .HasColumnType("INTEGER");
+
+                    b.Property<bool>("IsSystemDefault")
+                        .HasColumnType("INTEGER");
+
+                    b.Property<string>("TypeCode")
+                        .IsRequired()
+                        .HasColumnType("TEXT");
+
+                    b.Property<string>("TypeName")
+                        .IsRequired()
+                        .HasColumnType("TEXT");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("TypeCode")
+                        .IsUnique();
+
+                    b.ToTable("tblPlotTypes");
+                });
+
+            modelBuilder.Entity("Land_Readjustment_Tool.Core.Entities.Replotting.ReplottedParcel", b =>
                 {
                     b.Property<int>("Id")
                         .ValueGeneratedOnAdd()
@@ -1059,10 +1147,10 @@ namespace Land_Readjustment_Tool.Migrations
 
                     b.HasIndex("PlotTypeId");
 
-                    b.ToTable("tblReplottedParcels", (string)null);
+                    b.ToTable("tblReplottedParcels");
                 });
 
-            modelBuilder.Entity("Land_Readjustment_Tool.Entities.ReplottedParcelOwner", b =>
+            modelBuilder.Entity("Land_Readjustment_Tool.Core.Entities.Replotting.ReplottedParcelOwner", b =>
                 {
                     b.Property<int>("Id")
                         .ValueGeneratedOnAdd()
@@ -1086,117 +1174,136 @@ namespace Land_Readjustment_Tool.Migrations
 
                     b.HasIndex("ReplottedParcelId");
 
-                    b.ToTable("tblReplottedParcelOwners", (string)null);
+                    b.ToTable("tblReplottedParcelOwners");
                 });
 
-            modelBuilder.Entity("Land_Readjustment_Tool.Entities.Road", b =>
+            modelBuilder.Entity("Land_Readjustment_Tool.Core.Entities.Canvas.CanvasObject", b =>
                 {
-                    b.Property<int>("Id")
-                        .ValueGeneratedOnAdd()
-                        .HasColumnType("INTEGER");
+                    b.HasOne("Land_Readjustment_Tool.Core.Entities.Canvas.CanvasLayer", "CanvasLayer")
+                        .WithMany("CanvasObjects")
+                        .HasForeignKey("CanvasLayerId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
 
-                    b.Property<Guid?>("CanvasObjectId")
-                        .HasColumnType("TEXT");
-
-                    b.Property<DateTime>("CreatedDate")
-                        .HasColumnType("TEXT");
-
-                    b.Property<string>("Description")
-                        .HasColumnType("TEXT");
-
-                    b.Property<DateTime>("LastModifiedDate")
-                        .HasColumnType("TEXT");
-
-                    b.Property<double?>("RightOfWayWidth")
-                        .HasColumnType("REAL");
-
-                    b.Property<string>("RoadCode")
-                        .HasColumnType("TEXT");
-
-                    b.Property<string>("RoadName")
-                        .IsRequired()
-                        .HasColumnType("TEXT");
-
-                    b.Property<string>("RoadStatus")
-                        .IsRequired()
-                        .HasColumnType("TEXT");
-
-                    b.Property<string>("RoadType")
-                        .HasColumnType("TEXT");
-
-                    b.Property<double>("RoadWidth")
-                        .HasColumnType("REAL");
-
-                    b.Property<string>("SurfaceType")
-                        .HasColumnType("TEXT");
-
-                    b.HasKey("Id");
-
-                    b.HasIndex("CanvasObjectId")
-                        .IsUnique();
-
-                    b.ToTable("tblRoads", (string)null);
+                    b.Navigation("CanvasLayer");
                 });
 
-            modelBuilder.Entity("Land_Readjustment_Tool.Entities.ValidationError", b =>
+            modelBuilder.Entity("Land_Readjustment_Tool.Core.Entities.Contribution.ParcelContribution", b =>
                 {
-                    b.Property<int>("Id")
-                        .ValueGeneratedOnAdd()
-                        .HasColumnType("INTEGER");
+                    b.HasOne("Land_Readjustment_Tool.Core.Entities.LandData.BaselineParcel", "BaselineParcel")
+                        .WithMany("ParcelContributions")
+                        .HasForeignKey("BaselineParcelId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
 
-                    b.Property<string>("ErrorMessage")
-                        .IsRequired()
-                        .HasColumnType("TEXT");
+                    b.HasOne("Land_Readjustment_Tool.Core.Entities.Contribution.ContributionCategory", "ContributionCategory")
+                        .WithMany("ParcelContributions")
+                        .HasForeignKey("ContributionCategoryId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
 
-                    b.Property<string>("ErrorType")
-                        .IsRequired()
-                        .HasColumnType("TEXT");
+                    b.Navigation("BaselineParcel");
 
-                    b.Property<string>("FieldName")
-                        .IsRequired()
-                        .HasColumnType("TEXT");
-
-                    b.Property<int>("ImportSessionId")
-                        .HasColumnType("INTEGER");
-
-                    b.Property<int>("ImportedRawRecordId")
-                        .HasColumnType("INTEGER");
-
-                    b.Property<bool>("IsResolved")
-                        .HasColumnType("INTEGER");
-
-                    b.Property<DateTime?>("ResolvedDate")
-                        .HasColumnType("TEXT");
-
-                    b.HasKey("Id");
-
-                    b.HasIndex("ImportSessionId");
-
-                    b.HasIndex("ImportedRawRecordId");
-
-                    b.ToTable("tblValidationErrors", (string)null);
+                    b.Navigation("ContributionCategory");
                 });
 
-            modelBuilder.Entity("Land_Readjustment_Tool.Entities.BaselineParcel", b =>
+            modelBuilder.Entity("Land_Readjustment_Tool.Core.Entities.Contribution.ParcelContributionSummary", b =>
                 {
-                    b.HasOne("Land_Readjustment_Tool.Entities.CanvasObject", "CanvasObject")
+                    b.HasOne("Land_Readjustment_Tool.Core.Entities.LandData.BaselineParcel", "BaselineParcel")
+                        .WithOne("ParcelContributionSummary")
+                        .HasForeignKey("Land_Readjustment_Tool.Core.Entities.Contribution.ParcelContributionSummary", "BaselineParcelId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.HasOne("Land_Readjustment_Tool.Core.Entities.Replotting.ReplottedParcel", "ReplottedParcel")
+                        .WithMany("ParcelContributionSummaries")
+                        .HasForeignKey("ReplottedParcelId");
+
+                    b.Navigation("BaselineParcel");
+
+                    b.Navigation("ReplottedParcel");
+                });
+
+            modelBuilder.Entity("Land_Readjustment_Tool.Core.Entities.Import.CitizenshipConflict", b =>
+                {
+                    b.HasOne("Land_Readjustment_Tool.Core.Entities.Import.ImportSession", "ImportSession")
+                        .WithMany("CitizenshipConflicts")
+                        .HasForeignKey("ImportSessionId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.Navigation("ImportSession");
+                });
+
+            modelBuilder.Entity("Land_Readjustment_Tool.Core.Entities.Import.CitizenshipConflictRecord", b =>
+                {
+                    b.HasOne("Land_Readjustment_Tool.Core.Entities.Import.CitizenshipConflict", "CitizenshipConflict")
+                        .WithMany("ConflictingRecords")
+                        .HasForeignKey("CitizenshipConflictId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.HasOne("Land_Readjustment_Tool.Core.Entities.Import.ImportedRawRecord", "ImportedRawRecord")
+                        .WithMany()
+                        .HasForeignKey("ImportedRawRecordId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.Navigation("CitizenshipConflict");
+
+                    b.Navigation("ImportedRawRecord");
+                });
+
+            modelBuilder.Entity("Land_Readjustment_Tool.Core.Entities.Import.ImportedRawRecord", b =>
+                {
+                    b.HasOne("Land_Readjustment_Tool.Core.Entities.Import.ImportSession", "ImportSession")
+                        .WithMany("ImportedRawRecords")
+                        .HasForeignKey("ImportSessionId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.Navigation("ImportSession");
+                });
+
+            modelBuilder.Entity("Land_Readjustment_Tool.Core.Entities.Import.ValidationError", b =>
+                {
+                    b.HasOne("Land_Readjustment_Tool.Core.Entities.Import.ImportSession", "ImportSession")
+                        .WithMany("ValidationErrors")
+                        .HasForeignKey("ImportSessionId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.HasOne("Land_Readjustment_Tool.Core.Entities.Import.ImportedRawRecord", "ImportedRawRecord")
+                        .WithMany("ValidationErrors")
+                        .HasForeignKey("ImportedRawRecordId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.Navigation("ImportSession");
+
+                    b.Navigation("ImportedRawRecord");
+                });
+
+            modelBuilder.Entity("Land_Readjustment_Tool.Core.Entities.LandData.BaselineParcel", b =>
+                {
+                    b.HasOne("Land_Readjustment_Tool.Core.Entities.Canvas.CanvasObject", "CanvasObject")
                         .WithOne("BaselineParcel")
-                        .HasForeignKey("Land_Readjustment_Tool.Entities.BaselineParcel", "CanvasObjectId")
+                        .HasForeignKey("Land_Readjustment_Tool.Core.Entities.LandData.BaselineParcel", "CanvasObjectId")
                         .OnDelete(DeleteBehavior.SetNull);
 
-                    b.HasOne("Land_Readjustment_Tool.Entities.ImportSession", "ImportSession")
+                    b.HasOne("Land_Readjustment_Tool.Core.Entities.Import.ImportSession", "ImportSession")
                         .WithMany()
                         .HasForeignKey("ImportSessionId")
                         .OnDelete(DeleteBehavior.Cascade)
                         .IsRequired();
 
-                    b.HasOne("Land_Readjustment_Tool.Entities.LandOwner", "LandOwner")
+                    b.HasOne("Land_Readjustment_Tool.Core.Entities.LandData.LandOwner", "LandOwner")
                         .WithMany("BaselineParcels")
                         .HasForeignKey("LandOwnerId")
                         .OnDelete(DeleteBehavior.Cascade)
                         .IsRequired();
 
-                    b.HasOne("Land_Readjustment_Tool.Entities.MalpotReference", "MalpotReference")
+                    b.HasOne("Land_Readjustment_Tool.Core.Entities.LandData.MalpotReference", "MalpotReference")
                         .WithMany("BaselineParcels")
                         .HasForeignKey("MalpotReferenceId");
 
@@ -1209,71 +1316,9 @@ namespace Land_Readjustment_Tool.Migrations
                     b.Navigation("MalpotReference");
                 });
 
-            modelBuilder.Entity("Land_Readjustment_Tool.Entities.Block", b =>
+            modelBuilder.Entity("Land_Readjustment_Tool.Core.Entities.LandData.MalpotReference", b =>
                 {
-                    b.HasOne("Land_Readjustment_Tool.Entities.CanvasObject", "CanvasObject")
-                        .WithOne("Block")
-                        .HasForeignKey("Land_Readjustment_Tool.Entities.Block", "CanvasObjectId")
-                        .OnDelete(DeleteBehavior.SetNull);
-
-                    b.Navigation("CanvasObject");
-                });
-
-            modelBuilder.Entity("Land_Readjustment_Tool.Entities.CanvasObject", b =>
-                {
-                    b.HasOne("Land_Readjustment_Tool.Entities.CanvasLayer", "CanvasLayer")
-                        .WithMany("CanvasObjects")
-                        .HasForeignKey("CanvasLayerId")
-                        .OnDelete(DeleteBehavior.Cascade)
-                        .IsRequired();
-
-                    b.Navigation("CanvasLayer");
-                });
-
-            modelBuilder.Entity("Land_Readjustment_Tool.Entities.CitizenshipConflict", b =>
-                {
-                    b.HasOne("Land_Readjustment_Tool.Entities.ImportSession", "ImportSession")
-                        .WithMany("CitizenshipConflicts")
-                        .HasForeignKey("ImportSessionId")
-                        .OnDelete(DeleteBehavior.Cascade)
-                        .IsRequired();
-
-                    b.Navigation("ImportSession");
-                });
-
-            modelBuilder.Entity("Land_Readjustment_Tool.Entities.CitizenshipConflictRecord", b =>
-                {
-                    b.HasOne("Land_Readjustment_Tool.Entities.CitizenshipConflict", "CitizenshipConflict")
-                        .WithMany("ConflictingRecords")
-                        .HasForeignKey("CitizenshipConflictId")
-                        .OnDelete(DeleteBehavior.Cascade)
-                        .IsRequired();
-
-                    b.HasOne("Land_Readjustment_Tool.Entities.ImportedRawRecord", "ImportedRawRecord")
-                        .WithMany()
-                        .HasForeignKey("ImportedRawRecordId")
-                        .OnDelete(DeleteBehavior.Cascade)
-                        .IsRequired();
-
-                    b.Navigation("CitizenshipConflict");
-
-                    b.Navigation("ImportedRawRecord");
-                });
-
-            modelBuilder.Entity("Land_Readjustment_Tool.Entities.ImportedRawRecord", b =>
-                {
-                    b.HasOne("Land_Readjustment_Tool.Entities.ImportSession", "ImportSession")
-                        .WithMany("ImportedRawRecords")
-                        .HasForeignKey("ImportSessionId")
-                        .OnDelete(DeleteBehavior.Cascade)
-                        .IsRequired();
-
-                    b.Navigation("ImportSession");
-                });
-
-            modelBuilder.Entity("Land_Readjustment_Tool.Entities.MalpotReference", b =>
-                {
-                    b.HasOne("Land_Readjustment_Tool.Entities.LandOwner", "LandOwner")
+                    b.HasOne("Land_Readjustment_Tool.Core.Entities.LandData.LandOwner", "LandOwner")
                         .WithMany("MalpotReferences")
                         .HasForeignKey("LandOwnerId")
                         .OnDelete(DeleteBehavior.Cascade)
@@ -1282,74 +1327,19 @@ namespace Land_Readjustment_Tool.Migrations
                     b.Navigation("LandOwner");
                 });
 
-            modelBuilder.Entity("Land_Readjustment_Tool.Entities.OriginalToReplottedMap", b =>
+            modelBuilder.Entity("Land_Readjustment_Tool.Core.Entities.LandData.ParcelFrontage", b =>
                 {
-                    b.HasOne("Land_Readjustment_Tool.Entities.BaselineParcel", "BaselineParcel")
-                        .WithMany("OriginalToReplottedMaps")
-                        .HasForeignKey("BaselineParcelId")
-                        .OnDelete(DeleteBehavior.Restrict)
-                        .IsRequired();
-
-                    b.HasOne("Land_Readjustment_Tool.Entities.ReplottedParcel", "ReplottedParcel")
-                        .WithMany("OriginalToReplottedMaps")
-                        .HasForeignKey("ReplottedParcelId")
-                        .OnDelete(DeleteBehavior.Restrict)
-                        .IsRequired();
-
-                    b.Navigation("BaselineParcel");
-
-                    b.Navigation("ReplottedParcel");
-                });
-
-            modelBuilder.Entity("Land_Readjustment_Tool.Entities.ParcelContribution", b =>
-                {
-                    b.HasOne("Land_Readjustment_Tool.Entities.BaselineParcel", "BaselineParcel")
-                        .WithMany("ParcelContributions")
-                        .HasForeignKey("BaselineParcelId")
-                        .OnDelete(DeleteBehavior.Cascade)
-                        .IsRequired();
-
-                    b.HasOne("Land_Readjustment_Tool.Entities.ContributionCategory", "ContributionCategory")
-                        .WithMany("ParcelContributions")
-                        .HasForeignKey("ContributionCategoryId")
-                        .OnDelete(DeleteBehavior.Cascade)
-                        .IsRequired();
-
-                    b.Navigation("BaselineParcel");
-
-                    b.Navigation("ContributionCategory");
-                });
-
-            modelBuilder.Entity("Land_Readjustment_Tool.Entities.ParcelContributionSummary", b =>
-                {
-                    b.HasOne("Land_Readjustment_Tool.Entities.BaselineParcel", "BaselineParcel")
-                        .WithOne("ParcelContributionSummary")
-                        .HasForeignKey("Land_Readjustment_Tool.Entities.ParcelContributionSummary", "BaselineParcelId")
-                        .OnDelete(DeleteBehavior.Cascade)
-                        .IsRequired();
-
-                    b.HasOne("Land_Readjustment_Tool.Entities.ReplottedParcel", "ReplottedParcel")
-                        .WithMany("ParcelContributionSummaries")
-                        .HasForeignKey("ReplottedParcelId");
-
-                    b.Navigation("BaselineParcel");
-
-                    b.Navigation("ReplottedParcel");
-                });
-
-            modelBuilder.Entity("Land_Readjustment_Tool.Entities.ParcelFrontage", b =>
-                {
-                    b.HasOne("Land_Readjustment_Tool.Entities.BaselineParcel", "BaselineParcel")
+                    b.HasOne("Land_Readjustment_Tool.Core.Entities.LandData.BaselineParcel", "BaselineParcel")
                         .WithMany("ParcelFrontages")
                         .HasForeignKey("BaselineParcelId")
                         .OnDelete(DeleteBehavior.Restrict);
 
-                    b.HasOne("Land_Readjustment_Tool.Entities.ReplottedParcel", "ReplottedParcel")
+                    b.HasOne("Land_Readjustment_Tool.Core.Entities.Replotting.ReplottedParcel", "ReplottedParcel")
                         .WithMany("ParcelFrontages")
                         .HasForeignKey("ReplottedParcelId")
                         .OnDelete(DeleteBehavior.Restrict);
 
-                    b.HasOne("Land_Readjustment_Tool.Entities.Road", "Road")
+                    b.HasOne("Land_Readjustment_Tool.Core.Entities.Layout.Road", "Road")
                         .WithMany("ParcelFrontages")
                         .HasForeignKey("RoadId")
                         .OnDelete(DeleteBehavior.Cascade)
@@ -1362,20 +1352,59 @@ namespace Land_Readjustment_Tool.Migrations
                     b.Navigation("Road");
                 });
 
-            modelBuilder.Entity("Land_Readjustment_Tool.Entities.ReplottedParcel", b =>
+            modelBuilder.Entity("Land_Readjustment_Tool.Core.Entities.Layout.Block", b =>
                 {
-                    b.HasOne("Land_Readjustment_Tool.Entities.Block", "Block")
+                    b.HasOne("Land_Readjustment_Tool.Core.Entities.Canvas.CanvasObject", "CanvasObject")
+                        .WithOne("Block")
+                        .HasForeignKey("Land_Readjustment_Tool.Core.Entities.Layout.Block", "CanvasObjectId")
+                        .OnDelete(DeleteBehavior.SetNull);
+
+                    b.Navigation("CanvasObject");
+                });
+
+            modelBuilder.Entity("Land_Readjustment_Tool.Core.Entities.Layout.Road", b =>
+                {
+                    b.HasOne("Land_Readjustment_Tool.Core.Entities.Canvas.CanvasObject", "CanvasObject")
+                        .WithOne("Road")
+                        .HasForeignKey("Land_Readjustment_Tool.Core.Entities.Layout.Road", "CanvasObjectId")
+                        .OnDelete(DeleteBehavior.SetNull);
+
+                    b.Navigation("CanvasObject");
+                });
+
+            modelBuilder.Entity("Land_Readjustment_Tool.Core.Entities.Replotting.OriginalToReplottedMap", b =>
+                {
+                    b.HasOne("Land_Readjustment_Tool.Core.Entities.LandData.BaselineParcel", "BaselineParcel")
+                        .WithMany("OriginalToReplottedMaps")
+                        .HasForeignKey("BaselineParcelId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.HasOne("Land_Readjustment_Tool.Core.Entities.Replotting.ReplottedParcel", "ReplottedParcel")
+                        .WithMany("OriginalToReplottedMaps")
+                        .HasForeignKey("ReplottedParcelId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.Navigation("BaselineParcel");
+
+                    b.Navigation("ReplottedParcel");
+                });
+
+            modelBuilder.Entity("Land_Readjustment_Tool.Core.Entities.Replotting.ReplottedParcel", b =>
+                {
+                    b.HasOne("Land_Readjustment_Tool.Core.Entities.Layout.Block", "Block")
                         .WithMany("ReplottedParcels")
                         .HasForeignKey("BlockId")
                         .OnDelete(DeleteBehavior.Cascade)
                         .IsRequired();
 
-                    b.HasOne("Land_Readjustment_Tool.Entities.CanvasObject", "CanvasObject")
+                    b.HasOne("Land_Readjustment_Tool.Core.Entities.Canvas.CanvasObject", "CanvasObject")
                         .WithOne("ReplottedParcel")
-                        .HasForeignKey("Land_Readjustment_Tool.Entities.ReplottedParcel", "CanvasObjectId")
+                        .HasForeignKey("Land_Readjustment_Tool.Core.Entities.Replotting.ReplottedParcel", "CanvasObjectId")
                         .OnDelete(DeleteBehavior.SetNull);
 
-                    b.HasOne("Land_Readjustment_Tool.Entities.PlotType", "PlotType")
+                    b.HasOne("Land_Readjustment_Tool.Core.Entities.Replotting.PlotType", "PlotType")
                         .WithMany("ReplottedParcels")
                         .HasForeignKey("PlotTypeId")
                         .OnDelete(DeleteBehavior.Cascade)
@@ -1388,15 +1417,15 @@ namespace Land_Readjustment_Tool.Migrations
                     b.Navigation("PlotType");
                 });
 
-            modelBuilder.Entity("Land_Readjustment_Tool.Entities.ReplottedParcelOwner", b =>
+            modelBuilder.Entity("Land_Readjustment_Tool.Core.Entities.Replotting.ReplottedParcelOwner", b =>
                 {
-                    b.HasOne("Land_Readjustment_Tool.Entities.LandOwner", "LandOwner")
+                    b.HasOne("Land_Readjustment_Tool.Core.Entities.LandData.LandOwner", "LandOwner")
                         .WithMany("ReplottedParcelOwnerships")
                         .HasForeignKey("LandOwnerId")
                         .OnDelete(DeleteBehavior.Cascade)
                         .IsRequired();
 
-                    b.HasOne("Land_Readjustment_Tool.Entities.ReplottedParcel", "ReplottedParcel")
+                    b.HasOne("Land_Readjustment_Tool.Core.Entities.Replotting.ReplottedParcel", "ReplottedParcel")
                         .WithMany("ReplottedParcelOwners")
                         .HasForeignKey("ReplottedParcelId")
                         .OnDelete(DeleteBehavior.Cascade)
@@ -1407,57 +1436,12 @@ namespace Land_Readjustment_Tool.Migrations
                     b.Navigation("ReplottedParcel");
                 });
 
-            modelBuilder.Entity("Land_Readjustment_Tool.Entities.Road", b =>
-                {
-                    b.HasOne("Land_Readjustment_Tool.Entities.CanvasObject", "CanvasObject")
-                        .WithOne("Road")
-                        .HasForeignKey("Land_Readjustment_Tool.Entities.Road", "CanvasObjectId")
-                        .OnDelete(DeleteBehavior.SetNull);
-
-                    b.Navigation("CanvasObject");
-                });
-
-            modelBuilder.Entity("Land_Readjustment_Tool.Entities.ValidationError", b =>
-                {
-                    b.HasOne("Land_Readjustment_Tool.Entities.ImportSession", "ImportSession")
-                        .WithMany("ValidationErrors")
-                        .HasForeignKey("ImportSessionId")
-                        .OnDelete(DeleteBehavior.Cascade)
-                        .IsRequired();
-
-                    b.HasOne("Land_Readjustment_Tool.Entities.ImportedRawRecord", "ImportedRawRecord")
-                        .WithMany("ValidationErrors")
-                        .HasForeignKey("ImportedRawRecordId")
-                        .OnDelete(DeleteBehavior.Cascade)
-                        .IsRequired();
-
-                    b.Navigation("ImportSession");
-
-                    b.Navigation("ImportedRawRecord");
-                });
-
-            modelBuilder.Entity("Land_Readjustment_Tool.Entities.BaselineParcel", b =>
-                {
-                    b.Navigation("OriginalToReplottedMaps");
-
-                    b.Navigation("ParcelContributionSummary");
-
-                    b.Navigation("ParcelContributions");
-
-                    b.Navigation("ParcelFrontages");
-                });
-
-            modelBuilder.Entity("Land_Readjustment_Tool.Entities.Block", b =>
-                {
-                    b.Navigation("ReplottedParcels");
-                });
-
-            modelBuilder.Entity("Land_Readjustment_Tool.Entities.CanvasLayer", b =>
+            modelBuilder.Entity("Land_Readjustment_Tool.Core.Entities.Canvas.CanvasLayer", b =>
                 {
                     b.Navigation("CanvasObjects");
                 });
 
-            modelBuilder.Entity("Land_Readjustment_Tool.Entities.CanvasObject", b =>
+            modelBuilder.Entity("Land_Readjustment_Tool.Core.Entities.Canvas.CanvasObject", b =>
                 {
                     b.Navigation("BaselineParcel");
 
@@ -1468,17 +1452,17 @@ namespace Land_Readjustment_Tool.Migrations
                     b.Navigation("Road");
                 });
 
-            modelBuilder.Entity("Land_Readjustment_Tool.Entities.CitizenshipConflict", b =>
-                {
-                    b.Navigation("ConflictingRecords");
-                });
-
-            modelBuilder.Entity("Land_Readjustment_Tool.Entities.ContributionCategory", b =>
+            modelBuilder.Entity("Land_Readjustment_Tool.Core.Entities.Contribution.ContributionCategory", b =>
                 {
                     b.Navigation("ParcelContributions");
                 });
 
-            modelBuilder.Entity("Land_Readjustment_Tool.Entities.ImportSession", b =>
+            modelBuilder.Entity("Land_Readjustment_Tool.Core.Entities.Import.CitizenshipConflict", b =>
+                {
+                    b.Navigation("ConflictingRecords");
+                });
+
+            modelBuilder.Entity("Land_Readjustment_Tool.Core.Entities.Import.ImportSession", b =>
                 {
                     b.Navigation("CitizenshipConflicts");
 
@@ -1487,12 +1471,23 @@ namespace Land_Readjustment_Tool.Migrations
                     b.Navigation("ValidationErrors");
                 });
 
-            modelBuilder.Entity("Land_Readjustment_Tool.Entities.ImportedRawRecord", b =>
+            modelBuilder.Entity("Land_Readjustment_Tool.Core.Entities.Import.ImportedRawRecord", b =>
                 {
                     b.Navigation("ValidationErrors");
                 });
 
-            modelBuilder.Entity("Land_Readjustment_Tool.Entities.LandOwner", b =>
+            modelBuilder.Entity("Land_Readjustment_Tool.Core.Entities.LandData.BaselineParcel", b =>
+                {
+                    b.Navigation("OriginalToReplottedMaps");
+
+                    b.Navigation("ParcelContributionSummary");
+
+                    b.Navigation("ParcelContributions");
+
+                    b.Navigation("ParcelFrontages");
+                });
+
+            modelBuilder.Entity("Land_Readjustment_Tool.Core.Entities.LandData.LandOwner", b =>
                 {
                     b.Navigation("BaselineParcels");
 
@@ -1501,17 +1496,27 @@ namespace Land_Readjustment_Tool.Migrations
                     b.Navigation("ReplottedParcelOwnerships");
                 });
 
-            modelBuilder.Entity("Land_Readjustment_Tool.Entities.MalpotReference", b =>
+            modelBuilder.Entity("Land_Readjustment_Tool.Core.Entities.LandData.MalpotReference", b =>
                 {
                     b.Navigation("BaselineParcels");
                 });
 
-            modelBuilder.Entity("Land_Readjustment_Tool.Entities.PlotType", b =>
+            modelBuilder.Entity("Land_Readjustment_Tool.Core.Entities.Layout.Block", b =>
                 {
                     b.Navigation("ReplottedParcels");
                 });
 
-            modelBuilder.Entity("Land_Readjustment_Tool.Entities.ReplottedParcel", b =>
+            modelBuilder.Entity("Land_Readjustment_Tool.Core.Entities.Layout.Road", b =>
+                {
+                    b.Navigation("ParcelFrontages");
+                });
+
+            modelBuilder.Entity("Land_Readjustment_Tool.Core.Entities.Replotting.PlotType", b =>
+                {
+                    b.Navigation("ReplottedParcels");
+                });
+
+            modelBuilder.Entity("Land_Readjustment_Tool.Core.Entities.Replotting.ReplottedParcel", b =>
                 {
                     b.Navigation("OriginalToReplottedMaps");
 
@@ -1520,11 +1525,6 @@ namespace Land_Readjustment_Tool.Migrations
                     b.Navigation("ParcelFrontages");
 
                     b.Navigation("ReplottedParcelOwners");
-                });
-
-            modelBuilder.Entity("Land_Readjustment_Tool.Entities.Road", b =>
-                {
-                    b.Navigation("ParcelFrontages");
                 });
 #pragma warning restore 612, 618
         }

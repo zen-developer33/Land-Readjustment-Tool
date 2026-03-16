@@ -11,7 +11,9 @@ namespace Land_Readjustment_Tool.Repositories.Project
     /// Inherits common operations from BaseRepository.
     /// Adds ProjectInfo specific method GetProjectInfoAsync.
     /// </summary>
-    public class ProjectInfoRepository: BaseRepository<ProjectInfo>, IProjectInfoRepository
+    public class ProjectInfoRepository
+    : BaseRepository<ProjectInfo>
+    , IProjectInfoRepository
     {
         /// <summary>
         /// Receives ProjectSession via constructor.
