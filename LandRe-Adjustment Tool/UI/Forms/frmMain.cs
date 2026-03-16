@@ -81,8 +81,8 @@ namespace Land_Readjustment_Tool
             //ProjectInfoRepository repo = new(db.GetConnection());
             //CurrentProject.Info = repo.GetProjectInfo();
 
-            frm_ProjectDetails form = new frm_ProjectDetails();
-            _ = form.ShowDialog();
+            //frm_ProjectDetails form = new frm_ProjectDetails();
+            //_ = form.ShowDialog();
 
         }
 
@@ -162,8 +162,8 @@ namespace Land_Readjustment_Tool
                 CurrentProject.MarkAsSaved();
 
                 // Open project details form
-                var frm = new frm_ProjectDetails();
-                frm.ShowDialog();
+                //var frm = new frm_ProjectDetails();
+                //frm.ShowDialog();
 
                 UpdateWindowTitle();
                 InitializeProjectWorkspace();

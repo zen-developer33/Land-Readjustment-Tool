@@ -23,7 +23,7 @@ namespace Land_Readjustment_Tool.Core.Entities.Project
         public string? ImplementingAgency { get; set; } 
         public string? ConsultingAgency { get;set;  } 
         public string? GazetteNotificationNumber { get; set;  }  
-        public DateTime? GazzeteDate { get; set; } 
+        public DateTime? GazetteDate { get; set; } 
         public DateTime? ProjectStartDate {  get; set; }
         public DateTime? ProjectEndDate { get; set; }
         public DateTime CreatedDate { get; set; }

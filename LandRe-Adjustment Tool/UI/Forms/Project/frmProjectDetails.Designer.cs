@@ -38,7 +38,10 @@
             txtProjectName = new TextBox();
             label1 = new Label();
             groupBox2 = new GroupBox();
-            dtpApprovalDate = new DateTimePicker();
+            label13 = new Label();
+            txtProjectEndDate = new TextBox();
+            label12 = new Label();
+            txtProjectStartDate = new TextBox();
             label5 = new Label();
             txtConsultingAgency = new TextBox();
             label3 = new Label();
@@ -60,6 +63,9 @@
             projectInfoBindingSource = new BindingSource(components);
             groupBox4 = new GroupBox();
             txtProjectNotes = new TextBox();
+            dtpApprovalDate = new DateTimePicker();
+            dtpProjectStartDate = new DateTimePicker();
+            dtpProjectEndDate = new DateTimePicker();
             groupBox1.SuspendLayout();
             groupBox2.SuspendLayout();
             groupBox3.SuspendLayout();
@@ -106,7 +112,7 @@
             resources.ApplyResources(txtProjectName, "txtProjectName");
             txtProjectName.Name = "txtProjectName";
             txtProjectName.ReadOnly = true;
-            txtProjectName.TextChanged += textBox1_TextChanged;
+
             // 
             // label1
             // 
@@ -116,6 +122,12 @@
             // groupBox2
             // 
             resources.ApplyResources(groupBox2, "groupBox2");
+            groupBox2.Controls.Add(label13);
+            groupBox2.Controls.Add(txtProjectEndDate);
+            groupBox2.Controls.Add(label12);
+            groupBox2.Controls.Add(txtProjectStartDate);
+            groupBox2.Controls.Add(dtpProjectEndDate);
+            groupBox2.Controls.Add(dtpProjectStartDate);
             groupBox2.Controls.Add(dtpApprovalDate);
             groupBox2.Controls.Add(label5);
             groupBox2.Controls.Add(txtConsultingAgency);
@@ -127,12 +139,27 @@
             groupBox2.TabStop = false;
             groupBox2.Tag = "";
             // 
-            // dtpApprovalDate
+            // label13
             // 
-            resources.ApplyResources(dtpApprovalDate, "dtpApprovalDate");
-            dtpApprovalDate.Format = DateTimePickerFormat.Custom;
-            dtpApprovalDate.Name = "dtpApprovalDate";
-            dtpApprovalDate.ValueChanged += dtpApprovalDate_ValueChanged;
+            resources.ApplyResources(label13, "label13");
+            label13.Name = "label13";
+            // 
+            // txtProjectEndDate
+            // 
+            resources.ApplyResources(txtProjectEndDate, "txtProjectEndDate");
+            txtProjectEndDate.Name = "txtProjectEndDate";
+            txtProjectEndDate.ReadOnly = true;
+            // 
+            // label12
+            // 
+            resources.ApplyResources(label12, "label12");
+            label12.Name = "label12";
+            // 
+            // txtProjectStartDate
+            // 
+            resources.ApplyResources(txtProjectStartDate, "txtProjectStartDate");
+            txtProjectStartDate.Name = "txtProjectStartDate";
+            txtProjectStartDate.ReadOnly = true;
             // 
             // label5
             // 
@@ -163,13 +190,14 @@
             // 
             resources.ApplyResources(txtApprovalDate, "txtApprovalDate");
             txtApprovalDate.Name = "txtApprovalDate";
+            txtApprovalDate.ReadOnly = true;
             // 
             // btnOK
             // 
             resources.ApplyResources(btnOK, "btnOK");
             btnOK.Name = "btnOK";
             btnOK.UseVisualStyleBackColor = true;
-            btnOK.Click += btnOK_click;
+  
             // 
             // groupBox3
             // 
@@ -253,6 +281,30 @@
             resources.ApplyResources(txtProjectNotes, "txtProjectNotes");
             txtProjectNotes.Name = "txtProjectNotes";
             // 
+            // dtpApprovalDate
+            // 
+            resources.ApplyResources(dtpApprovalDate, "dtpApprovalDate");
+            dtpApprovalDate.Format = DateTimePickerFormat.Custom;
+            dtpApprovalDate.Name = "dtpApprovalDate";
+            dtpApprovalDate.ShowCheckBox = true;
+            dtpApprovalDate.ValueChanged += dtp_ValueChanged;
+            // 
+            // dtpProjectStartDate
+            // 
+            resources.ApplyResources(dtpProjectStartDate, "dtpProjectStartDate");
+            dtpProjectStartDate.Format = DateTimePickerFormat.Custom;
+            dtpProjectStartDate.Name = "dtpProjectStartDate";
+            dtpProjectStartDate.ShowCheckBox = true;
+            dtpProjectStartDate.ValueChanged += dtp_ValueChanged;
+            // 
+            // dtpProjectEndDate
+            // 
+            resources.ApplyResources(dtpProjectEndDate, "dtpProjectEndDate");
+            dtpProjectEndDate.Format = DateTimePickerFormat.Custom;
+            dtpProjectEndDate.Name = "dtpProjectEndDate";
+            dtpProjectEndDate.ShowCheckBox = true;
+            dtpProjectEndDate.ValueChanged += dtp_ValueChanged;
+            // 
             // frm_ProjectDetails
             // 
             AcceptButton = btnOK;
@@ -311,8 +363,14 @@
         private TextBox txtProjectSite;
         private Label label11;
         private BindingSource projectInfoBindingSource;
-        private DateTimePicker dtpApprovalDate;
         private GroupBox groupBox4;
         private TextBox txtProjectNotes;
+        private Label label13;
+        private TextBox txtProjectEndDate;
+        private Label label12;
+        private TextBox txtProjectStartDate;
+        private DateTimePicker dtpApprovalDate;
+        private DateTimePicker dtpProjectEndDate;
+        private DateTimePicker dtpProjectStartDate;
     }
 }
