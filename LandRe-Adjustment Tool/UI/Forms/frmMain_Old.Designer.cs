@@ -1,6 +1,6 @@
 ﻿namespace Land_Readjustment_Tool
 {
-    partial class frmMain
+    partial class frmMain_old
     {
         /// <summary>
         /// Required designer variable.
@@ -76,11 +76,11 @@
             grpLayer = new GroupBox();
             treeView1 = new TreeView();
             label1 = new Label();
-            splitContainer3 = new SplitContainer();
             drawingCanvasControl1 = new Land_Readjustment_Tool.CustomControls.DrawingCanvasControl();
             importDataToolStripMenuItem = new ToolStripMenuItem();
             viewEditRecordsToolStripMenuItem = new ToolStripMenuItem();
             colorDialog2 = new ColorDialog();
+            splitContainer3 = new SplitContainer();
             mainMenuStrip.SuspendLayout();
             ((System.ComponentModel.ISupportInitialize)splitContainer1).BeginInit();
             splitContainer1.Panel1.SuspendLayout();
@@ -116,6 +116,7 @@
             fileToolStripMenuItem.ShortcutKeys = Keys.Control | Keys.N;
             fileToolStripMenuItem.Size = new Size(46, 24);
             fileToolStripMenuItem.Text = "File";
+            fileToolStripMenuItem.Click += fileToolStripMenuItem_Click;
             // 
             // newProjectToolStripMenuItem
             // 
@@ -123,7 +124,7 @@
             newProjectToolStripMenuItem.ShortcutKeys = Keys.Control | Keys.N;
             newProjectToolStripMenuItem.Size = new Size(233, 26);
             newProjectToolStripMenuItem.Text = "&New Project";
-
+            newProjectToolStripMenuItem.Click += newProjectToolStripMenuItem_Click;
             // 
             // openProjectToolStripMenuItem
             // 
@@ -131,11 +132,13 @@
             openProjectToolStripMenuItem.ShortcutKeys = Keys.Control | Keys.O;
             openProjectToolStripMenuItem.Size = new Size(233, 26);
             openProjectToolStripMenuItem.Text = "&Open Project";
+            openProjectToolStripMenuItem.Click += openProjectToolStripMenuItem_Click;
             // 
             // toolStripSeparator1
             // 
             toolStripSeparator1.Name = "toolStripSeparator1";
             toolStripSeparator1.Size = new Size(230, 6);
+            toolStripSeparator1.Click += toolStripSeparator1_Click;
             // 
             // saveToolStripMenuItem
             // 
@@ -144,6 +147,7 @@
             saveToolStripMenuItem.ShortcutKeys = Keys.Control | Keys.S;
             saveToolStripMenuItem.Size = new Size(233, 26);
             saveToolStripMenuItem.Text = "Save";
+            saveToolStripMenuItem.Click += saveToolStripMenuItem_Click;
             // 
             // saveAsToolStripMenuItem
             // 
@@ -152,6 +156,7 @@
             saveAsToolStripMenuItem.ShortcutKeys = Keys.Control | Keys.Shift | Keys.S;
             saveAsToolStripMenuItem.Size = new Size(233, 26);
             saveAsToolStripMenuItem.Text = "Save As";
+            saveAsToolStripMenuItem.Click += saveAsToolStripMenuItem_Click;
             // 
             // toolStripSeparator2
             // 
@@ -163,6 +168,7 @@
             recentProjectsToolStripMenuItem.Name = "recentProjectsToolStripMenuItem";
             recentProjectsToolStripMenuItem.Size = new Size(233, 26);
             recentProjectsToolStripMenuItem.Text = "Recent Projects";
+            recentProjectsToolStripMenuItem.Click += toolStripMenuItem1_Click;
             // 
             // toolStripSeparator3
             // 
@@ -174,6 +180,7 @@
             exitToolStripMenuItem.Name = "exitToolStripMenuItem";
             exitToolStripMenuItem.Size = new Size(233, 26);
             exitToolStripMenuItem.Text = "Exit";
+            exitToolStripMenuItem.Click += ExitToolStripMenuItem_Click_1;
             // 
             // toolStripSeparator4
             // 
@@ -193,6 +200,7 @@
             projectInformationToolStripMenuItem.Name = "projectInformationToolStripMenuItem";
             projectInformationToolStripMenuItem.Size = new Size(232, 26);
             projectInformationToolStripMenuItem.Text = "Project Information";
+            projectInformationToolStripMenuItem.Click += ProjectInformationToolStripMenuItem_Click;
             // 
             // projectSettingToolStripMenuItem
             // 
@@ -200,6 +208,7 @@
             projectSettingToolStripMenuItem.Name = "projectSettingToolStripMenuItem";
             projectSettingToolStripMenuItem.Size = new Size(232, 26);
             projectSettingToolStripMenuItem.Text = "Project Setting";
+            projectSettingToolStripMenuItem.Click += projectSettingToolStripMenuItem_Click;
             // 
             // closeProjectToolStripMenuItem
             // 
@@ -207,6 +216,7 @@
             closeProjectToolStripMenuItem.Name = "closeProjectToolStripMenuItem";
             closeProjectToolStripMenuItem.Size = new Size(232, 26);
             closeProjectToolStripMenuItem.Text = "Close Project";
+            closeProjectToolStripMenuItem.Click += closeProjectToolStripMenuItem_Click;
             // 
             // backupProjectToolStripMenuItem
             // 
@@ -220,6 +230,7 @@
             restoreFromBackupToolStripMenuItem.Name = "restoreFromBackupToolStripMenuItem";
             restoreFromBackupToolStripMenuItem.Size = new Size(232, 26);
             restoreFromBackupToolStripMenuItem.Text = "Restore From Backup";
+            restoreFromBackupToolStripMenuItem.Click += restoreFromBackupToolStripMenuItem_Click;
             // 
             // dataToolStripMenuItem
             // 
@@ -241,6 +252,7 @@
             ImportParcelOwnerShipRecords.Name = "ImportParcelOwnerShipRecords";
             ImportParcelOwnerShipRecords.Size = new Size(342, 26);
             ImportParcelOwnerShipRecords.Text = "Parcel Ownership Records (Excel/CSV)";
+            ImportParcelOwnerShipRecords.Click += ImportParcelOwnershipRecords_Click;
             // 
             // toolStripSeparator5
             // 
@@ -270,6 +282,7 @@
             baseMapsToolStripMenuItem.Name = "baseMapsToolStripMenuItem";
             baseMapsToolStripMenuItem.Size = new Size(342, 26);
             baseMapsToolStripMenuItem.Text = "Raster Base Map";
+            baseMapsToolStripMenuItem.Click += baseMapsToolStripMenuItem_Click;
             // 
             // geotiffToolStripMenuItem
             // 
@@ -300,6 +313,7 @@
             viewEditRecordToolStripMenuItem.Name = "viewEditRecordToolStripMenuItem";
             viewEditRecordToolStripMenuItem.Size = new Size(207, 26);
             viewEditRecordToolStripMenuItem.Text = "View/Edit Record";
+            viewEditRecordToolStripMenuItem.Click += viewEditRecordToolStripMenuItem_Click;
             // 
             // landOwnerDataToolStripMenuItem
             // 
@@ -307,6 +321,7 @@
             landOwnerDataToolStripMenuItem.Name = "landOwnerDataToolStripMenuItem";
             landOwnerDataToolStripMenuItem.Size = new Size(207, 26);
             landOwnerDataToolStripMenuItem.Text = "Land Owner Data";
+            landOwnerDataToolStripMenuItem.Click += landOwnerDataToolStripMenuItem_Click;
             // 
             // importToolStripMenuItem
             // 
@@ -356,6 +371,7 @@
             areaConverterToolStripMenuItem.Name = "areaConverterToolStripMenuItem";
             areaConverterToolStripMenuItem.Size = new Size(191, 26);
             areaConverterToolStripMenuItem.Text = "Area Converter";
+            areaConverterToolStripMenuItem.Click += AreaConverterToolStripMenuItem_Click;
             // 
             // helToolStripMenuItem
             // 
@@ -405,6 +421,7 @@
             // splitContainer2.Panel2
             // 
             splitContainer2.Panel2.Controls.Add(label1);
+            splitContainer2.Panel2.Paint += splitContainer2_Panel2_Paint;
             splitContainer2.Size = new Size(260, 696);
             splitContainer2.SplitterDistance = 338;
             splitContainer2.SplitterWidth = 5;
@@ -445,19 +462,7 @@
             label1.Size = new Size(81, 20);
             label1.TabIndex = 1;
             label1.Text = "Properties";
-            // 
-            // splitContainer3
-            // 
-            splitContainer3.Dock = DockStyle.Fill;
-            splitContainer3.Location = new Point(0, 0);
-            splitContainer3.Name = "splitContainer3";
-            // 
-            // splitContainer3.Panel1
-            // 
-            splitContainer3.Panel1.Controls.Add(drawingCanvasControl1);
-            splitContainer3.Size = new Size(1049, 696);
-            splitContainer3.SplitterDistance = 779;
-            splitContainer3.TabIndex = 1;
+            label1.Click += label1_Click;
             // 
             // drawingCanvasControl1
             // 
@@ -479,6 +484,19 @@
             viewEditRecordsToolStripMenuItem.Size = new Size(213, 26);
             viewEditRecordsToolStripMenuItem.Text = "View/Edit Records";
             // 
+            // splitContainer3
+            // 
+            splitContainer3.Dock = DockStyle.Fill;
+            splitContainer3.Location = new Point(0, 0);
+            splitContainer3.Name = "splitContainer3";
+            // 
+            // splitContainer3.Panel1
+            // 
+            splitContainer3.Panel1.Controls.Add(drawingCanvasControl1);
+            splitContainer3.Size = new Size(1049, 696);
+            splitContainer3.SplitterDistance = 779;
+            splitContainer3.TabIndex = 1;
+            // 
             // frmMain
             // 
             AutoScaleDimensions = new SizeF(8F, 20F);
@@ -495,6 +513,7 @@
             StartPosition = FormStartPosition.CenterScreen;
             Text = "RePlot";
             WindowState = FormWindowState.Maximized;
+            Load += frmMain_Load;
             mainMenuStrip.ResumeLayout(false);
             mainMenuStrip.PerformLayout();
             splitContainer1.Panel1.ResumeLayout(false);
