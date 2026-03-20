@@ -23,8 +23,7 @@ namespace Land_Readjustment_Tool.Data
             get
             {
                 if (_context == null)
-                    throw new InvalidOperationException(
-                        "No project is open.");
+                    throw new InvalidOperationException("No project is open.");
                 return _context;
             }
         }

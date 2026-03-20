@@ -15,8 +15,8 @@ namespace Land_Readjustment_Tool
         static void Main()
         {
             //if (Environment.OSVersion.Version.Major >= 6)
-            //    SetProcessDPIAware();
-            Application.SetHighDpiMode(HighDpiMode.PerMonitorV2);
+                //SetProcessDPIAware();
+            Application.SetHighDpiMode(HighDpiMode.SystemAware);
             Encoding.RegisterProvider(CodePagesEncodingProvider.Instance);
             Application.EnableVisualStyles();           
             Application.SetCompatibleTextRenderingDefault(false);

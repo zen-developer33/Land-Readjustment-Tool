@@ -1,4 +1,5 @@
-﻿namespace Land_Readjustment_Tool
+﻿using Land_Readjustment_Tool.UI.CustomControls;
+namespace Land_Readjustment_Tool
 {
     partial class frmMain_old
     {
@@ -76,7 +77,7 @@
             grpLayer = new GroupBox();
             treeView1 = new TreeView();
             label1 = new Label();
-            drawingCanvasControl1 = new Land_Readjustment_Tool.CustomControls.DrawingCanvasControl();
+            ReplotCanvas = new Land_Readjustment_Tool.UI.CustomControls.DrawingCanvasControl();
             importDataToolStripMenuItem = new ToolStripMenuItem();
             viewEditRecordsToolStripMenuItem = new ToolStripMenuItem();
             colorDialog2 = new ColorDialog();
@@ -466,11 +467,11 @@
             // 
             // drawingCanvasControl1
             // 
-            drawingCanvasControl1.Dock = DockStyle.Fill;
-            drawingCanvasControl1.Location = new Point(0, 0);
-            drawingCanvasControl1.Name = "drawingCanvasControl1";
-            drawingCanvasControl1.Size = new Size(779, 696);
-            drawingCanvasControl1.TabIndex = 0;
+            ReplotCanvas.Dock = DockStyle.Fill;
+            ReplotCanvas.Location = new Point(0, 0);
+            ReplotCanvas.Name = "drawingCanvasControl1";
+            ReplotCanvas.Size = new Size(779, 696);
+            ReplotCanvas.TabIndex = 0;
             // 
             // importDataToolStripMenuItem
             // 
@@ -492,7 +493,7 @@
             // 
             // splitContainer3.Panel1
             // 
-            splitContainer3.Panel1.Controls.Add(drawingCanvasControl1);
+            splitContainer3.Panel1.Controls.Add(ReplotCanvas);
             splitContainer3.Size = new Size(1049, 696);
             splitContainer3.SplitterDistance = 779;
             splitContainer3.TabIndex = 1;
@@ -585,7 +586,7 @@
         private ToolStripSeparator toolStripSeparator6;
         private ToolStripMenuItem topographicalMapToolStripMenuItem;
         private ToolStripMenuItem ImportParcelOwnerShipRecords;
-        private CustomControls.DrawingCanvasControl drawingCanvasControl1;
+        private DrawingCanvasControl ReplotCanvas;
         private ColorDialog colorDialog2;
         private SplitContainer splitContainer3;
     }
