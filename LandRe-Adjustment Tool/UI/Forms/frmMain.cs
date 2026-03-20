@@ -1,9 +1,11 @@
 ﻿
 using Land_Readjustment_Tool.Data;
 using Land_Readjustment_Tool.Repositories.Project;
+using Land_Readjustment_Tool.Repositories.Spatial;
 using Land_Readjustment_Tool.Services;
 using Land_Readjustment_Tool.Services.Project;
 using Land_Readjustment_Tool.UI.CustomControls;
+using Land_Readjustment_Tool.UI.Forms.Project;
 
 namespace Land_Readjustment_Tool
 {
@@ -159,6 +161,7 @@ namespace Land_Readjustment_Tool
 
                 // Open project details form
                 OpenProjectDetails();
+                OpenProjectSettings();
 
             }
             catch (Exception ex)
@@ -171,6 +174,26 @@ namespace Land_Readjustment_Tool
                     MessageBoxIcon.Error);
             }
         }
+
+        private void OpenProjectSettings()
+        {
+            if (!AppServices.HasContext) return;
+
+            var context = AppServices.Context;
+
+            var repo = new ProjectSettingsRepository(
+                context.Session);
+
+            var crsRepo = new CoordinateSystemRepository(context.Session);
+            var service = new ProjectSettingsService(repo, context.Session.Logger);
+            var datumRepo = new DatumTransformationRepository(context.Session);
+            using var frm = new frmProjectSettings(service, crsRepo, datumRepo);
+            frm.ShowDialog();
+
+            // Refresh title after user edits
+            UpdateWindowTitle();
+        }
+
 
         // ── CLOSE PROJECT ────────────────────────────
 
@@ -248,7 +271,8 @@ namespace Land_Readjustment_Tool
 
         private void projectSettingToolStripMenuItem_Click(object sender, EventArgs e)
         {
-            // TODO: implement project settings
+            if (!AppServices.HasContext) return;
+            OpenProjectSettings();
         }
 
         private void backupProjectToolStripMenuItem_Click(object sender, EventArgs e)
@@ -266,7 +290,7 @@ namespace Land_Readjustment_Tool
             // TODO: implement land owner data
         }
 
-        private void startReplotWorkspaceToolStripMenuItem_Click( object sender, EventArgs e)
+        private void startReplotWorkspaceToolStripMenuItem_Click(object sender, EventArgs e)
         {
             // TODO: implement replot workspace
         }
@@ -281,6 +305,10 @@ namespace Land_Readjustment_Tool
 
         }
 
+        private void tsmProjectSetting_Click(object sender, EventArgs e)
+        {
+            OpenProjectSettings();
+        }
     }
     // ── PROJECT FOLDER CREATOR ───────────────────
 
