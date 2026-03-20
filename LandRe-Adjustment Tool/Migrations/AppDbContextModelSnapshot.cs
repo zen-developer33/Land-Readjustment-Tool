@@ -972,12 +972,15 @@ namespace Land_Readjustment_Tool.Migrations
                     b.Property<bool>("CanvasGridVisible")
                         .HasColumnType("INTEGER");
 
-                    b.Property<string>("CoordinateSystem")
-                        .HasColumnType("TEXT");
+                    b.Property<int?>("CoordinateSystemId")
+                        .HasColumnType("INTEGER");
 
                     b.Property<string>("DateFormat")
                         .IsRequired()
                         .HasColumnType("TEXT");
+
+                    b.Property<int?>("DatumTransformationId")
+                        .HasColumnType("INTEGER");
 
                     b.Property<string>("DefaultPaperSize")
                         .IsRequired()
@@ -990,17 +993,10 @@ namespace Land_Readjustment_Tool.Migrations
                         .IsRequired()
                         .HasColumnType("TEXT");
 
-                    b.Property<int?>("EpsgCode")
-                        .HasColumnType("INTEGER");
-
                     b.Property<bool>("IsConfigured")
                         .HasColumnType("INTEGER");
 
                     b.Property<DateTime>("LastModifiedDate")
-                        .HasColumnType("TEXT");
-
-                    b.Property<string>("MapUnit")
-                        .IsRequired()
                         .HasColumnType("TEXT");
 
                     b.Property<double>("MinPlotAreaSqm")
@@ -1027,6 +1023,10 @@ namespace Land_Readjustment_Tool.Migrations
                         .HasColumnType("TEXT");
 
                     b.HasKey("Id");
+
+                    b.HasIndex("CoordinateSystemId");
+
+                    b.HasIndex("DatumTransformationId");
 
                     b.ToTable("tblProjectSettings", t =>
                         {
@@ -1096,6 +1096,74 @@ namespace Land_Readjustment_Tool.Migrations
                         .IsUnique();
 
                     b.ToTable("tblPlotTypes");
+
+                    b.HasData(
+                        new
+                        {
+                            Id = 1,
+                            CreatedDate = new DateTime(1, 1, 1, 0, 0, 0, 0, DateTimeKind.Unspecified),
+                            Description = "Private ownership plot",
+                            DisplayOrder = 1,
+                            IsActive = true,
+                            IsSystemDefault = true,
+                            TypeCode = "PRV",
+                            TypeName = "Private"
+                        },
+                        new
+                        {
+                            Id = 2,
+                            CreatedDate = new DateTime(1, 1, 1, 0, 0, 0, 0, DateTimeKind.Unspecified),
+                            Description = "Plot for sale to recover project costs",
+                            DisplayOrder = 2,
+                            IsActive = true,
+                            IsSystemDefault = true,
+                            TypeCode = "SAL",
+                            TypeName = "Sales Plot"
+                        },
+                        new
+                        {
+                            Id = 3,
+                            CreatedDate = new DateTime(1, 1, 1, 0, 0, 0, 0, DateTimeKind.Unspecified),
+                            Description = "Government use plot",
+                            DisplayOrder = 3,
+                            IsActive = true,
+                            IsSystemDefault = true,
+                            TypeCode = "GOV",
+                            TypeName = "Government"
+                        },
+                        new
+                        {
+                            Id = 4,
+                            CreatedDate = new DateTime(1, 1, 1, 0, 0, 0, 0, DateTimeKind.Unspecified),
+                            Description = "Parks and public open spaces",
+                            DisplayOrder = 4,
+                            IsActive = true,
+                            IsSystemDefault = true,
+                            TypeCode = "OPS",
+                            TypeName = "Open Space"
+                        },
+                        new
+                        {
+                            Id = 5,
+                            CreatedDate = new DateTime(1, 1, 1, 0, 0, 0, 0, DateTimeKind.Unspecified),
+                            Description = "Community use plot",
+                            DisplayOrder = 5,
+                            IsActive = true,
+                            IsSystemDefault = true,
+                            TypeCode = "COM",
+                            TypeName = "Community"
+                        },
+                        new
+                        {
+                            Id = 6,
+                            CreatedDate = new DateTime(1, 1, 1, 0, 0, 0, 0, DateTimeKind.Unspecified),
+                            Description = "Road right of way",
+                            DisplayOrder = 6,
+                            IsActive = true,
+                            IsSystemDefault = true,
+                            TypeCode = "ROD",
+                            TypeName = "Road"
+                        });
                 });
 
             modelBuilder.Entity("Land_Readjustment_Tool.Core.Entities.Replotting.ReplottedParcel", b =>
@@ -1175,6 +1243,389 @@ namespace Land_Readjustment_Tool.Migrations
                     b.HasIndex("ReplottedParcelId");
 
                     b.ToTable("tblReplottedParcelOwners");
+                });
+
+            modelBuilder.Entity("Land_Readjustment_Tool.Core.Entities.Spatial.CoordinateSystem", b =>
+                {
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("INTEGER");
+
+                    b.Property<string>("Code")
+                        .IsRequired()
+                        .HasColumnType("TEXT");
+
+                    b.Property<DateTime>("CreatedDate")
+                        .HasColumnType("TEXT");
+
+                    b.Property<string>("Description")
+                        .HasColumnType("TEXT");
+
+                    b.Property<int>("DisplayOrder")
+                        .HasColumnType("INTEGER");
+
+                    b.Property<int?>("EpsgCode")
+                        .HasColumnType("INTEGER");
+
+                    b.Property<bool>("IsActive")
+                        .HasColumnType("INTEGER");
+
+                    b.Property<bool>("IsSystemDefault")
+                        .HasColumnType("INTEGER");
+
+                    b.Property<string>("Name")
+                        .IsRequired()
+                        .HasColumnType("TEXT");
+
+                    b.Property<string>("ProjectionType")
+                        .HasColumnType("TEXT");
+
+                    b.Property<string>("Region")
+                        .HasColumnType("TEXT");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("Code")
+                        .IsUnique();
+
+                    b.ToTable("tblCoordinateSystems");
+
+                    b.HasData(
+                        new
+                        {
+                            Id = 1,
+                            Code = "UTM44N",
+                            CreatedDate = new DateTime(1, 1, 1, 0, 0, 0, 0, DateTimeKind.Unspecified),
+                            Description = "West Nepal. 78°E to 84°E. WGS84 datum.",
+                            DisplayOrder = 1,
+                            EpsgCode = 32644,
+                            IsActive = true,
+                            IsSystemDefault = true,
+                            Name = "UTM Zone 44N — West Nepal",
+                            ProjectionType = "TransverseMercator",
+                            Region = "Nepal"
+                        },
+                        new
+                        {
+                            Id = 2,
+                            Code = "UTM45N",
+                            CreatedDate = new DateTime(1, 1, 1, 0, 0, 0, 0, DateTimeKind.Unspecified),
+                            Description = "East Nepal. 84°E to 90°E. WGS84 datum.",
+                            DisplayOrder = 2,
+                            EpsgCode = 32645,
+                            IsActive = true,
+                            IsSystemDefault = true,
+                            Name = "UTM Zone 45N — East Nepal",
+                            ProjectionType = "TransverseMercator",
+                            Region = "Nepal"
+                        },
+                        new
+                        {
+                            Id = 3,
+                            Code = "MUTM81",
+                            CreatedDate = new DateTime(1, 1, 1, 0, 0, 0, 0, DateTimeKind.Unspecified),
+                            Description = "Nepal Survey Dept. Central meridian 81°E. Everest 1830.",
+                            DisplayOrder = 3,
+                            IsActive = true,
+                            IsSystemDefault = true,
+                            Name = "Modified UTM Zone 81 — Nepal",
+                            ProjectionType = "TransverseMercator",
+                            Region = "Nepal"
+                        },
+                        new
+                        {
+                            Id = 4,
+                            Code = "MUTM82",
+                            CreatedDate = new DateTime(1, 1, 1, 0, 0, 0, 0, DateTimeKind.Unspecified),
+                            Description = "Nepal Survey Dept. Central meridian 84°E. Everest 1830.",
+                            DisplayOrder = 4,
+                            IsActive = true,
+                            IsSystemDefault = true,
+                            Name = "Modified UTM Zone 82 — Nepal",
+                            ProjectionType = "TransverseMercator",
+                            Region = "Nepal"
+                        },
+                        new
+                        {
+                            Id = 5,
+                            Code = "MUTM83",
+                            CreatedDate = new DateTime(1, 1, 1, 0, 0, 0, 0, DateTimeKind.Unspecified),
+                            Description = "Nepal Survey Dept. Central meridian 87°E. Everest 1830.",
+                            DisplayOrder = 5,
+                            IsActive = true,
+                            IsSystemDefault = true,
+                            Name = "Modified UTM Zone 83 — Nepal",
+                            ProjectionType = "TransverseMercator",
+                            Region = "Nepal"
+                        },
+                        new
+                        {
+                            Id = 6,
+                            Code = "WGS84",
+                            CreatedDate = new DateTime(1, 1, 1, 0, 0, 0, 0, DateTimeKind.Unspecified),
+                            Description = "GPS coordinates in decimal degrees.",
+                            DisplayOrder = 6,
+                            EpsgCode = 4326,
+                            IsActive = true,
+                            IsSystemDefault = true,
+                            Name = "WGS84 — Geographic Lat/Long",
+                            ProjectionType = "Geographic",
+                            Region = "Global"
+                        });
+                });
+
+            modelBuilder.Entity("Land_Readjustment_Tool.Core.Entities.Spatial.DatumTransformation", b =>
+                {
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("INTEGER");
+
+                    b.Property<string>("ApplicableCrsCodes")
+                        .HasColumnType("TEXT");
+
+                    b.Property<string>("Code")
+                        .IsRequired()
+                        .HasColumnType("TEXT");
+
+                    b.Property<DateTime>("CreatedDate")
+                        .HasColumnType("TEXT");
+
+                    b.Property<double>("DeltaX")
+                        .HasColumnType("REAL");
+
+                    b.Property<double>("DeltaY")
+                        .HasColumnType("REAL");
+
+                    b.Property<double>("DeltaZ")
+                        .HasColumnType("REAL");
+
+                    b.Property<string>("Description")
+                        .HasColumnType("TEXT");
+
+                    b.Property<int>("DisplayOrder")
+                        .HasColumnType("INTEGER");
+
+                    b.Property<bool>("IsActive")
+                        .HasColumnType("INTEGER");
+
+                    b.Property<bool>("IsSystemDefault")
+                        .HasColumnType("INTEGER");
+
+                    b.Property<string>("Name")
+                        .IsRequired()
+                        .HasColumnType("TEXT");
+
+                    b.Property<string>("Region")
+                        .HasColumnType("TEXT");
+
+                    b.Property<double>("RotationX")
+                        .HasColumnType("REAL");
+
+                    b.Property<double>("RotationY")
+                        .HasColumnType("REAL");
+
+                    b.Property<double>("RotationZ")
+                        .HasColumnType("REAL");
+
+                    b.Property<double>("ScalePpm")
+                        .HasColumnType("REAL");
+
+                    b.Property<string>("Source")
+                        .HasColumnType("TEXT");
+
+                    b.Property<string>("SourceDatum")
+                        .IsRequired()
+                        .HasColumnType("TEXT");
+
+                    b.Property<string>("TargetDatum")
+                        .IsRequired()
+                        .HasColumnType("TEXT");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("Code")
+                        .IsUnique();
+
+                    b.ToTable("tblDatumTransformations");
+
+                    b.HasData(
+                        new
+                        {
+                            Id = 1,
+                            ApplicableCrsCodes = "MUTM81,MUTM82,MUTM83",
+                            Code = "NEPAL_SURV_DEPT",
+                            CreatedDate = new DateTime(1, 1, 1, 0, 0, 0, 0, DateTimeKind.Unspecified),
+                            DeltaX = 293.17000000000002,
+                            DeltaY = 726.17999999999995,
+                            DeltaZ = 245.36000000000001,
+                            Description = "Official transformation. Recommended for all MUTM zones.",
+                            DisplayOrder = 1,
+                            IsActive = true,
+                            IsSystemDefault = true,
+                            Name = "Nepal Survey Department (Official)",
+                            Region = "Nepal",
+                            RotationX = 0.0,
+                            RotationY = 0.0,
+                            RotationZ = 0.0,
+                            ScalePpm = 0.0,
+                            Source = "Survey Department Nepal",
+                            SourceDatum = "Everest1830",
+                            TargetDatum = "WGS84"
+                        },
+                        new
+                        {
+                            Id = 2,
+                            ApplicableCrsCodes = "MUTM81,MUTM82,MUTM83",
+                            Code = "NEPAL_NAGARKOT",
+                            CreatedDate = new DateTime(1, 1, 1, 0, 0, 0, 0, DateTimeKind.Unspecified),
+                            DeltaX = 295.0,
+                            DeltaY = 740.0,
+                            DeltaZ = 460.0,
+                            Description = "Based on Nagarkot GPS control points.",
+                            DisplayOrder = 2,
+                            IsActive = true,
+                            IsSystemDefault = true,
+                            Name = "Nagarkot GPS Campaign 1994",
+                            Region = "Nepal",
+                            RotationX = 0.0,
+                            RotationY = 0.0,
+                            RotationZ = 0.0,
+                            ScalePpm = 0.0,
+                            Source = "Nagarkot GPS Campaign 1994",
+                            SourceDatum = "Everest1830",
+                            TargetDatum = "WGS84"
+                        },
+                        new
+                        {
+                            Id = 3,
+                            ApplicableCrsCodes = "MUTM81,MUTM82,MUTM83",
+                            Code = "NEPAL_KALIANPUR",
+                            CreatedDate = new DateTime(1, 1, 1, 0, 0, 0, 0, DateTimeKind.Unspecified),
+                            DeltaX = 283.0,
+                            DeltaY = 682.0,
+                            DeltaZ = 231.0,
+                            Description = "Traditional Kalianpur parameters. Used in older records.",
+                            DisplayOrder = 3,
+                            IsActive = true,
+                            IsSystemDefault = true,
+                            Name = "Kalianpur Datum Parameters",
+                            Region = "Nepal",
+                            RotationX = 0.0,
+                            RotationY = 0.0,
+                            RotationZ = 0.0,
+                            ScalePpm = 0.0,
+                            Source = "Kalianpur datum parameters",
+                            SourceDatum = "Everest1830",
+                            TargetDatum = "WGS84"
+                        },
+                        new
+                        {
+                            Id = 4,
+                            ApplicableCrsCodes = "UTM44N,UTM45N,WGS84",
+                            Code = "WGS84_IDENTITY",
+                            CreatedDate = new DateTime(1, 1, 1, 0, 0, 0, 0, DateTimeKind.Unspecified),
+                            DeltaX = 0.0,
+                            DeltaY = 0.0,
+                            DeltaZ = 0.0,
+                            Description = "No shift needed. Source and target are both WGS84.",
+                            DisplayOrder = 4,
+                            IsActive = true,
+                            IsSystemDefault = true,
+                            Name = "WGS84 — No Transformation Needed",
+                            Region = "Global",
+                            RotationX = 0.0,
+                            RotationY = 0.0,
+                            RotationZ = 0.0,
+                            ScalePpm = 0.0,
+                            Source = "Identity transform",
+                            SourceDatum = "WGS84",
+                            TargetDatum = "WGS84"
+                        });
+                });
+
+            modelBuilder.Entity("Land_Readjustment_Tool.Core.Entities.Spatial.ProjectionParameters", b =>
+                {
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("INTEGER");
+
+                    b.Property<double?>("CentralMeridian")
+                        .HasColumnType("REAL");
+
+                    b.Property<int>("CoordinateSystemId")
+                        .HasColumnType("INTEGER");
+
+                    b.Property<string>("Ellipsoid")
+                        .HasColumnType("TEXT");
+
+                    b.Property<double?>("FalseEasting")
+                        .HasColumnType("REAL");
+
+                    b.Property<double?>("FalseNorthing")
+                        .HasColumnType("REAL");
+
+                    b.Property<double?>("InverseFlattening")
+                        .HasColumnType("REAL");
+
+                    b.Property<double?>("LatitudeOfOrigin")
+                        .HasColumnType("REAL");
+
+                    b.Property<double?>("ScaleFactor")
+                        .HasColumnType("REAL");
+
+                    b.Property<double?>("SemiMajorAxis")
+                        .HasColumnType("REAL");
+
+                    b.Property<string>("WktDefinition")
+                        .HasColumnType("TEXT");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("CoordinateSystemId")
+                        .IsUnique();
+
+                    b.ToTable("tblProjectionParameters");
+
+                    b.HasData(
+                        new
+                        {
+                            Id = 1,
+                            CentralMeridian = 81.0,
+                            CoordinateSystemId = 3,
+                            Ellipsoid = "Everest1830",
+                            FalseEasting = 500000.0,
+                            FalseNorthing = 0.0,
+                            InverseFlattening = 300.80169999999998,
+                            LatitudeOfOrigin = 0.0,
+                            ScaleFactor = 0.99990000000000001,
+                            SemiMajorAxis = 6377276.3449999997
+                        },
+                        new
+                        {
+                            Id = 2,
+                            CentralMeridian = 84.0,
+                            CoordinateSystemId = 4,
+                            Ellipsoid = "Everest1830",
+                            FalseEasting = 500000.0,
+                            FalseNorthing = 0.0,
+                            InverseFlattening = 300.80169999999998,
+                            LatitudeOfOrigin = 0.0,
+                            ScaleFactor = 0.99990000000000001,
+                            SemiMajorAxis = 6377276.3449999997
+                        },
+                        new
+                        {
+                            Id = 3,
+                            CentralMeridian = 87.0,
+                            CoordinateSystemId = 5,
+                            Ellipsoid = "Everest1830",
+                            FalseEasting = 500000.0,
+                            FalseNorthing = 0.0,
+                            InverseFlattening = 300.80169999999998,
+                            LatitudeOfOrigin = 0.0,
+                            ScaleFactor = 0.99990000000000001,
+                            SemiMajorAxis = 6377276.3449999997
+                        });
                 });
 
             modelBuilder.Entity("Land_Readjustment_Tool.Core.Entities.Canvas.CanvasObject", b =>
@@ -1372,6 +1823,23 @@ namespace Land_Readjustment_Tool.Migrations
                     b.Navigation("CanvasObject");
                 });
 
+            modelBuilder.Entity("Land_Readjustment_Tool.Core.Entities.Project.ProjectSettings", b =>
+                {
+                    b.HasOne("Land_Readjustment_Tool.Core.Entities.Spatial.CoordinateSystem", "CoordinateSystem")
+                        .WithMany()
+                        .HasForeignKey("CoordinateSystemId")
+                        .OnDelete(DeleteBehavior.SetNull);
+
+                    b.HasOne("Land_Readjustment_Tool.Core.Entities.Spatial.DatumTransformation", "DatumTransformation")
+                        .WithMany()
+                        .HasForeignKey("DatumTransformationId")
+                        .OnDelete(DeleteBehavior.SetNull);
+
+                    b.Navigation("CoordinateSystem");
+
+                    b.Navigation("DatumTransformation");
+                });
+
             modelBuilder.Entity("Land_Readjustment_Tool.Core.Entities.Replotting.OriginalToReplottedMap", b =>
                 {
                     b.HasOne("Land_Readjustment_Tool.Core.Entities.LandData.BaselineParcel", "BaselineParcel")
@@ -1434,6 +1902,17 @@ namespace Land_Readjustment_Tool.Migrations
                     b.Navigation("LandOwner");
 
                     b.Navigation("ReplottedParcel");
+                });
+
+            modelBuilder.Entity("Land_Readjustment_Tool.Core.Entities.Spatial.ProjectionParameters", b =>
+                {
+                    b.HasOne("Land_Readjustment_Tool.Core.Entities.Spatial.CoordinateSystem", "CoordinateSystem")
+                        .WithOne("ProjectionParameters")
+                        .HasForeignKey("Land_Readjustment_Tool.Core.Entities.Spatial.ProjectionParameters", "CoordinateSystemId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.Navigation("CoordinateSystem");
                 });
 
             modelBuilder.Entity("Land_Readjustment_Tool.Core.Entities.Canvas.CanvasLayer", b =>
@@ -1525,6 +2004,11 @@ namespace Land_Readjustment_Tool.Migrations
                     b.Navigation("ParcelFrontages");
 
                     b.Navigation("ReplottedParcelOwners");
+                });
+
+            modelBuilder.Entity("Land_Readjustment_Tool.Core.Entities.Spatial.CoordinateSystem", b =>
+                {
+                    b.Navigation("ProjectionParameters");
                 });
 #pragma warning restore 612, 618
         }

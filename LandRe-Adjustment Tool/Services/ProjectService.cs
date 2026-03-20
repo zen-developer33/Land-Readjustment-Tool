@@ -45,7 +45,47 @@ namespace Land_Readjustment_Tool.Services
                 ProjectName = projectName
             };
 
-            var settings = new ProjectSettings();
+            var settings = new ProjectSettings
+            {
+                // ── AREA ────────────────────────────────
+                // Default traditional unit is RAPD
+                // All calculations always use Sqm
+                TraditionalAreaUnit = "RAPD",
+
+                // ── COORDINATE SYSTEM ───────────────────
+                // NEW — FK replaces old string fields
+                CoordinateSystemId = null,
+                // null until user sets it in settings window
+
+                // ── CANVAS ──────────────────────────────
+                CanvasBackgroundColor = "#1E2933",
+                CanvasGridColor = "#2A3A47",
+                CanvasGridVisible = true,
+                SnapEnabled = true,
+                SnapTolerancePx = 8.0,
+
+                // ── PARCEL NUMBERING ────────────────────
+                ParcelNumberFormat = "Sequential",
+                ParcelNumberPrefix = null,
+                ParcelNumberPadding = 3,
+
+                // ── REPLOTTING ──────────────────────────
+                // Nepal government standard minimum
+                MinPlotAreaSqm = 79.49,
+
+                // ── DOCUMENT ────────────────────────────
+                DocumentLanguage = "English",
+                DateFormat = "AD",
+
+                // ── PRINT ───────────────────────────────
+                DefaultPaperSize = "A3",
+                DefaultPrintScale = 500,
+
+                // ── STATUS ──────────────────────────────
+                // false = settings window shown on first open
+                // true after user confirms settings
+                IsConfigured = false
+            };
             // IsConfigured = false by default
             // Settings window shown on first open
 
