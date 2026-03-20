@@ -1,16 +1,12 @@
-﻿using Microsoft.EntityFrameworkCore;
-using Land_Readjustment_Tool.Core.Entities.Project;
-using Land_Readjustment_Tool.Core.Entities.LandData;
-using Land_Readjustment_Tool.Core.Entities.Import;
-using Land_Readjustment_Tool.Core.Entities.Canvas;
-using Land_Readjustment_Tool.Core.Entities.Layout;
+﻿using Land_Readjustment_Tool.Core.Entities.Canvas;
 using Land_Readjustment_Tool.Core.Entities.Contribution;
+using Land_Readjustment_Tool.Core.Entities.Import;
+using Land_Readjustment_Tool.Core.Entities.LandData;
+using Land_Readjustment_Tool.Core.Entities.Layout;
+using Land_Readjustment_Tool.Core.Entities.Project;
 using Land_Readjustment_Tool.Core.Entities.Replotting;
-using Microsoft.EntityFrameworkCore.Metadata.Internal;
-using System.Numerics;
-using System.Security.Policy;
-using System.Xml;
-using static Microsoft.EntityFrameworkCore.DbLoggerCategory;
+using Land_Readjustment_Tool.Core.Entities.Spatial;
+using Microsoft.EntityFrameworkCore;
 
 namespace Land_Readjustment_Tool.Data
 {
@@ -24,32 +20,52 @@ namespace Land_Readjustment_Tool.Data
         }
 
         // ── DB SETS ─────────────────────────────────
+
+        // Project
         public DbSet<ProjectInfo> ProjectInfo { get; set; }
         public DbSet<ProjectSettings> ProjectSettings { get; set; }
+
+        // Spatial master data
+        public DbSet<CoordinateSystem> CoordinateSystems { get; set; }
+        public DbSet<ProjectionParameters> ProjectionParameters { get; set; }
+        public DbSet<DatumTransformation> DatumTransformations { get; set; }
+
+        // Land data
         public DbSet<LandOwner> LandOwners { get; set; }
         public DbSet<MalpotReference> MalpotReferences { get; set; }
+        public DbSet<BaselineParcel> BaselineParcels { get; set; }
+        public DbSet<ParcelFrontage> ParcelFrontages { get; set; }
+
+        // Import
         public DbSet<ImportSession> ImportSessions { get; set; }
         public DbSet<ImportedRawRecord> ImportedRawRecords { get; set; }
         public DbSet<ValidationError> ValidationErrors { get; set; }
         public DbSet<CitizenshipConflict> CitizenshipConflicts { get; set; }
         public DbSet<CitizenshipConflictRecord> CitizenshipConflictRecords { get; set; }
-        public DbSet<BaselineParcel> BaselineParcels { get; set; }
+
+        // Canvas
         public DbSet<CanvasLayer> CanvasLayers { get; set; }
         public DbSet<CanvasObject> CanvasObjects { get; set; }
+
+        // Layout
         public DbSet<Road> Roads { get; set; }
         public DbSet<Block> Blocks { get; set; }
-        public DbSet<ParcelFrontage> ParcelFrontages { get; set; }
+
+        // Contribution
         public DbSet<ContributionCategory> ContributionCategories { get; set; }
         public DbSet<ParcelContribution> ParcelContributions { get; set; }
         public DbSet<ParcelContributionSummary> ParcelContributionSummaries { get; set; }
+
+        // Replotting
         public DbSet<ReplottedParcel> ReplottedParcels { get; set; }
         public DbSet<OriginalToReplottedMap> OriginalToReplottedMaps { get; set; }
         public DbSet<ReplottedParcelOwner> ReplottedParcelOwners { get; set; }
         public DbSet<PlotType> PlotTypes { get; set; }
 
         // ── CONFIGURE CONNECTION ─────────────────────
+
         protected override void OnConfiguring(
-    DbContextOptionsBuilder optionsBuilder)
+            DbContextOptionsBuilder optionsBuilder)
         {
             optionsBuilder.UseSqlite(
                 $"Data Source={_dbPath}",
@@ -57,49 +73,79 @@ namespace Land_Readjustment_Tool.Data
         }
 
         // ── CONFIGURE RELATIONSHIPS ──────────────────
+
         protected override void OnModelCreating(
             ModelBuilder modelBuilder)
         {
-            // ProjectInfo — always exactly one row
+            // ── SINGLE ROW CONSTRAINTS ───────────────
+
             modelBuilder.Entity<ProjectInfo>()
                 .ToTable(t => t.HasCheckConstraint(
-                "CK_ProjectInfo_SingleRow", "Id = 1"));
+                    "CK_ProjectInfo_SingleRow", "Id = 1"));
 
-            // ProjectSettings — always exactly one row
             modelBuilder.Entity<ProjectSettings>()
                 .ToTable(t => t.HasCheckConstraint(
-                "CK_ProjectSettings_SingleRow", "Id = 1"));
+                    "CK_ProjectSettings_SingleRow", "Id = 1"));
 
-            // MalpotReference — unique per owner per moth
+            // ── UNIQUE INDEXES ───────────────────────
+
+            modelBuilder.Entity<CoordinateSystem>()
+                .HasIndex(c => c.Code)
+                .IsUnique();
+
+            modelBuilder.Entity<DatumTransformation>()
+                .HasIndex(d => d.Code)
+                .IsUnique();
+
             modelBuilder.Entity<MalpotReference>()
                 .HasIndex(m => new { m.LandOwnerId, m.MothNo })
                 .IsUnique();
 
-            // BaselineParcel — unique FullUniqueParcelCode
             modelBuilder.Entity<BaselineParcel>()
                 .HasIndex(b => b.FullUniqueParcelCode)
                 .IsUnique();
 
-            // PlotType — unique TypeCode
             modelBuilder.Entity<PlotType>()
                 .HasIndex(p => p.TypeCode)
                 .IsUnique();
 
-            // LandOwner — unique CitizenshipNumber
-            // only when not null
             modelBuilder.Entity<LandOwner>()
                 .HasIndex(l => l.CitizenshipNumber)
                 .IsUnique()
                 .HasFilter("CitizenshipNumber IS NOT NULL");
 
-            // CitizenshipConflict — two FKs to same table
+            // ── SPATIAL RELATIONSHIPS ────────────────
+
+            // CoordinateSystem → ProjectionParameters (one to one)
+            modelBuilder.Entity<CoordinateSystem>()
+                .HasOne(c => c.ProjectionParameters)
+                .WithOne(p => p.CoordinateSystem)
+                .HasForeignKey<ProjectionParameters>(
+                    p => p.CoordinateSystemId)
+                .OnDelete(DeleteBehavior.Cascade);
+
+            // ProjectSettings → CoordinateSystem
+            modelBuilder.Entity<ProjectSettings>()
+                .HasOne(s => s.CoordinateSystem)
+                .WithMany()
+                .HasForeignKey(s => s.CoordinateSystemId)
+                .OnDelete(DeleteBehavior.SetNull);
+
+            // ProjectSettings → DatumTransformation
+            modelBuilder.Entity<ProjectSettings>()
+                .HasOne(s => s.DatumTransformation)
+                .WithMany()
+                .HasForeignKey(s => s.DatumTransformationId)
+                .OnDelete(DeleteBehavior.SetNull);
+
+            // ── LAND DATA RELATIONSHIPS ──────────────
+
             modelBuilder.Entity<CitizenshipConflictRecord>()
                 .HasOne(c => c.CitizenshipConflict)
                 .WithMany(c => c.ConflictingRecords)
                 .HasForeignKey(c => c.CitizenshipConflictId)
                 .OnDelete(DeleteBehavior.Cascade);
 
-            // ParcelFrontage — either baseline or replotted
             modelBuilder.Entity<ParcelFrontage>()
                 .HasOne(f => f.BaselineParcel)
                 .WithMany(b => b.ParcelFrontages)
@@ -112,7 +158,6 @@ namespace Land_Readjustment_Tool.Data
                 .HasForeignKey(f => f.ReplottedParcelId)
                 .OnDelete(DeleteBehavior.Restrict);
 
-            // OriginalToReplottedMap relationships
             modelBuilder.Entity<OriginalToReplottedMap>()
                 .HasOne(o => o.BaselineParcel)
                 .WithMany(b => b.OriginalToReplottedMaps)
@@ -125,37 +170,344 @@ namespace Land_Readjustment_Tool.Data
                 .HasForeignKey(o => o.ReplottedParcelId)
                 .OnDelete(DeleteBehavior.Restrict);
 
-            // BaselineParcel → CanvasObject (one to one)
+            // ── CANVAS OBJECT ONE-TO-ONE ─────────────
+
             modelBuilder.Entity<BaselineParcel>()
                 .HasOne(b => b.CanvasObject)
                 .WithOne(c => c.BaselineParcel)
-                .HasForeignKey<BaselineParcel>(b => b.CanvasObjectId)
+                .HasForeignKey<BaselineParcel>(
+                    b => b.CanvasObjectId)
                 .OnDelete(DeleteBehavior.SetNull);
 
-            // ReplottedParcel → CanvasObject (one to one)
             modelBuilder.Entity<ReplottedParcel>()
                 .HasOne(r => r.CanvasObject)
                 .WithOne(c => c.ReplottedParcel)
-                .HasForeignKey<ReplottedParcel>(r => r.CanvasObjectId)
+                .HasForeignKey<ReplottedParcel>(
+                    r => r.CanvasObjectId)
                 .OnDelete(DeleteBehavior.SetNull);
 
-            // Road → CanvasObject (one to one)
             modelBuilder.Entity<Road>()
                 .HasOne(r => r.CanvasObject)
                 .WithOne(c => c.Road)
-                .HasForeignKey<Road>(r => r.CanvasObjectId)
+                .HasForeignKey<Road>(
+                    r => r.CanvasObjectId)
                 .OnDelete(DeleteBehavior.SetNull);
 
-            // Block → CanvasObject (one to one)
             modelBuilder.Entity<Block>()
                 .HasOne(b => b.CanvasObject)
                 .WithOne(c => c.Block)
-                .HasForeignKey<Block>(b => b.CanvasObjectId)
+                .HasForeignKey<Block>(
+                    b => b.CanvasObjectId)
                 .OnDelete(DeleteBehavior.SetNull);
 
+            // ── SEED DATA ────────────────────────────
+
+            SeedPlotTypes(modelBuilder);
+            SeedCoordinateSystems(modelBuilder);
+            SeedProjectionParameters(modelBuilder);
+            SeedDatumTransformations(modelBuilder);
+        }
+
+        // ── SEED METHODS ─────────────────────────────
+
+        private static void SeedPlotTypes(
+            ModelBuilder modelBuilder)
+        {
+            modelBuilder.Entity<PlotType>().HasData(
+                new PlotType
+                {
+                    Id = 1,
+                    TypeName = "Private",
+                    TypeCode = "PRV",
+                    IsSystemDefault = true,
+                    IsActive = true,
+                    DisplayOrder = 1,
+                    Description = "Private ownership plot"
+                },
+                new PlotType
+                {
+                    Id = 2,
+                    TypeName = "Sales Plot",
+                    TypeCode = "SAL",
+                    IsSystemDefault = true,
+                    IsActive = true,
+                    DisplayOrder = 2,
+                    Description = "Plot for sale to recover project costs"
+                },
+                new PlotType
+                {
+                    Id = 3,
+                    TypeName = "Government",
+                    TypeCode = "GOV",
+                    IsSystemDefault = true,
+                    IsActive = true,
+                    DisplayOrder = 3,
+                    Description = "Government use plot"
+                },
+                new PlotType
+                {
+                    Id = 4,
+                    TypeName = "Open Space",
+                    TypeCode = "OPS",
+                    IsSystemDefault = true,
+                    IsActive = true,
+                    DisplayOrder = 4,
+                    Description = "Parks and public open spaces"
+                },
+                new PlotType
+                {
+                    Id = 5,
+                    TypeName = "Community",
+                    TypeCode = "COM",
+                    IsSystemDefault = true,
+                    IsActive = true,
+                    DisplayOrder = 5,
+                    Description = "Community use plot"
+                },
+                new PlotType
+                {
+                    Id = 6,
+                    TypeName = "Road",
+                    TypeCode = "ROD",
+                    IsSystemDefault = true,
+                    IsActive = true,
+                    DisplayOrder = 6,
+                    Description = "Road right of way"
+                }
+            );
+        }
+
+        private static void SeedCoordinateSystems(
+            ModelBuilder modelBuilder)
+        {
+            modelBuilder.Entity<CoordinateSystem>().HasData(
+                new CoordinateSystem
+                {
+                    Id = 1,
+                    Code = "UTM44N",
+                    Name = "UTM Zone 44N — West Nepal",
+                    EpsgCode = 32644,
+                    ProjectionType = "TransverseMercator",
+                    Region = "Nepal",
+                    IsSystemDefault = true,
+                    IsActive = true,
+                    DisplayOrder = 1,
+                    Description = "West Nepal. 78°E to 84°E. WGS84 datum."
+                },
+                new CoordinateSystem
+                {
+                    Id = 2,
+                    Code = "UTM45N",
+                    Name = "UTM Zone 45N — East Nepal",
+                    EpsgCode = 32645,
+                    ProjectionType = "TransverseMercator",
+                    Region = "Nepal",
+                    IsSystemDefault = true,
+                    IsActive = true,
+                    DisplayOrder = 2,
+                    Description = "East Nepal. 84°E to 90°E. WGS84 datum."
+                },
+                new CoordinateSystem
+                {
+                    Id = 3,
+                    Code = "MUTM81",
+                    Name = "Modified UTM Zone 81 — Nepal",
+                    EpsgCode = null,
+                    ProjectionType = "TransverseMercator",
+                    Region = "Nepal",
+                    IsSystemDefault = true,
+                    IsActive = true,
+                    DisplayOrder = 3,
+                    Description = "Nepal Survey Dept. Central meridian 81°E. Everest 1830."
+                },
+                new CoordinateSystem
+                {
+                    Id = 4,
+                    Code = "MUTM82",
+                    Name = "Modified UTM Zone 82 — Nepal",
+                    EpsgCode = null,
+                    ProjectionType = "TransverseMercator",
+                    Region = "Nepal",
+                    IsSystemDefault = true,
+                    IsActive = true,
+                    DisplayOrder = 4,
+                    Description = "Nepal Survey Dept. Central meridian 84°E. Everest 1830."
+                },
+                new CoordinateSystem
+                {
+                    Id = 5,
+                    Code = "MUTM83",
+                    Name = "Modified UTM Zone 83 — Nepal",
+                    EpsgCode = null,
+                    ProjectionType = "TransverseMercator",
+                    Region = "Nepal",
+                    IsSystemDefault = true,
+                    IsActive = true,
+                    DisplayOrder = 5,
+                    Description = "Nepal Survey Dept. Central meridian 87°E. Everest 1830."
+                },
+                new CoordinateSystem
+                {
+                    Id = 6,
+                    Code = "WGS84",
+                    Name = "WGS84 — Geographic Lat/Long",
+                    EpsgCode = 4326,
+                    ProjectionType = "Geographic",
+                    Region = "Global",
+                    IsSystemDefault = true,
+                    IsActive = true,
+                    DisplayOrder = 6,
+                    Description = "GPS coordinates in decimal degrees."
+                }
+            );
+        }
+
+        private static void SeedProjectionParameters(
+            ModelBuilder modelBuilder)
+        {
+            modelBuilder.Entity<ProjectionParameters>().HasData(
+                // MUTM81 — central meridian 81°E
+                new ProjectionParameters
+                {
+                    Id = 1,
+                    CoordinateSystemId = 3,
+                    CentralMeridian = 81.0,
+                    LatitudeOfOrigin = 0.0,
+                    ScaleFactor = 0.9999,
+                    FalseEasting = 500000.0,
+                    FalseNorthing = 0.0,
+                    Ellipsoid = "Everest1830",
+                    SemiMajorAxis = 6377276.345,
+                    InverseFlattening = 300.8017
+                },
+                // MUTM82 — central meridian 84°E
+                new ProjectionParameters
+                {
+                    Id = 2,
+                    CoordinateSystemId = 4,
+                    CentralMeridian = 84.0,
+                    LatitudeOfOrigin = 0.0,
+                    ScaleFactor = 0.9999,
+                    FalseEasting = 500000.0,
+                    FalseNorthing = 0.0,
+                    Ellipsoid = "Everest1830",
+                    SemiMajorAxis = 6377276.345,
+                    InverseFlattening = 300.8017
+                },
+                // MUTM83 — central meridian 87°E
+                new ProjectionParameters
+                {
+                    Id = 3,
+                    CoordinateSystemId = 5,
+                    CentralMeridian = 87.0,
+                    LatitudeOfOrigin = 0.0,
+                    ScaleFactor = 0.9999,
+                    FalseEasting = 500000.0,
+                    FalseNorthing = 0.0,
+                    Ellipsoid = "Everest1830",
+                    SemiMajorAxis = 6377276.345,
+                    InverseFlattening = 300.8017
+                }
+            );
+        }
+
+        private static void SeedDatumTransformations(
+            ModelBuilder modelBuilder)
+        {
+            modelBuilder.Entity<DatumTransformation>().HasData(
+                new DatumTransformation
+                {
+                    Id = 1,
+                    Code = "NEPAL_SURV_DEPT",
+                    Name = "Nepal Survey Department (Official)",
+                    SourceDatum = "Everest1830",
+                    TargetDatum = "WGS84",
+                    DeltaX = 293.17,
+                    DeltaY = 726.18,
+                    DeltaZ = 245.36,
+                    RotationX = 0,
+                    RotationY = 0,
+                    RotationZ = 0,
+                    ScalePpm = 0,
+                    ApplicableCrsCodes = "MUTM81,MUTM82,MUTM83",
+                    Source = "Survey Department Nepal",
+                    Region = "Nepal",
+                    IsSystemDefault = true,
+                    IsActive = true,
+                    DisplayOrder = 1,
+                    Description = "Official transformation. Recommended for all MUTM zones."
+                },
+                new DatumTransformation
+                {
+                    Id = 2,
+                    Code = "NEPAL_NAGARKOT",
+                    Name = "Nagarkot GPS Campaign 1994",
+                    SourceDatum = "Everest1830",
+                    TargetDatum = "WGS84",
+                    DeltaX = 295.0,
+                    DeltaY = 740.0,
+                    DeltaZ = 460.0,
+                    RotationX = 0,
+                    RotationY = 0,
+                    RotationZ = 0,
+                    ScalePpm = 0,
+                    ApplicableCrsCodes = "MUTM81,MUTM82,MUTM83",
+                    Source = "Nagarkot GPS Campaign 1994",
+                    Region = "Nepal",
+                    IsSystemDefault = true,
+                    IsActive = true,
+                    DisplayOrder = 2,
+                    Description = "Based on Nagarkot GPS control points."
+                },
+                new DatumTransformation
+                {
+                    Id = 3,
+                    Code = "NEPAL_KALIANPUR",
+                    Name = "Kalianpur Datum Parameters",
+                    SourceDatum = "Everest1830",
+                    TargetDatum = "WGS84",
+                    DeltaX = 283.0,
+                    DeltaY = 682.0,
+                    DeltaZ = 231.0,
+                    RotationX = 0,
+                    RotationY = 0,
+                    RotationZ = 0,
+                    ScalePpm = 0,
+                    ApplicableCrsCodes = "MUTM81,MUTM82,MUTM83",
+                    Source = "Kalianpur datum parameters",
+                    Region = "Nepal",
+                    IsSystemDefault = true,
+                    IsActive = true,
+                    DisplayOrder = 3,
+                    Description = "Traditional Kalianpur parameters. Used in older records."
+                },
+                new DatumTransformation
+                {
+                    Id = 4,
+                    Code = "WGS84_IDENTITY",
+                    Name = "WGS84 — No Transformation Needed",
+                    SourceDatum = "WGS84",
+                    TargetDatum = "WGS84",
+                    DeltaX = 0,
+                    DeltaY = 0,
+                    DeltaZ = 0,
+                    RotationX = 0,
+                    RotationY = 0,
+                    RotationZ = 0,
+                    ScalePpm = 0,
+                    ApplicableCrsCodes = "UTM44N,UTM45N,WGS84",
+                    Source = "Identity transform",
+                    Region = "Global",
+                    IsSystemDefault = true,
+                    IsActive = true,
+                    DisplayOrder = 4,
+                    Description = "No shift needed. Source and target are both WGS84."
+                }
+            );
         }
 
         // ── AUTO SET DATES ───────────────────────────
+
         public override int SaveChanges()
         {
             SetDates();

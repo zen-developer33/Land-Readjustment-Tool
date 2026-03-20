@@ -3,6 +3,7 @@ using System;
 using Land_Readjustment_Tool.Data;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Infrastructure;
+using Microsoft.EntityFrameworkCore.Migrations;
 using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 using NetTopologySuite.Geometries;
 
@@ -11,9 +12,11 @@ using NetTopologySuite.Geometries;
 namespace Land_Readjustment_Tool.Migrations
 {
     [DbContext(typeof(AppDbContext))]
-    partial class AppDbContextModelSnapshot : ModelSnapshot
+    [Migration("20260320164520_AddDatumTransformation")]
+    partial class AddDatumTransformation
     {
-        protected override void BuildModel(ModelBuilder modelBuilder)
+        /// <inheritdoc />
+        protected override void BuildTargetModel(ModelBuilder modelBuilder)
         {
 #pragma warning disable 612, 618
             modelBuilder.HasAnnotation("ProductVersion", "10.0.3");
@@ -1251,11 +1254,17 @@ namespace Land_Readjustment_Tool.Migrations
                         .ValueGeneratedOnAdd()
                         .HasColumnType("INTEGER");
 
+                    b.Property<double?>("CentralMeridian")
+                        .HasColumnType("REAL");
+
                     b.Property<string>("Code")
                         .IsRequired()
                         .HasColumnType("TEXT");
 
                     b.Property<DateTime>("CreatedDate")
+                        .HasColumnType("TEXT");
+
+                    b.Property<string>("DatumShiftParametersJson")
                         .HasColumnType("TEXT");
 
                     b.Property<string>("Description")
@@ -1264,14 +1273,33 @@ namespace Land_Readjustment_Tool.Migrations
                     b.Property<int>("DisplayOrder")
                         .HasColumnType("INTEGER");
 
+                    b.Property<string>("Ellipsoid")
+                        .HasColumnType("TEXT");
+
                     b.Property<int?>("EpsgCode")
                         .HasColumnType("INTEGER");
+
+                    b.Property<double?>("FalseEasting")
+                        .HasColumnType("REAL");
+
+                    b.Property<double?>("FalseNorthing")
+                        .HasColumnType("REAL");
+
+                    b.Property<double?>("InverseFlattening")
+                        .HasColumnType("REAL");
 
                     b.Property<bool>("IsActive")
                         .HasColumnType("INTEGER");
 
                     b.Property<bool>("IsSystemDefault")
                         .HasColumnType("INTEGER");
+
+                    b.Property<double?>("LatitudeOfOrigin")
+                        .HasColumnType("REAL");
+
+                    b.Property<string>("MapUnit")
+                        .IsRequired()
+                        .HasColumnType("TEXT");
 
                     b.Property<string>("Name")
                         .IsRequired()
@@ -1281,6 +1309,15 @@ namespace Land_Readjustment_Tool.Migrations
                         .HasColumnType("TEXT");
 
                     b.Property<string>("Region")
+                        .HasColumnType("TEXT");
+
+                    b.Property<double?>("ScaleFactor")
+                        .HasColumnType("REAL");
+
+                    b.Property<double?>("SemiMajorAxis")
+                        .HasColumnType("REAL");
+
+                    b.Property<string>("WktDefinition")
                         .HasColumnType("TEXT");
 
                     b.HasKey("Id");
@@ -1296,11 +1333,13 @@ namespace Land_Readjustment_Tool.Migrations
                             Id = 1,
                             Code = "UTM44N",
                             CreatedDate = new DateTime(1, 1, 1, 0, 0, 0, 0, DateTimeKind.Unspecified),
-                            Description = "West Nepal. 78°E to 84°E. WGS84 datum.",
+                            Description = "West Nepal. Longitude 78°E to 84°E.",
                             DisplayOrder = 1,
+                            Ellipsoid = "WGS84",
                             EpsgCode = 32644,
                             IsActive = true,
                             IsSystemDefault = true,
+                            MapUnit = "Meters",
                             Name = "UTM Zone 44N — West Nepal",
                             ProjectionType = "TransverseMercator",
                             Region = "Nepal"
@@ -1310,11 +1349,13 @@ namespace Land_Readjustment_Tool.Migrations
                             Id = 2,
                             Code = "UTM45N",
                             CreatedDate = new DateTime(1, 1, 1, 0, 0, 0, 0, DateTimeKind.Unspecified),
-                            Description = "East Nepal. 84°E to 90°E. WGS84 datum.",
+                            Description = "East Nepal. Longitude 84°E to 90°E.",
                             DisplayOrder = 2,
+                            Ellipsoid = "WGS84",
                             EpsgCode = 32645,
                             IsActive = true,
                             IsSystemDefault = true,
+                            MapUnit = "Meters",
                             Name = "UTM Zone 45N — East Nepal",
                             ProjectionType = "TransverseMercator",
                             Region = "Nepal"
@@ -1322,41 +1363,68 @@ namespace Land_Readjustment_Tool.Migrations
                         new
                         {
                             Id = 3,
+                            CentralMeridian = 81.0,
                             Code = "MUTM81",
                             CreatedDate = new DateTime(1, 1, 1, 0, 0, 0, 0, DateTimeKind.Unspecified),
-                            Description = "Nepal Survey Dept. Central meridian 81°E. Everest 1830.",
+                            Description = "Nepal Survey Dept. Central meridian 81°E.",
                             DisplayOrder = 3,
+                            Ellipsoid = "Everest1830",
+                            FalseEasting = 500000.0,
+                            FalseNorthing = 0.0,
+                            InverseFlattening = 300.80169999999998,
                             IsActive = true,
                             IsSystemDefault = true,
+                            LatitudeOfOrigin = 0.0,
+                            MapUnit = "Meters",
                             Name = "Modified UTM Zone 81 — Nepal",
                             ProjectionType = "TransverseMercator",
-                            Region = "Nepal"
+                            Region = "Nepal",
+                            ScaleFactor = 0.99990000000000001,
+                            SemiMajorAxis = 6377276.3449999997
                         },
                         new
                         {
                             Id = 4,
+                            CentralMeridian = 84.0,
                             Code = "MUTM82",
                             CreatedDate = new DateTime(1, 1, 1, 0, 0, 0, 0, DateTimeKind.Unspecified),
-                            Description = "Nepal Survey Dept. Central meridian 84°E. Everest 1830.",
+                            Description = "Nepal Survey Dept. Central meridian 84°E.",
                             DisplayOrder = 4,
+                            Ellipsoid = "Everest1830",
+                            FalseEasting = 500000.0,
+                            FalseNorthing = 0.0,
+                            InverseFlattening = 300.80169999999998,
                             IsActive = true,
                             IsSystemDefault = true,
+                            LatitudeOfOrigin = 0.0,
+                            MapUnit = "Meters",
                             Name = "Modified UTM Zone 82 — Nepal",
                             ProjectionType = "TransverseMercator",
-                            Region = "Nepal"
+                            Region = "Nepal",
+                            ScaleFactor = 0.99990000000000001,
+                            SemiMajorAxis = 6377276.3449999997
                         },
                         new
                         {
                             Id = 5,
+                            CentralMeridian = 87.0,
                             Code = "MUTM83",
                             CreatedDate = new DateTime(1, 1, 1, 0, 0, 0, 0, DateTimeKind.Unspecified),
-                            Description = "Nepal Survey Dept. Central meridian 87°E. Everest 1830.",
+                            Description = "Nepal Survey Dept. Central meridian 87°E.",
                             DisplayOrder = 5,
+                            Ellipsoid = "Everest1830",
+                            FalseEasting = 500000.0,
+                            FalseNorthing = 0.0,
+                            InverseFlattening = 300.80169999999998,
                             IsActive = true,
                             IsSystemDefault = true,
+                            LatitudeOfOrigin = 0.0,
+                            MapUnit = "Meters",
                             Name = "Modified UTM Zone 83 — Nepal",
                             ProjectionType = "TransverseMercator",
-                            Region = "Nepal"
+                            Region = "Nepal",
+                            ScaleFactor = 0.99990000000000001,
+                            SemiMajorAxis = 6377276.3449999997
                         },
                         new
                         {
@@ -1365,9 +1433,11 @@ namespace Land_Readjustment_Tool.Migrations
                             CreatedDate = new DateTime(1, 1, 1, 0, 0, 0, 0, DateTimeKind.Unspecified),
                             Description = "GPS coordinates in decimal degrees.",
                             DisplayOrder = 6,
+                            Ellipsoid = "WGS84",
                             EpsgCode = 4326,
                             IsActive = true,
                             IsSystemDefault = true,
+                            MapUnit = "Degrees",
                             Name = "WGS84 — Geographic Lat/Long",
                             ProjectionType = "Geographic",
                             Region = "Global"
@@ -1379,6 +1449,9 @@ namespace Land_Readjustment_Tool.Migrations
                     b.Property<int>("Id")
                         .ValueGeneratedOnAdd()
                         .HasColumnType("INTEGER");
+
+                    b.Property<double?>("AccuracyMeters")
+                        .HasColumnType("REAL");
 
                     b.Property<string>("ApplicableCrsCodes")
                         .HasColumnType("TEXT");
@@ -1452,13 +1525,14 @@ namespace Land_Readjustment_Tool.Migrations
                         new
                         {
                             Id = 1,
+                            AccuracyMeters = 1.0,
                             ApplicableCrsCodes = "MUTM81,MUTM82,MUTM83",
                             Code = "NEPAL_SURV_DEPT",
                             CreatedDate = new DateTime(1, 1, 1, 0, 0, 0, 0, DateTimeKind.Unspecified),
                             DeltaX = 293.17000000000002,
                             DeltaY = 726.17999999999995,
                             DeltaZ = 245.36000000000001,
-                            Description = "Official transformation. Recommended for all MUTM zones.",
+                            Description = "Official transformation from Survey Department Nepal. Recommended for all MUTM zones.",
                             DisplayOrder = 1,
                             IsActive = true,
                             IsSystemDefault = true,
@@ -1475,13 +1549,14 @@ namespace Land_Readjustment_Tool.Migrations
                         new
                         {
                             Id = 2,
+                            AccuracyMeters = 3.0,
                             ApplicableCrsCodes = "MUTM81,MUTM82,MUTM83",
                             Code = "NEPAL_NAGARKOT",
                             CreatedDate = new DateTime(1, 1, 1, 0, 0, 0, 0, DateTimeKind.Unspecified),
                             DeltaX = 295.0,
                             DeltaY = 740.0,
                             DeltaZ = 460.0,
-                            Description = "Based on Nagarkot GPS control points.",
+                            Description = "Based on Nagarkot GPS control points. Commonly used in older datasets.",
                             DisplayOrder = 2,
                             IsActive = true,
                             IsSystemDefault = true,
@@ -1498,13 +1573,14 @@ namespace Land_Readjustment_Tool.Migrations
                         new
                         {
                             Id = 3,
+                            AccuracyMeters = 5.0,
                             ApplicableCrsCodes = "MUTM81,MUTM82,MUTM83",
                             Code = "NEPAL_KALIANPUR",
                             CreatedDate = new DateTime(1, 1, 1, 0, 0, 0, 0, DateTimeKind.Unspecified),
                             DeltaX = 283.0,
                             DeltaY = 682.0,
                             DeltaZ = 231.0,
-                            Description = "Traditional Kalianpur parameters. Used in older records.",
+                            Description = "Traditional Kalianpur based parameters. Used in older survey records.",
                             DisplayOrder = 3,
                             IsActive = true,
                             IsSystemDefault = true,
@@ -1521,13 +1597,14 @@ namespace Land_Readjustment_Tool.Migrations
                         new
                         {
                             Id = 4,
+                            AccuracyMeters = 0.0,
                             ApplicableCrsCodes = "UTM44N,UTM45N,WGS84",
                             Code = "WGS84_IDENTITY",
                             CreatedDate = new DateTime(1, 1, 1, 0, 0, 0, 0, DateTimeKind.Unspecified),
                             DeltaX = 0.0,
                             DeltaY = 0.0,
                             DeltaZ = 0.0,
-                            Description = "No shift needed. Source and target are both WGS84.",
+                            Description = "Used when source and target are both WGS84. No shift applied.",
                             DisplayOrder = 4,
                             IsActive = true,
                             IsSystemDefault = true,
@@ -1540,91 +1617,6 @@ namespace Land_Readjustment_Tool.Migrations
                             Source = "Identity transform",
                             SourceDatum = "WGS84",
                             TargetDatum = "WGS84"
-                        });
-                });
-
-            modelBuilder.Entity("Land_Readjustment_Tool.Core.Entities.Spatial.ProjectionParameters", b =>
-                {
-                    b.Property<int>("Id")
-                        .ValueGeneratedOnAdd()
-                        .HasColumnType("INTEGER");
-
-                    b.Property<double?>("CentralMeridian")
-                        .HasColumnType("REAL");
-
-                    b.Property<int>("CoordinateSystemId")
-                        .HasColumnType("INTEGER");
-
-                    b.Property<string>("Ellipsoid")
-                        .HasColumnType("TEXT");
-
-                    b.Property<double?>("FalseEasting")
-                        .HasColumnType("REAL");
-
-                    b.Property<double?>("FalseNorthing")
-                        .HasColumnType("REAL");
-
-                    b.Property<double?>("InverseFlattening")
-                        .HasColumnType("REAL");
-
-                    b.Property<double?>("LatitudeOfOrigin")
-                        .HasColumnType("REAL");
-
-                    b.Property<double?>("ScaleFactor")
-                        .HasColumnType("REAL");
-
-                    b.Property<double?>("SemiMajorAxis")
-                        .HasColumnType("REAL");
-
-                    b.Property<string>("WktDefinition")
-                        .HasColumnType("TEXT");
-
-                    b.HasKey("Id");
-
-                    b.HasIndex("CoordinateSystemId")
-                        .IsUnique();
-
-                    b.ToTable("tblProjectionParameters");
-
-                    b.HasData(
-                        new
-                        {
-                            Id = 1,
-                            CentralMeridian = 81.0,
-                            CoordinateSystemId = 3,
-                            Ellipsoid = "Everest1830",
-                            FalseEasting = 500000.0,
-                            FalseNorthing = 0.0,
-                            InverseFlattening = 300.80169999999998,
-                            LatitudeOfOrigin = 0.0,
-                            ScaleFactor = 0.99990000000000001,
-                            SemiMajorAxis = 6377276.3449999997
-                        },
-                        new
-                        {
-                            Id = 2,
-                            CentralMeridian = 84.0,
-                            CoordinateSystemId = 4,
-                            Ellipsoid = "Everest1830",
-                            FalseEasting = 500000.0,
-                            FalseNorthing = 0.0,
-                            InverseFlattening = 300.80169999999998,
-                            LatitudeOfOrigin = 0.0,
-                            ScaleFactor = 0.99990000000000001,
-                            SemiMajorAxis = 6377276.3449999997
-                        },
-                        new
-                        {
-                            Id = 3,
-                            CentralMeridian = 87.0,
-                            CoordinateSystemId = 5,
-                            Ellipsoid = "Everest1830",
-                            FalseEasting = 500000.0,
-                            FalseNorthing = 0.0,
-                            InverseFlattening = 300.80169999999998,
-                            LatitudeOfOrigin = 0.0,
-                            ScaleFactor = 0.99990000000000001,
-                            SemiMajorAxis = 6377276.3449999997
                         });
                 });
 
@@ -1904,17 +1896,6 @@ namespace Land_Readjustment_Tool.Migrations
                     b.Navigation("ReplottedParcel");
                 });
 
-            modelBuilder.Entity("Land_Readjustment_Tool.Core.Entities.Spatial.ProjectionParameters", b =>
-                {
-                    b.HasOne("Land_Readjustment_Tool.Core.Entities.Spatial.CoordinateSystem", "CoordinateSystem")
-                        .WithOne("ProjectionParameters")
-                        .HasForeignKey("Land_Readjustment_Tool.Core.Entities.Spatial.ProjectionParameters", "CoordinateSystemId")
-                        .OnDelete(DeleteBehavior.Cascade)
-                        .IsRequired();
-
-                    b.Navigation("CoordinateSystem");
-                });
-
             modelBuilder.Entity("Land_Readjustment_Tool.Core.Entities.Canvas.CanvasLayer", b =>
                 {
                     b.Navigation("CanvasObjects");
@@ -2004,11 +1985,6 @@ namespace Land_Readjustment_Tool.Migrations
                     b.Navigation("ParcelFrontages");
 
                     b.Navigation("ReplottedParcelOwners");
-                });
-
-            modelBuilder.Entity("Land_Readjustment_Tool.Core.Entities.Spatial.CoordinateSystem", b =>
-                {
-                    b.Navigation("ProjectionParameters");
                 });
 #pragma warning restore 612, 618
         }
