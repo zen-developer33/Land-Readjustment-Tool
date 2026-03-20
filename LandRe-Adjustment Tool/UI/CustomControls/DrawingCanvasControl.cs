@@ -8,7 +8,7 @@ using Land_Readjustment_Tool.UI.MapCanvas.Core.Commands;
 using Land_Readjustment_Tool.UI.MapCanvas.Models.Shapes;
 using Land_Readjustment_Tool.UI.MapCanvas.Models.Snapping;
 
-namespace Land_Readjustment_Tool.CustomControls
+namespace Land_Readjustment_Tool.UI.CustomControls
 {
     /// <summary>
     /// Drawing Canvas UserControl

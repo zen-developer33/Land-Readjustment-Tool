@@ -42,6 +42,9 @@
             txtProjectEndDate = new TextBox();
             label12 = new Label();
             txtProjectStartDate = new TextBox();
+            dtpProjectEndDate = new DateTimePicker();
+            dtpProjectStartDate = new DateTimePicker();
+            dtpApprovalDate = new DateTimePicker();
             label5 = new Label();
             txtConsultingAgency = new TextBox();
             label3 = new Label();
@@ -63,9 +66,6 @@
             projectInfoBindingSource = new BindingSource(components);
             groupBox4 = new GroupBox();
             txtProjectNotes = new TextBox();
-            dtpApprovalDate = new DateTimePicker();
-            dtpProjectStartDate = new DateTimePicker();
-            dtpProjectEndDate = new DateTimePicker();
             groupBox1.SuspendLayout();
             groupBox2.SuspendLayout();
             groupBox3.SuspendLayout();
@@ -112,7 +112,6 @@
             resources.ApplyResources(txtProjectName, "txtProjectName");
             txtProjectName.Name = "txtProjectName";
             txtProjectName.ReadOnly = true;
-
             // 
             // label1
             // 
@@ -161,6 +160,30 @@
             txtProjectStartDate.Name = "txtProjectStartDate";
             txtProjectStartDate.ReadOnly = true;
             // 
+            // dtpProjectEndDate
+            // 
+            resources.ApplyResources(dtpProjectEndDate, "dtpProjectEndDate");
+            dtpProjectEndDate.Format = DateTimePickerFormat.Custom;
+            dtpProjectEndDate.Name = "dtpProjectEndDate";
+            dtpProjectEndDate.ShowCheckBox = true;
+            dtpProjectEndDate.ValueChanged += dtp_ValueChanged;
+            // 
+            // dtpProjectStartDate
+            // 
+            resources.ApplyResources(dtpProjectStartDate, "dtpProjectStartDate");
+            dtpProjectStartDate.Format = DateTimePickerFormat.Custom;
+            dtpProjectStartDate.Name = "dtpProjectStartDate";
+            dtpProjectStartDate.ShowCheckBox = true;
+            dtpProjectStartDate.ValueChanged += dtp_ValueChanged;
+            // 
+            // dtpApprovalDate
+            // 
+            resources.ApplyResources(dtpApprovalDate, "dtpApprovalDate");
+            dtpApprovalDate.Format = DateTimePickerFormat.Custom;
+            dtpApprovalDate.Name = "dtpApprovalDate";
+            dtpApprovalDate.ShowCheckBox = true;
+            dtpApprovalDate.ValueChanged += dtp_ValueChanged;
+            // 
             // label5
             // 
             resources.ApplyResources(label5, "label5");
@@ -197,7 +220,7 @@
             resources.ApplyResources(btnOK, "btnOK");
             btnOK.Name = "btnOK";
             btnOK.UseVisualStyleBackColor = true;
-  
+            btnOK.Click += btnOK_Click;
             // 
             // groupBox3
             // 
@@ -280,30 +303,6 @@
             // 
             resources.ApplyResources(txtProjectNotes, "txtProjectNotes");
             txtProjectNotes.Name = "txtProjectNotes";
-            // 
-            // dtpApprovalDate
-            // 
-            resources.ApplyResources(dtpApprovalDate, "dtpApprovalDate");
-            dtpApprovalDate.Format = DateTimePickerFormat.Custom;
-            dtpApprovalDate.Name = "dtpApprovalDate";
-            dtpApprovalDate.ShowCheckBox = true;
-            dtpApprovalDate.ValueChanged += dtp_ValueChanged;
-            // 
-            // dtpProjectStartDate
-            // 
-            resources.ApplyResources(dtpProjectStartDate, "dtpProjectStartDate");
-            dtpProjectStartDate.Format = DateTimePickerFormat.Custom;
-            dtpProjectStartDate.Name = "dtpProjectStartDate";
-            dtpProjectStartDate.ShowCheckBox = true;
-            dtpProjectStartDate.ValueChanged += dtp_ValueChanged;
-            // 
-            // dtpProjectEndDate
-            // 
-            resources.ApplyResources(dtpProjectEndDate, "dtpProjectEndDate");
-            dtpProjectEndDate.Format = DateTimePickerFormat.Custom;
-            dtpProjectEndDate.Name = "dtpProjectEndDate";
-            dtpProjectEndDate.ShowCheckBox = true;
-            dtpProjectEndDate.ValueChanged += dtp_ValueChanged;
             // 
             // frm_ProjectDetails
             // 

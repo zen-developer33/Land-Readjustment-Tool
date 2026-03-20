@@ -1,4 +1,4 @@
-﻿using Land_Readjustment_Tool.CustomControls;
+﻿using Land_Readjustment_Tool.UI.CustomControls;
 using Land_Readjustment_Tool.Data;
 using Land_Readjustment_Tool.Forms;
 using Land_Readjustment_Tool.Forms.LandOwnersRecord_Managerment;
@@ -30,7 +30,7 @@ namespace Land_Readjustment_Tool
             FormClosing += frmMain_FormClosing;
             CurrentProject.StateChanged += OnProjectStateChanged;
             // Subscribe to collapse/expand event from DrawingCanvasControl
-            drawingCanvasControl1.CollapseLeftPanelClicked += DrawingCanvasControl1_CollapseLeftPanelClicked;
+            ReplotCanvas.CollapseLeftPanelClicked += DrawingCanvasControl1_CollapseLeftPanelClicked;
         }
 
         private bool isLeftPanelCollapsed = false;
@@ -78,7 +78,7 @@ namespace Land_Readjustment_Tool
 
             //DatabaseHelper db = new(CurrentProject.Info.ProjectPath);
             //db.InitializeDatabase();
-            //ProjectInfoRepository repo = new(db.GetConnection());
+            //ProjectInfoRepository_old repo = new(db.GetConnection());
             //CurrentProject.Info = repo.GetProjectInfo();
 
             //frm_ProjectDetails form = new frm_ProjectDetails();
@@ -250,7 +250,7 @@ namespace Land_Readjustment_Tool
                 DatabaseHelper db = new(ofd.FileName);
                 db.InitializeDatabase();
 
-                ProjectInfoRepository repo = new(db.GetConnection());
+                ProjectInfoRepository_old repo = new(db.GetConnection());
                 CurrentProject.Info = repo.GetProjectInfo();
 
                 if (CurrentProject.Info != null)
@@ -311,7 +311,7 @@ namespace Land_Readjustment_Tool
         //    db.InitializeDatabase();
 
         //    // Save project info
-        //    ProjectInfoRepository repo = new(db.GetConnection());
+        //    ProjectInfoRepository_old repo = new(db.GetConnection());
         //    repo.SaveProjectInfo(CurrentProject.Info);
 
         //    // TODO: Save other data tables here (land owners, etc.)
@@ -337,7 +337,7 @@ namespace Land_Readjustment_Tool
                 // Save new data
                 DatabaseHelper db = new(projectFilePath);
                 db.InitializeDatabase();
-                ProjectInfoRepository repo = new(db.GetConnection());
+                ProjectInfoRepository_old repo = new(db.GetConnection());
                 repo.SaveProjectInfo(CurrentProject.Info);
 
                 // TODO: Save other tables
@@ -448,7 +448,7 @@ namespace Land_Readjustment_Tool
                 // Save updated info to the new database
                 DatabaseHelper db = new(newProjectFilePath);
                 db.InitializeDatabase();
-                ProjectInfoRepository repo = new(db.GetConnection());
+                ProjectInfoRepository_old repo = new(db.GetConnection());
                 repo.SaveProjectInfo(CurrentProject.Info);
 
                 // Update UI
@@ -525,7 +525,7 @@ namespace Land_Readjustment_Tool
                         // Reload the project
                         DatabaseHelper db = new(projectPath);
                         db.InitializeDatabase();
-                        ProjectInfoRepository repo = new(db.GetConnection());
+                        ProjectInfoRepository_old repo = new(db.GetConnection());
                         CurrentProject.Info = repo.GetProjectInfo();
 
                         _ = MessageBox.Show("Project restored successfully from backup.", "Success",

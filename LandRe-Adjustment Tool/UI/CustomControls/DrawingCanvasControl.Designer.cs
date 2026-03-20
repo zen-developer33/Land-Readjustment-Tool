@@ -1,6 +1,6 @@
 using Land_Readjustment_Tool.UI.MapCanvas;
 
-namespace Land_Readjustment_Tool.CustomControls
+namespace Land_Readjustment_Tool.UI.CustomControls
 {
     partial class DrawingCanvasControl
     {

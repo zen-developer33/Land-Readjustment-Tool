@@ -6,11 +6,11 @@ using Land_Readjustment_Tool.Models;
 
 namespace Land_Readjustment_Tool.Repositories
 {
-    internal class ProjectInfoRepository
+    internal class ProjectInfoRepository_old
     {
         private readonly SQLiteConnection _connection;
 
-        public ProjectInfoRepository(SQLiteConnection connection)
+        public ProjectInfoRepository_old(SQLiteConnection connection)
         {
             _connection = connection;
         }
@@ -56,7 +56,7 @@ namespace Land_Readjustment_Tool.Repositories
             string sql = "SELECT * FROM ProjectInfo ;";
             using var cmd = new SQLiteCommand(@sql, _connection);
             using var reader = cmd.ExecuteReader();
-            if(!reader.Read()) return null;
+            if (!reader.Read()) return null;
 
             ProjectInfo info = new ProjectInfo()
             {
