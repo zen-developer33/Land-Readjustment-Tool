@@ -115,6 +115,7 @@ namespace Land_Readjustment_Tool.UI.Forms.Project
             btnSave.TabIndex = 0;
             btnSave.Text = "Save";
             btnSave.UseVisualStyleBackColor = false;
+            btnSave.Click += btnSave_Click;
             // 
             // btnCancel
             // 
@@ -128,6 +129,7 @@ namespace Land_Readjustment_Tool.UI.Forms.Project
             btnCancel.TabIndex = 1;
             btnCancel.Text = "Cancel";
             btnCancel.UseVisualStyleBackColor = false;
+            btnCancel.Click += btnCancel_Click;
             // 
             // pnlContent
             // 
@@ -234,7 +236,7 @@ namespace Land_Readjustment_Tool.UI.Forms.Project
             // 
             // cmbTargetDatum
             // 
-            cmbTargetDatum.DropDownStyle = ComboBoxStyle.DropDownList;
+            cmbTargetDatum.DropDownStyle = ComboBoxStyle.DropDown;
             cmbTargetDatum.Font = new Font("Segoe UI", 9F);
             cmbTargetDatum.Items.AddRange(new object[] { "WGS84", "GRS80", "NAD83", "ED50" });
             cmbTargetDatum.Location = new Point(131, 127);
@@ -549,6 +551,7 @@ namespace Land_Readjustment_Tool.UI.Forms.Project
             Name = "frmAddEditDatumTransformation";
             StartPosition = FormStartPosition.CenterParent;
             Text = "Add Datum Transformation";
+            Load += frmAddEditDatumTransformation_Load;
             pnlHeader.ResumeLayout(false);
             pnlHeader.PerformLayout();
             pnlFooter.ResumeLayout(false);

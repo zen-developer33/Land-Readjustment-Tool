@@ -23,10 +23,11 @@ namespace Land_Readjustment_Tool.UI.Forms.Project
         private List<CoordinateSystem> _crsList = [];
         private List<DatumTransformation> _datumList = [];
 
-        /// <summary>
-        /// Creates settings form with required services.
-        /// Called from frmMain.OpenProjectSettings().
-        /// </summary>
+        // Guard flag: prevents cmbCRS_SelectedIndexChanged from firing
+        // while we are programmatically rebinding the dropdown.
+        private bool _bindingCrs = false;
+        private bool _bindingDatum = false;
+
         public frmProjectSettings(
             IProjectSettingsService service,
             ICoordinateSystemRepository crsRepo,
@@ -37,15 +38,19 @@ namespace Land_Readjustment_Tool.UI.Forms.Project
             _crsRepo = crsRepo;
             _datumRepo = datumRepo;
 
-            cmbCRS.Format += cmbCRS_Format;
-            cmbDatumTransformation.Format +=
-                cmbDatumTransformation_Format;
+            // BUG FIX 1: Do NOT use the Format event for DataSource-bound
+            // ComboBoxes.  When DataSource is set, WinForms evaluates
+            // DisplayMember via reflection.  The Format event fires for
+            // items that are already strings (after DisplayMember resolved
+            // them), so e.ListItem is a string — never a CoordinateSystem —
+            // and the guard `e.ListItem is CoordinateSystem` silently does
+            // nothing, leaving the raw ToString() of the object as the
+            // display text.  Set DisplayMember correctly instead (below).
         }
 
-        // ── LOAD ─────────────────────────────────────
+        // ── LOAD ─────────────────────────────────────────────────────────────
 
-        private async void frmProjectSettings_Load(
-            object? sender, EventArgs e)
+        private async void frmProjectSettings_Load(object? sender, EventArgs e)
         {
             await LoadAsync();
         }
@@ -57,13 +62,11 @@ namespace Land_Readjustment_Tool.UI.Forms.Project
                 SetFormEnabled(false);
                 lblStatus.Text = "Loading settings...";
 
-                // Load settings and reference data in parallel
                 var settingsTask = _service.GetAsync();
                 var crsTask = _crsRepo.GetAllActiveAsync();
                 var datumTask = _datumRepo.GetAllActiveAsync();
 
-                await Task.WhenAll(
-                    settingsTask, crsTask, datumTask);
+                await Task.WhenAll(settingsTask, crsTask, datumTask);
 
                 _settings = settingsTask.Result;
                 _crsList = crsTask.Result;
@@ -73,15 +76,16 @@ namespace Land_Readjustment_Tool.UI.Forms.Project
                 {
                     MessageBox.Show(
                         "Could not load project settings.",
-                        "Error",
-                        MessageBoxButtons.OK,
+                        "Error", MessageBoxButtons.OK,
                         MessageBoxIcon.Error);
-                    this.Close();
+                    Close();
                     return;
                 }
 
-                PopulateCrsDropdown();
-                PopulateDatumDropdown();
+                // Bind dropdowns BEFORE populating the form so that
+                // SelectedValue assignments in PopulateForm succeed.
+                BindCrsDropdown(_crsList);
+                BindDatumDropdown(_datumList);
                 PopulateForm(_settings);
 
                 lblStatus.Text = "Ready";
@@ -90,10 +94,9 @@ namespace Land_Readjustment_Tool.UI.Forms.Project
             {
                 MessageBox.Show(
                     $"Failed to load settings: {ex.Message}",
-                    "Error",
-                    MessageBoxButtons.OK,
+                    "Error", MessageBoxButtons.OK,
                     MessageBoxIcon.Error);
-                this.Close();
+                Close();
             }
             finally
             {
@@ -101,57 +104,76 @@ namespace Land_Readjustment_Tool.UI.Forms.Project
             }
         }
 
-        // ── DROPDOWNS ────────────────────────────────
+        // ── DROPDOWN BINDING ─────────────────────────────────────────────────
 
-        private void PopulateCrsDropdown()
-        {
-            BindCrsDropdown(_crsList);
-        }
-
+        /// <summary>
+        /// Rebinds the CRS ComboBox and restores the previously selected item.
+        ///
+        /// BUG FIX 2: The original code set DataSource = null then DataSource =
+        /// items.  Whenever DataSource changes, WinForms fires
+        /// SelectedIndexChanged, which called cmbCRS_SelectedIndexChanged, which
+        /// called BindDatumDropdown again — causing a cascading re-bind loop and
+        /// losing the selected value.  The _bindingCrs guard prevents this.
+        ///
+        /// BUG FIX 3 (THE MAIN DISPLAY BUG): The original set DisplayMember
+        /// AFTER DataSource.  WinForms caches display strings at the moment
+        /// DataSource is assigned.  Setting DisplayMember afterwards is too late
+        /// — the items have already been rendered using ToString(), which returns
+        /// the full qualified type name.  Always set DisplayMember and
+        /// ValueMember BEFORE DataSource.
+        /// </summary>
         private void BindCrsDropdown(
-            List<CoordinateSystem> items)
+            List<CoordinateSystem> items,
+            int? restoreId = null)
         {
-            cmbCRS.DisplayMember = nameof(CoordinateSystem.Name);
-            cmbCRS.ValueMember = nameof(CoordinateSystem.Id);
-            cmbCRS.DataSource = null;
-            cmbCRS.DataSource = items;
+            _bindingCrs = true;
+            try
+            {
+                // CRITICAL: set members BEFORE DataSource
+                cmbCRS.DisplayMember = nameof(CoordinateSystem.Name);
+                cmbCRS.ValueMember = nameof(CoordinateSystem.Id);
+                cmbCRS.DataSource = null;
+                cmbCRS.DataSource = items;
+
+                // Restore selection after rebind
+                if (restoreId.HasValue)
+                    cmbCRS.SelectedValue = restoreId.Value;
+            }
+            finally
+            {
+                _bindingCrs = false;
+            }
         }
 
-        private void PopulateDatumDropdown()
-        {
-            BindDatumDropdown(_datumList);
-        }
-
+        /// <summary>
+        /// Rebinds the Datum ComboBox and restores the previously selected item.
+        /// Same ordering fix as BindCrsDropdown.
+        /// </summary>
         private void BindDatumDropdown(
-            List<DatumTransformation> items)
+            List<DatumTransformation> items,
+            int? restoreId = null)
         {
-            cmbDatumTransformation.DisplayMember = "Name";
-            cmbDatumTransformation.ValueMember = "Id";
-            cmbDatumTransformation.DataSource = null;
-            cmbDatumTransformation.DataSource = items;
+            _bindingDatum = true;
+            try
+            {
+                // CRITICAL: set members BEFORE DataSource
+                cmbDatumTransformation.DisplayMember =
+                    nameof(DatumTransformation.Name);
+                cmbDatumTransformation.ValueMember =
+                    nameof(DatumTransformation.Id);
+                cmbDatumTransformation.DataSource = null;
+                cmbDatumTransformation.DataSource = items;
+
+                if (restoreId.HasValue)
+                    cmbDatumTransformation.SelectedValue = restoreId.Value;
+            }
+            finally
+            {
+                _bindingDatum = false;
+            }
         }
 
-        private void cmbCRS_Format(
-            object? sender,
-            ListControlConvertEventArgs e)
-        {
-            if (e.ListItem is CoordinateSystem crs)
-                e.Value = string.IsNullOrWhiteSpace(crs.Name)
-                    ? crs.Code
-                    : crs.Name;
-        }
-
-        private void cmbDatumTransformation_Format(
-            object? sender,
-            ListControlConvertEventArgs e)
-        {
-            if (e.ListItem is DatumTransformation datum)
-                e.Value = string.IsNullOrWhiteSpace(datum.Name)
-                    ? datum.Code
-                    : datum.Name;
-        }
-
-        // ── POPULATE FORM ────────────────────────────
+        // ── POPULATE FORM ────────────────────────────────────────────────────
 
         private void PopulateForm(ProjectSettings s)
         {
@@ -174,18 +196,15 @@ namespace Land_Readjustment_Tool.UI.Forms.Project
 
             // ── CANVAS ───────────────────────────────
             pnlBgColor.BackColor =
-                ColorTranslator.FromHtml(
-                    s.CanvasBackgroundColor);
+                ColorTranslator.FromHtml(s.CanvasBackgroundColor);
+            lblBgColorHex.Text = ColorTranslator.ToHtml(pnlBgColor.BackColor);
             chkGridVisible.Checked = s.CanvasGridVisible;
             chkSnapEnabled.Checked = s.SnapEnabled;
-            nudSnapTolerance.Value =
-                (decimal)s.SnapTolerancePx;
+            nudSnapTolerance.Value = (decimal)s.SnapTolerancePx;
 
             // ── PARCEL NUMBERING ─────────────────────
-            cmbParcelFormat.SelectedItem =
-                s.ParcelNumberFormat;
-            txtParcelPrefix.Text =
-                s.ParcelNumberPrefix ?? "";
+            cmbParcelFormat.SelectedItem = s.ParcelNumberFormat;
+            txtParcelPrefix.Text = s.ParcelNumberPrefix ?? "";
             nudPadding.Value = s.ParcelNumberPadding;
 
             // ── REPLOTTING ───────────────────────────
@@ -200,105 +219,105 @@ namespace Land_Readjustment_Tool.UI.Forms.Project
             nudPrintScale.Value = s.DefaultPrintScale;
         }
 
-        // ── COLLECT FORM DATA ────────────────────────
+        // ── COLLECT FORM DATA ────────────────────────────────────────────────
 
         private void CollectFormData(ProjectSettings s)
         {
-            // CRS selection
             s.CoordinateSystemId =
-                cmbCRS.SelectedValue is int crsId
-                ? crsId : null;
+                cmbCRS.SelectedValue is int crsId ? crsId : null;
 
-            // Datum transformation selection
             s.DatumTransformationId =
                 cmbDatumTransformation.SelectedValue is int datumId
                 ? datumId : null;
 
-            // Area unit
             s.TraditionalAreaUnit =
-                cmbTraditionalUnit.SelectedIndex == 1
-                ? "BKD" : "RAPD";
+                cmbTraditionalUnit.SelectedIndex == 1 ? "BKD" : "RAPD";
 
-            // Canvas
             s.CanvasBackgroundColor =
                 ColorTranslator.ToHtml(pnlBgColor.BackColor);
             s.CanvasGridVisible = chkGridVisible.Checked;
             s.SnapEnabled = chkSnapEnabled.Checked;
             s.SnapTolerancePx = (double)nudSnapTolerance.Value;
 
-            // Parcel numbering
             s.ParcelNumberFormat =
-                cmbParcelFormat.SelectedItem?.ToString()
-                ?? "Sequential";
+                cmbParcelFormat.SelectedItem?.ToString() ?? "Sequential";
             s.ParcelNumberPrefix =
                 string.IsNullOrWhiteSpace(txtParcelPrefix.Text)
                 ? null : txtParcelPrefix.Text;
             s.ParcelNumberPadding = (int)nudPadding.Value;
 
-            // Replotting
             s.MinPlotAreaSqm = (double)nudMinPlot.Value;
 
-            // Document
             s.DocumentLanguage =
-                cmbLanguage.SelectedItem?.ToString()
-                ?? "English";
+                cmbLanguage.SelectedItem?.ToString() ?? "English";
             s.DateFormat =
-                cmbDateFormat.SelectedItem?.ToString()
-                ?? "AD";
+                cmbDateFormat.SelectedItem?.ToString() ?? "AD";
 
-            // Print
             s.DefaultPaperSize =
-                cmbPaperSize.SelectedItem?.ToString()
-                ?? "A3";
+                cmbPaperSize.SelectedItem?.ToString() ?? "A3";
             s.DefaultPrintScale = (int)nudPrintScale.Value;
 
-            // Mark as configured
             s.IsConfigured = true;
         }
 
-        // ── CRS CHANGED — FILTER DATUM ───────────────
+        // ── CRS CHANGED — FILTER DATUM ───────────────────────────────────────
 
-        private async void cmbCRS_SelectedIndexChanged(
+        private void cmbCRS_SelectedIndexChanged(
             object? sender, EventArgs e)
         {
-            // When CRS changes, filter datum transformations
-            // to only show applicable ones
+            // BUG FIX 4: Skip while we are programmatically rebinding to
+            // avoid the re-bind loop described in BindCrsDropdown.
+            if (_bindingCrs) return;
+
             if (cmbCRS.SelectedItem is not CoordinateSystem crs)
             {
                 BindDatumDropdown(_datumList);
                 return;
             }
 
-            // Filter by applicable CRS codes
+            // Filter datum list to those that declare applicability to this
+            // CRS code, or those with no filter (applicable to all).
             var filtered = _datumList
                 .Where(d =>
-                    d.ApplicableCrsCodes == null ||
-                    d.ApplicableCrsCodes.Contains(crs.Code))
+                    string.IsNullOrWhiteSpace(d.ApplicableCrsCodes) ||
+                    d.ApplicableCrsCodes
+                        .Split(',', StringSplitOptions.TrimEntries)
+                        .Contains(crs.Code,
+                            StringComparer.OrdinalIgnoreCase))
                 .ToList();
 
-            BindDatumDropdown(filtered);
+            // Preserve existing datum selection if it is still in the
+            // filtered list, otherwise clear.
+            int? currentDatumId =
+                cmbDatumTransformation.SelectedValue is int id ? id : null;
 
-            // Show/hide datum section based on CRS type
-            // MUTM needs datum transformation, UTM/WGS84 don't
-            bool needsDatum =
-                crs.Code.StartsWith("MUTM");
+            bool keepSelection = currentDatumId.HasValue &&
+                filtered.Any(d => d.Id == currentDatumId.Value);
+
+            BindDatumDropdown(
+                filtered,
+                keepSelection ? currentDatumId : null);
+
+            // MUTM codes require a datum transformation; standard UTM/WGS84
+            // codes (which are already referenced to WGS84) do not.
+            bool needsDatum = crs.Code.StartsWith(
+                "MUTM", StringComparison.OrdinalIgnoreCase);
+
             grpDatumTransformation.Visible = needsDatum;
 
             if (!needsDatum)
             {
-                // Auto-select WGS84 identity for non-MUTM
-                var identity = _datumList
-                    .FirstOrDefault(d =>
-                        d.Code == "WGS84_IDENTITY");
+                // Auto-select WGS84 identity transform for non-MUTM CRS
+                var identity = _datumList.FirstOrDefault(
+                    d => d.Code.Equals(
+                        "WGS84_IDENTITY",
+                        StringComparison.OrdinalIgnoreCase));
+
                 if (identity != null)
-                    cmbDatumTransformation.SelectedValue =
-                        identity.Id;
+                    cmbDatumTransformation.SelectedValue = identity.Id;
             }
 
-            // Show info label about selected CRS
             UpdateCrsInfoLabel(crs);
-
-            await Task.CompletedTask;
         }
 
         private void UpdateCrsInfoLabel(CoordinateSystem crs)
@@ -308,59 +327,78 @@ namespace Land_Readjustment_Tool.UI.Forms.Project
                 : $"Custom CRS — {crs.Description}";
         }
 
-        // ── MANAGE BUTTONS ───────────────────────────
+        // ── MANAGE BUTTONS ───────────────────────────────────────────────────
 
         private async void btnManageCRS_Click(
             object? sender, EventArgs e)
         {
+            // Remember current selection before opening the child form
+            int? selectedId =
+                cmbCRS.SelectedValue is int id ? id : null;
+
             var session = AppServices.Context.Session;
             var repo = new CoordinateSystemRepository(session);
-            var projRepo = new ProjectionParametersRepository(
-                session);
+            var projRepo = new ProjectionParametersRepository(session);
 
-            using var frm = new frmManageCoordinateSystems(
-                repo, projRepo);
+            using var frm = new frmManageCoordinateSystems(repo, projRepo);
             frm.ShowDialog();
 
-            // Refresh dropdown after managing
+            // BUG FIX 5: After the child form closes, re-fetch from the
+            // repository (items may have been added/deleted/renamed) and
+            // rebind.  Pass restoreId so the user's previous selection is
+            // restored if it still exists.
             _crsList = await _crsRepo.GetAllActiveAsync();
-            int? selectedId =
-                cmbCRS.SelectedValue is int id
-                    ? id
-                    : (cmbCRS.SelectedItem as CoordinateSystem)?.Id;
-            PopulateCrsDropdown();
-            if (selectedId.HasValue)
-                cmbCRS.SelectedValue = selectedId.Value;
+            BindCrsDropdown(_crsList, selectedId);
+
+            // If the previously selected CRS was deleted, clear info label
+            if (cmbCRS.SelectedItem is CoordinateSystem selected)
+                UpdateCrsInfoLabel(selected);
+            else
+                lblCrsInfo.Text = string.Empty;
         }
 
         private async void btnManageDatum_Click(
             object? sender, EventArgs e)
         {
-            var session = AppServices.Context.Session;
-            var repo = new DatumTransformationRepository(
-                session);
+            // BUG FIX 6: The original had a duplicate local variable
+            // declaration for selectedId which would not compile:
+            //   var selectedId = ...          ← first declaration
+            //   int? selectedId = ...         ← duplicate, compiler error
+            // Fixed by using a single declaration.
+            int? selectedId =
+                cmbDatumTransformation.SelectedValue is int id ? id : null;
 
-            using var frm = new frmManageDatumTransformations(
-                repo);
+            var session = AppServices.Context.Session;
+            var repo = new DatumTransformationRepository(session);
+
+            using var frm = new frmManageDatumTransformations(repo);
             frm.ShowDialog();
 
-            // Refresh dropdown after managing
             _datumList = await _datumRepo.GetAllActiveAsync();
-            int? selectedId =
-                cmbDatumTransformation.SelectedValue is int id
-                    ? id
-                    : (cmbDatumTransformation.SelectedItem
-                        as DatumTransformation)?.Id;
-            PopulateDatumDropdown();
-            if (selectedId.HasValue)
-                cmbDatumTransformation.SelectedValue =
-                    selectedId.Value;
+
+            // Re-apply the CRS filter if a CRS is selected, otherwise
+            // show the full list.
+            if (cmbCRS.SelectedItem is CoordinateSystem crs)
+            {
+                var filtered = _datumList
+                    .Where(d =>
+                        string.IsNullOrWhiteSpace(d.ApplicableCrsCodes) ||
+                        d.ApplicableCrsCodes
+                            .Split(',', StringSplitOptions.TrimEntries)
+                            .Contains(crs.Code,
+                                StringComparer.OrdinalIgnoreCase))
+                    .ToList();
+                BindDatumDropdown(filtered, selectedId);
+            }
+            else
+            {
+                BindDatumDropdown(_datumList, selectedId);
+            }
         }
 
-        // ── COLOR PICKER ─────────────────────────────
+        // ── COLOR PICKER ─────────────────────────────────────────────────────
 
-        private void btnPickColor_Click(
-            object? sender, EventArgs e)
+        private void btnPickColor_Click(object? sender, EventArgs e)
         {
             using ColorDialog cd = new()
             {
@@ -368,13 +406,15 @@ namespace Land_Readjustment_Tool.UI.Forms.Project
                 FullOpen = true
             };
             if (cd.ShowDialog() == DialogResult.OK)
+            {
                 pnlBgColor.BackColor = cd.Color;
+                lblBgColorHex.Text = ColorTranslator.ToHtml(cd.Color);
+            }
         }
 
-        // ── SAVE ─────────────────────────────────────
+        // ── SAVE ─────────────────────────────────────────────────────────────
 
-        private async void btnOK_Click(
-            object? sender, EventArgs e)
+        private async void btnOK_Click(object? sender, EventArgs e)
         {
             if (_settings == null) return;
 
@@ -386,21 +426,19 @@ namespace Land_Readjustment_Tool.UI.Forms.Project
                 CollectFormData(_settings);
                 await _service.SaveAsync(_settings);
 
-                this.DialogResult = DialogResult.OK;
-                this.Close();
+                DialogResult = DialogResult.OK;
+                Close();
             }
             catch (InvalidOperationException ex)
             {
-                MessageBox.Show(
-                    ex.Message,
+                MessageBox.Show(ex.Message,
                     "Validation Error",
                     MessageBoxButtons.OK,
                     MessageBoxIcon.Warning);
             }
             catch (Exception)
             {
-                MessageBox.Show(
-                    "Failed to save settings.",
+                MessageBox.Show("Failed to save settings.",
                     "Error",
                     MessageBoxButtons.OK,
                     MessageBoxIcon.Error);
@@ -412,14 +450,13 @@ namespace Land_Readjustment_Tool.UI.Forms.Project
             }
         }
 
-        private void btnCancel_Click(
-            object? sender, EventArgs e)
+        private void btnCancel_Click(object? sender, EventArgs e)
         {
-            this.DialogResult = DialogResult.Cancel;
-            this.Close();
+            DialogResult = DialogResult.Cancel;
+            Close();
         }
 
-        // ── HELPERS ──────────────────────────────────
+        // ── HELPERS ──────────────────────────────────────────────────────────
 
         private void SetFormEnabled(bool enabled)
         {

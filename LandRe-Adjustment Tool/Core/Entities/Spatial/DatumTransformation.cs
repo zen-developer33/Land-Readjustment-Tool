@@ -124,5 +124,10 @@ namespace Land_Readjustment_Tool.Core.Entities.Spatial
 
         public string? Description { get; set; }
         public DateTime CreatedDate { get; set; }
+
+        public override string ToString()
+        {
+            return string.IsNullOrWhiteSpace(Name) ? Code : Name;
+        }
     }
 }

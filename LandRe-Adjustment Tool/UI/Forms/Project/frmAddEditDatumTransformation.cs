@@ -41,6 +41,10 @@ namespace Land_Readjustment_Tool.UI.Forms.Project
         private const double MaxRotationArcsec = 60.0;  // arcseconds
         private const double MaxScalePpm = 150.0;  // ppm
 
+        private const string AppliesToPlaceholder = "e.g. MUTM81, MUTM82, MUTM83";
+        private const string DataSourcePlaceholder = "e.g. Survey Department Nepal";
+        private const string RegionPlaceholder = "e.g. Nepal";
+
         public frmAddEditDatumTransformation(
             DatumTransformation? existing,
             IDatumTransformationRepository repo)
@@ -155,9 +159,9 @@ namespace Land_Readjustment_Tool.UI.Forms.Project
             d.ScalePpm = (double)nudScale.Value;
 
             // Optional metadata — null rather than empty string
-            d.ApplicableCrsCodes = NullIfBlank(txtAppliesTo.Text);
-            d.Source = NullIfBlank(txtDataSource.Text);
-            d.Region = NullIfBlank(txtRegion.Text);
+            d.ApplicableCrsCodes = NullIfBlank(txtAppliesTo.Text, AppliesToPlaceholder);
+            d.Source = NullIfBlank(txtDataSource.Text, DataSourcePlaceholder);
+            d.Region = NullIfBlank(txtRegion.Text, RegionPlaceholder);
             d.Description = NullIfBlank(txtDescription.Text);
 
             d.IsSystemDefault = false;
@@ -168,6 +172,15 @@ namespace Land_Readjustment_Tool.UI.Forms.Project
 
         private static string? NullIfBlank(string s)
             => string.IsNullOrWhiteSpace(s) ? null : s.Trim();
+
+        private static string? NullIfBlank(string s, string placeholder)
+        {
+            if (string.IsNullOrWhiteSpace(s)) return null;
+            string v = s.Trim();
+            return v.Equals(placeholder, StringComparison.OrdinalIgnoreCase)
+                ? null
+                : v;
+        }
 
         // ── VALIDATE ─────────────────────────────────────────────────────────
 

@@ -387,6 +387,7 @@ namespace Land_Readjustment_Tool.UI.Forms.Project
             pnlBgColor.Name = "pnlBgColor";
             pnlBgColor.Size = new Size(50, 26);
             pnlBgColor.TabIndex = 1;
+            pnlBgColor.Click += btnPickColor_Click;
             // 
             // btnPickColor
             // 
@@ -603,7 +604,7 @@ namespace Land_Readjustment_Tool.UI.Forms.Project
             tabDocument.Location = new Point(4, 33);
             tabDocument.Name = "tabDocument";
             tabDocument.Padding = new Padding(10);
-            tabDocument.Size = new Size(172, 47);
+            tabDocument.Size = new Size(554, 462);
             tabDocument.TabIndex = 4;
             tabDocument.Text = "📄 Documents";
             // 
@@ -667,7 +668,7 @@ namespace Land_Readjustment_Tool.UI.Forms.Project
             tabPrint.Location = new Point(4, 33);
             tabPrint.Name = "tabPrint";
             tabPrint.Padding = new Padding(10);
-            tabPrint.Size = new Size(172, 47);
+            tabPrint.Size = new Size(554, 462);
             tabPrint.TabIndex = 5;
             tabPrint.Text = "🖨 Print";
             // 

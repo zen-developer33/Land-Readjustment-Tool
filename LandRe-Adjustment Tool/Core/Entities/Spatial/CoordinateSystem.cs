@@ -83,5 +83,10 @@ namespace Land_Readjustment_Tool.Core.Entities.Spatial
         /// </summary>
         public ProjectionParameters? ProjectionParameters
         { get; set; }
+
+        public override string ToString()
+        {
+            return string.IsNullOrWhiteSpace(Name) ? Code : Name;
+        }
     }
 }

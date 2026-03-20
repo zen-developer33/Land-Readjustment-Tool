@@ -119,6 +119,7 @@ namespace Land_Readjustment_Tool.UI.Forms.Project
             btnSave.TabIndex = 0;
             btnSave.Text = "Save";
             btnSave.UseVisualStyleBackColor = false;
+            btnSave.Click += btnSave_Click;
 
             // 
             // btnCancel
@@ -133,6 +134,7 @@ namespace Land_Readjustment_Tool.UI.Forms.Project
             btnCancel.TabIndex = 1;
             btnCancel.Text = "Cancel";
             btnCancel.UseVisualStyleBackColor = false;
+            btnCancel.Click += btnCancel_Click;
             // 
             // pnlContent
             // 
@@ -231,6 +233,7 @@ namespace Land_Readjustment_Tool.UI.Forms.Project
             txtEpsg.Name = "txtEpsg";
             txtEpsg.Size = new Size(130, 27);
             txtEpsg.TabIndex = 5;
+            txtEpsg.TextChanged += txtEpsg_TextChanged;
             // 
             // lblEpsgHint
             // 
@@ -263,6 +266,7 @@ namespace Land_Readjustment_Tool.UI.Forms.Project
             cmbProjectionType.Name = "cmbProjectionType";
             cmbProjectionType.Size = new Size(220, 28);
             cmbProjectionType.TabIndex = 8;
+            cmbProjectionType.SelectedIndexChanged += cmbProjectionType_SelectedIndexChanged;
             // 
             // lblRegion
             // 
@@ -510,6 +514,7 @@ namespace Land_Readjustment_Tool.UI.Forms.Project
             txtEllipsoid.Name = "txtEllipsoid";
             txtEllipsoid.Size = new Size(225, 27);
             txtEllipsoid.TabIndex = 15;
+            txtEllipsoid.Leave += txtEllipsoid_Leave;
             // 
             // lblSemiMajor
             // 
@@ -597,6 +602,8 @@ namespace Land_Readjustment_Tool.UI.Forms.Project
             txtWkt.Size = new Size(530, 130);
             txtWkt.TabIndex = 3;
             txtWkt.Text = "Optional. Overrides all parameters above if provided.";
+            txtWkt.Enter += txtWkt_Enter;
+            txtWkt.Leave += txtWkt_Leave;
             // 
             // frmAddEditCoordinateSystem
             // 
@@ -608,6 +615,7 @@ namespace Land_Readjustment_Tool.UI.Forms.Project
             Name = "frmAddEditCoordinateSystem";
             StartPosition = FormStartPosition.CenterParent;
             Text = "Coordinate System";
+            Load += frmAddEditCoordinateSystem_Load;
             pnlHeader.ResumeLayout(false);
             pnlHeader.PerformLayout();
             pnlFooter.ResumeLayout(false);
