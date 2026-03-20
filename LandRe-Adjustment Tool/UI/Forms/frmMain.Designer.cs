@@ -202,6 +202,7 @@ namespace Land_Readjustment_Tool
             tsmProjectSetting.Name = "tsmProjectSetting";
             tsmProjectSetting.Size = new Size(232, 26);
             tsmProjectSetting.Text = "Project Setting";
+            tsmProjectSetting.Click += tsmProjectSetting_Click;
             // 
             // tsmCloseProject
             // 
