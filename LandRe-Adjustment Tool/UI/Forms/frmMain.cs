@@ -6,6 +6,7 @@ using Land_Readjustment_Tool.Services;
 using Land_Readjustment_Tool.Services.Project;
 using Land_Readjustment_Tool.UI.CustomControls;
 using Land_Readjustment_Tool.UI.Forms.Project;
+using Microsoft.EntityFrameworkCore;
 
 namespace Land_Readjustment_Tool
 {
@@ -24,6 +25,8 @@ namespace Land_Readjustment_Tool
             UpdateWindowTitle();
             DisableProjectMenuItems();
             this.FormClosing += frmMain_FormClosing;
+            tsmSave.Click += saveToolStripMenuItem_Click;
+            tsmSaveAs.Click += saveAsToolStripMenuItem_Click;
         }
 
 
@@ -72,8 +75,7 @@ namespace Land_Readjustment_Tool
 
             if (result == DialogResult.Yes)
             {
-                // TODO: implement save
-                return true;
+                return SaveCurrentProject();
             }
 
             if (result == DialogResult.No)
@@ -175,6 +177,31 @@ namespace Land_Readjustment_Tool
             }
         }
 
+        private bool SaveCurrentProject()
+        {
+            if (!AppServices.HasContext) return true;
+
+            try
+            {
+                AppServices.Context
+                    .Session
+                    .GetContext()
+                    .SaveChanges();
+
+                AppServices.Context.MarkAsSaved();
+                return true;
+            }
+            catch (Exception ex)
+            {
+                MessageBox.Show(
+                    $"Save failed: {ex.Message}",
+                    "Error",
+                    MessageBoxButtons.OK,
+                    MessageBoxIcon.Error);
+                return false;
+            }
+        }
+
         private void OpenProjectSettings()
         {
             if (!AppServices.HasContext) return;
@@ -188,7 +215,8 @@ namespace Land_Readjustment_Tool
             var service = new ProjectSettingsService(repo, context.Session.Logger);
             var datumRepo = new DatumTransformationRepository(context.Session);
             using var frm = new frmProjectSettings(service, crsRepo, datumRepo);
-            frm.ShowDialog();
+            if (frm.ShowDialog() == DialogResult.OK)
+                AppServices.Context.MarkAsModified();
 
             // Refresh title after user edits
             UpdateWindowTitle();
@@ -232,8 +260,9 @@ namespace Land_Readjustment_Tool
 
             var service = new ProjectInfoService(repo, context.Session.Logger);
 
-            var frm = new frm_ProjectDetails(service);
-            frm.ShowDialog();
+            using var frm = new frm_ProjectDetails(service);
+            if (frm.ShowDialog() == DialogResult.OK)
+                AppServices.Context.MarkAsModified();
 
             // Refresh title after user edits
             UpdateWindowTitle();
@@ -261,12 +290,93 @@ namespace Land_Readjustment_Tool
 
         private void saveToolStripMenuItem_Click(object sender, EventArgs e)
         {
-            // TODO: implement save
+            _ = SaveCurrentProjectAsync(showMessage: true);
         }
 
-        private void saveAsToolStripMenuItem_Click(object sender, EventArgs e)
+        private async void saveAsToolStripMenuItem_Click(object sender, EventArgs e)
         {
-            // TODO: implement save as
+            if (!AppServices.HasContext) return;
+
+            var currentPath = AppServices.Context.ProjectFilePath;
+
+            using SaveFileDialog sfd = new()
+            {
+                Filter = "Land Pooling Project File (*.lpp)|*.lpp",
+                Title = "Save Project As",
+                FileName = Path.GetFileName(currentPath)
+            };
+
+            if (sfd.ShowDialog() != DialogResult.OK)
+                return;
+
+            string selectedFilePath = sfd.FileName;
+            string newProjectName =
+                Path.GetFileNameWithoutExtension(selectedFilePath);
+            string newProjectFolder = Path.Combine(
+                Path.GetDirectoryName(selectedFilePath)!,
+                newProjectName);
+            string newProjectFilePath = Path.Combine(
+                newProjectFolder,
+                Path.GetFileName(selectedFilePath));
+
+            if (string.Equals(currentPath, newProjectFilePath,
+                StringComparison.OrdinalIgnoreCase))
+            {
+                await SaveCurrentProjectAsync(showMessage: true);
+                return;
+            }
+
+            try
+            {
+                await SaveCurrentProjectAsync(showMessage: false);
+
+                if (Directory.Exists(newProjectFolder))
+                {
+                    var overwrite = MessageBox.Show(
+                        "Destination project folder already exists. Overwrite it?",
+                        "Save As",
+                        MessageBoxButtons.YesNo,
+                        MessageBoxIcon.Question);
+
+                    if (overwrite != DialogResult.Yes)
+                        return;
+
+                    Directory.Delete(newProjectFolder, recursive: true);
+                }
+
+                CopyDirectory(
+                    AppServices.Context.ProjectFolderPath,
+                    newProjectFolder);
+
+                string copiedOriginalFile = Path.Combine(
+                    newProjectFolder,
+                    Path.GetFileName(currentPath));
+
+                if (!string.Equals(copiedOriginalFile, newProjectFilePath,
+                    StringComparison.OrdinalIgnoreCase) &&
+                    File.Exists(copiedOriginalFile))
+                {
+                    File.Move(copiedOriginalFile, newProjectFilePath, overwrite: true);
+                }
+
+                await OpenProjectInternalAsync(
+                    newProjectFilePath,
+                    checkUnsavedChanges: false);
+
+                MessageBox.Show(
+                    "Project saved as a new file successfully.",
+                    "Save As",
+                    MessageBoxButtons.OK,
+                    MessageBoxIcon.Information);
+            }
+            catch (Exception ex)
+            {
+                MessageBox.Show(
+                    $"Save As failed: {ex.Message}",
+                    "Error",
+                    MessageBoxButtons.OK,
+                    MessageBoxIcon.Error);
+            }
         }
 
         private void projectSettingToolStripMenuItem_Click(object sender, EventArgs e)
@@ -300,9 +410,139 @@ namespace Land_Readjustment_Tool
             // TODO: implement area converter
         }
 
-        private void openProjectToolStripMenuItem_Click(object sender, EventArgs e)
+        private async void openProjectToolStripMenuItem_Click(object sender, EventArgs e)
         {
+            using OpenFileDialog ofd = new()
+            {
+                Filter =
+                    "Land Pooling Project File (*.lpp)|*.lpp",
+                Title = "Open Project"
+            };
 
+            if (ofd.ShowDialog() != DialogResult.OK)
+                return;
+
+            string projectFilePath = ofd.FileName;
+
+            if (!File.Exists(projectFilePath))
+            {
+                MessageBox.Show(
+                    "Selected project file was not found.",
+                    "Open Project",
+                    MessageBoxButtons.OK,
+                    MessageBoxIcon.Warning);
+                return;
+            }
+
+            await OpenProjectInternalAsync(
+                projectFilePath,
+                checkUnsavedChanges: true);
+        }
+
+        private async Task OpenProjectInternalAsync(
+            string projectFilePath,
+            bool checkUnsavedChanges)
+        {
+            if (checkUnsavedChanges &&
+                AppServices.HasContext &&
+                !HandleUnsavedChangesOnClose())
+                return;
+
+            ProjectSession? session = null;
+            try
+            {
+                if (AppServices.HasContext)
+                    AppServices.Context.StateChanged -= UpdateWindowTitle;
+
+                session = new ProjectSessionFactory()
+                    .CreateSession(projectFilePath);
+
+                // Ensure database schema is up to date
+                await session.GetContext().Database.MigrateAsync();
+
+                var context = new ProjectContext(
+                    session, projectFilePath);
+
+                var repo = new ProjectInfoRepository(session);
+                var service = new ProjectInfoService(
+                    repo, session.Logger);
+
+                var info = await service.GetAsync();
+                if (info == null)
+                    throw new InvalidOperationException(
+                        "Project file is invalid or missing project information.");
+
+                context.SetInfo(info);
+                context.StateChanged += UpdateWindowTitle;
+                AppServices.SetContext(context);
+
+                EnableProjectMenuItems();
+                UpdateWindowTitle();
+            }
+            catch (Exception ex)
+            {
+                session?.Dispose();
+                MessageBox.Show(
+                    $"Failed to open project: {ex.Message}",
+                    "Error",
+                    MessageBoxButtons.OK,
+                    MessageBoxIcon.Error);
+            }
+        }
+
+        private async Task SaveCurrentProjectAsync(bool showMessage)
+        {
+            if (!AppServices.HasContext) return;
+
+            try
+            {
+                await AppServices.Context
+                    .Session
+                    .GetContext()
+                    .SaveChangesAsync();
+
+                AppServices.Context.MarkAsSaved();
+
+                if (showMessage)
+                {
+                    MessageBox.Show(
+                        "Project saved successfully.",
+                        "Save",
+                        MessageBoxButtons.OK,
+                        MessageBoxIcon.Information);
+                }
+            }
+            catch (Exception ex)
+            {
+                MessageBox.Show(
+                    $"Save failed: {ex.Message}",
+                    "Error",
+                    MessageBoxButtons.OK,
+                    MessageBoxIcon.Error);
+            }
+        }
+
+        private static void CopyDirectory(
+            string sourceDir,
+            string destinationDir)
+        {
+            Directory.CreateDirectory(destinationDir);
+
+            foreach (var file in Directory.GetFiles(sourceDir))
+            {
+                string destFile = Path.Combine(
+                    destinationDir,
+                    Path.GetFileName(file));
+                File.Copy(file, destFile, overwrite: true);
+            }
+
+            foreach (var directory in Directory.GetDirectories(sourceDir))
+            {
+                string destSubDir = Path.Combine(
+                    destinationDir,
+                    Path.GetFileName(directory));
+                CopyDirectory(directory, destSubDir);
+            }
         }
 
         private void tsmProjectSetting_Click(object sender, EventArgs e)

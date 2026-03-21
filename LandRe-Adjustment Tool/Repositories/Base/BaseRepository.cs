@@ -106,7 +106,36 @@ namespace Land_Readjustment_Tool.Repositories.Base
         {
             try
             {
-                Context.Update(entity);
+                var entityType = Context.Model.FindEntityType(typeof(T));
+                var primaryKey = entityType?.FindPrimaryKey();
+
+                if (primaryKey is { Properties.Count: > 0 })
+                {
+                    var trackedEntry = Context.ChangeTracker
+                        .Entries<T>()
+                        .FirstOrDefault(e =>
+                            primaryKey.Properties.All(p =>
+                                Equals(
+                                    e.Property(p.Name).CurrentValue,
+                                    Context.Entry(entity)
+                                        .Property(p.Name)
+                                        .CurrentValue)));
+
+                    if (trackedEntry != null)
+                    {
+                        trackedEntry.CurrentValues.SetValues(entity);
+                    }
+                    else
+                    {
+                        DbSet.Attach(entity);
+                        Context.Entry(entity).State = EntityState.Modified;
+                    }
+                }
+                else
+                {
+                    Context.Update(entity);
+                }
+
                 await Context.SaveChangesAsync(ct);
                 Logger.LogInfo(
                     $"[{typeof(T).Name}] updated.");
