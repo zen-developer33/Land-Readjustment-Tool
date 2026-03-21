@@ -258,6 +258,7 @@ namespace Land_Readjustment_Tool
                 AppServices.Context
                     .UpdateInfo(_projectInfo);
 
+                DialogResult = DialogResult.OK;
                 this.Close();
             }
             catch (InvalidOperationException ex)

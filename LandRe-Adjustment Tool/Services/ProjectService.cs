@@ -29,9 +29,7 @@ namespace Land_Readjustment_Tool.Services
     string projectFilePath,
     string projectName)
         {
-            // Initialize shared context for this project
-            CurrentProjectContext.Initialize(projectFilePath);
-            var context = CurrentProjectContext.GetContext();
+            using var context = new AppDbContext(projectFilePath);
 
             // Apply migrations — creates all tables
             await context.Database.MigrateAsync();
