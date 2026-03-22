@@ -19,37 +19,37 @@ namespace Land_Readjustment_Tool.UI.Forms.Project
             lblTitle = new Label();
             lblSubtitle = new Label();
             pnlLeft = new Panel();
-            dgvCRS = new DataGridView();
-            colCode = new DataGridViewTextBoxColumn();
-            colName = new DataGridViewTextBoxColumn();
-            colEpsg = new DataGridViewTextBoxColumn();
-            colRegion = new DataGridViewTextBoxColumn();
-            colType = new DataGridViewTextBoxColumn();
             pnlToolbar = new Panel();
             btnAdd = new Button();
             btnCopyNew = new Button();
             btnEdit = new Button();
             btnDelete = new Button();
             btnViewParams = new Button();
+            dgvCRS = new DataGridView();
+            colCode = new DataGridViewTextBoxColumn();
+            colName = new DataGridViewTextBoxColumn();
+            colEpsg = new DataGridViewTextBoxColumn();
+            colRegion = new DataGridViewTextBoxColumn();
+            colType = new DataGridViewTextBoxColumn();
             txtDetails = new TextBox();
             pnlFooter = new Panel();
             btnClose = new Button();
             splitter = new SplitContainer();
+            pnlRight = new Panel();
             tabControl = new TabControl();
             tabDetails = new TabPage();
-            pnlRight = new Panel();
             pnlHeader.SuspendLayout();
             pnlLeft.SuspendLayout();
-            ((System.ComponentModel.ISupportInitialize)dgvCRS).BeginInit();
             pnlToolbar.SuspendLayout();
+            ((System.ComponentModel.ISupportInitialize)dgvCRS).BeginInit();
             pnlFooter.SuspendLayout();
             ((System.ComponentModel.ISupportInitialize)splitter).BeginInit();
             splitter.Panel1.SuspendLayout();
             splitter.Panel2.SuspendLayout();
             splitter.SuspendLayout();
+            pnlRight.SuspendLayout();
             tabControl.SuspendLayout();
             tabDetails.SuspendLayout();
-            pnlRight.SuspendLayout();
             SuspendLayout();
             // 
             // pnlHeader
@@ -93,6 +93,103 @@ namespace Land_Readjustment_Tool.UI.Forms.Project
             pnlLeft.Name = "pnlLeft";
             pnlLeft.Size = new Size(638, 467);
             pnlLeft.TabIndex = 0;
+            // 
+            // pnlToolbar
+            // 
+            pnlToolbar.BackColor = Color.FromArgb(238, 240, 248);
+            pnlToolbar.Controls.Add(btnAdd);
+            pnlToolbar.Controls.Add(btnCopyNew);
+            pnlToolbar.Controls.Add(btnEdit);
+            pnlToolbar.Controls.Add(btnDelete);
+            pnlToolbar.Controls.Add(btnViewParams);
+            pnlToolbar.Dock = DockStyle.Top;
+            pnlToolbar.Location = new Point(0, 0);
+            pnlToolbar.Name = "pnlToolbar";
+            pnlToolbar.Padding = new Padding(8);
+            pnlToolbar.Size = new Size(638, 47);
+            pnlToolbar.TabIndex = 1;
+            // 
+            // btnAdd
+            // 
+            btnAdd.BackColor = Color.FromArgb(28, 36, 54);
+            btnAdd.Cursor = Cursors.Hand;
+            btnAdd.FlatAppearance.BorderSize = 0;
+            btnAdd.FlatStyle = FlatStyle.Flat;
+            btnAdd.Font = new Font("Segoe UI", 9F);
+            btnAdd.ForeColor = Color.White;
+            btnAdd.Location = new Point(8, 8);
+            btnAdd.Name = "btnAdd";
+            btnAdd.Size = new Size(70, 30);
+            btnAdd.TabIndex = 0;
+            btnAdd.Text = "+ New";
+            btnAdd.UseVisualStyleBackColor = false;
+            btnAdd.Click += btnAdd_Click;
+            // 
+            // btnCopyNew
+            // 
+            btnCopyNew.BackColor = Color.White;
+            btnCopyNew.Cursor = Cursors.Hand;
+            btnCopyNew.Enabled = false;
+            btnCopyNew.FlatAppearance.BorderColor = Color.FromArgb(28, 36, 54);
+            btnCopyNew.FlatStyle = FlatStyle.Flat;
+            btnCopyNew.Font = new Font("Segoe UI", 9F);
+            btnCopyNew.ForeColor = Color.FromArgb(28, 36, 54);
+            btnCopyNew.Location = new Point(84, 8);
+            btnCopyNew.Name = "btnCopyNew";
+            btnCopyNew.Size = new Size(60, 30);
+            btnCopyNew.TabIndex = 1;
+            btnCopyNew.Text = "Copy";
+            btnCopyNew.UseVisualStyleBackColor = false;
+            btnCopyNew.Click += btnCopyNew_Click;
+            // 
+            // btnEdit
+            // 
+            btnEdit.BackColor = Color.White;
+            btnEdit.Cursor = Cursors.Hand;
+            btnEdit.Enabled = false;
+            btnEdit.FlatAppearance.BorderColor = Color.FromArgb(180, 185, 200);
+            btnEdit.FlatStyle = FlatStyle.Flat;
+            btnEdit.Font = new Font("Segoe UI", 9F);
+            btnEdit.Location = new Point(150, 8);
+            btnEdit.Name = "btnEdit";
+            btnEdit.Size = new Size(60, 30);
+            btnEdit.TabIndex = 2;
+            btnEdit.Text = "Edit";
+            btnEdit.UseVisualStyleBackColor = false;
+            btnEdit.Click += btnEdit_Click;
+            // 
+            // btnDelete
+            // 
+            btnDelete.BackColor = Color.White;
+            btnDelete.Cursor = Cursors.Hand;
+            btnDelete.Enabled = false;
+            btnDelete.FlatAppearance.BorderColor = Color.FromArgb(200, 80, 80);
+            btnDelete.FlatStyle = FlatStyle.Flat;
+            btnDelete.Font = new Font("Segoe UI", 9F);
+            btnDelete.ForeColor = Color.FromArgb(180, 50, 50);
+            btnDelete.Location = new Point(216, 8);
+            btnDelete.Name = "btnDelete";
+            btnDelete.Size = new Size(68, 30);
+            btnDelete.TabIndex = 3;
+            btnDelete.Text = "Delete";
+            btnDelete.UseVisualStyleBackColor = false;
+            btnDelete.Click += btnDelete_Click;
+            // 
+            // btnViewParams
+            // 
+            btnViewParams.BackColor = Color.White;
+            btnViewParams.Cursor = Cursors.Hand;
+            btnViewParams.Enabled = false;
+            btnViewParams.FlatAppearance.BorderColor = Color.FromArgb(180, 185, 200);
+            btnViewParams.FlatStyle = FlatStyle.Flat;
+            btnViewParams.Font = new Font("Segoe UI", 9F);
+            btnViewParams.Location = new Point(290, 8);
+            btnViewParams.Name = "btnViewParams";
+            btnViewParams.Size = new Size(90, 30);
+            btnViewParams.TabIndex = 4;
+            btnViewParams.Text = "View Params";
+            btnViewParams.UseVisualStyleBackColor = false;
+            btnViewParams.Click += btnViewParams_Click;
             // 
             // dgvCRS
             // 
@@ -158,103 +255,6 @@ namespace Land_Readjustment_Tool.UI.Forms.Project
             colType.Name = "colType";
             colType.ReadOnly = true;
             // 
-            // pnlToolbar
-            // 
-            pnlToolbar.BackColor = Color.FromArgb(238, 240, 248);
-            pnlToolbar.Controls.Add(btnAdd);
-            pnlToolbar.Controls.Add(btnCopyNew);
-            pnlToolbar.Controls.Add(btnEdit);
-            pnlToolbar.Controls.Add(btnDelete);
-            pnlToolbar.Controls.Add(btnViewParams);
-            pnlToolbar.Dock = DockStyle.Top;
-            pnlToolbar.Location = new Point(0, 0);
-            pnlToolbar.Name = "pnlToolbar";
-            pnlToolbar.Padding = new Padding(8);
-            pnlToolbar.Size = new Size(638, 47);
-            pnlToolbar.TabIndex = 1;
-            // 
-            // btnAdd
-            // 
-            btnAdd.BackColor = Color.FromArgb(28, 36, 54);
-            btnAdd.Cursor = Cursors.Hand;
-            btnAdd.FlatAppearance.BorderSize = 0;
-            btnAdd.FlatStyle = FlatStyle.Flat;
-            btnAdd.Font = new Font("Segoe UI", 9F);
-            btnAdd.ForeColor = Color.White;
-            btnAdd.Location = new Point(8, 8);
-            btnAdd.Name = "btnAdd";
-            btnAdd.Size = new Size(70, 28);
-            btnAdd.TabIndex = 0;
-            btnAdd.Text = "+ New";
-            btnAdd.UseVisualStyleBackColor = false;
-            btnAdd.Click += btnAdd_Click;
-            // 
-            // btnCopyNew
-            // 
-            btnCopyNew.BackColor = Color.White;
-            btnCopyNew.Cursor = Cursors.Hand;
-            btnCopyNew.Enabled = false;
-            btnCopyNew.FlatAppearance.BorderColor = Color.FromArgb(28, 36, 54);
-            btnCopyNew.FlatStyle = FlatStyle.Flat;
-            btnCopyNew.Font = new Font("Segoe UI", 9F);
-            btnCopyNew.ForeColor = Color.FromArgb(28, 36, 54);
-            btnCopyNew.Location = new Point(84, 8);
-            btnCopyNew.Name = "btnCopyNew";
-            btnCopyNew.Size = new Size(60, 28);
-            btnCopyNew.TabIndex = 1;
-            btnCopyNew.Text = "Copy";
-            btnCopyNew.UseVisualStyleBackColor = false;
-            btnCopyNew.Click += btnCopyNew_Click;
-            // 
-            // btnEdit
-            // 
-            btnEdit.BackColor = Color.White;
-            btnEdit.Cursor = Cursors.Hand;
-            btnEdit.Enabled = false;
-            btnEdit.FlatAppearance.BorderColor = Color.FromArgb(180, 185, 200);
-            btnEdit.FlatStyle = FlatStyle.Flat;
-            btnEdit.Font = new Font("Segoe UI", 9F);
-            btnEdit.Location = new Point(150, 8);
-            btnEdit.Name = "btnEdit";
-            btnEdit.Size = new Size(60, 28);
-            btnEdit.TabIndex = 2;
-            btnEdit.Text = "Edit";
-            btnEdit.UseVisualStyleBackColor = false;
-            btnEdit.Click += btnEdit_Click;
-            // 
-            // btnDelete
-            // 
-            btnDelete.BackColor = Color.White;
-            btnDelete.Cursor = Cursors.Hand;
-            btnDelete.Enabled = false;
-            btnDelete.FlatAppearance.BorderColor = Color.FromArgb(200, 80, 80);
-            btnDelete.FlatStyle = FlatStyle.Flat;
-            btnDelete.Font = new Font("Segoe UI", 9F);
-            btnDelete.ForeColor = Color.FromArgb(180, 50, 50);
-            btnDelete.Location = new Point(216, 8);
-            btnDelete.Name = "btnDelete";
-            btnDelete.Size = new Size(68, 28);
-            btnDelete.TabIndex = 3;
-            btnDelete.Text = "Delete";
-            btnDelete.UseVisualStyleBackColor = false;
-            btnDelete.Click += btnDelete_Click;
-            // 
-            // btnViewParams
-            // 
-            btnViewParams.BackColor = Color.White;
-            btnViewParams.Cursor = Cursors.Hand;
-            btnViewParams.Enabled = false;
-            btnViewParams.FlatAppearance.BorderColor = Color.FromArgb(180, 185, 200);
-            btnViewParams.FlatStyle = FlatStyle.Flat;
-            btnViewParams.Font = new Font("Segoe UI", 9F);
-            btnViewParams.Location = new Point(290, 8);
-            btnViewParams.Name = "btnViewParams";
-            btnViewParams.Size = new Size(90, 28);
-            btnViewParams.TabIndex = 4;
-            btnViewParams.Text = "View Params";
-            btnViewParams.UseVisualStyleBackColor = false;
-            btnViewParams.Click += btnViewParams_Click;
-            // 
             // txtDetails
             // 
             txtDetails.BackColor = Color.White;
@@ -313,6 +313,15 @@ namespace Land_Readjustment_Tool.UI.Forms.Project
             splitter.SplitterDistance = 638;
             splitter.TabIndex = 0;
             // 
+            // pnlRight
+            // 
+            pnlRight.Controls.Add(tabControl);
+            pnlRight.Dock = DockStyle.Fill;
+            pnlRight.Location = new Point(0, 0);
+            pnlRight.Name = "pnlRight";
+            pnlRight.Size = new Size(200, 467);
+            pnlRight.TabIndex = 0;
+            // 
             // tabControl
             // 
             tabControl.Controls.Add(tabDetails);
@@ -334,15 +343,6 @@ namespace Land_Readjustment_Tool.UI.Forms.Project
             tabDetails.TabIndex = 0;
             tabDetails.Text = "Details";
             // 
-            // pnlRight
-            // 
-            pnlRight.Controls.Add(tabControl);
-            pnlRight.Dock = DockStyle.Fill;
-            pnlRight.Location = new Point(0, 0);
-            pnlRight.Name = "pnlRight";
-            pnlRight.Size = new Size(200, 467);
-            pnlRight.TabIndex = 0;
-            // 
             // frmManageCoordinateSystems
             // 
             BackColor = Color.FromArgb(245, 246, 250);
@@ -359,17 +359,17 @@ namespace Land_Readjustment_Tool.UI.Forms.Project
             pnlHeader.ResumeLayout(false);
             pnlHeader.PerformLayout();
             pnlLeft.ResumeLayout(false);
-            ((System.ComponentModel.ISupportInitialize)dgvCRS).EndInit();
             pnlToolbar.ResumeLayout(false);
+            ((System.ComponentModel.ISupportInitialize)dgvCRS).EndInit();
             pnlFooter.ResumeLayout(false);
             splitter.Panel1.ResumeLayout(false);
             splitter.Panel2.ResumeLayout(false);
             ((System.ComponentModel.ISupportInitialize)splitter).EndInit();
             splitter.ResumeLayout(false);
+            pnlRight.ResumeLayout(false);
             tabControl.ResumeLayout(false);
             tabDetails.ResumeLayout(false);
             tabDetails.PerformLayout();
-            pnlRight.ResumeLayout(false);
             ResumeLayout(false);
         }
 
@@ -399,5 +399,6 @@ namespace Land_Readjustment_Tool.UI.Forms.Project
         private TabControl tabControl;
         private TabPage tabDetails;
         private Panel pnlRight;
+        private Button button1;
     }
 }

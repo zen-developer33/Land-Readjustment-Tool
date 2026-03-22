@@ -210,7 +210,7 @@ namespace Land_Readjustment_Tool.UI.Forms.Project
             lblSourceDatum.ForeColor = Color.Black;
             lblSourceDatum.Location = new Point(15, 96);
             lblSourceDatum.Name = "lblSourceDatum";
-            lblSourceDatum.Size = new Size(124, 23);
+            lblSourceDatum.Size = new Size(110, 23);
             lblSourceDatum.TabIndex = 4;
             lblSourceDatum.Text = "Source Datum:";
             lblSourceDatum.TextAlign = ContentAlignment.MiddleLeft;
@@ -236,7 +236,6 @@ namespace Land_Readjustment_Tool.UI.Forms.Project
             // 
             // cmbTargetDatum
             // 
-            cmbTargetDatum.DropDownStyle = ComboBoxStyle.DropDown;
             cmbTargetDatum.Font = new Font("Segoe UI", 9F);
             cmbTargetDatum.Items.AddRange(new object[] { "WGS84", "GRS80", "NAD83", "ED50" });
             cmbTargetDatum.Location = new Point(131, 127);

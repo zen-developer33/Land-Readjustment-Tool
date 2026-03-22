@@ -345,20 +345,8 @@ namespace Land_Readjustment_Tool.Data
                     IsActive = true,
                     DisplayOrder = 5,
                     Description = "Nepal Survey Dept. Central meridian 87°E. Everest 1830."
-                },
-                new CoordinateSystem
-                {
-                    Id = 6,
-                    Code = "WGS84",
-                    Name = "WGS84 — Geographic Lat/Long",
-                    EpsgCode = 4326,
-                    ProjectionType = "Geographic",
-                    Region = "Global",
-                    IsSystemDefault = true,
-                    IsActive = true,
-                    DisplayOrder = 6,
-                    Description = "GPS coordinates in decimal degrees."
                 }
+                
             );
         }
 
@@ -418,7 +406,7 @@ namespace Land_Readjustment_Tool.Data
                 new DatumTransformation
                 {
                     Id = 1,
-                    Code = "NEPAL_SURV_DEPT",
+                    Code = "SURVEY_DEPT",
                     Name = "Nepal Survey Department (Official)",
                     SourceDatum = "Everest1830",
                     TargetDatum = "WGS84",
@@ -440,7 +428,7 @@ namespace Land_Readjustment_Tool.Data
                 new DatumTransformation
                 {
                     Id = 2,
-                    Code = "NEPAL_NAGARKOT",
+                    Code = "NAGARKOT_TM",
                     Name = "Nagarkot GPS Campaign 1994",
                     SourceDatum = "Everest1830",
                     TargetDatum = "WGS84",
@@ -462,7 +450,7 @@ namespace Land_Readjustment_Tool.Data
                 new DatumTransformation
                 {
                     Id = 3,
-                    Code = "NEPAL_KALIANPUR",
+                    Code = "KALIANPUR",
                     Name = "Kalianpur Datum Parameters",
                     SourceDatum = "Everest1830",
                     TargetDatum = "WGS84",
@@ -480,29 +468,8 @@ namespace Land_Readjustment_Tool.Data
                     IsActive = true,
                     DisplayOrder = 3,
                     Description = "Traditional Kalianpur parameters. Used in older records."
-                },
-                new DatumTransformation
-                {
-                    Id = 4,
-                    Code = "WGS84_IDENTITY",
-                    Name = "WGS84 — No Transformation Needed",
-                    SourceDatum = "WGS84",
-                    TargetDatum = "WGS84",
-                    DeltaX = 0,
-                    DeltaY = 0,
-                    DeltaZ = 0,
-                    RotationX = 0,
-                    RotationY = 0,
-                    RotationZ = 0,
-                    ScalePpm = 0,
-                    ApplicableCrsCodes = "UTM44N,UTM45N,WGS84",
-                    Source = "Identity transform",
-                    Region = "Global",
-                    IsSystemDefault = true,
-                    IsActive = true,
-                    DisplayOrder = 4,
-                    Description = "No shift needed. Source and target are both WGS84."
                 }
+
             );
         }
 

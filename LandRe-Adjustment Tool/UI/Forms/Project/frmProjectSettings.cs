@@ -463,5 +463,10 @@ namespace Land_Readjustment_Tool.UI.Forms.Project
             btnOK.Enabled = enabled;
             tabSettings.Enabled = enabled;
         }
+
+        private void pnlHeader_Paint(object sender, PaintEventArgs e)
+        {
+
+        }
     }
 }
