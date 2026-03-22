@@ -1357,20 +1357,6 @@ namespace Land_Readjustment_Tool.Migrations
                             Name = "Modified UTM Zone 83 — Nepal",
                             ProjectionType = "TransverseMercator",
                             Region = "Nepal"
-                        },
-                        new
-                        {
-                            Id = 6,
-                            Code = "WGS84",
-                            CreatedDate = new DateTime(1, 1, 1, 0, 0, 0, 0, DateTimeKind.Unspecified),
-                            Description = "GPS coordinates in decimal degrees.",
-                            DisplayOrder = 6,
-                            EpsgCode = 4326,
-                            IsActive = true,
-                            IsSystemDefault = true,
-                            Name = "WGS84 — Geographic Lat/Long",
-                            ProjectionType = "Geographic",
-                            Region = "Global"
                         });
                 });
 
@@ -1453,7 +1439,7 @@ namespace Land_Readjustment_Tool.Migrations
                         {
                             Id = 1,
                             ApplicableCrsCodes = "MUTM81,MUTM82,MUTM83",
-                            Code = "NEPAL_SURV_DEPT",
+                            Code = "SURVEY_DEPT",
                             CreatedDate = new DateTime(1, 1, 1, 0, 0, 0, 0, DateTimeKind.Unspecified),
                             DeltaX = 293.17000000000002,
                             DeltaY = 726.17999999999995,
@@ -1476,7 +1462,7 @@ namespace Land_Readjustment_Tool.Migrations
                         {
                             Id = 2,
                             ApplicableCrsCodes = "MUTM81,MUTM82,MUTM83",
-                            Code = "NEPAL_NAGARKOT",
+                            Code = "NAGARKOT_TM",
                             CreatedDate = new DateTime(1, 1, 1, 0, 0, 0, 0, DateTimeKind.Unspecified),
                             DeltaX = 295.0,
                             DeltaY = 740.0,
@@ -1499,7 +1485,7 @@ namespace Land_Readjustment_Tool.Migrations
                         {
                             Id = 3,
                             ApplicableCrsCodes = "MUTM81,MUTM82,MUTM83",
-                            Code = "NEPAL_KALIANPUR",
+                            Code = "KALIANPUR",
                             CreatedDate = new DateTime(1, 1, 1, 0, 0, 0, 0, DateTimeKind.Unspecified),
                             DeltaX = 283.0,
                             DeltaY = 682.0,
@@ -1516,29 +1502,6 @@ namespace Land_Readjustment_Tool.Migrations
                             ScalePpm = 0.0,
                             Source = "Kalianpur datum parameters",
                             SourceDatum = "Everest1830",
-                            TargetDatum = "WGS84"
-                        },
-                        new
-                        {
-                            Id = 4,
-                            ApplicableCrsCodes = "UTM44N,UTM45N,WGS84",
-                            Code = "WGS84_IDENTITY",
-                            CreatedDate = new DateTime(1, 1, 1, 0, 0, 0, 0, DateTimeKind.Unspecified),
-                            DeltaX = 0.0,
-                            DeltaY = 0.0,
-                            DeltaZ = 0.0,
-                            Description = "No shift needed. Source and target are both WGS84.",
-                            DisplayOrder = 4,
-                            IsActive = true,
-                            IsSystemDefault = true,
-                            Name = "WGS84 — No Transformation Needed",
-                            Region = "Global",
-                            RotationX = 0.0,
-                            RotationY = 0.0,
-                            RotationZ = 0.0,
-                            ScalePpm = 0.0,
-                            Source = "Identity transform",
-                            SourceDatum = "WGS84",
                             TargetDatum = "WGS84"
                         });
                 });

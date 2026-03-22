@@ -1,6 +1,4 @@
-﻿using Land_Readjustment_Tool.Core.Entities.Project;
-using Land_Readjustment_Tool.Models;
-
+﻿
 namespace Land_Readjustment_Tool.Data
 {
     /// <summary>

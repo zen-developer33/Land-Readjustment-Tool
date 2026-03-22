@@ -30,6 +30,21 @@ namespace Land_Readjustment_Tool
         }
 
 
+        private void InitializeProjectWorkspace()
+        {
+            mainSplitContainer.Visible = true;
+
+            tsmSave.Enabled = true;
+            tsmSaveAs.Enabled = true;
+            tsmProjectInformation.Enabled = true;
+            tsmProjectSetting.Enabled = true;
+            tsmBackupProject.Enabled = true;
+            tsmCloseProject.Enabled = true;
+            ImportParcelOwnerShipRecords.Enabled = true;
+            landOwnerDataToolStripMenuItem.Enabled = true;
+            startReplotWorkspaceToolStripMenuItem.Enabled = true;
+        }
+
         private void UpdateWindowTitle()
         {
             if (!AppServices.HasContext || AppServices.Context.Info == null)
@@ -163,8 +178,8 @@ namespace Land_Readjustment_Tool
 
                 // Open project details form
                 OpenProjectDetails();
-                OpenProjectSettings();
-
+                PromptProjectSettings();
+                InitializeProjectWorkspace();
             }
             catch (Exception ex)
             {
@@ -199,6 +214,27 @@ namespace Land_Readjustment_Tool
                     MessageBoxButtons.OK,
                     MessageBoxIcon.Error);
                 return false;
+            }
+        }
+         private async void PromptProjectSettings()
+        {
+            var result = MessageBox.Show("Project Created Successfully.\n\n +" +
+                " Would you like to configure project setting later now? \n\n" +
+                "You can always change settings later fro Project -> Project Settings menu.",
+                "Project Settings",
+                MessageBoxButtons.YesNo,
+                MessageBoxIcon.Question,
+                MessageBoxDefaultButton.Button1);
+
+            if(result == DialogResult.Yes)  
+            {
+                OpenProjectSettings();
+            }
+            else
+            {
+                //User chose defaults - mark as configured so this prompt never shows up again.
+                var repo = new ProjectSettingsRepository(AppServices.Context.Session);
+                await repo.MarkAsConfiguredAsync();
             }
         }
 
@@ -410,7 +446,7 @@ namespace Land_Readjustment_Tool
             // TODO: implement area converter
         }
 
-        private async void openProjectToolStripMenuItem_Click(object sender, EventArgs e)
+        private async void tsmOpenProject_Click(object sender, EventArgs e)
         {
             using OpenFileDialog ofd = new()
             {
@@ -478,6 +514,7 @@ namespace Land_Readjustment_Tool
 
                 EnableProjectMenuItems();
                 UpdateWindowTitle();
+                InitializeProjectWorkspace();
             }
             catch (Exception ex)
             {

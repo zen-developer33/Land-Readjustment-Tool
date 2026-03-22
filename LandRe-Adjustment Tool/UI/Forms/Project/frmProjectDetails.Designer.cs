@@ -307,8 +307,8 @@
             // frm_ProjectDetails
             // 
             AcceptButton = btnOK;
+            AutoScaleMode = AutoScaleMode.None;
             resources.ApplyResources(this, "$this");
-            AutoScaleMode = AutoScaleMode.Font;
             Controls.Add(groupBox4);
             Controls.Add(btnOK);
             Controls.Add(groupBox2);

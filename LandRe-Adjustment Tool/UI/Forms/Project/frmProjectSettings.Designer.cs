@@ -76,6 +76,7 @@ namespace Land_Readjustment_Tool.UI.Forms.Project
             btnOK = new Button();
             btnCancel = new Button();
             lblStatus = new Label();
+            btnRestoreDefaults = new Button();
             pnlHeader.SuspendLayout();
             tabSettings.SuspendLayout();
             tabCoordinates.SuspendLayout();
@@ -110,6 +111,7 @@ namespace Land_Readjustment_Tool.UI.Forms.Project
             pnlHeader.Name = "pnlHeader";
             pnlHeader.Size = new Size(582, 68);
             pnlHeader.TabIndex = 2;
+            pnlHeader.Paint += pnlHeader_Paint;
             // 
             // lblFormTitle
             // 
@@ -160,7 +162,7 @@ namespace Land_Readjustment_Tool.UI.Forms.Project
             tabCoordinates.Padding = new Padding(10);
             tabCoordinates.Size = new Size(554, 462);
             tabCoordinates.TabIndex = 0;
-            tabCoordinates.Text = "📍 Coordinates";
+            tabCoordinates.Text = "📍 Coordinate System";
             // 
             // grpCRS
             // 
@@ -172,7 +174,7 @@ namespace Land_Readjustment_Tool.UI.Forms.Project
             grpCRS.ForeColor = Color.FromArgb(35, 45, 65);
             grpCRS.Location = new Point(10, 10);
             grpCRS.Name = "grpCRS";
-            grpCRS.Size = new Size(545, 120);
+            grpCRS.Size = new Size(545, 124);
             grpCRS.TabIndex = 0;
             grpCRS.TabStop = false;
             grpCRS.Text = "Coordinate Reference System";
@@ -205,9 +207,9 @@ namespace Land_Readjustment_Tool.UI.Forms.Project
             btnManageCRS.FlatStyle = FlatStyle.Flat;
             btnManageCRS.Font = new Font("Segoe UI", 9F);
             btnManageCRS.ForeColor = Color.FromArgb(28, 36, 54);
-            btnManageCRS.Location = new Point(420, 52);
+            btnManageCRS.Location = new Point(421, 50);
             btnManageCRS.Name = "btnManageCRS";
-            btnManageCRS.Size = new Size(110, 26);
+            btnManageCRS.Size = new Size(110, 31);
             btnManageCRS.TabIndex = 2;
             btnManageCRS.Text = "⚙ Manage";
             btnManageCRS.UseVisualStyleBackColor = false;
@@ -264,9 +266,9 @@ namespace Land_Readjustment_Tool.UI.Forms.Project
             btnManageDatum.FlatStyle = FlatStyle.Flat;
             btnManageDatum.Font = new Font("Segoe UI", 9F);
             btnManageDatum.ForeColor = Color.FromArgb(28, 36, 54);
-            btnManageDatum.Location = new Point(420, 52);
+            btnManageDatum.Location = new Point(418, 49);
             btnManageDatum.Name = "btnManageDatum";
-            btnManageDatum.Size = new Size(110, 26);
+            btnManageDatum.Size = new Size(110, 33);
             btnManageDatum.TabIndex = 2;
             btnManageDatum.Text = "⚙ Manage";
             btnManageDatum.UseVisualStyleBackColor = false;
@@ -752,6 +754,7 @@ namespace Land_Readjustment_Tool.UI.Forms.Project
             // pnlFooter
             // 
             pnlFooter.BackColor = Color.FromArgb(232, 234, 240);
+            pnlFooter.Controls.Add(btnRestoreDefaults);
             pnlFooter.Controls.Add(btnOK);
             pnlFooter.Controls.Add(btnCancel);
             pnlFooter.Controls.Add(lblStatus);
@@ -802,6 +805,20 @@ namespace Land_Readjustment_Tool.UI.Forms.Project
             lblStatus.Size = new Size(48, 20);
             lblStatus.TabIndex = 2;
             lblStatus.Text = "Ready";
+            // 
+            // btnRestoreDefaults
+            // 
+            btnRestoreDefaults.BackColor = Color.White;
+            btnRestoreDefaults.Cursor = Cursors.Hand;
+            btnRestoreDefaults.FlatAppearance.BorderColor = Color.FromArgb(200, 205, 215);
+            btnRestoreDefaults.FlatStyle = FlatStyle.Flat;
+            btnRestoreDefaults.ForeColor = Color.FromArgb(60, 65, 80);
+            btnRestoreDefaults.Location = new Point(208, 9);
+            btnRestoreDefaults.Name = "btnRestoreDefaults";
+            btnRestoreDefaults.Size = new Size(133, 32);
+            btnRestoreDefaults.TabIndex = 4;
+            btnRestoreDefaults.Text = "Restore Defaults";
+            btnRestoreDefaults.UseVisualStyleBackColor = false;
             // 
             // frmProjectSettings
             // 
@@ -915,5 +932,6 @@ namespace Land_Readjustment_Tool.UI.Forms.Project
         private Label           lblScale;
         private Label           lblScalePrefix;
         private NumericUpDown   nudPrintScale;
+        private Button btnRestoreDefaults;
     }
 }

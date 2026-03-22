@@ -75,9 +75,9 @@ namespace Land_Readjustment_Tool.UI.Forms.Project
             lblSubtitle.ForeColor = Color.FromArgb(170, 185, 210);
             lblSubtitle.Location = new Point(17, 34);
             lblSubtitle.Name = "lblSubtitle";
-            lblSubtitle.Size = new Size(490, 20);
+            lblSubtitle.Size = new Size(258, 20);
             lblSubtitle.TabIndex = 1;
-            lblSubtitle.Text = "Helmert 7-parameter transformations between Everest 1830 and WGS84.";
+            lblSubtitle.Text = "Helmert 7-parameter transformations";
             // 
             // pnlToolbar
             // 
@@ -94,6 +94,7 @@ namespace Land_Readjustment_Tool.UI.Forms.Project
             // 
             // btnAdd
             // 
+            btnAdd.Anchor = AnchorStyles.Top | AnchorStyles.Bottom | AnchorStyles.Left;
             btnAdd.BackColor = Color.FromArgb(28, 36, 54);
             btnAdd.Cursor = Cursors.Hand;
             btnAdd.FlatAppearance.BorderSize = 0;
@@ -102,7 +103,7 @@ namespace Land_Readjustment_Tool.UI.Forms.Project
             btnAdd.ForeColor = Color.White;
             btnAdd.Location = new Point(8, 8);
             btnAdd.Name = "btnAdd";
-            btnAdd.Size = new Size(70, 28);
+            btnAdd.Size = new Size(70, 30);
             btnAdd.TabIndex = 0;
             btnAdd.Text = "+ New";
             btnAdd.UseVisualStyleBackColor = false;
@@ -110,6 +111,7 @@ namespace Land_Readjustment_Tool.UI.Forms.Project
             // 
             // btnCopyNew
             // 
+            btnCopyNew.Anchor = AnchorStyles.Top | AnchorStyles.Bottom | AnchorStyles.Left;
             btnCopyNew.BackColor = Color.White;
             btnCopyNew.Cursor = Cursors.Hand;
             btnCopyNew.Enabled = false;
@@ -118,7 +120,7 @@ namespace Land_Readjustment_Tool.UI.Forms.Project
             btnCopyNew.ForeColor = Color.FromArgb(28, 36, 54);
             btnCopyNew.Location = new Point(84, 8);
             btnCopyNew.Name = "btnCopyNew";
-            btnCopyNew.Size = new Size(60, 28);
+            btnCopyNew.Size = new Size(60, 30);
             btnCopyNew.TabIndex = 1;
             btnCopyNew.Text = "Copy";
             btnCopyNew.UseVisualStyleBackColor = false;
@@ -126,6 +128,7 @@ namespace Land_Readjustment_Tool.UI.Forms.Project
             // 
             // btnEdit
             // 
+            btnEdit.Anchor = AnchorStyles.Top | AnchorStyles.Bottom | AnchorStyles.Left;
             btnEdit.BackColor = Color.White;
             btnEdit.Cursor = Cursors.Hand;
             btnEdit.Enabled = false;
@@ -133,7 +136,7 @@ namespace Land_Readjustment_Tool.UI.Forms.Project
             btnEdit.FlatStyle = FlatStyle.Flat;
             btnEdit.Location = new Point(150, 8);
             btnEdit.Name = "btnEdit";
-            btnEdit.Size = new Size(60, 28);
+            btnEdit.Size = new Size(60, 30);
             btnEdit.TabIndex = 2;
             btnEdit.Text = "Edit";
             btnEdit.UseVisualStyleBackColor = false;
@@ -141,6 +144,7 @@ namespace Land_Readjustment_Tool.UI.Forms.Project
             // 
             // btnDelete
             // 
+            btnDelete.Anchor = AnchorStyles.Top | AnchorStyles.Bottom | AnchorStyles.Left;
             btnDelete.BackColor = Color.White;
             btnDelete.Cursor = Cursors.Hand;
             btnDelete.Enabled = false;
@@ -149,7 +153,7 @@ namespace Land_Readjustment_Tool.UI.Forms.Project
             btnDelete.ForeColor = Color.FromArgb(180, 50, 50);
             btnDelete.Location = new Point(216, 8);
             btnDelete.Name = "btnDelete";
-            btnDelete.Size = new Size(72, 28);
+            btnDelete.Size = new Size(72, 30);
             btnDelete.TabIndex = 3;
             btnDelete.Text = "Delete";
             btnDelete.UseVisualStyleBackColor = false;

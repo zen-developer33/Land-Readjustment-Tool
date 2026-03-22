@@ -130,7 +130,7 @@ namespace Land_Readjustment_Tool
             tsmOpenProject.ShortcutKeys = Keys.Control | Keys.O;
             tsmOpenProject.Size = new Size(233, 26);
             tsmOpenProject.Text = "&Open Project";
-            tsmOpenProject.Click += openProjectToolStripMenuItem_Click;
+            tsmOpenProject.Click += tsmOpenProject_Click;
             // 
             // toolStripSeparator1
             // 
