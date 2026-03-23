@@ -125,7 +125,9 @@ namespace Land_Readjustment_Tool
             // Read only — from entity and AppServices
             txtProjectName.Text = info.ProjectName;
             txtProjectPath.Text =
-                AppServices.Context.ProjectFilePath;
+                AppServices.HasContext
+                ? AppServices.Context.ProjectFilePath
+                : string.Empty;
             txtCreatedDate.Text =
                 info.CreatedDate
                 .ToString("yyyy-MM-dd HH:mm:ss");
@@ -255,8 +257,11 @@ namespace Land_Readjustment_Tool
                 await _service.SaveAsync(_projectInfo);
 
                 // Update AppServices context
-                AppServices.Context
-                    .UpdateInfo(_projectInfo);
+                if (AppServices.HasContext)
+                {
+                    AppServices.Context
+                        .UpdateInfo(_projectInfo);
+                }
 
                 DialogResult = DialogResult.OK;
                 this.Close();

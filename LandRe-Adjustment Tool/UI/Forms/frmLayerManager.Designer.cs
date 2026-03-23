@@ -16,14 +16,7 @@
         private void InitializeComponent()
         {
             components = new System.ComponentModel.Container();
-            DataGridViewCellStyle dataGridViewCellStyle5 = new DataGridViewCellStyle();
-            DataGridViewCellStyle dataGridViewCellStyle6 = new DataGridViewCellStyle();
-            DataGridViewCellStyle dataGridViewCellStyle8 = new DataGridViewCellStyle();
-            DataGridViewCellStyle dataGridViewCellStyle7 = new DataGridViewCellStyle();
-            pnlHeader = new Panel();
-            lblSubtitle = new Label();
-            lblTitle = new Label();
-            picLogo = new PictureBox();
+            DataGridViewCellStyle dataGridViewCellStyle4 = new DataGridViewCellStyle();
             pnlToolbar = new Panel();
             btnNewLayer = new Button();
             btnDeleteLayer = new Button();
@@ -96,8 +89,6 @@
             colorDialog1 = new ColorDialog();
             fontDialog1 = new FontDialog();
             splitMain = new SplitContainer();
-            pnlHeader.SuspendLayout();
-            ((System.ComponentModel.ISupportInitialize)picLogo).BeginInit();
             pnlToolbar.SuspendLayout();
             ((System.ComponentModel.ISupportInitialize)dgvLayers).BeginInit();
             grpProperties.SuspendLayout();
@@ -114,53 +105,9 @@
             splitMain.SuspendLayout();
             SuspendLayout();
             // 
-            // pnlHeader
-            // 
-            pnlHeader.BackColor = Color.FromArgb(26, 82, 118);
-            pnlHeader.Controls.Add(lblSubtitle);
-            pnlHeader.Controls.Add(lblTitle);
-            pnlHeader.Dock = DockStyle.Top;
-            pnlHeader.Location = new Point(0, 0);
-            pnlHeader.Margin = new Padding(3, 4, 3, 4);
-            pnlHeader.Name = "pnlHeader";
-            pnlHeader.Padding = new Padding(14, 0, 0, 0);
-            pnlHeader.Size = new Size(1237, 75);
-            pnlHeader.TabIndex = 2;
-            // 
-            // lblSubtitle
-            // 
-            lblSubtitle.AutoSize = true;
-            lblSubtitle.Font = new Font("Segoe UI", 8F);
-            lblSubtitle.ForeColor = Color.FromArgb(189, 215, 238);
-            lblSubtitle.Location = new Point(16, 45);
-            lblSubtitle.Name = "lblSubtitle";
-            lblSubtitle.Size = new Size(214, 19);
-            lblSubtitle.TabIndex = 0;
-            lblSubtitle.Text = "RePlot  ·  Land Readjustment Tool";
-            // 
-            // lblTitle
-            // 
-            lblTitle.AutoSize = true;
-            lblTitle.Font = new Font("Segoe UI", 14F, FontStyle.Bold);
-            lblTitle.ForeColor = Color.White;
-            lblTitle.Location = new Point(14, 11);
-            lblTitle.Name = "lblTitle";
-            lblTitle.Size = new Size(292, 32);
-            lblTitle.TabIndex = 1;
-            lblTitle.Text = "Layer Property Manager";
-            // 
-            // picLogo
-            // 
-            picLogo.Location = new Point(0, 0);
-            picLogo.Name = "picLogo";
-            picLogo.Size = new Size(100, 50);
-            picLogo.TabIndex = 0;
-            picLogo.TabStop = false;
-            // 
             // pnlToolbar
             // 
-            pnlToolbar.BackColor = Color.FromArgb(245, 245, 245);
-            pnlToolbar.BorderStyle = BorderStyle.FixedSingle;
+            pnlToolbar.BackColor = SystemColors.ControlLight;
             pnlToolbar.Controls.Add(btnNewLayer);
             pnlToolbar.Controls.Add(btnDeleteLayer);
             pnlToolbar.Controls.Add(btnMoveUp);
@@ -173,143 +120,100 @@
             pnlToolbar.Controls.Add(lblSearch);
             pnlToolbar.Controls.Add(txtSearch);
             pnlToolbar.Dock = DockStyle.Top;
-            pnlToolbar.Location = new Point(0, 75);
-            pnlToolbar.Margin = new Padding(3, 4, 3, 4);
+            pnlToolbar.Location = new Point(0, 0);
             pnlToolbar.Name = "pnlToolbar";
-            pnlToolbar.Size = new Size(1237, 50);
+            pnlToolbar.Padding = new Padding(4);
+            pnlToolbar.Size = new Size(1142, 49);
             pnlToolbar.TabIndex = 1;
             // 
             // btnNewLayer
             // 
-            btnNewLayer.BackColor = Color.White;
-            btnNewLayer.FlatAppearance.BorderColor = Color.FromArgb(180, 180, 180);
-            btnNewLayer.FlatStyle = FlatStyle.Flat;
-            btnNewLayer.Font = new Font("Segoe UI", 8.5F);
             btnNewLayer.Location = new Point(7, 8);
-            btnNewLayer.Margin = new Padding(3, 4, 3, 4);
             btnNewLayer.Name = "btnNewLayer";
-            btnNewLayer.Size = new Size(101, 35);
+            btnNewLayer.Size = new Size(121, 34);
             btnNewLayer.TabIndex = 0;
             btnNewLayer.Text = "+ New Layer";
             toolTip1.SetToolTip(btnNewLayer, "Add a new layer");
-            btnNewLayer.UseVisualStyleBackColor = false;
             btnNewLayer.Click += btnNewLayer_Click;
             // 
             // btnDeleteLayer
             // 
-            btnDeleteLayer.BackColor = Color.White;
-            btnDeleteLayer.FlatAppearance.BorderColor = Color.FromArgb(180, 180, 180);
-            btnDeleteLayer.FlatStyle = FlatStyle.Flat;
-            btnDeleteLayer.Font = new Font("Segoe UI", 8.5F);
-            btnDeleteLayer.Location = new Point(114, 8);
-            btnDeleteLayer.Margin = new Padding(3, 4, 3, 4);
+            btnDeleteLayer.Location = new Point(134, 8);
             btnDeleteLayer.Name = "btnDeleteLayer";
-            btnDeleteLayer.Size = new Size(82, 35);
+            btnDeleteLayer.Size = new Size(70, 34);
             btnDeleteLayer.TabIndex = 1;
             btnDeleteLayer.Text = "Delete";
             toolTip1.SetToolTip(btnDeleteLayer, "Delete selected layer");
-            btnDeleteLayer.UseVisualStyleBackColor = false;
             btnDeleteLayer.Click += btnDeleteLayer_Click;
             // 
             // btnMoveUp
             // 
-            btnMoveUp.BackColor = Color.White;
-            btnMoveUp.FlatAppearance.BorderColor = Color.FromArgb(180, 180, 180);
-            btnMoveUp.FlatStyle = FlatStyle.Flat;
-            btnMoveUp.Font = new Font("Segoe UI", 8.5F);
-            btnMoveUp.Location = new Point(203, 8);
-            btnMoveUp.Margin = new Padding(3, 4, 3, 4);
+            btnMoveUp.Location = new Point(208, 8);
             btnMoveUp.Name = "btnMoveUp";
-            btnMoveUp.Size = new Size(64, 35);
+            btnMoveUp.Size = new Size(64, 34);
             btnMoveUp.TabIndex = 2;
             btnMoveUp.Text = "▲ Up";
-            toolTip1.SetToolTip(btnMoveUp, "Move layer up in draw order");
-            btnMoveUp.UseVisualStyleBackColor = false;
+            toolTip1.SetToolTip(btnMoveUp, "Move layer up");
             btnMoveUp.Click += btnMoveUp_Click;
             // 
             // btnMoveDown
             // 
-            btnMoveDown.BackColor = Color.White;
-            btnMoveDown.FlatAppearance.BorderColor = Color.FromArgb(180, 180, 180);
-            btnMoveDown.FlatStyle = FlatStyle.Flat;
-            btnMoveDown.Font = new Font("Segoe UI", 8.5F);
-            btnMoveDown.Location = new Point(274, 8);
-            btnMoveDown.Margin = new Padding(3, 4, 3, 4);
+            btnMoveDown.Location = new Point(276, 8);
             btnMoveDown.Name = "btnMoveDown";
-            btnMoveDown.Size = new Size(82, 35);
+            btnMoveDown.Size = new Size(78, 34);
             btnMoveDown.TabIndex = 3;
             btnMoveDown.Text = "▼ Down";
-            toolTip1.SetToolTip(btnMoveDown, "Move layer down in draw order");
-            btnMoveDown.UseVisualStyleBackColor = false;
+            toolTip1.SetToolTip(btnMoveDown, "Move layer down");
             btnMoveDown.Click += btnMoveDown_Click;
             // 
             // sep1
             // 
-            sep1.BackColor = Color.FromArgb(200, 200, 200);
-            sep1.Location = new Point(363, 8);
+            sep1.BackColor = SystemColors.ControlDark;
+            sep1.Location = new Point(318, 5);
             sep1.Name = "sep1";
-            sep1.Size = new Size(1, 35);
+            sep1.Size = new Size(1, 26);
             sep1.TabIndex = 4;
             // 
             // btnShowAll
             // 
-            btnShowAll.BackColor = Color.White;
-            btnShowAll.FlatAppearance.BorderColor = Color.FromArgb(180, 180, 180);
-            btnShowAll.FlatStyle = FlatStyle.Flat;
-            btnShowAll.Font = new Font("Segoe UI", 8.5F);
-            btnShowAll.Location = new Point(373, 8);
-            btnShowAll.Margin = new Padding(3, 4, 3, 4);
+            btnShowAll.Location = new Point(360, 8);
             btnShowAll.Name = "btnShowAll";
-            btnShowAll.Size = new Size(78, 35);
+            btnShowAll.Size = new Size(72, 34);
             btnShowAll.TabIndex = 5;
             btnShowAll.Text = "Show All";
-            btnShowAll.UseVisualStyleBackColor = false;
             btnShowAll.Click += btnShowAll_Click;
             // 
             // btnHideAll
             // 
-            btnHideAll.BackColor = Color.White;
-            btnHideAll.FlatAppearance.BorderColor = Color.FromArgb(180, 180, 180);
-            btnHideAll.FlatStyle = FlatStyle.Flat;
-            btnHideAll.Font = new Font("Segoe UI", 8.5F);
-            btnHideAll.Location = new Point(457, 8);
-            btnHideAll.Margin = new Padding(3, 4, 3, 4);
+            btnHideAll.Location = new Point(438, 8);
             btnHideAll.Name = "btnHideAll";
-            btnHideAll.Size = new Size(75, 35);
+            btnHideAll.Size = new Size(83, 34);
             btnHideAll.TabIndex = 6;
             btnHideAll.Text = "Hide All";
-            btnHideAll.UseVisualStyleBackColor = false;
             btnHideAll.Click += btnHideAll_Click;
             // 
             // btnLockAll
             // 
-            btnLockAll.BackColor = Color.White;
-            btnLockAll.FlatAppearance.BorderColor = Color.FromArgb(180, 180, 180);
-            btnLockAll.FlatStyle = FlatStyle.Flat;
-            btnLockAll.Font = new Font("Segoe UI", 8.5F);
-            btnLockAll.Location = new Point(539, 8);
-            btnLockAll.Margin = new Padding(3, 4, 3, 4);
+            btnLockAll.Location = new Point(527, 8);
             btnLockAll.Name = "btnLockAll";
-            btnLockAll.Size = new Size(75, 35);
+            btnLockAll.Size = new Size(70, 34);
             btnLockAll.TabIndex = 7;
             btnLockAll.Text = "Lock All";
-            btnLockAll.UseVisualStyleBackColor = false;
             btnLockAll.Click += btnLockAll_Click;
             // 
             // sep2
             // 
-            sep2.BackColor = Color.FromArgb(200, 200, 200);
-            sep2.Location = new Point(622, 8);
+            sep2.BackColor = SystemColors.ControlDark;
+            sep2.Location = new Point(550, 5);
             sep2.Name = "sep2";
-            sep2.Size = new Size(1, 35);
+            sep2.Size = new Size(1, 26);
             sep2.TabIndex = 8;
             // 
             // lblSearch
             // 
             lblSearch.AutoSize = true;
-            lblSearch.Font = new Font("Segoe UI", 8.5F);
-            lblSearch.ForeColor = Color.FromArgb(100, 100, 100);
-            lblSearch.Location = new Point(631, 16);
+            lblSearch.Font = new Font("Segoe UI", 9F);
+            lblSearch.Location = new Point(624, 15);
             lblSearch.Name = "lblSearch";
             lblSearch.Size = new Size(56, 20);
             lblSearch.TabIndex = 9;
@@ -317,12 +221,10 @@
             // 
             // txtSearch
             // 
-            txtSearch.BorderStyle = BorderStyle.FixedSingle;
-            txtSearch.Font = new Font("Segoe UI", 8.5F);
-            txtSearch.Location = new Point(688, 11);
-            txtSearch.Margin = new Padding(3, 4, 3, 4);
+            txtSearch.Font = new Font("Segoe UI", 9F);
+            txtSearch.Location = new Point(686, 12);
             txtSearch.Name = "txtSearch";
-            txtSearch.Size = new Size(160, 26);
+            txtSearch.Size = new Size(160, 27);
             txtSearch.TabIndex = 10;
             txtSearch.TextChanged += txtSearch_TextChanged;
             // 
@@ -331,46 +233,23 @@
             dgvLayers.AllowUserToAddRows = false;
             dgvLayers.AllowUserToDeleteRows = false;
             dgvLayers.AllowUserToResizeRows = false;
-            dataGridViewCellStyle5.BackColor = Color.FromArgb(248, 250, 253);
-            dgvLayers.AlternatingRowsDefaultCellStyle = dataGridViewCellStyle5;
-            dgvLayers.BackgroundColor = Color.White;
+            dgvLayers.AutoSizeColumnsMode = DataGridViewAutoSizeColumnsMode.Fill;
+            dgvLayers.BackgroundColor = SystemColors.Window;
             dgvLayers.BorderStyle = BorderStyle.None;
-            dgvLayers.CellBorderStyle = DataGridViewCellBorderStyle.SingleHorizontal;
-            dgvLayers.ColumnHeadersBorderStyle = DataGridViewHeaderBorderStyle.Single;
-            dataGridViewCellStyle6.Alignment = DataGridViewContentAlignment.MiddleLeft;
-            dataGridViewCellStyle6.BackColor = Color.FromArgb(26, 82, 118);
-            dataGridViewCellStyle6.Font = new Font("Segoe UI", 8.5F, FontStyle.Bold);
-            dataGridViewCellStyle6.ForeColor = Color.White;
-            dataGridViewCellStyle6.Padding = new Padding(4, 0, 0, 0);
-            dataGridViewCellStyle6.SelectionBackColor = SystemColors.Highlight;
-            dataGridViewCellStyle6.SelectionForeColor = SystemColors.HighlightText;
-            dataGridViewCellStyle6.WrapMode = DataGridViewTriState.True;
-            dgvLayers.ColumnHeadersDefaultCellStyle = dataGridViewCellStyle6;
-            dgvLayers.ColumnHeadersHeight = 30;
-            dgvLayers.ColumnHeadersHeightSizeMode = DataGridViewColumnHeadersHeightSizeMode.DisableResizing;
+            dgvLayers.ColumnHeadersHeight = 29;
             dgvLayers.Columns.AddRange(new DataGridViewColumn[] { colVisible, colLocked, colPrintable, colColor, colName, colLayerType, colLineStyle, colLineWeight, colDisplayOrder });
-            dataGridViewCellStyle8.Alignment = DataGridViewContentAlignment.MiddleLeft;
-            dataGridViewCellStyle8.BackColor = Color.White;
-            dataGridViewCellStyle8.Font = new Font("Segoe UI", 8.5F);
-            dataGridViewCellStyle8.ForeColor = Color.FromArgb(40, 40, 40);
-            dataGridViewCellStyle8.Padding = new Padding(2, 0, 0, 0);
-            dataGridViewCellStyle8.SelectionBackColor = Color.FromArgb(210, 228, 244);
-            dataGridViewCellStyle8.SelectionForeColor = Color.FromArgb(20, 20, 20);
-            dataGridViewCellStyle8.WrapMode = DataGridViewTriState.False;
-            dgvLayers.DefaultCellStyle = dataGridViewCellStyle8;
             dgvLayers.Dock = DockStyle.Fill;
-            dgvLayers.EnableHeadersVisualStyles = false;
-            dgvLayers.GridColor = Color.FromArgb(220, 220, 220);
+            dgvLayers.Font = new Font("Segoe UI", 9F);
+            dgvLayers.GridColor = SystemColors.ControlLight;
             dgvLayers.Location = new Point(0, 0);
-            dgvLayers.Margin = new Padding(3, 4, 3, 4);
             dgvLayers.MultiSelect = false;
             dgvLayers.Name = "dgvLayers";
             dgvLayers.RowHeadersVisible = false;
             dgvLayers.RowHeadersWidth = 51;
             dgvLayers.RowTemplate.Height = 26;
             dgvLayers.SelectionMode = DataGridViewSelectionMode.FullRowSelect;
-            dgvLayers.Size = new Size(823, 587);
-            dgvLayers.TabIndex = 10;
+            dgvLayers.Size = new Size(780, 429);
+            dgvLayers.TabIndex = 0;
             dgvLayers.CellClick += dgvLayers_CellClick;
             dgvLayers.CellPainting += dgvLayers_CellPainting;
             dgvLayers.CellValueChanged += dgvLayers_CellValueChanged;
@@ -384,9 +263,6 @@
             colVisible.MinimumWidth = 34;
             colVisible.Name = "colVisible";
             colVisible.Resizable = DataGridViewTriState.False;
-            colVisible.SortMode = DataGridViewColumnSortMode.Automatic;
-            colVisible.ToolTipText = "Visible";
-            colVisible.Width = 34;
             // 
             // colLocked
             // 
@@ -395,8 +271,6 @@
             colLocked.MinimumWidth = 34;
             colLocked.Name = "colLocked";
             colLocked.Resizable = DataGridViewTriState.False;
-            colLocked.ToolTipText = "Locked";
-            colLocked.Width = 34;
             // 
             // colPrintable
             // 
@@ -405,8 +279,6 @@
             colPrintable.MinimumWidth = 34;
             colPrintable.Name = "colPrintable";
             colPrintable.Resizable = DataGridViewTriState.False;
-            colPrintable.ToolTipText = "Printable";
-            colPrintable.Width = 34;
             // 
             // colColor
             // 
@@ -415,8 +287,6 @@
             colColor.MinimumWidth = 6;
             colColor.Name = "colColor";
             colColor.ReadOnly = true;
-            colColor.ToolTipText = "Border colour — click to change";
-            colColor.Width = 52;
             // 
             // colName
             // 
@@ -424,7 +294,6 @@
             colName.HeaderText = "Layer Name";
             colName.MinimumWidth = 6;
             colName.Name = "colName";
-            colName.Width = 180;
             // 
             // colLayerType
             // 
@@ -435,7 +304,6 @@
             colLayerType.Items.AddRange(new object[] { "BaselineParcel", "ReplottedParcel", "ProposedRoad", "ExistingRoad", "Block", "ProjectBoundary", "Annotation", "Reference" });
             colLayerType.MinimumWidth = 6;
             colLayerType.Name = "colLayerType";
-            colLayerType.Width = 130;
             // 
             // colLineStyle
             // 
@@ -446,7 +314,6 @@
             colLineStyle.Items.AddRange(new object[] { "Solid", "Dashed", "Dotted", "DashDot" });
             colLineStyle.MinimumWidth = 6;
             colLineStyle.Name = "colLineStyle";
-            colLineStyle.Width = 90;
             // 
             // colLineWeight
             // 
@@ -457,29 +324,25 @@
             colLineWeight.Items.AddRange(new object[] { "0.25", "0.5", "1.0", "1.5", "2.0", "3.0" });
             colLineWeight.MinimumWidth = 6;
             colLineWeight.Name = "colLineWeight";
-            colLineWeight.Width = 72;
             // 
             // colDisplayOrder
             // 
             colDisplayOrder.DataPropertyName = "DisplayOrder";
-            dataGridViewCellStyle7.Alignment = DataGridViewContentAlignment.MiddleCenter;
-            colDisplayOrder.DefaultCellStyle = dataGridViewCellStyle7;
+            dataGridViewCellStyle4.Alignment = DataGridViewContentAlignment.MiddleCenter;
+            colDisplayOrder.DefaultCellStyle = dataGridViewCellStyle4;
             colDisplayOrder.HeaderText = "Order";
             colDisplayOrder.MinimumWidth = 6;
             colDisplayOrder.Name = "colDisplayOrder";
-            colDisplayOrder.Width = 52;
             // 
             // grpProperties
             // 
             grpProperties.Controls.Add(tabProperties);
             grpProperties.Dock = DockStyle.Fill;
-            grpProperties.Font = new Font("Segoe UI", 8.5F, FontStyle.Bold);
-            grpProperties.ForeColor = Color.FromArgb(26, 82, 118);
+            grpProperties.Font = new Font("Segoe UI", 9F, FontStyle.Bold);
             grpProperties.Location = new Point(0, 0);
-            grpProperties.Margin = new Padding(3, 4, 3, 4);
             grpProperties.Name = "grpProperties";
-            grpProperties.Padding = new Padding(7, 8, 7, 8);
-            grpProperties.Size = new Size(409, 587);
+            grpProperties.Padding = new Padding(6, 8, 6, 6);
+            grpProperties.Size = new Size(357, 429);
             grpProperties.TabIndex = 0;
             grpProperties.TabStop = false;
             grpProperties.Text = "Layer Properties";
@@ -490,17 +353,15 @@
             tabProperties.Controls.Add(tabFill);
             tabProperties.Controls.Add(tabLabel);
             tabProperties.Dock = DockStyle.Fill;
-            tabProperties.Font = new Font("Segoe UI", 8.5F);
-            tabProperties.Location = new Point(7, 27);
-            tabProperties.Margin = new Padding(3, 4, 3, 4);
+            tabProperties.Font = new Font("Segoe UI", 9F);
+            tabProperties.Location = new Point(6, 28);
             tabProperties.Name = "tabProperties";
             tabProperties.SelectedIndex = 0;
-            tabProperties.Size = new Size(395, 552);
+            tabProperties.Size = new Size(345, 395);
             tabProperties.TabIndex = 0;
             // 
             // tabGeneral
             // 
-            tabGeneral.BackColor = Color.White;
             tabGeneral.Controls.Add(lblLayerName);
             tabGeneral.Controls.Add(txtLayerName);
             tabGeneral.Controls.Add(lblLayerType);
@@ -516,20 +377,19 @@
             tabGeneral.Controls.Add(chkLocked);
             tabGeneral.Controls.Add(chkSelectable);
             tabGeneral.Controls.Add(chkPrintable);
-            tabGeneral.Location = new Point(4, 28);
-            tabGeneral.Margin = new Padding(3, 4, 3, 4);
+            tabGeneral.Location = new Point(4, 29);
             tabGeneral.Name = "tabGeneral";
-            tabGeneral.Padding = new Padding(11, 11, 11, 11);
-            tabGeneral.Size = new Size(387, 520);
+            tabGeneral.Padding = new Padding(10);
+            tabGeneral.Size = new Size(337, 375);
             tabGeneral.TabIndex = 0;
             tabGeneral.Text = "General";
+            tabGeneral.UseVisualStyleBackColor = true;
             // 
             // lblLayerName
             // 
             lblLayerName.AutoSize = true;
-            lblLayerName.Font = new Font("Segoe UI", 8.5F);
-            lblLayerName.ForeColor = Color.FromArgb(60, 60, 60);
-            lblLayerName.Location = new Point(11, 17);
+            lblLayerName.Font = new Font("Segoe UI", 9F);
+            lblLayerName.Location = new Point(10, 17);
             lblLayerName.Name = "lblLayerName";
             lblLayerName.Size = new Size(52, 20);
             lblLayerName.TabIndex = 0;
@@ -537,20 +397,17 @@
             // 
             // txtLayerName
             // 
-            txtLayerName.BorderStyle = BorderStyle.FixedSingle;
-            txtLayerName.Font = new Font("Segoe UI", 8.5F);
-            txtLayerName.Location = new Point(137, 11);
-            txtLayerName.Margin = new Padding(3, 4, 3, 4);
+            txtLayerName.Font = new Font("Segoe UI", 9F);
+            txtLayerName.Location = new Point(140, 14);
             txtLayerName.Name = "txtLayerName";
-            txtLayerName.Size = new Size(183, 26);
+            txtLayerName.Size = new Size(184, 27);
             txtLayerName.TabIndex = 1;
             // 
             // lblLayerType
             // 
             lblLayerType.AutoSize = true;
-            lblLayerType.Font = new Font("Segoe UI", 8.5F);
-            lblLayerType.ForeColor = Color.FromArgb(60, 60, 60);
-            lblLayerType.Location = new Point(11, 57);
+            lblLayerType.Font = new Font("Segoe UI", 9F);
+            lblLayerType.Location = new Point(10, 51);
             lblLayerType.Name = "lblLayerType";
             lblLayerType.Size = new Size(43, 20);
             lblLayerType.TabIndex = 2;
@@ -560,20 +417,18 @@
             // 
             cboLayerType.DropDownStyle = ComboBoxStyle.DropDownList;
             cboLayerType.FlatStyle = FlatStyle.Flat;
-            cboLayerType.Font = new Font("Segoe UI", 8.5F);
+            cboLayerType.Font = new Font("Segoe UI", 9F);
             cboLayerType.Items.AddRange(new object[] { "BaselineParcel", "ReplottedParcel", "ProposedRoad", "ExistingRoad", "Block", "ProjectBoundary", "Annotation", "Reference" });
-            cboLayerType.Location = new Point(137, 51);
-            cboLayerType.Margin = new Padding(3, 4, 3, 4);
+            cboLayerType.Location = new Point(140, 48);
             cboLayerType.Name = "cboLayerType";
-            cboLayerType.Size = new Size(182, 27);
+            cboLayerType.Size = new Size(184, 28);
             cboLayerType.TabIndex = 3;
             // 
             // lblBorderColor
             // 
             lblBorderColor.AutoSize = true;
-            lblBorderColor.Font = new Font("Segoe UI", 8.5F);
-            lblBorderColor.ForeColor = Color.FromArgb(60, 60, 60);
-            lblBorderColor.Location = new Point(11, 97);
+            lblBorderColor.Font = new Font("Segoe UI", 9F);
+            lblBorderColor.Location = new Point(10, 84);
             lblBorderColor.Name = "lblBorderColor";
             lblBorderColor.Size = new Size(97, 20);
             lblBorderColor.TabIndex = 4;
@@ -584,21 +439,17 @@
             pnlBorderColor.BackColor = Color.Black;
             pnlBorderColor.BorderStyle = BorderStyle.FixedSingle;
             pnlBorderColor.Cursor = Cursors.Hand;
-            pnlBorderColor.Location = new Point(137, 92);
-            pnlBorderColor.Margin = new Padding(3, 4, 3, 4);
+            pnlBorderColor.Location = new Point(140, 82);
             pnlBorderColor.Name = "pnlBorderColor";
-            pnlBorderColor.Size = new Size(45, 29);
+            pnlBorderColor.Size = new Size(42, 26);
             pnlBorderColor.TabIndex = 5;
             pnlBorderColor.Click += pnlBorderColor_Click;
             // 
             // btnBorderColor
             // 
-            btnBorderColor.FlatStyle = FlatStyle.Flat;
-            btnBorderColor.Font = new Font("Segoe UI", 7.5F);
-            btnBorderColor.Location = new Point(190, 92);
-            btnBorderColor.Margin = new Padding(3, 4, 3, 4);
+            btnBorderColor.Location = new Point(188, 82);
             btnBorderColor.Name = "btnBorderColor";
-            btnBorderColor.Size = new Size(69, 29);
+            btnBorderColor.Size = new Size(75, 26);
             btnBorderColor.TabIndex = 6;
             btnBorderColor.Text = "Choose…";
             btnBorderColor.Click += btnBorderColor_Click;
@@ -606,9 +457,8 @@
             // lblLineStyle
             // 
             lblLineStyle.AutoSize = true;
-            lblLineStyle.Font = new Font("Segoe UI", 8.5F);
-            lblLineStyle.ForeColor = Color.FromArgb(60, 60, 60);
-            lblLineStyle.Location = new Point(11, 137);
+            lblLineStyle.Font = new Font("Segoe UI", 9F);
+            lblLineStyle.Location = new Point(10, 121);
             lblLineStyle.Name = "lblLineStyle";
             lblLineStyle.Size = new Size(75, 20);
             lblLineStyle.TabIndex = 7;
@@ -618,20 +468,18 @@
             // 
             cboLineStyle.DropDownStyle = ComboBoxStyle.DropDownList;
             cboLineStyle.FlatStyle = FlatStyle.Flat;
-            cboLineStyle.Font = new Font("Segoe UI", 8.5F);
+            cboLineStyle.Font = new Font("Segoe UI", 9F);
             cboLineStyle.Items.AddRange(new object[] { "Solid", "Dashed", "Dotted", "DashDot" });
-            cboLineStyle.Location = new Point(137, 131);
-            cboLineStyle.Margin = new Padding(3, 4, 3, 4);
+            cboLineStyle.Location = new Point(140, 118);
             cboLineStyle.Name = "cboLineStyle";
-            cboLineStyle.Size = new Size(182, 27);
+            cboLineStyle.Size = new Size(184, 28);
             cboLineStyle.TabIndex = 8;
             // 
             // lblLineWeight
             // 
             lblLineWeight.AutoSize = true;
-            lblLineWeight.Font = new Font("Segoe UI", 8.5F);
-            lblLineWeight.ForeColor = Color.FromArgb(60, 60, 60);
-            lblLineWeight.Location = new Point(11, 177);
+            lblLineWeight.Font = new Font("Segoe UI", 9F);
+            lblLineWeight.Location = new Point(10, 155);
             lblLineWeight.Name = "lblLineWeight";
             lblLineWeight.Size = new Size(90, 20);
             lblLineWeight.TabIndex = 9;
@@ -641,20 +489,18 @@
             // 
             cboLineWeight.DropDownStyle = ComboBoxStyle.DropDownList;
             cboLineWeight.FlatStyle = FlatStyle.Flat;
-            cboLineWeight.Font = new Font("Segoe UI", 8.5F);
+            cboLineWeight.Font = new Font("Segoe UI", 9F);
             cboLineWeight.Items.AddRange(new object[] { "0.25", "0.5", "1.0", "1.5", "2.0", "3.0" });
-            cboLineWeight.Location = new Point(137, 171);
-            cboLineWeight.Margin = new Padding(3, 4, 3, 4);
+            cboLineWeight.Location = new Point(140, 152);
             cboLineWeight.Name = "cboLineWeight";
-            cboLineWeight.Size = new Size(182, 27);
+            cboLineWeight.Size = new Size(184, 28);
             cboLineWeight.TabIndex = 10;
             // 
             // chkVisible
             // 
             chkVisible.AutoSize = true;
-            chkVisible.Font = new Font("Segoe UI", 8.5F);
-            chkVisible.Location = new Point(11, 219);
-            chkVisible.Margin = new Padding(3, 4, 3, 4);
+            chkVisible.Font = new Font("Segoe UI", 9F);
+            chkVisible.Location = new Point(10, 192);
             chkVisible.Name = "chkVisible";
             chkVisible.Size = new Size(75, 24);
             chkVisible.TabIndex = 11;
@@ -663,9 +509,8 @@
             // chkLocked
             // 
             chkLocked.AutoSize = true;
-            chkLocked.Font = new Font("Segoe UI", 8.5F);
-            chkLocked.Location = new Point(91, 219);
-            chkLocked.Margin = new Padding(3, 4, 3, 4);
+            chkLocked.Font = new Font("Segoe UI", 9F);
+            chkLocked.Location = new Point(140, 192);
             chkLocked.Name = "chkLocked";
             chkLocked.Size = new Size(78, 24);
             chkLocked.TabIndex = 12;
@@ -674,9 +519,8 @@
             // chkSelectable
             // 
             chkSelectable.AutoSize = true;
-            chkSelectable.Font = new Font("Segoe UI", 8.5F);
-            chkSelectable.Location = new Point(183, 219);
-            chkSelectable.Margin = new Padding(3, 4, 3, 4);
+            chkSelectable.Font = new Font("Segoe UI", 9F);
+            chkSelectable.Location = new Point(10, 222);
             chkSelectable.Name = "chkSelectable";
             chkSelectable.Size = new Size(100, 24);
             chkSelectable.TabIndex = 13;
@@ -685,9 +529,8 @@
             // chkPrintable
             // 
             chkPrintable.AutoSize = true;
-            chkPrintable.Font = new Font("Segoe UI", 8.5F);
-            chkPrintable.Location = new Point(286, 219);
-            chkPrintable.Margin = new Padding(3, 4, 3, 4);
+            chkPrintable.Font = new Font("Segoe UI", 9F);
+            chkPrintable.Location = new Point(140, 222);
             chkPrintable.Name = "chkPrintable";
             chkPrintable.Size = new Size(90, 24);
             chkPrintable.TabIndex = 14;
@@ -695,7 +538,6 @@
             // 
             // tabFill
             // 
-            tabFill.BackColor = Color.White;
             tabFill.Controls.Add(lblFillColor);
             tabFill.Controls.Add(pnlFillColor);
             tabFill.Controls.Add(btnFillColor);
@@ -706,20 +548,19 @@
             tabFill.Controls.Add(lblTransparency);
             tabFill.Controls.Add(trkTransparency);
             tabFill.Controls.Add(lblTranspValue);
-            tabFill.Location = new Point(4, 28);
-            tabFill.Margin = new Padding(3, 4, 3, 4);
+            tabFill.Location = new Point(4, 29);
             tabFill.Name = "tabFill";
-            tabFill.Padding = new Padding(11, 11, 11, 11);
-            tabFill.Size = new Size(387, 520);
+            tabFill.Padding = new Padding(10);
+            tabFill.Size = new Size(337, 375);
             tabFill.TabIndex = 1;
             tabFill.Text = "Fill";
+            tabFill.UseVisualStyleBackColor = true;
             // 
             // lblFillColor
             // 
             lblFillColor.AutoSize = true;
-            lblFillColor.Font = new Font("Segoe UI", 8.5F);
-            lblFillColor.ForeColor = Color.FromArgb(60, 60, 60);
-            lblFillColor.Location = new Point(11, 17);
+            lblFillColor.Font = new Font("Segoe UI", 9F);
+            lblFillColor.Location = new Point(10, 14);
             lblFillColor.Name = "lblFillColor";
             lblFillColor.Size = new Size(71, 20);
             lblFillColor.TabIndex = 0;
@@ -730,21 +571,17 @@
             pnlFillColor.BackColor = Color.LightYellow;
             pnlFillColor.BorderStyle = BorderStyle.FixedSingle;
             pnlFillColor.Cursor = Cursors.Hand;
-            pnlFillColor.Location = new Point(137, 12);
-            pnlFillColor.Margin = new Padding(3, 4, 3, 4);
+            pnlFillColor.Location = new Point(140, 12);
             pnlFillColor.Name = "pnlFillColor";
-            pnlFillColor.Size = new Size(45, 29);
+            pnlFillColor.Size = new Size(42, 26);
             pnlFillColor.TabIndex = 1;
             pnlFillColor.Click += pnlFillColor_Click;
             // 
             // btnFillColor
             // 
-            btnFillColor.FlatStyle = FlatStyle.Flat;
-            btnFillColor.Font = new Font("Segoe UI", 7.5F);
-            btnFillColor.Location = new Point(190, 12);
-            btnFillColor.Margin = new Padding(3, 4, 3, 4);
+            btnFillColor.Location = new Point(188, 12);
             btnFillColor.Name = "btnFillColor";
-            btnFillColor.Size = new Size(69, 29);
+            btnFillColor.Size = new Size(75, 26);
             btnFillColor.TabIndex = 2;
             btnFillColor.Text = "Choose…";
             btnFillColor.Click += btnFillColor_Click;
@@ -752,9 +589,8 @@
             // lblFillStyle
             // 
             lblFillStyle.AutoSize = true;
-            lblFillStyle.Font = new Font("Segoe UI", 8.5F);
-            lblFillStyle.ForeColor = Color.FromArgb(60, 60, 60);
-            lblFillStyle.Location = new Point(11, 57);
+            lblFillStyle.Font = new Font("Segoe UI", 9F);
+            lblFillStyle.Location = new Point(10, 51);
             lblFillStyle.Name = "lblFillStyle";
             lblFillStyle.Size = new Size(67, 20);
             lblFillStyle.TabIndex = 3;
@@ -764,21 +600,19 @@
             // 
             cboFillStyle.DropDownStyle = ComboBoxStyle.DropDownList;
             cboFillStyle.FlatStyle = FlatStyle.Flat;
-            cboFillStyle.Font = new Font("Segoe UI", 8.5F);
+            cboFillStyle.Font = new Font("Segoe UI", 9F);
             cboFillStyle.Items.AddRange(new object[] { "None", "Solid", "Hatched" });
-            cboFillStyle.Location = new Point(137, 51);
-            cboFillStyle.Margin = new Padding(3, 4, 3, 4);
+            cboFillStyle.Location = new Point(140, 48);
             cboFillStyle.Name = "cboFillStyle";
-            cboFillStyle.Size = new Size(148, 27);
+            cboFillStyle.Size = new Size(183, 28);
             cboFillStyle.TabIndex = 4;
             cboFillStyle.SelectedIndexChanged += cboFillStyle_SelectedIndexChanged;
             // 
             // lblHatch
             // 
             lblHatch.AutoSize = true;
-            lblHatch.Font = new Font("Segoe UI", 8.5F);
-            lblHatch.ForeColor = Color.FromArgb(60, 60, 60);
-            lblHatch.Location = new Point(11, 97);
+            lblHatch.Font = new Font("Segoe UI", 9F);
+            lblHatch.Location = new Point(10, 85);
             lblHatch.Name = "lblHatch";
             lblHatch.Size = new Size(101, 20);
             lblHatch.TabIndex = 5;
@@ -789,20 +623,18 @@
             cboHatch.DropDownStyle = ComboBoxStyle.DropDownList;
             cboHatch.Enabled = false;
             cboHatch.FlatStyle = FlatStyle.Flat;
-            cboHatch.Font = new Font("Segoe UI", 8.5F);
+            cboHatch.Font = new Font("Segoe UI", 9F);
             cboHatch.Items.AddRange(new object[] { "ANSI31", "ANSI32", "ANSI33", "ANSI34", "AR-BRSTD", "DOTS", "EARTH" });
-            cboHatch.Location = new Point(137, 91);
-            cboHatch.Margin = new Padding(3, 4, 3, 4);
+            cboHatch.Location = new Point(140, 82);
             cboHatch.Name = "cboHatch";
-            cboHatch.Size = new Size(148, 27);
+            cboHatch.Size = new Size(184, 28);
             cboHatch.TabIndex = 6;
             // 
             // lblTransparency
             // 
             lblTransparency.AutoSize = true;
-            lblTransparency.Font = new Font("Segoe UI", 8.5F);
-            lblTransparency.ForeColor = Color.FromArgb(60, 60, 60);
-            lblTransparency.Location = new Point(11, 137);
+            lblTransparency.Font = new Font("Segoe UI", 9F);
+            lblTransparency.Location = new Point(10, 120);
             lblTransparency.Name = "lblTransparency";
             lblTransparency.Size = new Size(98, 20);
             lblTransparency.TabIndex = 7;
@@ -810,11 +642,10 @@
             // 
             // trkTransparency
             // 
-            trkTransparency.Location = new Point(137, 128);
-            trkTransparency.Margin = new Padding(3, 4, 3, 4);
+            trkTransparency.Location = new Point(140, 114);
             trkTransparency.Maximum = 100;
             trkTransparency.Name = "trkTransparency";
-            trkTransparency.Size = new Size(171, 56);
+            trkTransparency.Size = new Size(148, 56);
             trkTransparency.TabIndex = 8;
             trkTransparency.TickFrequency = 10;
             trkTransparency.Scroll += trkTransparency_Scroll;
@@ -822,8 +653,8 @@
             // lblTranspValue
             // 
             lblTranspValue.AutoSize = true;
-            lblTranspValue.Font = new Font("Segoe UI", 8.5F);
-            lblTranspValue.Location = new Point(315, 133);
+            lblTranspValue.Font = new Font("Segoe UI", 9F);
+            lblTranspValue.Location = new Point(294, 120);
             lblTranspValue.Name = "lblTranspValue";
             lblTranspValue.Size = new Size(29, 20);
             lblTranspValue.TabIndex = 9;
@@ -831,7 +662,6 @@
             // 
             // tabLabel
             // 
-            tabLabel.BackColor = Color.White;
             tabLabel.Controls.Add(chkShowLabels);
             tabLabel.Controls.Add(lblFont);
             tabLabel.Controls.Add(txtFontName);
@@ -843,20 +673,19 @@
             tabLabel.Controls.Add(btnLabelColor);
             tabLabel.Controls.Add(lblLabelField);
             tabLabel.Controls.Add(cboLabelField);
-            tabLabel.Location = new Point(4, 28);
-            tabLabel.Margin = new Padding(3, 4, 3, 4);
+            tabLabel.Location = new Point(4, 29);
             tabLabel.Name = "tabLabel";
-            tabLabel.Padding = new Padding(11, 11, 11, 11);
-            tabLabel.Size = new Size(387, 520);
+            tabLabel.Padding = new Padding(10);
+            tabLabel.Size = new Size(337, 362);
             tabLabel.TabIndex = 2;
             tabLabel.Text = "Labels";
+            tabLabel.UseVisualStyleBackColor = true;
             // 
             // chkShowLabels
             // 
             chkShowLabels.AutoSize = true;
-            chkShowLabels.Font = new Font("Segoe UI", 8.5F, FontStyle.Bold);
-            chkShowLabels.Location = new Point(11, 13);
-            chkShowLabels.Margin = new Padding(3, 4, 3, 4);
+            chkShowLabels.Font = new Font("Segoe UI", 9F, FontStyle.Bold);
+            chkShowLabels.Location = new Point(10, 12);
             chkShowLabels.Name = "chkShowLabels";
             chkShowLabels.Size = new Size(192, 24);
             chkShowLabels.TabIndex = 0;
@@ -866,9 +695,8 @@
             // lblFont
             // 
             lblFont.AutoSize = true;
-            lblFont.Font = new Font("Segoe UI", 8.5F);
-            lblFont.ForeColor = Color.FromArgb(60, 60, 60);
-            lblFont.Location = new Point(11, 60);
+            lblFont.Font = new Font("Segoe UI", 9F);
+            lblFont.Location = new Point(10, 49);
             lblFont.Name = "lblFont";
             lblFont.Size = new Size(41, 20);
             lblFont.TabIndex = 1;
@@ -876,22 +704,18 @@
             // 
             // txtFontName
             // 
-            txtFontName.BorderStyle = BorderStyle.FixedSingle;
-            txtFontName.Font = new Font("Segoe UI", 8.5F);
-            txtFontName.Location = new Point(137, 53);
-            txtFontName.Margin = new Padding(3, 4, 3, 4);
+            txtFontName.Font = new Font("Segoe UI", 9F);
+            txtFontName.Location = new Point(140, 46);
             txtFontName.Name = "txtFontName";
             txtFontName.ReadOnly = true;
-            txtFontName.Size = new Size(125, 26);
+            txtFontName.Size = new Size(142, 27);
             txtFontName.TabIndex = 2;
             // 
             // btnPickFont
             // 
-            btnPickFont.FlatStyle = FlatStyle.Flat;
-            btnPickFont.Location = new Point(270, 53);
-            btnPickFont.Margin = new Padding(3, 4, 3, 4);
+            btnPickFont.Location = new Point(288, 46);
             btnPickFont.Name = "btnPickFont";
-            btnPickFont.Size = new Size(50, 29);
+            btnPickFont.Size = new Size(36, 26);
             btnPickFont.TabIndex = 3;
             btnPickFont.Text = "…";
             btnPickFont.Click += btnPickFont_Click;
@@ -899,9 +723,8 @@
             // lblFontSize
             // 
             lblFontSize.AutoSize = true;
-            lblFontSize.Font = new Font("Segoe UI", 8.5F);
-            lblFontSize.ForeColor = Color.FromArgb(60, 60, 60);
-            lblFontSize.Location = new Point(11, 100);
+            lblFontSize.Font = new Font("Segoe UI", 9F);
+            lblFontSize.Location = new Point(10, 83);
             lblFontSize.Name = "lblFontSize";
             lblFontSize.Size = new Size(72, 20);
             lblFontSize.TabIndex = 4;
@@ -909,22 +732,20 @@
             // 
             // numFontSize
             // 
-            numFontSize.Font = new Font("Segoe UI", 8.5F);
-            numFontSize.Location = new Point(137, 93);
-            numFontSize.Margin = new Padding(3, 4, 3, 4);
+            numFontSize.Font = new Font("Segoe UI", 9F);
+            numFontSize.Location = new Point(140, 80);
             numFontSize.Maximum = new decimal(new int[] { 72, 0, 0, 0 });
             numFontSize.Minimum = new decimal(new int[] { 4, 0, 0, 0 });
             numFontSize.Name = "numFontSize";
-            numFontSize.Size = new Size(80, 26);
+            numFontSize.Size = new Size(80, 27);
             numFontSize.TabIndex = 5;
             numFontSize.Value = new decimal(new int[] { 10, 0, 0, 0 });
             // 
             // lblLabelColor
             // 
             lblLabelColor.AutoSize = true;
-            lblLabelColor.Font = new Font("Segoe UI", 8.5F);
-            lblLabelColor.ForeColor = Color.FromArgb(60, 60, 60);
-            lblLabelColor.Location = new Point(11, 140);
+            lblLabelColor.Font = new Font("Segoe UI", 9F);
+            lblLabelColor.Location = new Point(10, 116);
             lblLabelColor.Name = "lblLabelColor";
             lblLabelColor.Size = new Size(88, 20);
             lblLabelColor.TabIndex = 6;
@@ -935,21 +756,17 @@
             pnlLabelColor.BackColor = Color.Black;
             pnlLabelColor.BorderStyle = BorderStyle.FixedSingle;
             pnlLabelColor.Cursor = Cursors.Hand;
-            pnlLabelColor.Location = new Point(137, 135);
-            pnlLabelColor.Margin = new Padding(3, 4, 3, 4);
+            pnlLabelColor.Location = new Point(140, 114);
             pnlLabelColor.Name = "pnlLabelColor";
-            pnlLabelColor.Size = new Size(45, 29);
+            pnlLabelColor.Size = new Size(42, 26);
             pnlLabelColor.TabIndex = 7;
             pnlLabelColor.Click += pnlLabelColor_Click;
             // 
             // btnLabelColor
             // 
-            btnLabelColor.FlatStyle = FlatStyle.Flat;
-            btnLabelColor.Font = new Font("Segoe UI", 7.5F);
-            btnLabelColor.Location = new Point(190, 135);
-            btnLabelColor.Margin = new Padding(3, 4, 3, 4);
+            btnLabelColor.Location = new Point(188, 114);
             btnLabelColor.Name = "btnLabelColor";
-            btnLabelColor.Size = new Size(69, 29);
+            btnLabelColor.Size = new Size(75, 26);
             btnLabelColor.TabIndex = 8;
             btnLabelColor.Text = "Choose…";
             btnLabelColor.Click += btnLabelColor_Click;
@@ -957,9 +774,8 @@
             // lblLabelField
             // 
             lblLabelField.AutoSize = true;
-            lblLabelField.Font = new Font("Segoe UI", 8.5F);
-            lblLabelField.ForeColor = Color.FromArgb(60, 60, 60);
-            lblLabelField.Location = new Point(11, 180);
+            lblLabelField.Font = new Font("Segoe UI", 9F);
+            lblLabelField.Location = new Point(10, 153);
             lblLabelField.Name = "lblLabelField";
             lblLabelField.Size = new Size(84, 20);
             lblLabelField.TabIndex = 9;
@@ -969,50 +785,43 @@
             // 
             cboLabelField.DropDownStyle = ComboBoxStyle.DropDownList;
             cboLabelField.FlatStyle = FlatStyle.Flat;
-            cboLabelField.Font = new Font("Segoe UI", 8.5F);
+            cboLabelField.Font = new Font("Segoe UI", 9F);
             cboLabelField.Items.AddRange(new object[] { "ParcelNo", "OwnerName", "AreaSqm", "AreaRAPD", "LandUse", "PlotNumber" });
-            cboLabelField.Location = new Point(137, 173);
-            cboLabelField.Margin = new Padding(3, 4, 3, 4);
+            cboLabelField.Location = new Point(140, 150);
             cboLabelField.Name = "cboLabelField";
-            cboLabelField.Size = new Size(182, 27);
+            cboLabelField.Size = new Size(184, 28);
             cboLabelField.TabIndex = 10;
             // 
             // pnlBottom
             // 
-            pnlBottom.BackColor = Color.FromArgb(245, 245, 245);
-            pnlBottom.BorderStyle = BorderStyle.FixedSingle;
             pnlBottom.Controls.Add(lblLayerCount);
             pnlBottom.Controls.Add(btnApply);
             pnlBottom.Controls.Add(btnOK);
             pnlBottom.Controls.Add(btnCancel);
             pnlBottom.Dock = DockStyle.Bottom;
-            pnlBottom.Location = new Point(0, 712);
-            pnlBottom.Margin = new Padding(3, 4, 3, 4);
+            pnlBottom.Location = new Point(0, 478);
             pnlBottom.Name = "pnlBottom";
-            pnlBottom.Size = new Size(1237, 61);
+            pnlBottom.Padding = new Padding(6);
+            pnlBottom.Size = new Size(1142, 42);
             pnlBottom.TabIndex = 3;
             // 
             // lblLayerCount
             // 
             lblLayerCount.AutoSize = true;
-            lblLayerCount.Font = new Font("Segoe UI", 8F);
-            lblLayerCount.ForeColor = Color.FromArgb(100, 100, 100);
-            lblLayerCount.Location = new Point(11, 20);
+            lblLayerCount.Font = new Font("Segoe UI", 8.5F);
+            lblLayerCount.ForeColor = SystemColors.GrayText;
+            lblLayerCount.Location = new Point(8, 13);
             lblLayerCount.Name = "lblLayerCount";
-            lblLayerCount.Size = new Size(56, 19);
+            lblLayerCount.Size = new Size(59, 20);
             lblLayerCount.TabIndex = 0;
             lblLayerCount.Text = "0 layers";
             // 
             // btnApply
             // 
             btnApply.Anchor = AnchorStyles.Top | AnchorStyles.Right;
-            btnApply.FlatAppearance.BorderColor = Color.FromArgb(26, 82, 118);
-            btnApply.FlatStyle = FlatStyle.Flat;
-            btnApply.Font = new Font("Segoe UI", 8.5F);
-            btnApply.Location = new Point(1686, 13);
-            btnApply.Margin = new Padding(3, 4, 3, 4);
+            btnApply.Location = new Point(1776, 6);
             btnApply.Name = "btnApply";
-            btnApply.Size = new Size(82, 35);
+            btnApply.Size = new Size(80, 30);
             btnApply.TabIndex = 1;
             btnApply.Text = "Apply";
             btnApply.Click += btnApply_Click;
@@ -1020,53 +829,41 @@
             // btnOK
             // 
             btnOK.Anchor = AnchorStyles.Top | AnchorStyles.Right;
-            btnOK.BackColor = Color.FromArgb(26, 82, 118);
             btnOK.DialogResult = DialogResult.OK;
-            btnOK.FlatAppearance.BorderColor = Color.FromArgb(20, 66, 99);
-            btnOK.FlatStyle = FlatStyle.Flat;
-            btnOK.Font = new Font("Segoe UI", 8.5F);
-            btnOK.ForeColor = Color.White;
-            btnOK.Location = new Point(1775, 13);
-            btnOK.Margin = new Padding(3, 4, 3, 4);
+            btnOK.Location = new Point(1862, 6);
             btnOK.Name = "btnOK";
-            btnOK.Size = new Size(82, 35);
+            btnOK.Size = new Size(80, 30);
             btnOK.TabIndex = 2;
             btnOK.Text = "OK";
-            btnOK.UseVisualStyleBackColor = false;
             btnOK.Click += btnOK_Click;
             // 
             // btnCancel
             // 
             btnCancel.Anchor = AnchorStyles.Top | AnchorStyles.Right;
-            btnCancel.BackColor = Color.White;
             btnCancel.DialogResult = DialogResult.Cancel;
-            btnCancel.FlatAppearance.BorderColor = Color.FromArgb(180, 180, 180);
-            btnCancel.FlatStyle = FlatStyle.Flat;
-            btnCancel.Font = new Font("Segoe UI", 8.5F);
-            btnCancel.Location = new Point(1864, 13);
-            btnCancel.Margin = new Padding(3, 4, 3, 4);
+            btnCancel.Location = new Point(1948, 6);
             btnCancel.Name = "btnCancel";
-            btnCancel.Size = new Size(82, 35);
+            btnCancel.Size = new Size(80, 30);
             btnCancel.TabIndex = 3;
             btnCancel.Text = "Cancel";
-            btnCancel.UseVisualStyleBackColor = false;
             // 
             // splitMain
             // 
             splitMain.Dock = DockStyle.Fill;
-            splitMain.Location = new Point(0, 125);
-            splitMain.Margin = new Padding(3, 4, 3, 4);
+            splitMain.Location = new Point(0, 49);
             splitMain.Name = "splitMain";
             // 
             // splitMain.Panel1
             // 
             splitMain.Panel1.Controls.Add(dgvLayers);
+            splitMain.Panel1MinSize = 50;
             // 
             // splitMain.Panel2
             // 
             splitMain.Panel2.Controls.Add(grpProperties);
-            splitMain.Size = new Size(1237, 587);
-            splitMain.SplitterDistance = 823;
+            splitMain.Panel2MinSize = 350;
+            splitMain.Size = new Size(1142, 429);
+            splitMain.SplitterDistance = 780;
             splitMain.SplitterWidth = 5;
             splitMain.TabIndex = 0;
             // 
@@ -1074,20 +871,15 @@
             // 
             AutoScaleDimensions = new SizeF(8F, 20F);
             AutoScaleMode = AutoScaleMode.Font;
-            ClientSize = new Size(1237, 773);
+            ClientSize = new Size(1142, 520);
             Controls.Add(splitMain);
             Controls.Add(pnlToolbar);
-            Controls.Add(pnlHeader);
             Controls.Add(pnlBottom);
             Font = new Font("Segoe UI", 9F);
-            Margin = new Padding(3, 4, 3, 4);
-            MinimumSize = new Size(820, 651);
+            MinimumSize = new Size(820, 560);
             Name = "frmLayerManager";
             StartPosition = FormStartPosition.CenterParent;
-            Text = "Layer Property Manager — RePlot";
-            pnlHeader.ResumeLayout(false);
-            pnlHeader.PerformLayout();
-            ((System.ComponentModel.ISupportInitialize)picLogo).EndInit();
+            Text = "Layer Property Manager";
             pnlToolbar.ResumeLayout(false);
             pnlToolbar.PerformLayout();
             ((System.ComponentModel.ISupportInitialize)dgvLayers).EndInit();
@@ -1112,82 +904,78 @@
 
         #endregion
 
-        // ── Field declarations ────────────────────────────────────────────────
-        private System.Windows.Forms.Panel pnlHeader;
-        private System.Windows.Forms.Label lblTitle;
-        private System.Windows.Forms.Label lblSubtitle;
-        private System.Windows.Forms.PictureBox picLogo;
-        private System.Windows.Forms.Panel pnlToolbar;
-        private System.Windows.Forms.Button btnNewLayer;
-        private System.Windows.Forms.Button btnDeleteLayer;
-        private System.Windows.Forms.Button btnMoveUp;
-        private System.Windows.Forms.Button btnMoveDown;
-        private System.Windows.Forms.Label sep1;
-        private System.Windows.Forms.Button btnShowAll;
-        private System.Windows.Forms.Button btnHideAll;
-        private System.Windows.Forms.Button btnLockAll;
-        private System.Windows.Forms.Label sep2;
-        private System.Windows.Forms.TextBox txtSearch;
-        private System.Windows.Forms.Label lblSearch;
-        private System.Windows.Forms.DataGridView dgvLayers;
-        private System.Windows.Forms.DataGridViewCheckBoxColumn colVisible;
-        private System.Windows.Forms.DataGridViewCheckBoxColumn colLocked;
-        private System.Windows.Forms.DataGridViewCheckBoxColumn colPrintable;
-        private System.Windows.Forms.DataGridViewTextBoxColumn colColor;
-        private System.Windows.Forms.DataGridViewTextBoxColumn colName;
-        private System.Windows.Forms.DataGridViewComboBoxColumn colLayerType;
-        private System.Windows.Forms.DataGridViewComboBoxColumn colLineStyle;
-        private System.Windows.Forms.DataGridViewComboBoxColumn colLineWeight;
-        private System.Windows.Forms.DataGridViewTextBoxColumn colDisplayOrder;
-        private System.Windows.Forms.GroupBox grpProperties;
-        private System.Windows.Forms.TabControl tabProperties;
-        private System.Windows.Forms.TabPage tabGeneral;
-        private System.Windows.Forms.TabPage tabFill;
-        private System.Windows.Forms.TabPage tabLabel;
-        private System.Windows.Forms.Label lblLayerName;
-        private System.Windows.Forms.TextBox txtLayerName;
-        private System.Windows.Forms.Label lblLayerType;
-        private System.Windows.Forms.ComboBox cboLayerType;
-        private System.Windows.Forms.Label lblBorderColor;
-        private System.Windows.Forms.Panel pnlBorderColor;
-        private System.Windows.Forms.Button btnBorderColor;
-        private System.Windows.Forms.Label lblLineStyle;
-        private System.Windows.Forms.ComboBox cboLineStyle;
-        private System.Windows.Forms.Label lblLineWeight;
-        private System.Windows.Forms.ComboBox cboLineWeight;
-        private System.Windows.Forms.CheckBox chkVisible;
-        private System.Windows.Forms.CheckBox chkLocked;
-        private System.Windows.Forms.CheckBox chkSelectable;
-        private System.Windows.Forms.CheckBox chkPrintable;
-        private System.Windows.Forms.Label lblFillColor;
-        private System.Windows.Forms.Panel pnlFillColor;
-        private System.Windows.Forms.Button btnFillColor;
-        private System.Windows.Forms.Label lblFillStyle;
-        private System.Windows.Forms.ComboBox cboFillStyle;
-        private System.Windows.Forms.Label lblTransparency;
-        private System.Windows.Forms.TrackBar trkTransparency;
-        private System.Windows.Forms.Label lblTranspValue;
-        private System.Windows.Forms.Label lblHatch;
-        private System.Windows.Forms.ComboBox cboHatch;
-        private System.Windows.Forms.CheckBox chkShowLabels;
-        private System.Windows.Forms.Label lblFont;
-        private System.Windows.Forms.TextBox txtFontName;
-        private System.Windows.Forms.Button btnPickFont;
-        private System.Windows.Forms.Label lblFontSize;
-        private System.Windows.Forms.NumericUpDown numFontSize;
-        private System.Windows.Forms.Label lblLabelColor;
-        private System.Windows.Forms.Panel pnlLabelColor;
-        private System.Windows.Forms.Button btnLabelColor;
-        private System.Windows.Forms.Label lblLabelField;
-        private System.Windows.Forms.ComboBox cboLabelField;
-        private System.Windows.Forms.Panel pnlBottom;
-        private System.Windows.Forms.Label lblLayerCount;
-        private System.Windows.Forms.Button btnApply;
-        private System.Windows.Forms.Button btnOK;
-        private System.Windows.Forms.Button btnCancel;
-        private System.Windows.Forms.SplitContainer splitMain;
-        private System.Windows.Forms.ToolTip toolTip1;
-        private System.Windows.Forms.ColorDialog colorDialog1;
-        private System.Windows.Forms.FontDialog fontDialog1;
+        private Panel pnlToolbar;
+        private Button btnNewLayer;
+        private Button btnDeleteLayer;
+        private Button btnMoveUp;
+        private Button btnMoveDown;
+        private Label sep1;
+        private Button btnShowAll;
+        private Button btnHideAll;
+        private Button btnLockAll;
+        private Label sep2;
+        private Label lblSearch;
+        private TextBox txtSearch;
+        private DataGridView dgvLayers;
+        private DataGridViewCheckBoxColumn colVisible;
+        private DataGridViewCheckBoxColumn colLocked;
+        private DataGridViewCheckBoxColumn colPrintable;
+        private DataGridViewTextBoxColumn colColor;
+        private DataGridViewTextBoxColumn colName;
+        private DataGridViewComboBoxColumn colLayerType;
+        private DataGridViewComboBoxColumn colLineStyle;
+        private DataGridViewComboBoxColumn colLineWeight;
+        private DataGridViewTextBoxColumn colDisplayOrder;
+        private GroupBox grpProperties;
+        private TabControl tabProperties;
+        private TabPage tabGeneral;
+        private Label lblLayerName;
+        private TextBox txtLayerName;
+        private Label lblLayerType;
+        private ComboBox cboLayerType;
+        private Label lblBorderColor;
+        private Panel pnlBorderColor;
+        private Button btnBorderColor;
+        private Label lblLineStyle;
+        private ComboBox cboLineStyle;
+        private Label lblLineWeight;
+        private ComboBox cboLineWeight;
+        private CheckBox chkVisible;
+        private CheckBox chkLocked;
+        private CheckBox chkSelectable;
+        private CheckBox chkPrintable;
+        private TabPage tabFill;
+        private Label lblFillColor;
+        private Panel pnlFillColor;
+        private Button btnFillColor;
+        private Label lblFillStyle;
+        private ComboBox cboFillStyle;
+        private Label lblHatch;
+        private ComboBox cboHatch;
+        private Label lblTransparency;
+        private TrackBar trkTransparency;
+        private Label lblTranspValue;
+        private TabPage tabLabel;
+        private CheckBox chkShowLabels;
+        private Label lblFont;
+        private TextBox txtFontName;
+        private Button btnPickFont;
+        private Label lblFontSize;
+        private NumericUpDown numFontSize;
+        private Label lblLabelColor;
+        private Panel pnlLabelColor;
+        private Button btnLabelColor;
+        private Label lblLabelField;
+        private ComboBox cboLabelField;
+        private Panel pnlBottom;
+        private Label lblLayerCount;
+        private Button btnApply;
+        private Button btnOK;
+        private Button btnCancel;
+        private SplitContainer splitMain;
+        private ToolTip toolTip1;
+        private ColorDialog colorDialog1;
+        private FontDialog fontDialog1;
+        private PictureBox picLogo;
     }
 }

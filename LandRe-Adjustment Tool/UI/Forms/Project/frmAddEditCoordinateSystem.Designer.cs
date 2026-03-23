@@ -15,8 +15,6 @@ namespace Land_Readjustment_Tool.UI.Forms.Project
 
         private void InitializeComponent()
         {
-            pnlHeader = new Panel();
-            lblFormTitle = new Label();
             pnlFooter = new Panel();
             btnSave = new Button();
             btnCancel = new Button();
@@ -36,31 +34,24 @@ namespace Land_Readjustment_Tool.UI.Forms.Project
             lblDescription = new Label();
             txtDescription = new TextBox();
             grpProjectionParams = new GroupBox();
+            txtWkt = new TextBox();
             lblCentralMeridian = new Label();
             nudCentralMeridian = new NumericUpDown();
-            cmbCentralMeridianUnit = new ComboBox();
             lblLatOrigin = new Label();
             nudLatOrigin = new NumericUpDown();
             lblScaleFactor = new Label();
             nudScaleFactor = new NumericUpDown();
             lblFalseEasting = new Label();
             nudFalseEasting = new NumericUpDown();
-            lblFalseEastingUnit = new Label();
             lblFalseNorthing = new Label();
             nudFalseNorthing = new NumericUpDown();
-            lblFalseNorthingUnit = new Label();
-            pnlParamDivider = new Panel();
             lblEllipsoid = new Label();
             txtEllipsoid = new TextBox();
             lblSemiMajor = new Label();
             nudSemiMajor = new NumericUpDown();
-            lblSemiMajorUnit = new Label();
             lblInvFlat = new Label();
             nudInvFlat = new NumericUpDown();
-            lblInvFlatUnit = new Label();
             lblWkt = new Label();
-            txtWkt = new TextBox();
-            pnlHeader.SuspendLayout();
             pnlFooter.SuspendLayout();
             pnlContent.SuspendLayout();
             grpIdentity.SuspendLayout();
@@ -74,85 +65,49 @@ namespace Land_Readjustment_Tool.UI.Forms.Project
             ((System.ComponentModel.ISupportInitialize)nudInvFlat).BeginInit();
             SuspendLayout();
             // 
-            // pnlHeader
-            // 
-            pnlHeader.BackColor = Color.FromArgb(40, 60, 95);
-            pnlHeader.Controls.Add(lblFormTitle);
-            pnlHeader.Dock = DockStyle.Top;
-            pnlHeader.Location = new Point(0, 0);
-            pnlHeader.Name = "pnlHeader";
-            pnlHeader.Size = new Size(560, 55);
-            pnlHeader.TabIndex = 2;
-            // 
-            // lblFormTitle
-            // 
-            lblFormTitle.AutoSize = true;
-            lblFormTitle.Font = new Font("Segoe UI", 13F, FontStyle.Bold);
-            lblFormTitle.ForeColor = Color.White;
-            lblFormTitle.Location = new Point(15, 13);
-            lblFormTitle.Name = "lblFormTitle";
-            lblFormTitle.Size = new Size(257, 30);
-            lblFormTitle.TabIndex = 0;
-            lblFormTitle.Text = "Add Coordinate System";
-            // 
             // pnlFooter
             // 
-            pnlFooter.BackColor = Color.FromArgb(235, 235, 235);
             pnlFooter.Controls.Add(btnSave);
             pnlFooter.Controls.Add(btnCancel);
             pnlFooter.Dock = DockStyle.Bottom;
-            pnlFooter.Location = new Point(0, 850);
+            pnlFooter.Location = new Point(0, 633);
             pnlFooter.Name = "pnlFooter";
-            pnlFooter.Size = new Size(560, 55);
+            pnlFooter.Padding = new Padding(6);
+            pnlFooter.Size = new Size(502, 40);
             pnlFooter.TabIndex = 1;
             // 
             // btnSave
             // 
-            btnSave.BackColor = Color.FromArgb(40, 60, 95);
-            btnSave.FlatAppearance.BorderSize = 0;
-            btnSave.FlatStyle = FlatStyle.Flat;
-            btnSave.Font = new Font("Segoe UI", 9F, FontStyle.Bold);
-            btnSave.ForeColor = Color.White;
-            btnSave.Location = new Point(345, 12);
+            btnSave.Location = new Point(348, 6);
             btnSave.Name = "btnSave";
-            btnSave.Size = new Size(90, 30);
-            btnSave.TabIndex = 0;
+            btnSave.Size = new Size(80, 28);
+            btnSave.TabIndex = 90;
             btnSave.Text = "Save";
-            btnSave.UseVisualStyleBackColor = false;
             btnSave.Click += btnSave_Click;
             // 
             // btnCancel
             // 
-            btnCancel.BackColor = Color.White;
-            btnCancel.FlatAppearance.BorderColor = Color.FromArgb(180, 180, 180);
-            btnCancel.FlatStyle = FlatStyle.Flat;
-            btnCancel.Font = new Font("Segoe UI", 9F);
-            btnCancel.Location = new Point(445, 12);
+            btnCancel.Location = new Point(432, 6);
             btnCancel.Name = "btnCancel";
-            btnCancel.Size = new Size(90, 30);
-            btnCancel.TabIndex = 1;
+            btnCancel.Size = new Size(80, 28);
+            btnCancel.TabIndex = 91;
             btnCancel.Text = "Cancel";
-            btnCancel.UseVisualStyleBackColor = false;
             btnCancel.Click += btnCancel_Click;
             // 
             // pnlContent
             // 
             pnlContent.AutoScroll = true;
-            pnlContent.BackColor = Color.FromArgb(235, 235, 235);
             pnlContent.Controls.Add(grpIdentity);
             pnlContent.Controls.Add(grpProjectionParams);
-            pnlContent.Controls.Add(lblWkt);
-            pnlContent.Controls.Add(txtWkt);
             pnlContent.Dock = DockStyle.Fill;
-            pnlContent.Location = new Point(0, 55);
+            pnlContent.Location = new Point(0, 0);
             pnlContent.Name = "pnlContent";
-            pnlContent.Padding = new Padding(10);
-            pnlContent.Size = new Size(560, 795);
+            pnlContent.Padding = new Padding(10, 8, 10, 4);
+            pnlContent.Size = new Size(502, 633);
             pnlContent.TabIndex = 0;
             // 
             // grpIdentity
             // 
-            grpIdentity.BackColor = Color.FromArgb(245, 245, 245);
             grpIdentity.Controls.Add(lblCode);
             grpIdentity.Controls.Add(txtCode);
             grpIdentity.Controls.Add(lblName);
@@ -166,460 +121,353 @@ namespace Land_Readjustment_Tool.UI.Forms.Project
             grpIdentity.Controls.Add(txtRegion);
             grpIdentity.Controls.Add(lblDescription);
             grpIdentity.Controls.Add(txtDescription);
-            grpIdentity.Font = new Font("Segoe UI", 9F, FontStyle.Bold, GraphicsUnit.Point, 0);
-            grpIdentity.ForeColor = Color.FromArgb(40, 60, 95);
-            grpIdentity.Location = new Point(10, 10);
+            grpIdentity.Font = new Font("Segoe UI", 9F, FontStyle.Bold);
+            grpIdentity.Location = new Point(10, 8);
             grpIdentity.Name = "grpIdentity";
-            grpIdentity.Padding = new Padding(10);
-            grpIdentity.Size = new Size(530, 265);
+            grpIdentity.Size = new Size(490, 220);
             grpIdentity.TabIndex = 0;
             grpIdentity.TabStop = false;
-            grpIdentity.Text = "CRS Identity";
+            grpIdentity.Text = "Identity";
             // 
             // lblCode
             // 
             lblCode.Font = new Font("Segoe UI", 9F);
-            lblCode.ForeColor = Color.Black;
-            lblCode.Location = new Point(15, 30);
+            lblCode.Location = new Point(12, 29);
             lblCode.Name = "lblCode";
-            lblCode.Size = new Size(130, 23);
+            lblCode.Size = new Size(130, 20);
             lblCode.TabIndex = 0;
             lblCode.Text = "Code:";
-            lblCode.TextAlign = ContentAlignment.MiddleLeft;
             // 
             // txtCode
             // 
             txtCode.Font = new Font("Segoe UI", 9F);
-            txtCode.Location = new Point(160, 28);
+            txtCode.Location = new Point(144, 26);
             txtCode.Name = "txtCode";
-            txtCode.Size = new Size(219, 27);
+            txtCode.Size = new Size(330, 27);
             txtCode.TabIndex = 1;
             // 
             // lblName
             // 
             lblName.Font = new Font("Segoe UI", 9F);
-            lblName.ForeColor = Color.Black;
-            lblName.Location = new Point(15, 62);
+            lblName.Location = new Point(12, 61);
             lblName.Name = "lblName";
-            lblName.Size = new Size(130, 23);
+            lblName.Size = new Size(130, 20);
             lblName.TabIndex = 2;
             lblName.Text = "Name:";
-            lblName.TextAlign = ContentAlignment.MiddleLeft;
             // 
             // txtName
             // 
             txtName.Font = new Font("Segoe UI", 9F);
-            txtName.Location = new Point(160, 60);
+            txtName.Location = new Point(144, 58);
             txtName.Name = "txtName";
-            txtName.Size = new Size(355, 27);
+            txtName.Size = new Size(330, 27);
             txtName.TabIndex = 3;
             // 
             // lblEpsg
             // 
             lblEpsg.Font = new Font("Segoe UI", 9F);
-            lblEpsg.ForeColor = Color.Black;
-            lblEpsg.Location = new Point(15, 94);
+            lblEpsg.Location = new Point(12, 93);
             lblEpsg.Name = "lblEpsg";
-            lblEpsg.Size = new Size(130, 23);
+            lblEpsg.Size = new Size(130, 20);
             lblEpsg.TabIndex = 4;
             lblEpsg.Text = "EPSG Code:";
-            lblEpsg.TextAlign = ContentAlignment.MiddleLeft;
             // 
             // txtEpsg
             // 
             txtEpsg.Font = new Font("Segoe UI", 9F);
-            txtEpsg.Location = new Point(160, 92);
+            txtEpsg.Location = new Point(144, 90);
             txtEpsg.Name = "txtEpsg";
-            txtEpsg.Size = new Size(130, 27);
+            txtEpsg.Size = new Size(120, 27);
             txtEpsg.TabIndex = 5;
             txtEpsg.TextChanged += txtEpsg_TextChanged;
             // 
             // lblEpsgHint
             // 
             lblEpsgHint.Font = new Font("Segoe UI", 8.5F, FontStyle.Italic);
-            lblEpsgHint.ForeColor = Color.FromArgb(130, 130, 130);
-            lblEpsgHint.Location = new Point(298, 94);
+            lblEpsgHint.ForeColor = SystemColors.GrayText;
+            lblEpsgHint.Location = new Point(270, 93);
             lblEpsgHint.Name = "lblEpsgHint";
-            lblEpsgHint.Size = new Size(220, 23);
+            lblEpsgHint.Size = new Size(206, 18);
             lblEpsgHint.TabIndex = 6;
-            lblEpsgHint.Text = "Leave empty for custom CRS (MUTM zones).";
-            lblEpsgHint.TextAlign = ContentAlignment.MiddleLeft;
+            lblEpsgHint.Text = "Leave blank for MUTM (no EPSG code)";
             // 
             // lblProjectionType
             // 
             lblProjectionType.Font = new Font("Segoe UI", 9F);
-            lblProjectionType.ForeColor = Color.Black;
-            lblProjectionType.Location = new Point(15, 126);
+            lblProjectionType.Location = new Point(12, 125);
             lblProjectionType.Name = "lblProjectionType";
-            lblProjectionType.Size = new Size(130, 23);
+            lblProjectionType.Size = new Size(130, 20);
             lblProjectionType.TabIndex = 7;
             lblProjectionType.Text = "Projection Type:";
-            lblProjectionType.TextAlign = ContentAlignment.MiddleLeft;
             // 
             // cmbProjectionType
             // 
             cmbProjectionType.DropDownStyle = ComboBoxStyle.DropDownList;
             cmbProjectionType.Font = new Font("Segoe UI", 9F);
             cmbProjectionType.Items.AddRange(new object[] { "TransverseMercator", "Geographic", "LambertConformalConic" });
-            cmbProjectionType.Location = new Point(160, 124);
+            cmbProjectionType.Location = new Point(144, 122);
             cmbProjectionType.Name = "cmbProjectionType";
-            cmbProjectionType.Size = new Size(220, 28);
+            cmbProjectionType.Size = new Size(240, 28);
             cmbProjectionType.TabIndex = 8;
             cmbProjectionType.SelectedIndexChanged += cmbProjectionType_SelectedIndexChanged;
             // 
             // lblRegion
             // 
             lblRegion.Font = new Font("Segoe UI", 9F);
-            lblRegion.ForeColor = Color.Black;
-            lblRegion.Location = new Point(15, 160);
+            lblRegion.Location = new Point(12, 157);
             lblRegion.Name = "lblRegion";
-            lblRegion.Size = new Size(130, 23);
+            lblRegion.Size = new Size(130, 20);
             lblRegion.TabIndex = 9;
             lblRegion.Text = "Region:";
-            lblRegion.TextAlign = ContentAlignment.MiddleLeft;
             // 
             // txtRegion
             // 
             txtRegion.Font = new Font("Segoe UI", 9F);
-            txtRegion.Location = new Point(160, 158);
+            txtRegion.Location = new Point(144, 154);
             txtRegion.Name = "txtRegion";
-            txtRegion.Size = new Size(355, 27);
+            txtRegion.Size = new Size(160, 27);
             txtRegion.TabIndex = 10;
             // 
             // lblDescription
             // 
             lblDescription.Font = new Font("Segoe UI", 9F);
-            lblDescription.ForeColor = Color.Black;
-            lblDescription.Location = new Point(15, 192);
+            lblDescription.Location = new Point(12, 189);
             lblDescription.Name = "lblDescription";
-            lblDescription.Size = new Size(130, 23);
+            lblDescription.Size = new Size(130, 20);
             lblDescription.TabIndex = 11;
             lblDescription.Text = "Description:";
             // 
             // txtDescription
             // 
             txtDescription.Font = new Font("Segoe UI", 9F);
-            txtDescription.Location = new Point(160, 192);
-            txtDescription.Multiline = true;
+            txtDescription.Location = new Point(144, 186);
             txtDescription.Name = "txtDescription";
-            txtDescription.Size = new Size(355, 60);
+            txtDescription.Size = new Size(330, 27);
             txtDescription.TabIndex = 12;
             // 
             // grpProjectionParams
             // 
-            grpProjectionParams.BackColor = Color.FromArgb(245, 245, 245);
+            grpProjectionParams.Controls.Add(txtWkt);
             grpProjectionParams.Controls.Add(lblCentralMeridian);
             grpProjectionParams.Controls.Add(nudCentralMeridian);
-            grpProjectionParams.Controls.Add(cmbCentralMeridianUnit);
             grpProjectionParams.Controls.Add(lblLatOrigin);
             grpProjectionParams.Controls.Add(nudLatOrigin);
             grpProjectionParams.Controls.Add(lblScaleFactor);
             grpProjectionParams.Controls.Add(nudScaleFactor);
             grpProjectionParams.Controls.Add(lblFalseEasting);
             grpProjectionParams.Controls.Add(nudFalseEasting);
-            grpProjectionParams.Controls.Add(lblFalseEastingUnit);
             grpProjectionParams.Controls.Add(lblFalseNorthing);
             grpProjectionParams.Controls.Add(nudFalseNorthing);
-            grpProjectionParams.Controls.Add(lblFalseNorthingUnit);
-            grpProjectionParams.Controls.Add(pnlParamDivider);
             grpProjectionParams.Controls.Add(lblEllipsoid);
             grpProjectionParams.Controls.Add(txtEllipsoid);
             grpProjectionParams.Controls.Add(lblSemiMajor);
             grpProjectionParams.Controls.Add(nudSemiMajor);
-            grpProjectionParams.Controls.Add(lblSemiMajorUnit);
             grpProjectionParams.Controls.Add(lblInvFlat);
             grpProjectionParams.Controls.Add(nudInvFlat);
-            grpProjectionParams.Controls.Add(lblInvFlatUnit);
+            grpProjectionParams.Controls.Add(lblWkt);
             grpProjectionParams.Font = new Font("Segoe UI", 9F, FontStyle.Bold);
-            grpProjectionParams.ForeColor = Color.FromArgb(40, 60, 95);
-            grpProjectionParams.Location = new Point(10, 285);
+            grpProjectionParams.Location = new Point(10, 234);
             grpProjectionParams.Name = "grpProjectionParams";
-            grpProjectionParams.Padding = new Padding(10);
-            grpProjectionParams.Size = new Size(530, 340);
+            grpProjectionParams.Size = new Size(490, 392);
             grpProjectionParams.TabIndex = 1;
             grpProjectionParams.TabStop = false;
-            grpProjectionParams.Text = "Projection Parameters (Custom CRS only)";
+            grpProjectionParams.Text = "Projection Parameters  (Custom CRS only)";
+            // 
+            // txtWkt
+            // 
+            txtWkt.Font = new Font("Consolas", 8.5F);
+            txtWkt.Location = new Point(10, 311);
+            txtWkt.Multiline = true;
+            txtWkt.Name = "txtWkt";
+            txtWkt.PlaceholderText = "Optional. Full WKT overrides all individual parameters.";
+            txtWkt.ScrollBars = ScrollBars.Vertical;
+            txtWkt.Size = new Size(464, 69);
+            txtWkt.TabIndex = 17;
             // 
             // lblCentralMeridian
             // 
             lblCentralMeridian.Font = new Font("Segoe UI", 9F);
-            lblCentralMeridian.ForeColor = Color.Black;
-            lblCentralMeridian.Location = new Point(15, 30);
+            lblCentralMeridian.Location = new Point(12, 28);
             lblCentralMeridian.Name = "lblCentralMeridian";
-            lblCentralMeridian.Size = new Size(165, 23);
+            lblCentralMeridian.Size = new Size(150, 20);
             lblCentralMeridian.TabIndex = 0;
             lblCentralMeridian.Text = "Central Meridian (°):";
-            lblCentralMeridian.TextAlign = ContentAlignment.MiddleLeft;
             // 
             // nudCentralMeridian
             // 
             nudCentralMeridian.DecimalPlaces = 6;
             nudCentralMeridian.Font = new Font("Segoe UI", 9F);
-            nudCentralMeridian.Location = new Point(190, 28);
-            nudCentralMeridian.Maximum = new decimal(new int[] { 180, 0, 0, 0 });
-            nudCentralMeridian.Minimum = new decimal(new int[] { 180, 0, 0, int.MinValue });
+            nudCentralMeridian.Location = new Point(166, 26);
+            nudCentralMeridian.Maximum = new decimal(new int[] { 1000000, 0, 0, 0 });
+            nudCentralMeridian.Minimum = new decimal(new int[] { 1000000, 0, 0, int.MinValue });
             nudCentralMeridian.Name = "nudCentralMeridian";
-            nudCentralMeridian.Size = new Size(130, 27);
+            nudCentralMeridian.Size = new Size(140, 27);
             nudCentralMeridian.TabIndex = 1;
-            nudCentralMeridian.TextAlign = HorizontalAlignment.Right;
-            // 
-            // cmbCentralMeridianUnit
-            // 
-            cmbCentralMeridianUnit.DropDownStyle = ComboBoxStyle.DropDownList;
-            cmbCentralMeridianUnit.Font = new Font("Segoe UI", 9F);
-            cmbCentralMeridianUnit.Items.AddRange(new object[] { "degrees", "radians" });
-            cmbCentralMeridianUnit.Location = new Point(325, 28);
-            cmbCentralMeridianUnit.Name = "cmbCentralMeridianUnit";
-            cmbCentralMeridianUnit.Size = new Size(90, 28);
-            cmbCentralMeridianUnit.TabIndex = 2;
             // 
             // lblLatOrigin
             // 
             lblLatOrigin.Font = new Font("Segoe UI", 9F);
-            lblLatOrigin.ForeColor = Color.Black;
-            lblLatOrigin.Location = new Point(15, 64);
+            lblLatOrigin.Location = new Point(12, 61);
             lblLatOrigin.Name = "lblLatOrigin";
-            lblLatOrigin.Size = new Size(165, 23);
-            lblLatOrigin.TabIndex = 3;
+            lblLatOrigin.Size = new Size(150, 20);
+            lblLatOrigin.TabIndex = 2;
             lblLatOrigin.Text = "Latitude of Origin (°):";
-            lblLatOrigin.TextAlign = ContentAlignment.MiddleLeft;
             // 
             // nudLatOrigin
             // 
             nudLatOrigin.DecimalPlaces = 6;
             nudLatOrigin.Font = new Font("Segoe UI", 9F);
-            nudLatOrigin.Location = new Point(190, 62);
-            nudLatOrigin.Maximum = new decimal(new int[] { 90, 0, 0, 0 });
-            nudLatOrigin.Minimum = new decimal(new int[] { 90, 0, 0, int.MinValue });
+            nudLatOrigin.Location = new Point(166, 58);
+            nudLatOrigin.Maximum = new decimal(new int[] { 1000000, 0, 0, 0 });
+            nudLatOrigin.Minimum = new decimal(new int[] { 1000000, 0, 0, int.MinValue });
             nudLatOrigin.Name = "nudLatOrigin";
-            nudLatOrigin.Size = new Size(130, 27);
-            nudLatOrigin.TabIndex = 4;
-            nudLatOrigin.TextAlign = HorizontalAlignment.Right;
+            nudLatOrigin.Size = new Size(140, 27);
+            nudLatOrigin.TabIndex = 3;
             // 
             // lblScaleFactor
             // 
             lblScaleFactor.Font = new Font("Segoe UI", 9F);
-            lblScaleFactor.ForeColor = Color.Black;
-            lblScaleFactor.Location = new Point(15, 98);
+            lblScaleFactor.Location = new Point(12, 93);
             lblScaleFactor.Name = "lblScaleFactor";
-            lblScaleFactor.Size = new Size(165, 23);
-            lblScaleFactor.TabIndex = 5;
+            lblScaleFactor.Size = new Size(150, 20);
+            lblScaleFactor.TabIndex = 4;
             lblScaleFactor.Text = "Scale Factor:";
-            lblScaleFactor.TextAlign = ContentAlignment.MiddleLeft;
             // 
             // nudScaleFactor
             // 
             nudScaleFactor.DecimalPlaces = 6;
             nudScaleFactor.Font = new Font("Segoe UI", 9F);
-            nudScaleFactor.Increment = new decimal(new int[] { 1, 0, 0, 393216 });
-            nudScaleFactor.Location = new Point(190, 96);
-            nudScaleFactor.Maximum = new decimal(new int[] { 10, 0, 0, 0 });
+            nudScaleFactor.Increment = new decimal(new int[] { 1, 0, 0, 262144 });
+            nudScaleFactor.Location = new Point(166, 90);
+            nudScaleFactor.Maximum = new decimal(new int[] { 2, 0, 0, 0 });
             nudScaleFactor.Name = "nudScaleFactor";
-            nudScaleFactor.Size = new Size(130, 27);
-            nudScaleFactor.TabIndex = 6;
-            nudScaleFactor.TextAlign = HorizontalAlignment.Right;
-            nudScaleFactor.Value = new decimal(new int[] { 9999, 0, 0, 393216 });
+            nudScaleFactor.Size = new Size(140, 27);
+            nudScaleFactor.TabIndex = 5;
+            nudScaleFactor.Value = new decimal(new int[] { 9999, 0, 0, 262144 });
             // 
             // lblFalseEasting
             // 
             lblFalseEasting.Font = new Font("Segoe UI", 9F);
-            lblFalseEasting.ForeColor = Color.Black;
-            lblFalseEasting.Location = new Point(15, 132);
+            lblFalseEasting.Location = new Point(12, 125);
             lblFalseEasting.Name = "lblFalseEasting";
-            lblFalseEasting.Size = new Size(165, 23);
-            lblFalseEasting.TabIndex = 7;
+            lblFalseEasting.Size = new Size(150, 20);
+            lblFalseEasting.TabIndex = 6;
             lblFalseEasting.Text = "False Easting (m):";
-            lblFalseEasting.TextAlign = ContentAlignment.MiddleLeft;
             // 
             // nudFalseEasting
             // 
+            nudFalseEasting.DecimalPlaces = 3;
             nudFalseEasting.Font = new Font("Segoe UI", 9F);
-            nudFalseEasting.Location = new Point(190, 130);
-            nudFalseEasting.Maximum = new decimal(new int[] { 10000000, 0, 0, 0 });
-            nudFalseEasting.Minimum = new decimal(new int[] { 10000000, 0, 0, int.MinValue });
+            nudFalseEasting.Location = new Point(166, 122);
+            nudFalseEasting.Maximum = new decimal(new int[] { 1000000, 0, 0, 0 });
             nudFalseEasting.Name = "nudFalseEasting";
-            nudFalseEasting.Size = new Size(130, 27);
-            nudFalseEasting.TabIndex = 8;
-            nudFalseEasting.TextAlign = HorizontalAlignment.Right;
-            nudFalseEasting.Value = new decimal(new int[] { 100, 0, 0, 0 });
-            // 
-            // lblFalseEastingUnit
-            // 
-            lblFalseEastingUnit.AutoSize = true;
-            lblFalseEastingUnit.Font = new Font("Segoe UI", 9F);
-            lblFalseEastingUnit.ForeColor = Color.Black;
-            lblFalseEastingUnit.Location = new Point(325, 132);
-            lblFalseEastingUnit.Name = "lblFalseEastingUnit";
-            lblFalseEastingUnit.Size = new Size(54, 20);
-            lblFalseEastingUnit.TabIndex = 9;
-            lblFalseEastingUnit.Text = "meters";
+            nudFalseEasting.Size = new Size(140, 27);
+            nudFalseEasting.TabIndex = 7;
+            nudFalseEasting.Value = new decimal(new int[] { 500000, 0, 0, 0 });
             // 
             // lblFalseNorthing
             // 
             lblFalseNorthing.Font = new Font("Segoe UI", 9F);
-            lblFalseNorthing.ForeColor = Color.Black;
-            lblFalseNorthing.Location = new Point(15, 166);
+            lblFalseNorthing.Location = new Point(12, 157);
             lblFalseNorthing.Name = "lblFalseNorthing";
-            lblFalseNorthing.Size = new Size(165, 23);
-            lblFalseNorthing.TabIndex = 10;
+            lblFalseNorthing.Size = new Size(150, 20);
+            lblFalseNorthing.TabIndex = 8;
             lblFalseNorthing.Text = "False Northing (m):";
-            lblFalseNorthing.TextAlign = ContentAlignment.MiddleLeft;
             // 
             // nudFalseNorthing
             // 
+            nudFalseNorthing.DecimalPlaces = 3;
             nudFalseNorthing.Font = new Font("Segoe UI", 9F);
-            nudFalseNorthing.Location = new Point(190, 164);
+            nudFalseNorthing.Location = new Point(166, 154);
             nudFalseNorthing.Maximum = new decimal(new int[] { 10000000, 0, 0, 0 });
-            nudFalseNorthing.Minimum = new decimal(new int[] { 10000000, 0, 0, int.MinValue });
             nudFalseNorthing.Name = "nudFalseNorthing";
-            nudFalseNorthing.Size = new Size(130, 27);
-            nudFalseNorthing.TabIndex = 11;
-            nudFalseNorthing.TextAlign = HorizontalAlignment.Right;
-            // 
-            // lblFalseNorthingUnit
-            // 
-            lblFalseNorthingUnit.AutoSize = true;
-            lblFalseNorthingUnit.Font = new Font("Segoe UI", 9F);
-            lblFalseNorthingUnit.ForeColor = Color.Black;
-            lblFalseNorthingUnit.Location = new Point(325, 166);
-            lblFalseNorthingUnit.Name = "lblFalseNorthingUnit";
-            lblFalseNorthingUnit.Size = new Size(54, 20);
-            lblFalseNorthingUnit.TabIndex = 12;
-            lblFalseNorthingUnit.Text = "meters";
-            // 
-            // pnlParamDivider
-            // 
-            pnlParamDivider.BackColor = Color.FromArgb(200, 200, 200);
-            pnlParamDivider.Location = new Point(10, 202);
-            pnlParamDivider.Name = "pnlParamDivider";
-            pnlParamDivider.Size = new Size(510, 1);
-            pnlParamDivider.TabIndex = 13;
+            nudFalseNorthing.Size = new Size(140, 27);
+            nudFalseNorthing.TabIndex = 9;
             // 
             // lblEllipsoid
             // 
             lblEllipsoid.Font = new Font("Segoe UI", 9F);
-            lblEllipsoid.ForeColor = Color.Black;
-            lblEllipsoid.Location = new Point(15, 212);
+            lblEllipsoid.Location = new Point(12, 188);
             lblEllipsoid.Name = "lblEllipsoid";
-            lblEllipsoid.Size = new Size(165, 23);
-            lblEllipsoid.TabIndex = 14;
+            lblEllipsoid.Size = new Size(150, 20);
+            lblEllipsoid.TabIndex = 10;
             lblEllipsoid.Text = "Ellipsoid:";
-            lblEllipsoid.TextAlign = ContentAlignment.MiddleLeft;
             // 
             // txtEllipsoid
             // 
             txtEllipsoid.Font = new Font("Segoe UI", 9F);
-            txtEllipsoid.Location = new Point(190, 210);
+            txtEllipsoid.Location = new Point(166, 186);
             txtEllipsoid.Name = "txtEllipsoid";
-            txtEllipsoid.Size = new Size(225, 27);
-            txtEllipsoid.TabIndex = 15;
-            txtEllipsoid.Leave += txtEllipsoid_Leave;
+            txtEllipsoid.PlaceholderText = "e.g. Everest1830";
+            txtEllipsoid.Size = new Size(180, 27);
+            txtEllipsoid.TabIndex = 11;
             // 
             // lblSemiMajor
             // 
             lblSemiMajor.Font = new Font("Segoe UI", 9F);
-            lblSemiMajor.ForeColor = Color.Black;
-            lblSemiMajor.Location = new Point(15, 246);
+            lblSemiMajor.Location = new Point(12, 219);
             lblSemiMajor.Name = "lblSemiMajor";
-            lblSemiMajor.Size = new Size(165, 23);
-            lblSemiMajor.TabIndex = 16;
+            lblSemiMajor.Size = new Size(150, 20);
+            lblSemiMajor.TabIndex = 12;
             lblSemiMajor.Text = "Semi-Major Axis (m):";
-            lblSemiMajor.TextAlign = ContentAlignment.MiddleLeft;
             // 
             // nudSemiMajor
             // 
+            nudSemiMajor.DecimalPlaces = 3;
             nudSemiMajor.Font = new Font("Segoe UI", 9F);
-            nudSemiMajor.Location = new Point(190, 244);
+            nudSemiMajor.Location = new Point(166, 216);
             nudSemiMajor.Maximum = new decimal(new int[] { 10000000, 0, 0, 0 });
             nudSemiMajor.Name = "nudSemiMajor";
-            nudSemiMajor.Size = new Size(130, 27);
-            nudSemiMajor.TabIndex = 17;
-            nudSemiMajor.TextAlign = HorizontalAlignment.Right;
-            // 
-            // lblSemiMajorUnit
-            // 
-            lblSemiMajorUnit.AutoSize = true;
-            lblSemiMajorUnit.Font = new Font("Segoe UI", 9F);
-            lblSemiMajorUnit.ForeColor = Color.Black;
-            lblSemiMajorUnit.Location = new Point(325, 246);
-            lblSemiMajorUnit.Name = "lblSemiMajorUnit";
-            lblSemiMajorUnit.Size = new Size(54, 20);
-            lblSemiMajorUnit.TabIndex = 18;
-            lblSemiMajorUnit.Text = "meters";
+            nudSemiMajor.Size = new Size(140, 27);
+            nudSemiMajor.TabIndex = 13;
             // 
             // lblInvFlat
             // 
             lblInvFlat.Font = new Font("Segoe UI", 9F);
-            lblInvFlat.ForeColor = Color.Black;
-            lblInvFlat.Location = new Point(15, 280);
+            lblInvFlat.Location = new Point(12, 251);
             lblInvFlat.Name = "lblInvFlat";
-            lblInvFlat.Size = new Size(165, 23);
-            lblInvFlat.TabIndex = 19;
+            lblInvFlat.Size = new Size(150, 20);
+            lblInvFlat.TabIndex = 14;
             lblInvFlat.Text = "Inverse Flattening:";
-            lblInvFlat.TextAlign = ContentAlignment.MiddleLeft;
             // 
             // nudInvFlat
             // 
+            nudInvFlat.DecimalPlaces = 6;
             nudInvFlat.Font = new Font("Segoe UI", 9F);
-            nudInvFlat.Location = new Point(190, 278);
-            nudInvFlat.Maximum = new decimal(new int[] { 1000000, 0, 0, 0 });
+            nudInvFlat.Location = new Point(166, 248);
+            nudInvFlat.Maximum = new decimal(new int[] { 1000, 0, 0, 0 });
             nudInvFlat.Name = "nudInvFlat";
-            nudInvFlat.Size = new Size(130, 27);
-            nudInvFlat.TabIndex = 20;
-            nudInvFlat.TextAlign = HorizontalAlignment.Right;
-            // 
-            // lblInvFlatUnit
-            // 
-            lblInvFlatUnit.AutoSize = true;
-            lblInvFlatUnit.Font = new Font("Segoe UI", 9F);
-            lblInvFlatUnit.ForeColor = Color.Black;
-            lblInvFlatUnit.Location = new Point(325, 280);
-            lblInvFlatUnit.Name = "lblInvFlatUnit";
-            lblInvFlatUnit.Size = new Size(54, 20);
-            lblInvFlatUnit.TabIndex = 21;
-            lblInvFlatUnit.Text = "meters";
+            nudInvFlat.Size = new Size(140, 27);
+            nudInvFlat.TabIndex = 15;
             // 
             // lblWkt
             // 
-            lblWkt.AutoSize = true;
-            lblWkt.Font = new Font("Segoe UI", 9F, FontStyle.Bold);
-            lblWkt.ForeColor = Color.Black;
-            lblWkt.Location = new Point(10, 635);
+            lblWkt.Font = new Font("Segoe UI", 9F);
+            lblWkt.Location = new Point(12, 288);
             lblWkt.Name = "lblWkt";
-            lblWkt.Size = new Size(121, 20);
-            lblWkt.TabIndex = 2;
-            lblWkt.Text = "WKT Definition:";
-            // 
-            // txtWkt
-            // 
-            txtWkt.Font = new Font("Segoe UI", 9F);
-            txtWkt.ForeColor = Color.Gray;
-            txtWkt.Location = new Point(10, 655);
-            txtWkt.Multiline = true;
-            txtWkt.Name = "txtWkt";
-            txtWkt.ScrollBars = ScrollBars.Vertical;
-            txtWkt.Size = new Size(530, 130);
-            txtWkt.TabIndex = 3;
-            txtWkt.Text = "Optional. Overrides all parameters above if provided.";
-            txtWkt.Enter += txtWkt_Enter;
-            txtWkt.Leave += txtWkt_Leave;
+            lblWkt.Size = new Size(250, 20);
+            lblWkt.TabIndex = 16;
+            lblWkt.Text = "WKT Definition (overrides above):";
             // 
             // frmAddEditCoordinateSystem
             // 
-            ClientSize = new Size(560, 905);
+            AutoScaleDimensions = new SizeF(8F, 20F);
+            AutoScaleMode = AutoScaleMode.Font;
+            ClientSize = new Size(502, 673);
             Controls.Add(pnlContent);
             Controls.Add(pnlFooter);
-            Controls.Add(pnlHeader);
+            Font = new Font("Segoe UI", 9F);
             FormBorderStyle = FormBorderStyle.FixedDialog;
+            MaximizeBox = false;
+            MaximumSize = new Size(520, 720);
+            MinimizeBox = false;
+            MinimumSize = new Size(520, 600);
             Name = "frmAddEditCoordinateSystem";
             StartPosition = FormStartPosition.CenterParent;
             Text = "Coordinate System";
             Load += frmAddEditCoordinateSystem_Load;
-            pnlHeader.ResumeLayout(false);
-            pnlHeader.PerformLayout();
             pnlFooter.ResumeLayout(false);
             pnlContent.ResumeLayout(false);
-            pnlContent.PerformLayout();
             grpIdentity.ResumeLayout(false);
             grpIdentity.PerformLayout();
             grpProjectionParams.ResumeLayout(false);
@@ -636,16 +484,10 @@ namespace Land_Readjustment_Tool.UI.Forms.Project
 
         #endregion
 
-        // ── Control declarations ──────────────────────────────────────────────
-
-        private Panel pnlHeader;
-        private Label lblFormTitle;
         private Panel pnlFooter;
         private Button btnSave;
         private Button btnCancel;
         private Panel pnlContent;
-
-        // CRS Identity group
         private GroupBox grpIdentity;
         private Label lblCode;
         private TextBox txtCode;
@@ -660,33 +502,23 @@ namespace Land_Readjustment_Tool.UI.Forms.Project
         private TextBox txtRegion;
         private Label lblDescription;
         private TextBox txtDescription;
-
-        // Projection Parameters group
         private GroupBox grpProjectionParams;
         private Label lblCentralMeridian;
         private NumericUpDown nudCentralMeridian;
-        private ComboBox cmbCentralMeridianUnit;
         private Label lblLatOrigin;
         private NumericUpDown nudLatOrigin;
         private Label lblScaleFactor;
         private NumericUpDown nudScaleFactor;
         private Label lblFalseEasting;
         private NumericUpDown nudFalseEasting;
-        private Label lblFalseEastingUnit;
         private Label lblFalseNorthing;
         private NumericUpDown nudFalseNorthing;
-        private Label lblFalseNorthingUnit;
-        private Panel pnlParamDivider;
         private Label lblEllipsoid;
         private TextBox txtEllipsoid;
         private Label lblSemiMajor;
         private NumericUpDown nudSemiMajor;
-        private Label lblSemiMajorUnit;
         private Label lblInvFlat;
         private NumericUpDown nudInvFlat;
-        private Label lblInvFlatUnit;
-
-        // WKT
         private Label lblWkt;
         private TextBox txtWkt;
     }

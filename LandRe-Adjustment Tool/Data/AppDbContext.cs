@@ -323,8 +323,8 @@ namespace Land_Readjustment_Tool.Data
                 new CoordinateSystem
                 {
                     Id = 4,
-                    Code = "MUTM82",
-                    Name = "Modified UTM Zone 82 — Nepal",
+                    Code = "MUTM84",
+                    Name = "Modified UTM Zone 84 — Nepal",
                     EpsgCode = null,
                     ProjectionType = "TransverseMercator",
                     Region = "Nepal",
@@ -336,8 +336,8 @@ namespace Land_Readjustment_Tool.Data
                 new CoordinateSystem
                 {
                     Id = 5,
-                    Code = "MUTM83",
-                    Name = "Modified UTM Zone 83 — Nepal",
+                    Code = "MUTM87",
+                    Name = "Modified UTM Zone 87 — Nepal",
                     EpsgCode = null,
                     ProjectionType = "TransverseMercator",
                     Region = "Nepal",
@@ -406,7 +406,7 @@ namespace Land_Readjustment_Tool.Data
                 new DatumTransformation
                 {
                     Id = 1,
-                    Code = "SURVEY_DEPT",
+                    Code = "SURVEY_DEPT_7_PARAM",
                     Name = "Nepal Survey Department (Official)",
                     SourceDatum = "Everest1830",
                     TargetDatum = "WGS84",
@@ -417,7 +417,7 @@ namespace Land_Readjustment_Tool.Data
                     RotationY = 0,
                     RotationZ = 0,
                     ScalePpm = 0,
-                    ApplicableCrsCodes = "MUTM81,MUTM82,MUTM83",
+                    ApplicableCrsCodes = "MUTM81,MUTM84,MUTM87",
                     Source = "Survey Department Nepal",
                     Region = "Nepal",
                     IsSystemDefault = true,
@@ -461,7 +461,7 @@ namespace Land_Readjustment_Tool.Data
                     RotationY = 0,
                     RotationZ = 0,
                     ScalePpm = 0,
-                    ApplicableCrsCodes = "MUTM81,MUTM82,MUTM83",
+                    ApplicableCrsCodes = "MUTM81,MUTM84,MUTM87",
                     Source = "Kalianpur datum parameters",
                     Region = "Nepal",
                     IsSystemDefault = true,

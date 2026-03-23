@@ -1335,26 +1335,26 @@ namespace Land_Readjustment_Tool.Migrations
                         new
                         {
                             Id = 4,
-                            Code = "MUTM82",
+                            Code = "MUTM84",
                             CreatedDate = new DateTime(1, 1, 1, 0, 0, 0, 0, DateTimeKind.Unspecified),
                             Description = "Nepal Survey Dept. Central meridian 84°E. Everest 1830.",
                             DisplayOrder = 4,
                             IsActive = true,
                             IsSystemDefault = true,
-                            Name = "Modified UTM Zone 82 — Nepal",
+                            Name = "Modified UTM Zone 84 — Nepal",
                             ProjectionType = "TransverseMercator",
                             Region = "Nepal"
                         },
                         new
                         {
                             Id = 5,
-                            Code = "MUTM83",
+                            Code = "MUTM87",
                             CreatedDate = new DateTime(1, 1, 1, 0, 0, 0, 0, DateTimeKind.Unspecified),
                             Description = "Nepal Survey Dept. Central meridian 87°E. Everest 1830.",
                             DisplayOrder = 5,
                             IsActive = true,
                             IsSystemDefault = true,
-                            Name = "Modified UTM Zone 83 — Nepal",
+                            Name = "Modified UTM Zone 87 — Nepal",
                             ProjectionType = "TransverseMercator",
                             Region = "Nepal"
                         });
@@ -1438,8 +1438,8 @@ namespace Land_Readjustment_Tool.Migrations
                         new
                         {
                             Id = 1,
-                            ApplicableCrsCodes = "MUTM81,MUTM82,MUTM83",
-                            Code = "SURVEY_DEPT",
+                            ApplicableCrsCodes = "MUTM81,MUTM84,MUTM87",
+                            Code = "SURVEY_DEPT_7_PARAM",
                             CreatedDate = new DateTime(1, 1, 1, 0, 0, 0, 0, DateTimeKind.Unspecified),
                             DeltaX = 293.17000000000002,
                             DeltaY = 726.17999999999995,
@@ -1484,7 +1484,7 @@ namespace Land_Readjustment_Tool.Migrations
                         new
                         {
                             Id = 3,
-                            ApplicableCrsCodes = "MUTM81,MUTM82,MUTM83",
+                            ApplicableCrsCodes = "MUTM81,MUTM84,MUTM87",
                             Code = "KALIANPUR",
                             CreatedDate = new DateTime(1, 1, 1, 0, 0, 0, 0, DateTimeKind.Unspecified),
                             DeltaX = 283.0,

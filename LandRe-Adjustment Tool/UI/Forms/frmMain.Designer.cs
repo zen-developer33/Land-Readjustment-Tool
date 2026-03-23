@@ -210,7 +210,7 @@ namespace Land_Readjustment_Tool
             tsmCloseProject.Name = "tsmCloseProject";
             tsmCloseProject.Size = new Size(232, 26);
             tsmCloseProject.Text = "Close Project";
-            tsmCloseProject.Click += tsmCloseProject_Click;
+
             // 
             // tsmBackupProject
             // 
