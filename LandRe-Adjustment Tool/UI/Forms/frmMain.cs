@@ -25,24 +25,23 @@ namespace Land_Readjustment_Tool
             UpdateWindowTitle();
             DisableProjectMenuItems();
             this.FormClosing += frmMain_FormClosing;
-            tsmSave.Click += saveToolStripMenuItem_Click;
-            tsmSaveAs.Click += saveAsToolStripMenuItem_Click;
+            tsmSave.Click += tsmSave_Click;
+            tsmSaveAs.Click += tsmSaveAs_Click;
         }
 
 
         private void InitializeProjectWorkspace()
         {
             mainSplitContainer.Visible = true;
+            EnableProjectMenuItems();
+            // Initialize the drawing canvas
+        }
 
-            tsmSave.Enabled = true;
-            tsmSaveAs.Enabled = true;
-            tsmProjectInformation.Enabled = true;
-            tsmProjectSetting.Enabled = true;
-            tsmBackupProject.Enabled = true;
-            tsmCloseProject.Enabled = true;
-            ImportParcelOwnerShipRecords.Enabled = true;
-            landOwnerDataToolStripMenuItem.Enabled = true;
-            startReplotWorkspaceToolStripMenuItem.Enabled = true;
+        private void UnloadProjectWorkspace()
+        {
+            mainSplitContainer.Visible = false;
+            DisableProjectMenuItems();
+            // Clean up the drawing canvas
         }
 
         private void UpdateWindowTitle()
@@ -134,6 +133,20 @@ namespace Land_Readjustment_Tool
 
         private async void tsmNewProject_Click(object sender, EventArgs e)
         {
+            if (AppServices.HasContext && AppServices.Context.HasUnsavedChanges)
+            {
+                var result = MessageBox.Show(
+                    "Do you want to save and current project before creating new one?",
+                    "Save Current Project",
+                    MessageBoxButtons.YesNo,
+                    MessageBoxIcon.Question);
+
+                if (result == DialogResult.Yes)
+                {
+                    await SaveCurrentProjectAsync(showMessage: true);
+                }
+            }
+
             using SaveFileDialog sfd = new()
             {
                 Filter =
@@ -144,6 +157,7 @@ namespace Land_Readjustment_Tool
             if (sfd.ShowDialog() != DialogResult.OK)
                 return;
 
+            await CloseCurrentProjectAsync();
             string filePathFromDialog = sfd.FileName;
             string projectFileName = Path.GetFileNameWithoutExtension(filePathFromDialog);
             string projectFolder = Path.Combine(Path.GetDirectoryName(filePathFromDialog)!, projectFileName);
@@ -216,7 +230,7 @@ namespace Land_Readjustment_Tool
                 return false;
             }
         }
-         private async void PromptProjectSettings()
+        private async void PromptProjectSettings()
         {
             var result = MessageBox.Show("Project Created Successfully.\n\n +" +
                 " Would you like to configure project setting later now? \n\n" +
@@ -226,7 +240,7 @@ namespace Land_Readjustment_Tool
                 MessageBoxIcon.Question,
                 MessageBoxDefaultButton.Button1);
 
-            if(result == DialogResult.Yes)  
+            if (result == DialogResult.Yes)
             {
                 OpenProjectSettings();
             }
@@ -261,7 +275,13 @@ namespace Land_Readjustment_Tool
 
         // ── CLOSE PROJECT ────────────────────────────
 
-        private void tsmCloseProject_Click(object sender, EventArgs e)
+        private async Task tsmCloseProject_Click(object sender, EventArgs e)
+        {
+            await CloseCurrentProjectAsync();
+        }
+
+
+        private async Task CloseCurrentProjectAsync()
         {
             if (!AppServices.HasContext) return;
 
@@ -273,6 +293,7 @@ namespace Land_Readjustment_Tool
             // Clear context — disposes DB connection
             AppServices.ClearContext();
 
+            UnloadProjectWorkspace();
             DisableProjectMenuItems();
             UpdateWindowTitle();
         }
@@ -324,12 +345,12 @@ namespace Land_Readjustment_Tool
         // ── STUB HANDLERS ────────────────────────────
         // Implemented later one by one
 
-        private void saveToolStripMenuItem_Click(object sender, EventArgs e)
+        private void tsmSave_Click(object sender, EventArgs e)
         {
             _ = SaveCurrentProjectAsync(showMessage: true);
         }
 
-        private async void saveAsToolStripMenuItem_Click(object sender, EventArgs e)
+        private async void tsmSaveAs_Click(object sender, EventArgs e)
         {
             if (!AppServices.HasContext) return;
 
@@ -448,6 +469,21 @@ namespace Land_Readjustment_Tool
 
         private async void tsmOpenProject_Click(object sender, EventArgs e)
         {
+            if (AppServices.HasContext && AppServices.Context.HasUnsavedChanges)
+            {
+                {
+                    var result = MessageBox.Show(
+                        "Do you want to save and current project before opening another one?",
+                        "Save Current Project",
+                        MessageBoxButtons.YesNo,
+                        MessageBoxIcon.Question);
+                    if (result == DialogResult.Yes)
+                    {
+                        await SaveCurrentProjectAsync(showMessage: true);
+                    }
+                }
+            }
+
             using OpenFileDialog ofd = new()
             {
                 Filter =
@@ -469,11 +505,13 @@ namespace Land_Readjustment_Tool
                     MessageBoxIcon.Warning);
                 return;
             }
+            await CloseCurrentProjectAsync();
 
             await OpenProjectInternalAsync(
                 projectFilePath,
                 checkUnsavedChanges: true);
         }
+
 
         private async Task OpenProjectInternalAsync(
             string projectFilePath,

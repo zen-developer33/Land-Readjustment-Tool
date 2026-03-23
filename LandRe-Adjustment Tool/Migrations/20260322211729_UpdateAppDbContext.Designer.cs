@@ -3,6 +3,7 @@ using System;
 using Land_Readjustment_Tool.Data;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Infrastructure;
+using Microsoft.EntityFrameworkCore.Migrations;
 using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 using NetTopologySuite.Geometries;
 
@@ -11,9 +12,11 @@ using NetTopologySuite.Geometries;
 namespace Land_Readjustment_Tool.Migrations
 {
     [DbContext(typeof(AppDbContext))]
-    partial class AppDbContextModelSnapshot : ModelSnapshot
+    [Migration("20260322211729_UpdateAppDbContext")]
+    partial class UpdateAppDbContext
     {
-        protected override void BuildModel(ModelBuilder modelBuilder)
+        /// <inheritdoc />
+        protected override void BuildTargetModel(ModelBuilder modelBuilder)
         {
 #pragma warning disable 612, 618
             modelBuilder.HasAnnotation("ProductVersion", "10.0.3");
@@ -1438,8 +1441,8 @@ namespace Land_Readjustment_Tool.Migrations
                         new
                         {
                             Id = 1,
-                            ApplicableCrsCodes = "MUTM81,MUTM84,MUTM87",
-                            Code = "SURVEY_DEPT_7_PARAM",
+                            ApplicableCrsCodes = "MUTM81,MUTM82,MUTM83",
+                            Code = "SURVEY_DEPT",
                             CreatedDate = new DateTime(1, 1, 1, 0, 0, 0, 0, DateTimeKind.Unspecified),
                             DeltaX = 293.17000000000002,
                             DeltaY = 726.17999999999995,
@@ -1484,7 +1487,7 @@ namespace Land_Readjustment_Tool.Migrations
                         new
                         {
                             Id = 3,
-                            ApplicableCrsCodes = "MUTM81,MUTM84,MUTM87",
+                            ApplicableCrsCodes = "MUTM81,MUTM82,MUTM83",
                             Code = "KALIANPUR",
                             CreatedDate = new DateTime(1, 1, 1, 0, 0, 0, 0, DateTimeKind.Unspecified),
                             DeltaX = 283.0,

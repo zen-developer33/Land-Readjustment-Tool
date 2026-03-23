@@ -63,7 +63,7 @@ namespace Land_Readjustment_Tool.UI.Forms.Project
             Text = _isNew
                 ? "Add Datum Transformation"
                 : "Edit Datum Transformation";
-            lblFormTitle.Text = Text;
+
 
             ApplyNudBounds();
 

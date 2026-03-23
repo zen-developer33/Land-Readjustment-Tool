@@ -76,7 +76,7 @@ namespace Land_Readjustment_Tool.UI.Forms.Project
             Text = _isNew
                 ? "Add Coordinate System"
                 : "Edit Coordinate System";
-            lblFormTitle.Text = Text;
+
 
             ApplyNudBounds();
             SetProjectionDefaults();

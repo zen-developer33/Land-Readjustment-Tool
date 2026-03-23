@@ -15,8 +15,6 @@ namespace Land_Readjustment_Tool.UI.Forms.Project
 
         private void InitializeComponent()
         {
-            pnlHeader = new Panel();
-            lblFormTitle = new Label();
             pnlFooter = new Panel();
             btnSave = new Button();
             btnCancel = new Button();
@@ -30,7 +28,9 @@ namespace Land_Readjustment_Tool.UI.Forms.Project
             txtSourceDatum = new TextBox();
             lblTargetDatum = new Label();
             cmbTargetDatum = new ComboBox();
-            grpHelmert = new GroupBox();
+            grpParams = new GroupBox();
+            lblM = new Label();
+            lblR = new Label();
             lblDeltaX = new Label();
             nudDeltaX = new NumericUpDown();
             lblDeltaY = new Label();
@@ -45,21 +45,19 @@ namespace Land_Readjustment_Tool.UI.Forms.Project
             nudRz = new NumericUpDown();
             lblScale = new Label();
             nudScale = new NumericUpDown();
-            lblAppliesTo = new Label();
-            txtAppliesTo = new TextBox();
-            lblNote = new Label();
             grpMetadata = new GroupBox();
-            lblDataSource = new Label();
+            lblApplies = new Label();
+            txtAppliesTo = new TextBox();
+            lblSource = new Label();
             txtDataSource = new TextBox();
             lblRegion = new Label();
             txtRegion = new TextBox();
             lblDescription = new Label();
             txtDescription = new TextBox();
-            pnlHeader.SuspendLayout();
             pnlFooter.SuspendLayout();
             pnlContent.SuspendLayout();
             grpIdentity.SuspendLayout();
-            grpHelmert.SuspendLayout();
+            grpParams.SuspendLayout();
             ((System.ComponentModel.ISupportInitialize)nudDeltaX).BeginInit();
             ((System.ComponentModel.ISupportInitialize)nudDeltaY).BeginInit();
             ((System.ComponentModel.ISupportInitialize)nudDeltaZ).BeginInit();
@@ -70,84 +68,50 @@ namespace Land_Readjustment_Tool.UI.Forms.Project
             grpMetadata.SuspendLayout();
             SuspendLayout();
             // 
-            // pnlHeader
-            // 
-            pnlHeader.BackColor = Color.FromArgb(40, 60, 95);
-            pnlHeader.Controls.Add(lblFormTitle);
-            pnlHeader.Dock = DockStyle.Top;
-            pnlHeader.Location = new Point(0, 0);
-            pnlHeader.Name = "pnlHeader";
-            pnlHeader.Size = new Size(517, 50);
-            pnlHeader.TabIndex = 2;
-            // 
-            // lblFormTitle
-            // 
-            lblFormTitle.AutoSize = true;
-            lblFormTitle.Font = new Font("Segoe UI", 12F, FontStyle.Bold);
-            lblFormTitle.ForeColor = Color.White;
-            lblFormTitle.Location = new Point(15, 12);
-            lblFormTitle.Name = "lblFormTitle";
-            lblFormTitle.Size = new Size(271, 28);
-            lblFormTitle.TabIndex = 0;
-            lblFormTitle.Text = "Add Datum Transformation";
-            // 
             // pnlFooter
             // 
-            pnlFooter.BackColor = Color.FromArgb(240, 240, 240);
             pnlFooter.Controls.Add(btnSave);
             pnlFooter.Controls.Add(btnCancel);
             pnlFooter.Dock = DockStyle.Bottom;
-            pnlFooter.Location = new Point(0, 690);
+            pnlFooter.Location = new Point(0, 594);
             pnlFooter.Name = "pnlFooter";
-            pnlFooter.Size = new Size(517, 55);
+            pnlFooter.Padding = new Padding(6);
+            pnlFooter.Size = new Size(482, 40);
             pnlFooter.TabIndex = 1;
             // 
             // btnSave
             // 
-            btnSave.BackColor = Color.FromArgb(40, 60, 95);
-            btnSave.FlatAppearance.BorderSize = 0;
-            btnSave.FlatStyle = FlatStyle.Flat;
-            btnSave.Font = new Font("Segoe UI", 9F, FontStyle.Bold);
-            btnSave.ForeColor = Color.White;
-            btnSave.Location = new Point(315, 12);
+            btnSave.Location = new Point(328, 6);
             btnSave.Name = "btnSave";
-            btnSave.Size = new Size(90, 30);
-            btnSave.TabIndex = 0;
+            btnSave.Size = new Size(80, 28);
+            btnSave.TabIndex = 90;
             btnSave.Text = "Save";
-            btnSave.UseVisualStyleBackColor = false;
             btnSave.Click += btnSave_Click;
             // 
             // btnCancel
             // 
-            btnCancel.BackColor = Color.White;
-            btnCancel.FlatAppearance.BorderColor = Color.FromArgb(180, 180, 180);
-            btnCancel.FlatStyle = FlatStyle.Flat;
-            btnCancel.Font = new Font("Segoe UI", 9F);
-            btnCancel.Location = new Point(415, 12);
+            btnCancel.Location = new Point(412, 6);
             btnCancel.Name = "btnCancel";
-            btnCancel.Size = new Size(90, 30);
-            btnCancel.TabIndex = 1;
+            btnCancel.Size = new Size(80, 28);
+            btnCancel.TabIndex = 91;
             btnCancel.Text = "Cancel";
-            btnCancel.UseVisualStyleBackColor = false;
             btnCancel.Click += btnCancel_Click;
             // 
             // pnlContent
             // 
             pnlContent.AutoScroll = true;
-            pnlContent.BackColor = Color.FromArgb(235, 235, 235);
             pnlContent.Controls.Add(grpIdentity);
-            pnlContent.Controls.Add(grpHelmert);
+            pnlContent.Controls.Add(grpParams);
             pnlContent.Controls.Add(grpMetadata);
             pnlContent.Dock = DockStyle.Fill;
-            pnlContent.Location = new Point(0, 50);
+            pnlContent.Location = new Point(0, 0);
             pnlContent.Name = "pnlContent";
-            pnlContent.Padding = new Padding(10);
-            pnlContent.Size = new Size(517, 640);
+            pnlContent.Padding = new Padding(10, 8, 10, 4);
+            pnlContent.Size = new Size(482, 594);
             pnlContent.TabIndex = 0;
             // 
             // grpIdentity
             // 
-            grpIdentity.BackColor = Color.White;
             grpIdentity.Controls.Add(lblCode);
             grpIdentity.Controls.Add(txtCode);
             grpIdentity.Controls.Add(lblName);
@@ -157,11 +121,9 @@ namespace Land_Readjustment_Tool.UI.Forms.Project
             grpIdentity.Controls.Add(lblTargetDatum);
             grpIdentity.Controls.Add(cmbTargetDatum);
             grpIdentity.Font = new Font("Segoe UI", 9F, FontStyle.Bold);
-            grpIdentity.ForeColor = Color.FromArgb(40, 60, 95);
-            grpIdentity.Location = new Point(10, 10);
+            grpIdentity.Location = new Point(10, 8);
             grpIdentity.Name = "grpIdentity";
-            grpIdentity.Padding = new Padding(10);
-            grpIdentity.Size = new Size(500, 165);
+            grpIdentity.Size = new Size(470, 158);
             grpIdentity.TabIndex = 0;
             grpIdentity.TabStop = false;
             grpIdentity.Text = "Identity";
@@ -169,396 +131,371 @@ namespace Land_Readjustment_Tool.UI.Forms.Project
             // lblCode
             // 
             lblCode.Font = new Font("Segoe UI", 9F);
-            lblCode.ForeColor = Color.Black;
-            lblCode.Location = new Point(15, 30);
+            lblCode.Location = new Point(12, 29);
             lblCode.Name = "lblCode";
-            lblCode.Size = new Size(101, 23);
+            lblCode.Size = new Size(120, 20);
             lblCode.TabIndex = 0;
             lblCode.Text = "Code:";
-            lblCode.TextAlign = ContentAlignment.MiddleLeft;
             // 
             // txtCode
             // 
             txtCode.Font = new Font("Segoe UI", 9F);
-            txtCode.Location = new Point(131, 28);
+            txtCode.Location = new Point(134, 26);
             txtCode.Name = "txtCode";
-            txtCode.Size = new Size(349, 27);
+            txtCode.Size = new Size(320, 27);
             txtCode.TabIndex = 1;
             // 
             // lblName
             // 
             lblName.Font = new Font("Segoe UI", 9F);
-            lblName.ForeColor = Color.Black;
-            lblName.Location = new Point(15, 63);
+            lblName.Location = new Point(12, 61);
             lblName.Name = "lblName";
-            lblName.Size = new Size(101, 23);
+            lblName.Size = new Size(120, 20);
             lblName.TabIndex = 2;
             lblName.Text = "Name:";
-            lblName.TextAlign = ContentAlignment.MiddleLeft;
             // 
             // txtName
             // 
             txtName.Font = new Font("Segoe UI", 9F);
-            txtName.Location = new Point(131, 61);
+            txtName.Location = new Point(134, 58);
             txtName.Name = "txtName";
-            txtName.Size = new Size(349, 27);
+            txtName.Size = new Size(320, 27);
             txtName.TabIndex = 3;
             // 
             // lblSourceDatum
             // 
             lblSourceDatum.Font = new Font("Segoe UI", 9F);
-            lblSourceDatum.ForeColor = Color.Black;
-            lblSourceDatum.Location = new Point(15, 96);
+            lblSourceDatum.Location = new Point(12, 93);
             lblSourceDatum.Name = "lblSourceDatum";
-            lblSourceDatum.Size = new Size(110, 23);
+            lblSourceDatum.Size = new Size(120, 20);
             lblSourceDatum.TabIndex = 4;
             lblSourceDatum.Text = "Source Datum:";
-            lblSourceDatum.TextAlign = ContentAlignment.MiddleLeft;
             // 
             // txtSourceDatum
             // 
             txtSourceDatum.Font = new Font("Segoe UI", 9F);
-            txtSourceDatum.Location = new Point(131, 94);
+            txtSourceDatum.Location = new Point(134, 90);
             txtSourceDatum.Name = "txtSourceDatum";
-            txtSourceDatum.Size = new Size(349, 27);
+            txtSourceDatum.Size = new Size(200, 27);
             txtSourceDatum.TabIndex = 5;
             // 
             // lblTargetDatum
             // 
             lblTargetDatum.Font = new Font("Segoe UI", 9F);
-            lblTargetDatum.ForeColor = Color.Black;
-            lblTargetDatum.Location = new Point(15, 129);
+            lblTargetDatum.Location = new Point(12, 125);
             lblTargetDatum.Name = "lblTargetDatum";
-            lblTargetDatum.Size = new Size(110, 23);
+            lblTargetDatum.Size = new Size(120, 20);
             lblTargetDatum.TabIndex = 6;
             lblTargetDatum.Text = "Target Datum:";
-            lblTargetDatum.TextAlign = ContentAlignment.MiddleLeft;
             // 
             // cmbTargetDatum
             // 
+            cmbTargetDatum.DropDownStyle = ComboBoxStyle.DropDownList;
             cmbTargetDatum.Font = new Font("Segoe UI", 9F);
-            cmbTargetDatum.Items.AddRange(new object[] { "WGS84", "GRS80", "NAD83", "ED50" });
-            cmbTargetDatum.Location = new Point(131, 127);
+            cmbTargetDatum.Items.AddRange(new object[] { "WGS84" });
+            cmbTargetDatum.Location = new Point(134, 122);
             cmbTargetDatum.Name = "cmbTargetDatum";
-            cmbTargetDatum.Size = new Size(349, 28);
+            cmbTargetDatum.Size = new Size(200, 28);
             cmbTargetDatum.TabIndex = 7;
             // 
-            // grpHelmert
+            // grpParams
             // 
-            grpHelmert.BackColor = Color.White;
-            grpHelmert.Controls.Add(lblDeltaX);
-            grpHelmert.Controls.Add(nudDeltaX);
-            grpHelmert.Controls.Add(lblDeltaY);
-            grpHelmert.Controls.Add(nudDeltaY);
-            grpHelmert.Controls.Add(lblDeltaZ);
-            grpHelmert.Controls.Add(nudDeltaZ);
-            grpHelmert.Controls.Add(lblRx);
-            grpHelmert.Controls.Add(nudRx);
-            grpHelmert.Controls.Add(lblRy);
-            grpHelmert.Controls.Add(nudRy);
-            grpHelmert.Controls.Add(lblRz);
-            grpHelmert.Controls.Add(nudRz);
-            grpHelmert.Controls.Add(lblScale);
-            grpHelmert.Controls.Add(nudScale);
-            grpHelmert.Controls.Add(lblAppliesTo);
-            grpHelmert.Controls.Add(txtAppliesTo);
-            grpHelmert.Controls.Add(lblNote);
-            grpHelmert.Font = new Font("Segoe UI", 9F, FontStyle.Bold);
-            grpHelmert.ForeColor = Color.FromArgb(40, 60, 95);
-            grpHelmert.Location = new Point(10, 185);
-            grpHelmert.Name = "grpHelmert";
-            grpHelmert.Padding = new Padding(10);
-            grpHelmert.Size = new Size(500, 250);
-            grpHelmert.TabIndex = 1;
-            grpHelmert.TabStop = false;
-            grpHelmert.Text = "Helmert 7-Parameter Transform";
+            grpParams.Controls.Add(lblM);
+            grpParams.Controls.Add(lblR);
+            grpParams.Controls.Add(lblDeltaX);
+            grpParams.Controls.Add(nudDeltaX);
+            grpParams.Controls.Add(lblDeltaY);
+            grpParams.Controls.Add(nudDeltaY);
+            grpParams.Controls.Add(lblDeltaZ);
+            grpParams.Controls.Add(nudDeltaZ);
+            grpParams.Controls.Add(lblRx);
+            grpParams.Controls.Add(nudRx);
+            grpParams.Controls.Add(lblRy);
+            grpParams.Controls.Add(nudRy);
+            grpParams.Controls.Add(lblRz);
+            grpParams.Controls.Add(nudRz);
+            grpParams.Controls.Add(lblScale);
+            grpParams.Controls.Add(nudScale);
+            grpParams.Font = new Font("Segoe UI", 9F, FontStyle.Bold);
+            grpParams.Location = new Point(10, 174);
+            grpParams.Name = "grpParams";
+            grpParams.Size = new Size(470, 220);
+            grpParams.TabIndex = 1;
+            grpParams.TabStop = false;
+            grpParams.Text = "Helmert 7-Parameter Transform";
+            // 
+            // lblM
+            // 
+            lblM.Font = new Font("Segoe UI", 8.5F, FontStyle.Italic);
+            lblM.ForeColor = SystemColors.GrayText;
+            lblM.Location = new Point(12, 24);
+            lblM.Name = "lblM";
+            lblM.Size = new Size(180, 18);
+            lblM.TabIndex = 0;
+            lblM.Text = "Translations (meters)";
+            // 
+            // lblR
+            // 
+            lblR.Font = new Font("Segoe UI", 8.5F, FontStyle.Italic);
+            lblR.ForeColor = SystemColors.GrayText;
+            lblR.Location = new Point(12, 81);
+            lblR.Name = "lblR";
+            lblR.Size = new Size(180, 18);
+            lblR.TabIndex = 1;
+            lblR.Text = "Rotations (arc-seconds)";
             // 
             // lblDeltaX
             // 
             lblDeltaX.Font = new Font("Segoe UI", 9F);
-            lblDeltaX.ForeColor = Color.Black;
-            lblDeltaX.Location = new Point(15, 33);
+            lblDeltaX.Location = new Point(12, 47);
             lblDeltaX.Name = "lblDeltaX";
-            lblDeltaX.Size = new Size(75, 23);
-            lblDeltaX.TabIndex = 0;
-            lblDeltaX.Text = "ΔX (m):";
-            lblDeltaX.TextAlign = ContentAlignment.MiddleRight;
+            lblDeltaX.Size = new Size(27, 20);
+            lblDeltaX.TabIndex = 2;
+            lblDeltaX.Text = "dX";
             // 
             // nudDeltaX
             // 
             nudDeltaX.DecimalPlaces = 4;
             nudDeltaX.Font = new Font("Segoe UI", 9F);
-            nudDeltaX.Location = new Point(95, 31);
-            nudDeltaX.Maximum = new decimal(new int[] { 1000000, 0, 0, 0 });
-            nudDeltaX.Minimum = new decimal(new int[] { 1000000, 0, 0, int.MinValue });
+            nudDeltaX.Location = new Point(45, 44);
+            nudDeltaX.Maximum = new decimal(new int[] { 10000, 0, 0, 0 });
+            nudDeltaX.Minimum = new decimal(new int[] { 10000, 0, 0, int.MinValue });
             nudDeltaX.Name = "nudDeltaX";
-            nudDeltaX.Size = new Size(120, 27);
-            nudDeltaX.TabIndex = 1;
+            nudDeltaX.Size = new Size(98, 27);
+            nudDeltaX.TabIndex = 3;
             // 
             // lblDeltaY
             // 
             lblDeltaY.Font = new Font("Segoe UI", 9F);
-            lblDeltaY.ForeColor = Color.Black;
-            lblDeltaY.Location = new Point(15, 65);
+            lblDeltaY.Location = new Point(165, 47);
             lblDeltaY.Name = "lblDeltaY";
-            lblDeltaY.Size = new Size(75, 23);
-            lblDeltaY.TabIndex = 2;
-            lblDeltaY.Text = "ΔY (m):";
-            lblDeltaY.TextAlign = ContentAlignment.MiddleRight;
+            lblDeltaY.Size = new Size(27, 20);
+            lblDeltaY.TabIndex = 4;
+            lblDeltaY.Text = "dY";
             // 
             // nudDeltaY
             // 
             nudDeltaY.DecimalPlaces = 4;
             nudDeltaY.Font = new Font("Segoe UI", 9F);
-            nudDeltaY.Location = new Point(95, 63);
-            nudDeltaY.Maximum = new decimal(new int[] { 1000000, 0, 0, 0 });
-            nudDeltaY.Minimum = new decimal(new int[] { 1000000, 0, 0, int.MinValue });
+            nudDeltaY.Location = new Point(198, 44);
+            nudDeltaY.Maximum = new decimal(new int[] { 10000, 0, 0, 0 });
+            nudDeltaY.Minimum = new decimal(new int[] { 10000, 0, 0, int.MinValue });
             nudDeltaY.Name = "nudDeltaY";
-            nudDeltaY.Size = new Size(120, 27);
-            nudDeltaY.TabIndex = 3;
+            nudDeltaY.Size = new Size(98, 27);
+            nudDeltaY.TabIndex = 5;
             // 
             // lblDeltaZ
             // 
             lblDeltaZ.Font = new Font("Segoe UI", 9F);
-            lblDeltaZ.ForeColor = Color.Black;
-            lblDeltaZ.Location = new Point(15, 97);
+            lblDeltaZ.Location = new Point(318, 47);
             lblDeltaZ.Name = "lblDeltaZ";
-            lblDeltaZ.Size = new Size(75, 23);
-            lblDeltaZ.TabIndex = 4;
-            lblDeltaZ.Text = "ΔZ (m):";
-            lblDeltaZ.TextAlign = ContentAlignment.MiddleRight;
+            lblDeltaZ.Size = new Size(27, 20);
+            lblDeltaZ.TabIndex = 6;
+            lblDeltaZ.Text = "dZ";
             // 
             // nudDeltaZ
             // 
             nudDeltaZ.DecimalPlaces = 4;
             nudDeltaZ.Font = new Font("Segoe UI", 9F);
-            nudDeltaZ.Location = new Point(95, 95);
-            nudDeltaZ.Maximum = new decimal(new int[] { 1000000, 0, 0, 0 });
-            nudDeltaZ.Minimum = new decimal(new int[] { 1000000, 0, 0, int.MinValue });
+            nudDeltaZ.Location = new Point(351, 44);
+            nudDeltaZ.Maximum = new decimal(new int[] { 10000, 0, 0, 0 });
+            nudDeltaZ.Minimum = new decimal(new int[] { 10000, 0, 0, int.MinValue });
             nudDeltaZ.Name = "nudDeltaZ";
-            nudDeltaZ.Size = new Size(120, 27);
-            nudDeltaZ.TabIndex = 5;
+            nudDeltaZ.Size = new Size(98, 27);
+            nudDeltaZ.TabIndex = 7;
             // 
             // lblRx
             // 
             lblRx.Font = new Font("Segoe UI", 9F);
-            lblRx.ForeColor = Color.Black;
-            lblRx.Location = new Point(245, 33);
+            lblRx.Location = new Point(165, 107);
             lblRx.Name = "lblRx";
-            lblRx.Size = new Size(95, 23);
-            lblRx.TabIndex = 6;
-            lblRx.Text = "Rx (sec):";
-            lblRx.TextAlign = ContentAlignment.MiddleRight;
+            lblRx.Size = new Size(27, 20);
+            lblRx.TabIndex = 8;
+            lblRx.Text = "rX";
             // 
             // nudRx
             // 
-            nudRx.DecimalPlaces = 3;
+            nudRx.DecimalPlaces = 4;
             nudRx.Font = new Font("Segoe UI", 9F);
-            nudRx.Location = new Point(345, 31);
-            nudRx.Maximum = new decimal(new int[] { 1000000, 0, 0, 0 });
-            nudRx.Minimum = new decimal(new int[] { 1000000, 0, 0, int.MinValue });
+            nudRx.Location = new Point(198, 105);
+            nudRx.Maximum = new decimal(new int[] { 10000, 0, 0, 0 });
+            nudRx.Minimum = new decimal(new int[] { 10000, 0, 0, int.MinValue });
             nudRx.Name = "nudRx";
-            nudRx.Size = new Size(140, 27);
-            nudRx.TabIndex = 7;
+            nudRx.Size = new Size(98, 27);
+            nudRx.TabIndex = 9;
             // 
             // lblRy
             // 
             lblRy.Font = new Font("Segoe UI", 9F);
-            lblRy.ForeColor = Color.Black;
-            lblRy.Location = new Point(245, 65);
+            lblRy.Location = new Point(12, 107);
             lblRy.Name = "lblRy";
-            lblRy.Size = new Size(95, 23);
-            lblRy.TabIndex = 8;
-            lblRy.Text = "Ry (sec):";
-            lblRy.TextAlign = ContentAlignment.MiddleRight;
+            lblRy.Size = new Size(24, 20);
+            lblRy.TabIndex = 10;
+            lblRy.Text = "rY";
             // 
             // nudRy
             // 
-            nudRy.DecimalPlaces = 3;
+            nudRy.DecimalPlaces = 4;
             nudRy.Font = new Font("Segoe UI", 9F);
-            nudRy.Location = new Point(345, 63);
-            nudRy.Maximum = new decimal(new int[] { 1000000, 0, 0, 0 });
-            nudRy.Minimum = new decimal(new int[] { 1000000, 0, 0, int.MinValue });
+            nudRy.Location = new Point(45, 105);
+            nudRy.Maximum = new decimal(new int[] { 10000, 0, 0, 0 });
+            nudRy.Minimum = new decimal(new int[] { 10000, 0, 0, int.MinValue });
             nudRy.Name = "nudRy";
-            nudRy.Size = new Size(140, 27);
-            nudRy.TabIndex = 9;
+            nudRy.Size = new Size(98, 27);
+            nudRy.TabIndex = 11;
             // 
             // lblRz
             // 
             lblRz.Font = new Font("Segoe UI", 9F);
-            lblRz.ForeColor = Color.Black;
-            lblRz.Location = new Point(245, 97);
+            lblRz.Location = new Point(321, 107);
             lblRz.Name = "lblRz";
-            lblRz.Size = new Size(95, 23);
-            lblRz.TabIndex = 10;
-            lblRz.Text = "Rz (sec):";
-            lblRz.TextAlign = ContentAlignment.MiddleRight;
+            lblRz.Size = new Size(24, 20);
+            lblRz.TabIndex = 12;
+            lblRz.Text = "rZ";
             // 
             // nudRz
             // 
-            nudRz.DecimalPlaces = 3;
+            nudRz.DecimalPlaces = 4;
             nudRz.Font = new Font("Segoe UI", 9F);
-            nudRz.Location = new Point(345, 95);
-            nudRz.Maximum = new decimal(new int[] { 1000000, 0, 0, 0 });
-            nudRz.Minimum = new decimal(new int[] { 1000000, 0, 0, int.MinValue });
+            nudRz.Location = new Point(351, 105);
+            nudRz.Maximum = new decimal(new int[] { 10000, 0, 0, 0 });
+            nudRz.Minimum = new decimal(new int[] { 10000, 0, 0, int.MinValue });
             nudRz.Name = "nudRz";
-            nudRz.Size = new Size(140, 27);
-            nudRz.TabIndex = 11;
+            nudRz.Size = new Size(98, 27);
+            nudRz.TabIndex = 13;
             // 
             // lblScale
             // 
             lblScale.Font = new Font("Segoe UI", 9F);
-            lblScale.ForeColor = Color.Black;
-            lblScale.Location = new Point(229, 130);
+            lblScale.Location = new Point(12, 154);
             lblScale.Name = "lblScale";
-            lblScale.Size = new Size(111, 23);
-            lblScale.TabIndex = 12;
+            lblScale.Size = new Size(52, 20);
+            lblScale.TabIndex = 14;
             lblScale.Text = "Scale (ppm):";
-            lblScale.TextAlign = ContentAlignment.MiddleRight;
             // 
             // nudScale
             // 
             nudScale.DecimalPlaces = 4;
             nudScale.Font = new Font("Segoe UI", 9F);
-            nudScale.Location = new Point(345, 128);
-            nudScale.Maximum = new decimal(new int[] { 1000000, 0, 0, 0 });
-            nudScale.Minimum = new decimal(new int[] { 1000000, 0, 0, int.MinValue });
+            nudScale.Location = new Point(70, 152);
+            nudScale.Maximum = new decimal(new int[] { 1000, 0, 0, 0 });
+            nudScale.Minimum = new decimal(new int[] { 1000, 0, 0, int.MinValue });
             nudScale.Name = "nudScale";
-            nudScale.Size = new Size(140, 27);
-            nudScale.TabIndex = 13;
-            // 
-            // lblAppliesTo
-            // 
-            lblAppliesTo.Font = new Font("Segoe UI", 9F, FontStyle.Bold);
-            lblAppliesTo.ForeColor = Color.Black;
-            lblAppliesTo.Location = new Point(15, 168);
-            lblAppliesTo.Name = "lblAppliesTo";
-            lblAppliesTo.Size = new Size(101, 23);
-            lblAppliesTo.TabIndex = 14;
-            lblAppliesTo.Text = "Applies to:";
-            lblAppliesTo.TextAlign = ContentAlignment.MiddleRight;
-            // 
-            // txtAppliesTo
-            // 
-            txtAppliesTo.Font = new Font("Segoe UI", 9F);
-            txtAppliesTo.ForeColor = Color.Gray;
-            txtAppliesTo.Location = new Point(131, 166);
-            txtAppliesTo.Name = "txtAppliesTo";
-            txtAppliesTo.Size = new Size(354, 27);
-            txtAppliesTo.TabIndex = 15;
-            txtAppliesTo.Text = "e.g. MUTM81, MUTM82, MUTM83";
-            // 
-            // lblNote
-            // 
-            lblNote.Font = new Font("Segoe UI", 8.5F);
-            lblNote.ForeColor = Color.FromArgb(80, 80, 80);
-            lblNote.Location = new Point(15, 205);
-            lblNote.Name = "lblNote";
-            lblNote.Size = new Size(470, 20);
-            lblNote.TabIndex = 16;
-            lblNote.Text = "Note: Translation in meters, Rotation in arcesconds, Scale in ppm.";
+            nudScale.Size = new Size(73, 27);
+            nudScale.TabIndex = 15;
             // 
             // grpMetadata
             // 
-            grpMetadata.BackColor = Color.White;
-            grpMetadata.Controls.Add(lblDataSource);
+            grpMetadata.Controls.Add(lblApplies);
+            grpMetadata.Controls.Add(txtAppliesTo);
+            grpMetadata.Controls.Add(lblSource);
             grpMetadata.Controls.Add(txtDataSource);
             grpMetadata.Controls.Add(lblRegion);
             grpMetadata.Controls.Add(txtRegion);
             grpMetadata.Controls.Add(lblDescription);
             grpMetadata.Controls.Add(txtDescription);
             grpMetadata.Font = new Font("Segoe UI", 9F, FontStyle.Bold);
-            grpMetadata.ForeColor = Color.FromArgb(40, 60, 95);
-            grpMetadata.Location = new Point(10, 441);
+            grpMetadata.Location = new Point(10, 402);
             grpMetadata.Name = "grpMetadata";
-            grpMetadata.Padding = new Padding(10);
-            grpMetadata.Size = new Size(500, 194);
+            grpMetadata.Size = new Size(470, 185);
             grpMetadata.TabIndex = 2;
             grpMetadata.TabStop = false;
             grpMetadata.Text = "Metadata";
             // 
-            // lblDataSource
+            // lblApplies
             // 
-            lblDataSource.Font = new Font("Segoe UI", 9F, FontStyle.Bold);
-            lblDataSource.ForeColor = Color.Black;
-            lblDataSource.Location = new Point(15, 30);
-            lblDataSource.Name = "lblDataSource";
-            lblDataSource.Size = new Size(110, 23);
-            lblDataSource.TabIndex = 0;
-            lblDataSource.Text = "Data Source:";
-            lblDataSource.TextAlign = ContentAlignment.MiddleRight;
+            lblApplies.Font = new Font("Segoe UI", 9F);
+            lblApplies.Location = new Point(12, 29);
+            lblApplies.Name = "lblApplies";
+            lblApplies.Size = new Size(90, 20);
+            lblApplies.TabIndex = 0;
+            lblApplies.Text = "Applies To:";
+            // 
+            // txtAppliesTo
+            // 
+            txtAppliesTo.Font = new Font("Segoe UI", 9F);
+            txtAppliesTo.Location = new Point(106, 26);
+            txtAppliesTo.Name = "txtAppliesTo";
+            txtAppliesTo.PlaceholderText = "e.g. MUTM81,MUTM82,MUTM83";
+            txtAppliesTo.Size = new Size(350, 27);
+            txtAppliesTo.TabIndex = 1;
+            // 
+            // lblSource
+            // 
+            lblSource.Font = new Font("Segoe UI", 9F);
+            lblSource.Location = new Point(12, 61);
+            lblSource.Name = "lblSource";
+            lblSource.Size = new Size(90, 20);
+            lblSource.TabIndex = 2;
+            lblSource.Text = "Source Ref:";
             // 
             // txtDataSource
             // 
             txtDataSource.Font = new Font("Segoe UI", 9F);
-            txtDataSource.ForeColor = Color.Gray;
-            txtDataSource.Location = new Point(135, 28);
+            txtDataSource.Location = new Point(106, 58);
             txtDataSource.Name = "txtDataSource";
-            txtDataSource.Size = new Size(345, 27);
-            txtDataSource.TabIndex = 1;
-            txtDataSource.Text = "e.g. Survey Department Nepal";
+            txtDataSource.PlaceholderText = "e.g. Survey Department Nepal";
+            txtDataSource.Size = new Size(350, 27);
+            txtDataSource.TabIndex = 3;
             // 
             // lblRegion
             // 
-            lblRegion.Font = new Font("Segoe UI", 9F, FontStyle.Bold);
-            lblRegion.ForeColor = Color.Black;
-            lblRegion.Location = new Point(15, 63);
+            lblRegion.Font = new Font("Segoe UI", 9F);
+            lblRegion.Location = new Point(12, 93);
             lblRegion.Name = "lblRegion";
-            lblRegion.Size = new Size(110, 23);
-            lblRegion.TabIndex = 2;
+            lblRegion.Size = new Size(90, 20);
+            lblRegion.TabIndex = 4;
             lblRegion.Text = "Region:";
-            lblRegion.TextAlign = ContentAlignment.MiddleRight;
             // 
             // txtRegion
             // 
             txtRegion.Font = new Font("Segoe UI", 9F);
-            txtRegion.ForeColor = Color.Gray;
-            txtRegion.Location = new Point(135, 61);
+            txtRegion.Location = new Point(106, 90);
             txtRegion.Name = "txtRegion";
-            txtRegion.Size = new Size(345, 27);
-            txtRegion.TabIndex = 3;
-            txtRegion.Text = "e.g. Nepal";
+            txtRegion.PlaceholderText = "e.g. Nepal";
+            txtRegion.Size = new Size(180, 27);
+            txtRegion.TabIndex = 5;
             // 
             // lblDescription
             // 
-            lblDescription.Font = new Font("Segoe UI", 9F, FontStyle.Bold);
-            lblDescription.ForeColor = Color.Black;
-            lblDescription.Location = new Point(15, 96);
+            lblDescription.Font = new Font("Segoe UI", 9F);
+            lblDescription.Location = new Point(12, 124);
             lblDescription.Name = "lblDescription";
-            lblDescription.Size = new Size(110, 23);
-            lblDescription.TabIndex = 4;
+            lblDescription.Size = new Size(90, 20);
+            lblDescription.TabIndex = 6;
             lblDescription.Text = "Description:";
-            lblDescription.TextAlign = ContentAlignment.MiddleRight;
             // 
             // txtDescription
             // 
             txtDescription.Font = new Font("Segoe UI", 9F);
-            txtDescription.Location = new Point(135, 94);
+            txtDescription.Location = new Point(106, 122);
             txtDescription.Multiline = true;
             txtDescription.Name = "txtDescription";
-            txtDescription.Size = new Size(345, 74);
-            txtDescription.TabIndex = 5;
+            txtDescription.Size = new Size(350, 57);
+            txtDescription.TabIndex = 7;
             // 
             // frmAddEditDatumTransformation
             // 
-            ClientSize = new Size(517, 745);
+            AutoScaleDimensions = new SizeF(8F, 20F);
+            AutoScaleMode = AutoScaleMode.Font;
+            ClientSize = new Size(482, 634);
             Controls.Add(pnlContent);
             Controls.Add(pnlFooter);
-            Controls.Add(pnlHeader);
+            Font = new Font("Segoe UI", 9F);
             FormBorderStyle = FormBorderStyle.FixedDialog;
             MaximizeBox = false;
+            MaximumSize = new Size(500, 700);
+            MinimizeBox = false;
+            MinimumSize = new Size(500, 580);
             Name = "frmAddEditDatumTransformation";
             StartPosition = FormStartPosition.CenterParent;
-            Text = "Add Datum Transformation";
+            Text = "Datum Transformation";
             Load += frmAddEditDatumTransformation_Load;
-            pnlHeader.ResumeLayout(false);
-            pnlHeader.PerformLayout();
             pnlFooter.ResumeLayout(false);
             pnlContent.ResumeLayout(false);
             grpIdentity.ResumeLayout(false);
             grpIdentity.PerformLayout();
-            grpHelmert.ResumeLayout(false);
-            grpHelmert.PerformLayout();
+            grpParams.ResumeLayout(false);
             ((System.ComponentModel.ISupportInitialize)nudDeltaX).EndInit();
             ((System.ComponentModel.ISupportInitialize)nudDeltaY).EndInit();
             ((System.ComponentModel.ISupportInitialize)nudDeltaZ).EndInit();
@@ -573,16 +510,10 @@ namespace Land_Readjustment_Tool.UI.Forms.Project
 
         #endregion
 
-        // ── Control declarations ──────────────────────────────────────────────
-
-        private Panel pnlHeader;
-        private Label lblFormTitle;
         private Panel pnlFooter;
         private Button btnSave;
         private Button btnCancel;
         private Panel pnlContent;
-
-        // Identity group
         private GroupBox grpIdentity;
         private Label lblCode;
         private TextBox txtCode;
@@ -592,9 +523,7 @@ namespace Land_Readjustment_Tool.UI.Forms.Project
         private TextBox txtSourceDatum;
         private Label lblTargetDatum;
         private ComboBox cmbTargetDatum;
-
-        // Helmert group
-        private GroupBox grpHelmert;
+        private GroupBox grpParams;
         private Label lblDeltaX;
         private NumericUpDown nudDeltaX;
         private Label lblDeltaY;
@@ -609,17 +538,16 @@ namespace Land_Readjustment_Tool.UI.Forms.Project
         private NumericUpDown nudRz;
         private Label lblScale;
         private NumericUpDown nudScale;
-        private Label lblAppliesTo;
-        private TextBox txtAppliesTo;
-        private Label lblNote;
-
-        // Metadata group
         private GroupBox grpMetadata;
-        private Label lblDataSource;
+        private Label lblApplies;
+        private TextBox txtAppliesTo;
+        private Label lblSource;
         private TextBox txtDataSource;
         private Label lblRegion;
         private TextBox txtRegion;
         private Label lblDescription;
         private TextBox txtDescription;
+        private Label lblM;
+        private Label lblR;
     }
 }
