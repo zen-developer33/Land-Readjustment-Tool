@@ -16,7 +16,7 @@
         private void InitializeComponent()
         {
             components = new System.ComponentModel.Container();
-            DataGridViewCellStyle dataGridViewCellStyle4 = new DataGridViewCellStyle();
+            DataGridViewCellStyle dataGridViewCellStyle1 = new DataGridViewCellStyle();
             pnlToolbar = new Panel();
             btnNewLayer = new Button();
             btnDeleteLayer = new Button();
@@ -328,8 +328,8 @@
             // colDisplayOrder
             // 
             colDisplayOrder.DataPropertyName = "DisplayOrder";
-            dataGridViewCellStyle4.Alignment = DataGridViewContentAlignment.MiddleCenter;
-            colDisplayOrder.DefaultCellStyle = dataGridViewCellStyle4;
+            dataGridViewCellStyle1.Alignment = DataGridViewContentAlignment.MiddleCenter;
+            colDisplayOrder.DefaultCellStyle = dataGridViewCellStyle1;
             colDisplayOrder.HeaderText = "Order";
             colDisplayOrder.MinimumWidth = 6;
             colDisplayOrder.Name = "colDisplayOrder";
@@ -380,7 +380,7 @@
             tabGeneral.Location = new Point(4, 29);
             tabGeneral.Name = "tabGeneral";
             tabGeneral.Padding = new Padding(10);
-            tabGeneral.Size = new Size(337, 375);
+            tabGeneral.Size = new Size(337, 362);
             tabGeneral.TabIndex = 0;
             tabGeneral.Text = "General";
             tabGeneral.UseVisualStyleBackColor = true;
@@ -441,7 +441,7 @@
             pnlBorderColor.Cursor = Cursors.Hand;
             pnlBorderColor.Location = new Point(140, 82);
             pnlBorderColor.Name = "pnlBorderColor";
-            pnlBorderColor.Size = new Size(42, 26);
+            pnlBorderColor.Size = new Size(42, 30);
             pnlBorderColor.TabIndex = 5;
             pnlBorderColor.Click += pnlBorderColor_Click;
             // 
@@ -449,7 +449,7 @@
             // 
             btnBorderColor.Location = new Point(188, 82);
             btnBorderColor.Name = "btnBorderColor";
-            btnBorderColor.Size = new Size(75, 26);
+            btnBorderColor.Size = new Size(75, 30);
             btnBorderColor.TabIndex = 6;
             btnBorderColor.Text = "Choose…";
             btnBorderColor.Click += btnBorderColor_Click;
@@ -551,7 +551,7 @@
             tabFill.Location = new Point(4, 29);
             tabFill.Name = "tabFill";
             tabFill.Padding = new Padding(10);
-            tabFill.Size = new Size(337, 375);
+            tabFill.Size = new Size(337, 362);
             tabFill.TabIndex = 1;
             tabFill.Text = "Fill";
             tabFill.UseVisualStyleBackColor = true;

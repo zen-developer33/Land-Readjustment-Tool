@@ -997,6 +997,43 @@ namespace Land_Readjustment_Tool.UI.CustomControls
             panelCanvas.Invalidate();
         }
 
+        /// <summary>
+        /// Applies background color from project settings.
+        /// Called when project opens or settings change.
+        /// </summary>
+        public void ApplyBackgroundColor(Color color)
+        {
+            // Update renderer directly
+            if (color.GetBrightness() < 0.5f)
+                _renderer.SetDarkTheme();
+            else
+                _renderer.SetLightTheme();
+
+            // Override with exact color from settings
+            panelCanvas.BackColor = color;
+            panelCanvas.Invalidate();
+        }
+
+        /// <summary>
+        /// Sets grid visibility from project settings.
+        /// </summary>
+        public void ApplyGridVisible(bool visible)
+        {
+            _showGrid = visible;
+            btnShowHideGrid.Checked = visible;
+            btnShowHideGrid.Text = visible
+                ? "Hide Grid" : "Show Grid";
+            panelCanvas.Invalidate();
+        }
+
+        /// <summary>
+        /// Sets snap enabled from project settings.
+        /// </summary>
+        public void ApplySnapEnabled(bool enabled)
+        {
+            toolSnap.Checked = enabled;
+            panelCanvas.Invalidate();
+        }
         private void UpdateWorldBoundsToCurrentView()
         {
             RectangleD viewport = _engine.GetViewportBounds();

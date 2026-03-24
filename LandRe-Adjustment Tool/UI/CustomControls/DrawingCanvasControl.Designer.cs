@@ -12,7 +12,7 @@ namespace Land_Readjustment_Tool.UI.CustomControls
         {
             System.ComponentModel.ComponentResourceManager resources = new System.ComponentModel.ComponentResourceManager(typeof(DrawingCanvasControl));
             toolStripContainer1 = new ToolStripContainer();
-            panelCanvas = new Land_Readjustment_Tool.UI.MapCanvas.CanvasPanel();       
+            panelCanvas = new CanvasPanel();
             toolStrip1 = new ToolStrip();
             toolLine = new ToolStripButton();
             toolPolyline = new ToolStripButton();
@@ -22,6 +22,7 @@ namespace Land_Readjustment_Tool.UI.CustomControls
             toolStripSeparator1 = new ToolStripSeparator();
             toolStripSeparator4 = new ToolStripSeparator();
             toolStrip2 = new ToolStrip();
+            btnCollapseLeftPanel = new ToolStripButton();
             btnPan = new ToolStripButton();
             toolStripButton6 = new ToolStripButton();
             toolStripButton7 = new ToolStripButton();
@@ -38,7 +39,6 @@ namespace Land_Readjustment_Tool.UI.CustomControls
             toolSnap = new ToolStripButton();
             toolStripButton1 = new ToolStripButton();
             btnShowDebugLog = new ToolStripButton();
-            btnCollapseLeftPanel = new ToolStripButton();
             toolStripContainer1.ContentPanel.SuspendLayout();
             toolStripContainer1.LeftToolStripPanel.SuspendLayout();
             toolStripContainer1.TopToolStripPanel.SuspendLayout();
@@ -162,11 +162,20 @@ namespace Land_Readjustment_Tool.UI.CustomControls
             toolStrip2.Dock = DockStyle.None;
             toolStrip2.ImageScalingSize = new Size(20, 20);
             toolStrip2.Items.AddRange(new ToolStripItem[] { btnCollapseLeftPanel, btnPan, toolStripButton6, toolStripButton7, toolStripButton8, toolStripSeparator2, btnZoom, btnZoomOut, toolStripButton5, toolStripSeparator3, toolStripLabel1, cbTheme, btnLoadShapes, btnShowHideGrid, toolSnap, toolStripButton1, btnShowDebugLog });
-            toolStrip2.Location = new Point(4, 0);
+            toolStrip2.Location = new Point(7, 0);
             toolStrip2.Name = "toolStrip2";
             toolStrip2.Size = new Size(1033, 28);
             toolStrip2.TabIndex = 1;
             toolStrip2.Text = "toolStrip2";
+            // 
+            // btnCollapseLeftPanel
+            // 
+            btnCollapseLeftPanel.DisplayStyle = ToolStripItemDisplayStyle.Image;
+            btnCollapseLeftPanel.Image = (Image)resources.GetObject("btnCollapseLeftPanel.Image");
+            btnCollapseLeftPanel.ImageTransparentColor = Color.Magenta;
+            btnCollapseLeftPanel.Name = "btnCollapseLeftPanel";
+            btnCollapseLeftPanel.Size = new Size(29, 25);
+            btnCollapseLeftPanel.Text = "toolStripButton2";
             // 
             // btnPan
             // 
@@ -307,15 +316,6 @@ namespace Land_Readjustment_Tool.UI.CustomControls
             btnShowDebugLog.Size = new Size(133, 25);
             btnShowDebugLog.Text = "Show Debug Logs";
             btnShowDebugLog.Click += btnShowDebugLog_Click;
-            // 
-            // btnCollapseLeftPanel
-            // 
-            btnCollapseLeftPanel.DisplayStyle = ToolStripItemDisplayStyle.Image;
-            btnCollapseLeftPanel.Image = (Image)resources.GetObject("btnCollapseLeftPanel.Image");
-            btnCollapseLeftPanel.ImageTransparentColor = Color.Magenta;
-            btnCollapseLeftPanel.Name = "btnCollapseLeftPanel";
-            btnCollapseLeftPanel.Size = new Size(29, 25);
-            btnCollapseLeftPanel.Text = "toolStripButton2";
             // 
             // DrawingCanvasControl
             // 

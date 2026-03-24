@@ -1,5 +1,6 @@
 ﻿
 using Land_Readjustment_Tool.Data;
+using Land_Readjustment_Tool.Forms;
 using Land_Readjustment_Tool.Repositories.Project;
 using Land_Readjustment_Tool.Repositories.Spatial;
 using Land_Readjustment_Tool.Services;
@@ -7,17 +8,28 @@ using Land_Readjustment_Tool.Services.Project;
 using Land_Readjustment_Tool.UI.CustomControls;
 using Land_Readjustment_Tool.UI.Forms.Project;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.VisualBasic.ApplicationServices;
+using System.Diagnostics.Metrics;
+using System.Runtime.Intrinsics.Arm;
+using System.Security.Policy;
+using static Microsoft.EntityFrameworkCore.DbLoggerCategory;
+using static System.Windows.Forms.AxHost;
 
 namespace Land_Readjustment_Tool
 {
 
     public partial class frmMain : Form
     {
+        //--- INITIALIZE SERVICES -------
+        #region
+        private readonly ProjectBackupService _backupService = new();
+        #endregion
+
         //App Title shown in window Title bar
         private readonly string _appTitle = "Replot";
 
         //Canvas Control for drawing
-        private DrawingCanvasControl _canvasControl;
+        private DrawingCanvasControl _drawingCanvas;
         public frmMain()
         {
             InitializeComponent();
@@ -81,27 +93,40 @@ namespace Land_Readjustment_Tool
                 return true;
 
             var result = MessageBox.Show(
-                "You have unsaved changes. " +
+                "You have unsaved changes.\n\n" +
                 "Save before closing?",
                 "Unsaved Changes",
                 MessageBoxButtons.YesNoCancel,
                 MessageBoxIcon.Question);
 
             if (result == DialogResult.Yes)
-            {
                 return SaveCurrentProject();
-            }
 
             if (result == DialogResult.No)
-                return true;
+            {
+                // Rollback .lpp to last .bak
+                string filePath = AppServices.Context
+                    .ProjectFilePath;
 
-            // User clicked Cancel — do not close
+                // Must dispose session BEFORE
+                // touching the .lpp file
+                AppServices.Context.Session.Dispose();
+                AppServices.ClearContext();
+
+                // Replace .lpp with .bak
+                _backupService.RollbackToLatest(filePath);
+
+                // Session already cleared above
+                // Return true — safe to close
+                return true;
+            }
+
+            // Cancel — do not close
             return false;
         }
+        
 
-        // ── MENU ITEMS ───────────────────────────────
-
-        // Enables menu items when project is open
+        
         private void EnableProjectMenuItems()
         {
             tsmSave.Enabled = true;
@@ -143,7 +168,7 @@ namespace Land_Readjustment_Tool
 
                 if (result == DialogResult.Yes)
                 {
-                    await SaveCurrentProjectAsync(showMessage: true);
+                    await SaveCurrentProjectAsync(showMessage: false);
                 }
             }
 
@@ -194,6 +219,7 @@ namespace Land_Readjustment_Tool
                 OpenProjectDetails();
                 PromptProjectSettings();
                 InitializeProjectWorkspace();
+                ApplyCanvasSettings(); // ← add here
             }
             catch (Exception ex)
             {
@@ -232,24 +258,26 @@ namespace Land_Readjustment_Tool
         }
         private async void PromptProjectSettings()
         {
-            var result = MessageBox.Show("Project Created Successfully.\n\n +" +
-                " Would you like to configure project setting later now? \n\n" +
-                "You can always change settings later fro Project -> Project Settings menu.",
+            var result = MessageBox.Show(
+                "Would you like to configure " +
+                "project settings now?\n\n" +
+                "You can always change settings later " +
+                "from Project → Project Settings.",
                 "Project Settings",
                 MessageBoxButtons.YesNo,
                 MessageBoxIcon.Question,
-                MessageBoxDefaultButton.Button1);
+                MessageBoxDefaultButton.Button2);
 
             if (result == DialogResult.Yes)
             {
                 OpenProjectSettings();
             }
-            else
-            {
-                //User chose defaults - mark as configured so this prompt never shows up again.
-                var repo = new ProjectSettingsRepository(AppServices.Context.Session);
-                await repo.MarkAsConfiguredAsync();
-            }
+
+            // Mark as configured regardless of choice
+            // Prevents prompt from showing again
+            var repo = new ProjectSettingsRepository(
+                AppServices.Context.Session);
+            await repo.MarkAsConfiguredAsync();
         }
 
         private void OpenProjectSettings()
@@ -257,46 +285,78 @@ namespace Land_Readjustment_Tool
             if (!AppServices.HasContext) return;
 
             var context = AppServices.Context;
-
             var repo = new ProjectSettingsRepository(
                 context.Session);
+            var crsRepo = new CoordinateSystemRepository(
+                context.Session);
+            var datumRepo = new DatumTransformationRepository(
+                context.Session);
+            var service = new ProjectSettingsService(
+                repo, context.Session.Logger);
 
-            var crsRepo = new CoordinateSystemRepository(context.Session);
-            var service = new ProjectSettingsService(repo, context.Session.Logger);
-            var datumRepo = new DatumTransformationRepository(context.Session);
-            using var frm = new frmProjectSettings(service, crsRepo, datumRepo);
+            using var frm = new frmProjectSettings(
+                service, crsRepo, datumRepo);
+
             if (frm.ShowDialog() == DialogResult.OK)
+            {
                 AppServices.Context.MarkAsModified();
-
-            // Refresh title after user edits
-            UpdateWindowTitle();
+                // Apply canvas settings immediately
+                ApplyCanvasSettings();
+            }
         }
 
-
-        // ── CLOSE PROJECT ────────────────────────────
-
-        private async Task tsmCloseProject_Click(object sender, EventArgs e)
+        private async void ApplyCanvasSettings()
         {
-            await CloseCurrentProjectAsync();
-        }
+            if (!AppServices.HasContext) return;
+            if (_drawingCanvas == null) return;
 
+            try
+            {
+                var repo = new ProjectSettingsRepository(
+                    AppServices.Context.Session);
+                var settings = await repo
+                    .GetProjectSettingsAsync();
+
+                if (settings == null) return;
+
+                var bgColor = ColorTranslator.FromHtml(
+                    settings.CanvasBackgroundColor);
+
+                _drawingCanvas.ApplyBackgroundColor(bgColor);
+                _drawingCanvas.ApplyGridVisible(
+                    settings.CanvasGridVisible);
+                _drawingCanvas.ApplySnapEnabled(
+                    settings.SnapEnabled);
+            }
+            catch (Exception ex)
+            {
+                System.Diagnostics.Debug.WriteLine(
+                    $"ApplyCanvasSettings failed: {ex.Message}");
+            }
+        }
+        // ── CLOSE PROJECT ────────────────────────────
 
         private async Task CloseCurrentProjectAsync()
         {
             if (!AppServices.HasContext) return;
 
+            // HandleUnsavedChangesOnClose may already
+            // dispose session if user clicked No
             if (!HandleUnsavedChangesOnClose()) return;
 
-            // Unsubscribe from state changes
-            AppServices.Context.StateChanged -= UpdateWindowTitle;
-
-            // Clear context — disposes DB connection
-            AppServices.ClearContext();
+            if (AppServices.HasContext)
+            {
+                AppServices.Context.StateChanged
+                    -= UpdateWindowTitle;
+                AppServices.ClearContext();
+            }
 
             UnloadProjectWorkspace();
             DisableProjectMenuItems();
             UpdateWindowTitle();
         }
+
+
 
         // ── PROJECT DETAILS ──────────────────────────
 
@@ -344,98 +404,328 @@ namespace Land_Readjustment_Tool
 
         // ── STUB HANDLERS ────────────────────────────
         // Implemented later one by one
-
         private void tsmSave_Click(object sender, EventArgs e)
         {
-            _ = SaveCurrentProjectAsync(showMessage: true);
+            _ = SaveCurrentProjectAsync(showMessage: false);
         }
+        // ── SAVE AS ──────────────────────────────────
+        // Saves current project to a new location.
+        // Copies entire project folder to destination.
+        // Switches session to new location.
+
+        //    private async void tsmSaveAs_Click(
+        //object sender, EventArgs e)
+        //    {
+        //        if(!AppServices.HasContext) return;
+        //        string currentFilePath = AppServices.Context.ProjectFilePath;
+        //        string currentFolderPath = Path.GetFullPath(Path.GetDirectoryName(currentFilePath)!);
+        //        var sfd = new SaveFileDialog()
+        //        {
+        //            Filter =
+        //                "Land Pooling Project File (*.lpp)|*.lpp",
+        //            Title = "Save Project As",
+        //            FileName = Path.GetFileName(currentFilePath)
+        //        };
+
+        //        if(sfd.ShowDialog() != DialogResult.OK)
+        //            return;
+
+        //        string fullDestFilePath = sfd.FileName;
+        //        string fullDestFolderPath = Path.GetFullPath(Path.GetDirectoryName(fullDestFilePath)!);
+
+        //        if(fullDestFolderPath.Equals(Path.GetDirectoryName(currentFolderPath), StringComparison.OrdinalIgnoreCase)|| fullDestFolderPath.Equals()
+        //        {
+        //            MessageBox.Show(
+        //                "Selected file is the same as current project file.",
+        //                "Save As",
+        //                MessageBoxButtons.OK,
+        //                MessageBoxIcon.Warning);
+        //            return;
+        //        }
+
+        //    }
 
         private async void tsmSaveAs_Click(object sender, EventArgs e)
         {
             if (!AppServices.HasContext) return;
 
-            var currentPath = AppServices.Context.ProjectFilePath;
+            var currentFilePath = AppServices.Context.ProjectFilePath; //C:\Projects\MyProject\Myproject.lpp
+            var currentFileName = Path.GetFileNameWithoutExtension(currentFilePath); // MyProject
+            var currentFolder = Path.GetFullPath(
+                                        Path.GetDirectoryName(currentFilePath)!);
+            // currentFolder = C:\Projects\MyProject\
 
-            using SaveFileDialog sfd = new()
+            // ── STEP 1 — Open SaveFileDialog ─────────
+
+            string pickedFilePath = string.Empty;
+
+            string pickedFolder = string.Empty;
+            string pickedFileName = string.Empty;
+            string destFolder = string.Empty;
+            string destFile = string.Empty;
+            string destFileName = string.Empty;
+            while (true)
             {
-                Filter = "Land Pooling Project File (*.lpp)|*.lpp",
-                Title = "Save Project As",
-                FileName = Path.GetFileName(currentPath)
-            };
+                using var sfd = new SaveFileDialog
+                {
+                    InitialDirectory = Path.GetDirectoryName(currentFolder),
+                    Filter = "Land Pooling Project File (*.lpp)|*.lpp",
+                    Title = "Save Project As",
+                    FileName = Path.GetFileNameWithoutExtension(currentFilePath)
+                };
+                if (sfd.ShowDialog() != DialogResult.OK) return;
 
-            if (sfd.ShowDialog() != DialogResult.OK)
-                return;
+                pickedFilePath = sfd.FileName; //C:\Projects\MyProject2.lpp
+                                               // pickedFilePath = wherever user chose
 
-            string selectedFilePath = sfd.FileName;
-            string newProjectName =
-                Path.GetFileNameWithoutExtension(selectedFilePath);
-            string newProjectFolder = Path.Combine(
-                Path.GetDirectoryName(selectedFilePath)!,
-                newProjectName);
-            string newProjectFilePath = Path.Combine(
-                newProjectFolder,
-                Path.GetFileName(selectedFilePath));
-
-            if (string.Equals(currentPath, newProjectFilePath,
-                StringComparison.OrdinalIgnoreCase))
-            {
-                await SaveCurrentProjectAsync(showMessage: true);
-                return;
+                pickedFolder = Path.GetFullPath(
+                                            Path.GetDirectoryName(pickedFilePath)!); //C:\Projects\
+                pickedFileName = Path.GetFileNameWithoutExtension(pickedFilePath); // MyProject2
+                destFolder = Path.Combine(pickedFolder, pickedFileName); //C:\Projects\MyProject2
+                destFile = Path.Combine(destFolder, Path.GetFileName(pickedFilePath)); //C:\Projects\MyProject2\MyProject2.lpp
+                                                                                       // pickedFolder = folder user browsed to
+                destFileName = Path.GetFileNameWithoutExtension(destFile); // MyProject
+                // ── STEP 2 — Block saving inside current project folder ──
+                // currentFolder = C:\Projects\MyProject\
+                // If user picked something inside it → block
+                if (string.Equals(destFile, currentFilePath,
+                    StringComparison.OrdinalIgnoreCase))
+                {
+                    await SaveCurrentProjectAsync(showMessage: false);
+                    return;
+                }
+                else if (destFile.StartsWith(currentFileName,
+                    StringComparison.OrdinalIgnoreCase))
+                {
+                    MessageBox.Show(
+                        "Cannot save inside the current project folder.\n\n" +
+                        "Please choose a different location.",
+                        "Invalid Location",
+                        MessageBoxButtons.OK,
+                        MessageBoxIcon.Warning);
+                    continue;
+                }
+                else break;
             }
+            // ── STEP 3 — Same parent directory → save normally ───
+            // If user is browsing the same parent folder
+            // where current project folder lives → just save
+            // Example:
+            // currentFolder = C:\Projects\MyProject\
+            // parent        = C:\Projects\
+            // pickedFolder  = C:\Projects\  → save normally
+
+
+            // ── STEP 4 — Different folder → Save As ──────────────
 
             try
             {
-                await SaveCurrentProjectAsync(showMessage: false);
+                Cursor = Cursors.WaitCursor;
 
-                if (Directory.Exists(newProjectFolder))
+
+                // 4a.1 — Checkpoint WAL into main .lpp file
+                // SQLite WAL mode keeps pending writes in a
+                // separate -wal file. Checkpoint merges them
+                // into the main database file before we copy.
+                await AppServices.Context.Session
+                    .GetContext()
+                    .Database
+                    .ExecuteSqlRawAsync("PRAGMA wal_checkpoint(FULL);");
+
+                // 4b — Delete destination if already exists
+                if (Directory.Exists(destFolder))
+                    Directory.Delete(destFolder, recursive: true);
+
+                // 4c — Copy entire project folder to new location
+                CopyProjectFolder(currentFolder, destFolder);
+
+                // 4d — Rename copied .lpp file inside new folder
+                //      to match new project name
+                string copiedFile = Path.Combine(
+                    destFolder,
+                    Path.GetFileName(currentFilePath));
+
+                if (File.Exists(copiedFile) &&
+                    !string.Equals(copiedFile, destFile,
+                        StringComparison.OrdinalIgnoreCase))
                 {
-                    var overwrite = MessageBox.Show(
-                        "Destination project folder already exists. Overwrite it?",
-                        "Save As",
-                        MessageBoxButtons.YesNo,
-                        MessageBoxIcon.Question);
-
-                    if (overwrite != DialogResult.Yes)
-                        return;
-
-                    Directory.Delete(newProjectFolder, recursive: true);
+                    File.Move(copiedFile, destFile,
+                        overwrite: true);
                 }
 
-                CopyDirectory(
-                    AppServices.Context.ProjectFolderPath,
-                    newProjectFolder);
+                // 4e — Close current session
+                AppServices.Context.Session.Dispose();
+                AppServices.ClearContext();
 
-                string copiedOriginalFile = Path.Combine(
-                    newProjectFolder,
-                    Path.GetFileName(currentPath));
+                // 4f — Open new session at new location
+                var session = new ProjectSessionFactory()
+                    .CreateSession(destFile);
+                var context = new ProjectContext(
+                    session, destFile);
 
-                if (!string.Equals(copiedOriginalFile, newProjectFilePath,
-                    StringComparison.OrdinalIgnoreCase) &&
-                    File.Exists(copiedOriginalFile))
+                AppServices.SetContext(context);
+                context.StateChanged += UpdateWindowTitle;
+
+                // 4g — Update ProjectName in new database
+                var info = await session.GetContext()
+                    .ProjectInfo.FirstOrDefaultAsync();
+                if (info != null)
                 {
-                    File.Move(copiedOriginalFile, newProjectFilePath, overwrite: true);
+                    info.ProjectName = destFileName;
+                    await session.GetContext().SaveChangesAsync();
+                    context.SetInfo(info);
                 }
 
-                await OpenProjectInternalAsync(
-                    newProjectFilePath,
-                    checkUnsavedChanges: false);
+                // 4h — WAL checkpoint on new file
+                await session.GetContext()
+                    .Database
+                    .ExecuteSqlRawAsync(
+                        "PRAGMA wal_checkpoint(FULL);");
+
+                // 4i — Create fresh backup in new location
+                // No old backups copied — clean history
+                _backupService.CreateBackup(destFile);
+
+                // 4j — Update UI
+                EnableProjectMenuItems();
+                UpdateWindowTitle();
+                context.MarkAsSaved();
 
                 MessageBox.Show(
-                    "Project saved as a new file successfully.",
-                    "Save As",
+                    $"Project saved as:\n{destFile}",
+                    "Save As Complete",
                     MessageBoxButtons.OK,
                     MessageBoxIcon.Information);
             }
             catch (Exception ex)
             {
                 MessageBox.Show(
-                    $"Save As failed: {ex.Message}",
+                    $"Save As failed:\n{ex.Message}",
                     "Error",
                     MessageBoxButtons.OK,
                     MessageBoxIcon.Error);
             }
+            finally
+            {
+                Cursor = Cursors.Default;
+            }
         }
 
+        /// <summary>
+        /// Copies all files from source to dest.
+        /// Skips .bak files — new project starts
+        /// with clean backup history.
+        /// </summary>
+        private static void CopyProjectFolder(
+            string source, string dest)
+        {
+            string fullSource = Path.GetFullPath(source);
+            string fullDest = Path.GetFullPath(dest);
+
+            Directory.CreateDirectory(fullDest);
+
+            // Copy directory structure first (includes empty folders)
+            foreach (string dir in Directory.GetDirectories(
+                fullSource, "*", SearchOption.AllDirectories))
+            {
+                string relativeDir = Path.GetRelativePath(
+                    fullSource, dir);
+                string destDir = Path.Combine(fullDest, relativeDir);
+                Directory.CreateDirectory(destDir);
+            }
+
+            foreach (string file in Directory.GetFiles(
+                fullSource, "*",
+                SearchOption.AllDirectories))
+            {
+                string fullFile = Path.GetFullPath(file);
+
+                // Skip backup files
+                if (fullFile.EndsWith(".bak",
+                    StringComparison.OrdinalIgnoreCase))
+                    continue;
+
+                string relativePath = Path.GetRelativePath(
+                    fullSource, fullFile);
+                string destFile = Path.Combine(
+                    fullDest, relativePath);
+
+                Directory.CreateDirectory(
+                    Path.GetDirectoryName(destFile)!);
+
+                File.Copy(fullFile, destFile, overwrite: true);
+            }
+        }
+        /// <summary>
+        /// Copies all files from source to dest.
+        /// Skips .bak files — new project starts
+        /// with clean backup history.
+        /// </summary>
+        //private static void CopyProjectFolder(
+        //    string source, string dest)
+        //{
+        //    string fullSource = Path.GetFullPath(source);
+        //    string fullDest = Path.GetFullPath(dest);
+
+        //    Directory.CreateDirectory(fullDest);
+
+        //    foreach (string file in Directory.GetFiles(
+        //        fullSource, "*",
+        //        SearchOption.AllDirectories))
+        //    {
+        //        string fullFile = Path.GetFullPath(file);
+
+        //        // Skip backup files
+        //        if (fullFile.EndsWith(".bak",
+        //            StringComparison.OrdinalIgnoreCase))
+        //            continue;
+
+        //        string relativePath = Path.GetRelativePath(
+        //            fullSource, fullFile);
+        //        string destFile = Path.Combine(
+        //            fullDest, relativePath);
+
+        //        Directory.CreateDirectory(
+        //            Path.GetDirectoryName(destFile)!);
+
+        //        File.Copy(fullFile, destFile, overwrite: true);
+        //    }
+        //}
+
+        /// <summary>
+        /// Copies all files from source to dest.
+        /// Skips .bak files — new project starts
+        /// with clean backup history.
+        /// Also skips files inside dest to prevent
+        /// infinite copy if dest is inside source.
+        /// </summary>
+
+
+        /// <summary>
+        /// Updates ProjectName in the copied database
+        /// to match the new file name chosen by user.
+        /// </summary>
+        private static async Task UpdateProjectNameAsync(
+            ProjectSession session, string newName)
+        {
+            try
+            {
+                var info = await session
+                    .GetContext()
+                    .ProjectInfo
+                    .FirstOrDefaultAsync();
+
+                if (info == null) return;
+
+                info.ProjectName = newName;
+                await session.GetContext().SaveChangesAsync();
+            }
+            catch (Exception ex)
+            {
+                System.Diagnostics.Debug.WriteLine(
+                    $"UpdateProjectNameAsync failed: {ex.Message}");
+            }
+        }
         private void projectSettingToolStripMenuItem_Click(object sender, EventArgs e)
         {
             if (!AppServices.HasContext) return;
@@ -479,7 +769,7 @@ namespace Land_Readjustment_Tool
                         MessageBoxIcon.Question);
                     if (result == DialogResult.Yes)
                     {
-                        await SaveCurrentProjectAsync(showMessage: true);
+                        await SaveCurrentProjectAsync(showMessage: false);
                     }
                 }
             }
@@ -565,41 +855,61 @@ namespace Land_Readjustment_Tool
             }
         }
 
-        private async Task SaveCurrentProjectAsync(bool showMessage)
+        private async Task<bool> SaveCurrentProjectAsync(bool showMessage)
         {
-            if (!AppServices.HasContext) return;
+            if (!AppServices.HasContext) return true;
+
+            if (!AppServices.Context.HasUnsavedChanges)
+            {
+                if (showMessage)
+                    MessageBox.Show(
+                        "No changes to save.",
+                        "Save",
+                        MessageBoxButtons.OK,
+                        MessageBoxIcon.Information);
+                return true;
+            }
 
             try
             {
-                await AppServices.Context
-                    .Session
-                    .GetContext()
-                    .SaveChangesAsync();
+                string filePath = AppServices.Context.ProjectFilePath;
 
+                // WAL checkpoint — merge WAL into .lpp
+                await AppServices.Context.Session
+                    .GetContext()
+                    .Database
+                    .ExecuteSqlRawAsync(
+                        "PRAGMA wal_checkpoint(FULL);");
+
+                // Rotate backups BEFORE saving
+                // .bak = state just before this save
+                _backupService.CreateBackup(filePath);
+
+                // Nothing extra — DB already has changes
+                // Just mark as saved
                 AppServices.Context.MarkAsSaved();
 
                 if (showMessage)
-                {
                     MessageBox.Show(
                         "Project saved successfully.",
                         "Save",
                         MessageBoxButtons.OK,
                         MessageBoxIcon.Information);
-                }
+
+                return true;
             }
             catch (Exception ex)
             {
                 MessageBox.Show(
-                    $"Save failed: {ex.Message}",
+                    $"Save failed:\n{ex.Message}",
                     "Error",
                     MessageBoxButtons.OK,
                     MessageBoxIcon.Error);
+                return false;
             }
         }
 
-        private static void CopyDirectory(
-            string sourceDir,
-            string destinationDir)
+        private static void CopyDirectory(string sourceDir, string destinationDir)
         {
             Directory.CreateDirectory(destinationDir);
 
@@ -623,6 +933,99 @@ namespace Land_Readjustment_Tool
         private void tsmProjectSetting_Click(object sender, EventArgs e)
         {
             OpenProjectSettings();
+        }
+
+        private void lblTransparency_Click(object sender, EventArgs e)
+        {
+
+        }
+
+        private async void tsmBackupProject_Click(
+    object sender, EventArgs e)
+        {
+            if (!AppServices.HasContext) return;
+
+            try
+            {
+                // Save first then backup
+                var saved = await SaveCurrentProjectAsync(
+                    showMessage: false);
+                if (!saved) return;
+
+                MessageBox.Show(
+                    "Project backed up successfully.",
+                    "Backup",
+                    MessageBoxButtons.OK,
+                    MessageBoxIcon.Information);
+            }
+            catch (Exception ex)
+            {
+                MessageBox.Show(
+                    $"Backup failed:\n{ex.Message}",
+                    "Error",
+                    MessageBoxButtons.OK,
+                    MessageBoxIcon.Error);
+            }
+        }
+
+        private async void tsmRestoreBackup_Click(
+    object sender, EventArgs e)
+        {
+            if (!AppServices.HasContext) return;
+
+            string filePath = AppServices.Context
+                .ProjectFilePath;
+
+            var backups = _backupService.GetBackups(filePath);
+
+            if (backups.Count == 0)
+            {
+                MessageBox.Show(
+                    "No backup files found for this project.",
+                    "Restore",
+                    MessageBoxButtons.OK,
+                    MessageBoxIcon.Information);
+                return;
+            }
+
+            using var frm = new frmBackupManager(
+                filePath, backups);
+
+            if (frm.ShowDialog() != DialogResult.OK) return;
+
+            try
+            {
+                // Close current session before restore
+                AppServices.Context.Session.Dispose();
+                AppServices.ClearContext();
+
+                // Restore selected backup
+                _backupService.RestoreFromBackup(
+                    filePath, frm.SelectedBackupPath!);
+
+                // Reopen project from restored file
+                await OpenProjectInternalAsync(
+                    filePath, checkUnsavedChanges: false);
+
+                MessageBox.Show(
+                    "Project restored successfully.",
+                    "Restore Complete",
+                    MessageBoxButtons.OK,
+                    MessageBoxIcon.Information);
+            }
+            catch (Exception ex)
+            {
+                MessageBox.Show(
+                    $"Restore failed:\n{ex.Message}",
+                    "Error",
+                    MessageBoxButtons.OK,
+                    MessageBoxIcon.Error);
+            }
+        }
+
+        private async void tsmCloseProject_Click(object sender, EventArgs e)
+        {
+            await CloseCurrentProjectAsync();
         }
     }
     // ── PROJECT FOLDER CREATOR ───────────────────

@@ -414,7 +414,7 @@ namespace Land_Readjustment_Tool.UI.Forms.Project
 
         // ── SAVE ─────────────────────────────────────────────────────────────
 
-        private async void btnOK_Click(object? sender, EventArgs e)
+        private async void btnSave_Click(object? sender, EventArgs e)
         {
             if (_settings == null) return;
 

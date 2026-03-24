@@ -192,8 +192,7 @@ namespace Land_Readjustment_Tool
         /// Reads form controls into entity.
         /// Never updates read only fields.
         /// </summary>
-        private void CollectFormData(
-            Core.Entities.Project.ProjectInfo info)
+        private void CollectFormData(ProjectInfo info)
         {
             // Location
             info.Province =
@@ -253,7 +252,7 @@ namespace Land_Readjustment_Tool
                 // Read form into entity
                 CollectFormData(_projectInfo);
 
-                // Service validates and saves
+                //Service validates and saves
                 await _service.SaveAsync(_projectInfo);
 
                 // Update AppServices context
@@ -340,5 +339,7 @@ namespace Land_Readjustment_Tool
             dtpProjectStartDate.Enabled = enabled;
             dtpProjectEndDate.Enabled = enabled;
         }
+
+
     }
 }

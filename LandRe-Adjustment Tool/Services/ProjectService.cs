@@ -1,6 +1,7 @@
-﻿using Land_Readjustment_Tool.Data;
-using Land_Readjustment_Tool.Core.Entities.Project;
+﻿using Land_Readjustment_Tool.Core.Entities.Project;
 using Land_Readjustment_Tool.Core.Entities.Replotting;
+using Land_Readjustment_Tool.Data;
+using Land_Readjustment_Tool.Services.Project;
 using Microsoft.EntityFrameworkCore;
 using NetTopologySuite.Utilities;
 using ProjNet.CoordinateSystems;
@@ -93,6 +94,15 @@ namespace Land_Readjustment_Tool.Services
             // Save both in ONE transaction
             await context.SaveChangesAsync();
 
+            // WAL checkpoint — flush to main.lpp file
+            await context.Database
+                .ExecuteSqlRawAsync(
+                    "PRAGMA wal_checkpoint(FULL);");
+
+            // Create initial backup immediately
+            // This is the clean starting state
+            new ProjectBackupService()
+                .CreateBackup(projectFilePath);
             return projectInfo;
         }
         /// <summary>
