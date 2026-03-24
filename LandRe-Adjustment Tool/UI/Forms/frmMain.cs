@@ -1,3 +1,4 @@
+﻿
 using Land_Readjustment_Tool.Data;
 using Land_Readjustment_Tool.Forms;
 using Land_Readjustment_Tool.Repositories.Project;
@@ -74,7 +75,7 @@ namespace Land_Readjustment_Tool
             // Initialize the drawing canvas
         }
 
-        // -- FORM CLOSING -----------------------------
+        // ── FORM CLOSING ─────────────────────────────
 
         // Handles form closing event
         private void frmMain_FormClosing(object? sender, FormClosingEventArgs e)
@@ -103,13 +104,24 @@ namespace Land_Readjustment_Tool
 
             if (result == DialogResult.No)
             {
-                AppServices.Context.Session
-                    .RollbackUserTransaction();
-                AppServices.Context.MarkAsSaved();
+                // Rollback .lpp to last .bak
+                string filePath = AppServices.Context
+                    .ProjectFilePath;
+
+                // Must dispose session BEFORE
+                // touching the .lpp file
+                AppServices.Context.Session.Dispose();
+                AppServices.ClearContext();
+
+                // Replace .lpp with .bak
+                _backupService.RollbackToLatest(filePath);
+
+                // Session already cleared above
+                // Return true — safe to close
                 return true;
             }
 
-            // Cancel � do not close
+            // Cancel — do not close
             return false;
         }
         
@@ -142,7 +154,7 @@ namespace Land_Readjustment_Tool
             startReplotWorkspaceToolStripMenuItem.Enabled = false;
         }
 
-        // -- NEW PROJECT ------------------------------
+        // ── NEW PROJECT ──────────────────────────────
 
         private async void tsmNewProject_Click(object sender, EventArgs e)
         {
@@ -176,30 +188,28 @@ namespace Land_Readjustment_Tool
             string projectFolder = Path.Combine(Path.GetDirectoryName(filePathFromDialog)!, projectFileName);
             string projectFilePath = Path.Combine(projectFolder, Path.GetFileName(filePathFromDialog));
 
-            ProjectSession? session = null;
             try
             {
                 // Create folder structure
                 Directory.CreateDirectory(projectFolder);
                 ProjectFolderCreator.CreateFolders(projectFolder);
 
-                // Create project database file first
-                var projectService = new ProjectService();
-                var info = await projectService
-                    .CreateNewProjectAsync(projectFilePath, projectFileName);
-
-                // Then open runtime session/context
-                session = new ProjectSessionFactory()
-                    .CreateSession(projectFilePath);
+                // Create session and context
+                var session = new ProjectSessionFactory().CreateSession(projectFilePath);
                 var context = new ProjectContext(session, projectFilePath);
-
-                // Set info/state before registering context
-                context.SetInfo(info);
-                context.StateChanged += UpdateWindowTitle;
-                context.Session.BeginUserTransaction();
 
                 // Register in AppServices
                 AppServices.SetContext(context);
+
+                // Subscribe to state changes
+                context.StateChanged += UpdateWindowTitle;
+
+                // Create project in database
+                var projectService = new ProjectService();
+                var info = await projectService.CreateNewProjectAsync(projectFilePath, projectFileName);
+
+                // Set info on context
+                context.SetInfo(info);
 
                 // Enable menu items
                 EnableProjectMenuItems();
@@ -209,11 +219,10 @@ namespace Land_Readjustment_Tool
                 OpenProjectDetails();
                 PromptProjectSettings();
                 InitializeProjectWorkspace();
-                ApplyCanvasSettings(); // ? add here
+                ApplyCanvasSettings(); // ← add here
             }
             catch (Exception ex)
             {
-                session?.Dispose();
                 AppServices.ClearContext();
                 MessageBox.Show(
                     $"Failed to create project: {ex.Message}",
@@ -227,25 +236,12 @@ namespace Land_Readjustment_Tool
         {
             if (!AppServices.HasContext) return true;
 
-            if (!AppServices.Context.HasUnsavedChanges)
-                return true;
-
             try
             {
-                string filePath = AppServices.Context
-                    .ProjectFilePath;
-
-                // Rotate backups BEFORE commit
-                // .bak = state just before this save
-                _backupService.CreateBackup(filePath);
-
                 AppServices.Context
                     .Session
                     .GetContext()
                     .SaveChanges();
-
-                AppServices.Context.Session
-                    .CommitUserTransaction();
 
                 AppServices.Context.MarkAsSaved();
                 return true;
@@ -266,7 +262,7 @@ namespace Land_Readjustment_Tool
                 "Would you like to configure " +
                 "project settings now?\n\n" +
                 "You can always change settings later " +
-                "from Project ? Project Settings.",
+                "from Project → Project Settings.",
                 "Project Settings",
                 MessageBoxButtons.YesNo,
                 MessageBoxIcon.Question,
@@ -338,7 +334,7 @@ namespace Land_Readjustment_Tool
                     $"ApplyCanvasSettings failed: {ex.Message}");
             }
         }
-        // -- CLOSE PROJECT ----------------------------
+        // ── CLOSE PROJECT ────────────────────────────
 
         private async Task CloseCurrentProjectAsync()
         {
@@ -362,7 +358,7 @@ namespace Land_Readjustment_Tool
 
 
 
-        // -- PROJECT DETAILS --------------------------
+        // ── PROJECT DETAILS ──────────────────────────
 
         private void tsmProjectInformation_Click(object sender, EventArgs e)
         {
@@ -389,7 +385,7 @@ namespace Land_Readjustment_Tool
             UpdateWindowTitle();
         }
 
-        // -- EXIT -------------------------------------
+        // ── EXIT ─────────────────────────────────────
 
         private void ExitToolStripMenuItem_Click_1(object sender, EventArgs e)
         {
@@ -406,13 +402,13 @@ namespace Land_Readjustment_Tool
             Close();
         }
 
-        // -- STUB HANDLERS ----------------------------
+        // ── STUB HANDLERS ────────────────────────────
         // Implemented later one by one
         private void tsmSave_Click(object sender, EventArgs e)
         {
             _ = SaveCurrentProjectAsync(showMessage: false);
         }
-        // -- SAVE AS ----------------------------------
+        // ── SAVE AS ──────────────────────────────────
         // Saves current project to a new location.
         // Copies entire project folder to destination.
         // Switches session to new location.
@@ -447,6 +443,8 @@ namespace Land_Readjustment_Tool
         //            return;
         //        }
 
+        //    }
+
         private async void tsmSaveAs_Click(object sender, EventArgs e)
         {
             if (!AppServices.HasContext) return;
@@ -457,7 +455,7 @@ namespace Land_Readjustment_Tool
                                         Path.GetDirectoryName(currentFilePath)!);
             // currentFolder = C:\Projects\MyProject\
 
-            // -- STEP 1 � Open SaveFileDialog ---------
+            // ── STEP 1 — Open SaveFileDialog ─────────
 
             string pickedFilePath = string.Empty;
 
@@ -487,9 +485,9 @@ namespace Land_Readjustment_Tool
                 destFile = Path.Combine(destFolder, Path.GetFileName(pickedFilePath)); //C:\Projects\MyProject2\MyProject2.lpp
                                                                                        // pickedFolder = folder user browsed to
                 destFileName = Path.GetFileNameWithoutExtension(destFile); // MyProject
-                // -- STEP 2 � Block saving inside current project folder --
+                // ── STEP 2 — Block saving inside current project folder ──
                 // currentFolder = C:\Projects\MyProject\
-                // If user picked something inside it ? block
+                // If user picked something inside it → block
                 if (string.Equals(destFile, currentFilePath,
                     StringComparison.OrdinalIgnoreCase))
                 {
@@ -509,33 +507,39 @@ namespace Land_Readjustment_Tool
                 }
                 else break;
             }
-            // -- STEP 3 � Same parent directory ? save normally ---
+            // ── STEP 3 — Same parent directory → save normally ───
             // If user is browsing the same parent folder
-            // where current project folder lives ? just save
+            // where current project folder lives → just save
             // Example:
             // currentFolder = C:\Projects\MyProject\
             // parent        = C:\Projects\
-            // pickedFolder  = C:\Projects\  ? save normally
+            // pickedFolder  = C:\Projects\  → save normally
 
 
-            // -- STEP 4 � Different folder ? Save As --------------
+            // ── STEP 4 — Different folder → Save As ──────────────
 
             try
             {
                 Cursor = Cursors.WaitCursor;
 
-                var committed = await SaveCurrentProjectAsync(
-                    showMessage: false);
-                if (!committed) return;
 
-                // 4b � Delete destination if already exists
+                // 4a.1 — Checkpoint WAL into main .lpp file
+                // SQLite WAL mode keeps pending writes in a
+                // separate -wal file. Checkpoint merges them
+                // into the main database file before we copy.
+                await AppServices.Context.Session
+                    .GetContext()
+                    .Database
+                    .ExecuteSqlRawAsync("PRAGMA wal_checkpoint(FULL);");
+
+                // 4b — Delete destination if already exists
                 if (Directory.Exists(destFolder))
                     Directory.Delete(destFolder, recursive: true);
 
-                // 4c � Copy entire project folder to new location
+                // 4c — Copy entire project folder to new location
                 CopyProjectFolder(currentFolder, destFolder);
 
-                // 4d � Rename copied .lpp file inside new folder
+                // 4d — Rename copied .lpp file inside new folder
                 //      to match new project name
                 string copiedFile = Path.Combine(
                     destFolder,
@@ -549,11 +553,11 @@ namespace Land_Readjustment_Tool
                         overwrite: true);
                 }
 
-                // 4e � Close current session
+                // 4e — Close current session
                 AppServices.Context.Session.Dispose();
                 AppServices.ClearContext();
 
-                // 4f � Open new session at new location
+                // 4f — Open new session at new location
                 var session = new ProjectSessionFactory()
                     .CreateSession(destFile);
                 var context = new ProjectContext(
@@ -561,24 +565,28 @@ namespace Land_Readjustment_Tool
 
                 AppServices.SetContext(context);
                 context.StateChanged += UpdateWindowTitle;
-                session.BeginUserTransaction();
 
-                // 4g � Update ProjectName in new database
+                // 4g — Update ProjectName in new database
                 var info = await session.GetContext()
                     .ProjectInfo.FirstOrDefaultAsync();
                 if (info != null)
                 {
                     info.ProjectName = destFileName;
                     await session.GetContext().SaveChangesAsync();
-                    await session.CommitUserTransactionAsync();
                     context.SetInfo(info);
                 }
 
-                // 4i � Create fresh backup in new location
-                // No old backups copied � clean history
+                // 4h — WAL checkpoint on new file
+                await session.GetContext()
+                    .Database
+                    .ExecuteSqlRawAsync(
+                        "PRAGMA wal_checkpoint(FULL);");
+
+                // 4i — Create fresh backup in new location
+                // No old backups copied — clean history
                 _backupService.CreateBackup(destFile);
 
-                // 4j � Update UI
+                // 4j — Update UI
                 EnableProjectMenuItems();
                 UpdateWindowTitle();
                 context.MarkAsSaved();
@@ -605,7 +613,7 @@ namespace Land_Readjustment_Tool
 
         /// <summary>
         /// Copies all files from source to dest.
-        /// Skips .bak files � new project starts
+        /// Skips .bak files — new project starts
         /// with clean backup history.
         /// </summary>
         private static void CopyProjectFolder(
@@ -650,7 +658,7 @@ namespace Land_Readjustment_Tool
         }
         /// <summary>
         /// Copies all files from source to dest.
-        /// Skips .bak files � new project starts
+        /// Skips .bak files — new project starts
         /// with clean backup history.
         /// </summary>
         //private static void CopyProjectFolder(
@@ -686,7 +694,7 @@ namespace Land_Readjustment_Tool
 
         /// <summary>
         /// Copies all files from source to dest.
-        /// Skips .bak files � new project starts
+        /// Skips .bak files — new project starts
         /// with clean backup history.
         /// Also skips files inside dest to prevent
         /// infinite copy if dest is inside source.
@@ -831,7 +839,6 @@ namespace Land_Readjustment_Tool
                 context.SetInfo(info);
                 context.StateChanged += UpdateWindowTitle;
                 AppServices.SetContext(context);
-                context.Session.BeginUserTransaction();
 
                 EnableProjectMenuItems();
                 UpdateWindowTitle();
@@ -867,19 +874,28 @@ namespace Land_Readjustment_Tool
             {
                 string filePath = AppServices.Context.ProjectFilePath;
 
-                // Rotate backups BEFORE commit
+                // WAL checkpoint — merge WAL into .lpp
+                await AppServices.Context.Session
+                    .GetContext()
+                    .Database
+                    .ExecuteSqlRawAsync(
+                        "PRAGMA wal_checkpoint(FULL);");
+
+                // Rotate backups BEFORE saving
                 // .bak = state just before this save
                 _backupService.CreateBackup(filePath);
 
-                AppServices.Context
-                    .Session
-                    .GetContext()
-                    .SaveChanges();
-
-                AppServices.Context.Session
-                    .CommitUserTransaction();
-
+                // Nothing extra — DB already has changes
+                // Just mark as saved
                 AppServices.Context.MarkAsSaved();
+
+                if (showMessage)
+                    MessageBox.Show(
+                        "Project saved successfully.",
+                        "Save",
+                        MessageBoxButtons.OK,
+                        MessageBoxIcon.Information);
+
                 return true;
             }
             catch (Exception ex)
@@ -931,22 +947,10 @@ namespace Land_Readjustment_Tool
 
             try
             {
-                bool hadUnsavedChanges =
-                    AppServices.Context.HasUnsavedChanges;
-
-                // Save first when needed.
-                // Save flow already rotates backup.
-                if (hadUnsavedChanges)
-                {
-                    var saved = await SaveCurrentProjectAsync(
-                        showMessage: false);
-                    if (!saved) return;
-                }
-                else
-                {
-                    _backupService.CreateBackup(
-                        AppServices.Context.ProjectFilePath);
-                }
+                // Save first then backup
+                var saved = await SaveCurrentProjectAsync(
+                    showMessage: false);
+                if (!saved) return;
 
                 MessageBox.Show(
                     "Project backed up successfully.",
@@ -1024,7 +1028,7 @@ namespace Land_Readjustment_Tool
             await CloseCurrentProjectAsync();
         }
     }
-    // -- PROJECT FOLDER CREATOR -------------------
+    // ── PROJECT FOLDER CREATOR ───────────────────
 
     // Creates standard folder structure
     // for a new project

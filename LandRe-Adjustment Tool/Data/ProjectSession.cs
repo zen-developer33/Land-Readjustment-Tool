@@ -1,11 +1,9 @@
 ﻿using Land_Readjustment_Tool.Data;
 using Land_Readjustment_Tool.Infrastructure.Logging;
-using Microsoft.EntityFrameworkCore.Storage;
 
 public class ProjectSession : IDisposable
 {
     private readonly AppDbContext _context;
-    private IDbContextTransaction? _activeTransaction;
     private bool _disposed = false;
 
     public string ProjectFilePath { get; }
@@ -59,89 +57,9 @@ public class ProjectSession : IDisposable
         return _context;
     }
 
-    public void BeginUserTransaction()
-    {
-        ObjectDisposedException
-            .ThrowIf(_disposed, nameof(ProjectSession));
-
-        if (_activeTransaction != null) return;
-
-        _activeTransaction = _context.Database
-            .BeginTransaction();
-
-        Logger.LogInfo("User transaction started.");
-    }
-
-    public void CommitUserTransaction()
-    {
-        ObjectDisposedException
-            .ThrowIf(_disposed, nameof(ProjectSession));
-
-        if (_activeTransaction == null)
-            return;
-
-        _activeTransaction.Commit();
-        _activeTransaction.Dispose();
-        _activeTransaction = null;
-
-        Logger.LogInfo("User transaction committed.");
-
-        BeginUserTransaction();
-    }
-
-    public async Task CommitUserTransactionAsync()
-    {
-        ObjectDisposedException
-            .ThrowIf(_disposed, nameof(ProjectSession));
-
-        if (_activeTransaction == null)
-            return;
-
-        await _activeTransaction.CommitAsync();
-        await _activeTransaction.DisposeAsync();
-        _activeTransaction = null;
-
-        Logger.LogInfo("User transaction committed.");
-
-        BeginUserTransaction();
-    }
-
-    public void RollbackUserTransaction()
-    {
-        ObjectDisposedException
-            .ThrowIf(_disposed, nameof(ProjectSession));
-
-        if (_activeTransaction == null)
-            return;
-
-        _activeTransaction.Rollback();
-        _activeTransaction.Dispose();
-        _activeTransaction = null;
-
-        _context.ChangeTracker.Clear();
-        Logger.LogInfo("User transaction rolled back.");
-
-        BeginUserTransaction();
-    }
-
     public void Dispose()
     {
         if (_disposed) return;
-
-        try
-        {
-            if (_activeTransaction != null)
-            {
-                _activeTransaction.Rollback();
-                _activeTransaction.Dispose();
-                _activeTransaction = null;
-            }
-        }
-        catch
-        {
-            // Ignore rollback errors during dispose.
-        }
-
         Logger.LogInfo(
             $"Session closing: {ProjectFilePath}");
         _context?.Dispose();

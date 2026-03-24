@@ -1,27 +1,22 @@
-namespace Land_Readjustment_Tool.Services.Project
+﻿namespace Land_Readjustment_Tool.Services.Project
 {
     /// <summary>
     /// Handles backup rotation and restore
     /// for .lpp project files.
     ///
     /// Backup naming:
-    ///   MyProject.lpp.bak   ? most recent
-    ///   MyProject.lpp.bak2  ? one before
+    ///   MyProject.lpp.bak   ← most recent
+    ///   MyProject.lpp.bak2  ← one before
     ///   MyProject.lpp.bak3
     ///   MyProject.lpp.bak4
-    ///   MyProject.lpp.bak5  ? oldest
+    ///   MyProject.lpp.bak5  ← oldest
     ///
     /// On every save:
-    ///   .bak4 ? .bak5  (oldest dropped)
-    ///   .bak3 ? .bak4
-    ///   .bak2 ? .bak3
-    ///   .bak  ? .bak2
-    ///   current .lpp ? .bak
-    ///
-    /// Note:
-    /// SQLite WAL mode may keep committed data in
-    /// sidecar files (-wal / -shm). Backup rotation
-    /// and restore also handle these files.
+    ///   .bak4 → .bak5  (oldest dropped)
+    ///   .bak3 → .bak4
+    ///   .bak2 → .bak3
+    ///   .bak  → .bak2
+    ///   current .lpp → .bak
     /// </summary>
     public class ProjectBackupService
     {
@@ -83,27 +78,19 @@ namespace Land_Readjustment_Tool.Services.Project
 
             File.Copy(backupFilePath,
                 projectFilePath, overwrite: true);
-
-            // Restore WAL sidecars if available.
-            // If backup has no sidecar, delete current sidecar
-            // so restored main file is not overridden.
-            CopyOrDeleteSidecar(
-                GetWalPath(backupFilePath),
-                GetWalPath(projectFilePath));
-            CopyOrDeleteSidecar(
-                GetShmPath(backupFilePath),
-                GetShmPath(projectFilePath));
         }
 
-        // -- PRIVATE ----------------------------------
+        // ── PRIVATE ──────────────────────────────────
 
         private void RotateBackups(string projectFilePath)
         {
-            // Delete oldest backup (main + sidecars)
-            DeleteBackupWithSidecars(GetBackupPath(
-                projectFilePath, MaxBackups));
+            // Delete oldest backup
+            string oldest = GetBackupPath(
+                projectFilePath, MaxBackups);
+            if (File.Exists(oldest))
+                File.Delete(oldest);
 
-            // Shift: .bak(n-1) ? .bak(n)
+            // Shift: .bak(n-1) → .bak(n)
             for (int i = MaxBackups - 1; i >= 1; i--)
             {
                 string current = GetBackupPath(
@@ -111,22 +98,16 @@ namespace Land_Readjustment_Tool.Services.Project
                 string next = GetBackupPath(
                     projectFilePath, i + 1);
 
-                MoveBackupWithSidecars(current, next);
+                if (File.Exists(current))
+                    File.Move(current, next,
+                        overwrite: true);
             }
 
-            // Copy current .lpp ? .bak
+            // Copy current .lpp → .bak
             string latest = GetBackupPath(
                 projectFilePath, 1);
             File.Copy(projectFilePath,
                 latest, overwrite: true);
-
-            // Copy SQLite WAL sidecars if they exist
-            CopyIfExists(
-                GetWalPath(projectFilePath),
-                GetWalPath(latest));
-            CopyIfExists(
-                GetShmPath(projectFilePath),
-                GetShmPath(latest));
         }
 
         /// <summary>
@@ -142,87 +123,17 @@ namespace Land_Readjustment_Tool.Services.Project
             if (!File.Exists(latestBackup))
                 return false; // No backup exists yet
 
-            RestoreFromBackup(
-                projectFilePath, latestBackup);
+            File.Copy(latestBackup,
+                projectFilePath, overwrite: true);
 
             return true;
         }
-
         private static string GetBackupPath(
             string projectFilePath, int number)
         {
             return number == 1
                 ? $"{projectFilePath}.bak"
                 : $"{projectFilePath}.bak{number}";
-        }
-
-        private static string GetWalPath(string dbPath)
-            => $"{dbPath}-wal";
-
-        private static string GetShmPath(string dbPath)
-            => $"{dbPath}-shm";
-
-        private static void CopyIfExists(
-            string source, string destination)
-        {
-            if (File.Exists(source))
-                File.Copy(source, destination,
-                    overwrite: true);
-        }
-
-        private static void CopyOrDeleteSidecar(
-            string backupSidecar,
-            string targetSidecar)
-        {
-            if (File.Exists(backupSidecar))
-            {
-                File.Copy(backupSidecar,
-                    targetSidecar, overwrite: true);
-                return;
-            }
-
-            if (File.Exists(targetSidecar))
-                File.Delete(targetSidecar);
-        }
-
-        private static void DeleteBackupWithSidecars(
-            string backupPath)
-        {
-            if (File.Exists(backupPath))
-                File.Delete(backupPath);
-
-            string wal = GetWalPath(backupPath);
-            if (File.Exists(wal))
-                File.Delete(wal);
-
-            string shm = GetShmPath(backupPath);
-            if (File.Exists(shm))
-                File.Delete(shm);
-        }
-
-        private static void MoveBackupWithSidecars(
-            string currentBackupPath,
-            string nextBackupPath)
-        {
-            if (File.Exists(currentBackupPath))
-                File.Move(currentBackupPath,
-                    nextBackupPath, overwrite: true);
-
-            MoveIfExists(
-                GetWalPath(currentBackupPath),
-                GetWalPath(nextBackupPath));
-            MoveIfExists(
-                GetShmPath(currentBackupPath),
-                GetShmPath(nextBackupPath));
-        }
-
-        private static void MoveIfExists(
-            string source,
-            string destination)
-        {
-            if (!File.Exists(source)) return;
-            File.Move(source, destination,
-                overwrite: true);
         }
     }
 
