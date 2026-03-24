@@ -1,4 +1,4 @@
-using Land_Readjustment_Tool.Core.Entities.Project;
+﻿using Land_Readjustment_Tool.Core.Entities.Project;
 using Land_Readjustment_Tool.Core.Entities.Replotting;
 using Land_Readjustment_Tool.Data;
 using Land_Readjustment_Tool.Services.Project;
@@ -32,7 +32,7 @@ namespace Land_Readjustment_Tool.Services
         {
             using var context = new AppDbContext(projectFilePath);
 
-            // Apply migrations � creates all tables
+            // Apply migrations — creates all tables
             await context.Database.MigrateAsync();
 
             // Seed default plot types
@@ -46,41 +46,41 @@ namespace Land_Readjustment_Tool.Services
 
             var settings = new ProjectSettings
             {
-                // -- AREA --------------------------------
+                // ── AREA ────────────────────────────────
                 // Default traditional unit is RAPD
                 // All calculations always use Sqm
                 TraditionalAreaUnit = "RAPD",
 
-                // -- COORDINATE SYSTEM -------------------
-                // NEW � FK replaces old string fields
+                // ── COORDINATE SYSTEM ───────────────────
+                // NEW — FK replaces old string fields
                 CoordinateSystemId = null,
                 // null until user sets it in settings window
 
-                // -- CANVAS ------------------------------
+                // ── CANVAS ──────────────────────────────
                 CanvasBackgroundColor = "#1E2933",
                 CanvasGridColor = "#2A3A47",
                 CanvasGridVisible = true,
                 SnapEnabled = true,
                 SnapTolerancePx = 8.0,
 
-                // -- PARCEL NUMBERING --------------------
+                // ── PARCEL NUMBERING ────────────────────
                 ParcelNumberFormat = "Sequential",
                 ParcelNumberPrefix = null,
                 ParcelNumberPadding = 3,
 
-                // -- REPLOTTING --------------------------
+                // ── REPLOTTING ──────────────────────────
                 // Nepal government standard minimum
                 MinPlotAreaSqm = 79.49,
 
-                // -- DOCUMENT ----------------------------
+                // ── DOCUMENT ────────────────────────────
                 DocumentLanguage = "English",
                 DateFormat = "AD",
 
-                // -- PRINT -------------------------------
+                // ── PRINT ───────────────────────────────
                 DefaultPaperSize = "A3",
                 DefaultPrintScale = 500,
 
-                // -- STATUS ------------------------------
+                // ── STATUS ──────────────────────────────
                 // false = settings window shown on first open
                 // true after user confirms settings
                 IsConfigured = false
@@ -93,6 +93,11 @@ namespace Land_Readjustment_Tool.Services
 
             // Save both in ONE transaction
             await context.SaveChangesAsync();
+
+            // WAL checkpoint — flush to main.lpp file
+            await context.Database
+                .ExecuteSqlRawAsync(
+                    "PRAGMA wal_checkpoint(FULL);");
 
             // Create initial backup immediately
             // This is the clean starting state
