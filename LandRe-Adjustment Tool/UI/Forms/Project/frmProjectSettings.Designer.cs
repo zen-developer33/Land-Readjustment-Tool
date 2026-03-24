@@ -104,6 +104,7 @@ namespace Land_Readjustment_Tool.UI.Forms.Project
             tabSettings.Controls.Add(tabPrint);
             tabSettings.Dock = DockStyle.Fill;
             tabSettings.Font = new Font("Segoe UI", 9F);
+            tabSettings.HotTrack = true;
             tabSettings.Location = new Point(0, 0);
             tabSettings.Name = "tabSettings";
             tabSettings.Padding = new Point(8, 4);
@@ -120,7 +121,7 @@ namespace Land_Readjustment_Tool.UI.Forms.Project
             tabCoordinates.Padding = new Padding(8);
             tabCoordinates.Size = new Size(514, 394);
             tabCoordinates.TabIndex = 0;
-            tabCoordinates.Text = "Coordinates";
+            tabCoordinates.Text = "Coordinate System";
             tabCoordinates.UseVisualStyleBackColor = true;
             // 
             // grpCRS
@@ -680,7 +681,7 @@ namespace Land_Readjustment_Tool.UI.Forms.Project
             btnOK.Size = new Size(80, 28);
             btnOK.TabIndex = 0;
             btnOK.Text = "Save";
-            btnOK.Click += btnOK_Click;
+            btnOK.Click += btnSave_Click;
             // 
             // btnCancel
             // 

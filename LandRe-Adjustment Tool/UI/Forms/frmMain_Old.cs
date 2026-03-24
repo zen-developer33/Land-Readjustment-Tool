@@ -5,6 +5,7 @@ using Land_Readjustment_Tool.Forms.LandOwnersRecord_Managerment;
 using Land_Readjustment_Tool.Models;
 using Land_Readjustment_Tool.Repositories;
 using Land_Readjustment_Tool.Services;
+using Land_Readjustment_Tool.Services.Project;
 using System.ComponentModel;
 
 namespace Land_Readjustment_Tool
@@ -508,8 +509,14 @@ namespace Land_Readjustment_Tool
 
             try
             {
+                var backupService = new ProjectBackupService();
+                var backups = backupService.GetBackups(
+                    CurrentProject.Info!.ProjectPath);
+
                 // Show backup manager dialog
-                using (frmBackupManager? backupManager = new frmBackupManager(CurrentProject.Info!.ProjectPath))
+                using (frmBackupManager? backupManager = new frmBackupManager(
+                    CurrentProject.Info!.ProjectPath,
+                    backups))
                 {
                     if (backupManager.ShowDialog() == DialogResult.OK)
                     {
