@@ -1,42 +1,72 @@
 ﻿namespace Land_Readjustment_Tool.Services.Project
 {
     /// <summary>
-    /// Handles backup rotation and restore
-    /// for .lpp project files.
+    /// Manages backup files for .lpp project files.
     ///
-    /// Backup naming:
-    ///   MyProject.lpp.bak   ← most recent
-    ///   MyProject.lpp.bak2  ← one before
+    /// PURPOSE:
+    /// .bak files allow the user to restore the project
+    /// to any of the last 5 SAVED states.
+    /// They also protect against .lpp file corruption.
+    ///
+    /// WHEN BACKUPS ARE CREATED:
+    ///   1. New project created → initial .bak
+    ///   2. User presses Ctrl+S → backup rotated
+    ///   3. User clicks Backup Project menu
+    ///   4. Save As → fresh .bak in new location
+    ///
+    /// WHEN BACKUPS ARE NOT CREATED:
+    ///   → Form edits (these are staged only)
+    ///   → Auto-save
+    ///   → Close without saving
+    ///      (EF Core ChangeTracker.Clear handles this)
+    ///
+    /// BACKUP NAMING:
+    ///   MyProject.lpp.bak   ← most recent save
+    ///   MyProject.lpp.bak2  ← one save before
     ///   MyProject.lpp.bak3
     ///   MyProject.lpp.bak4
-    ///   MyProject.lpp.bak5  ← oldest
+    ///   MyProject.lpp.bak5  ← oldest saved state
     ///
-    /// On every save:
-    ///   .bak4 → .bak5  (oldest dropped)
+    /// ROTATION ON SAVE:
+    ///   .bak4 → .bak5  (oldest dropped if exists)
     ///   .bak3 → .bak4
     ///   .bak2 → .bak3
     ///   .bak  → .bak2
-    ///   current .lpp → .bak
+    ///   current .lpp → .bak  (state before this save)
     /// </summary>
     public class ProjectBackupService
     {
         private const int MaxBackups = 5;
 
+        // ── CREATE BACKUP ────────────────────────────
+
         /// <summary>
-        /// Creates a backup of the project file
-        /// before saving. Rotates existing backups.
-        /// Call this BEFORE SaveChangesAsync.
+        /// Creates a backup of the current .lpp file.
+        /// Rotates existing backups before creating new one.
+        ///
+        /// Call this AFTER WAL checkpoint and
+        /// BEFORE SaveChangesAsync in SaveCurrentProjectAsync.
+        /// This means .bak = state just before this save.
+        ///
+        /// Also call on:
+        ///   → new project created
+        ///   → save as (in new location)
+        ///   → manual backup menu
         /// </summary>
         public void CreateBackup(string projectFilePath)
         {
+            // Nothing to back up if .lpp does not exist yet
             if (!File.Exists(projectFilePath)) return;
 
             RotateBackups(projectFilePath);
         }
 
+        // ── GET BACKUPS ──────────────────────────────
+
         /// <summary>
-        /// Returns all existing backup files
-        /// ordered from most recent to oldest.
+        /// Returns all existing backup files for this project.
+        /// Ordered from most recent (1) to oldest (5).
+        /// Used by frmBackupManager to show restore options.
         /// </summary>
         public List<BackupEntry> GetBackups(
             string projectFilePath)
@@ -63,9 +93,22 @@
             return backups;
         }
 
+        // ── RESTORE ──────────────────────────────────
+
         /// <summary>
-        /// Restores project from a specific backup.
-        /// Caller must close DB session first.
+        /// Restores the project by copying a backup
+        /// file over the main .lpp file.
+        ///
+        /// CALLER MUST:
+        ///   1. Call ChangeTracker.Clear() first
+        ///   2. Dispose the EF Core session
+        ///   3. Call AppServices.ClearContext()
+        ///   4. THEN call this method
+        ///   5. Reopen project from restored .lpp
+        ///
+        /// This order is required because SQLite
+        /// keeps a file lock on the .lpp while
+        /// a session is open.
         /// </summary>
         public void RestoreFromBackup(
             string projectFilePath,
@@ -76,21 +119,38 @@
                     "Backup file not found.",
                     backupFilePath);
 
+            // Overwrite .lpp with selected backup
             File.Copy(backupFilePath,
                 projectFilePath, overwrite: true);
         }
 
         // ── PRIVATE ──────────────────────────────────
 
+        /// <summary>
+        /// Rotates existing backup files and creates
+        /// a new .bak from current .lpp.
+        ///
+        /// Before rotation:
+        ///   .bak  = save N-1
+        ///   .bak2 = save N-2
+        ///   ...
+        ///
+        /// After rotation:
+        ///   .bak  = save N (just created)
+        ///   .bak2 = save N-1
+        ///   ...
+        ///   .bak5 = save N-4 (oldest kept)
+        /// </summary>
         private void RotateBackups(string projectFilePath)
         {
-            // Delete oldest backup
+            // Step 1 — delete oldest backup to make room
             string oldest = GetBackupPath(
                 projectFilePath, MaxBackups);
             if (File.Exists(oldest))
                 File.Delete(oldest);
 
-            // Shift: .bak(n-1) → .bak(n)
+            // Step 2 — shift all existing backups up by one
+            // .bak4 → .bak5, .bak3 → .bak4, etc.
             for (int i = MaxBackups - 1; i >= 1; i--)
             {
                 string current = GetBackupPath(
@@ -103,7 +163,9 @@
                         overwrite: true);
             }
 
-            // Copy current .lpp → .bak
+            // Step 3 — copy current .lpp → .bak
+            // This captures the state just before
+            // the upcoming SaveChangesAsync commit
             string latest = GetBackupPath(
                 projectFilePath, 1);
             File.Copy(projectFilePath,
@@ -111,23 +173,10 @@
         }
 
         /// <summary>
-        /// Rolls back .lpp to most recent backup.
-        /// Call this when user discards unsaved changes.
-        /// Caller must close DB session first.
+        /// Builds the backup file path for a given number.
+        /// Number 1 = .bak (most recent)
+        /// Number 2-5 = .bak2 to .bak5
         /// </summary>
-        public bool RollbackToLatest(string projectFilePath)
-        {
-            string latestBackup = GetBackupPath(
-                projectFilePath, 1);
-
-            if (!File.Exists(latestBackup))
-                return false; // No backup exists yet
-
-            File.Copy(latestBackup,
-                projectFilePath, overwrite: true);
-
-            return true;
-        }
         private static string GetBackupPath(
             string projectFilePath, int number)
         {
@@ -139,15 +188,23 @@
 
     /// <summary>
     /// Represents a single backup file entry.
-    /// Used by frmBackupManager to display list.
+    /// Used by frmBackupManager to display the list.
     /// </summary>
     public class BackupEntry
     {
+        /// <summary>1 = most recent, 5 = oldest.</summary>
         public int Number { get; set; }
+
+        /// <summary>Full path to the .bak file.</summary>
         public string FilePath { get; set; } = "";
+
+        /// <summary>When this backup was created.</summary>
         public DateTime ModifiedDate { get; set; }
+
+        /// <summary>File size in bytes.</summary>
         public long FileSizeBytes { get; set; }
 
+        /// <summary>Human-readable file size.</summary>
         public string FormattedSize
         {
             get
@@ -155,19 +212,23 @@
                 string[] sizes = { "B", "KB", "MB", "GB" };
                 double len = FileSizeBytes;
                 int order = 0;
+
                 while (len >= 1024 &&
                        order < sizes.Length - 1)
                 {
                     order++;
                     len /= 1024;
                 }
+
                 return $"{len:0.##} {sizes[order]}";
             }
         }
 
-        public string Label =>
-            Number == 1
-                ? "Latest Backup"
-                : $"Backup {Number}";
+        /// <summary>
+        /// Display label shown in frmBackupManager.
+        /// </summary>
+        public string Label => Number == 1
+            ? "Latest Backup"
+            : $"Backup {Number}";
     }
 }

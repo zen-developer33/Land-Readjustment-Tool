@@ -443,13 +443,13 @@ namespace Land_Readjustment_Tool
             // mainSplitContainer.Panel1
             // 
             mainSplitContainer.Panel1.Controls.Add(splitContainer2);
-            mainSplitContainer.Panel1MinSize = 200;
+            mainSplitContainer.Panel1MinSize = 150;
             // 
             // mainSplitContainer.Panel2
             // 
             mainSplitContainer.Panel2.Controls.Add(splitContainer3);
             mainSplitContainer.Size = new Size(1313, 696);
-            mainSplitContainer.SplitterDistance = 313;
+            mainSplitContainer.SplitterDistance = 220;
             mainSplitContainer.TabIndex = 3;
             mainSplitContainer.Visible = false;
             // 
@@ -471,7 +471,7 @@ namespace Land_Readjustment_Tool
             splitContainer2.Panel2.BackColor = Color.White;
             splitContainer2.Panel2.Controls.Add(grpProperties);
             splitContainer2.Panel2.Controls.Add(label1);
-            splitContainer2.Size = new Size(309, 692);
+            splitContainer2.Size = new Size(216, 692);
             splitContainer2.SplitterDistance = 336;
             splitContainer2.SplitterWidth = 5;
             splitContainer2.TabIndex = 0;
@@ -486,7 +486,7 @@ namespace Land_Readjustment_Tool
             grpLayer.Name = "grpLayer";
             grpLayer.Padding = new Padding(4);
             grpLayer.RightToLeft = RightToLeft.No;
-            grpLayer.Size = new Size(302, 328);
+            grpLayer.Size = new Size(209, 328);
             grpLayer.TabIndex = 0;
             grpLayer.TabStop = false;
             grpLayer.Text = "Layers";
@@ -504,7 +504,7 @@ namespace Land_Readjustment_Tool
             treeNode2.Name = "Node0";
             treeNode2.Text = "Node0";
             treeView1.Nodes.AddRange(new TreeNode[] { treeNode2 });
-            treeView1.Size = new Size(288, 297);
+            treeView1.Size = new Size(195, 297);
             treeView1.TabIndex = 0;
             // 
             // grpProperties
@@ -515,7 +515,7 @@ namespace Land_Readjustment_Tool
             grpProperties.Location = new Point(0, 0);
             grpProperties.Name = "grpProperties";
             grpProperties.Padding = new Padding(6, 8, 6, 6);
-            grpProperties.Size = new Size(309, 351);
+            grpProperties.Size = new Size(216, 351);
             grpProperties.TabIndex = 2;
             grpProperties.TabStop = false;
             grpProperties.Text = "Layer Properties";
@@ -530,7 +530,7 @@ namespace Land_Readjustment_Tool
             tabProperties.Location = new Point(6, 28);
             tabProperties.Name = "tabProperties";
             tabProperties.SelectedIndex = 0;
-            tabProperties.Size = new Size(297, 317);
+            tabProperties.Size = new Size(204, 317);
             tabProperties.TabIndex = 0;
             // 
             // tabGeneral
@@ -553,7 +553,7 @@ namespace Land_Readjustment_Tool
             tabGeneral.Location = new Point(4, 29);
             tabGeneral.Name = "tabGeneral";
             tabGeneral.Padding = new Padding(10);
-            tabGeneral.Size = new Size(289, 284);
+            tabGeneral.Size = new Size(196, 284);
             tabGeneral.TabIndex = 0;
             tabGeneral.Text = "General";
             tabGeneral.UseVisualStyleBackColor = true;
@@ -574,7 +574,7 @@ namespace Land_Readjustment_Tool
             txtLayerName.Font = new Font("Segoe UI", 9F);
             txtLayerName.Location = new Point(127, 14);
             txtLayerName.Name = "txtLayerName";
-            txtLayerName.Size = new Size(136, 27);
+            txtLayerName.Size = new Size(56, 27);
             txtLayerName.TabIndex = 1;
             // 
             // lblLayerType
@@ -596,7 +596,7 @@ namespace Land_Readjustment_Tool
             cboLayerType.Items.AddRange(new object[] { "BaselineParcel", "ReplottedParcel", "ProposedRoad", "ExistingRoad", "Block", "ProjectBoundary", "Annotation", "Reference" });
             cboLayerType.Location = new Point(127, 48);
             cboLayerType.Name = "cboLayerType";
-            cboLayerType.Size = new Size(136, 28);
+            cboLayerType.Size = new Size(56, 28);
             cboLayerType.TabIndex = 3;
             // 
             // lblBorderColor
@@ -623,7 +623,7 @@ namespace Land_Readjustment_Tool
             // 
             btnBorderColor.Location = new Point(175, 82);
             btnBorderColor.Name = "btnBorderColor";
-            btnBorderColor.Size = new Size(88, 30);
+            btnBorderColor.Size = new Size(79, 30);
             btnBorderColor.TabIndex = 6;
             btnBorderColor.Text = "Choose…";
             // 
@@ -646,7 +646,7 @@ namespace Land_Readjustment_Tool
             cboLineStyle.Items.AddRange(new object[] { "Solid", "Dashed", "Dotted", "DashDot" });
             cboLineStyle.Location = new Point(127, 123);
             cboLineStyle.Name = "cboLineStyle";
-            cboLineStyle.Size = new Size(136, 28);
+            cboLineStyle.Size = new Size(56, 28);
             cboLineStyle.TabIndex = 8;
             // 
             // lblLineWeight
@@ -668,7 +668,7 @@ namespace Land_Readjustment_Tool
             cboLineWeight.Items.AddRange(new object[] { "0.25", "0.5", "1.0", "1.5", "2.0", "3.0" });
             cboLineWeight.Location = new Point(127, 162);
             cboLineWeight.Name = "cboLineWeight";
-            cboLineWeight.Size = new Size(136, 28);
+            cboLineWeight.Size = new Size(56, 28);
             cboLineWeight.TabIndex = 10;
             // 
             // chkVisible
@@ -721,12 +721,12 @@ namespace Land_Readjustment_Tool
             tabFill.Controls.Add(lblHatch);
             tabFill.Controls.Add(cboHatch);
             tabFill.Controls.Add(lblTransparency);
-            tabFill.Controls.Add(trkTransparency);
             tabFill.Controls.Add(lblTranspValue);
+            tabFill.Controls.Add(trkTransparency);
             tabFill.Location = new Point(4, 29);
             tabFill.Name = "tabFill";
             tabFill.Padding = new Padding(10);
-            tabFill.Size = new Size(289, 284);
+            tabFill.Size = new Size(403, 284);
             tabFill.TabIndex = 1;
             tabFill.Text = "Fill";
             tabFill.UseVisualStyleBackColor = true;
@@ -748,14 +748,14 @@ namespace Land_Readjustment_Tool
             pnlFillColor.Cursor = Cursors.Hand;
             pnlFillColor.Location = new Point(140, 12);
             pnlFillColor.Name = "pnlFillColor";
-            pnlFillColor.Size = new Size(42, 26);
+            pnlFillColor.Size = new Size(42, 30);
             pnlFillColor.TabIndex = 1;
             // 
             // btnFillColor
             // 
             btnFillColor.Location = new Point(188, 12);
             btnFillColor.Name = "btnFillColor";
-            btnFillColor.Size = new Size(75, 26);
+            btnFillColor.Size = new Size(69, 30);
             btnFillColor.TabIndex = 2;
             btnFillColor.Text = "Choose…";
             // 
@@ -771,13 +771,14 @@ namespace Land_Readjustment_Tool
             // 
             // cboFillStyle
             // 
+            cboFillStyle.Anchor = AnchorStyles.Top | AnchorStyles.Left | AnchorStyles.Right;
             cboFillStyle.DropDownStyle = ComboBoxStyle.DropDownList;
             cboFillStyle.FlatStyle = FlatStyle.Flat;
             cboFillStyle.Font = new Font("Segoe UI", 9F);
             cboFillStyle.Items.AddRange(new object[] { "None", "Solid", "Hatched" });
             cboFillStyle.Location = new Point(140, 48);
             cboFillStyle.Name = "cboFillStyle";
-            cboFillStyle.Size = new Size(136, 28);
+            cboFillStyle.Size = new Size(250, 28);
             cboFillStyle.TabIndex = 4;
             // 
             // lblHatch
@@ -792,6 +793,7 @@ namespace Land_Readjustment_Tool
             // 
             // cboHatch
             // 
+            cboHatch.Anchor = AnchorStyles.Top | AnchorStyles.Left | AnchorStyles.Right;
             cboHatch.DropDownStyle = ComboBoxStyle.DropDownList;
             cboHatch.Enabled = false;
             cboHatch.FlatStyle = FlatStyle.Flat;
@@ -799,14 +801,14 @@ namespace Land_Readjustment_Tool
             cboHatch.Items.AddRange(new object[] { "ANSI31", "ANSI32", "ANSI33", "ANSI34", "AR-BRSTD", "DOTS", "EARTH" });
             cboHatch.Location = new Point(140, 82);
             cboHatch.Name = "cboHatch";
-            cboHatch.Size = new Size(136, 28);
+            cboHatch.Size = new Size(250, 28);
             cboHatch.TabIndex = 6;
             // 
             // lblTransparency
             // 
             lblTransparency.AutoSize = true;
             lblTransparency.Font = new Font("Segoe UI", 9F);
-            lblTransparency.Location = new Point(20, 130);
+            lblTransparency.Location = new Point(20, 117);
             lblTransparency.Name = "lblTransparency";
             lblTransparency.Size = new Size(98, 20);
             lblTransparency.TabIndex = 7;
@@ -815,12 +817,13 @@ namespace Land_Readjustment_Tool
             // 
             // trkTransparency
             // 
+            trkTransparency.Anchor = AnchorStyles.Top | AnchorStyles.Left | AnchorStyles.Right;
             trkTransparency.BackColor = SystemColors.ControlLightLight;
             trkTransparency.LargeChange = 1;
-            trkTransparency.Location = new Point(140, 114);
+            trkTransparency.Location = new Point(140, 117);
             trkTransparency.Maximum = 100;
             trkTransparency.Name = "trkTransparency";
-            trkTransparency.Size = new Size(136, 56);
+            trkTransparency.Size = new Size(250, 56);
             trkTransparency.TabIndex = 8;
             trkTransparency.TickFrequency = 10;
             // 
@@ -828,7 +831,7 @@ namespace Land_Readjustment_Tool
             // 
             lblTranspValue.AutoSize = true;
             lblTranspValue.Font = new Font("Segoe UI", 9F);
-            lblTranspValue.Location = new Point(304, 130);
+            lblTranspValue.Location = new Point(215, 153);
             lblTranspValue.Name = "lblTranspValue";
             lblTranspValue.Size = new Size(29, 20);
             lblTranspValue.TabIndex = 9;
@@ -850,7 +853,7 @@ namespace Land_Readjustment_Tool
             tabLabel.Location = new Point(4, 29);
             tabLabel.Name = "tabLabel";
             tabLabel.Padding = new Padding(10);
-            tabLabel.Size = new Size(289, 284);
+            tabLabel.Size = new Size(403, 284);
             tabLabel.TabIndex = 2;
             tabLabel.Text = "Labels";
             tabLabel.UseVisualStyleBackColor = true;
@@ -877,18 +880,20 @@ namespace Land_Readjustment_Tool
             // 
             // txtFontName
             // 
+            txtFontName.Anchor = AnchorStyles.Top | AnchorStyles.Left | AnchorStyles.Right;
             txtFontName.Font = new Font("Segoe UI", 9F);
             txtFontName.Location = new Point(140, 46);
             txtFontName.Name = "txtFontName";
             txtFontName.ReadOnly = true;
-            txtFontName.Size = new Size(142, 27);
+            txtFontName.Size = new Size(204, 27);
             txtFontName.TabIndex = 2;
             // 
             // btnPickFont
             // 
-            btnPickFont.Location = new Point(288, 46);
+            btnPickFont.Anchor = AnchorStyles.Top | AnchorStyles.Right;
+            btnPickFont.Location = new Point(350, 46);
             btnPickFont.Name = "btnPickFont";
-            btnPickFont.Size = new Size(36, 26);
+            btnPickFont.Size = new Size(40, 26);
             btnPickFont.TabIndex = 3;
             btnPickFont.Text = "…";
             // 
@@ -953,13 +958,14 @@ namespace Land_Readjustment_Tool
             // 
             // cboLabelField
             // 
+            cboLabelField.Anchor = AnchorStyles.Top | AnchorStyles.Left | AnchorStyles.Right;
             cboLabelField.DropDownStyle = ComboBoxStyle.DropDownList;
             cboLabelField.FlatStyle = FlatStyle.Flat;
             cboLabelField.Font = new Font("Segoe UI", 9F);
             cboLabelField.Items.AddRange(new object[] { "ParcelNo", "OwnerName", "AreaSqm", "AreaRAPD", "LandUse", "PlotNumber" });
             cboLabelField.Location = new Point(140, 150);
             cboLabelField.Name = "cboLabelField";
-            cboLabelField.Size = new Size(184, 28);
+            cboLabelField.Size = new Size(250, 28);
             cboLabelField.TabIndex = 10;
             // 
             // label1
@@ -986,8 +992,8 @@ namespace Land_Readjustment_Tool
             // splitContainer3.Panel2
             // 
             splitContainer3.Panel2.Controls.Add(grpParcelObjProp);
-            splitContainer3.Size = new Size(992, 692);
-            splitContainer3.SplitterDistance = 735;
+            splitContainer3.Size = new Size(1085, 692);
+            splitContainer3.SplitterDistance = 802;
             splitContainer3.TabIndex = 1;
             // 
             // drawingCanvasControl3
@@ -995,8 +1001,9 @@ namespace Land_Readjustment_Tool
             drawingCanvasControl3.Dock = DockStyle.Fill;
             drawingCanvasControl3.Location = new Point(0, 0);
             drawingCanvasControl3.Name = "drawingCanvasControl3";
-            drawingCanvasControl3.Size = new Size(735, 692);
+            drawingCanvasControl3.Size = new Size(802, 692);
             drawingCanvasControl3.TabIndex = 0;
+            drawingCanvasControl3.Load += drawingCanvasControl3_Load;
             // 
             // grpParcelObjProp
             // 
@@ -1008,7 +1015,7 @@ namespace Land_Readjustment_Tool
             grpParcelObjProp.Name = "grpParcelObjProp";
             grpParcelObjProp.Padding = new Padding(4);
             grpParcelObjProp.RightToLeft = RightToLeft.No;
-            grpParcelObjProp.Size = new Size(253, 692);
+            grpParcelObjProp.Size = new Size(279, 692);
             grpParcelObjProp.TabIndex = 1;
             grpParcelObjProp.TabStop = false;
             grpParcelObjProp.Text = "Parcel";
@@ -1021,7 +1028,7 @@ namespace Land_Readjustment_Tool
             dgvParcelObjProperty.Location = new Point(4, 24);
             dgvParcelObjProperty.Name = "dgvParcelObjProperty";
             dgvParcelObjProperty.RowHeadersWidth = 51;
-            dgvParcelObjProperty.Size = new Size(245, 664);
+            dgvParcelObjProperty.Size = new Size(271, 664);
             dgvParcelObjProperty.TabIndex = 0;
             // 
             // importDataToolStripMenuItem

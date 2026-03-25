@@ -84,8 +84,19 @@ namespace Land_Readjustment_Tool
                 e.Cancel = true;
         }
 
-        // Returns true if safe to close
-        // Returns false if user clicked Cancel
+        // ═══════════════════════════════════════════════════
+        // CLOSE WITHOUT SAVING — EF Core rollback
+        // ═══════════════════════════════════════════════════
+
+        /// <summary>
+        /// Handles unsaved changes when closing project or app.
+        ///
+        /// Yes  → SaveCurrentProject() → commit and close
+        /// No   → ChangeTracker.Clear() → discard staged changes
+        ///        .lpp file is NEVER touched ← EF Core handles this
+        ///        NO .bak rollback needed
+        /// Cancel → stay open
+        /// </summary>
         private bool HandleUnsavedChangesOnClose()
         {
             if (!AppServices.HasContext ||
@@ -104,29 +115,24 @@ namespace Land_Readjustment_Tool
 
             if (result == DialogResult.No)
             {
-                // Rollback .lpp to last .bak
-                string filePath = AppServices.Context
-                    .ProjectFilePath;
+                // Discard all staged EF Core changes.
+                // This is the equivalent of a transaction rollback.
+                // The .lpp file on disk is unchanged — it still
+                // reflects the last Ctrl+S save.
+                AppServices.Context.Session
+                    .GetContext()
+                    .ChangeTracker
+                    .Clear();
 
-                // Must dispose session BEFORE
-                // touching the .lpp file
-                AppServices.Context.Session.Dispose();
-                AppServices.ClearContext();
-
-                // Replace .lpp with .bak
-                _backupService.RollbackToLatest(filePath);
-
-                // Session already cleared above
-                // Return true — safe to close
                 return true;
             }
 
             // Cancel — do not close
             return false;
         }
-        
 
-        
+
+
         private void EnableProjectMenuItems()
         {
             tsmSave.Enabled = true;
@@ -232,14 +238,31 @@ namespace Land_Readjustment_Tool
             }
         }
 
+        /// <summary>
+        /// Synchronous version for FormClosing event.
+        /// FormClosing cannot be async.
+        /// </summary>
         private bool SaveCurrentProject()
         {
             if (!AppServices.HasContext) return true;
 
             try
             {
-                AppServices.Context
-                    .Session
+                string filePath = AppServices.Context
+                    .ProjectFilePath;
+
+                // WAL checkpoint
+                AppServices.Context.Session
+                    .GetContext()
+                    .Database
+                    .ExecuteSqlRaw(
+                        "PRAGMA wal_checkpoint(FULL);");
+
+                // Backup before save
+                _backupService.CreateBackup(filePath);
+
+                // Commit
+                AppServices.Context.Session
                     .GetContext()
                     .SaveChanges();
 
@@ -249,18 +272,25 @@ namespace Land_Readjustment_Tool
             catch (Exception ex)
             {
                 MessageBox.Show(
-                    $"Save failed: {ex.Message}",
+                    $"Save failed:\n{ex.Message}",
                     "Error",
                     MessageBoxButtons.OK,
                     MessageBoxIcon.Error);
                 return false;
             }
         }
+
+        /// <summary>
+        /// Called once after new project creation.
+        /// Asks user to configure settings or use defaults.
+        /// Either way — stages IsConfigured = true.
+        /// Written to disk only on next Ctrl+S.
+        /// </summary>
         private async void PromptProjectSettings()
         {
             var result = MessageBox.Show(
-                "Would you like to configure " +
-                "project settings now?\n\n" +
+                "Would you like to configure project " +
+                "settings now?\n\n" +
                 "You can always change settings later " +
                 "from Project → Project Settings.",
                 "Project Settings",
@@ -269,16 +299,20 @@ namespace Land_Readjustment_Tool
                 MessageBoxDefaultButton.Button2);
 
             if (result == DialogResult.Yes)
-            {
                 OpenProjectSettings();
-            }
 
-            // Mark as configured regardless of choice
-            // Prevents prompt from showing again
+            // Stage IsConfigured = true regardless of choice
+            // Prevents this prompt from showing again
             var repo = new ProjectSettingsRepository(
                 AppServices.Context.Session);
             await repo.MarkAsConfiguredAsync();
+
+            // Mark project as modified
+            // so user knows to save
+            AppServices.Context.MarkAsModified();
+            UpdateWindowTitle();
         }
+
 
         private void OpenProjectSettings()
         {
@@ -855,10 +889,28 @@ namespace Land_Readjustment_Tool
             }
         }
 
-        private async Task<bool> SaveCurrentProjectAsync(bool showMessage)
+        // ═══════════════════════════════════════════════════
+        // SAVE — Ctrl+S
+        // ═══════════════════════════════════════════════════
+
+        /// <summary>
+        /// Commits ALL staged EF Core changes to the .lpp file.
+        /// This is the ONLY place SaveChangesAsync is called
+        /// outside of initial project creation.
+        ///
+        /// FLOW:
+        ///   1. Check HasUnsavedChanges — skip if nothing to save
+        ///   2. WAL checkpoint — flush SQLite WAL into .lpp
+        ///   3. Rotate backups — .bak = state before this save
+        ///   4. SaveChangesAsync — commit all staged changes
+        ///   5. MarkAsSaved — clear unsaved flag
+        /// </summary>
+        private async Task<bool> SaveCurrentProjectAsync(
+            bool showMessage)
         {
             if (!AppServices.HasContext) return true;
 
+            // Nothing staged — skip silently
             if (!AppServices.Context.HasUnsavedChanges)
             {
                 if (showMessage)
@@ -872,21 +924,32 @@ namespace Land_Readjustment_Tool
 
             try
             {
-                string filePath = AppServices.Context.ProjectFilePath;
+                string filePath = AppServices.Context
+                    .ProjectFilePath;
 
-                // WAL checkpoint — merge WAL into .lpp
+                // Step 1 — Flush SQLite WAL into main .lpp file
+                // WAL (Write-Ahead Log) keeps recent writes
+                // in a separate file. Checkpoint merges them
+                // so the .lpp is complete before backup.
                 await AppServices.Context.Session
                     .GetContext()
                     .Database
                     .ExecuteSqlRawAsync(
                         "PRAGMA wal_checkpoint(FULL);");
 
-                // Rotate backups BEFORE saving
-                // .bak = state just before this save
+                // Step 2 — Rotate backups BEFORE saving
+                // .bak will be the state just before this save
+                // giving the user a way to go back one step
                 _backupService.CreateBackup(filePath);
 
-                // Nothing extra — DB already has changes
-                // Just mark as saved
+                // Step 3 — THE ONLY SaveChangesAsync call
+                // Commits ALL staged changes at once
+                // (project info, settings, parcels, etc.)
+                await AppServices.Context.Session
+                    .GetContext()
+                    .SaveChangesAsync();
+
+                // Step 4 — Clear unsaved flag → removes * from title
                 AppServices.Context.MarkAsSaved();
 
                 if (showMessage)
@@ -940,20 +1003,38 @@ namespace Land_Readjustment_Tool
 
         }
 
+        // ═══════════════════════════════════════════════════
+        // BACKUP PROJECT MENU
+        // ═══════════════════════════════════════════════════
+
+        /// <summary>
+        /// Manual backup — creates a point-in-time backup
+        /// of the current saved state.
+        ///
+        /// Note: this does NOT save unsaved changes.
+        /// It backs up what is currently on disk.
+        /// </summary>
         private async void tsmBackupProject_Click(
-    object sender, EventArgs e)
+            object sender, EventArgs e)
         {
             if (!AppServices.HasContext) return;
 
             try
             {
-                // Save first then backup
-                var saved = await SaveCurrentProjectAsync(
-                    showMessage: false);
-                if (!saved) return;
+                string filePath = AppServices.Context
+                    .ProjectFilePath;
+
+                // WAL checkpoint before backup
+                await AppServices.Context.Session
+                    .GetContext()
+                    .Database
+                    .ExecuteSqlRawAsync(
+                        "PRAGMA wal_checkpoint(FULL);");
+
+                _backupService.CreateBackup(filePath);
 
                 MessageBox.Show(
-                    "Project backed up successfully.",
+                    "Backup created successfully.",
                     "Backup",
                     MessageBoxButtons.OK,
                     MessageBoxIcon.Information);
@@ -968,21 +1049,27 @@ namespace Land_Readjustment_Tool
             }
         }
 
+
+        ///     (use close without save for that)
+        /// </summary>
         private async void tsmRestoreBackup_Click(
-    object sender, EventArgs e)
+            object sender, EventArgs e)
         {
             if (!AppServices.HasContext) return;
 
             string filePath = AppServices.Context
                 .ProjectFilePath;
 
+            // Load backup list from service
             var backups = _backupService.GetBackups(filePath);
 
             if (backups.Count == 0)
             {
                 MessageBox.Show(
-                    "No backup files found for this project.",
-                    "Restore",
+                    "No backups found for this project.\n\n" +
+                    "Backups are created each time you save " +
+                    "the project (Ctrl+S).",
+                    "No Backups",
                     MessageBoxButtons.OK,
                     MessageBoxIcon.Information);
                 return;
@@ -995,20 +1082,34 @@ namespace Land_Readjustment_Tool
 
             try
             {
-                // Close current session before restore
+                // Step 1 — Discard any staged changes
+                // so EF Core does not interfere with restore
+                AppServices.Context.Session
+                    .GetContext()
+                    .ChangeTracker.Clear();
+
+                // Step 2 — Unsubscribe events
+                AppServices.Context.StateChanged
+                    -= UpdateWindowTitle;
+
+                // Step 3 — Dispose session to release file lock
+                // SQLite holds a lock on .lpp while open
+                // File.Copy cannot overwrite a locked file
                 AppServices.Context.Session.Dispose();
                 AppServices.ClearContext();
 
-                // Restore selected backup
+                // Step 4 — Restore selected backup → .lpp
                 _backupService.RestoreFromBackup(
                     filePath, frm.SelectedBackupPath!);
 
-                // Reopen project from restored file
+                // Step 5 — Reopen project from restored file
                 await OpenProjectInternalAsync(
                     filePath, checkUnsavedChanges: false);
 
                 MessageBox.Show(
-                    "Project restored successfully.",
+                    "Project restored successfully.\n\n" +
+                    "You are now working from " +
+                    "the restored backup.",
                     "Restore Complete",
                     MessageBoxButtons.OK,
                     MessageBoxIcon.Information);
@@ -1026,6 +1127,11 @@ namespace Land_Readjustment_Tool
         private async void tsmCloseProject_Click(object sender, EventArgs e)
         {
             await CloseCurrentProjectAsync();
+        }
+
+        private void drawingCanvasControl3_Load(object sender, EventArgs e)
+        {
+
         }
     }
     // ── PROJECT FOLDER CREATOR ───────────────────

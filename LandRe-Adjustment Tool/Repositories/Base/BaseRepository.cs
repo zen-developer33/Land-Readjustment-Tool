@@ -5,30 +5,52 @@ using Microsoft.EntityFrameworkCore;
 
 namespace Land_Readjustment_Tool.Repositories.Base
 {
-
     /// <summary>
     /// Base class for all repositories.
     /// Contains common database operations shared by every repository.
-    /// All repositories inherit from this class.
+    ///
+    /// IMPORTANT — TRANSACTION PATTERN:
+    /// AddAsync / UpdateAsync / DeleteAsync do NOT call
+    /// SaveChangesAsync. They only STAGE changes in the
+    /// EF Core ChangeTracker (in memory).
+    ///
+    /// SaveChangesAsync is called ONLY from:
+    ///   frmMain.SaveCurrentProjectAsync() ← Ctrl+S
+    ///
+    /// This means:
+    ///   → User edits form → entity staged in memory
+    ///   → .lpp file is NOT touched
+    ///   → User presses Ctrl+S → SaveChangesAsync
+    ///      commits ALL staged changes at once
+    ///   → User closes without saving
+    ///      → ChangeTracker.Clear() discards all staged
+    ///      → .lpp file is NEVER touched ✅
+    ///
+    /// This is the EF Core equivalent of a transaction:
+    ///   Stage = Begin Transaction + queue operations
+    ///   SaveChangesAsync = Commit
+    ///   ChangeTracker.Clear = Rollback
     /// </summary>
-    public abstract class BaseRepository<T> : IRepository<T> where T : class
+    public abstract class BaseRepository<T>
+        : IRepository<T> where T : class
     {
-        // ------ PROTECTED FIELDS ------
-        /// <summary>EF Core database connection.</summary>
+        // ── PROTECTED FIELDS ─────────────────────────
+
+        /// <summary>EF Core database context.</summary>
         protected readonly AppDbContext Context;
 
-        /// <summary>Logger for errors and info messages.</summary>
+        /// <summary>Logger for errors and info.</summary>
         protected readonly IAppLogger Logger;
 
         /// <summary>
-        /// Shortcut to the database table for entity T.
+        /// Shortcut to the DbSet for entity T.
         /// Example: DbSet of LandOwner = tblLandOwners.
         /// </summary>
         protected readonly DbSet<T> DbSet;
 
         /// <summary>
         /// Gets context and logger from session.
-        /// Called by child repositories using : base(session).
+        /// Called by child repositories via : base(session).
         /// </summary>
         protected BaseRepository(ProjectSession session)
         {
@@ -36,54 +58,82 @@ namespace Land_Readjustment_Tool.Repositories.Base
             Logger = session.Logger;
             DbSet = Context.Set<T>();
         }
-        ///<summary>
-        ///Gets one record by its ID.
-        ///Returns null if not found.
-        ///Checks memory cache first before hitting database.   
-        ///</summary>
-        public virtual async Task<T?> GetByIDAsync(int id, CancellationToken ct = default)
-        {
-            try
-            {
-                return await DbSet.FindAsync(new object[] { id }, ct);
-            }
-            catch (Exception ex)
-            {
-                Logger.LogError($"[{typeof(T).Name}]" + $"GetByIdAsync failed. Id = {id}", ex); //example: [LandOwner] GetByIdAsync failed. Id = 5
-                throw; //rethrow to let upper layers handle it (e.g. show error message to user)
-            }
-        }
+
+        // ── READ OPERATIONS ──────────────────────────
 
         /// <summary>
-        /// Gets all records from the table.
-        /// AsNoTracking makes it faster for read-only queries.
+        /// Gets one record by its ID.
+        /// Checks EF Core memory cache first,
+        /// then queries database if not found.
         /// </summary>
-        public virtual async Task<List<T>> GetAllAsync(CancellationToken ct = default)
+        public virtual async Task<T?> GetByIDAsync(
+            int id,
+            CancellationToken ct = default)
         {
             try
             {
-                return await DbSet.AsNoTracking().ToListAsync(ct); //Retrieve all records from the database table asynchronously, without tracking them, and return them as a list.
+                return await DbSet.FindAsync(
+                    new object[] { id }, ct);
             }
             catch (Exception ex)
             {
-                Logger.LogError($"[{typeof(T).Name}]" + $"GetAllAsync failed.", ex); //example: [LandOwner] GetAllAsync failed.
+                Logger.LogError(
+                    $"[{typeof(T).Name}] " +
+                    $"GetByIdAsync failed. Id={id}", ex);
                 throw;
             }
         }
 
         /// <summary>
-        /// Adds a new record to the database.
-        /// Returns the entity with Id populated after save.
-        /// </summary> 
+        /// Gets all records from the table.
+        /// AsNoTracking = read-only, faster query.
+        /// Does not stage anything for change tracking.
+        /// </summary>
+        public virtual async Task<List<T>> GetAllAsync(
+            CancellationToken ct = default)
+        {
+            try
+            {
+                return await DbSet
+                    .AsNoTracking()
+                    .ToListAsync(ct);
+            }
+            catch (Exception ex)
+            {
+                Logger.LogError(
+                    $"[{typeof(T).Name}] " +
+                    $"GetAllAsync failed.", ex);
+                throw;
+            }
+        }
+
+        // ── WRITE OPERATIONS (STAGING ONLY) ──────────
+        //
+        // These methods stage changes in EF Core memory.
+        // They do NOT write to the .lpp file.
+        // SaveChangesAsync is called only by frmMain.
+        //
+        // ─────────────────────────────────────────────
+
+        /// <summary>
+        /// Stages a new entity for insertion.
+        /// Does NOT write to database.
+        /// Database write happens on Ctrl+S (SaveChangesAsync).
+        /// </summary>
         public virtual async Task<T> AddAsync(
             T entity,
             CancellationToken ct = default)
         {
             try
             {
-                await DbSet.AddAsync(entity, ct); //Add the entity to the database context asynchronously.
-                await Context.SaveChangesAsync(ct); //Save the changes to the database asynchronously, which will insert the new record and populate the Id of the entity.
-                Logger.LogInfo($"[{typeof(T).Name}] " + $"added successfully."); //example: [LandOwner] AddAsync succeeded. Id = 5
+                // Stages entity in EF Core ChangeTracker
+                // EntityState = Added
+                await DbSet.AddAsync(entity, ct);
+
+                Logger.LogInfo(
+                    $"[{typeof(T).Name}] " +
+                    $"staged for add.");
+
                 return entity;
             }
             catch (Exception ex)
@@ -95,10 +145,10 @@ namespace Land_Readjustment_Tool.Repositories.Base
             }
         }
 
-
         /// <summary>
-        /// Updates an existing record.
-        /// LastModifiedDate is set automatically by AppDbContext.
+        /// Stages an entity for update.
+        /// Does NOT write to database.
+        /// Database write happens on Ctrl+S (SaveChangesAsync).
         /// </summary>
         public virtual async Task UpdateAsync(
             T entity,
@@ -106,29 +156,38 @@ namespace Land_Readjustment_Tool.Repositories.Base
         {
             try
             {
-                var entityType = Context.Model.FindEntityType(typeof(T));
-                var primaryKey = entityType?.FindPrimaryKey();
+                var entityType = Context.Model
+                    .FindEntityType(typeof(T));
+                var primaryKey = entityType
+                    ?.FindPrimaryKey();
 
-                if (primaryKey is { Properties.Count: > 0 })
+                if (primaryKey is
+                    { Properties.Count: > 0 })
                 {
-                    var trackedEntry = Context.ChangeTracker
-                        .Entries<T>()
+                    // Check if already tracked
+                    var trackedEntry = Context
+                        .ChangeTracker.Entries<T>()
                         .FirstOrDefault(e =>
-                            primaryKey.Properties.All(p =>
-                                Equals(
-                                    e.Property(p.Name).CurrentValue,
+                            primaryKey.Properties.All(
+                                p => Equals(
+                                    e.Property(p.Name)
+                                        .CurrentValue,
                                     Context.Entry(entity)
                                         .Property(p.Name)
                                         .CurrentValue)));
 
                     if (trackedEntry != null)
                     {
-                        trackedEntry.CurrentValues.SetValues(entity);
+                        // Already tracked — update values
+                        trackedEntry.CurrentValues
+                            .SetValues(entity);
                     }
                     else
                     {
+                        // Not tracked — attach and mark modified
                         DbSet.Attach(entity);
-                        Context.Entry(entity).State = EntityState.Modified;
+                        Context.Entry(entity).State =
+                            EntityState.Modified;
                     }
                 }
                 else
@@ -136,9 +195,11 @@ namespace Land_Readjustment_Tool.Repositories.Base
                     Context.Update(entity);
                 }
 
-                await Context.SaveChangesAsync(ct);
+                // Changes staged in ChangeTracker
+                // EntityState = Modified
                 Logger.LogInfo(
-                    $"[{typeof(T).Name}] updated.");
+                    $"[{typeof(T).Name}] " +
+                    $"staged for update.");
             }
             catch (Exception ex)
             {
@@ -150,8 +211,9 @@ namespace Land_Readjustment_Tool.Repositories.Base
         }
 
         /// <summary>
-        /// Deletes a record by Id.
-        /// Does nothing if record is not found.
+        /// Stages an entity for deletion.
+        /// Does NOT write to database.
+        /// Database write happens on Ctrl+S (SaveChangesAsync).
         /// </summary>
         public virtual async Task DeleteAsync(
             int id,
@@ -170,11 +232,13 @@ namespace Land_Readjustment_Tool.Repositories.Base
                     return;
                 }
 
+                // Stages entity for removal
+                // EntityState = Deleted
                 DbSet.Remove(entity);
-                await Context.SaveChangesAsync(ct);
+
                 Logger.LogInfo(
                     $"[{typeof(T).Name}] " +
-                    $"deleted. Id={id}");
+                    $"staged for delete. Id={id}");
             }
             catch (Exception ex)
             {
@@ -186,8 +250,8 @@ namespace Land_Readjustment_Tool.Repositories.Base
         }
 
         /// <summary>
-        /// Checks if a record with the given Id exists.
-        /// Faster than GetByIdAsync — only checks existence.
+        /// Checks if a record with the given ID exists.
+        /// Faster than GetByIDAsync — only checks existence.
         /// </summary>
         public virtual async Task<bool> ExistsAsync(
             int id,
@@ -196,7 +260,7 @@ namespace Land_Readjustment_Tool.Repositories.Base
             try
             {
                 return await DbSet.AnyAsync(
-                    entity => EF.Property<int>(entity, "Id") == id,
+                    e => EF.Property<int>(e, "Id") == id,
                     ct);
             }
             catch (Exception ex)
