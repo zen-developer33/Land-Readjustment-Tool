@@ -81,8 +81,7 @@ namespace Land_Readjustment_Tool.Data
         /// <summary>
         /// Updates info after user edits project details.
         /// </summary>
-        public void UpdateInfo(
-            Core.Entities.Project.ProjectInfo info)
+        public void UpdateInfo(ProjectInfo info)
         {
             Info = info;
             StateChanged?.Invoke();

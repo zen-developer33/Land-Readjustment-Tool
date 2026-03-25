@@ -1,6 +1,5 @@
 using Land_Readjustment_Tool.Core.Entities.Spatial;
 using Land_Readjustment_Tool.Core.Interfaces;
-using Land_Readjustment_Tool.Data;
 using Land_Readjustment_Tool.Repositories.Base;
 using Microsoft.EntityFrameworkCore;
 
@@ -8,6 +7,12 @@ namespace Land_Readjustment_Tool.Repositories.Spatial
 {
     /// <summary>
     /// Handles database operations for DatumTransformation.
+    ///
+    /// STAGING PATTERN:
+    /// Add / Update / Delete stage changes in EF Core memory.
+    /// SaveChangesAsync is called ONLY by frmMain:
+    ///   → CommitNewProjectAsync (new project creation)
+    ///   → SaveCurrentProjectAsync (Ctrl+S / Save menu)
     /// </summary>
     public class DatumTransformationRepository
         : BaseRepository<DatumTransformation>
@@ -17,7 +22,9 @@ namespace Land_Readjustment_Tool.Repositories.Spatial
             ProjectSession session)
             : base(session) { }
 
-        /// <summary>Gets all active transformations.</summary>
+        // ── READ ─────────────────────────────────────
+
+        /// <summary>Gets all active datum transformations.</summary>
         public async Task<List<DatumTransformation>>
             GetAllActiveAsync(
             CancellationToken ct = default)
@@ -40,7 +47,6 @@ namespace Land_Readjustment_Tool.Repositories.Spatial
 
         /// <summary>
         /// Gets transformations applicable to a CRS code.
-        /// Checks ApplicableCrsCodes contains the code.
         /// Also returns transformations with null codes (global).
         /// </summary>
         public async Task<List<DatumTransformation>>
@@ -82,10 +88,13 @@ namespace Land_Readjustment_Tool.Repositories.Spatial
             catch (Exception ex)
             {
                 Logger.LogError(
-                    $"GetByCodeAsync failed. Code={code}",
-                    ex);
+                    $"GetByCodeAsync failed. Code={code}", ex);
                 throw;
             }
         }
+
+        // ── WRITE — STAGING ONLY ─────────────────────
+        // Inherited from BaseRepository.
+        // frmMain commits at the right time.
     }
 }

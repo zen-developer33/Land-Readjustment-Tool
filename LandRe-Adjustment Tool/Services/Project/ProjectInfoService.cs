@@ -78,13 +78,31 @@ namespace Land_Readjustment_Tool.Services.Project
                         "in the future.");
 
                 _logger.LogInfo(
-                    $"Saving project info: " +
+                    $"Staging project info: " +
                     $"{projectInfo.ProjectName}");
 
-                await _repo.UpdateAsync(projectInfo, ct);
+                var tracked = await _repo
+                    .GetProjectInfoAsync(ct);
+
+                if (tracked == null)
+                    throw new InvalidOperationException(
+                        "Project info record not found.");
+
+                tracked.Province = projectInfo.Province;
+                tracked.District = projectInfo.District;
+                tracked.Municipality = projectInfo.Municipality;
+                tracked.WardNo = projectInfo.WardNo;
+                tracked.ProjectSite = projectInfo.ProjectSite;
+                tracked.ImplementingAgency = projectInfo.ImplementingAgency;
+                tracked.ConsultingAgency = projectInfo.ConsultingAgency;
+                tracked.GazetteDate = projectInfo.GazetteDate;
+                tracked.ProjectStartDate = projectInfo.ProjectStartDate;
+                tracked.ProjectEndDate = projectInfo.ProjectEndDate;
+                tracked.ProjectNotes = projectInfo.ProjectNotes;
 
                 _logger.LogInfo(
-                    "Project info saved successfully.");
+                    "Project info changes staged. " +
+                    "Will be persisted on project save.");
             }
             catch (InvalidOperationException)
             {

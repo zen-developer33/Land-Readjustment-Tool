@@ -1,12 +1,19 @@
 using Land_Readjustment_Tool.Core.Entities.Spatial;
 using Land_Readjustment_Tool.Core.Interfaces;
+using Land_Readjustment_Tool.Data;
 
 namespace Land_Readjustment_Tool.UI.Forms.Project
 {
     /// <summary>
     /// Manage datum transformations dialog.
-    /// Default entries are read-only — cannot be edited or deleted.
-    /// User can add new, copy from default, edit/delete custom entries.
+    /// Default entries are read-only.
+    /// User can add new, copy from default,
+    /// edit or delete custom entries.
+    ///
+    /// STAGING PATTERN:
+    /// Changes stage in EF Core — NOT committed here.
+    /// LoadAsync merges DB records with EF Core local
+    /// cache so staged records appear immediately.
     /// </summary>
     public partial class frmManageDatumTransformations : Form
     {
@@ -28,22 +35,39 @@ namespace Land_Readjustment_Tool.UI.Forms.Project
             await LoadAsync();
         }
 
+        /// <summary>
+        /// Loads datum list by merging:
+        ///   1. Committed records from DB
+        ///   2. Staged records from EF Core Local cache
+        /// </summary>
         private async Task LoadAsync()
         {
             try
             {
-                _items = await _repo.GetAllActiveAsync();
+                // 1 — Committed records from disk
+                var fromDb = await _repo.GetAllActiveAsync();
 
-                System.Diagnostics.Debug.WriteLine(
-                    $"[Datum] Loaded {_items.Count} items");
+                // 2 — Staged records from EF Core Local cache
+                var local = AppServices.Context.Session
+                    .GetContext()
+                    .Set<DatumTransformation>()
+                    .Local
+                    .Where(d => d.IsActive)
+                    .ToList();
+
+                // 3 — Merge: local takes precedence for same Id
+                _items = fromDb
+                    .Where(d => !local.Any(
+                        l => l.Id == d.Id && l.Id != 0))
+                    .Concat(local)
+                    .OrderBy(d => d.DisplayOrder)
+                    .ThenBy(d => d.Name)
+                    .ToList();
 
                 RefreshGrid();
             }
             catch (Exception ex)
             {
-                System.Diagnostics.Debug.WriteLine(
-                    $"[Datum] Load error: {ex.Message}");
-
                 MessageBox.Show(
                     $"Failed to load: {ex.Message}",
                     "Error",
@@ -69,7 +93,6 @@ namespace Land_Readjustment_Tool.UI.Forms.Project
                         ? "🔒 Default"
                         : "✏ Custom");
 
-                // Subtle gray for default rows
                 if (d.IsSystemDefault)
                 {
                     dgvDatum.Rows[i].DefaultCellStyle
@@ -81,15 +104,8 @@ namespace Land_Readjustment_Tool.UI.Forms.Project
                 dgvDatum.Rows[i].Tag = d;
             }
 
-            if (dgvDatum.Rows.Count > 0)
-            {
-                dgvDatum.ClearSelection();
-                dgvDatum.Rows[0].Selected = true;
-            }
-
             dgvDatum.ResumeLayout();
             UpdateButtons();
-            ShowDetails();
         }
 
         // ── SELECTION ────────────────────────────────
@@ -105,11 +121,11 @@ namespace Land_Readjustment_Tool.UI.Forms.Project
         {
             var d = GetSelected();
             bool has = d != null;
-            bool isDefault = d?.IsSystemDefault ?? true;
+            bool isDef = d?.IsSystemDefault ?? true;
 
             btnCopyNew.Enabled = has;
-            btnEdit.Enabled = has && !isDefault;
-            btnDelete.Enabled = has && !isDefault;
+            btnEdit.Enabled = has && !isDef;
+            btnDelete.Enabled = has && !isDef;
         }
 
         private void ShowDetails()
@@ -173,7 +189,6 @@ namespace Land_Readjustment_Tool.UI.Forms.Project
             var source = GetSelected();
             if (source == null) return;
 
-            // Pre-fill form with copy of selected
             var copy = new DatumTransformation
             {
                 Code = source.Code + "_COPY",

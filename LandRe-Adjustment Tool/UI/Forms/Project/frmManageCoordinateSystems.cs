@@ -1,12 +1,21 @@
 using Land_Readjustment_Tool.Core.Entities.Spatial;
 using Land_Readjustment_Tool.Core.Interfaces;
+using Land_Readjustment_Tool.Data;
 
 namespace Land_Readjustment_Tool.UI.Forms.Project
 {
     /// <summary>
     /// Manage coordinate systems dialog.
-    /// Default entries are read-only — cannot be edited or deleted.
-    /// User can add new, copy from default, edit/delete custom entries.
+    /// Default entries are read-only.
+    /// User can add new, copy from default,
+    /// edit or delete custom entries.
+    ///
+    /// STAGING PATTERN:
+    /// Add / Edit / Delete stage changes in EF Core.
+    /// Changes are NOT committed to disk here.
+    /// LoadAsync merges committed DB records with
+    /// EF Core local cache so new staged records
+    /// appear in the list immediately.
     /// </summary>
     public partial class frmManageCoordinateSystems : Form
     {
@@ -31,22 +40,46 @@ namespace Land_Readjustment_Tool.UI.Forms.Project
             await LoadAsync();
         }
 
+        /// <summary>
+        /// Loads CRS list by merging:
+        ///   1. Committed records from DB (AsNoTracking)
+        ///   2. Staged records from EF Core Local cache
+        ///
+        /// This ensures newly added/edited records appear
+        /// in the list even before the user presses Ctrl+S.
+        /// </summary>
         private async Task LoadAsync()
         {
             try
             {
-                _items = await _repo.GetAllActiveAsync();
+                // 1 — Committed records from disk
+                var fromDb = await _repo.GetAllActiveAsync();
 
-                System.Diagnostics.Debug.WriteLine(
-                    $"[CRS] Loaded {_items.Count} items");
+                // 2 — Staged records from EF Core Local cache
+                //     These exist in memory but not yet on disk
+                var local = AppServices.Context.Session
+                    .GetContext()
+                    .Set<CoordinateSystem>()
+                    .Local
+                    .Where(c => c.IsActive)
+                    .ToList();
+
+                // 3 — Merge:
+                //     Keep DB records whose Id is not in local
+                //     (local version takes precedence for same Id)
+                //     Append new staged records (Id = 0)
+                _items = fromDb
+                    .Where(d => !local.Any(
+                        l => l.Id == d.Id && l.Id != 0))
+                    .Concat(local)
+                    .OrderBy(c => c.DisplayOrder)
+                    .ThenBy(c => c.Name)
+                    .ToList();
 
                 RefreshGrid();
             }
             catch (Exception ex)
             {
-                System.Diagnostics.Debug.WriteLine(
-                    $"[CRS] Load error: {ex.Message}");
-
                 MessageBox.Show(
                     $"Failed to load: {ex.Message}",
                     "Error",
@@ -71,7 +104,6 @@ namespace Land_Readjustment_Tool.UI.Forms.Project
                         ? "🔒 Default"
                         : "✏ Custom");
 
-                // Subtle gray for default rows
                 if (crs.IsSystemDefault)
                 {
                     dgvCRS.Rows[i].DefaultCellStyle
@@ -83,15 +115,8 @@ namespace Land_Readjustment_Tool.UI.Forms.Project
                 dgvCRS.Rows[i].Tag = crs;
             }
 
-            if (dgvCRS.Rows.Count > 0)
-            {
-                dgvCRS.ClearSelection();
-                dgvCRS.Rows[0].Selected = true;
-            }
-
             dgvCRS.ResumeLayout();
             UpdateButtons();
-            ShowDetails();
         }
 
         // ── SELECTION ────────────────────────────────
@@ -106,7 +131,6 @@ namespace Land_Readjustment_Tool.UI.Forms.Project
         private void dgvCRS_CellDoubleClick(
             object? sender, DataGridViewCellEventArgs e)
         {
-            // Double-click a custom row to edit it
             var crs = GetSelectedCRS();
             if (crs == null || crs.IsSystemDefault) return;
             btnEdit.PerformClick();
@@ -116,11 +140,11 @@ namespace Land_Readjustment_Tool.UI.Forms.Project
         {
             var crs = GetSelectedCRS();
             bool has = crs != null;
-            bool isDefault = crs?.IsSystemDefault ?? true;
+            bool isDef = crs?.IsSystemDefault ?? true;
 
             btnCopyNew.Enabled = has;
-            btnEdit.Enabled = has && !isDefault;
-            btnDelete.Enabled = has && !isDefault;
+            btnEdit.Enabled = has && !isDef;
+            btnDelete.Enabled = has && !isDef;
 
         }
 
@@ -140,8 +164,11 @@ namespace Land_Readjustment_Tool.UI.Forms.Project
             sb.AppendLine($"Projection : {crs.ProjectionType ?? "—"}");
             sb.AppendLine($"Region     : {crs.Region ?? "—"}");
             sb.AppendLine($"Type       : {(crs.IsSystemDefault ? "System Default" : "Custom")}");
-            sb.AppendLine();
-            sb.AppendLine(crs.Description ?? "");
+            if (!string.IsNullOrWhiteSpace(crs.Description))
+            {
+                sb.AppendLine();
+                sb.AppendLine(crs.Description);
+            }
 
             txtDetails.Text = sb.ToString();
         }
@@ -170,7 +197,6 @@ namespace Land_Readjustment_Tool.UI.Forms.Project
             var source = GetSelectedCRS();
             if (source == null) return;
 
-            // Pre-fill form with copy of selected
             var copy = new CoordinateSystem
             {
                 Code = source.Code + "_COPY",
@@ -237,7 +263,7 @@ namespace Land_Readjustment_Tool.UI.Forms.Project
         private void btnViewParams_Click(
             object? sender, EventArgs e)
         {
-            ShowDetails();
+            // Details shown on selection in txtDetails
         }
 
         private void btnClose_Click(

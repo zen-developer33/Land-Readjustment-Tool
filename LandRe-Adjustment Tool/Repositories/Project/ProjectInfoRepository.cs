@@ -23,7 +23,8 @@ namespace Land_Readjustment_Tool.Repositories.Project
 
         /// <summary>
         /// Gets the single ProjectInfo record.
-        /// AsNoTracking = read only, faster query.
+        /// Tracked query so in-memory staged edits
+        /// remain visible until explicit project save.
         /// </summary>
         public async Task<ProjectInfo?> GetProjectInfoAsync(
             CancellationToken ct = default)
@@ -31,7 +32,6 @@ namespace Land_Readjustment_Tool.Repositories.Project
             try
             {
                 return await DbSet
-                    .AsNoTracking()
                     .FirstOrDefaultAsync(ct);
             }
             catch (Exception ex)

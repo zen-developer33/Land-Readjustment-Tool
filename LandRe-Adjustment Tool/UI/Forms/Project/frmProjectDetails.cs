@@ -4,6 +4,7 @@ using Land_Readjustment_Tool.Data;
 using Land_Readjustment_Tool.Extensions;
 using Land_Readjustment_Tool.Repositories.Project;
 using Land_Readjustment_Tool.Services.Project;
+using System.Diagnostics;
 
 namespace Land_Readjustment_Tool
 {
@@ -84,7 +85,19 @@ namespace Land_Readjustment_Tool
             {
                 SetFormEnabled(false);
 
-                _projectInfo = await _service.GetAsync();
+                if (AppServices.HasContext &&
+                    AppServices.Context.Info != null)
+                {
+                    _projectInfo = AppServices.Context.Info;
+                    Debug.WriteLine(
+                        "[ProjectDetails] Load source: runtime context.");
+                }
+                else
+                {
+                    _projectInfo = await _service.GetAsync();
+                    Debug.WriteLine(
+                        "[ProjectDetails] Load source: repository/service.");
+                }
 
                 if (_projectInfo == null)
                 {
@@ -98,6 +111,10 @@ namespace Land_Readjustment_Tool
                 }
 
                 PopulateForm(_projectInfo);
+                Debug.WriteLine(
+                    $"[ProjectDetails] Loaded province='{_projectInfo.Province}', " +
+                    $"district='{_projectInfo.District}', " +
+                    $"snap context unsaved='{(AppServices.HasContext ? AppServices.Context.HasUnsavedChanges : false)}'.");
             }
             catch (Exception ex)
             {
@@ -252,7 +269,11 @@ namespace Land_Readjustment_Tool
                 // Read form into entity
                 CollectFormData(_projectInfo);
 
-                //Service validates and saves
+                Debug.WriteLine(
+                    $"[ProjectDetails] Staging on OK province='{_projectInfo.Province}', " +
+                    $"district='{_projectInfo.District}', start='{_projectInfo.ProjectStartDate}', end='{_projectInfo.ProjectEndDate}'.");
+
+                // Service validates and stages only.
                 await _service.SaveAsync(_projectInfo);
 
                 // Update AppServices context
@@ -260,6 +281,10 @@ namespace Land_Readjustment_Tool
                 {
                     AppServices.Context
                         .UpdateInfo(_projectInfo);
+                    AppServices.Context.MarkAsModified();
+
+                    Debug.WriteLine(
+                        "[ProjectDetails] Context updated and marked modified.");
                 }
 
                 DialogResult = DialogResult.OK;

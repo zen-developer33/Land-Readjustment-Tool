@@ -162,70 +162,91 @@ namespace Land_Readjustment_Tool
 
         // ── NEW PROJECT ──────────────────────────────
 
-        private async void tsmNewProject_Click(object sender, EventArgs e)
+        // ── NEW PROJECT ──────────────────────────────────────────────
+
+        private async void tsmNewProject_Click(
+            object sender, EventArgs e)
         {
-            if (AppServices.HasContext && AppServices.Context.HasUnsavedChanges)
+            // Ask to save current project if open
+            if (AppServices.HasContext &&
+                AppServices.Context.HasUnsavedChanges)
             {
-                var result = MessageBox.Show(
-                    "Do you want to save and current project before creating new one?",
+                var r = MessageBox.Show(
+                    "Save current project before " +
+                    "creating a new one?",
                     "Save Current Project",
                     MessageBoxButtons.YesNo,
                     MessageBoxIcon.Question);
 
-                if (result == DialogResult.Yes)
-                {
-                    await SaveCurrentProjectAsync(showMessage: false);
-                }
+                if (r == DialogResult.Yes)
+                    await SaveCurrentProjectAsync(
+                        showMessage: false);
             }
 
-            using SaveFileDialog sfd = new()
+            using var sfd = new SaveFileDialog
             {
-                Filter =
-                    "Land Pooling Project File (*.lpp)|*.lpp",
+                Filter = "Land Pooling Project File (*.lpp)|*.lpp",
                 Title = "Create New Project"
             };
 
-            if (sfd.ShowDialog() != DialogResult.OK)
-                return;
+            if (sfd.ShowDialog() != DialogResult.OK) return;
 
             await CloseCurrentProjectAsync();
-            string filePathFromDialog = sfd.FileName;
-            string projectFileName = Path.GetFileNameWithoutExtension(filePathFromDialog);
-            string projectFolder = Path.Combine(Path.GetDirectoryName(filePathFromDialog)!, projectFileName);
-            string projectFilePath = Path.Combine(projectFolder, Path.GetFileName(filePathFromDialog));
+
+            string fileFromDialog = sfd.FileName;
+            string projectName = Path.GetFileNameWithoutExtension(
+                                         fileFromDialog);
+            string projectFolder = Path.Combine(
+                                         Path.GetDirectoryName(
+                                             fileFromDialog)!,
+                                         projectName);
+            string projectFilePath = Path.Combine(
+                                         projectFolder,
+                                         Path.GetFileName(fileFromDialog));
 
             try
             {
-                // Create folder structure
                 Directory.CreateDirectory(projectFolder);
                 ProjectFolderCreator.CreateFolders(projectFolder);
 
-                // Create session and context
-                var session = new ProjectSessionFactory().CreateSession(projectFilePath);
-                var context = new ProjectContext(session, projectFilePath);
+                var session = new ProjectSessionFactory()
+                    .CreateSession(projectFilePath);
+                var context = new ProjectContext(
+                    session, projectFilePath);
 
-                // Register in AppServices
                 AppServices.SetContext(context);
-
-                // Subscribe to state changes
                 context.StateChanged += UpdateWindowTitle;
 
-                // Create project in database
+                // Creates tables + seeds default data
+                // Uses its own DbContext — committed internally
                 var projectService = new ProjectService();
-                var info = await projectService.CreateNewProjectAsync(projectFilePath, projectFileName);
+                var info = await projectService
+                    .CreateNewProjectAsync(
+                        projectFilePath, projectName);
 
-                // Set info on context
                 context.SetInfo(info);
-
-                // Enable menu items
                 EnableProjectMenuItems();
                 UpdateWindowTitle();
 
-                // Open project details form
+                // ── Step 1: Project Details ───────────────
+                // Stages ProjectInfo changes in ChangeTracker
                 OpenProjectDetails();
-                PromptProjectSettings();
+
+                // ── Step 2: Settings Prompt ───────────────
+                // Stages ProjectSettings + IsConfigured
+                await PromptProjectSettingsAsync();
+
+                // ── Step 3: ONE COMMIT for entire setup ───
+                // Commits ALL staged changes at once:
+                //   ProjectInfo edits from step 1
+                //   ProjectSettings edits from step 2
+                //   IsConfigured = true
+                //   Any CRS / Datum staged during settings
+                // Creates initial .bak after commit.
+                await CommitNewProjectAsync(projectFilePath);
+
                 InitializeProjectWorkspace();
-                ApplyCanvasSettings(); // ← add here
+                ApplyCanvasSettings();
             }
             catch (Exception ex)
             {
@@ -236,6 +257,33 @@ namespace Land_Readjustment_Tool
                     MessageBoxButtons.OK,
                     MessageBoxIcon.Error);
             }
+        }
+        /// <summary>
+        /// The ONE SaveChangesAsync call for new project setup.
+        /// Commits everything staged during ProjectDetails
+        /// and ProjectSettings forms.
+        /// Creates initial backup after commit.
+        /// </summary>
+        private async Task CommitNewProjectAsync(
+            string projectFilePath)
+        {
+            // Flush SQLite WAL into main .lpp file
+            await AppServices.Context.Session
+                .GetContext()
+                .Database
+                .ExecuteSqlRawAsync(
+                    "PRAGMA wal_checkpoint(FULL);");
+
+            // Commit ALL staged changes in one transaction
+            await AppServices.Context.Session
+                .GetContext()
+                .SaveChangesAsync();
+
+            // Create initial backup — clean starting state
+            _backupService.CreateBackup(projectFilePath);
+
+            // Mark as saved — no * in title
+            AppServices.Context.MarkAsSaved();
         }
 
         /// <summary>
@@ -281,12 +329,11 @@ namespace Land_Readjustment_Tool
         }
 
         /// <summary>
-        /// Called once after new project creation.
-        /// Asks user to configure settings or use defaults.
-        /// Either way — stages IsConfigured = true.
-        /// Written to disk only on next Ctrl+S.
+        /// Prompts once after new project creation.
+        /// Stages IsConfigured = true regardless of choice.
+        /// Does NOT commit — CommitNewProjectAsync handles that.
         /// </summary>
-        private async void PromptProjectSettings()
+        private async Task PromptProjectSettingsAsync()
         {
             var result = MessageBox.Show(
                 "Would you like to configure project " +
@@ -301,43 +348,76 @@ namespace Land_Readjustment_Tool
             if (result == DialogResult.Yes)
                 OpenProjectSettings();
 
-            // Stage IsConfigured = true regardless of choice
-            // Prevents this prompt from showing again
+            // Stage IsConfigured = true
+            // CommitNewProjectAsync commits it with everything else
             var repo = new ProjectSettingsRepository(
                 AppServices.Context.Session);
             await repo.MarkAsConfiguredAsync();
-
-            // Mark project as modified
-            // so user knows to save
-            AppServices.Context.MarkAsModified();
-            UpdateWindowTitle();
         }
 
+        // ── OPEN PROJECT DETAILS ─────────────────────────────────────
 
+        /// <summary>
+        /// Opens project details form.
+        /// Changes are STAGED only — not committed.
+        ///
+        /// New project: CommitNewProjectAsync commits later.
+        /// Normal editing: user presses Ctrl+S.
+        /// </summary>
+        private void OpenProjectDetails()
+        {
+            if (!AppServices.HasContext) return;
+
+            var context = AppServices.Context;
+            var repo = new ProjectInfoRepository(context.Session);
+            var service = new ProjectInfoService(
+                              repo, context.Session.Logger);
+
+            using var frm = new frm_ProjectDetails(service);
+
+            if (frm.ShowDialog() == DialogResult.OK)
+            {
+                // Changes staged — show * in title
+                AppServices.Context.MarkAsModified();
+                UpdateWindowTitle();
+            }
+        }
+
+        // ── OPEN PROJECT SETTINGS ────────────────────────────────────
+
+        /// <summary>
+        /// Opens project settings form.
+        /// Changes are STAGED only — not committed.
+        ///
+        /// New project: CommitNewProjectAsync commits later.
+        /// Normal editing: user presses Ctrl+S.
+        /// </summary>
         private void OpenProjectSettings()
         {
             if (!AppServices.HasContext) return;
 
             var context = AppServices.Context;
             var repo = new ProjectSettingsRepository(
-                context.Session);
+                                context.Session);
             var crsRepo = new CoordinateSystemRepository(
-                context.Session);
+                                context.Session);
             var datumRepo = new DatumTransformationRepository(
-                context.Session);
+                                context.Session);
             var service = new ProjectSettingsService(
-                repo, context.Session.Logger);
+                                repo, context.Session.Logger);
 
             using var frm = new frmProjectSettings(
                 service, crsRepo, datumRepo);
 
             if (frm.ShowDialog() == DialogResult.OK)
             {
+                // Changes staged — show * in title
                 AppServices.Context.MarkAsModified();
-                // Apply canvas settings immediately
+                UpdateWindowTitle();
                 ApplyCanvasSettings();
             }
         }
+
 
         private async void ApplyCanvasSettings()
         {
@@ -400,25 +480,7 @@ namespace Land_Readjustment_Tool
             OpenProjectDetails();
         }
 
-        // Opens project details form
-        // Wires service via DI
-        private void OpenProjectDetails()
-        {
-            var context = AppServices.Context;
-
-            var repo = new ProjectInfoRepository(
-                context.Session);
-
-            var service = new ProjectInfoService(repo, context.Session.Logger);
-
-            using var frm = new frm_ProjectDetails(service);
-            if (frm.ShowDialog() == DialogResult.OK)
-                AppServices.Context.MarkAsModified();
-
-            // Refresh title after user edits
-            UpdateWindowTitle();
-        }
-
+        
         // ── EXIT ─────────────────────────────────────
 
         private void ExitToolStripMenuItem_Click_1(object sender, EventArgs e)
