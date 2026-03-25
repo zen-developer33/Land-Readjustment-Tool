@@ -380,6 +380,20 @@ namespace Land_Readjustment_Tool.UI.Forms.Project
 
         // ── SAVE ─────────────────────────────────────────────────────────────
 
+        // ═══════════════════════════════════════════════════════════════
+        // REPLACE btnSave_Click IN frmAddEditCoordinateSystem.cs
+        // ═══════════════════════════════════════════════════════════════
+
+        /// <summary>
+        /// DOUBLE-CREATE BUG FIX:
+        /// When _isNew = true (Add or Copy), always create a brand
+        /// new CoordinateSystem entity — never reuse _existing.
+        ///
+        /// Same reason as frmAddEditDatumTransformation:
+        /// The copy object (_existing with Id=0) must NOT be reused.
+        /// A brand new object guarantees EF Core stages exactly one
+        /// new record with EntityState = Added.
+        /// </summary>
         private async void btnSave_Click(object? sender, EventArgs e)
         {
             if (!ValidateInput()) return;
@@ -388,12 +402,29 @@ namespace Land_Readjustment_Tool.UI.Forms.Project
             {
                 btnSave.Enabled = false;
 
-                // Build / update CRS entity
-                var crs = _existing ?? new CoordinateSystem();
+                // CRITICAL: always brand new entity for Add/Copy
+                // For Edit: update _existing in place
+                CoordinateSystem crs;
+                if (_isNew)
+                {
+                    crs = new CoordinateSystem
+                    {
+                        IsSystemDefault = false,
+                        IsActive = true,
+                        DisplayOrder = 999
+                    };
+                }
+                else
+                {
+                    crs = _existing!;
+                }
+
+                // Fill from form
                 crs.Code = txtCode.Text.Trim();
                 crs.Name = txtName.Text.Trim();
                 crs.EpsgCode =
-                    int.TryParse(txtEpsg.Text, out int epsg) ? epsg : null;
+                    int.TryParse(txtEpsg.Text, out int epsg)
+                    ? epsg : null;
                 crs.ProjectionType = cmbProjectionType.Text;
                 crs.Region = NullIfBlank(txtRegion.Text);
                 crs.Description = NullIfBlank(txtDescription.Text);
@@ -405,31 +436,32 @@ namespace Land_Readjustment_Tool.UI.Forms.Project
                 else
                     await _repo.UpdateAsync(crs);
 
-                // Save projection parameters when the group is visible
+                // Save projection parameters if group is visible
                 if (grpProjectionParams.Visible)
                 {
-                    var proj = await _projRepo
-                        .GetByCoordinateSystemIdAsync(crs.Id)
-                        ?? new ProjectionParameters
-                        { CoordinateSystemId = crs.Id };
+                    // For new CRS, Id is still 0 until SaveChangesAsync.
+                    // We stage projection params linked to this crs instance.
+                    // EF Core will resolve the FK after commit.
+                    var proj = _isNew
+                        ? new ProjectionParameters
+                        { CoordinateSystemId = crs.Id }
+                        : await _projRepo
+                            .GetByCoordinateSystemIdAsync(crs.Id)
+                            ?? new ProjectionParameters
+                            { CoordinateSystemId = crs.Id };
 
                     proj.CentralMeridian = (double)nudCentralMeridian.Value;
                     proj.LatitudeOfOrigin = (double)nudLatOrigin.Value;
                     proj.ScaleFactor = (double)nudScaleFactor.Value;
                     proj.FalseEasting = (double)nudFalseEasting.Value;
                     proj.FalseNorthing = (double)nudFalseNorthing.Value;
-
                     proj.Ellipsoid = NullIfBlank(txtEllipsoid.Text);
-
                     proj.SemiMajorAxis =
                         nudSemiMajor.Value > 0
                         ? (double)nudSemiMajor.Value : null;
-
                     proj.InverseFlattening =
                         nudInvFlat.Value > 0
                         ? (double)nudInvFlat.Value : null;
-
-                    // Guard: never persist the placeholder string
                     proj.WktDefinition = GetWktValue();
 
                     if (proj.Id == 0)

@@ -1,18 +1,25 @@
 ﻿using Land_Readjustment_Tool.Core.Entities.Project;
 using Land_Readjustment_Tool.Core.Interfaces;
-using Land_Readjustment_Tool.Data;
 using Land_Readjustment_Tool.Repositories.Base;
 using Microsoft.EntityFrameworkCore;
 
 namespace Land_Readjustment_Tool.Repositories.Project
 {
     /// <summary>
-    /// Handles all database operations for ProjectSettings.
-    /// Inherits common CRUD from BaseRepository.
+    /// Handles database operations for ProjectSettings.
     ///
-    /// STAGING PATTERN:
-    /// All write operations stage changes in EF Core memory.
-    /// SaveChangesAsync is called only by frmMain (Ctrl+S).
+    /// READ STRATEGY — TRACKED (no AsNoTracking):
+    /// EF Core Identity Map returns in-memory staged version.
+    ///
+    ///   1. Form opens → reads disk → tracked (Unchanged)
+    ///   2. User changes snap to 7 → entity Modified
+    ///   3. btnSave → UpdateAsync (already Modified, no-op)
+    ///   4. Form re-opens → returns same tracked entity (7) ✅
+    ///   5. Ctrl+S → commits 7 to disk ✅
+    ///   6. Close without save → ChangeTracker.Clear() → 8 ✅
+    ///
+    /// WRITE STRATEGY — STAGING ONLY:
+    /// frmMain commits via SaveChangesAsync.
     /// </summary>
     public class ProjectSettingsRepository
         : BaseRepository<ProjectSettings>
@@ -23,18 +30,14 @@ namespace Land_Readjustment_Tool.Repositories.Project
 
         /// <summary>
         /// Gets the single ProjectSettings record.
-        /// AsNoTracking = read-only, faster query.
-        /// Does not stage anything in ChangeTracker.
+        /// TRACKED — no AsNoTracking.
         /// </summary>
-        public async Task<ProjectSettings?>
-            GetProjectSettingsAsync(
-                CancellationToken ct = default)
+        public async Task<ProjectSettings?> GetProjectSettingsAsync(
+            CancellationToken ct = default)
         {
             try
             {
-                return await DbSet
-                    .AsNoTracking()
-                    .FirstOrDefaultAsync(ct);
+                return await DbSet.FirstOrDefaultAsync(ct);
             }
             catch (Exception ex)
             {
@@ -45,47 +48,27 @@ namespace Land_Readjustment_Tool.Repositories.Project
         }
 
         /// <summary>
-        /// Stages IsConfigured = true in EF Core memory.
-        /// Does NOT write to database.
-        ///
-        /// WHY:
-        /// This is called after user dismisses the
-        /// "Configure settings?" prompt on new project.
-        /// The change is staged and written to disk
-        /// only when user saves (Ctrl+S).
-        ///
-        /// This prevents the settings from being
-        /// marked as configured in the .lpp file
-        /// until the user explicitly saves.
+        /// Stages IsConfigured = true.
+        /// Property assignment on tracked entity auto-sets Modified.
+        /// Committed by frmMain.
         /// </summary>
         public async Task MarkAsConfiguredAsync(
             CancellationToken ct = default)
         {
             try
             {
-                // Must load WITHOUT AsNoTracking
-                // so EF Core tracks this entity
-                // and picks up the change on SaveChangesAsync
                 var settings = await DbSet
                     .FirstOrDefaultAsync(ct);
 
                 if (settings == null)
                 {
                     Logger.LogWarning(
-                        "MarkAsConfiguredAsync: " +
-                        "no settings record found.");
+                        "MarkAsConfiguredAsync: no settings found.");
                     return;
                 }
 
-                // Stage the change in ChangeTracker
-                // EntityState will be Modified
                 settings.IsConfigured = true;
-
-                // NOT calling SaveChangesAsync here
-                // frmMain.SaveCurrentProjectAsync
-                // commits this with all other changes
-                Logger.LogInfo(
-                    "IsConfigured staged as true.");
+                Logger.LogInfo("IsConfigured staged.");
             }
             catch (Exception ex)
             {

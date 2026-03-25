@@ -8,15 +8,14 @@ namespace Land_Readjustment_Tool.Repositories.Spatial
     /// <summary>
     /// Handles database operations for CoordinateSystem.
     ///
-    /// STAGING PATTERN:
-    /// Add / Update / Delete stage changes in EF Core memory.
-    /// SaveChangesAsync is called ONLY by frmMain:
-    ///   → CommitNewProjectAsync (new project creation)
-    ///   → SaveCurrentProjectAsync (Ctrl+S / Save menu)
+    /// READ STRATEGY — GetAllActiveAsync:
+    /// Uses a TRACKED query (no AsNoTracking).
+    /// Same reason as DatumTransformationRepository:
+    /// Tracked query loads records into Local cache.
+    /// EF Core Identity Map deduplicates automatically —
+    /// no double entries when staged records are merged.
     ///
-    /// LoadAsync in manage forms reads both committed DB records
-    /// AND staged local cache so new/edited records appear
-    /// immediately in the list without requiring a save first.
+    /// WRITE — staging only. frmMain commits.
     /// </summary>
     public class CoordinateSystemRepository
         : BaseRepository<CoordinateSystem>
@@ -30,9 +29,9 @@ namespace Land_Readjustment_Tool.Repositories.Spatial
 
         /// <summary>
         /// Gets all active CRS ordered by display order.
-        /// AsNoTracking — reads committed DB records only.
-        /// Manage forms merge this with EF Core Local cache
-        /// to show staged records too.
+        /// TRACKED — loads into Local cache.
+        /// EF Core Identity Map prevents duplicate entries
+        /// when staged (Added) records exist in Local cache.
         /// </summary>
         public async Task<List<CoordinateSystem>>
             GetAllActiveAsync(
@@ -43,7 +42,6 @@ namespace Land_Readjustment_Tool.Repositories.Spatial
                 return await DbSet
                     .Where(c => c.IsActive)
                     .OrderBy(c => c.DisplayOrder)
-                    .AsNoTracking()
                     .ToListAsync(ct);
             }
             catch (Exception ex)
@@ -55,8 +53,8 @@ namespace Land_Readjustment_Tool.Repositories.Spatial
         }
 
         /// <summary>
-        /// Gets CRS with projection parameters included.
-        /// Used when transforming coordinates.
+        /// Gets CRS with projection parameters.
+        /// Tracked read.
         /// </summary>
         public async Task<CoordinateSystem?>
             GetWithParametersAsync(
@@ -67,9 +65,7 @@ namespace Land_Readjustment_Tool.Repositories.Spatial
             {
                 return await DbSet
                     .Include(c => c.ProjectionParameters)
-                    .AsNoTracking()
-                    .FirstOrDefaultAsync(
-                        c => c.Id == id, ct);
+                    .FirstOrDefaultAsync(c => c.Id == id, ct);
             }
             catch (Exception ex)
             {
@@ -79,7 +75,7 @@ namespace Land_Readjustment_Tool.Repositories.Spatial
             }
         }
 
-        /// <summary>Gets CRS by short code e.g. "MUTM82".</summary>
+        /// <summary>Gets CRS by short code.</summary>
         public async Task<CoordinateSystem?> GetByCodeAsync(
             string code,
             CancellationToken ct = default)
@@ -87,7 +83,6 @@ namespace Land_Readjustment_Tool.Repositories.Spatial
             try
             {
                 return await DbSet
-                    .AsNoTracking()
                     .FirstOrDefaultAsync(
                         c => c.Code == code, ct);
             }
@@ -99,10 +94,6 @@ namespace Land_Readjustment_Tool.Repositories.Spatial
             }
         }
 
-        // ── WRITE — STAGING ONLY ─────────────────────
-        // Inherited from BaseRepository.
-        // AddAsync / UpdateAsync / DeleteAsync
-        // stage changes in EF Core ChangeTracker only.
-        // frmMain commits at the right time.
+        // Staging only — inherited from BaseRepository
     }
 }

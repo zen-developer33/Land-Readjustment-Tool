@@ -1,21 +1,16 @@
 using Land_Readjustment_Tool.Core.Entities.Spatial;
 using Land_Readjustment_Tool.Core.Interfaces;
-using Land_Readjustment_Tool.Data;
 
 namespace Land_Readjustment_Tool.UI.Forms.Project
 {
     /// <summary>
     /// Manage coordinate systems dialog.
-    /// Default entries are read-only.
-    /// User can add new, copy from default,
-    /// edit or delete custom entries.
     ///
     /// STAGING PATTERN:
-    /// Add / Edit / Delete stage changes in EF Core.
-    /// Changes are NOT committed to disk here.
-    /// LoadAsync merges committed DB records with
-    /// EF Core local cache so new staged records
-    /// appear in the list immediately.
+    /// Add / Edit / Delete stage in EF Core — not committed here.
+    /// GetAllActiveAsync uses tracked query — EF Core handles
+    /// deduplication automatically. No manual merge needed.
+    /// frmMain commits on Ctrl+S.
     /// </summary>
     public partial class frmManageCoordinateSystems : Form
     {
@@ -41,41 +36,16 @@ namespace Land_Readjustment_Tool.UI.Forms.Project
         }
 
         /// <summary>
-        /// Loads CRS list by merging:
-        ///   1. Committed records from DB (AsNoTracking)
-        ///   2. Staged records from EF Core Local cache
-        ///
-        /// This ensures newly added/edited records appear
-        /// in the list even before the user presses Ctrl+S.
+        /// Loads CRS list via tracked repository query.
+        /// GetAllActiveAsync loads into EF Core Local cache.
+        /// Staged (Added) records automatically included.
+        /// No manual merge needed — EF Core handles it.
         /// </summary>
         private async Task LoadAsync()
         {
             try
             {
-                // 1 — Committed records from disk
-                var fromDb = await _repo.GetAllActiveAsync();
-
-                // 2 — Staged records from EF Core Local cache
-                //     These exist in memory but not yet on disk
-                var local = AppServices.Context.Session
-                    .GetContext()
-                    .Set<CoordinateSystem>()
-                    .Local
-                    .Where(c => c.IsActive)
-                    .ToList();
-
-                // 3 — Merge:
-                //     Keep DB records whose Id is not in local
-                //     (local version takes precedence for same Id)
-                //     Append new staged records (Id = 0)
-                _items = fromDb
-                    .Where(d => !local.Any(
-                        l => l.Id == d.Id && l.Id != 0))
-                    .Concat(local)
-                    .OrderBy(c => c.DisplayOrder)
-                    .ThenBy(c => c.Name)
-                    .ToList();
-
+                _items = await _repo.GetAllActiveAsync();
                 RefreshGrid();
             }
             catch (Exception ex)
@@ -145,7 +115,6 @@ namespace Land_Readjustment_Tool.UI.Forms.Project
             btnCopyNew.Enabled = has;
             btnEdit.Enabled = has && !isDef;
             btnDelete.Enabled = has && !isDef;
-
         }
 
         private void ShowDetails()
@@ -186,7 +155,6 @@ namespace Land_Readjustment_Tool.UI.Forms.Project
         {
             using var frm = new frmAddEditCoordinateSystem(
                 null, _repo, _projRepo);
-
             if (frm.ShowDialog() == DialogResult.OK)
                 await LoadAsync();
         }
@@ -197,6 +165,7 @@ namespace Land_Readjustment_Tool.UI.Forms.Project
             var source = GetSelectedCRS();
             if (source == null) return;
 
+            // Pre-fill with copy values — Id=0 means new
             var copy = new CoordinateSystem
             {
                 Code = source.Code + "_COPY",
@@ -210,9 +179,10 @@ namespace Land_Readjustment_Tool.UI.Forms.Project
                 DisplayOrder = _items.Count + 1
             };
 
+            // frmAddEditCoordinateSystem checks _isNew = (Id==0)
+            // btnSave_Click creates brand new entity — no double create
             using var frm = new frmAddEditCoordinateSystem(
                 copy, _repo, _projRepo);
-
             if (frm.ShowDialog() == DialogResult.OK)
                 await LoadAsync();
         }
@@ -225,7 +195,6 @@ namespace Land_Readjustment_Tool.UI.Forms.Project
 
             using var frm = new frmAddEditCoordinateSystem(
                 crs, _repo, _projRepo);
-
             if (frm.ShowDialog() == DialogResult.OK)
                 await LoadAsync();
         }
@@ -237,8 +206,7 @@ namespace Land_Readjustment_Tool.UI.Forms.Project
             if (crs == null || crs.IsSystemDefault) return;
 
             var result = MessageBox.Show(
-                $"Delete '{crs.Name}'?\n\n" +
-                "This cannot be undone.",
+                $"Delete '{crs.Name}'?\n\nThis cannot be undone.",
                 "Confirm Delete",
                 MessageBoxButtons.YesNo,
                 MessageBoxIcon.Warning);
@@ -258,12 +226,6 @@ namespace Land_Readjustment_Tool.UI.Forms.Project
                     MessageBoxButtons.OK,
                     MessageBoxIcon.Error);
             }
-        }
-
-        private void btnViewParams_Click(
-            object? sender, EventArgs e)
-        {
-            // Details shown on selection in txtDetails
         }
 
         private void btnClose_Click(

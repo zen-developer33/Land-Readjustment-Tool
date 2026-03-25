@@ -79,25 +79,19 @@ namespace Land_Readjustment_Tool
         /// Loads project info from database via service.
         /// Disables form while loading.
         /// </summary>
+
         private async Task LoadAsync()
         {
             try
             {
                 SetFormEnabled(false);
 
-                if (AppServices.HasContext &&
-                    AppServices.Context.Info != null)
-                {
-                    _projectInfo = AppServices.Context.Info;
-                    Debug.WriteLine(
-                        "[ProjectDetails] Load source: runtime context.");
-                }
-                else
-                {
-                    _projectInfo = await _service.GetAsync();
-                    Debug.WriteLine(
-                        "[ProjectDetails] Load source: repository/service.");
-                }
+                // Always go through service → tracked repository query
+                // EF Core Identity Map handles the rest:
+                //   1st call → reads disk, starts tracking
+                //   After staging → returns same in-memory instance
+                //   with staged values (not stale disk values) ✅
+                _projectInfo = await _service.GetAsync();
 
                 if (_projectInfo == null)
                 {
@@ -106,15 +100,11 @@ namespace Land_Readjustment_Tool
                         "Error",
                         MessageBoxButtons.OK,
                         MessageBoxIcon.Error);
-                    this.Close();
+                    Close();
                     return;
                 }
 
                 PopulateForm(_projectInfo);
-                Debug.WriteLine(
-                    $"[ProjectDetails] Loaded province='{_projectInfo.Province}', " +
-                    $"district='{_projectInfo.District}', " +
-                    $"snap context unsaved='{(AppServices.HasContext ? AppServices.Context.HasUnsavedChanges : false)}'.");
             }
             catch (Exception ex)
             {
@@ -123,7 +113,7 @@ namespace Land_Readjustment_Tool
                     "Error",
                     MessageBoxButtons.OK,
                     MessageBoxIcon.Error);
-                this.Close();
+                Close();
             }
             finally
             {
@@ -137,7 +127,7 @@ namespace Land_Readjustment_Tool
         /// Fills all form controls from entity.
         /// </summary>
         private void PopulateForm(
-            Core.Entities.Project.ProjectInfo info)
+            ProjectInfo info)
         {
             // Read only — from entity and AppServices
             txtProjectName.Text = info.ProjectName;

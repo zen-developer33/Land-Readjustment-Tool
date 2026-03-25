@@ -1,19 +1,16 @@
 using Land_Readjustment_Tool.Core.Entities.Spatial;
 using Land_Readjustment_Tool.Core.Interfaces;
-using Land_Readjustment_Tool.Data;
 
 namespace Land_Readjustment_Tool.UI.Forms.Project
 {
     /// <summary>
     /// Manage datum transformations dialog.
-    /// Default entries are read-only.
-    /// User can add new, copy from default,
-    /// edit or delete custom entries.
     ///
     /// STAGING PATTERN:
-    /// Changes stage in EF Core — NOT committed here.
-    /// LoadAsync merges DB records with EF Core local
-    /// cache so staged records appear immediately.
+    /// Add / Edit / Delete stage in EF Core — not committed here.
+    /// GetAllActiveAsync uses tracked query — EF Core Local cache
+    /// includes staged records automatically. No manual merge needed.
+    /// frmMain commits on Ctrl+S.
     /// </summary>
     public partial class frmManageDatumTransformations : Form
     {
@@ -36,34 +33,18 @@ namespace Land_Readjustment_Tool.UI.Forms.Project
         }
 
         /// <summary>
-        /// Loads datum list by merging:
-        ///   1. Committed records from DB
-        ///   2. Staged records from EF Core Local cache
+        /// Loads datum list via tracked repository query.
+        /// GetAllActiveAsync loads into EF Core Local cache.
+        /// Staged (Added) records automatically included.
+        /// No manual merge needed — EF Core handles it.
         /// </summary>
         private async Task LoadAsync()
         {
             try
             {
-                // 1 — Committed records from disk
-                var fromDb = await _repo.GetAllActiveAsync();
-
-                // 2 — Staged records from EF Core Local cache
-                var local = AppServices.Context.Session
-                    .GetContext()
-                    .Set<DatumTransformation>()
-                    .Local
-                    .Where(d => d.IsActive)
-                    .ToList();
-
-                // 3 — Merge: local takes precedence for same Id
-                _items = fromDb
-                    .Where(d => !local.Any(
-                        l => l.Id == d.Id && l.Id != 0))
-                    .Concat(local)
-                    .OrderBy(d => d.DisplayOrder)
-                    .ThenBy(d => d.Name)
-                    .ToList();
-
+                // Tracked query — returns DB records + staged records
+                // EF Core Identity Map deduplicates automatically
+                _items = await _repo.GetAllActiveAsync();
                 RefreshGrid();
             }
             catch (Exception ex)
@@ -168,8 +149,7 @@ namespace Land_Readjustment_Tool.UI.Forms.Project
         private DatumTransformation? GetSelected()
         {
             if (dgvDatum.SelectedRows.Count == 0) return null;
-            return dgvDatum.SelectedRows[0].Tag
-                as DatumTransformation;
+            return dgvDatum.SelectedRows[0].Tag as DatumTransformation;
         }
 
         // ── BUTTON HANDLERS ──────────────────────────
@@ -189,6 +169,7 @@ namespace Land_Readjustment_Tool.UI.Forms.Project
             var source = GetSelected();
             if (source == null) return;
 
+            // Pre-fill with copy values — Id=0 means new
             var copy = new DatumTransformation
             {
                 Code = source.Code + "_COPY",
@@ -211,6 +192,8 @@ namespace Land_Readjustment_Tool.UI.Forms.Project
                 DisplayOrder = _items.Count + 1
             };
 
+            // frmAddEditDatumTransformation checks _isNew = (Id==0)
+            // CollectFormData creates brand new entity — no double create
             using var frm = new frmAddEditDatumTransformation(
                 copy, _repo);
             if (frm.ShowDialog() == DialogResult.OK)

@@ -7,25 +7,15 @@ namespace Land_Readjustment_Tool.Repositories.Spatial
 {
     /// <summary>
     /// Handles database operations for ProjectionParameters.
-    ///
-    /// STAGING PATTERN:
-    /// Add / Update stage changes in EF Core memory.
-    /// SaveChangesAsync is called ONLY by frmMain.
+    /// Tracked reads — Identity Map returns staged version.
     /// </summary>
     public class ProjectionParametersRepository
         : BaseRepository<ProjectionParameters>
         , IProjectionParametersRepository
     {
         public ProjectionParametersRepository(
-            ProjectSession session)
-            : base(session) { }
+            ProjectSession session) : base(session) { }
 
-        // ── READ ─────────────────────────────────────
-
-        /// <summary>
-        /// Gets projection parameters for a given CRS.
-        /// Returns null if not found.
-        /// </summary>
         public async Task<ProjectionParameters?>
             GetByCoordinateSystemIdAsync(
             int coordinateSystemId,
@@ -34,7 +24,6 @@ namespace Land_Readjustment_Tool.Repositories.Spatial
             try
             {
                 return await DbSet
-                    .AsNoTracking()
                     .FirstOrDefaultAsync(
                         p => p.CoordinateSystemId
                             == coordinateSystemId, ct);
@@ -46,9 +35,5 @@ namespace Land_Readjustment_Tool.Repositories.Spatial
                 throw;
             }
         }
-
-        // ── WRITE — STAGING ONLY ─────────────────────
-        // Inherited from BaseRepository.
-        // frmMain commits at the right time.
     }
 }

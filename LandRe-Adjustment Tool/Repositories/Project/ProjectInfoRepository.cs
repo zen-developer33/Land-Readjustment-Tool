@@ -3,36 +3,40 @@ using Land_Readjustment_Tool.Core.Interfaces;
 using Land_Readjustment_Tool.Repositories.Base;
 using Microsoft.EntityFrameworkCore;
 
-
 namespace Land_Readjustment_Tool.Repositories.Project
 {
     /// <summary>
-    /// Handles all database operations for ProjectInfo.
-    /// Inherits common operations from BaseRepository.
-    /// Adds ProjectInfo specific method GetProjectInfoAsync.
+    /// Handles database operations for ProjectInfo.
+    ///
+    /// READ STRATEGY — TRACKED (no AsNoTracking):
+    /// EF Core Identity Map returns the in-memory staged
+    /// version if already loaded and modified.
+    ///
+    ///   1. Form opens → reads disk → tracked (Unchanged)
+    ///   2. User edits → CollectFormData modifies entity
+    ///   3. UpdateAsync stages it (Modified in ChangeTracker)
+    ///   4. Form re-opens → GetProjectInfoAsync returns SAME
+    ///      tracked entity with staged edits intact ✅
+    ///   5. Ctrl+S → SaveChangesAsync commits to disk ✅
+    ///   6. Close without save → ChangeTracker.Clear() ✅
     /// </summary>
     public class ProjectInfoRepository
-    : BaseRepository<ProjectInfo>
-    , IProjectInfoRepository
+        : BaseRepository<ProjectInfo>
+        , IProjectInfoRepository
     {
-        /// <summary>
-        /// Receives ProjectSession via constructor.
-        /// Passes it to BaseRepository using : base(session).
-        /// </summary>
-        public ProjectInfoRepository(ProjectSession session): base(session) { }
+        public ProjectInfoRepository(
+            ProjectSession session) : base(session) { }
 
         /// <summary>
         /// Gets the single ProjectInfo record.
-        /// Tracked query so in-memory staged edits
-        /// remain visible until explicit project save.
+        /// TRACKED — no AsNoTracking.
         /// </summary>
         public async Task<ProjectInfo?> GetProjectInfoAsync(
             CancellationToken ct = default)
         {
             try
             {
-                return await DbSet
-                    .FirstOrDefaultAsync(ct);
+                return await DbSet.FirstOrDefaultAsync(ct);
             }
             catch (Exception ex)
             {

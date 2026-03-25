@@ -139,17 +139,41 @@ namespace Land_Readjustment_Tool.UI.Forms.Project
             => Math.Max(nud.Minimum, Math.Min(nud.Maximum, v));
 
         // ── COLLECT ──────────────────────────────────────────────────────────
+        // ═══════════════════════════════════════════════════════════════
+        // REPLACE CollectFormData IN frmAddEditDatumTransformation.cs
+        // ═══════════════════════════════════════════════════════════════
 
+        /// <summary>
+        /// Reads form controls into a DatumTransformation entity.
+        ///
+        /// DOUBLE-CREATE BUG FIX:
+        /// When _isNew = true (Add or Copy), ALWAYS create a brand
+        /// new entity. Never return _existing even if Id=0.
+        ///
+        /// WHY THIS MATTERS:
+        /// When user copies a datum, _existing is a pre-filled object
+        /// with Id=0. If we return _existing, EF Core may have already
+        /// seen this object reference and behave unpredictably.
+        /// Creating a brand new entity guarantees EF Core treats it
+        /// as a completely new record — EntityState = Added, Id = 0,
+        /// one record staged. ✅
+        ///
+        /// When _isNew = false (Edit), return _existing so EF Core
+        /// updates the same tracked instance — EntityState = Modified.
+        /// </summary>
         private DatumTransformation CollectFormData()
         {
-            var d = _existing ?? new DatumTransformation();
+            // CRITICAL: always new entity for Add/Copy
+            // never reuse _existing when _isNew = true
+            var d = _isNew
+                ? new DatumTransformation()
+                : _existing!;
 
             d.Code = txtCode.Text.Trim();
             d.Name = txtName.Text.Trim();
             d.SourceDatum = txtSourceDatum.Text.Trim();
             d.TargetDatum = cmbTargetDatum.Text.Trim();
 
-            // 7 Helmert parameters
             d.DeltaX = (double)nudDeltaX.Value;
             d.DeltaY = (double)nudDeltaY.Value;
             d.DeltaZ = (double)nudDeltaZ.Value;
@@ -158,9 +182,10 @@ namespace Land_Readjustment_Tool.UI.Forms.Project
             d.RotationZ = (double)nudRz.Value;
             d.ScalePpm = (double)nudScale.Value;
 
-            // Optional metadata — null rather than empty string
-            d.ApplicableCrsCodes = NullIfBlank(txtAppliesTo.Text, AppliesToPlaceholder);
-            d.Source = NullIfBlank(txtDataSource.Text, DataSourcePlaceholder);
+            d.ApplicableCrsCodes =
+                NullIfBlank(txtAppliesTo.Text, AppliesToPlaceholder);
+            d.Source =
+                NullIfBlank(txtDataSource.Text, DataSourcePlaceholder);
             d.Region = NullIfBlank(txtRegion.Text, RegionPlaceholder);
             d.Description = NullIfBlank(txtDescription.Text);
 
