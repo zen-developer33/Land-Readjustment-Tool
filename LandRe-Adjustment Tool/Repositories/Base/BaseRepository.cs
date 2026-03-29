@@ -72,18 +72,18 @@ namespace Land_Readjustment_Tool.Repositories.Base
         }
 
         /// <summary>
-        /// Adds a new record to the database.
-        /// Returns the entity with Id populated after save.
-        /// </summary> 
+        /// Stages a new entity for insertion.
+        /// The entity Id is assigned by the database only after
+        /// SaveChangesAsync is called (Ctrl+S). Do not rely on Id before save.
+        /// </summary>
         public virtual async Task<T> AddAsync(
             T entity,
             CancellationToken ct = default)
         {
             try
             {
-                await DbSet.AddAsync(entity, ct); //Add the entity to the database context asynchronously.
-                await Context.SaveChangesAsync(ct); //Save the changes to the database asynchronously, which will insert the new record and populate the Id of the entity.
-                Logger.LogInfo($"[{typeof(T).Name}] " + $"added successfully."); //example: [LandOwner] AddAsync succeeded. Id = 5
+                await DbSet.AddAsync(entity, ct);
+                Logger.LogInfo($"[{typeof(T).Name}] staged for insert.");
                 return entity;
             }
             catch (Exception ex)
@@ -136,9 +136,8 @@ namespace Land_Readjustment_Tool.Repositories.Base
                     Context.Update(entity);
                 }
 
-                await Context.SaveChangesAsync(ct);
                 Logger.LogInfo(
-                    $"[{typeof(T).Name}] updated.");
+                    $"[{typeof(T).Name}] staged for update.");
             }
             catch (Exception ex)
             {
@@ -171,10 +170,9 @@ namespace Land_Readjustment_Tool.Repositories.Base
                 }
 
                 DbSet.Remove(entity);
-                await Context.SaveChangesAsync(ct);
                 Logger.LogInfo(
                     $"[{typeof(T).Name}] " +
-                    $"deleted. Id={id}");
+                    $"staged for delete. Id={id}");
             }
             catch (Exception ex)
             {
