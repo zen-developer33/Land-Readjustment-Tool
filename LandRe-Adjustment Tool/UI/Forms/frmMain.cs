@@ -104,20 +104,17 @@ namespace Land_Readjustment_Tool
 
             if (result == DialogResult.No)
             {
-                // Rollback .lpp to last .bak
-                string filePath = AppServices.Context
-                    .ProjectFilePath;
+                // Discard all staged changes from memory.
+                // No SaveChangesAsync was ever called, so the
+                // .lpp file already reflects the last saved state.
+                // No file restore needed.
+                AppServices.Context.Session
+                    .GetContext()
+                    .ChangeTracker.Clear();
 
-                // Must dispose session BEFORE
-                // touching the .lpp file
                 AppServices.Context.Session.Dispose();
                 AppServices.ClearContext();
 
-                // Replace .lpp with .bak
-                _backupService.RollbackToLatest(filePath);
-
-                // Session already cleared above
-                // Return true — safe to close
                 return true;
             }
 
@@ -238,13 +235,32 @@ namespace Land_Readjustment_Tool
 
             try
             {
-                AppServices.Context
-                    .Session
-                    .GetContext()
-                    .SaveChanges();
+                string filePath = AppServices.Context.ProjectFilePath;
+                var dbContext = AppServices.Context.Session.GetContext();
 
+                // 1. Commit all staged changes
+                dbContext.SaveChanges();
+
+                // 2. WAL checkpoint — flush to .lpp file
+                dbContext.Database
+                    .ExecuteSqlRaw("PRAGMA wal_checkpoint(FULL);");
+
+                // 3. Rotate backups
+                _backupService.CreateBackup(filePath);
+
+                // 4. Mark clean
                 AppServices.Context.MarkAsSaved();
                 return true;
+            }
+            catch (DbUpdateException ex)
+            {
+                var detail = ex.InnerException?.Message ?? ex.Message;
+                MessageBox.Show(
+                    $"Save failed — a database constraint was violated:\n\n{detail}",
+                    "Save Failed",
+                    MessageBoxButtons.OK,
+                    MessageBoxIcon.Error);
+                return false;
             }
             catch (Exception ex)
             {
@@ -278,6 +294,10 @@ namespace Land_Readjustment_Tool
             var repo = new ProjectSettingsRepository(
                 AppServices.Context.Session);
             await repo.MarkAsConfiguredAsync();
+
+            // Stage the IsConfigured flag as a pending change
+            if (AppServices.HasContext)
+                AppServices.Context.MarkAsModified();
         }
 
         private void OpenProjectSettings()
@@ -873,20 +893,20 @@ namespace Land_Readjustment_Tool
             try
             {
                 string filePath = AppServices.Context.ProjectFilePath;
+                var dbContext = AppServices.Context.Session.GetContext();
 
-                // WAL checkpoint — merge WAL into .lpp
-                await AppServices.Context.Session
-                    .GetContext()
-                    .Database
+                // 1. Commit all staged changes to the database
+                await dbContext.SaveChangesAsync();
+
+                // 2. WAL checkpoint — merge WAL into .lpp file
+                await dbContext.Database
                     .ExecuteSqlRawAsync(
                         "PRAGMA wal_checkpoint(FULL);");
 
-                // Rotate backups BEFORE saving
-                // .bak = state just before this save
+                // 3. Rotate backups — .bak = state just before this save
                 _backupService.CreateBackup(filePath);
 
-                // Nothing extra — DB already has changes
-                // Just mark as saved
+                // 4. Mark clean
                 AppServices.Context.MarkAsSaved();
 
                 if (showMessage)
@@ -897,6 +917,16 @@ namespace Land_Readjustment_Tool
                         MessageBoxIcon.Information);
 
                 return true;
+            }
+            catch (DbUpdateException ex)
+            {
+                var detail = ex.InnerException?.Message ?? ex.Message;
+                MessageBox.Show(
+                    $"Save failed — a database constraint was violated:\n\n{detail}",
+                    "Save Failed",
+                    MessageBoxButtons.OK,
+                    MessageBoxIcon.Error);
+                return false;
             }
             catch (Exception ex)
             {

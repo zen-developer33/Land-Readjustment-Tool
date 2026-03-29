@@ -54,9 +54,7 @@ namespace Land_Readjustment_Tool.Repositories.Project
                 }
 
                 settings.IsConfigured = true;
-                await Context.SaveChangesAsync(ct);
-
-                Logger.LogInfo( "Settings marked as configured.");
+                Logger.LogInfo("Settings staged as configured.");
             }
             catch (Exception ex)
             {
