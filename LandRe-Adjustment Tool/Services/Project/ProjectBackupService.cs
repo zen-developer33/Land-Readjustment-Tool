@@ -113,7 +113,16 @@
         /// <summary>
         /// Rolls back .lpp to most recent backup.
         /// Call this when user discards unsaved changes.
-        /// Caller must close DB session first.
+        /// Caller must close the DB session first.
+        ///
+        /// WHY we delete -wal and -shm:
+        ///   SQLite uses WAL (Write-Ahead Log) mode.  Every SaveChangesAsync
+        ///   writes to a .lpp-wal sidecar file first — the main .lpp is only
+        ///   updated during a checkpoint (Ctrl+S).  If we only copy .bak → .lpp
+        ///   and leave the -wal file in place, SQLite will replay those WAL
+        ///   entries the next time the project is opened, making the "discarded"
+        ///   changes reappear.  Deleting -wal and -shm ensures the restored
+        ///   .lpp is the authoritative source of truth.
         /// </summary>
         public bool RollbackToLatest(string projectFilePath)
         {
@@ -123,6 +132,17 @@
             if (!File.Exists(latestBackup))
                 return false; // No backup exists yet
 
+            // 1. Remove WAL and SHM sidecar files BEFORE restoring the .lpp.
+            //    These files contain the uncommitted changes the user wants
+            //    to discard.  Leaving them would cause SQLite to replay them
+            //    on next open, defeating the entire rollback.
+            string walFile = projectFilePath + "-wal";
+            string shmFile = projectFilePath + "-shm";
+
+            if (File.Exists(walFile)) File.Delete(walFile);
+            if (File.Exists(shmFile)) File.Delete(shmFile);
+
+            // 2. Restore the .lpp from the last good backup.
             File.Copy(latestBackup,
                 projectFilePath, overwrite: true);
 

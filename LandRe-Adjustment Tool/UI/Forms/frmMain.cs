@@ -251,7 +251,7 @@ namespace Land_Readjustment_Tool
 
                 // 1. WAL checkpoint — merge WAL journal into the .lpp file
                 dbContext.Database
-                    .ExecuteSqlRaw("PRAGMA wal_checkpoint(FULL);");
+                    .ExecuteSqlRaw("PRAGMA wal_checkpoint(TRUNCATE);");
 
                 // 2. Rotate backups
                 _backupService.CreateBackup(filePath);
@@ -304,7 +304,7 @@ namespace Land_Readjustment_Tool
 
                 // WAL checkpoint — flush all writes into the .lpp file
                 await dbContext.Database
-                    .ExecuteSqlRawAsync("PRAGMA wal_checkpoint(FULL);");
+                    .ExecuteSqlRawAsync("PRAGMA wal_checkpoint(TRUNCATE);");
 
                 // Create .lpp.bak — this IS the initial saved state
                 _backupService.CreateBackup(filePath);
@@ -564,7 +564,7 @@ namespace Land_Readjustment_Tool
                 await AppServices.Context.Session
                     .GetContext()
                     .Database
-                    .ExecuteSqlRawAsync("PRAGMA wal_checkpoint(FULL);");
+                    .ExecuteSqlRawAsync("PRAGMA wal_checkpoint(TRUNCATE);");
 
                 // 4b — Delete destination if already exists
                 if (Directory.Exists(destFolder))
@@ -614,7 +614,7 @@ namespace Land_Readjustment_Tool
                 await session.GetContext()
                     .Database
                     .ExecuteSqlRawAsync(
-                        "PRAGMA wal_checkpoint(FULL);");
+                        "PRAGMA wal_checkpoint(TRUNCATE);");
 
                 // 4i — Create fresh backup in new location
                 // No old backups copied — clean history
@@ -916,7 +916,7 @@ namespace Land_Readjustment_Tool
                 // 1. WAL checkpoint — merge WAL journal into the .lpp file
                 await dbContext.Database
                     .ExecuteSqlRawAsync(
-                        "PRAGMA wal_checkpoint(FULL);");
+                        "PRAGMA wal_checkpoint(TRUNCATE);");
 
                 // 2. Rotate backups — .bak = state just before this save
                 _backupService.CreateBackup(filePath);
