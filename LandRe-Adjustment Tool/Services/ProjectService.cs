@@ -97,7 +97,7 @@ namespace Land_Readjustment_Tool.Services
             // WAL checkpoint — flush to main.lpp file
             await context.Database
                 .ExecuteSqlRawAsync(
-                    "PRAGMA wal_checkpoint(FULL);");
+                    "PRAGMA wal_checkpoint(TRUNCATE);");
 
             // NOTE: Initial .bak is created in frmMain.PromptProjectSettings,
             // AFTER the user has filled in project info and settings.
