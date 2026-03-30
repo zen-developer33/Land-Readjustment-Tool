@@ -104,16 +104,24 @@ namespace Land_Readjustment_Tool
 
             if (result == DialogResult.No)
             {
-                // Discard all staged changes from memory.
-                // No SaveChangesAsync was ever called, so the
-                // .lpp file already reflects the last saved state.
-                // No file restore needed.
-                AppServices.Context.Session
-                    .GetContext()
-                    .ChangeTracker.Clear();
+                // Discard — restore the .lpp file from the last .bak.
+                // Must dispose the session BEFORE touching the file,
+                // otherwise SQLite will reject the file copy.
+                string filePath = AppServices.Context.ProjectFilePath;
 
                 AppServices.Context.Session.Dispose();
                 AppServices.ClearContext();
+
+                // Replace .lpp with the last backup.
+                // Returns false only if no .bak exists (should never happen
+                // after the initial setup backup is created).
+                if (!_backupService.RollbackToLatest(filePath))
+                    MessageBox.Show(
+                        "Could not restore the project to its last saved state — " +
+                        "no backup file was found.",
+                        "Restore Failed",
+                        MessageBoxButtons.OK,
+                        MessageBoxIcon.Warning);
 
                 return true;
             }
@@ -238,29 +246,19 @@ namespace Land_Readjustment_Tool
                 string filePath = AppServices.Context.ProjectFilePath;
                 var dbContext = AppServices.Context.Session.GetContext();
 
-                // 1. Commit all staged changes
-                dbContext.SaveChanges();
+                // Repositories write immediately — no pending changes to flush.
+                // Save = WAL checkpoint + backup rotation.
 
-                // 2. WAL checkpoint — flush to .lpp file
+                // 1. WAL checkpoint — merge WAL journal into the .lpp file
                 dbContext.Database
                     .ExecuteSqlRaw("PRAGMA wal_checkpoint(FULL);");
 
-                // 3. Rotate backups
+                // 2. Rotate backups
                 _backupService.CreateBackup(filePath);
 
-                // 4. Mark clean
+                // 3. Mark clean
                 AppServices.Context.MarkAsSaved();
                 return true;
-            }
-            catch (DbUpdateException ex)
-            {
-                var detail = ex.InnerException?.Message ?? ex.Message;
-                MessageBox.Show(
-                    $"Save failed — a database constraint was violated:\n\n{detail}",
-                    "Save Failed",
-                    MessageBoxButtons.OK,
-                    MessageBoxIcon.Error);
-                return false;
             }
             catch (Exception ex)
             {
@@ -289,15 +287,31 @@ namespace Land_Readjustment_Tool
                 OpenProjectSettings();
             }
 
-            // Mark as configured regardless of choice
-            // Prevents prompt from showing again
+            // Mark as configured regardless of choice —
+            // prevents this prompt from showing again on next open.
             var repo = new ProjectSettingsRepository(
                 AppServices.Context.Session);
             await repo.MarkAsConfiguredAsync();
 
-            // Stage the IsConfigured flag as a pending change
+            // Create the very first project backup.
+            // This happens AFTER project info + settings are saved,
+            // so the .bak captures the correct initial project state.
+            // All future discards will restore to this checkpoint.
             if (AppServices.HasContext)
-                AppServices.Context.MarkAsModified();
+            {
+                var filePath = AppServices.Context.ProjectFilePath;
+                var dbContext = AppServices.Context.Session.GetContext();
+
+                // WAL checkpoint — flush all writes into the .lpp file
+                await dbContext.Database
+                    .ExecuteSqlRawAsync("PRAGMA wal_checkpoint(FULL);");
+
+                // Create .lpp.bak — this IS the initial saved state
+                _backupService.CreateBackup(filePath);
+
+                // Mark as saved — no asterisk on a fresh project
+                AppServices.Context.MarkAsSaved();
+            }
         }
 
         private void OpenProjectSettings()
@@ -895,18 +909,19 @@ namespace Land_Readjustment_Tool
                 string filePath = AppServices.Context.ProjectFilePath;
                 var dbContext = AppServices.Context.Session.GetContext();
 
-                // 1. Commit all staged changes to the database
-                await dbContext.SaveChangesAsync();
+                // Repositories write to the DB immediately on every edit,
+                // so there are no pending EF Core changes to flush here.
+                // Save = WAL checkpoint (merge WAL → .lpp) + rotate backups.
 
-                // 2. WAL checkpoint — merge WAL into .lpp file
+                // 1. WAL checkpoint — merge WAL journal into the .lpp file
                 await dbContext.Database
                     .ExecuteSqlRawAsync(
                         "PRAGMA wal_checkpoint(FULL);");
 
-                // 3. Rotate backups — .bak = state just before this save
+                // 2. Rotate backups — .bak = state just before this save
                 _backupService.CreateBackup(filePath);
 
-                // 4. Mark clean
+                // 3. Mark clean
                 AppServices.Context.MarkAsSaved();
 
                 if (showMessage)
@@ -917,16 +932,6 @@ namespace Land_Readjustment_Tool
                         MessageBoxIcon.Information);
 
                 return true;
-            }
-            catch (DbUpdateException ex)
-            {
-                var detail = ex.InnerException?.Message ?? ex.Message;
-                MessageBox.Show(
-                    $"Save failed — a database constraint was violated:\n\n{detail}",
-                    "Save Failed",
-                    MessageBoxButtons.OK,
-                    MessageBoxIcon.Error);
-                return false;
             }
             catch (Exception ex)
             {

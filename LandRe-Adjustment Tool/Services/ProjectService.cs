@@ -99,10 +99,9 @@ namespace Land_Readjustment_Tool.Services
                 .ExecuteSqlRawAsync(
                     "PRAGMA wal_checkpoint(FULL);");
 
-            // Create initial backup immediately
-            // This is the clean starting state
-            new ProjectBackupService()
-                .CreateBackup(projectFilePath);
+            // NOTE: Initial .bak is created in frmMain.PromptProjectSettings,
+            // AFTER the user has filled in project info and settings.
+            // That captures the correct "first saved state".
             return projectInfo;
         }
         /// <summary>

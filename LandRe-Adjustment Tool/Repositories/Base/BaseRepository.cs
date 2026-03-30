@@ -36,21 +36,33 @@ namespace Land_Readjustment_Tool.Repositories.Base
             Logger = session.Logger;
             DbSet = Context.Set<T>();
         }
-        ///<summary>
-        ///Gets one record by its ID.
-        ///Returns null if not found.
-        ///Checks memory cache first before hitting database.   
-        ///</summary>
+        /// <summary>
+        /// Gets one record by its primary key.
+        /// Returns null if not found.
+        /// Uses AsNoTracking — result is never added to the ChangeTracker.
+        /// </summary>
         public virtual async Task<T?> GetByIDAsync(int id, CancellationToken ct = default)
         {
             try
             {
-                return await DbSet.FindAsync(new object[] { id }, ct);
+                // Resolve the primary key property name from EF Core metadata
+                // so this works generically for every entity type.
+                var keyName = Context.Model
+                    .FindEntityType(typeof(T))
+                    ?.FindPrimaryKey()
+                    ?.Properties.FirstOrDefault()
+                    ?.Name ?? "Id";
+
+                return await DbSet
+                    .AsNoTracking()
+                    .FirstOrDefaultAsync(
+                        e => EF.Property<int>(e, keyName) == id, ct);
             }
             catch (Exception ex)
             {
-                Logger.LogError($"[{typeof(T).Name}]" + $"GetByIdAsync failed. Id = {id}", ex); //example: [LandOwner] GetByIdAsync failed. Id = 5
-                throw; //rethrow to let upper layers handle it (e.g. show error message to user)
+                Logger.LogError(
+                    $"[{typeof(T).Name}] GetByIdAsync failed. Id = {id}", ex);
+                throw;
             }
         }
 
@@ -72,9 +84,9 @@ namespace Land_Readjustment_Tool.Repositories.Base
         }
 
         /// <summary>
-        /// Stages a new entity for insertion.
-        /// The entity Id is assigned by the database only after
-        /// SaveChangesAsync is called (Ctrl+S). Do not rely on Id before save.
+        /// Inserts a new record and immediately commits to the database.
+        /// Returns the entity with its database-assigned Id populated.
+        /// The entity is detached from the ChangeTracker after save.
         /// </summary>
         public virtual async Task<T> AddAsync(
             T entity,
@@ -83,7 +95,11 @@ namespace Land_Readjustment_Tool.Repositories.Base
             try
             {
                 await DbSet.AddAsync(entity, ct);
-                Logger.LogInfo($"[{typeof(T).Name}] staged for insert.");
+                await Context.SaveChangesAsync(ct);
+                // Detach immediately — keeps the ChangeTracker clean
+                // so the backup/restore model stays reliable.
+                Context.Entry(entity).State = EntityState.Detached;
+                Logger.LogInfo($"[{typeof(T).Name}] added and saved.");
                 return entity;
             }
             catch (Exception ex)
@@ -97,7 +113,9 @@ namespace Land_Readjustment_Tool.Repositories.Base
 
 
         /// <summary>
-        /// Updates an existing record.
+        /// Updates an existing record and immediately commits to the database.
+        /// Since all reads use AsNoTracking, entities are always untracked on arrival.
+        /// The entity is detached from the ChangeTracker after save.
         /// LastModifiedDate is set automatically by AppDbContext.
         /// </summary>
         public virtual async Task UpdateAsync(
@@ -106,38 +124,20 @@ namespace Land_Readjustment_Tool.Repositories.Base
         {
             try
             {
-                var entityType = Context.Model.FindEntityType(typeof(T));
-                var primaryKey = entityType?.FindPrimaryKey();
+                // Attach only if not already tracked (safe for both paths).
+                var entry = Context.Entry(entity);
+                if (entry.State == EntityState.Detached)
+                    DbSet.Attach(entity);
 
-                if (primaryKey is { Properties.Count: > 0 })
-                {
-                    var trackedEntry = Context.ChangeTracker
-                        .Entries<T>()
-                        .FirstOrDefault(e =>
-                            primaryKey.Properties.All(p =>
-                                Equals(
-                                    e.Property(p.Name).CurrentValue,
-                                    Context.Entry(entity)
-                                        .Property(p.Name)
-                                        .CurrentValue)));
+                entry.State = EntityState.Modified;
+                await Context.SaveChangesAsync(ct);
 
-                    if (trackedEntry != null)
-                    {
-                        trackedEntry.CurrentValues.SetValues(entity);
-                    }
-                    else
-                    {
-                        DbSet.Attach(entity);
-                        Context.Entry(entity).State = EntityState.Modified;
-                    }
-                }
-                else
-                {
-                    Context.Update(entity);
-                }
+                // Detach immediately — keeps the ChangeTracker clean
+                // so the backup/restore model stays reliable.
+                entry.State = EntityState.Detached;
 
                 Logger.LogInfo(
-                    $"[{typeof(T).Name}] staged for update.");
+                    $"[{typeof(T).Name}] updated and saved.");
             }
             catch (Exception ex)
             {
@@ -149,8 +149,10 @@ namespace Land_Readjustment_Tool.Repositories.Base
         }
 
         /// <summary>
-        /// Deletes a record by Id.
-        /// Does nothing if record is not found.
+        /// Deletes a record by Id and immediately commits to the database.
+        /// Does nothing if the record is not found (idempotent).
+        /// FindAsync is used internally here so EF Core can track the
+        /// entity just long enough to issue the DELETE statement.
         /// </summary>
         public virtual async Task DeleteAsync(
             int id,
@@ -158,6 +160,7 @@ namespace Land_Readjustment_Tool.Repositories.Base
         {
             try
             {
+                // FindAsync tracks the entity — required for DbSet.Remove.
                 var entity = await DbSet.FindAsync(
                     new object[] { id }, ct);
 
@@ -170,9 +173,10 @@ namespace Land_Readjustment_Tool.Repositories.Base
                 }
 
                 DbSet.Remove(entity);
+                await Context.SaveChangesAsync(ct);
                 Logger.LogInfo(
                     $"[{typeof(T).Name}] " +
-                    $"staged for delete. Id={id}");
+                    $"deleted and saved. Id={id}");
             }
             catch (Exception ex)
             {

@@ -54,7 +54,10 @@ namespace Land_Readjustment_Tool.Repositories.Project
                 }
 
                 settings.IsConfigured = true;
-                Logger.LogInfo("Settings staged as configured.");
+                await Context.SaveChangesAsync(ct);
+                // Detach immediately — keeps the ChangeTracker clean.
+                Context.Entry(settings).State = EntityState.Detached;
+                Logger.LogInfo("Settings marked as configured and saved.");
             }
             catch (Exception ex)
             {
