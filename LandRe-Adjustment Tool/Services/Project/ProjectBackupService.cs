@@ -113,16 +113,16 @@
         /// <summary>
         /// Rolls back .lpp to most recent backup.
         /// Call this when user discards unsaved changes.
-        /// Caller must close the DB session first.
         ///
-        /// WHY we delete -wal and -shm:
-        ///   SQLite uses WAL (Write-Ahead Log) mode.  Every SaveChangesAsync
-        ///   writes to a .lpp-wal sidecar file first — the main .lpp is only
-        ///   updated during a checkpoint (Ctrl+S).  If we only copy .bak → .lpp
-        ///   and leave the -wal file in place, SQLite will replay those WAL
-        ///   entries the next time the project is opened, making the "discarded"
-        ///   changes reappear.  Deleting -wal and -shm ensures the restored
-        ///   .lpp is the authoritative source of truth.
+        /// IMPORTANT — caller must do the following BEFORE calling this:
+        ///   1. PRAGMA wal_checkpoint(TRUNCATE)  — empties the WAL in-place
+        ///      while the connection is still open (no file-lock conflict).
+        ///   2. Session.Dispose()
+        ///   3. SqliteConnection.ClearAllPools() — forces pool to release handles.
+        ///
+        /// After those three steps the -wal and -shm files are empty / released,
+        /// so we can safely overwrite the .lpp without touching the sidecar files.
+        /// SQLite will see an empty WAL on next open and will not replay anything.
         /// </summary>
         public bool RollbackToLatest(string projectFilePath)
         {
@@ -132,17 +132,8 @@
             if (!File.Exists(latestBackup))
                 return false; // No backup exists yet
 
-            // 1. Remove WAL and SHM sidecar files BEFORE restoring the .lpp.
-            //    These files contain the uncommitted changes the user wants
-            //    to discard.  Leaving them would cause SQLite to replay them
-            //    on next open, defeating the entire rollback.
-            string walFile = projectFilePath + "-wal";
-            string shmFile = projectFilePath + "-shm";
-
-            if (File.Exists(walFile)) File.Delete(walFile);
-            if (File.Exists(shmFile)) File.Delete(shmFile);
-
-            // 2. Restore the .lpp from the last good backup.
+            // Restore the .lpp from the last good backup.
+            // WAL was already emptied by the checkpoint before session dispose.
             File.Copy(latestBackup,
                 projectFilePath, overwrite: true);
 
