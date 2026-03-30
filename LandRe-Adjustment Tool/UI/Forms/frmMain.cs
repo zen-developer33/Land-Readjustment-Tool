@@ -7,6 +7,7 @@ using Land_Readjustment_Tool.Services;
 using Land_Readjustment_Tool.Services.Project;
 using Land_Readjustment_Tool.UI.CustomControls;
 using Land_Readjustment_Tool.UI.Forms.Project;
+using Microsoft.Data.Sqlite;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.VisualBasic.ApplicationServices;
 using System.Diagnostics.Metrics;
@@ -104,17 +105,25 @@ namespace Land_Readjustment_Tool
 
             if (result == DialogResult.No)
             {
-                // Discard — restore the .lpp file from the last .bak.
-                // Must dispose the session BEFORE touching the file,
-                // otherwise SQLite will reject the file copy.
                 string filePath = AppServices.Context.ProjectFilePath;
+                var dbContext = AppServices.Context.Session.GetContext();
 
+                // Step 1 — Checkpoint BEFORE closing the connection.
+                //   TRUNCATE empties the WAL file in-place while we still
+                //   hold the connection, so there is no file-lock conflict.
+                //   An empty WAL cannot be replayed on next open.
+                dbContext.Database
+                    .ExecuteSqlRaw("PRAGMA wal_checkpoint(TRUNCATE);");
+
+                // Step 2 — Dispose session and clear the connection pool.
+                //   ClearAllPools() forces Microsoft.Data.Sqlite to close
+                //   every pooled connection immediately, releasing the OS
+                //   file handles on .lpp, .lpp-wal and .lpp-shm.
                 AppServices.Context.Session.Dispose();
                 AppServices.ClearContext();
+                SqliteConnection.ClearAllPools();
 
-                // Replace .lpp with the last backup.
-                // Returns false only if no .bak exists (should never happen
-                // after the initial setup backup is created).
+                // Step 3 — Restore .lpp from the last backup.
                 if (!_backupService.RollbackToLatest(filePath))
                     MessageBox.Show(
                         "Could not restore the project to its last saved state — " +
