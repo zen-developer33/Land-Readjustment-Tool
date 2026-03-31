@@ -56,9 +56,7 @@ namespace Land_Readjustment_Tool.Data
         /// <summary>
         /// Creates a ProjectContext for the given session.
         /// </summary>
-        public ProjectContext(
-            ProjectSession session,
-            string projectFilePath)
+        public ProjectContext(ProjectSession session,string projectFilePath)
         {
             Session = session;
             ProjectFilePath = projectFilePath;
@@ -70,8 +68,7 @@ namespace Land_Readjustment_Tool.Data
         /// Sets project info after loading from database.
         /// Called by ProjectService after create or open.
         /// </summary>
-        public void SetInfo(
-            Core.Entities.Project.ProjectInfo info)
+        public void SetInfo(ProjectInfo info)
         {
             Info = info;
             HasUnsavedChanges = false;
@@ -81,8 +78,7 @@ namespace Land_Readjustment_Tool.Data
         /// <summary>
         /// Updates info after user edits project details.
         /// </summary>
-        public void UpdateInfo(
-            Core.Entities.Project.ProjectInfo info)
+        public void UpdateInfo(ProjectInfo info)
         {
             Info = info;
             StateChanged?.Invoke();

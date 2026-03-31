@@ -1,4 +1,5 @@
-﻿namespace Land_Readjustment_Tool.Services.Project
+﻿using System.IO;
+namespace Land_Readjustment_Tool.Services.Project
 {
     /// <summary>
     /// Handles backup rotation and restore
@@ -38,8 +39,7 @@
         /// Returns all existing backup files
         /// ordered from most recent to oldest.
         /// </summary>
-        public List<BackupEntry> GetBackups(
-            string projectFilePath)
+        public List<BackupEntry> GetBackups(string projectFilePath)
         {
             var backups = new List<BackupEntry>();
 
@@ -67,9 +67,7 @@
         /// Restores project from a specific backup.
         /// Caller must close DB session first.
         /// </summary>
-        public void RestoreFromBackup(
-            string projectFilePath,
-            string backupFilePath)
+        public void RestoreFromBackup( string projectFilePath,string backupFilePath)
         {
             if (!File.Exists(backupFilePath))
                 throw new FileNotFoundException(
@@ -104,10 +102,8 @@
             }
 
             // Copy current .lpp → .bak
-            string latest = GetBackupPath(
-                projectFilePath, 1);
-            File.Copy(projectFilePath,
-                latest, overwrite: true);
+            string latest = GetBackupPath(projectFilePath, 1);
+            File.Copy(projectFilePath,latest, overwrite: true);
         }
 
         /// <summary>
@@ -139,8 +135,7 @@
 
             return true;
         }
-        private static string GetBackupPath(
-            string projectFilePath, int number)
+        private static string GetBackupPath(string projectFilePath, int number)
         {
             return number == 1
                 ? $"{projectFilePath}.bak"
@@ -172,7 +167,7 @@
                     order++;
                     len /= 1024;
                 }
-                return $"{len:0.##} {sizes[order]}";
+                return $"{len:0.##} {sizes[order]}"; // e.g. "1.50 MB" 
             }
         }
 

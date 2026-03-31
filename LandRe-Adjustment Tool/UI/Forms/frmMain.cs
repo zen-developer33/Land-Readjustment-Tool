@@ -9,12 +9,6 @@ using Land_Readjustment_Tool.UI.CustomControls;
 using Land_Readjustment_Tool.UI.Forms.Project;
 using Microsoft.Data.Sqlite;
 using Microsoft.EntityFrameworkCore;
-using Microsoft.VisualBasic.ApplicationServices;
-using System.Diagnostics.Metrics;
-using System.Runtime.Intrinsics.Arm;
-using System.Security.Policy;
-using static Microsoft.EntityFrameworkCore.DbLoggerCategory;
-using static System.Windows.Forms.AxHost;
 
 namespace Land_Readjustment_Tool
 {
@@ -27,7 +21,7 @@ namespace Land_Readjustment_Tool
         #endregion
 
         //App Title shown in window Title bar
-        private readonly string _appTitle = "Replot";
+        private readonly string _appTitle = "RePlot";
 
         //Canvas Control for drawing
         private DrawingCanvasControl _drawingCanvas;
@@ -66,9 +60,8 @@ namespace Land_Readjustment_Tool
             }
 
             var name = AppServices.Context.Info.ProjectName;
-            var hasChanges = AppServices.Context.HasUnsavedChanges;
 
-            this.Text = hasChanges ? $"{name}* - {_appTitle}" : $"{name} - {_appTitle}";
+            this.Text = AppServices.Context.HasUnsavedChanges ? $"{name}* - {_appTitle}" : $"{name} - {_appTitle}";
         }
 
         private void frmMain_Load(object sender, EventArgs e)
@@ -106,7 +99,7 @@ namespace Land_Readjustment_Tool
             if (result == DialogResult.No)
             {
                 string filePath = AppServices.Context.ProjectFilePath;
-                var dbContext = AppServices.Context.Session.GetContext();
+                var dbContext = AppServices.Context.Session.GetDbContext();
 
                 // Step 1 — Checkpoint BEFORE closing the connection.
                 //   TRUNCATE empties the WAL file in-place while we still
@@ -253,7 +246,7 @@ namespace Land_Readjustment_Tool
             try
             {
                 string filePath = AppServices.Context.ProjectFilePath;
-                var dbContext = AppServices.Context.Session.GetContext();
+                var dbContext = AppServices.Context.Session.GetDbContext();
 
                 // Repositories write immediately — no pending changes to flush.
                 // Save = WAL checkpoint + backup rotation.
@@ -309,7 +302,7 @@ namespace Land_Readjustment_Tool
             if (AppServices.HasContext)
             {
                 var filePath = AppServices.Context.ProjectFilePath;
-                var dbContext = AppServices.Context.Session.GetContext();
+                var dbContext = AppServices.Context.Session.GetDbContext();
 
                 // WAL checkpoint — flush all writes into the .lpp file
                 await dbContext.Database
@@ -571,7 +564,7 @@ namespace Land_Readjustment_Tool
                 // separate -wal file. Checkpoint merges them
                 // into the main database file before we copy.
                 await AppServices.Context.Session
-                    .GetContext()
+                    .GetDbContext()
                     .Database
                     .ExecuteSqlRawAsync("PRAGMA wal_checkpoint(TRUNCATE);");
 
@@ -610,17 +603,17 @@ namespace Land_Readjustment_Tool
                 context.StateChanged += UpdateWindowTitle;
 
                 // 4g — Update ProjectName in new database
-                var info = await session.GetContext()
+                var info = await session.GetDbContext()
                     .ProjectInfo.FirstOrDefaultAsync();
                 if (info != null)
                 {
                     info.ProjectName = destFileName;
-                    await session.GetContext().SaveChangesAsync();
+                    await session.GetDbContext().SaveChangesAsync();
                     context.SetInfo(info);
                 }
 
                 // 4h — WAL checkpoint on new file
-                await session.GetContext()
+                await session.GetDbContext()
                     .Database
                     .ExecuteSqlRawAsync(
                         "PRAGMA wal_checkpoint(TRUNCATE);");
@@ -754,14 +747,14 @@ namespace Land_Readjustment_Tool
             try
             {
                 var info = await session
-                    .GetContext()
+                    .GetDbContext()
                     .ProjectInfo
                     .FirstOrDefaultAsync();
 
                 if (info == null) return;
 
                 info.ProjectName = newName;
-                await session.GetContext().SaveChangesAsync();
+                await session.GetDbContext().SaveChangesAsync();
             }
             catch (Exception ex)
             {
@@ -806,7 +799,7 @@ namespace Land_Readjustment_Tool
             {
                 {
                     var result = MessageBox.Show(
-                        "Do you want to save and current project before opening another one?",
+                        "Do you want to save current project before opening another one?",
                         "Save Current Project",
                         MessageBoxButtons.YesNo,
                         MessageBoxIcon.Question);
@@ -840,9 +833,7 @@ namespace Land_Readjustment_Tool
             }
             await CloseCurrentProjectAsync();
 
-            await OpenProjectInternalAsync(
-                projectFilePath,
-                checkUnsavedChanges: true);
+            await OpenProjectInternalAsync(projectFilePath,checkUnsavedChanges: true);
         }
 
 
@@ -865,7 +856,7 @@ namespace Land_Readjustment_Tool
                     .CreateSession(projectFilePath);
 
                 // Ensure database schema is up to date
-                await session.GetContext().Database.MigrateAsync();
+                await session.GetDbContext().Database.MigrateAsync();
 
                 var context = new ProjectContext(
                     session, projectFilePath);
@@ -916,17 +907,15 @@ namespace Land_Readjustment_Tool
             try
             {
                 string filePath = AppServices.Context.ProjectFilePath;
-                var dbContext = AppServices.Context.Session.GetContext();
+                var dbContext = AppServices.Context.Session.GetDbContext();
 
                 // Repositories write to the DB immediately on every edit,
                 // so there are no pending EF Core changes to flush here.
                 // Save = WAL checkpoint (merge WAL → .lpp) + rotate backups.
 
                 // 1. WAL checkpoint — merge WAL journal into the .lpp file
-                await dbContext.Database
-                    .ExecuteSqlRawAsync(
-                        "PRAGMA wal_checkpoint(TRUNCATE);");
-
+                await dbContext.Database.ExecuteSqlRawAsync("PRAGMA wal_checkpoint(TRUNCATE);");
+                
                 // 2. Rotate backups — .bak = state just before this save
                 _backupService.CreateBackup(filePath);
 
