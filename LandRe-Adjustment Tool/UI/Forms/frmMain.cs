@@ -9,6 +9,7 @@ using Land_Readjustment_Tool.UI.CustomControls;
 using Land_Readjustment_Tool.UI.Forms.Project;
 using Microsoft.Data.Sqlite;
 using Microsoft.EntityFrameworkCore;
+using System.Reflection;
 
 namespace Land_Readjustment_Tool
 {
@@ -29,11 +30,66 @@ namespace Land_Readjustment_Tool
         {
             InitializeComponent();
 
+            ConfigureSmoothSplitterLayout();
+
             UpdateWindowTitle();
             DisableProjectMenuItems();
             this.FormClosing += frmMain_FormClosing;
             tsmSave.Click += tsmSave_Click;
             tsmSaveAs.Click += tsmSaveAs_Click;
+        }
+
+        private void ConfigureSmoothSplitterLayout()
+        {
+            // Prevent property panel from collapsing into a broken layout.
+            mainSplitContainer.Panel1MinSize = 270;
+
+            EnableDoubleBuffering(mainSplitContainer);
+            EnableDoubleBuffering(splitContainer2);
+            EnableDoubleBuffering(splitContainer3);
+            EnableDoubleBuffering(tabProperties);
+            EnableDoubleBuffering(grpProperties);
+
+            HookSplitterRedrawHandlers();
+        }
+
+        private void HookSplitterRedrawHandlers()
+        {
+            mainSplitContainer.SplitterMoved += (_, _) => RefreshPropertyPanelLayout();
+            splitContainer2.SplitterMoved += (_, _) => RefreshPropertyPanelLayout();
+            splitContainer3.SplitterMoved += (_, _) => RefreshPropertyPanelLayout();
+            splitContainer2.Panel2.Resize += (_, _) => RefreshPropertyPanelLayout();
+        }
+
+        private void RefreshPropertyPanelLayout()
+        {
+            if (!IsHandleCreated || IsDisposed)
+            {
+                return;
+            }
+
+            grpProperties.SuspendLayout();
+            tabProperties.SuspendLayout();
+
+            grpProperties.ResumeLayout(true);
+            tabProperties.ResumeLayout(true);
+
+            grpProperties.Invalidate(true);
+            tabProperties.Invalidate(true);
+            grpProperties.Update();
+            tabProperties.Update();
+        }
+
+        private static void EnableDoubleBuffering(Control control)
+        {
+            if (SystemInformation.TerminalServerSession)
+            {
+                return;
+            }
+
+            typeof(Control)
+                .GetProperty("DoubleBuffered", BindingFlags.Instance | BindingFlags.NonPublic)
+                ?.SetValue(control, true, null);
         }
 
 
