@@ -3,7 +3,7 @@ using Land_Readjustment_Tool.Infrastructure.Logging;
 
 public class ProjectSession : IDisposable
 {
-    private readonly AppDbContext _context;
+    private readonly AppDbContext _dbcontext;
     private bool _disposed = false;
 
     public string ProjectFilePath { get; }
@@ -29,10 +29,7 @@ public class ProjectSession : IDisposable
     /// → which context to use
     /// This class just uses what it receives.
     /// </summary>
-    public ProjectSession(
-        string projectFilePath,
-        AppDbContext context,
-        IAppLogger logger)
+    public ProjectSession(string projectFilePath,AppDbContext context,IAppLogger logger)
     {
         ProjectFilePath = projectFilePath;
 
@@ -43,18 +40,18 @@ public class ProjectSession : IDisposable
                 nameof(projectFilePath));
 
         // Receive dependencies — do not create them
-        _context = context;
+        _dbcontext = context;
         Logger = logger;
 
         Logger.LogInfo(
             $"Session opened: {projectFilePath}");
     }
 
-    public AppDbContext GetContext()
+    public AppDbContext GetDbContext()
     {
         ObjectDisposedException
             .ThrowIf(_disposed, nameof(ProjectSession));
-        return _context;
+        return _dbcontext;
     }
 
     public void Dispose()
@@ -62,7 +59,7 @@ public class ProjectSession : IDisposable
         if (_disposed) return;
         Logger.LogInfo(
             $"Session closing: {ProjectFilePath}");
-        _context?.Dispose();
+        _dbcontext?.Dispose();
         _disposed = true;
         GC.SuppressFinalize(this);
     }

@@ -32,7 +32,7 @@ namespace Land_Readjustment_Tool.Repositories.Base
         /// </summary>
         protected BaseRepository(ProjectSession session)
         {
-            Context = session.GetContext();
+            Context = session.GetDbContext();
             Logger = session.Logger;
             DbSet = Context.Set<T>();
         }

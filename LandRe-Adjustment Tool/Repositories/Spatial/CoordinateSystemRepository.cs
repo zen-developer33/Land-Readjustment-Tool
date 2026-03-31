@@ -9,9 +9,7 @@ namespace Land_Readjustment_Tool.Repositories.Spatial
     /// <summary>
     /// Handles database operations for CoordinateSystem.
     /// </summary>
-    public class CoordinateSystemRepository
-        : BaseRepository<CoordinateSystem>
-        , ICoordinateSystemRepository
+    public class CoordinateSystemRepository: BaseRepository<CoordinateSystem>, ICoordinateSystemRepository
     {
         public CoordinateSystemRepository(
             ProjectSession session)
