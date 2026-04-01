@@ -1,6 +1,7 @@
 ﻿
 using Land_Readjustment_Tool.Data;
 using Land_Readjustment_Tool.Forms;
+using Land_Readjustment_Tool.Properties;
 using Land_Readjustment_Tool.Repositories.Project;
 using Land_Readjustment_Tool.Repositories.Spatial;
 using Land_Readjustment_Tool.Services;
@@ -9,7 +10,10 @@ using Land_Readjustment_Tool.UI.CustomControls;
 using Land_Readjustment_Tool.UI.Forms.Project;
 using Microsoft.Data.Sqlite;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.VisualBasic.ApplicationServices;
 using System.Reflection;
+using System.Reflection.Metadata;
+using static System.Windows.Forms.VisualStyles.VisualStyleElement.Rebar;
 
 namespace Land_Readjustment_Tool
 {
@@ -45,7 +49,7 @@ namespace Land_Readjustment_Tool
             mainSplitContainer.Panel1MinSize = 270;
 
             EnableDoubleBuffering(mainSplitContainer);
-            EnableDoubleBuffering(splitContainer2);
+            EnableDoubleBuffering(leftSplitContainer);
             EnableDoubleBuffering(splitContainer3);
             EnableDoubleBuffering(tabProperties);
             EnableDoubleBuffering(grpProperties);
@@ -56,9 +60,9 @@ namespace Land_Readjustment_Tool
         private void HookSplitterRedrawHandlers()
         {
             mainSplitContainer.SplitterMoved += (_, _) => RefreshPropertyPanelLayout();
-            splitContainer2.SplitterMoved += (_, _) => RefreshPropertyPanelLayout();
+            leftSplitContainer.SplitterMoved += (_, _) => RefreshPropertyPanelLayout();
             splitContainer3.SplitterMoved += (_, _) => RefreshPropertyPanelLayout();
-            splitContainer2.Panel2.Resize += (_, _) => RefreshPropertyPanelLayout();
+            leftSplitContainer.Panel2.Resize += (_, _) => RefreshPropertyPanelLayout();
         }
 
         private void RefreshPropertyPanelLayout()
@@ -122,7 +126,27 @@ namespace Land_Readjustment_Tool
 
         private void frmMain_Load(object sender, EventArgs e)
         {
+            splitContainer3.Panel1.Cursor = LoadPanCursor();
             // Initialize the drawing canvas
+        }
+
+        private static Cursor LoadPanCursor()
+        {
+            var candidates = new[]
+            {
+                Path.Combine(AppContext.BaseDirectory, "Resources", "Cursors", "hand_pan.cur"),
+                Path.GetFullPath(Path.Combine(AppContext.BaseDirectory, "..", "..", "..", "..", "Resources", "Cursors", "Pan_hand.cur"))
+            };
+
+            foreach (var cursorPath in candidates)
+            {
+                if (File.Exists(cursorPath))
+                {
+                    return new Cursor(cursorPath);
+                }
+            }
+
+            return Cursors.Hand;
         }
 
         // ── FORM CLOSING ─────────────────────────────
@@ -187,9 +211,9 @@ namespace Land_Readjustment_Tool
             // Cancel — do not close
             return false;
         }
-        
 
-        
+
+
         private void EnableProjectMenuItems()
         {
             tsmSave.Enabled = true;
@@ -374,7 +398,7 @@ namespace Land_Readjustment_Tool
 
         private void OpenProjectSettings()
         {
-            if (!AppServices.HasContext) return;
+            if (!AppServices.HasContext) return; // Return if there is no Project Open. ((Has context --> the project is open))
 
             var context = AppServices.Context;
             var repo = new ProjectSettingsRepository(
@@ -386,8 +410,7 @@ namespace Land_Readjustment_Tool
             var service = new ProjectSettingsService(
                 repo, context.Session.Logger);
 
-            using var frm = new frmProjectSettings(
-                service, crsRepo, datumRepo);
+            using var frm = new frmProjectSettings(service, crsRepo, datumRepo);
 
             if (frm.ShowDialog() == DialogResult.OK)
             {
@@ -889,7 +912,7 @@ namespace Land_Readjustment_Tool
             }
             await CloseCurrentProjectAsync();
 
-            await OpenProjectInternalAsync(projectFilePath,checkUnsavedChanges: true);
+            await OpenProjectInternalAsync(projectFilePath, checkUnsavedChanges: true);
         }
 
 
@@ -971,7 +994,7 @@ namespace Land_Readjustment_Tool
 
                 // 1. WAL checkpoint — merge WAL journal into the .lpp file
                 await dbContext.Database.ExecuteSqlRawAsync("PRAGMA wal_checkpoint(TRUNCATE);");
-                
+
                 // 2. Rotate backups — .bak = state just before this save
                 _backupService.CreateBackup(filePath);
 
@@ -1116,6 +1139,8 @@ namespace Land_Readjustment_Tool
         {
             await CloseCurrentProjectAsync();
         }
+
+
     }
     // ── PROJECT FOLDER CREATOR ───────────────────
 

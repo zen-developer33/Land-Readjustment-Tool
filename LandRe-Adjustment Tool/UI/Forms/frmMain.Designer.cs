@@ -74,8 +74,14 @@ namespace Land_Readjustment_Tool
             areaConverterToolStripMenuItem = new ToolStripMenuItem();
             helToolStripMenuItem = new ToolStripMenuItem();
             cadastralDataToolStripMenuItem = new ToolStripMenuItem();
-            mainSplitContainer = new SplitContainer();
-            splitContainer2 = new SplitContainer();
+            importDataToolStripMenuItem = new ToolStripMenuItem();
+            viewEditRecordsToolStripMenuItem = new ToolStripMenuItem();
+            colorDialog2 = new ColorDialog();
+            splitContainer3 = new SplitContainer();
+            statusStrip1 = new StatusStrip();
+            grpParcelObjProp = new GroupBox();
+            dgvParcelObjProperty = new DataGridView();
+            leftSplitContainer = new SplitContainer();
             grpLayer = new GroupBox();
             treeView1 = new TreeView();
             grpProperties = new GroupBox();
@@ -105,8 +111,8 @@ namespace Land_Readjustment_Tool
             lblHatch = new Label();
             cboHatch = new ComboBox();
             lblTransparency = new Label();
-            trkTransparency = new TrackBar();
             lblTranspValue = new Label();
+            trkTransparency = new TrackBar();
             tabLabel = new TabPage();
             chkShowLabels = new CheckBox();
             lblFont = new Label();
@@ -120,22 +126,21 @@ namespace Land_Readjustment_Tool
             lblLabelField = new Label();
             cboLabelField = new ComboBox();
             label1 = new Label();
-            splitContainer3 = new SplitContainer();
-            drawingCanvasControl3 = new DrawingCanvasControl();
-            grpParcelObjProp = new GroupBox();
-            dgvParcelObjProperty = new DataGridView();
-            importDataToolStripMenuItem = new ToolStripMenuItem();
-            viewEditRecordsToolStripMenuItem = new ToolStripMenuItem();
-            colorDialog2 = new ColorDialog();
+            mainSplitContainer = new SplitContainer();
+            toolStrip1 = new ToolStrip();
+            toolStripButton1 = new ToolStripButton();
+            toolStrip2 = new ToolStrip();
             mainMenuStrip.SuspendLayout();
-            ((System.ComponentModel.ISupportInitialize)mainSplitContainer).BeginInit();
-            mainSplitContainer.Panel1.SuspendLayout();
-            mainSplitContainer.Panel2.SuspendLayout();
-            mainSplitContainer.SuspendLayout();
-            ((System.ComponentModel.ISupportInitialize)splitContainer2).BeginInit();
-            splitContainer2.Panel1.SuspendLayout();
-            splitContainer2.Panel2.SuspendLayout();
-            splitContainer2.SuspendLayout();
+            ((System.ComponentModel.ISupportInitialize)splitContainer3).BeginInit();
+            splitContainer3.Panel1.SuspendLayout();
+            splitContainer3.Panel2.SuspendLayout();
+            splitContainer3.SuspendLayout();
+            grpParcelObjProp.SuspendLayout();
+            ((System.ComponentModel.ISupportInitialize)dgvParcelObjProperty).BeginInit();
+            ((System.ComponentModel.ISupportInitialize)leftSplitContainer).BeginInit();
+            leftSplitContainer.Panel1.SuspendLayout();
+            leftSplitContainer.Panel2.SuspendLayout();
+            leftSplitContainer.SuspendLayout();
             grpLayer.SuspendLayout();
             grpProperties.SuspendLayout();
             tabProperties.SuspendLayout();
@@ -144,12 +149,11 @@ namespace Land_Readjustment_Tool
             ((System.ComponentModel.ISupportInitialize)trkTransparency).BeginInit();
             tabLabel.SuspendLayout();
             ((System.ComponentModel.ISupportInitialize)numFontSize).BeginInit();
-            ((System.ComponentModel.ISupportInitialize)splitContainer3).BeginInit();
-            splitContainer3.Panel1.SuspendLayout();
-            splitContainer3.Panel2.SuspendLayout();
-            splitContainer3.SuspendLayout();
-            grpParcelObjProp.SuspendLayout();
-            ((System.ComponentModel.ISupportInitialize)dgvParcelObjProperty).BeginInit();
+            ((System.ComponentModel.ISupportInitialize)mainSplitContainer).BeginInit();
+            mainSplitContainer.Panel1.SuspendLayout();
+            mainSplitContainer.Panel2.SuspendLayout();
+            mainSplitContainer.SuspendLayout();
+            toolStrip1.SuspendLayout();
             SuspendLayout();
             // 
             // mainMenuStrip
@@ -177,7 +181,7 @@ namespace Land_Readjustment_Tool
             // 
             tsmNewProject.Name = "tsmNewProject";
             tsmNewProject.ShortcutKeys = Keys.Control | Keys.N;
-            tsmNewProject.Size = new Size(233, 26);
+            tsmNewProject.Size = new Size(283, 26);
             tsmNewProject.Text = "&New Project";
             tsmNewProject.Click += tsmNewProject_Click;
             // 
@@ -185,58 +189,58 @@ namespace Land_Readjustment_Tool
             // 
             tsmOpenProject.Name = "tsmOpenProject";
             tsmOpenProject.ShortcutKeys = Keys.Control | Keys.O;
-            tsmOpenProject.Size = new Size(233, 26);
+            tsmOpenProject.Size = new Size(283, 26);
             tsmOpenProject.Text = "&Open Project";
             tsmOpenProject.Click += tsmOpenProject_Click;
             // 
             // toolStripSeparator1
             // 
             toolStripSeparator1.Name = "toolStripSeparator1";
-            toolStripSeparator1.Size = new Size(230, 6);
+            toolStripSeparator1.Size = new Size(280, 6);
             // 
             // tsmSave
             // 
             tsmSave.Enabled = false;
             tsmSave.Name = "tsmSave";
             tsmSave.ShortcutKeys = Keys.Control | Keys.S;
-            tsmSave.Size = new Size(233, 26);
-            tsmSave.Text = "Save";
+            tsmSave.Size = new Size(283, 26);
+            tsmSave.Text = "Save Project";
             // 
             // tsmSaveAs
             // 
             tsmSaveAs.Enabled = false;
             tsmSaveAs.Name = "tsmSaveAs";
             tsmSaveAs.ShortcutKeys = Keys.Control | Keys.Shift | Keys.S;
-            tsmSaveAs.Size = new Size(233, 26);
-            tsmSaveAs.Text = "Save As";
+            tsmSaveAs.Size = new Size(283, 26);
+            tsmSaveAs.Text = "Save As Project";
             // 
             // toolStripSeparator2
             // 
             toolStripSeparator2.Name = "toolStripSeparator2";
-            toolStripSeparator2.Size = new Size(230, 6);
+            toolStripSeparator2.Size = new Size(280, 6);
             // 
             // tsmRecentProjects
             // 
             tsmRecentProjects.Name = "tsmRecentProjects";
-            tsmRecentProjects.Size = new Size(233, 26);
+            tsmRecentProjects.Size = new Size(283, 26);
             tsmRecentProjects.Text = "Recent Projects";
             // 
             // toolStripSeparator3
             // 
             toolStripSeparator3.Name = "toolStripSeparator3";
-            toolStripSeparator3.Size = new Size(230, 6);
+            toolStripSeparator3.Size = new Size(280, 6);
             // 
             // tsmExit
             // 
             tsmExit.Name = "tsmExit";
-            tsmExit.Size = new Size(233, 26);
+            tsmExit.Size = new Size(283, 26);
             tsmExit.Text = "Exit";
             tsmExit.Click += ExitToolStripMenuItem_Click_1;
             // 
             // toolStripSeparator4
             // 
             toolStripSeparator4.Name = "toolStripSeparator4";
-            toolStripSeparator4.Size = new Size(230, 6);
+            toolStripSeparator4.Size = new Size(280, 6);
             // 
             // projectToolStripMenuItem
             // 
@@ -432,49 +436,92 @@ namespace Land_Readjustment_Tool
             cadastralDataToolStripMenuItem.Size = new Size(234, 26);
             cadastralDataToolStripMenuItem.Text = "Land Ownership Data";
             // 
-            // mainSplitContainer
+            // importDataToolStripMenuItem
             // 
-            mainSplitContainer.BorderStyle = BorderStyle.Fixed3D;
-            mainSplitContainer.Dock = DockStyle.Fill;
-            mainSplitContainer.Location = new Point(0, 28);
-            mainSplitContainer.Margin = new Padding(4);
-            mainSplitContainer.Name = "mainSplitContainer";
+            importDataToolStripMenuItem.Name = "importDataToolStripMenuItem";
+            importDataToolStripMenuItem.Size = new Size(213, 26);
+            importDataToolStripMenuItem.Text = "Import";
             // 
-            // mainSplitContainer.Panel1
+            // viewEditRecordsToolStripMenuItem
             // 
-            mainSplitContainer.Panel1.Controls.Add(splitContainer2);
-            mainSplitContainer.Panel1MinSize = 150;
+            viewEditRecordsToolStripMenuItem.Name = "viewEditRecordsToolStripMenuItem";
+            viewEditRecordsToolStripMenuItem.Size = new Size(213, 26);
+            viewEditRecordsToolStripMenuItem.Text = "View/Edit Records";
             // 
-            // mainSplitContainer.Panel2
+            // splitContainer3
             // 
-            mainSplitContainer.Panel2.Controls.Add(splitContainer3);
-            mainSplitContainer.Size = new Size(1313, 696);
-            mainSplitContainer.SplitterDistance = 220;
-            mainSplitContainer.TabIndex = 3;
-            mainSplitContainer.Visible = false;
+            splitContainer3.Dock = DockStyle.Fill;
+            splitContainer3.Location = new Point(0, 0);
+            splitContainer3.Name = "splitContainer3";
             // 
-            // splitContainer2
+            // splitContainer3.Panel1
             // 
-            splitContainer2.AllowDrop = true;
-            splitContainer2.Dock = DockStyle.Fill;
-            splitContainer2.Location = new Point(0, 0);
-            splitContainer2.Margin = new Padding(4);
-            splitContainer2.Name = "splitContainer2";
-            splitContainer2.Orientation = Orientation.Horizontal;
+            splitContainer3.Panel1.Controls.Add(statusStrip1);
             // 
-            // splitContainer2.Panel1
+            // splitContainer3.Panel2
             // 
-            splitContainer2.Panel1.Controls.Add(grpLayer);
+            splitContainer3.Panel2.Controls.Add(grpParcelObjProp);
+            splitContainer3.Size = new Size(1085, 636);
+            splitContainer3.SplitterDistance = 798;
+            splitContainer3.TabIndex = 1;
             // 
-            // splitContainer2.Panel2
+            // statusStrip1
             // 
-            splitContainer2.Panel2.BackColor = Color.White;
-            splitContainer2.Panel2.Controls.Add(grpProperties);
-            splitContainer2.Panel2.Controls.Add(label1);
-            splitContainer2.Size = new Size(216, 692);
-            splitContainer2.SplitterDistance = 336;
-            splitContainer2.SplitterWidth = 5;
-            splitContainer2.TabIndex = 0;
+            statusStrip1.ImageScalingSize = new Size(20, 20);
+            statusStrip1.Location = new Point(0, 614);
+            statusStrip1.Name = "statusStrip1";
+            statusStrip1.Size = new Size(798, 22);
+            statusStrip1.TabIndex = 0;
+            statusStrip1.Text = "statusStrip1";
+            // 
+            // grpParcelObjProp
+            // 
+            grpParcelObjProp.Controls.Add(dgvParcelObjProperty);
+            grpParcelObjProp.Dock = DockStyle.Fill;
+            grpParcelObjProp.Font = new Font("Segoe UI", 9F, FontStyle.Bold, GraphicsUnit.Point, 0);
+            grpParcelObjProp.Location = new Point(0, 0);
+            grpParcelObjProp.Margin = new Padding(4);
+            grpParcelObjProp.Name = "grpParcelObjProp";
+            grpParcelObjProp.Padding = new Padding(4);
+            grpParcelObjProp.RightToLeft = RightToLeft.No;
+            grpParcelObjProp.Size = new Size(283, 636);
+            grpParcelObjProp.TabIndex = 1;
+            grpParcelObjProp.TabStop = false;
+            grpParcelObjProp.Text = "Parcel";
+            // 
+            // dgvParcelObjProperty
+            // 
+            dgvParcelObjProperty.BackgroundColor = SystemColors.Control;
+            dgvParcelObjProperty.ColumnHeadersHeightSizeMode = DataGridViewColumnHeadersHeightSizeMode.AutoSize;
+            dgvParcelObjProperty.Dock = DockStyle.Fill;
+            dgvParcelObjProperty.Location = new Point(4, 24);
+            dgvParcelObjProperty.Name = "dgvParcelObjProperty";
+            dgvParcelObjProperty.RowHeadersWidth = 51;
+            dgvParcelObjProperty.Size = new Size(275, 608);
+            dgvParcelObjProperty.TabIndex = 0;
+            // 
+            // leftSplitContainer
+            // 
+            leftSplitContainer.AllowDrop = true;
+            leftSplitContainer.Dock = DockStyle.Fill;
+            leftSplitContainer.Location = new Point(0, 0);
+            leftSplitContainer.Margin = new Padding(4);
+            leftSplitContainer.Name = "leftSplitContainer";
+            leftSplitContainer.Orientation = Orientation.Horizontal;
+            // 
+            // leftSplitContainer.Panel1
+            // 
+            leftSplitContainer.Panel1.Controls.Add(grpLayer);
+            // 
+            // leftSplitContainer.Panel2
+            // 
+            leftSplitContainer.Panel2.BackColor = Color.White;
+            leftSplitContainer.Panel2.Controls.Add(grpProperties);
+            leftSplitContainer.Panel2.Controls.Add(label1);
+            leftSplitContainer.Size = new Size(216, 636);
+            leftSplitContainer.SplitterDistance = 288;
+            leftSplitContainer.SplitterWidth = 5;
+            leftSplitContainer.TabIndex = 0;
             // 
             // grpLayer
             // 
@@ -486,7 +533,7 @@ namespace Land_Readjustment_Tool
             grpLayer.Name = "grpLayer";
             grpLayer.Padding = new Padding(4);
             grpLayer.RightToLeft = RightToLeft.No;
-            grpLayer.Size = new Size(209, 328);
+            grpLayer.Size = new Size(209, 280);
             grpLayer.TabIndex = 0;
             grpLayer.TabStop = false;
             grpLayer.Text = "Layers";
@@ -504,7 +551,8 @@ namespace Land_Readjustment_Tool
             treeNode2.Name = "Node0";
             treeNode2.Text = "Node0";
             treeView1.Nodes.AddRange(new TreeNode[] { treeNode2 });
-            treeView1.Size = new Size(195, 297);
+            treeView1.ShowLines = false;
+            treeView1.Size = new Size(195, 249);
             treeView1.TabIndex = 0;
             // 
             // grpProperties
@@ -515,7 +563,7 @@ namespace Land_Readjustment_Tool
             grpProperties.Location = new Point(0, 0);
             grpProperties.Name = "grpProperties";
             grpProperties.Padding = new Padding(6, 8, 6, 6);
-            grpProperties.Size = new Size(216, 351);
+            grpProperties.Size = new Size(216, 343);
             grpProperties.TabIndex = 2;
             grpProperties.TabStop = false;
             grpProperties.Text = "Layer Properties";
@@ -530,7 +578,7 @@ namespace Land_Readjustment_Tool
             tabProperties.Location = new Point(6, 28);
             tabProperties.Name = "tabProperties";
             tabProperties.SelectedIndex = 0;
-            tabProperties.Size = new Size(204, 317);
+            tabProperties.Size = new Size(204, 309);
             tabProperties.TabIndex = 0;
             // 
             // tabGeneral
@@ -553,7 +601,7 @@ namespace Land_Readjustment_Tool
             tabGeneral.Location = new Point(4, 29);
             tabGeneral.Name = "tabGeneral";
             tabGeneral.Padding = new Padding(10);
-            tabGeneral.Size = new Size(196, 284);
+            tabGeneral.Size = new Size(196, 276);
             tabGeneral.TabIndex = 0;
             tabGeneral.Text = "General";
             tabGeneral.UseVisualStyleBackColor = true;
@@ -726,7 +774,7 @@ namespace Land_Readjustment_Tool
             tabFill.Location = new Point(4, 29);
             tabFill.Name = "tabFill";
             tabFill.Padding = new Padding(10);
-            tabFill.Size = new Size(403, 284);
+            tabFill.Size = new Size(196, 276);
             tabFill.TabIndex = 1;
             tabFill.Text = "Fill";
             tabFill.UseVisualStyleBackColor = true;
@@ -778,7 +826,7 @@ namespace Land_Readjustment_Tool
             cboFillStyle.Items.AddRange(new object[] { "None", "Solid", "Hatched" });
             cboFillStyle.Location = new Point(140, 48);
             cboFillStyle.Name = "cboFillStyle";
-            cboFillStyle.Size = new Size(250, 28);
+            cboFillStyle.Size = new Size(43, 28);
             cboFillStyle.TabIndex = 4;
             // 
             // lblHatch
@@ -801,7 +849,7 @@ namespace Land_Readjustment_Tool
             cboHatch.Items.AddRange(new object[] { "ANSI31", "ANSI32", "ANSI33", "ANSI34", "AR-BRSTD", "DOTS", "EARTH" });
             cboHatch.Location = new Point(140, 82);
             cboHatch.Name = "cboHatch";
-            cboHatch.Size = new Size(250, 28);
+            cboHatch.Size = new Size(43, 28);
             cboHatch.TabIndex = 6;
             // 
             // lblTransparency
@@ -815,18 +863,6 @@ namespace Land_Readjustment_Tool
             lblTransparency.Text = "Transparency:";
             lblTransparency.Click += lblTransparency_Click;
             // 
-            // trkTransparency
-            // 
-            trkTransparency.Anchor = AnchorStyles.Top | AnchorStyles.Left | AnchorStyles.Right;
-            trkTransparency.BackColor = SystemColors.ControlLightLight;
-            trkTransparency.LargeChange = 1;
-            trkTransparency.Location = new Point(140, 117);
-            trkTransparency.Maximum = 100;
-            trkTransparency.Name = "trkTransparency";
-            trkTransparency.Size = new Size(250, 56);
-            trkTransparency.TabIndex = 8;
-            trkTransparency.TickFrequency = 10;
-            // 
             // lblTranspValue
             // 
             lblTranspValue.AutoSize = true;
@@ -836,6 +872,18 @@ namespace Land_Readjustment_Tool
             lblTranspValue.Size = new Size(29, 20);
             lblTranspValue.TabIndex = 9;
             lblTranspValue.Text = "0%";
+            // 
+            // trkTransparency
+            // 
+            trkTransparency.Anchor = AnchorStyles.Top | AnchorStyles.Left | AnchorStyles.Right;
+            trkTransparency.BackColor = SystemColors.ControlLightLight;
+            trkTransparency.LargeChange = 1;
+            trkTransparency.Location = new Point(140, 117);
+            trkTransparency.Maximum = 100;
+            trkTransparency.Name = "trkTransparency";
+            trkTransparency.Size = new Size(43, 56);
+            trkTransparency.TabIndex = 8;
+            trkTransparency.TickFrequency = 10;
             // 
             // tabLabel
             // 
@@ -853,7 +901,7 @@ namespace Land_Readjustment_Tool
             tabLabel.Location = new Point(4, 29);
             tabLabel.Name = "tabLabel";
             tabLabel.Padding = new Padding(10);
-            tabLabel.Size = new Size(403, 284);
+            tabLabel.Size = new Size(196, 276);
             tabLabel.TabIndex = 2;
             tabLabel.Text = "Labels";
             tabLabel.UseVisualStyleBackColor = true;
@@ -885,13 +933,13 @@ namespace Land_Readjustment_Tool
             txtFontName.Location = new Point(140, 46);
             txtFontName.Name = "txtFontName";
             txtFontName.ReadOnly = true;
-            txtFontName.Size = new Size(204, 27);
+            txtFontName.Size = new Size(0, 27);
             txtFontName.TabIndex = 2;
             // 
             // btnPickFont
             // 
             btnPickFont.Anchor = AnchorStyles.Top | AnchorStyles.Right;
-            btnPickFont.Location = new Point(350, 46);
+            btnPickFont.Location = new Point(143, 46);
             btnPickFont.Name = "btnPickFont";
             btnPickFont.Size = new Size(40, 26);
             btnPickFont.TabIndex = 3;
@@ -965,7 +1013,7 @@ namespace Land_Readjustment_Tool
             cboLabelField.Items.AddRange(new object[] { "ParcelNo", "OwnerName", "AreaSqm", "AreaRAPD", "LandUse", "PlotNumber" });
             cboLabelField.Location = new Point(140, 150);
             cboLabelField.Name = "cboLabelField";
-            cboLabelField.Size = new Size(250, 28);
+            cboLabelField.Size = new Size(43, 28);
             cboLabelField.TabIndex = 10;
             // 
             // label1
@@ -979,75 +1027,62 @@ namespace Land_Readjustment_Tool
             label1.TabIndex = 1;
             label1.Text = "Properties";
             // 
-            // splitContainer3
+            // mainSplitContainer
             // 
-            splitContainer3.Dock = DockStyle.Fill;
-            splitContainer3.Location = new Point(0, 0);
-            splitContainer3.Name = "splitContainer3";
+            mainSplitContainer.Anchor = AnchorStyles.Top | AnchorStyles.Bottom | AnchorStyles.Left | AnchorStyles.Right;
+            mainSplitContainer.BorderStyle = BorderStyle.Fixed3D;
+            mainSplitContainer.Location = new Point(0, 84);
+            mainSplitContainer.Margin = new Padding(4);
+            mainSplitContainer.Name = "mainSplitContainer";
             // 
-            // splitContainer3.Panel1
+            // mainSplitContainer.Panel1
             // 
-            splitContainer3.Panel1.Controls.Add(drawingCanvasControl3);
+            mainSplitContainer.Panel1.Controls.Add(leftSplitContainer);
+            mainSplitContainer.Panel1MinSize = 150;
             // 
-            // splitContainer3.Panel2
+            // mainSplitContainer.Panel2
             // 
-            splitContainer3.Panel2.Controls.Add(grpParcelObjProp);
-            splitContainer3.Size = new Size(1085, 692);
-            splitContainer3.SplitterDistance = 802;
-            splitContainer3.TabIndex = 1;
+            mainSplitContainer.Panel2.Controls.Add(splitContainer3);
+            mainSplitContainer.Size = new Size(1313, 640);
+            mainSplitContainer.SplitterDistance = 220;
+            mainSplitContainer.TabIndex = 3;
+            mainSplitContainer.Visible = false;
             // 
-            // drawingCanvasControl3
+            // toolStrip1
             // 
-            drawingCanvasControl3.Dock = DockStyle.Fill;
-            drawingCanvasControl3.Location = new Point(0, 0);
-            drawingCanvasControl3.Name = "drawingCanvasControl3";
-            drawingCanvasControl3.Size = new Size(802, 692);
-            drawingCanvasControl3.TabIndex = 0;
-
+            toolStrip1.ImageScalingSize = new Size(20, 20);
+            toolStrip1.Items.AddRange(new ToolStripItem[] { toolStripButton1 });
+            toolStrip1.Location = new Point(0, 28);
+            toolStrip1.Name = "toolStrip1";
+            toolStrip1.Size = new Size(1313, 27);
+            toolStrip1.TabIndex = 4;
+            toolStrip1.Text = "toolStrip1";
             // 
-            // grpParcelObjProp
+            // toolStripButton1
             // 
-            grpParcelObjProp.Controls.Add(dgvParcelObjProperty);
-            grpParcelObjProp.Dock = DockStyle.Fill;
-            grpParcelObjProp.Font = new Font("Segoe UI", 9F, FontStyle.Bold, GraphicsUnit.Point, 0);
-            grpParcelObjProp.Location = new Point(0, 0);
-            grpParcelObjProp.Margin = new Padding(4);
-            grpParcelObjProp.Name = "grpParcelObjProp";
-            grpParcelObjProp.Padding = new Padding(4);
-            grpParcelObjProp.RightToLeft = RightToLeft.No;
-            grpParcelObjProp.Size = new Size(279, 692);
-            grpParcelObjProp.TabIndex = 1;
-            grpParcelObjProp.TabStop = false;
-            grpParcelObjProp.Text = "Parcel";
+            toolStripButton1.DisplayStyle = ToolStripItemDisplayStyle.Image;
+            toolStripButton1.Image = (Image)resources.GetObject("toolStripButton1.Image");
+            toolStripButton1.ImageTransparentColor = Color.Magenta;
+            toolStripButton1.Name = "toolStripButton1";
+            toolStripButton1.Size = new Size(29, 24);
+            toolStripButton1.Text = "toolStripButton1";
             // 
-            // dgvParcelObjProperty
+            // toolStrip2
             // 
-            dgvParcelObjProperty.BackgroundColor = SystemColors.Control;
-            dgvParcelObjProperty.ColumnHeadersHeightSizeMode = DataGridViewColumnHeadersHeightSizeMode.AutoSize;
-            dgvParcelObjProperty.Dock = DockStyle.Fill;
-            dgvParcelObjProperty.Location = new Point(4, 24);
-            dgvParcelObjProperty.Name = "dgvParcelObjProperty";
-            dgvParcelObjProperty.RowHeadersWidth = 51;
-            dgvParcelObjProperty.Size = new Size(271, 664);
-            dgvParcelObjProperty.TabIndex = 0;
-            // 
-            // importDataToolStripMenuItem
-            // 
-            importDataToolStripMenuItem.Name = "importDataToolStripMenuItem";
-            importDataToolStripMenuItem.Size = new Size(213, 26);
-            importDataToolStripMenuItem.Text = "Import";
-            // 
-            // viewEditRecordsToolStripMenuItem
-            // 
-            viewEditRecordsToolStripMenuItem.Name = "viewEditRecordsToolStripMenuItem";
-            viewEditRecordsToolStripMenuItem.Size = new Size(213, 26);
-            viewEditRecordsToolStripMenuItem.Text = "View/Edit Records";
+            toolStrip2.ImageScalingSize = new Size(20, 20);
+            toolStrip2.Location = new Point(0, 55);
+            toolStrip2.Name = "toolStrip2";
+            toolStrip2.Size = new Size(1313, 25);
+            toolStrip2.TabIndex = 5;
+            toolStrip2.Text = "toolStrip2";
             // 
             // frmMain
             // 
             AutoScaleMode = AutoScaleMode.None;
             BackColor = SystemColors.ControlLightLight;
             ClientSize = new Size(1313, 724);
+            Controls.Add(toolStrip2);
+            Controls.Add(toolStrip1);
             Controls.Add(mainSplitContainer);
             Controls.Add(mainMenuStrip);
             DoubleBuffered = true;
@@ -1061,15 +1096,18 @@ namespace Land_Readjustment_Tool
             Load += frmMain_Load;
             mainMenuStrip.ResumeLayout(false);
             mainMenuStrip.PerformLayout();
-            mainSplitContainer.Panel1.ResumeLayout(false);
-            mainSplitContainer.Panel2.ResumeLayout(false);
-            ((System.ComponentModel.ISupportInitialize)mainSplitContainer).EndInit();
-            mainSplitContainer.ResumeLayout(false);
-            splitContainer2.Panel1.ResumeLayout(false);
-            splitContainer2.Panel2.ResumeLayout(false);
-            splitContainer2.Panel2.PerformLayout();
-            ((System.ComponentModel.ISupportInitialize)splitContainer2).EndInit();
-            splitContainer2.ResumeLayout(false);
+            splitContainer3.Panel1.ResumeLayout(false);
+            splitContainer3.Panel1.PerformLayout();
+            splitContainer3.Panel2.ResumeLayout(false);
+            ((System.ComponentModel.ISupportInitialize)splitContainer3).EndInit();
+            splitContainer3.ResumeLayout(false);
+            grpParcelObjProp.ResumeLayout(false);
+            ((System.ComponentModel.ISupportInitialize)dgvParcelObjProperty).EndInit();
+            leftSplitContainer.Panel1.ResumeLayout(false);
+            leftSplitContainer.Panel2.ResumeLayout(false);
+            leftSplitContainer.Panel2.PerformLayout();
+            ((System.ComponentModel.ISupportInitialize)leftSplitContainer).EndInit();
+            leftSplitContainer.ResumeLayout(false);
             grpLayer.ResumeLayout(false);
             grpProperties.ResumeLayout(false);
             tabProperties.ResumeLayout(false);
@@ -1081,12 +1119,12 @@ namespace Land_Readjustment_Tool
             tabLabel.ResumeLayout(false);
             tabLabel.PerformLayout();
             ((System.ComponentModel.ISupportInitialize)numFontSize).EndInit();
-            splitContainer3.Panel1.ResumeLayout(false);
-            splitContainer3.Panel2.ResumeLayout(false);
-            ((System.ComponentModel.ISupportInitialize)splitContainer3).EndInit();
-            splitContainer3.ResumeLayout(false);
-            grpParcelObjProp.ResumeLayout(false);
-            ((System.ComponentModel.ISupportInitialize)dgvParcelObjProperty).EndInit();
+            mainSplitContainer.Panel1.ResumeLayout(false);
+            mainSplitContainer.Panel2.ResumeLayout(false);
+            ((System.ComponentModel.ISupportInitialize)mainSplitContainer).EndInit();
+            mainSplitContainer.ResumeLayout(false);
+            toolStrip1.ResumeLayout(false);
+            toolStrip1.PerformLayout();
             ResumeLayout(false);
             PerformLayout();
         }
@@ -1117,11 +1155,6 @@ namespace Land_Readjustment_Tool
         private System.Windows.Forms.ToolStripMenuItem cadastralDataToolStripMenuItem;
         private System.Windows.Forms.ToolStripMenuItem tsmCloseProject;
         private System.Windows.Forms.ToolStripMenuItem tsmBackupProject;
-        private System.Windows.Forms.SplitContainer mainSplitContainer;
-        private System.Windows.Forms.SplitContainer splitContainer2;
-        private System.Windows.Forms.GroupBox grpLayer;
-        private TreeView treeView1;
-        private Label label1;
         private ToolStripSeparator toolStripSeparator2;
         private ToolStripMenuItem tsmRecentProjects;
         private ToolStripMenuItem tsmRestoreBackup;
@@ -1145,8 +1178,13 @@ namespace Land_Readjustment_Tool
         private ToolStripMenuItem ImportParcelOwnerShipRecords;
         private DrawingCanvasControl drawingCanvasControl1;
         private ColorDialog colorDialog2;
-        private SplitContainer splitContainer3;
         private DrawingCanvasControl drawingCanvasControl2;
+        private SplitContainer splitContainer3;
+        private GroupBox grpParcelObjProp;
+        private DataGridView dgvParcelObjProperty;
+        private SplitContainer leftSplitContainer;
+        private GroupBox grpLayer;
+        private TreeView treeView1;
         private GroupBox grpProperties;
         private TabControl tabProperties;
         private TabPage tabGeneral;
@@ -1174,8 +1212,8 @@ namespace Land_Readjustment_Tool
         private Label lblHatch;
         private ComboBox cboHatch;
         private Label lblTransparency;
-        private TrackBar trkTransparency;
         private Label lblTranspValue;
+        private TrackBar trkTransparency;
         private TabPage tabLabel;
         private CheckBox chkShowLabels;
         private Label lblFont;
@@ -1188,8 +1226,11 @@ namespace Land_Readjustment_Tool
         private Button btnLabelColor;
         private Label lblLabelField;
         private ComboBox cboLabelField;
-        private GroupBox grpParcelObjProp;
-        private DrawingCanvasControl drawingCanvasControl3;
-        private DataGridView dgvParcelObjProperty;
+        private Label label1;
+        private SplitContainer mainSplitContainer;
+        private StatusStrip statusStrip1;
+        private ToolStrip toolStrip1;
+        private ToolStrip toolStrip2;
+        private ToolStripButton toolStripButton1;
     }
 }

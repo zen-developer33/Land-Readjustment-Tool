@@ -15,7 +15,7 @@ namespace Land_Readjustment_Tool.UI.Forms.Project
     /// </summary>
     public partial class frmProjectSettings : Form
     {
-        private readonly IProjectSettingsService _service;
+        private readonly IProjectSettingsService _service;  //These are initialized through the frmProjectSettings contructor only. They cannot be changed.
         private readonly ICoordinateSystemRepository _crsRepo;
         private readonly IDatumTransformationRepository _datumRepo;
 
@@ -65,8 +65,8 @@ namespace Land_Readjustment_Tool.UI.Forms.Project
                 var settingsTask = _service.GetAsync();
                 var crsTask = _crsRepo.GetAllActiveAsync();
                 var datumTask = _datumRepo.GetAllActiveAsync();
-
-                await Task.WhenAll(settingsTask, crsTask, datumTask);
+                
+                await Task.WhenAll(settingsTask, crsTask, datumTask);  ///It defines a task that is completed only when all the tasks in the argument is completed.
 
                 _settings = settingsTask.Result;
                 _crsList = crsTask.Result;

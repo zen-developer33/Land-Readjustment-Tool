@@ -32,7 +32,7 @@ namespace Land_Readjustment_Tool.Core.Entities.Spatial
 
         /// <summary>
         /// Central meridian in decimal degrees.
-        /// MUTM81 = 81.0, MUTM82 = 84.0, MUTM83 = 87.0
+        /// MUTM81 = 81.0, MUTM84 = 84.0, MUTM87 = 87.0
         /// </summary>
         public double? CentralMeridian { get; set; }
 

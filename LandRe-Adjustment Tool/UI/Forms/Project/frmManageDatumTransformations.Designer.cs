@@ -49,7 +49,7 @@ namespace Land_Readjustment_Tool.UI.Forms.Project
             pnlToolbar.Location = new Point(0, 0);
             pnlToolbar.Name = "pnlToolbar";
             pnlToolbar.Padding = new Padding(4);
-            pnlToolbar.Size = new Size(562, 43);
+            pnlToolbar.Size = new Size(591, 43);
             pnlToolbar.TabIndex = 0;
             // 
             // btnAdd
@@ -97,10 +97,10 @@ namespace Land_Readjustment_Tool.UI.Forms.Project
             pnlDetails.Controls.Add(txtDetails);
             pnlDetails.Controls.Add(lblDetailsTitle);
             pnlDetails.Dock = DockStyle.Right;
-            pnlDetails.Location = new Point(562, 0);
+            pnlDetails.Location = new Point(591, 0);
             pnlDetails.Name = "pnlDetails";
             pnlDetails.Padding = new Padding(4);
-            pnlDetails.Size = new Size(300, 435);
+            pnlDetails.Size = new Size(300, 484);
             pnlDetails.TabIndex = 2;
             // 
             // txtDetails
@@ -114,7 +114,7 @@ namespace Land_Readjustment_Tool.UI.Forms.Project
             txtDetails.Name = "txtDetails";
             txtDetails.ReadOnly = true;
             txtDetails.ScrollBars = ScrollBars.Vertical;
-            txtDetails.Size = new Size(292, 405);
+            txtDetails.Size = new Size(292, 454);
             txtDetails.TabIndex = 1;
             // 
             // lblDetailsTitle
@@ -133,9 +133,9 @@ namespace Land_Readjustment_Tool.UI.Forms.Project
             pnlFooter.Controls.Add(lblHint);
             pnlFooter.Controls.Add(btnClose);
             pnlFooter.Dock = DockStyle.Bottom;
-            pnlFooter.Location = new Point(0, 435);
+            pnlFooter.Location = new Point(0, 484);
             pnlFooter.Name = "pnlFooter";
-            pnlFooter.Size = new Size(862, 38);
+            pnlFooter.Size = new Size(891, 38);
             pnlFooter.TabIndex = 3;
             // 
             // lblHint
@@ -152,7 +152,7 @@ namespace Land_Readjustment_Tool.UI.Forms.Project
             // btnClose
             // 
             btnClose.Anchor = AnchorStyles.Top | AnchorStyles.Right;
-            btnClose.Location = new Point(1449, 6);
+            btnClose.Location = new Point(1478, 6);
             btnClose.Name = "btnClose";
             btnClose.Size = new Size(75, 26);
             btnClose.TabIndex = 1;
@@ -180,7 +180,7 @@ namespace Land_Readjustment_Tool.UI.Forms.Project
             dgvDatum.RowHeadersWidth = 51;
             dgvDatum.RowTemplate.Height = 26;
             dgvDatum.SelectionMode = DataGridViewSelectionMode.FullRowSelect;
-            dgvDatum.Size = new Size(562, 392);
+            dgvDatum.Size = new Size(591, 441);
             dgvDatum.TabIndex = 1;
             dgvDatum.SelectionChanged += dgvDatum_SelectionChanged;
             // 
@@ -236,7 +236,7 @@ namespace Land_Readjustment_Tool.UI.Forms.Project
             // 
             AutoScaleDimensions = new SizeF(8F, 20F);
             AutoScaleMode = AutoScaleMode.Font;
-            ClientSize = new Size(862, 473);
+            ClientSize = new Size(891, 522);
             Controls.Add(dgvDatum);
             Controls.Add(pnlToolbar);
             Controls.Add(pnlDetails);
