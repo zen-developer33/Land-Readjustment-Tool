@@ -162,9 +162,9 @@ namespace Land_Readjustment_Tool.UI.CustomControls
             toolStrip2.Dock = DockStyle.None;
             toolStrip2.ImageScalingSize = new Size(20, 20);
             toolStrip2.Items.AddRange(new ToolStripItem[] { btnCollapseLeftPanel, btnPan, toolStripButton6, toolStripButton7, toolStripButton8, toolStripSeparator2, btnZoom, btnZoomOut, toolStripButton5, toolStripSeparator3, toolStripLabel1, cbTheme, btnLoadShapes, btnShowHideGrid, toolSnap, toolStripButton1, btnShowDebugLog });
-            toolStrip2.Location = new Point(7, 0);
+            toolStrip2.Location = new Point(4, 0);
             toolStrip2.Name = "toolStrip2";
-            toolStrip2.Size = new Size(1033, 28);
+            toolStrip2.Size = new Size(994, 28);
             toolStrip2.TabIndex = 1;
             toolStrip2.Text = "toolStrip2";
             // 

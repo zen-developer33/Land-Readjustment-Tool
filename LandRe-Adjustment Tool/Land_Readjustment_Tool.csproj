@@ -29,6 +29,9 @@
 
   <ItemGroup>
     <Content Include="Resources\RePlot.ico" />
+    <Content Include="Resources\Cursors\Pan_hand.cur">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </Content>
   </ItemGroup>
 
   <ItemGroup>
