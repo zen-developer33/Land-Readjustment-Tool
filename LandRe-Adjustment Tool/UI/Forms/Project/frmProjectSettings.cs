@@ -87,7 +87,9 @@ namespace Land_Readjustment_Tool.UI.Forms.Project
                 BindCrsDropdown(_crsList);
                 BindDatumDropdown(_datumList);
                 PopulateForm(_settings);
-
+                if(!_settings.IsConfigured)
+                    grpDatumTransformation.Visible = false;
+                // Trigger initial filter of datum dropdown based on CRS
                 lblStatus.Text = "Ready";
             }
             catch (Exception ex)
@@ -178,10 +180,7 @@ namespace Land_Readjustment_Tool.UI.Forms.Project
         private void PopulateForm(ProjectSettings s)
         {
             // ── COORDINATE SYSTEM ────────────────────
-            if (s.CoordinateSystemId.HasValue)
-                cmbCRS.SelectedValue = s.CoordinateSystemId.Value;
-            else
-                cmbCRS.SelectedIndex = -1;
+                cmbCRS.SelectedValue = s.CoordinateSystemId!.Value;
 
             // ── DATUM TRANSFORMATION ─────────────────
             if (s.DatumTransformationId.HasValue)
@@ -262,8 +261,7 @@ namespace Land_Readjustment_Tool.UI.Forms.Project
 
         // ── CRS CHANGED — FILTER DATUM ───────────────────────────────────────
 
-        private void cmbCRS_SelectedIndexChanged(
-            object? sender, EventArgs e)
+        private void cmbCRS_SelectedIndexChanged(object? sender, EventArgs e)
         {
             // BUG FIX 4: Skip while we are programmatically rebinding to
             // avoid the re-bind loop described in BindCrsDropdown.

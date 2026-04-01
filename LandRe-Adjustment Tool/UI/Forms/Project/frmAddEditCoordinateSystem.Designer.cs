@@ -78,7 +78,7 @@ namespace Land_Readjustment_Tool.UI.Forms.Project
             // 
             // btnSave
             // 
-            btnSave.Location = new Point(348, 6);
+            btnSave.Location = new Point(329, 6);
             btnSave.Name = "btnSave";
             btnSave.Size = new Size(80, 28);
             btnSave.TabIndex = 90;
@@ -87,7 +87,7 @@ namespace Land_Readjustment_Tool.UI.Forms.Project
             // 
             // btnCancel
             // 
-            btnCancel.Location = new Point(432, 6);
+            btnCancel.Location = new Point(413, 6);
             btnCancel.Name = "btnCancel";
             btnCancel.Size = new Size(80, 28);
             btnCancel.TabIndex = 91;

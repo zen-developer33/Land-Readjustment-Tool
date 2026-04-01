@@ -3,139 +3,170 @@ using Land_Readjustment_Tool.Core.Entities.Replotting;
 using Land_Readjustment_Tool.Data;
 using Land_Readjustment_Tool.Services.Project;
 using Microsoft.EntityFrameworkCore;
-using NetTopologySuite.Utilities;
-using ProjNet.CoordinateSystems;
-using System.Diagnostics.Metrics;
 
 namespace Land_Readjustment_Tool.Services
 {
     /// <summary>
-    /// Manages project lifecycle:
-    /// - Creating new projects
-    /// - Opening existing projects
-    /// - Seeding default data
-    /// 
-    /// This is the ONLY place AppDbContext
-    /// is created for project operations.
+    /// Manages project lifecycle: creating and opening projects.
+    ///
+    /// HOW SEEDING WORKS:
+    /// Default CRS (MUTM81/82/83, UTM44N/45N) and
+    /// DatumTransformations (Nagarkot, Kalianpur, SurveyDept)
+    /// are seeded by EF Core MIGRATIONS — not here.
+    /// MigrateAsync() applies them automatically on every
+    /// new project creation.
+    ///
+    /// PlotTypes are seeded here because they are not in
+    /// migrations (runtime data, not schema data).
+    ///
+    /// NEW PROJECT FLOW:
+    ///   1. CreateNewProjectAsync — own DbContext, own commit
+    ///      → applies migrations (creates tables + seeds CRS/Datum)
+    ///      → seeds PlotTypes
+    ///      → creates ProjectInfo + ProjectSettings
+    ///      → commits and checkpoints
+    ///
+    ///   2. frmMain opens session context
+    ///      → OpenProjectDetails (user fills project info)
+    ///      → PromptProjectSettingsAsync (user configures or skips)
+    ///
+    ///   3. CommitNewProjectAsync — session context commit
+    ///      → commits all staged changes from step 2
+    ///      → creates initial .bak
     /// </summary>
     public class ProjectService
     {
         /// <summary>
-        /// Creates a new .lpp project file at the given path.
-        /// Applies migrations to create all tables.
-        /// Seeds default PlotType data.
-        /// Creates initial ProjectInfo record.
+        /// Creates a new .lpp project file.
+        ///
+        /// Uses its OWN AppDbContext — completely independent
+        /// of the session context that frmMain opens later.
+        /// Commits its own data internally.
+        ///
+        /// After this returns:
+        ///   → All tables exist (migrations applied)
+        ///   → Default CRS and Datum data is seeded (migrations)
+        ///   → PlotTypes seeded
+        ///   → ProjectInfo record created with project name
+        ///   → ProjectSettings record created with defaults
+        ///   → IsConfigured = false (triggers settings prompt)
+        ///   → WAL checkpointed (safe for session to open file)
+        ///
+        /// Returns created ProjectInfo.
         /// </summary>
         public async Task<ProjectInfo> CreateNewProjectAsync(
-    string projectFilePath,
-    string projectName)
+            string projectFilePath,
+            string projectName)
         {
             using var context = new AppDbContext(projectFilePath);
 
-            // Apply migrations — creates all tables
+            // Step 1 — Apply migrations
+            // Creates ALL tables and seeds:
+            //   tblCoordinateSystems (MUTM81/82/83, UTM44N/45N)
+            //   tblDatumTransformations (Nagarkot, Kalianpur, SurveyDept)
+            //   tblPlotTypes (via migration seed if present)
             await context.Database.MigrateAsync();
 
-            // Seed default plot types
+            // Step 2 — Seed PlotTypes if not already seeded
+            // (PlotTypes may not be in migrations on older versions)
             await SeedPlotTypesAsync(context);
 
-            // Create project info and default settings together
+            // Step 3 — Create initial ProjectInfo
             var projectInfo = new ProjectInfo
             {
                 ProjectName = projectName
+                // All other fields null — user fills via
+                // frm_ProjectDetails after project opens
             };
 
+            // Step 4 — Create default ProjectSettings
+            // IsConfigured = false triggers the prompt:
+            // "Would you like to configure project settings now?"
+            // User can configure now or skip — either way
+            // PromptProjectSettingsAsync stages IsConfigured = true
             var settings = new ProjectSettings
             {
-                // ── AREA ────────────────────────────────
-                // Default traditional unit is RAPD
-                // All calculations always use Sqm
+                // Coordinate system — null until user sets it
+                CoordinateSystemId = 1,
+                DatumTransformationId = null,
+
+                // Area
                 TraditionalAreaUnit = "RAPD",
 
-                // ── COORDINATE SYSTEM ───────────────────
-                // NEW — FK replaces old string fields
-                CoordinateSystemId = null,
-                // null until user sets it in settings window
-
-                // ── CANVAS ──────────────────────────────
-                CanvasBackgroundColor = "#1E2933",
-                CanvasGridColor = "#2A3A47",
+                // Canvas defaults
+                CanvasBackgroundColor = "#F0F0F0",
+                CanvasGridColor = "#CCCCCC",
                 CanvasGridVisible = true,
                 SnapEnabled = true,
                 SnapTolerancePx = 8.0,
 
-                // ── PARCEL NUMBERING ────────────────────
+                // Parcel numbering
                 ParcelNumberFormat = "Sequential",
                 ParcelNumberPrefix = null,
                 ParcelNumberPadding = 3,
 
-                // ── REPLOTTING ──────────────────────────
-                // Nepal government standard minimum
+                // Replotting — Nepal government standard minimum
                 MinPlotAreaSqm = 79.49,
 
-                // ── DOCUMENT ────────────────────────────
+                // Document
                 DocumentLanguage = "English",
                 DateFormat = "AD",
 
-                // ── PRINT ───────────────────────────────
+                // Print
                 DefaultPaperSize = "A3",
                 DefaultPrintScale = 500,
 
-                // ── STATUS ──────────────────────────────
-                // false = settings window shown on first open
-                // true after user confirms settings
+                // false = settings prompt shown on first open
+                // true  = user has configured or dismissed
                 IsConfigured = false
             };
-            // IsConfigured = false by default
-            // Settings window shown on first open
 
             context.ProjectInfo.Add(projectInfo);
             context.ProjectSettings.Add(settings);
 
-            // Save both in ONE transaction
+            // Step 5 — Commit ProjectInfo + ProjectSettings
             await context.SaveChangesAsync();
 
-            // WAL checkpoint — flush to main.lpp file
+            // Step 6 — WAL checkpoint
+            // Flush WAL into main .lpp file so the session
+            // context that frmMain opens can read the data
             await context.Database
                 .ExecuteSqlRawAsync(
                     "PRAGMA wal_checkpoint(TRUNCATE);");
 
-            // NOTE: Initial .bak is created in frmMain.PromptProjectSettings,
-            // AFTER the user has filled in project info and settings.
-            // That captures the correct "first saved state".
+            // NOTE:
+            // Initial .bak is created by frmMain.CommitNewProjectAsync
+            // AFTER user fills in project details and settings.
+            // That is the correct first saved state to back up —
+            // not this empty skeleton.
+
             return projectInfo;
         }
+
         /// <summary>
-        /// Opens an existing .lpp project file.
-        /// Applies any pending migrations.
-        /// Returns the ProjectInfo record.
+        /// Opens existing project and applies pending migrations.
+        /// Returns ProjectInfo or null if file is invalid.
         /// </summary>
         public async Task<ProjectInfo?> OpenProjectAsync(
             string projectFilePath)
         {
             using var context = new AppDbContext(projectFilePath);
-
-            // Apply any pending migrations
-            // handles version upgrades automatically
             await context.Database.MigrateAsync();
-
-            // Load project info
-            return await context.ProjectInfo
-                .FirstOrDefaultAsync();
+            return await context.ProjectInfo.FirstOrDefaultAsync();
         }
+
+        // ── SEED ─────────────────────────────────────
 
         /// <summary>
         /// Seeds default PlotType master data.
-        /// Only inserts if table is empty.
-        /// Safe to call multiple times.
+        /// Safe to call multiple times — skips if already seeded.
         /// </summary>
-        private async Task SeedPlotTypesAsync(AppDbContext context)
+        private static async Task SeedPlotTypesAsync(
+            AppDbContext context)
         {
-            // Check if already seeded
-            if (await context.PlotTypes.AnyAsync())
-                return;
+            if (await context.PlotTypes.AnyAsync()) return;
 
-            var defaultPlotTypes = new List<PlotType>
-            {
+            context.PlotTypes.AddRange(
                 new PlotType
                 {
                     TypeName = "Private",
@@ -176,9 +207,8 @@ namespace Land_Readjustment_Tool.Services
                     DisplayOrder = 6,
                     Description = "Road right of way"
                 }
-            };
+            );
 
-            context.PlotTypes.AddRange(defaultPlotTypes);
             await context.SaveChangesAsync();
         }
     }

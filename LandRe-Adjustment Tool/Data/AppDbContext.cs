@@ -403,9 +403,54 @@ namespace Land_Readjustment_Tool.Data
             ModelBuilder modelBuilder)
         {
             modelBuilder.Entity<DatumTransformation>().HasData(
+                
                 new DatumTransformation
                 {
                     Id = 1,
+                    Code = "NAGARKOT_TM",
+                    Name = "Nagarkot TM",
+                    SourceDatum = "Everest1830",
+                    TargetDatum = "WGS84",
+                    DeltaX = 296.207,
+                    DeltaY = 731.545,
+                    DeltaZ = 273.001,
+                    RotationX = 0,
+                    RotationY = 0,
+                    RotationZ = 0,
+                    ScalePpm = 0,
+                    ApplicableCrsCodes = "MUTM81,MUTM82,MUTM83",
+                    Source = "Nagarkot TM",
+                    Region = "Nepal",
+                    IsSystemDefault = true,
+                    IsActive = true,
+                    DisplayOrder = 1,
+                    Description = "Based on Nagarkot GPS control points."
+                },
+                new DatumTransformation
+                {
+                    Id = 2,
+                    Code = "KALIANPUR",
+                    Name = "Kalianpur Datum Parameters",
+                    SourceDatum = "Everest1830",
+                    TargetDatum = "WGS84",
+                    DeltaX = 295.0,
+                    DeltaY = 736.0,
+                    DeltaZ = 257.0,
+                    RotationX = 0,
+                    RotationY = 0,
+                    RotationZ = 0,
+                    ScalePpm = 0,
+                    ApplicableCrsCodes = "MUTM81,MUTM84,MUTM87",
+                    Source = "Kalianpur datum parameters",
+                    Region = "Nepal",
+                    IsSystemDefault = true,
+                    IsActive = true,
+                    DisplayOrder = 2,
+                    Description = "Traditional Kalianpur parameters. Used in older records."
+                },
+                new DatumTransformation
+                {
+                    Id = 3,
                     Code = "SURVEY_DEPT_7_PARAM",
                     Name = "Nepal Survey Department (Official)",
                     SourceDatum = "Everest1830",
@@ -424,52 +469,7 @@ namespace Land_Readjustment_Tool.Data
                     IsActive = true,
                     DisplayOrder = 1,
                     Description = "Official transformation. Recommended for all MUTM zones."
-                },
-                new DatumTransformation
-                {
-                    Id = 2,
-                    Code = "NAGARKOT_TM",
-                    Name = "Nagarkot TM",
-                    SourceDatum = "Everest1830",
-                    TargetDatum = "WGS84",
-                    DeltaX = 296.207,
-                    DeltaY = 731.545,
-                    DeltaZ = 273.001,
-                    RotationX = 0,
-                    RotationY = 0,
-                    RotationZ = 0,
-                    ScalePpm = 0,
-                    ApplicableCrsCodes = "MUTM81,MUTM82,MUTM83",
-                    Source = "Nagarkot TM",
-                    Region = "Nepal",
-                    IsSystemDefault = true,
-                    IsActive = true,
-                    DisplayOrder = 2,
-                    Description = "Based on Nagarkot GPS control points."
-                },
-                new DatumTransformation
-                {
-                    Id = 3,
-                    Code = "KALIANPUR",
-                    Name = "Kalianpur Datum Parameters",
-                    SourceDatum = "Everest1830",
-                    TargetDatum = "WGS84",
-                    DeltaX = 283.0,
-                    DeltaY = 682.0,
-                    DeltaZ = 231.0,
-                    RotationX = 0,
-                    RotationY = 0,
-                    RotationZ = 0,
-                    ScalePpm = 0,
-                    ApplicableCrsCodes = "MUTM81,MUTM84,MUTM87",
-                    Source = "Kalianpur datum parameters",
-                    Region = "Nepal",
-                    IsSystemDefault = true,
-                    IsActive = true,
-                    DisplayOrder = 3,
-                    Description = "Traditional Kalianpur parameters. Used in older records."
                 }
-
             );
         }
 

@@ -27,20 +27,24 @@ namespace Land_Readjustment_Tool
 
         //App Title shown in window Title bar
         private readonly string _appTitle = "RePlot";
-
+        private readonly string? _startupFilePath;
         //Canvas Control for drawing
         private DrawingCanvasControl _drawingCanvas;
-        public frmMain()
+        public frmMain(string? startupFilePath = null)
         {
             InitializeComponent();
-
+            _startupFilePath = startupFilePath;
             ConfigureSmoothSplitterLayout();
 
             UpdateWindowTitle();
             DisableProjectMenuItems();
-            this.FormClosing += frmMain_FormClosing;
-            tsmSave.Click += tsmSave_Click;
-            tsmSaveAs.Click += tsmSaveAs_Click;
+            this.FormClosing += frmMain_FormClosing!;
+            tsmSave.Click += tsmSave_Click!;
+            tsmSaveAs.Click += tsmSaveAs_Click!;
+            mnuNewProject.Click += tsmNewProject_Click!;
+            mnuOpenProject.Click += tsmOpenProject_Click!;
+            mnuSaveProject.Click += tsmSave_Click!;
+            mnuSaveAsProject.Click += tsmSaveAs_Click!;
         }
 
         private void ConfigureSmoothSplitterLayout()
@@ -124,10 +128,19 @@ namespace Land_Readjustment_Tool
             this.Text = AppServices.Context.HasUnsavedChanges ? $"{name}* - {_appTitle}" : $"{name} - {_appTitle}";
         }
 
-        private void frmMain_Load(object sender, EventArgs e)
+        private async void frmMain_Load(object sender, EventArgs e)
         {
-            splitContainer3.Panel1.Cursor = LoadPanCursor();
-            // Initialize the drawing canvas
+            BuildRecentProjectsMenu();
+            // If launched by double-clicking a .lpp file — open it
+            if (!string.IsNullOrEmpty(_startupFilePath) && File.Exists(_startupFilePath)
+                && _startupFilePath.EndsWith(".lpp", StringComparison.OrdinalIgnoreCase))
+            {
+                await OpenProjectInternalAsync(
+                    _startupFilePath,
+                    checkUnsavedChanges: false);
+                return;
+            }
+
         }
 
         private static Cursor LoadPanCursor()
@@ -246,6 +259,7 @@ namespace Land_Readjustment_Tool
         private async void tsmNewProject_Click(object sender, EventArgs e)
         {
             if (AppServices.HasContext && AppServices.Context.HasUnsavedChanges)
+            // If there is any project open and it has unsaved changes then ....
             {
                 var result = MessageBox.Show(
                     "Do you want to save and current project before creating new one?",
@@ -256,6 +270,7 @@ namespace Land_Readjustment_Tool
                 if (result == DialogResult.Yes)
                 {
                     await SaveCurrentProjectAsync(showMessage: false);
+                    //await CloseCurrentProjectAsync();
                 }
             }
 
@@ -306,7 +321,7 @@ namespace Land_Readjustment_Tool
                 OpenProjectDetails();
                 PromptProjectSettings();
                 InitializeProjectWorkspace();
-                ApplyCanvasSettings(); // ← add here
+                ApplySettings(); // ← add here
             }
             catch (Exception ex)
             {
@@ -369,11 +384,14 @@ namespace Land_Readjustment_Tool
                 OpenProjectSettings();
             }
 
+
             // Mark as configured regardless of choice —
             // prevents this prompt from showing again on next open.
             var repo = new ProjectSettingsRepository(
                 AppServices.Context.Session);
             await repo.MarkAsConfiguredAsync();
+
+            ApplySettings();
 
             // Create the very first project backup.
             // This happens AFTER project info + settings are saved,
@@ -415,12 +433,12 @@ namespace Land_Readjustment_Tool
             if (frm.ShowDialog() == DialogResult.OK)
             {
                 AppServices.Context.MarkAsModified();
-                // Apply canvas settings immediately
-                ApplyCanvasSettings();
+                // Apply all settings immediately
+
             }
         }
 
-        private async void ApplyCanvasSettings()
+        private async void ApplySettings()
         {
             if (!AppServices.HasContext) return;
             if (_drawingCanvas == null) return;
@@ -776,36 +794,6 @@ namespace Land_Readjustment_Tool
         /// Skips .bak files — new project starts
         /// with clean backup history.
         /// </summary>
-        //private static void CopyProjectFolder(
-        //    string source, string dest)
-        //{
-        //    string fullSource = Path.GetFullPath(source);
-        //    string fullDest = Path.GetFullPath(dest);
-
-        //    Directory.CreateDirectory(fullDest);
-
-        //    foreach (string file in Directory.GetFiles(
-        //        fullSource, "*",
-        //        SearchOption.AllDirectories))
-        //    {
-        //        string fullFile = Path.GetFullPath(file);
-
-        //        // Skip backup files
-        //        if (fullFile.EndsWith(".bak",
-        //            StringComparison.OrdinalIgnoreCase))
-        //            continue;
-
-        //        string relativePath = Path.GetRelativePath(
-        //            fullSource, fullFile);
-        //        string destFile = Path.Combine(
-        //            fullDest, relativePath);
-
-        //        Directory.CreateDirectory(
-        //            Path.GetDirectoryName(destFile)!);
-
-        //        File.Copy(fullFile, destFile, overwrite: true);
-        //    }
-        //}
 
         /// <summary>
         /// Copies all files from source to dest.
@@ -814,7 +802,6 @@ namespace Land_Readjustment_Tool
         /// Also skips files inside dest to prevent
         /// infinite copy if dest is inside source.
         /// </summary>
-
 
         /// <summary>
         /// Updates ProjectName in the copied database
@@ -950,6 +937,8 @@ namespace Land_Readjustment_Tool
                         "Project file is invalid or missing project information.");
 
                 context.SetInfo(info);
+                RecentProjectsManager.AddRecentProject(projectFilePath); //ADDS TO THE RECENTLY OPENED PROJECTS IN SETTINGS
+                BuildRecentProjectsMenu(); // Refresh menu to show the newly added recent project immediately
                 context.StateChanged += UpdateWindowTitle;
                 AppServices.SetContext(context);
 
@@ -1140,18 +1129,171 @@ namespace Land_Readjustment_Tool
             await CloseCurrentProjectAsync();
         }
 
-
-    }
-    // ── PROJECT FOLDER CREATOR ───────────────────
-
-    // Creates standard folder structure
-    // for a new project
-    public static class ProjectFolderCreator
-    {
-        public static void CreateFolders(string root)
+        // 1. When File menu opens — rebuild the list
+        private void tsmFile_DropDownOpening(object? sender, EventArgs e)
         {
-            string[] folders =
+            BuildRecentProjectsMenu();
+        }
+        /// <summary>
+        /// Fires when user clicks a recent project menu item.
+        ///
+        /// Flow:
+        ///   1. Validate the file still exists on disk
+        ///   2. Check if the same project is already open — skip if so
+        ///   3. Pass to OpenProjectInternalAsync(checkUnsavedChanges: true)
+        ///      which internally calls HandleUnsavedChangesOnClose()
+        ///      → Yes   = SaveCurrentProjectAsync then open new
+        ///      → No    = ChangeTracker.Clear() then open new
+        ///      → Cancel = abort, stay on current project
+        /// </summary>
+        private async void RecentProjectItem_Click(
+            object? sender, EventArgs e)
+        {
+            if (sender is not ToolStripMenuItem item) return;
+            if (item.Tag is not string path) return;
+
+            // ── Step 1: File still exists on disk? ───────────────────
+            if (!File.Exists(path))
             {
+                MessageBox.Show(
+                    $"Project file not found:\n\n{path}\n\n" +
+                    "It may have been moved or deleted.\n" +
+                    "It will be removed from the recent list.",
+                    "File Not Found",
+                    MessageBoxButtons.OK,
+                    MessageBoxIcon.Warning);
+
+                RecentProjectsManager.RemoveRecentProject(path);
+                BuildRecentProjectsMenu();
+                return;
+            }
+
+            // ── Step 2: Is this project already open? ────────────────
+            // No point closing and reopening the same file
+            if (AppServices.HasContext &&
+                string.Equals(
+                    AppServices.Context.ProjectFilePath,
+                    path,
+                    StringComparison.OrdinalIgnoreCase))
+            {
+                // Already open — just bring focus to main window
+                this.Activate();
+                return;
+            }
+
+            // ── Step 3: Delegate entirely to OpenProjectInternalAsync ─
+            // checkUnsavedChanges: true means it will internally call
+            // HandleUnsavedChangesOnClose() before doing anything.
+            // That gives the user Yes / No / Cancel for unsaved changes.
+            // If user clicks Cancel — nothing happens, current project stays.
+            await OpenProjectInternalAsync(
+                path,
+                checkUnsavedChanges: true);
+        }
+        // ── RECENT PROJECTS MENU ─────────────────────────────────────────
+
+        /// <summary>
+        /// Call this every time the File menu opens,
+        /// or after any project open/close.
+        /// Rebuilds the Recent Projects submenu from Settings.
+        /// </summary>
+        private void BuildRecentProjectsMenu()
+        {
+            tsmRecentProjects.DropDownItems.Clear();
+
+            var paths = RecentProjectsManager.GetRecentProjects();
+
+            if (paths.Count == 0)
+            {
+                // Show a disabled placeholder when list is empty
+                tsmRecentProjects.DropDownItems.Add(
+                    new ToolStripMenuItem("(No recent projects)")
+                    {
+                        Enabled = false
+                    });
+            }
+            else
+            {
+                // Add one menu item per recent file
+                for (int i = 0; i < paths.Count; i++)
+                {
+                    string path = paths[i];
+                    string name = Path.GetFileNameWithoutExtension(path);
+                    string folder = Path.GetDirectoryName(path) ?? string.Empty;
+
+                    // Format: "1.  Ward5  —  C:\Projects\Ward5\"
+                    string label =
+                        $"{i + 1}.  {name}  —  {folder}";
+
+                    var item = new ToolStripMenuItem(label)
+                    {
+                        Tag = path,
+                        ToolTipText = path   // show full path on hover
+                    };
+
+                    item.Click += RecentProjectItem_Click;
+                    tsmRecentProjects.DropDownItems.Add(item);
+                }
+
+                // Separator then Clear option
+                tsmRecentProjects.DropDownItems.Add(
+                    new ToolStripSeparator());
+
+                var clearItem = new ToolStripMenuItem("Clear Recent Projects");
+                clearItem.Click += (s, e) =>
+                {
+                    RecentProjectsManager.ClearRecentProjects();
+                    BuildRecentProjectsMenu();
+                };
+                tsmRecentProjects.DropDownItems.Add(clearItem);
+            }
+        }
+
+        private Image? LoadToolbarImage(string fileName)
+        {
+            var candidates = new[]
+            {
+                Path.Combine(AppContext.BaseDirectory, "Resources", "For RePlot Application", fileName),
+                Path.GetFullPath(Path.Combine(AppContext.BaseDirectory, "..", "..", "..", "Resources", "For RePlot Application", fileName)),
+                Path.GetFullPath(Path.Combine(AppContext.BaseDirectory, "..", "..", "..", "..", "Resources", "For RePlot Application", fileName))
+            };
+
+            foreach (var imgPath in candidates)
+            {
+                if (File.Exists(imgPath))
+                {
+                    return Image.FromFile(imgPath);
+                }
+            }
+
+            return null;
+        }
+
+        private void tsmExpandCollapseLeftPanel_Click(object sender, EventArgs e)
+        {
+            if (tsmExpandCollapseLeftPanel.Checked)
+            {
+                mainSplitContainer.Panel1Collapsed = false;
+                var img = LoadToolbarImage("icons8-close-left-pane-50.png");
+                if (img != null) tsmExpandCollapseLeftPanel.Image = img;
+            }
+            else
+            {
+                mainSplitContainer.Panel1Collapsed = true;
+                var img = LoadToolbarImage("icons8-open-left-pane-50.png");
+                if (img != null) tsmExpandCollapseLeftPanel.Image = img;
+            }
+        }
+        // ── PROJECT FOLDER CREATOR ───────────────────
+
+        // Creates standard folder structure
+        // for a new project
+        public static class ProjectFolderCreator
+        {
+            public static void CreateFolders(string root)
+            {
+                string[] folders =
+                {
             "Maps",
             "GIS",
             "Documents",
@@ -1164,8 +1306,25 @@ namespace Land_Readjustment_Tool
             "Logs"
         };
 
-            foreach (var folder in folders)
-                Directory.CreateDirectory(Path.Combine(root, folder));
+                foreach (var folder in folders)
+                    Directory.CreateDirectory(Path.Combine(root, folder));
+            }
+        }
+
+        private void tsmExpandCollapseRightPanel_Click(object sender, EventArgs e)
+        {
+            if (tsmExpandCollapseRightPanel.Checked)
+            {
+                splitContainer3.Panel2Collapsed = false;
+                var img = LoadToolbarImage("icons8-close-right-pane-50.png");
+                if (img != null) tsmExpandCollapseRightPanel.Image = img;
+            }
+            else
+            {
+                splitContainer3.Panel2Collapsed = true;
+                var img = LoadToolbarImage("icons8-open-right-pane-50.png");
+                if (img != null) tsmExpandCollapseRightPanel.Image = img;
+            }
         }
     }
 }

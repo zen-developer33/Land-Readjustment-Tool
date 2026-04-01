@@ -219,17 +219,19 @@ namespace Land_Readjustment_Tool.UI.Forms.Project
                     return false;
                 }
             }
-
-            // Rotations: sub-arcsecond is normal; more than ±5 arcsec
+            const double ROTATION_WARNING_THRESHOLD = 30.0;
+            // Rotations: sub-arcsecond is normal; more than ±30 arcsec
             // strongly suggests the user entered degrees instead of arcseconds
             // (1 degree = 3600 arcseconds).
             double rx = (double)nudRx.Value;
             double ry = (double)nudRy.Value;
             double rz = (double)nudRz.Value;
-            if (Math.Abs(rx) > 5 || Math.Abs(ry) > 5 || Math.Abs(rz) > 5)
+            if (Math.Abs(rx) > ROTATION_WARNING_THRESHOLD 
+                || Math.Abs(ry) > ROTATION_WARNING_THRESHOLD 
+                || Math.Abs(rz) > ROTATION_WARNING_THRESHOLD)
             {
                 if (!ConfirmUnusual(
-                    "One or more rotation values (Rx / Ry / Rz) exceed ±5 arc-seconds.\n\n" +
+                    "One or more rotation values (Rx / Ry / Rz) exceed ±"+ROTATION_WARNING_THRESHOLD+" arc-seconds.\n\n" +
                     "Rotations must be entered in ARC-SECONDS (not degrees or radians).\n" +
                     "1 degree = 3600 arcseconds.  Most published transforms are sub-arcsecond."))
                 {

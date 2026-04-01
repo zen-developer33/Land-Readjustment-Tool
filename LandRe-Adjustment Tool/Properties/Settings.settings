@@ -1,6 +1,261 @@
 ﻿<?xml version='1.0' encoding='utf-8'?>
-<SettingsFile xmlns="http://schemas.microsoft.com/VisualStudio/2004/01/settings" CurrentProfile="(Default)">
-  <Profiles>
-    <Profile Name="(Default)" />
-  </Profiles>
+<SettingsFile xmlns="uri:settings"
+              CurrentProfile="(Default)"
+              GeneratedClassNamespace="Land_Readjustment_Tool.Properties"
+              GeneratedClassName="Settings">
+
+	<Profiles />
+
+	<Settings>
+
+		<!-- ═══════════════════════════════════════
+         GROUP 1 — WINDOW STATE
+         ═══════════════════════════════════════ -->
+
+		<Setting Name="Window_Width"
+				 Type="System.Int32"
+				 Scope="User">
+			<Value Profile="(Default)">1280</Value>
+		</Setting>
+
+		<Setting Name="Window_Height"
+				 Type="System.Int32"
+				 Scope="User">
+			<Value Profile="(Default)">800</Value>
+		</Setting>
+
+		<Setting Name="Window_Maximized"
+				 Type="System.Boolean"
+				 Scope="User">
+			<Value Profile="(Default)">False</Value>
+		</Setting>
+
+		<Setting Name="Window_LocationX"
+				 Type="System.Int32"
+				 Scope="User">
+			<Value Profile="(Default)">100</Value>
+		</Setting>
+
+		<Setting Name="Window_LocationY"
+				 Type="System.Int32"
+				 Scope="User">
+			<Value Profile="(Default)">100</Value>
+		</Setting>
+
+		<Setting Name="Window_LeftPanelWidth"
+				 Type="System.Int32"
+				 Scope="User">
+			<Value Profile="(Default)">200</Value>
+		</Setting>
+
+		<Setting Name="Window_RightPanelWidth"
+				 Type="System.Int32"
+				 Scope="User">
+			<Value Profile="(Default)">180</Value>
+		</Setting>
+
+		<Setting Name="Window_LeftPanelCollapsed"
+				 Type="System.Boolean"
+				 Scope="User">
+			<Value Profile="(Default)">False</Value>
+		</Setting>
+
+		<!-- ═══════════════════════════════════════
+         GROUP 2 — RECENT FILES
+         ═══════════════════════════════════════ -->
+
+		<Setting Name="Recent_LastProjectPath"
+				 Type="System.String"
+				 Scope="User">
+			<Value Profile="(Default)"></Value>
+		</Setting>
+
+		<Setting Name="Recent_ProjectPaths"
+				 Type="System.String"
+				 Scope="User">
+			<Value Profile="(Default)"></Value>
+		</Setting>
+
+		<Setting Name="Recent_MaxCount"
+				 Type="System.Int32"
+				 Scope="Application">
+			<Value Profile="(Default)">10</Value>
+		</Setting>
+
+		<!-- ═══════════════════════════════════════
+         GROUP 3 — APPLICATION BEHAVIOUR
+         ═══════════════════════════════════════ -->
+
+		<Setting Name="App_AutoOpenLastProject"
+				 Type="System.Boolean"
+				 Scope="User">
+			<Value Profile="(Default)">True</Value>
+		</Setting>
+
+		<Setting Name="App_ConfirmOnDelete"
+				 Type="System.Boolean"
+				 Scope="User">
+			<Value Profile="(Default)">True</Value>
+		</Setting>
+
+		<Setting Name="App_ConfirmOnClose"
+				 Type="System.Boolean"
+				 Scope="User">
+			<Value Profile="(Default)">True</Value>
+		</Setting>
+
+		<Setting Name="App_ShowSplashScreen"
+				 Type="System.Boolean"
+				 Scope="User">
+			<Value Profile="(Default)">True</Value>
+		</Setting>
+
+		<Setting Name="App_UpgradeRequired"
+				 Type="System.Boolean"
+				 Scope="User">
+			<Value Profile="(Default)">True</Value>
+		</Setting>
+
+		<!-- ═══════════════════════════════════════
+         GROUP 4 — CANVAS UI PREFERENCES
+         ═══════════════════════════════════════ -->
+
+		<Setting Name="Canvas_ShowDebugOverlay"
+				 Type="System.Boolean"
+				 Scope="User">
+			<Value Profile="(Default)">False</Value>
+		</Setting>
+
+		<Setting Name="Canvas_ShowStatusBar"
+				 Type="System.Boolean"
+				 Scope="User">
+			<Value Profile="(Default)">True</Value>
+		</Setting>
+
+		<Setting Name="Canvas_ShowToolbar"
+				 Type="System.Boolean"
+				 Scope="User">
+			<Value Profile="(Default)">True</Value>
+		</Setting>
+
+		<Setting Name="Canvas_CrosshairCursor"
+				 Type="System.Boolean"
+				 Scope="User">
+			<Value Profile="(Default)">True</Value>
+		</Setting>
+
+		<Setting Name="Canvas_CoordDecimalPlaces"
+				 Type="System.Int32"
+				 Scope="User">
+			<Value Profile="(Default)">3</Value>
+		</Setting>
+
+		<!-- ═══════════════════════════════════════
+         GROUP 5 — VALIDATION THRESHOLDS
+         ═══════════════════════════════════════ -->
+
+		<Setting Name="Validation_RotationWarningArcsec"
+				 Type="System.Double"
+				 Scope="Application">
+			<Value Profile="(Default)">30</Value>
+		</Setting>
+
+		<Setting Name="Validation_TranslationWarningM"
+				 Type="System.Double"
+				 Scope="Application">
+			<Value Profile="(Default)">1000</Value>
+		</Setting>
+
+		<Setting Name="Validation_ScaleWarningPpm"
+				 Type="System.Double"
+				 Scope="Application">
+			<Value Profile="(Default)">30</Value>
+		</Setting>
+
+		<Setting Name="Validation_MaxUndoSteps"
+				 Type="System.Int32"
+				 Scope="Application">
+			<Value Profile="(Default)">50</Value>
+		</Setting>
+
+		<Setting Name="Validation_MaxShapesForSnapping"
+				 Type="System.Int32"
+				 Scope="Application">
+			<Value Profile="(Default)">500</Value>
+		</Setting>
+
+		<Setting Name="Validation_MaxSnapCandidates"
+				 Type="System.Int32"
+				 Scope="Application">
+			<Value Profile="(Default)">50</Value>
+		</Setting>
+
+		<!-- ═══════════════════════════════════════
+         GROUP 6 — AUTOSAVE AND BACKUP
+         ═══════════════════════════════════════ -->
+
+		<Setting Name="AutoSave_IntervalMinutes"
+				 Type="System.Int32"
+				 Scope="Application">
+			<Value Profile="(Default)">5</Value>
+		</Setting>
+
+		<Setting Name="Backup_KeepCount"
+				 Type="System.Int32"
+				 Scope="Application">
+			<Value Profile="(Default)">5</Value>
+		</Setting>
+
+		<!-- ═══════════════════════════════════════
+         GROUP 7 — IMPORT / EXPORT
+         ═══════════════════════════════════════ -->
+
+		<Setting Name="Import_LastExcelFolderPath"
+				 Type="System.String"
+				 Scope="User">
+			<Value Profile="(Default)"></Value>
+		</Setting>
+
+		<Setting Name="Import_LastDxfFolderPath"
+				 Type="System.String"
+				 Scope="User">
+			<Value Profile="(Default)"></Value>
+		</Setting>
+
+		<Setting Name="Export_LastFolderPath"
+				 Type="System.String"
+				 Scope="User">
+			<Value Profile="(Default)"></Value>
+		</Setting>
+
+		<Setting Name="Import_ExcelMaxRows"
+				 Type="System.Int32"
+				 Scope="Application">
+			<Value Profile="(Default)">5000</Value>
+		</Setting>
+
+		<!-- ═══════════════════════════════════════
+         GROUP 8 — LOGGING
+         ═══════════════════════════════════════ -->
+
+		<Setting Name="Log_Level"
+				 Type="System.String"
+				 Scope="Application">
+			<Value Profile="(Default)">Warning</Value>
+		</Setting>
+
+		<Setting Name="Log_RetentionDays"
+				 Type="System.Int32"
+				 Scope="Application">
+			<Value Profile="(Default)">30</Value>
+		</Setting>
+
+		<Setting Name="Log_EnablePerformance"
+				 Type="System.Boolean"
+				 Scope="Application">
+			<Value Profile="(Default)">False</Value>
+		</Setting>
+
+	</Settings>
+
 </SettingsFile>

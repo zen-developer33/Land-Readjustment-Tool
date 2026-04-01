@@ -21,7 +21,7 @@ namespace Land_Readjustment_Tool.Services.Project
     /// </summary>
     public class ProjectBackupService
     {
-        private const int MaxBackups = 5;
+        private const int MaxBackups =3;
 
         /// <summary>
         /// Creates a backup of the project file
