@@ -53,11 +53,11 @@ namespace Land_Readjustment_Tool.Data
 
             // Build logger
             // CompositeLogger writes to both
-            // file and console during development
-            // For production — remove ConsoleLogger
+            // file and VS Output window during development
+            // For production — remove DebugLogger
             var logger = new CompositeLogger(
                 new FileLogger(projectFolder),
-                new ConsoleLogger());
+                new DebugLogger());
 
             // Build EF Core context
             var context = new AppDbContext(
