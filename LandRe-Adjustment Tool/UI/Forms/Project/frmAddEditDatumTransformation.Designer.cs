@@ -35,14 +35,10 @@ namespace Land_Readjustment_Tool.UI.Forms.Project
             nudDeltaX = new NumericUpDown();
             lblDeltaY = new Label();
             nudDeltaY = new NumericUpDown();
-            lblDeltaZ = new Label();
-            nudDeltaZ = new NumericUpDown();
             lblRx = new Label();
             nudRx = new NumericUpDown();
             lblRy = new Label();
             nudRy = new NumericUpDown();
-            lblRz = new Label();
-            nudRz = new NumericUpDown();
             lblScale = new Label();
             nudScale = new NumericUpDown();
             grpMetadata = new GroupBox();
@@ -54,18 +50,22 @@ namespace Land_Readjustment_Tool.UI.Forms.Project
             txtRegion = new TextBox();
             lblDescription = new Label();
             txtDescription = new TextBox();
+            nudRz = new NumericUpDown();
+            lblRz = new Label();
+            nudDeltaZ = new NumericUpDown();
+            lblDeltaZ = new Label();
             pnlFooter.SuspendLayout();
             pnlContent.SuspendLayout();
             grpIdentity.SuspendLayout();
             grpParams.SuspendLayout();
             ((System.ComponentModel.ISupportInitialize)nudDeltaX).BeginInit();
             ((System.ComponentModel.ISupportInitialize)nudDeltaY).BeginInit();
-            ((System.ComponentModel.ISupportInitialize)nudDeltaZ).BeginInit();
             ((System.ComponentModel.ISupportInitialize)nudRx).BeginInit();
             ((System.ComponentModel.ISupportInitialize)nudRy).BeginInit();
-            ((System.ComponentModel.ISupportInitialize)nudRz).BeginInit();
             ((System.ComponentModel.ISupportInitialize)nudScale).BeginInit();
             grpMetadata.SuspendLayout();
+            ((System.ComponentModel.ISupportInitialize)nudRz).BeginInit();
+            ((System.ComponentModel.ISupportInitialize)nudDeltaZ).BeginInit();
             SuspendLayout();
             // 
             // pnlFooter
@@ -81,7 +81,7 @@ namespace Land_Readjustment_Tool.UI.Forms.Project
             // 
             // btnSave
             // 
-            btnSave.Location = new Point(328, 6);
+            btnSave.Location = new Point(306, 6);
             btnSave.Name = "btnSave";
             btnSave.Size = new Size(80, 28);
             btnSave.TabIndex = 90;
@@ -90,7 +90,7 @@ namespace Land_Readjustment_Tool.UI.Forms.Project
             // 
             // btnCancel
             // 
-            btnCancel.Location = new Point(412, 6);
+            btnCancel.Location = new Point(390, 6);
             btnCancel.Name = "btnCancel";
             btnCancel.Size = new Size(80, 28);
             btnCancel.TabIndex = 91;
@@ -284,26 +284,6 @@ namespace Land_Readjustment_Tool.UI.Forms.Project
             nudDeltaY.Size = new Size(98, 27);
             nudDeltaY.TabIndex = 5;
             // 
-            // lblDeltaZ
-            // 
-            lblDeltaZ.Font = new Font("Segoe UI", 9F);
-            lblDeltaZ.Location = new Point(318, 47);
-            lblDeltaZ.Name = "lblDeltaZ";
-            lblDeltaZ.Size = new Size(27, 20);
-            lblDeltaZ.TabIndex = 6;
-            lblDeltaZ.Text = "dZ";
-            // 
-            // nudDeltaZ
-            // 
-            nudDeltaZ.DecimalPlaces = 4;
-            nudDeltaZ.Font = new Font("Segoe UI", 9F);
-            nudDeltaZ.Location = new Point(351, 44);
-            nudDeltaZ.Maximum = new decimal(new int[] { 10000, 0, 0, 0 });
-            nudDeltaZ.Minimum = new decimal(new int[] { 10000, 0, 0, int.MinValue });
-            nudDeltaZ.Name = "nudDeltaZ";
-            nudDeltaZ.Size = new Size(98, 27);
-            nudDeltaZ.TabIndex = 7;
-            // 
             // lblRx
             // 
             lblRx.Font = new Font("Segoe UI", 9F);
@@ -344,32 +324,12 @@ namespace Land_Readjustment_Tool.UI.Forms.Project
             nudRy.Size = new Size(98, 27);
             nudRy.TabIndex = 11;
             // 
-            // lblRz
-            // 
-            lblRz.Font = new Font("Segoe UI", 9F);
-            lblRz.Location = new Point(321, 107);
-            lblRz.Name = "lblRz";
-            lblRz.Size = new Size(24, 20);
-            lblRz.TabIndex = 12;
-            lblRz.Text = "rZ";
-            // 
-            // nudRz
-            // 
-            nudRz.DecimalPlaces = 4;
-            nudRz.Font = new Font("Segoe UI", 9F);
-            nudRz.Location = new Point(351, 105);
-            nudRz.Maximum = new decimal(new int[] { 10000, 0, 0, 0 });
-            nudRz.Minimum = new decimal(new int[] { 10000, 0, 0, int.MinValue });
-            nudRz.Name = "nudRz";
-            nudRz.Size = new Size(98, 27);
-            nudRz.TabIndex = 13;
-            // 
             // lblScale
             // 
             lblScale.Font = new Font("Segoe UI", 9F);
             lblScale.Location = new Point(12, 154);
             lblScale.Name = "lblScale";
-            lblScale.Size = new Size(52, 20);
+            lblScale.Size = new Size(45, 20);
             lblScale.TabIndex = 14;
             lblScale.Text = "Scale (ppm):";
             // 
@@ -377,11 +337,11 @@ namespace Land_Readjustment_Tool.UI.Forms.Project
             // 
             nudScale.DecimalPlaces = 4;
             nudScale.Font = new Font("Segoe UI", 9F);
-            nudScale.Location = new Point(70, 152);
+            nudScale.Location = new Point(63, 152);
             nudScale.Maximum = new decimal(new int[] { 1000, 0, 0, 0 });
             nudScale.Minimum = new decimal(new int[] { 1000, 0, 0, int.MinValue });
             nudScale.Name = "nudScale";
-            nudScale.Size = new Size(73, 27);
+            nudScale.Size = new Size(80, 27);
             nudScale.TabIndex = 15;
             // 
             // grpMetadata
@@ -417,7 +377,7 @@ namespace Land_Readjustment_Tool.UI.Forms.Project
             txtAppliesTo.Location = new Point(106, 26);
             txtAppliesTo.Name = "txtAppliesTo";
             txtAppliesTo.PlaceholderText = "e.g. MUTM81,MUTM82,MUTM83";
-            txtAppliesTo.Size = new Size(350, 27);
+            txtAppliesTo.Size = new Size(354, 27);
             txtAppliesTo.TabIndex = 1;
             // 
             // lblSource
@@ -435,7 +395,7 @@ namespace Land_Readjustment_Tool.UI.Forms.Project
             txtDataSource.Location = new Point(106, 58);
             txtDataSource.Name = "txtDataSource";
             txtDataSource.PlaceholderText = "e.g. Survey Department Nepal";
-            txtDataSource.Size = new Size(350, 27);
+            txtDataSource.Size = new Size(354, 27);
             txtDataSource.TabIndex = 3;
             // 
             // lblRegion
@@ -471,8 +431,48 @@ namespace Land_Readjustment_Tool.UI.Forms.Project
             txtDescription.Location = new Point(106, 122);
             txtDescription.Multiline = true;
             txtDescription.Name = "txtDescription";
-            txtDescription.Size = new Size(350, 57);
+            txtDescription.Size = new Size(354, 57);
             txtDescription.TabIndex = 7;
+            // 
+            // nudRz
+            // 
+            nudRz.DecimalPlaces = 4;
+            nudRz.Font = new Font("Segoe UI", 9F);
+            nudRz.Location = new Point(351, 105);
+            nudRz.Maximum = new decimal(new int[] { 10000, 0, 0, 0 });
+            nudRz.Minimum = new decimal(new int[] { 10000, 0, 0, int.MinValue });
+            nudRz.Name = "nudRz";
+            nudRz.Size = new Size(98, 27);
+            nudRz.TabIndex = 13;
+            // 
+            // lblRz
+            // 
+            lblRz.Font = new Font("Segoe UI", 9F);
+            lblRz.Location = new Point(321, 107);
+            lblRz.Name = "lblRz";
+            lblRz.Size = new Size(24, 20);
+            lblRz.TabIndex = 12;
+            lblRz.Text = "rZ";
+            // 
+            // nudDeltaZ
+            // 
+            nudDeltaZ.DecimalPlaces = 4;
+            nudDeltaZ.Font = new Font("Segoe UI", 9F);
+            nudDeltaZ.Location = new Point(351, 44);
+            nudDeltaZ.Maximum = new decimal(new int[] { 10000, 0, 0, 0 });
+            nudDeltaZ.Minimum = new decimal(new int[] { 10000, 0, 0, int.MinValue });
+            nudDeltaZ.Name = "nudDeltaZ";
+            nudDeltaZ.Size = new Size(98, 27);
+            nudDeltaZ.TabIndex = 7;
+            // 
+            // lblDeltaZ
+            // 
+            lblDeltaZ.Font = new Font("Segoe UI", 9F);
+            lblDeltaZ.Location = new Point(318, 47);
+            lblDeltaZ.Name = "lblDeltaZ";
+            lblDeltaZ.Size = new Size(27, 20);
+            lblDeltaZ.TabIndex = 6;
+            lblDeltaZ.Text = "dZ";
             // 
             // frmAddEditDatumTransformation
             // 
@@ -498,13 +498,13 @@ namespace Land_Readjustment_Tool.UI.Forms.Project
             grpParams.ResumeLayout(false);
             ((System.ComponentModel.ISupportInitialize)nudDeltaX).EndInit();
             ((System.ComponentModel.ISupportInitialize)nudDeltaY).EndInit();
-            ((System.ComponentModel.ISupportInitialize)nudDeltaZ).EndInit();
             ((System.ComponentModel.ISupportInitialize)nudRx).EndInit();
             ((System.ComponentModel.ISupportInitialize)nudRy).EndInit();
-            ((System.ComponentModel.ISupportInitialize)nudRz).EndInit();
             ((System.ComponentModel.ISupportInitialize)nudScale).EndInit();
             grpMetadata.ResumeLayout(false);
             grpMetadata.PerformLayout();
+            ((System.ComponentModel.ISupportInitialize)nudRz).EndInit();
+            ((System.ComponentModel.ISupportInitialize)nudDeltaZ).EndInit();
             ResumeLayout(false);
         }
 
@@ -528,14 +528,10 @@ namespace Land_Readjustment_Tool.UI.Forms.Project
         private NumericUpDown nudDeltaX;
         private Label lblDeltaY;
         private NumericUpDown nudDeltaY;
-        private Label lblDeltaZ;
-        private NumericUpDown nudDeltaZ;
         private Label lblRx;
         private NumericUpDown nudRx;
         private Label lblRy;
         private NumericUpDown nudRy;
-        private Label lblRz;
-        private NumericUpDown nudRz;
         private Label lblScale;
         private NumericUpDown nudScale;
         private GroupBox grpMetadata;
@@ -549,5 +545,9 @@ namespace Land_Readjustment_Tool.UI.Forms.Project
         private TextBox txtDescription;
         private Label lblM;
         private Label lblR;
+        private Label lblDeltaZ;
+        private NumericUpDown nudDeltaZ;
+        private Label lblRz;
+        private NumericUpDown nudRz;
     }
 }

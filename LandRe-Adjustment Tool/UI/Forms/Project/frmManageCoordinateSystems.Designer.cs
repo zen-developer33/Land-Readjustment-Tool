@@ -142,7 +142,7 @@ namespace Land_Readjustment_Tool.UI.Forms.Project
             lblHint.AutoSize = true;
             lblHint.Font = new Font("Segoe UI", 8.5F, FontStyle.Italic);
             lblHint.ForeColor = SystemColors.GrayText;
-            lblHint.Location = new Point(6, 11);
+            lblHint.Location = new Point(100, 9);
             lblHint.Name = "lblHint";
             lblHint.Size = new Size(445, 20);
             lblHint.TabIndex = 0;

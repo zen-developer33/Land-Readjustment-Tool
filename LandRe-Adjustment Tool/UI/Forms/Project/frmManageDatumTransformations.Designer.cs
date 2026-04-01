@@ -23,9 +23,6 @@ namespace Land_Readjustment_Tool.UI.Forms.Project
             pnlDetails = new Panel();
             txtDetails = new TextBox();
             lblDetailsTitle = new Label();
-            pnlFooter = new Panel();
-            lblHint = new Label();
-            btnClose = new Button();
             dgvDatum = new DataGridView();
             colCode = new DataGridViewTextBoxColumn();
             colName = new DataGridViewTextBoxColumn();
@@ -33,10 +30,13 @@ namespace Land_Readjustment_Tool.UI.Forms.Project
             colTarget = new DataGridViewTextBoxColumn();
             colApplies = new DataGridViewTextBoxColumn();
             colEntryType = new DataGridViewTextBoxColumn();
+            btnClose = new Button();
+            lblHint = new Label();
+            pnlFooter = new Panel();
             pnlToolbar.SuspendLayout();
             pnlDetails.SuspendLayout();
-            pnlFooter.SuspendLayout();
             ((System.ComponentModel.ISupportInitialize)dgvDatum).BeginInit();
+            pnlFooter.SuspendLayout();
             SuspendLayout();
             // 
             // pnlToolbar
@@ -128,37 +128,6 @@ namespace Land_Readjustment_Tool.UI.Forms.Project
             lblDetailsTitle.TabIndex = 0;
             lblDetailsTitle.Text = "Details";
             // 
-            // pnlFooter
-            // 
-            pnlFooter.Controls.Add(lblHint);
-            pnlFooter.Controls.Add(btnClose);
-            pnlFooter.Dock = DockStyle.Bottom;
-            pnlFooter.Location = new Point(0, 484);
-            pnlFooter.Name = "pnlFooter";
-            pnlFooter.Size = new Size(891, 38);
-            pnlFooter.TabIndex = 3;
-            // 
-            // lblHint
-            // 
-            lblHint.AutoSize = true;
-            lblHint.Font = new Font("Segoe UI", 8.5F, FontStyle.Italic);
-            lblHint.ForeColor = SystemColors.GrayText;
-            lblHint.Location = new Point(6, 11);
-            lblHint.Name = "lblHint";
-            lblHint.Size = new Size(445, 20);
-            lblHint.TabIndex = 0;
-            lblHint.Text = "🔒 Default entries are read-only. Use Copy to create a custom entry.";
-            // 
-            // btnClose
-            // 
-            btnClose.Anchor = AnchorStyles.Top | AnchorStyles.Right;
-            btnClose.Location = new Point(1478, 6);
-            btnClose.Name = "btnClose";
-            btnClose.Size = new Size(75, 26);
-            btnClose.TabIndex = 1;
-            btnClose.Text = "Close";
-            btnClose.Click += btnClose_Click;
-            // 
             // dgvDatum
             // 
             dgvDatum.AllowUserToAddRows = false;
@@ -232,6 +201,37 @@ namespace Land_Readjustment_Tool.UI.Forms.Project
             colEntryType.Name = "colEntryType";
             colEntryType.ReadOnly = true;
             // 
+            // btnClose
+            // 
+            btnClose.Anchor = AnchorStyles.Top | AnchorStyles.Right;
+            btnClose.Location = new Point(1478, 6);
+            btnClose.Name = "btnClose";
+            btnClose.Size = new Size(75, 26);
+            btnClose.TabIndex = 1;
+            btnClose.Text = "Close";
+            btnClose.Click += btnClose_Click;
+            // 
+            // lblHint
+            // 
+            lblHint.AutoSize = true;
+            lblHint.Font = new Font("Segoe UI", 8.5F, FontStyle.Italic);
+            lblHint.ForeColor = SystemColors.GrayText;
+            lblHint.Location = new Point(12, 9);
+            lblHint.Name = "lblHint";
+            lblHint.Size = new Size(445, 20);
+            lblHint.TabIndex = 0;
+            lblHint.Text = "🔒 Default entries are read-only. Use Copy to create a custom entry.";
+            // 
+            // pnlFooter
+            // 
+            pnlFooter.Controls.Add(lblHint);
+            pnlFooter.Controls.Add(btnClose);
+            pnlFooter.Dock = DockStyle.Bottom;
+            pnlFooter.Location = new Point(0, 484);
+            pnlFooter.Name = "pnlFooter";
+            pnlFooter.Size = new Size(891, 38);
+            pnlFooter.TabIndex = 3;
+            // 
             // frmManageDatumTransformations
             // 
             AutoScaleDimensions = new SizeF(8F, 20F);
@@ -250,9 +250,9 @@ namespace Land_Readjustment_Tool.UI.Forms.Project
             pnlToolbar.ResumeLayout(false);
             pnlDetails.ResumeLayout(false);
             pnlDetails.PerformLayout();
+            ((System.ComponentModel.ISupportInitialize)dgvDatum).EndInit();
             pnlFooter.ResumeLayout(false);
             pnlFooter.PerformLayout();
-            ((System.ComponentModel.ISupportInitialize)dgvDatum).EndInit();
             ResumeLayout(false);
         }
 
@@ -266,9 +266,6 @@ namespace Land_Readjustment_Tool.UI.Forms.Project
         private Panel pnlDetails;
         private Label lblDetailsTitle;
         private TextBox txtDetails;
-        private Panel pnlFooter;
-        private Label lblHint;
-        private Button btnClose;
         private DataGridView dgvDatum;
         private DataGridViewTextBoxColumn colCode;
         private DataGridViewTextBoxColumn colName;
@@ -276,5 +273,8 @@ namespace Land_Readjustment_Tool.UI.Forms.Project
         private DataGridViewTextBoxColumn colTarget;
         private DataGridViewTextBoxColumn colApplies;
         private DataGridViewTextBoxColumn colEntryType;
+        private Button btnClose;
+        private Label lblHint;
+        private Panel pnlFooter;
     }
 }

@@ -8,18 +8,411 @@
 // </auto-generated>
 //------------------------------------------------------------------------------
 
-namespace LandRe_AdjustmentTool.Properties {
+namespace Land_Readjustment_Tool.Properties {
     
     
     [global::System.Runtime.CompilerServices.CompilerGeneratedAttribute()]
-    [global::System.CodeDom.Compiler.GeneratedCodeAttribute("Microsoft.VisualStudio.Editors.SettingsDesigner.SettingsSingleFileGenerator", "17.14.0.0")]
-    internal sealed partial class Settings : global::System.Configuration.ApplicationSettingsBase {
+    [global::System.CodeDom.Compiler.GeneratedCodeAttribute("Microsoft.VisualStudio.Editors.SettingsDesigner.SettingsSingleFileGenerator", "18.4.0.0")]
+    public sealed partial class Settings : global::System.Configuration.ApplicationSettingsBase {
         
         private static Settings defaultInstance = ((Settings)(global::System.Configuration.ApplicationSettingsBase.Synchronized(new Settings())));
         
         public static Settings Default {
             get {
                 return defaultInstance;
+            }
+        }
+        
+        [global::System.Configuration.UserScopedSettingAttribute()]
+        [global::System.Diagnostics.DebuggerNonUserCodeAttribute()]
+        [global::System.Configuration.DefaultSettingValueAttribute("1280")]
+        public int Window_Width {
+            get {
+                return ((int)(this["Window_Width"]));
+            }
+            set {
+                this["Window_Width"] = value;
+            }
+        }
+        
+        [global::System.Configuration.UserScopedSettingAttribute()]
+        [global::System.Diagnostics.DebuggerNonUserCodeAttribute()]
+        [global::System.Configuration.DefaultSettingValueAttribute("800")]
+        public int Window_Height {
+            get {
+                return ((int)(this["Window_Height"]));
+            }
+            set {
+                this["Window_Height"] = value;
+            }
+        }
+        
+        [global::System.Configuration.UserScopedSettingAttribute()]
+        [global::System.Diagnostics.DebuggerNonUserCodeAttribute()]
+        [global::System.Configuration.DefaultSettingValueAttribute("False")]
+        public bool Window_Maximized {
+            get {
+                return ((bool)(this["Window_Maximized"]));
+            }
+            set {
+                this["Window_Maximized"] = value;
+            }
+        }
+        
+        [global::System.Configuration.UserScopedSettingAttribute()]
+        [global::System.Diagnostics.DebuggerNonUserCodeAttribute()]
+        [global::System.Configuration.DefaultSettingValueAttribute("100")]
+        public int Window_LocationX {
+            get {
+                return ((int)(this["Window_LocationX"]));
+            }
+            set {
+                this["Window_LocationX"] = value;
+            }
+        }
+        
+        [global::System.Configuration.UserScopedSettingAttribute()]
+        [global::System.Diagnostics.DebuggerNonUserCodeAttribute()]
+        [global::System.Configuration.DefaultSettingValueAttribute("100")]
+        public int Window_LocationY {
+            get {
+                return ((int)(this["Window_LocationY"]));
+            }
+            set {
+                this["Window_LocationY"] = value;
+            }
+        }
+        
+        [global::System.Configuration.UserScopedSettingAttribute()]
+        [global::System.Diagnostics.DebuggerNonUserCodeAttribute()]
+        [global::System.Configuration.DefaultSettingValueAttribute("200")]
+        public int Window_LeftPanelWidth {
+            get {
+                return ((int)(this["Window_LeftPanelWidth"]));
+            }
+            set {
+                this["Window_LeftPanelWidth"] = value;
+            }
+        }
+        
+        [global::System.Configuration.UserScopedSettingAttribute()]
+        [global::System.Diagnostics.DebuggerNonUserCodeAttribute()]
+        [global::System.Configuration.DefaultSettingValueAttribute("180")]
+        public int Window_RightPanelWidth {
+            get {
+                return ((int)(this["Window_RightPanelWidth"]));
+            }
+            set {
+                this["Window_RightPanelWidth"] = value;
+            }
+        }
+        
+        [global::System.Configuration.UserScopedSettingAttribute()]
+        [global::System.Diagnostics.DebuggerNonUserCodeAttribute()]
+        [global::System.Configuration.DefaultSettingValueAttribute("False")]
+        public bool Window_LeftPanelCollapsed {
+            get {
+                return ((bool)(this["Window_LeftPanelCollapsed"]));
+            }
+            set {
+                this["Window_LeftPanelCollapsed"] = value;
+            }
+        }
+        
+        [global::System.Configuration.UserScopedSettingAttribute()]
+        [global::System.Diagnostics.DebuggerNonUserCodeAttribute()]
+        [global::System.Configuration.DefaultSettingValueAttribute("")]
+        public string Recent_LastProjectPath {
+            get {
+                return ((string)(this["Recent_LastProjectPath"]));
+            }
+            set {
+                this["Recent_LastProjectPath"] = value;
+            }
+        }
+        
+        [global::System.Configuration.UserScopedSettingAttribute()]
+        [global::System.Diagnostics.DebuggerNonUserCodeAttribute()]
+        [global::System.Configuration.DefaultSettingValueAttribute("")]
+        public string Recent_ProjectPaths {
+            get {
+                return ((string)(this["Recent_ProjectPaths"]));
+            }
+            set {
+                this["Recent_ProjectPaths"] = value;
+            }
+        }
+        
+        [global::System.Configuration.ApplicationScopedSettingAttribute()]
+        [global::System.Diagnostics.DebuggerNonUserCodeAttribute()]
+        [global::System.Configuration.DefaultSettingValueAttribute("10")]
+        public int Recent_MaxCount {
+            get {
+                return ((int)(this["Recent_MaxCount"]));
+            }
+        }
+        
+        [global::System.Configuration.UserScopedSettingAttribute()]
+        [global::System.Diagnostics.DebuggerNonUserCodeAttribute()]
+        [global::System.Configuration.DefaultSettingValueAttribute("True")]
+        public bool App_AutoOpenLastProject {
+            get {
+                return ((bool)(this["App_AutoOpenLastProject"]));
+            }
+            set {
+                this["App_AutoOpenLastProject"] = value;
+            }
+        }
+        
+        [global::System.Configuration.UserScopedSettingAttribute()]
+        [global::System.Diagnostics.DebuggerNonUserCodeAttribute()]
+        [global::System.Configuration.DefaultSettingValueAttribute("True")]
+        public bool App_ConfirmOnDelete {
+            get {
+                return ((bool)(this["App_ConfirmOnDelete"]));
+            }
+            set {
+                this["App_ConfirmOnDelete"] = value;
+            }
+        }
+        
+        [global::System.Configuration.UserScopedSettingAttribute()]
+        [global::System.Diagnostics.DebuggerNonUserCodeAttribute()]
+        [global::System.Configuration.DefaultSettingValueAttribute("True")]
+        public bool App_ConfirmOnClose {
+            get {
+                return ((bool)(this["App_ConfirmOnClose"]));
+            }
+            set {
+                this["App_ConfirmOnClose"] = value;
+            }
+        }
+        
+        [global::System.Configuration.UserScopedSettingAttribute()]
+        [global::System.Diagnostics.DebuggerNonUserCodeAttribute()]
+        [global::System.Configuration.DefaultSettingValueAttribute("True")]
+        public bool App_ShowSplashScreen {
+            get {
+                return ((bool)(this["App_ShowSplashScreen"]));
+            }
+            set {
+                this["App_ShowSplashScreen"] = value;
+            }
+        }
+        
+        [global::System.Configuration.UserScopedSettingAttribute()]
+        [global::System.Diagnostics.DebuggerNonUserCodeAttribute()]
+        [global::System.Configuration.DefaultSettingValueAttribute("True")]
+        public bool App_UpgradeRequired {
+            get {
+                return ((bool)(this["App_UpgradeRequired"]));
+            }
+            set {
+                this["App_UpgradeRequired"] = value;
+            }
+        }
+        
+        [global::System.Configuration.UserScopedSettingAttribute()]
+        [global::System.Diagnostics.DebuggerNonUserCodeAttribute()]
+        [global::System.Configuration.DefaultSettingValueAttribute("False")]
+        public bool Canvas_ShowDebugOverlay {
+            get {
+                return ((bool)(this["Canvas_ShowDebugOverlay"]));
+            }
+            set {
+                this["Canvas_ShowDebugOverlay"] = value;
+            }
+        }
+        
+        [global::System.Configuration.UserScopedSettingAttribute()]
+        [global::System.Diagnostics.DebuggerNonUserCodeAttribute()]
+        [global::System.Configuration.DefaultSettingValueAttribute("True")]
+        public bool Canvas_ShowStatusBar {
+            get {
+                return ((bool)(this["Canvas_ShowStatusBar"]));
+            }
+            set {
+                this["Canvas_ShowStatusBar"] = value;
+            }
+        }
+        
+        [global::System.Configuration.UserScopedSettingAttribute()]
+        [global::System.Diagnostics.DebuggerNonUserCodeAttribute()]
+        [global::System.Configuration.DefaultSettingValueAttribute("True")]
+        public bool Canvas_ShowToolbar {
+            get {
+                return ((bool)(this["Canvas_ShowToolbar"]));
+            }
+            set {
+                this["Canvas_ShowToolbar"] = value;
+            }
+        }
+        
+        [global::System.Configuration.UserScopedSettingAttribute()]
+        [global::System.Diagnostics.DebuggerNonUserCodeAttribute()]
+        [global::System.Configuration.DefaultSettingValueAttribute("True")]
+        public bool Canvas_CrosshairCursor {
+            get {
+                return ((bool)(this["Canvas_CrosshairCursor"]));
+            }
+            set {
+                this["Canvas_CrosshairCursor"] = value;
+            }
+        }
+        
+        [global::System.Configuration.UserScopedSettingAttribute()]
+        [global::System.Diagnostics.DebuggerNonUserCodeAttribute()]
+        [global::System.Configuration.DefaultSettingValueAttribute("3")]
+        public int Canvas_CoordDecimalPlaces {
+            get {
+                return ((int)(this["Canvas_CoordDecimalPlaces"]));
+            }
+            set {
+                this["Canvas_CoordDecimalPlaces"] = value;
+            }
+        }
+        
+        [global::System.Configuration.ApplicationScopedSettingAttribute()]
+        [global::System.Diagnostics.DebuggerNonUserCodeAttribute()]
+        [global::System.Configuration.DefaultSettingValueAttribute("30")]
+        public double Validation_RotationWarningArcsec {
+            get {
+                return ((double)(this["Validation_RotationWarningArcsec"]));
+            }
+        }
+        
+        [global::System.Configuration.ApplicationScopedSettingAttribute()]
+        [global::System.Diagnostics.DebuggerNonUserCodeAttribute()]
+        [global::System.Configuration.DefaultSettingValueAttribute("1000")]
+        public double Validation_TranslationWarningM {
+            get {
+                return ((double)(this["Validation_TranslationWarningM"]));
+            }
+        }
+        
+        [global::System.Configuration.ApplicationScopedSettingAttribute()]
+        [global::System.Diagnostics.DebuggerNonUserCodeAttribute()]
+        [global::System.Configuration.DefaultSettingValueAttribute("30")]
+        public double Validation_ScaleWarningPpm {
+            get {
+                return ((double)(this["Validation_ScaleWarningPpm"]));
+            }
+        }
+        
+        [global::System.Configuration.ApplicationScopedSettingAttribute()]
+        [global::System.Diagnostics.DebuggerNonUserCodeAttribute()]
+        [global::System.Configuration.DefaultSettingValueAttribute("50")]
+        public int Validation_MaxUndoSteps {
+            get {
+                return ((int)(this["Validation_MaxUndoSteps"]));
+            }
+        }
+        
+        [global::System.Configuration.ApplicationScopedSettingAttribute()]
+        [global::System.Diagnostics.DebuggerNonUserCodeAttribute()]
+        [global::System.Configuration.DefaultSettingValueAttribute("500")]
+        public int Validation_MaxShapesForSnapping {
+            get {
+                return ((int)(this["Validation_MaxShapesForSnapping"]));
+            }
+        }
+        
+        [global::System.Configuration.ApplicationScopedSettingAttribute()]
+        [global::System.Diagnostics.DebuggerNonUserCodeAttribute()]
+        [global::System.Configuration.DefaultSettingValueAttribute("50")]
+        public int Validation_MaxSnapCandidates {
+            get {
+                return ((int)(this["Validation_MaxSnapCandidates"]));
+            }
+        }
+        
+        [global::System.Configuration.ApplicationScopedSettingAttribute()]
+        [global::System.Diagnostics.DebuggerNonUserCodeAttribute()]
+        [global::System.Configuration.DefaultSettingValueAttribute("5")]
+        public int AutoSave_IntervalMinutes {
+            get {
+                return ((int)(this["AutoSave_IntervalMinutes"]));
+            }
+        }
+        
+        [global::System.Configuration.ApplicationScopedSettingAttribute()]
+        [global::System.Diagnostics.DebuggerNonUserCodeAttribute()]
+        [global::System.Configuration.DefaultSettingValueAttribute("5")]
+        public int Backup_KeepCount {
+            get {
+                return ((int)(this["Backup_KeepCount"]));
+            }
+        }
+        
+        [global::System.Configuration.UserScopedSettingAttribute()]
+        [global::System.Diagnostics.DebuggerNonUserCodeAttribute()]
+        [global::System.Configuration.DefaultSettingValueAttribute("")]
+        public string Import_LastExcelFolderPath {
+            get {
+                return ((string)(this["Import_LastExcelFolderPath"]));
+            }
+            set {
+                this["Import_LastExcelFolderPath"] = value;
+            }
+        }
+        
+        [global::System.Configuration.UserScopedSettingAttribute()]
+        [global::System.Diagnostics.DebuggerNonUserCodeAttribute()]
+        [global::System.Configuration.DefaultSettingValueAttribute("")]
+        public string Import_LastDxfFolderPath {
+            get {
+                return ((string)(this["Import_LastDxfFolderPath"]));
+            }
+            set {
+                this["Import_LastDxfFolderPath"] = value;
+            }
+        }
+        
+        [global::System.Configuration.UserScopedSettingAttribute()]
+        [global::System.Diagnostics.DebuggerNonUserCodeAttribute()]
+        [global::System.Configuration.DefaultSettingValueAttribute("")]
+        public string Export_LastFolderPath {
+            get {
+                return ((string)(this["Export_LastFolderPath"]));
+            }
+            set {
+                this["Export_LastFolderPath"] = value;
+            }
+        }
+        
+        [global::System.Configuration.ApplicationScopedSettingAttribute()]
+        [global::System.Diagnostics.DebuggerNonUserCodeAttribute()]
+        [global::System.Configuration.DefaultSettingValueAttribute("5000")]
+        public int Import_ExcelMaxRows {
+            get {
+                return ((int)(this["Import_ExcelMaxRows"]));
+            }
+        }
+        
+        [global::System.Configuration.ApplicationScopedSettingAttribute()]
+        [global::System.Diagnostics.DebuggerNonUserCodeAttribute()]
+        [global::System.Configuration.DefaultSettingValueAttribute("Warning")]
+        public string Log_Level {
+            get {
+                return ((string)(this["Log_Level"]));
+            }
+        }
+        
+        [global::System.Configuration.ApplicationScopedSettingAttribute()]
+        [global::System.Diagnostics.DebuggerNonUserCodeAttribute()]
+        [global::System.Configuration.DefaultSettingValueAttribute("30")]
+        public int Log_RetentionDays {
+            get {
+                return ((int)(this["Log_RetentionDays"]));
+            }
+        }
+        
+        [global::System.Configuration.ApplicationScopedSettingAttribute()]
+        [global::System.Diagnostics.DebuggerNonUserCodeAttribute()]
+        [global::System.Configuration.DefaultSettingValueAttribute("False")]
+        public bool Log_EnablePerformance {
+            get {
+                return ((bool)(this["Log_EnablePerformance"]));
             }
         }
     }
