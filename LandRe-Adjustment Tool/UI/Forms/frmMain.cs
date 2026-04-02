@@ -34,7 +34,7 @@ namespace Land_Readjustment_Tool
         {
             InitializeComponent();
             _startupFilePath = startupFilePath;
-            ConfigureSmoothSplitterLayout();
+            //ConfigureSmoothSplitterLayout();
 
             UpdateWindowTitle();
             DisableProjectMenuItems();
@@ -230,7 +230,9 @@ namespace Land_Readjustment_Tool
         private void EnableProjectMenuItems()
         {
             tsmSave.Enabled = true;
+            mnuSaveProject.Enabled = true;
             tsmSaveAs.Enabled = true;
+            mnuSaveAsProject.Enabled = true;
             tsmProjectInformation.Enabled = true;
             tsmProjectSetting.Enabled = true;
             tsmCloseProject.Enabled = true;
