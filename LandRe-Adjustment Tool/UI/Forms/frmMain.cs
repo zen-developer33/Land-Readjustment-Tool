@@ -34,10 +34,12 @@ namespace Land_Readjustment_Tool
         {
             InitializeComponent();
             _startupFilePath = startupFilePath;
-            //ConfigureSmoothSplitterLayout();
+            ConfigureSmoothSplitterLayout();
 
             UpdateWindowTitle();
             DisableProjectMenuItems();
+
+            //subscribe to the menu Click events
             this.FormClosing += frmMain_FormClosing!;
             tsmSave.Click += tsmSave_Click!;
             tsmSaveAs.Click += tsmSaveAs_Click!;
@@ -45,6 +47,10 @@ namespace Land_Readjustment_Tool
             mnuOpenProject.Click += tsmOpenProject_Click!;
             mnuSaveProject.Click += tsmSave_Click!;
             mnuSaveAsProject.Click += tsmSaveAs_Click!;
+            mnuCloseProject.Click += tsmCloseProject_Click!;
+            mnuProjectInfo.Click += tsmProjectInformation_Click!;
+            mnuProjectSettings.Click += tsmProjectSetting_Click!;
+
         }
 
         private void ConfigureSmoothSplitterLayout()
@@ -1328,6 +1334,19 @@ namespace Land_Readjustment_Tool
                 if (img != null) tsmExpandCollapseRightPanel.Image = img;
             }
         }
+
+        private void viewEditRecordToolStripMenuItem_Click(object sender, EventArgs e)
+        {
+            frmLandOwnersRecord frmLandOwnersRecord = new frmLandOwnersRecord();
+            frmLandOwnersRecord.ShowDialog();
+        }
+
+        private void mnuSaveAsProject_Click(object sender, EventArgs e)
+        {
+
+        }
+
+
     }
 }
 
