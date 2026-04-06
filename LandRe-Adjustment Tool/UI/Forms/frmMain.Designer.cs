@@ -134,12 +134,11 @@ namespace Land_Readjustment_Tool
             toolStripSeparator11 = new ToolStripSeparator();
             grpParcelObjProp = new GroupBox();
             dgvParcelObjProperty = new DataGridView();
-            toolStrip1 = new ToolStrip();
+            tsProjectMenu = new ToolStrip();
             mnuNewProject = new ToolStripButton();
             mnuOpenProject = new ToolStripButton();
             mnuSaveProject = new ToolStripButton();
             mnuSaveAsProject = new ToolStripButton();
-            mnuBackup = new ToolStripButton();
             mnuRestoreBackup = new ToolStripButton();
             mnuCloseProject = new ToolStripButton();
             toolStripSeparator9 = new ToolStripSeparator();
@@ -159,6 +158,7 @@ namespace Land_Readjustment_Tool
             toolStripSeparator15 = new ToolStripSeparator();
             toolStripSeparator16 = new ToolStripSeparator();
             toolStripComboBox1 = new ToolStripComboBox();
+            mnuBackup = new ToolStripButton();
             mainMenuStrip.SuspendLayout();
             ((System.ComponentModel.ISupportInitialize)leftSplitContainer).BeginInit();
             leftSplitContainer.Panel1.SuspendLayout();
@@ -183,7 +183,7 @@ namespace Land_Readjustment_Tool
             toolStrip2.SuspendLayout();
             grpParcelObjProp.SuspendLayout();
             ((System.ComponentModel.ISupportInitialize)dgvParcelObjProperty).BeginInit();
-            toolStrip1.SuspendLayout();
+            tsProjectMenu.SuspendLayout();
             SuspendLayout();
             // 
             // mainMenuStrip
@@ -196,7 +196,7 @@ namespace Land_Readjustment_Tool
             mainMenuStrip.Padding = new Padding(5, 2, 0, 2);
             mainMenuStrip.Size = new Size(1328, 28);
             mainMenuStrip.TabIndex = 0;
-            mainMenuStrip.Text = "menuStrip1";
+            mainMenuStrip.Text = "Main Menu Strip";
             // 
             // fileToolStripMenuItem
             // 
@@ -311,7 +311,6 @@ namespace Land_Readjustment_Tool
             // tsmBackupProject
             // 
             tsmBackupProject.Enabled = false;
-            tsmBackupProject.Image = Properties.Resources.icons8_database_export_501;
             tsmBackupProject.Name = "tsmBackupProject";
             tsmBackupProject.Size = new Size(232, 26);
             tsmBackupProject.Text = "Backup Project";
@@ -777,7 +776,7 @@ namespace Land_Readjustment_Tool
             tabFill.Location = new Point(4, 29);
             tabFill.Name = "tabFill";
             tabFill.Padding = new Padding(10);
-            tabFill.Size = new Size(156, 273);
+            tabFill.Size = new Size(264, 273);
             tabFill.TabIndex = 1;
             tabFill.Text = "Fill";
             tabFill.UseVisualStyleBackColor = true;
@@ -884,7 +883,7 @@ namespace Land_Readjustment_Tool
             trkTransparency.Location = new Point(140, 117);
             trkTransparency.Maximum = 100;
             trkTransparency.Name = "trkTransparency";
-            trkTransparency.Size = new Size(0, 56);
+            trkTransparency.Size = new Size(108, 56);
             trkTransparency.TabIndex = 8;
             trkTransparency.TickFrequency = 10;
             // 
@@ -904,7 +903,7 @@ namespace Land_Readjustment_Tool
             tabLabel.Location = new Point(4, 29);
             tabLabel.Name = "tabLabel";
             tabLabel.Padding = new Padding(10);
-            tabLabel.Size = new Size(156, 273);
+            tabLabel.Size = new Size(264, 273);
             tabLabel.TabIndex = 2;
             tabLabel.Text = "Labels";
             tabLabel.UseVisualStyleBackColor = true;
@@ -936,13 +935,13 @@ namespace Land_Readjustment_Tool
             txtFontName.Location = new Point(140, 46);
             txtFontName.Name = "txtFontName";
             txtFontName.ReadOnly = true;
-            txtFontName.Size = new Size(0, 27);
+            txtFontName.Size = new Size(108, 27);
             txtFontName.TabIndex = 2;
             // 
             // btnPickFont
             // 
             btnPickFont.Anchor = AnchorStyles.Top | AnchorStyles.Right;
-            btnPickFont.Location = new Point(103, 46);
+            btnPickFont.Location = new Point(211, 46);
             btnPickFont.Name = "btnPickFont";
             btnPickFont.Size = new Size(40, 26);
             btnPickFont.TabIndex = 3;
@@ -1149,15 +1148,15 @@ namespace Land_Readjustment_Tool
             dgvParcelObjProperty.Size = new Size(304, 532);
             dgvParcelObjProperty.TabIndex = 0;
             // 
-            // toolStrip1
+            // tsProjectMenu
             // 
-            toolStrip1.ImageScalingSize = new Size(20, 20);
-            toolStrip1.Items.AddRange(new ToolStripItem[] { mnuNewProject, mnuOpenProject, mnuSaveProject, mnuSaveAsProject, mnuBackup, mnuRestoreBackup, mnuCloseProject, toolStripSeparator9, toolStripButton3, mnuProjectInfo, mnuProjectSettings, toolStripSeparator12, toolStripSeparator13, mnuUndo, mnuRedo, toolStripSeparator14, mnuPan, mnuZoomIn, mnuZoomOut, mnuZoomExtent, mnuZoomWindow, toolStripSeparator15, toolStripSeparator16, toolStripComboBox1 });
-            toolStrip1.Location = new Point(0, 28);
-            toolStrip1.Name = "toolStrip1";
-            toolStrip1.Size = new Size(1328, 28);
-            toolStrip1.TabIndex = 4;
-            toolStrip1.Text = "toolStrip1";
+            tsProjectMenu.ImageScalingSize = new Size(20, 20);
+            tsProjectMenu.Items.AddRange(new ToolStripItem[] { mnuNewProject, mnuOpenProject, mnuSaveProject, mnuSaveAsProject, mnuBackup, mnuRestoreBackup, mnuCloseProject, toolStripSeparator9, toolStripButton3, mnuProjectInfo, mnuProjectSettings, toolStripSeparator12, toolStripSeparator13, mnuUndo, mnuRedo, toolStripSeparator14, mnuPan, mnuZoomIn, mnuZoomOut, mnuZoomExtent, mnuZoomWindow, toolStripSeparator15, toolStripSeparator16, toolStripComboBox1 });
+            tsProjectMenu.Location = new Point(0, 28);
+            tsProjectMenu.Name = "tsProjectMenu";
+            tsProjectMenu.Size = new Size(1328, 28);
+            tsProjectMenu.TabIndex = 4;
+            tsProjectMenu.Text = "Project Menu";
             // 
             // mnuNewProject
             // 
@@ -1196,19 +1195,10 @@ namespace Land_Readjustment_Tool
             mnuSaveAsProject.Text = "Save As Project";
             mnuSaveAsProject.Click += mnuSaveAsProject_Click;
             // 
-            // mnuBackup
-            // 
-            mnuBackup.DisplayStyle = ToolStripItemDisplayStyle.Image;
-            mnuBackup.Image = Properties.Resources.icons8_database_export_50;
-            mnuBackup.ImageTransparentColor = Color.Magenta;
-            mnuBackup.Name = "mnuBackup";
-            mnuBackup.Size = new Size(29, 25);
-            mnuBackup.Text = "Backup Project";
-            // 
             // mnuRestoreBackup
             // 
             mnuRestoreBackup.DisplayStyle = ToolStripItemDisplayStyle.Image;
-            mnuRestoreBackup.Image = Properties.Resources.icons8_data_backup_501;
+            mnuRestoreBackup.Image = Properties.Resources.icons8_data_backup_503;
             mnuRestoreBackup.ImageTransparentColor = Color.Magenta;
             mnuRestoreBackup.Name = "mnuRestoreBackup";
             mnuRestoreBackup.Size = new Size(29, 25);
@@ -1264,7 +1254,7 @@ namespace Land_Readjustment_Tool
             // mnuUndo
             // 
             mnuUndo.DisplayStyle = ToolStripItemDisplayStyle.Image;
-            mnuUndo.Image = Properties.Resources.icons8_undo_50;
+            mnuUndo.Image = Properties.Resources.icons8_undo_502;
             mnuUndo.ImageTransparentColor = Color.Magenta;
             mnuUndo.Name = "mnuUndo";
             mnuUndo.Size = new Size(29, 25);
@@ -1273,7 +1263,7 @@ namespace Land_Readjustment_Tool
             // mnuRedo
             // 
             mnuRedo.DisplayStyle = ToolStripItemDisplayStyle.Image;
-            mnuRedo.Image = Properties.Resources.icons8_redo_50;
+            mnuRedo.Image = Properties.Resources.icons8_redo_502;
             mnuRedo.ImageTransparentColor = Color.Magenta;
             mnuRedo.Name = "mnuRedo";
             mnuRedo.Size = new Size(29, 25);
@@ -1287,7 +1277,7 @@ namespace Land_Readjustment_Tool
             // mnuPan
             // 
             mnuPan.DisplayStyle = ToolStripItemDisplayStyle.Image;
-            mnuPan.Image = Properties.Resources.icons8_hand_50;
+            mnuPan.Image = Properties.Resources.icons8_hand_502;
             mnuPan.ImageTransparentColor = Color.Magenta;
             mnuPan.Name = "mnuPan";
             mnuPan.Size = new Size(29, 25);
@@ -1296,7 +1286,7 @@ namespace Land_Readjustment_Tool
             // mnuZoomIn
             // 
             mnuZoomIn.DisplayStyle = ToolStripItemDisplayStyle.Image;
-            mnuZoomIn.Image = Properties.Resources.icons8_zoom_in_50;
+            mnuZoomIn.Image = Properties.Resources.icons8_zoom_in_502;
             mnuZoomIn.ImageTransparentColor = Color.Magenta;
             mnuZoomIn.Name = "mnuZoomIn";
             mnuZoomIn.Size = new Size(29, 25);
@@ -1305,7 +1295,7 @@ namespace Land_Readjustment_Tool
             // mnuZoomOut
             // 
             mnuZoomOut.DisplayStyle = ToolStripItemDisplayStyle.Image;
-            mnuZoomOut.Image = Properties.Resources.icons8_zoom_out_50;
+            mnuZoomOut.Image = Properties.Resources.icons8_zoom_out_502;
             mnuZoomOut.ImageTransparentColor = Color.Magenta;
             mnuZoomOut.Name = "mnuZoomOut";
             mnuZoomOut.Size = new Size(29, 25);
@@ -1314,7 +1304,7 @@ namespace Land_Readjustment_Tool
             // mnuZoomExtent
             // 
             mnuZoomExtent.DisplayStyle = ToolStripItemDisplayStyle.Image;
-            mnuZoomExtent.Image = Properties.Resources.icons8_zoom_to_extents_50;
+            mnuZoomExtent.Image = Properties.Resources.icons8_zoom_to_extents_502;
             mnuZoomExtent.ImageTransparentColor = Color.Magenta;
             mnuZoomExtent.Name = "mnuZoomExtent";
             mnuZoomExtent.Size = new Size(29, 25);
@@ -1323,7 +1313,7 @@ namespace Land_Readjustment_Tool
             // mnuZoomWindow
             // 
             mnuZoomWindow.DisplayStyle = ToolStripItemDisplayStyle.Image;
-            mnuZoomWindow.Image = Properties.Resources.icons8_zoom_to_fit_50;
+            mnuZoomWindow.Image = Properties.Resources.icons8_zoom_to_fit_502;
             mnuZoomWindow.ImageTransparentColor = Color.Magenta;
             mnuZoomWindow.Name = "mnuZoomWindow";
             mnuZoomWindow.Size = new Size(29, 25);
@@ -1345,12 +1335,21 @@ namespace Land_Readjustment_Tool
             toolStripComboBox1.Name = "toolStripComboBox1";
             toolStripComboBox1.Size = new Size(121, 28);
             // 
+            // mnuBackup
+            // 
+            mnuBackup.DisplayStyle = ToolStripItemDisplayStyle.Image;
+            mnuBackup.Image = Properties.Resources.icons8_database_export_502;
+            mnuBackup.ImageTransparentColor = Color.Magenta;
+            mnuBackup.Name = "mnuBackup";
+            mnuBackup.Size = new Size(29, 25);
+            mnuBackup.Text = "Backup Project";
+            // 
             // frmMain
             // 
             AutoScaleMode = AutoScaleMode.None;
             BackColor = SystemColors.ControlLightLight;
             ClientSize = new Size(1328, 629);
-            Controls.Add(toolStrip1);
+            Controls.Add(tsProjectMenu);
             Controls.Add(mainSplitContainer);
             Controls.Add(mainMenuStrip);
             DoubleBuffered = true;
@@ -1393,8 +1392,8 @@ namespace Land_Readjustment_Tool
             toolStrip2.PerformLayout();
             grpParcelObjProp.ResumeLayout(false);
             ((System.ComponentModel.ISupportInitialize)dgvParcelObjProperty).EndInit();
-            toolStrip1.ResumeLayout(false);
-            toolStrip1.PerformLayout();
+            tsProjectMenu.ResumeLayout(false);
+            tsProjectMenu.PerformLayout();
             ResumeLayout(false);
             PerformLayout();
         }
@@ -1495,7 +1494,7 @@ namespace Land_Readjustment_Tool
         private ComboBox cboLabelField;
         private Label label1;
         private SplitContainer mainSplitContainer;
-        private ToolStrip toolStrip1;
+        private ToolStrip tsProjectMenu;
         private ToolStripButton mnuNewProject;
         private ToolStripSeparator toolStripSeparator7;
         private ToolStripSeparator toolStripSeparator8;
@@ -1519,7 +1518,6 @@ namespace Land_Readjustment_Tool
         private ToolStripSeparator toolStripSeparator12;
         private ToolStripSeparator toolStripSeparator13;
         private ToolStripButton mnuUndo;
-        private ToolStripButton mnuBackup;
         private ToolStripButton mnuRestoreBackup;
         private ToolStripButton mnuRedo;
         private ToolStripSeparator toolStripSeparator14;
@@ -1531,5 +1529,6 @@ namespace Land_Readjustment_Tool
         private ToolStripSeparator toolStripSeparator15;
         private ToolStripSeparator toolStripSeparator16;
         private ToolStripComboBox toolStripComboBox1;
+        private ToolStripButton mnuBackup;
     }
 }
