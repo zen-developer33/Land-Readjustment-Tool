@@ -139,6 +139,7 @@ namespace Land_Readjustment_Tool
             mnuOpenProject = new ToolStripButton();
             mnuSaveProject = new ToolStripButton();
             mnuSaveAsProject = new ToolStripButton();
+            mnuBackup = new ToolStripButton();
             mnuRestoreBackup = new ToolStripButton();
             mnuCloseProject = new ToolStripButton();
             toolStripSeparator9 = new ToolStripSeparator();
@@ -158,7 +159,6 @@ namespace Land_Readjustment_Tool
             toolStripSeparator15 = new ToolStripSeparator();
             toolStripSeparator16 = new ToolStripSeparator();
             toolStripComboBox1 = new ToolStripComboBox();
-            mnuBackup = new ToolStripButton();
             mainMenuStrip.SuspendLayout();
             ((System.ComponentModel.ISupportInitialize)leftSplitContainer).BeginInit();
             leftSplitContainer.Panel1.SuspendLayout();
@@ -311,6 +311,7 @@ namespace Land_Readjustment_Tool
             // tsmBackupProject
             // 
             tsmBackupProject.Enabled = false;
+            tsmBackupProject.Image = Properties.Resources.icons8_database_export_503;
             tsmBackupProject.Name = "tsmBackupProject";
             tsmBackupProject.Size = new Size(232, 26);
             tsmBackupProject.Text = "Backup Project";
@@ -641,7 +642,6 @@ namespace Land_Readjustment_Tool
             // 
             cboLayerType.Anchor = AnchorStyles.Top | AnchorStyles.Left | AnchorStyles.Right;
             cboLayerType.DropDownStyle = ComboBoxStyle.DropDownList;
-            cboLayerType.FlatStyle = FlatStyle.Flat;
             cboLayerType.Font = new Font("Segoe UI", 9F);
             cboLayerType.Items.AddRange(new object[] { "BaselineParcel", "ReplottedParcel", "ProposedRoad", "ExistingRoad", "Block", "ProjectBoundary", "Annotation", "Reference" });
             cboLayerType.Location = new Point(127, 48);
@@ -691,7 +691,6 @@ namespace Land_Readjustment_Tool
             // 
             cboLineStyle.Anchor = AnchorStyles.Top | AnchorStyles.Left | AnchorStyles.Right;
             cboLineStyle.DropDownStyle = ComboBoxStyle.DropDownList;
-            cboLineStyle.FlatStyle = FlatStyle.Flat;
             cboLineStyle.Font = new Font("Segoe UI", 9F);
             cboLineStyle.Items.AddRange(new object[] { "Solid", "Dashed", "Dotted", "DashDot" });
             cboLineStyle.Location = new Point(127, 123);
@@ -713,7 +712,6 @@ namespace Land_Readjustment_Tool
             // 
             cboLineWeight.Anchor = AnchorStyles.Top | AnchorStyles.Left | AnchorStyles.Right;
             cboLineWeight.DropDownStyle = ComboBoxStyle.DropDownList;
-            cboLineWeight.FlatStyle = FlatStyle.Flat;
             cboLineWeight.Font = new Font("Segoe UI", 9F);
             cboLineWeight.Items.AddRange(new object[] { "0.25", "0.5", "1.0", "1.5", "2.0", "3.0" });
             cboLineWeight.Location = new Point(127, 162);
@@ -1089,7 +1087,7 @@ namespace Land_Readjustment_Tool
             tsmExpandCollapseLeftPanel.ImageTransparentColor = Color.Magenta;
             tsmExpandCollapseLeftPanel.Name = "tsmExpandCollapseLeftPanel";
             tsmExpandCollapseLeftPanel.Size = new Size(29, 24);
-            tsmExpandCollapseLeftPanel.Text = "toolStripButton5";
+            tsmExpandCollapseLeftPanel.Text = "Collapse Left Panel";
             tsmExpandCollapseLeftPanel.Click += tsmExpandCollapseLeftPanel_Click;
             // 
             // toolStripLabel1
@@ -1108,7 +1106,7 @@ namespace Land_Readjustment_Tool
             tsmExpandCollapseRightPanel.ImageTransparentColor = Color.Magenta;
             tsmExpandCollapseRightPanel.Name = "tsmExpandCollapseRightPanel";
             tsmExpandCollapseRightPanel.Size = new Size(29, 24);
-            tsmExpandCollapseRightPanel.Text = "toolStripLabel2";
+            tsmExpandCollapseRightPanel.Text = "Collapse Right Panel";
             tsmExpandCollapseRightPanel.Click += tsmExpandCollapseRightPanel_Click;
             // 
             // toolStripSeparator10
@@ -1195,6 +1193,15 @@ namespace Land_Readjustment_Tool
             mnuSaveAsProject.Text = "Save As Project";
             mnuSaveAsProject.Click += mnuSaveAsProject_Click;
             // 
+            // mnuBackup
+            // 
+            mnuBackup.DisplayStyle = ToolStripItemDisplayStyle.Image;
+            mnuBackup.Image = Properties.Resources.icons8_database_export_502;
+            mnuBackup.ImageTransparentColor = Color.Magenta;
+            mnuBackup.Name = "mnuBackup";
+            mnuBackup.Size = new Size(29, 25);
+            mnuBackup.Text = "Backup Project";
+            // 
             // mnuRestoreBackup
             // 
             mnuRestoreBackup.DisplayStyle = ToolStripItemDisplayStyle.Image;
@@ -1202,7 +1209,7 @@ namespace Land_Readjustment_Tool
             mnuRestoreBackup.ImageTransparentColor = Color.Magenta;
             mnuRestoreBackup.Name = "mnuRestoreBackup";
             mnuRestoreBackup.Size = new Size(29, 25);
-            mnuRestoreBackup.Text = "Restore Project from Backup";
+            mnuRestoreBackup.Text = "Restore from Backup";
             // 
             // mnuCloseProject
             // 
@@ -1282,6 +1289,7 @@ namespace Land_Readjustment_Tool
             mnuPan.Name = "mnuPan";
             mnuPan.Size = new Size(29, 25);
             mnuPan.Text = "Pan";
+            mnuPan.Click += mnuPan_Click;
             // 
             // mnuZoomIn
             // 
@@ -1308,7 +1316,7 @@ namespace Land_Readjustment_Tool
             mnuZoomExtent.ImageTransparentColor = Color.Magenta;
             mnuZoomExtent.Name = "mnuZoomExtent";
             mnuZoomExtent.Size = new Size(29, 25);
-            mnuZoomExtent.Text = "toolStripButton6";
+            mnuZoomExtent.Text = "Zoom to Extents";
             // 
             // mnuZoomWindow
             // 
@@ -1317,7 +1325,7 @@ namespace Land_Readjustment_Tool
             mnuZoomWindow.ImageTransparentColor = Color.Magenta;
             mnuZoomWindow.Name = "mnuZoomWindow";
             mnuZoomWindow.Size = new Size(29, 25);
-            mnuZoomWindow.Text = "toolStripButton7";
+            mnuZoomWindow.Text = "Zoom Window";
             // 
             // toolStripSeparator15
             // 
@@ -1334,15 +1342,6 @@ namespace Land_Readjustment_Tool
             toolStripComboBox1.FlatStyle = FlatStyle.Standard;
             toolStripComboBox1.Name = "toolStripComboBox1";
             toolStripComboBox1.Size = new Size(121, 28);
-            // 
-            // mnuBackup
-            // 
-            mnuBackup.DisplayStyle = ToolStripItemDisplayStyle.Image;
-            mnuBackup.Image = Properties.Resources.icons8_database_export_502;
-            mnuBackup.ImageTransparentColor = Color.Magenta;
-            mnuBackup.Name = "mnuBackup";
-            mnuBackup.Size = new Size(29, 25);
-            mnuBackup.Text = "Backup Project";
             // 
             // frmMain
             // 

@@ -633,6 +633,16 @@ namespace Land_Readjustment_Tool.Properties {
         /// <summary>
         ///   Looks up a localized resource of type System.Drawing.Bitmap.
         /// </summary>
+        public static System.Drawing.Bitmap icons8_database_export_503 {
+            get {
+                object obj = ResourceManager.GetObject("icons8-database-export-503", resourceCulture);
+                return ((System.Drawing.Bitmap)(obj));
+            }
+        }
+        
+        /// <summary>
+        ///   Looks up a localized resource of type System.Drawing.Bitmap.
+        /// </summary>
         public static System.Drawing.Bitmap icons8_database_restore_50 {
             get {
                 object obj = ResourceManager.GetObject("icons8-database-restore-50", resourceCulture);
@@ -656,6 +666,16 @@ namespace Land_Readjustment_Tool.Properties {
         public static System.Drawing.Bitmap icons8_database_restore_502 {
             get {
                 object obj = ResourceManager.GetObject("icons8-database-restore-502", resourceCulture);
+                return ((System.Drawing.Bitmap)(obj));
+            }
+        }
+        
+        /// <summary>
+        ///   Looks up a localized resource of type System.Drawing.Bitmap.
+        /// </summary>
+        public static System.Drawing.Bitmap icons8_database_restore_503 {
+            get {
+                object obj = ResourceManager.GetObject("icons8-database-restore-503", resourceCulture);
                 return ((System.Drawing.Bitmap)(obj));
             }
         }

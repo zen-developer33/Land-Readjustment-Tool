@@ -427,14 +427,10 @@ namespace Land_Readjustment_Tool
             if (!AppServices.HasContext) return; // Return if there is no Project Open. ((Has context --> the project is open))
 
             var context = AppServices.Context;
-            var repo = new ProjectSettingsRepository(
-                context.Session);
-            var crsRepo = new CoordinateSystemRepository(
-                context.Session);
-            var datumRepo = new DatumTransformationRepository(
-                context.Session);
-            var service = new ProjectSettingsService(
-                repo, context.Session.Logger);
+            var repo = new ProjectSettingsRepository(context.Session);
+            var crsRepo = new CoordinateSystemRepository(context.Session);
+            var datumRepo = new DatumTransformationRepository(context.Session);
+            var service = new ProjectSettingsService(repo, context.Session.Logger);
 
             using var frm = new frmProjectSettings(service, crsRepo, datumRepo);
 
@@ -1282,12 +1278,14 @@ namespace Land_Readjustment_Tool
             if (tsmExpandCollapseLeftPanel.Checked)
             {
                 mainSplitContainer.Panel1Collapsed = false;
+                tsmExpandCollapseLeftPanel.Text = "Collapse Left Panel";
                 var img = LoadToolbarImage("icons8-close-left-pane-50.png");
                 if (img != null) tsmExpandCollapseLeftPanel.Image = img;
             }
             else
             {
                 mainSplitContainer.Panel1Collapsed = true;
+                tsmExpandCollapseLeftPanel.Text = "Expand Left Panel";
                 var img = LoadToolbarImage("icons8-open-left-pane-50.png");
                 if (img != null) tsmExpandCollapseLeftPanel.Image = img;
             }
@@ -1324,12 +1322,14 @@ namespace Land_Readjustment_Tool
             if (tsmExpandCollapseRightPanel.Checked)
             {
                 splitContainer3.Panel2Collapsed = false;
+                tsmExpandCollapseRightPanel.Text = "Collapse Right Panel";
                 var img = LoadToolbarImage("icons8-close-right-pane-50.png");
                 if (img != null) tsmExpandCollapseRightPanel.Image = img;
             }
             else
             {
                 splitContainer3.Panel2Collapsed = true;
+                tsmExpandCollapseRightPanel.Text = "Expand Right Panel";
                 var img = LoadToolbarImage("icons8-open-right-pane-50.png");
                 if (img != null) tsmExpandCollapseRightPanel.Image = img;
             }
@@ -1349,6 +1349,11 @@ namespace Land_Readjustment_Tool
         private void tsmRecentProjects_Click(object sender, EventArgs e)
         {
 
+        }
+
+        private void mnuPan_Click(object sender, EventArgs e)
+        {
+            
         }
     }
 }
