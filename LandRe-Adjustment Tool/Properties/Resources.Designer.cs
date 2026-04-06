@@ -473,36 +473,6 @@ namespace Land_Readjustment_Tool.Properties {
         /// <summary>
         ///   Looks up a localized resource of type System.Drawing.Bitmap.
         /// </summary>
-        internal static System.Drawing.Bitmap icons8_data_backup_501 {
-            get {
-                object obj = ResourceManager.GetObject("icons8-data-backup-501", resourceCulture);
-                return ((System.Drawing.Bitmap)(obj));
-            }
-        }
-        
-        /// <summary>
-        ///   Looks up a localized resource of type System.Drawing.Bitmap.
-        /// </summary>
-        internal static System.Drawing.Bitmap icons8_database_export_50 {
-            get {
-                object obj = ResourceManager.GetObject("icons8-database-export-50", resourceCulture);
-                return ((System.Drawing.Bitmap)(obj));
-            }
-        }
-        
-        /// <summary>
-        ///   Looks up a localized resource of type System.Drawing.Bitmap.
-        /// </summary>
-        internal static System.Drawing.Bitmap icons8_database_export_501 {
-            get {
-                object obj = ResourceManager.GetObject("icons8-database-export-501", resourceCulture);
-                return ((System.Drawing.Bitmap)(obj));
-            }
-        }
-        
-        /// <summary>
-        ///   Looks up a localized resource of type System.Drawing.Bitmap.
-        /// </summary>
         internal static System.Drawing.Bitmap icons8_database_restore_50 {
             get {
                 object obj = ResourceManager.GetObject("icons8-database-restore-50", resourceCulture);
@@ -576,16 +546,6 @@ namespace Land_Readjustment_Tool.Properties {
         internal static System.Drawing.Bitmap icons8_hand_24 {
             get {
                 object obj = ResourceManager.GetObject("icons8-hand-24", resourceCulture);
-                return ((System.Drawing.Bitmap)(obj));
-            }
-        }
-        
-        /// <summary>
-        ///   Looks up a localized resource of type System.Drawing.Bitmap.
-        /// </summary>
-        internal static System.Drawing.Bitmap icons8_hand_50 {
-            get {
-                object obj = ResourceManager.GetObject("icons8-hand-50", resourceCulture);
                 return ((System.Drawing.Bitmap)(obj));
             }
         }
@@ -703,16 +663,6 @@ namespace Land_Readjustment_Tool.Properties {
         /// <summary>
         ///   Looks up a localized resource of type System.Drawing.Bitmap.
         /// </summary>
-        internal static System.Drawing.Bitmap icons8_redo_50 {
-            get {
-                object obj = ResourceManager.GetObject("icons8-redo-50", resourceCulture);
-                return ((System.Drawing.Bitmap)(obj));
-            }
-        }
-        
-        /// <summary>
-        ///   Looks up a localized resource of type System.Drawing.Bitmap.
-        /// </summary>
         internal static System.Drawing.Bitmap icons8_refresh_25 {
             get {
                 object obj = ResourceManager.GetObject("icons8-refresh-25", resourceCulture);
@@ -753,16 +703,6 @@ namespace Land_Readjustment_Tool.Properties {
         /// <summary>
         ///   Looks up a localized resource of type System.Drawing.Bitmap.
         /// </summary>
-        internal static System.Drawing.Bitmap icons8_slider_50 {
-            get {
-                object obj = ResourceManager.GetObject("icons8-slider-50", resourceCulture);
-                return ((System.Drawing.Bitmap)(obj));
-            }
-        }
-        
-        /// <summary>
-        ///   Looks up a localized resource of type System.Drawing.Bitmap.
-        /// </summary>
         internal static System.Drawing.Bitmap icons8_time_machine_50 {
             get {
                 object obj = ResourceManager.GetObject("icons8-time-machine-50", resourceCulture);
@@ -776,16 +716,6 @@ namespace Land_Readjustment_Tool.Properties {
         internal static System.Drawing.Bitmap icons8_undo_24 {
             get {
                 object obj = ResourceManager.GetObject("icons8-undo-24", resourceCulture);
-                return ((System.Drawing.Bitmap)(obj));
-            }
-        }
-        
-        /// <summary>
-        ///   Looks up a localized resource of type System.Drawing.Bitmap.
-        /// </summary>
-        internal static System.Drawing.Bitmap icons8_undo_50 {
-            get {
-                object obj = ResourceManager.GetObject("icons8-undo-50", resourceCulture);
                 return ((System.Drawing.Bitmap)(obj));
             }
         }
@@ -843,16 +773,6 @@ namespace Land_Readjustment_Tool.Properties {
         /// <summary>
         ///   Looks up a localized resource of type System.Drawing.Bitmap.
         /// </summary>
-        internal static System.Drawing.Bitmap icons8_zoom_in_50 {
-            get {
-                object obj = ResourceManager.GetObject("icons8-zoom-in-50", resourceCulture);
-                return ((System.Drawing.Bitmap)(obj));
-            }
-        }
-        
-        /// <summary>
-        ///   Looks up a localized resource of type System.Drawing.Bitmap.
-        /// </summary>
         internal static System.Drawing.Bitmap icons8_zoom_out_24__1_ {
             get {
                 object obj = ResourceManager.GetObject("icons8-zoom-out-24 (1)", resourceCulture);
@@ -863,39 +783,9 @@ namespace Land_Readjustment_Tool.Properties {
         /// <summary>
         ///   Looks up a localized resource of type System.Drawing.Bitmap.
         /// </summary>
-        internal static System.Drawing.Bitmap icons8_zoom_out_50 {
-            get {
-                object obj = ResourceManager.GetObject("icons8-zoom-out-50", resourceCulture);
-                return ((System.Drawing.Bitmap)(obj));
-            }
-        }
-        
-        /// <summary>
-        ///   Looks up a localized resource of type System.Drawing.Bitmap.
-        /// </summary>
         internal static System.Drawing.Bitmap icons8_zoom_to_extents_24 {
             get {
                 object obj = ResourceManager.GetObject("icons8-zoom-to-extents-24", resourceCulture);
-                return ((System.Drawing.Bitmap)(obj));
-            }
-        }
-        
-        /// <summary>
-        ///   Looks up a localized resource of type System.Drawing.Bitmap.
-        /// </summary>
-        internal static System.Drawing.Bitmap icons8_zoom_to_extents_50 {
-            get {
-                object obj = ResourceManager.GetObject("icons8-zoom-to-extents-50", resourceCulture);
-                return ((System.Drawing.Bitmap)(obj));
-            }
-        }
-        
-        /// <summary>
-        ///   Looks up a localized resource of type System.Drawing.Bitmap.
-        /// </summary>
-        internal static System.Drawing.Bitmap icons8_zoom_to_fit_50 {
-            get {
-                object obj = ResourceManager.GetObject("icons8-zoom-to-fit-50", resourceCulture);
                 return ((System.Drawing.Bitmap)(obj));
             }
         }
