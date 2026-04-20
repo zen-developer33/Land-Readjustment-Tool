@@ -378,6 +378,7 @@
             Name = "frmAreaConverter";
             StartPosition = FormStartPosition.CenterScreen;
             Text = "Area Converter";
+            TopMost = true;
             Load += frmAreaConverter_Load;
             grpQuickConvert.ResumeLayout(false);
             grpQuickConvert.PerformLayout();
