@@ -1187,6 +1187,7 @@ namespace Land_Readjustment_Tool
             }
 
             // ── Step 3: Delegate entirely to OpenProjectInternalAsync ─
+                    "Do you want to close the current project and open the selected project?\n",
             // checkUnsavedChanges: true means it will internally call
             // HandleUnsavedChangesOnClose() before doing anything.
             // That gives the user Yes / No / Cancel for unsaved changes.
