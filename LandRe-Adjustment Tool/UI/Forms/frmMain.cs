@@ -1186,8 +1186,21 @@ namespace Land_Readjustment_Tool
                 return;
             }
 
-            // ── Step 3: Delegate entirely to OpenProjectInternalAsync ─
-                    "Do you want to close the current project and open the selected project?\n",
+            // ── Step 3: Confirm switching to selected recent project ─
+            if (AppServices.HasContext)
+            {
+                var confirm = MessageBox.Show(
+                    "Are you sure want to close the current project and open the following project?\n"+
+                    path,
+                    "Open Recent Project",
+                    MessageBoxButtons.YesNo,
+                    MessageBoxIcon.Question);
+
+                if (confirm != DialogResult.Yes)
+                    return;
+            }
+
+            // ── Step 4: Delegate to OpenProjectInternalAsync ─
             // checkUnsavedChanges: true means it will internally call
             // HandleUnsavedChangesOnClose() before doing anything.
             // That gives the user Yes / No / Cancel for unsaved changes.
