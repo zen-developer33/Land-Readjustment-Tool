@@ -30,6 +30,7 @@ namespace Land_Readjustment_Tool
         private readonly string? _startupFilePath;
         //Canvas Control for drawing
         private DrawingCanvasControl _drawingCanvas;
+        private frmAreaConverter? _areaConverterForm;
         public frmMain(string? startupFilePath = null)
         {
             InitializeComponent();
@@ -1358,7 +1359,30 @@ namespace Land_Readjustment_Tool
 
         private void mnuAreaConverterTool_Click(object sender, EventArgs e)
         {
+            try
+            {
 
+
+                if (_areaConverterForm == null || _areaConverterForm.IsDisposed)
+                {
+                    _areaConverterForm = new frmAreaConverter();
+                    _areaConverterForm.FormClosed += (_, _) => _areaConverterForm = null;
+                    _areaConverterForm.Show();
+                }
+                else
+                {
+                    _areaConverterForm.BringToFront();
+                    _areaConverterForm.Activate();
+                }
+            }
+            catch (Exception ex)
+            {
+                MessageBox.Show(
+                    $"Failed to open Area Converter:\n{ex.Message}",
+                    "Area Converter",
+                    MessageBoxButtons.OK,
+                    MessageBoxIcon.Error);
+            }
         }
     }
 }
