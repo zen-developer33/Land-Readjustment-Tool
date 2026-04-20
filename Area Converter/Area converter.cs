@@ -56,7 +56,7 @@ namespace Land_Readjustment_Tool
             txtRapd.KeyPress += txtRapd_KeyPress;
             txtBkd.KeyPress += txtBkd_KeyPress;
 
-            btnReset.Click += btnReset_Click;
+            btnResetQuickConvert.Click += btnReset_Click;
             btnExit.Click += (_, _) => Close();
 
             foreach (var box in new[] { txtSqm, txtSqft, txtRopani, txtAana, txtPaisa, txtDam, txtBigha, txtKattha, txtDhur })
@@ -531,6 +531,21 @@ namespace Land_Readjustment_Tool
                 return false;
 
             return value.All(ch => char.IsDigit(ch) || ch == '.');
+        }
+
+        private void lblConvertFrom_Click(object sender, EventArgs e)
+        {
+
+        }
+
+        private void lblProjectTitle_Click(object sender, EventArgs e)
+        {
+
+        }
+
+        private void textBox2_TextChanged(object sender, EventArgs e)
+        {
+
         }
     }
 }
