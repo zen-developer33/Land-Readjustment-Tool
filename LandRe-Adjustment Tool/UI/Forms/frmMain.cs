@@ -271,7 +271,7 @@ namespace Land_Readjustment_Tool
             // If there is any project open and it has unsaved changes then ....
             {
                 var result = MessageBox.Show(
-                    "Do you want to save and current project before creating new one?",
+                    "Do you want to save this project before creating new one?",
                     "Save Current Project",
                     MessageBoxButtons.YesNo,
                     MessageBoxIcon.Question);
@@ -1190,7 +1190,7 @@ namespace Land_Readjustment_Tool
             if (AppServices.HasContext)
             {
                 var confirm = MessageBox.Show(
-                    "Are you sure want to close the current project and open the following project?\n"+
+                    "Are you sure want to close the current project and open the selected project?\n"+
                     path,
                     "Open Recent Project",
                     MessageBoxButtons.YesNo,
