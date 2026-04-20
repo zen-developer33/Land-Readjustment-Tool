@@ -73,7 +73,7 @@ namespace Land_Readjustment_Tool
             validationToolStripMenuItem = new ToolStripMenuItem();
             reportsToolStripMenuItem = new ToolStripMenuItem();
             toolsToolStripMenuItem = new ToolStripMenuItem();
-            areaConverterToolStripMenuItem = new ToolStripMenuItem();
+            mnuAreaConverterTool = new ToolStripMenuItem();
             helToolStripMenuItem = new ToolStripMenuItem();
             cadastralDataToolStripMenuItem = new ToolStripMenuItem();
             importDataToolStripMenuItem = new ToolStripMenuItem();
@@ -465,16 +465,17 @@ namespace Land_Readjustment_Tool
             // 
             // toolsToolStripMenuItem
             // 
-            toolsToolStripMenuItem.DropDownItems.AddRange(new ToolStripItem[] { areaConverterToolStripMenuItem });
+            toolsToolStripMenuItem.DropDownItems.AddRange(new ToolStripItem[] { mnuAreaConverterTool });
             toolsToolStripMenuItem.Name = "toolsToolStripMenuItem";
             toolsToolStripMenuItem.Size = new Size(58, 24);
             toolsToolStripMenuItem.Text = "Tools";
             // 
-            // areaConverterToolStripMenuItem
+            // mnuAreaConverterTool
             // 
-            areaConverterToolStripMenuItem.Name = "areaConverterToolStripMenuItem";
-            areaConverterToolStripMenuItem.Size = new Size(191, 26);
-            areaConverterToolStripMenuItem.Text = "Area Converter";
+            mnuAreaConverterTool.Name = "mnuAreaConverterTool";
+            mnuAreaConverterTool.Size = new Size(224, 26);
+            mnuAreaConverterTool.Text = "Area Converter";
+            mnuAreaConverterTool.Click += mnuAreaConverterTool_Click;
             // 
             // helToolStripMenuItem
             // 
@@ -1409,7 +1410,7 @@ namespace Land_Readjustment_Tool
         private System.Windows.Forms.ToolStripMenuItem validationToolStripMenuItem;
         private System.Windows.Forms.ToolStripMenuItem reportsToolStripMenuItem;
         private System.Windows.Forms.ToolStripMenuItem toolsToolStripMenuItem;
-        private System.Windows.Forms.ToolStripMenuItem areaConverterToolStripMenuItem;
+        private System.Windows.Forms.ToolStripMenuItem mnuAreaConverterTool;
         private System.Windows.Forms.ToolStripMenuItem helToolStripMenuItem;
         private System.Windows.Forms.ToolStripMenuItem tsmNewProject;
         private System.Windows.Forms.ToolStripMenuItem tsmOpenProject;

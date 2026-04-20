@@ -1353,7 +1353,12 @@ namespace Land_Readjustment_Tool
 
         private void mnuPan_Click(object sender, EventArgs e)
         {
-            
+
+        }
+
+        private void mnuAreaConverterTool_Click(object sender, EventArgs e)
+        {
+
         }
     }
 }
