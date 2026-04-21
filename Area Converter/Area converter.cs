@@ -5,9 +5,8 @@ namespace Land_Readjustment_Tool
 {
     public partial class frmAreaConverter : Form
     {
-        private const int DisplayPrecision = 4;
+        private const int MaxOtherUnitPrecision = 10;
         private const int MinTraditionalPrecision = 0;
-        private static int MaxTraditionalPrecision => Math.Max(MinTraditionalPrecision, DisplayPrecision - 1);
 
         private readonly Dictionary<TextBox, string> _lastValidNumericText = new();
         private string _lastValidRapdInput = string.Empty;
@@ -33,6 +32,7 @@ namespace Land_Readjustment_Tool
             ResetValues();
             ResetConvertFromInputsAndFocus();
             UpdateConvertToFromActiveInput();
+            BeginInvoke(new Action(FocusActiveConvertFromInput));
         }
 
         private void HookValidationEvents()
@@ -81,8 +81,10 @@ namespace Land_Readjustment_Tool
             radioButton7.CheckedChanged += UnitSelectionRadio_CheckedChanged;
             radioButton6.CheckedChanged += UnitSelectionRadio_CheckedChanged;
             radioButton5.CheckedChanged += UnitSelectionRadio_CheckedChanged;
-            nudOtherAreaPrecision.ValueChanged += nudPrecision_ValueChanged;
-            nudOtherAreaPrecision.KeyPress += nudPrecision_KeyPress;
+            nudOtherUnitPrecision.ValueChanged += nudOtherUnitPrecision_ValueChanged;
+            nudOtherUnitPrecision.KeyPress += nudOtherUnitPrecision_KeyPress;
+            nudTraditionalUnitPrecision.ValueChanged += nudPrecision_ValueChanged;
+            nudTraditionalUnitPrecision.KeyPress += nudPrecision_KeyPress;
 
             txtFromSqm.TextChanged += ConvertFromInput_TextChanged;
             txtFromSqft.TextChanged += ConvertFromInput_TextChanged;
@@ -191,15 +193,6 @@ namespace Land_Readjustment_Tool
 
             if (!TryParseDouble(text, out double value))
                 return;
-
-            if (value == 0 && IsZeroLikeInput(text))
-            {
-                _suppressTextValidation = true;
-                source.Text = FormatNumber(0);
-                source.SelectionStart = source.Text.Length;
-                _suppressTextValidation = false;
-                _lastValidNumericText[source] = source.Text;
-            }
 
             double sqm = source.Name switch
             {
@@ -327,15 +320,15 @@ namespace Land_Readjustment_Tool
             _suppressTextValidation = true;
 
             if (source != txtSqm) txtSqm.Text = FormatNumber(sqm);
-            if (source != txtSqft) txtSqft.Text = FormatNumber(AreaConverterService.SqmToSqft(sqm, DisplayPrecision));
-            if (source != txtRopani) txtRopani.Text = FormatNumber(AreaConverterService.SqmToRopani(sqm, DisplayPrecision));
-            if (source != txtAana) txtAana.Text = FormatNumber(AreaConverterService.SqmToAana(sqm, DisplayPrecision));
-            if (source != txtPaisa) txtPaisa.Text = FormatNumber(AreaConverterService.SqmToPaisa(sqm, DisplayPrecision));
-            if (source != txtDam) txtDam.Text = FormatTraditionalSubUnit(AreaConverterService.SqmToDam(sqm, GetTraditionalPrecision()));
+            if (source != txtSqft) txtSqft.Text = FormatNumber(AreaConverterService.SqmToSqft(sqm, GetOtherUnitPrecision()));
+            if (source != txtRopani) txtRopani.Text = FormatNumber(AreaConverterService.SqmToRopani(sqm, GetOtherUnitPrecision()));
+            if (source != txtAana) txtAana.Text = FormatNumber(AreaConverterService.SqmToAana(sqm, GetOtherUnitPrecision()));
+            if (source != txtPaisa) txtPaisa.Text = FormatNumber(AreaConverterService.SqmToPaisa(sqm, GetOtherUnitPrecision()));
+            if (source != txtDam) txtDam.Text = FormatNumber(AreaConverterService.SqmToDam(sqm, GetOtherUnitPrecision()));
             if (source != txtRapd) txtRapd.Text = AreaConverterService.SqmToRAPDString(sqm, damPrecision: GetTraditionalPrecision());
-            if (source != txtBigha) txtBigha.Text = FormatNumber(AreaConverterService.SqmToBigha(sqm, DisplayPrecision));
-            if (source != txtKattha) txtKattha.Text = FormatNumber(AreaConverterService.SqmToKattha(sqm, DisplayPrecision));
-            if (source != txtDhur) txtDhur.Text = FormatTraditionalSubUnit(AreaConverterService.SqmToDhur(sqm, GetTraditionalPrecision()));
+            if (source != txtBigha) txtBigha.Text = FormatNumber(AreaConverterService.SqmToBigha(sqm, GetOtherUnitPrecision()));
+            if (source != txtKattha) txtKattha.Text = FormatNumber(AreaConverterService.SqmToKattha(sqm, GetOtherUnitPrecision()));
+            if (source != txtDhur) txtDhur.Text = FormatNumber(AreaConverterService.SqmToDhur(sqm, GetOtherUnitPrecision()));
             if (source != txtBkd) txtBkd.Text = AreaConverterService.SqmToBKDString(sqm, dhurPrecision: GetTraditionalPrecision());
 
             _lastValidRapdInput = txtRapd.Text;
@@ -409,15 +402,8 @@ namespace Land_Readjustment_Tool
             return value.All(ch => char.IsDigit(ch) || ch == '.');
         }
 
-        private static string FormatNumber(double value)
-            => value.ToString($"F{DisplayPrecision}", CultureInfo.InvariantCulture);
-
-        private static bool IsZeroLikeInput(string text)
-        {
-            string normalized = text.Trim();
-            return normalized.Length > 0
-                && normalized.All(ch => ch == '0' || ch == '.');
-        }
+        private string FormatNumber(double value)
+            => value.ToString($"F{GetOtherUnitPrecision()}", CultureInfo.InvariantCulture);
 
         private static void ShowMessage(string message)
         {
@@ -669,9 +655,33 @@ namespace Land_Readjustment_Tool
 
         private void InitializePrecisionValidation()
         {
-            nudOtherAreaPrecision.Minimum = MinTraditionalPrecision;
-            nudOtherAreaPrecision.Maximum = MaxTraditionalPrecision;
+            nudOtherUnitPrecision.Minimum = 0;
+            nudOtherUnitPrecision.Maximum = MaxOtherUnitPrecision;
+            ValidateOtherUnitPrecisionRange();
+            UpdateTraditionalPrecisionBounds();
+
+            nudTraditionalUnitPrecision.Minimum = MinTraditionalPrecision;
             ValidatePrecisionRange();
+        }
+
+        private void nudOtherUnitPrecision_ValueChanged(object? sender, EventArgs e)
+        {
+            ValidateOtherUnitPrecisionRange();
+            UpdateTraditionalPrecisionBounds();
+            ApplyTraditionalPrecisionFormatting();
+            ApplyOtherUnitPrecisionFormatting();
+            UpdateConvertToFromActiveInput();
+        }
+
+        private void nudOtherUnitPrecision_KeyPress(object? sender, KeyPressEventArgs e)
+        {
+            if (char.IsControl(e.KeyChar))
+                return;
+
+            if (!char.IsDigit(e.KeyChar))
+            {
+                e.Handled = true;
+            }
         }
 
         private void nudPrecision_ValueChanged(object? sender, EventArgs e)
@@ -689,21 +699,21 @@ namespace Land_Readjustment_Tool
             if (!char.IsDigit(e.KeyChar))
             {
                 e.Handled = true;
-                ShowMessage($"Precision must be between {MinTraditionalPrecision} and {MaxTraditionalPrecision}.");
+                ShowMessage($"Precision must be between {MinTraditionalPrecision} and {GetTraditionalPrecisionMax()}.");
                 return;
             }
 
-            string currentText = nudOtherAreaPrecision.Text.Trim();
+            string currentText = nudTraditionalUnitPrecision.Text.Trim();
             string nextText = string.IsNullOrEmpty(currentText) || currentText == "0"
                 ? e.KeyChar.ToString()
                 : currentText + e.KeyChar;
 
             if (!int.TryParse(nextText, out int nextValue)
                 || nextValue < MinTraditionalPrecision
-                || nextValue > MaxTraditionalPrecision)
+                || nextValue > GetTraditionalPrecisionMax())
             {
                 e.Handled = true;
-                ShowMessage($"Precision must be between {MinTraditionalPrecision} and {MaxTraditionalPrecision}.");
+                ShowMessage($"Precision must be between {MinTraditionalPrecision} and {GetTraditionalPrecisionMax()}.");
             }
         }
 
@@ -716,7 +726,12 @@ namespace Land_Readjustment_Tool
             }
         }
 
-        private int GetTraditionalPrecision() => (int)nudOtherAreaPrecision.Value;
+        private int GetTraditionalPrecision() => (int)nudTraditionalUnitPrecision.Value;
+
+        private int GetOtherUnitPrecision() => (int)nudOtherUnitPrecision.Value;
+
+        private int GetTraditionalPrecisionMax()
+            => Math.Max(MinTraditionalPrecision, GetOtherUnitPrecision() - 1);
 
         private void ResetConvertFromInputsAndFocus()
         {
@@ -748,6 +763,13 @@ namespace Land_Readjustment_Tool
             if (radioButton3.Checked) return txtFromRopanee;
             if (radioButton4.Checked) return txtFromBigha;
             return txtFromSqm;
+        }
+
+        private void FocusActiveConvertFromInput()
+        {
+            TextBox first = GetActiveFromFirstTextBox();
+            first.Focus();
+            first.SelectAll();
         }
 
         private void ConvertFromInput_TextChanged(object? sender, EventArgs e)
@@ -806,7 +828,7 @@ namespace Land_Readjustment_Tool
             _suppressConvertSectionUpdates = true;
 
             txtToSqm.Text = FormatNumber(sqm);
-            txtToSqft.Text = FormatNumber(AreaConverterService.SqmToSqft(sqm, DisplayPrecision));
+            txtToSqft.Text = FormatNumber(AreaConverterService.SqmToSqft(sqm, GetOtherUnitPrecision()));
 
             var rapd = AreaConverterService.SqmToRAPDComponents(sqm, GetTraditionalPrecision());
             txtToRopanee.Text = rapd.Ropani.ToString(CultureInfo.InvariantCulture);
@@ -842,12 +864,6 @@ namespace Land_Readjustment_Tool
         private void ApplyTraditionalPrecisionFormatting()
         {
             _suppressTextValidation = true;
-
-            if (TryParseDouble(txtSqm.Text.Trim(), out double sqm))
-            {
-                txtDam.Text = FormatTraditionalSubUnit(AreaConverterService.SqmToDam(sqm, GetTraditionalPrecision()));
-                txtDhur.Text = FormatTraditionalSubUnit(AreaConverterService.SqmToDhur(sqm, GetTraditionalPrecision()));
-            }
 
             if (AreaConverterService.ParseRAPDToSqm(txtRapd.Text, 9) is double rapdSqm)
             {
@@ -890,12 +906,35 @@ namespace Land_Readjustment_Tool
 
         private void ValidatePrecisionRange()
         {
-            decimal clamped = Math.Clamp(nudOtherAreaPrecision.Value, nudOtherAreaPrecision.Minimum, nudOtherAreaPrecision.Maximum);
-            if (clamped != nudOtherAreaPrecision.Value)
+            decimal clamped = Math.Clamp(nudTraditionalUnitPrecision.Value, nudTraditionalUnitPrecision.Minimum, nudTraditionalUnitPrecision.Maximum);
+            if (clamped != nudTraditionalUnitPrecision.Value)
             {
-                nudOtherAreaPrecision.Value = clamped;
-                ShowMessage($"Precision must be between {MinTraditionalPrecision} and {MaxTraditionalPrecision}.");
+                nudTraditionalUnitPrecision.Value = clamped;
+                ShowMessage($"Precision must be between {MinTraditionalPrecision} and {GetTraditionalPrecisionMax()}.");
             }
+        }
+
+        private void ValidateOtherUnitPrecisionRange()
+        {
+            decimal clamped = Math.Clamp(nudOtherUnitPrecision.Value, nudOtherUnitPrecision.Minimum, nudOtherUnitPrecision.Maximum);
+            if (clamped != nudOtherUnitPrecision.Value)
+            {
+                nudOtherUnitPrecision.Value = clamped;
+            }
+        }
+
+        private void UpdateTraditionalPrecisionBounds()
+        {
+            nudTraditionalUnitPrecision.Maximum = GetTraditionalPrecisionMax();
+            ValidatePrecisionRange();
+        }
+
+        private void ApplyOtherUnitPrecisionFormatting()
+        {
+            if (!TryParseDouble(txtSqm.Text, out double sqm))
+                return;
+
+            UpdateAllFromSqm(sqm, txtSqm);
         }
 
         private void lblConvertFrom_Click(object sender, EventArgs e)
