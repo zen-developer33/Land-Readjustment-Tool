@@ -52,7 +52,6 @@
             txtSqft = new TextBox();
             lblSqm = new Label();
             txtSqm = new TextBox();
-            lblProjectTitle = new Label();
             grpConvertFrom = new GroupBox();
             btnReset = new Button();
             grpFromSqm = new GroupBox();
@@ -80,7 +79,6 @@
             txtToPaisa = new TextBox();
             txtToAana = new TextBox();
             txtToRopanee = new TextBox();
-            label10 = new Label();
             txtConvertFromD = new TextBox();
             lblD = new Label();
             lblP = new Label();
@@ -88,6 +86,8 @@
             txtConvertFromR = new TextBox();
             lblR = new Label();
             grpTitle = new GroupBox();
+            lblProjectTitle = new Label();
+            label10 = new Label();
             grpFromSqft = new GroupBox();
             label1 = new Label();
             txtFromSqft = new TextBox();
@@ -141,6 +141,9 @@
             txtFromPaisa = new TextBox();
             txtFromAana = new TextBox();
             txtFromRopanee = new TextBox();
+            label37 = new Label();
+            nudPrecision = new NumericUpDown();
+            label38 = new Label();
             grpQuickConvert.SuspendLayout();
             grpConvertFrom.SuspendLayout();
             grpFromSqm.SuspendLayout();
@@ -153,6 +156,7 @@
             grpToBKD.SuspendLayout();
             grpFromBKD.SuspendLayout();
             grpFromRAPD.SuspendLayout();
+            ((System.ComponentModel.ISupportInitialize)nudPrecision).BeginInit();
             SuspendLayout();
             // 
             // grpQuickConvert
@@ -181,9 +185,9 @@
             grpQuickConvert.Controls.Add(lblSqm);
             grpQuickConvert.Controls.Add(txtSqm);
             grpQuickConvert.Font = new Font("Segoe UI", 9F, FontStyle.Bold);
-            grpQuickConvert.Location = new Point(12, 12);
+            grpQuickConvert.Location = new Point(404, 12);
             grpQuickConvert.Name = "grpQuickConvert";
-            grpQuickConvert.Size = new Size(269, 408);
+            grpQuickConvert.Size = new Size(244, 408);
             grpQuickConvert.TabIndex = 0;
             grpQuickConvert.TabStop = false;
             grpQuickConvert.Text = "Quick Convert";
@@ -201,10 +205,11 @@
             // txtBkd
             // 
             txtBkd.Anchor = AnchorStyles.Top | AnchorStyles.Left | AnchorStyles.Right;
+            txtBkd.BorderStyle = BorderStyle.FixedSingle;
             txtBkd.Font = new Font("Segoe UI", 9F);
             txtBkd.Location = new Point(120, 331);
             txtBkd.Name = "txtBkd";
-            txtBkd.Size = new Size(143, 27);
+            txtBkd.Size = new Size(118, 27);
             txtBkd.TabIndex = 21;
             txtBkd.TextAlign = HorizontalAlignment.Right;
             // 
@@ -220,9 +225,10 @@
             // 
             // btnResetQuickConvert
             // 
-            btnResetQuickConvert.Location = new Point(15, 364);
+            btnResetQuickConvert.Anchor = AnchorStyles.Top | AnchorStyles.Left | AnchorStyles.Right;
+            btnResetQuickConvert.Location = new Point(6, 364);
             btnResetQuickConvert.Name = "btnResetQuickConvert";
-            btnResetQuickConvert.Size = new Size(248, 34);
+            btnResetQuickConvert.Size = new Size(232, 34);
             btnResetQuickConvert.TabIndex = 1;
             btnResetQuickConvert.Text = "Reset";
             btnResetQuickConvert.UseVisualStyleBackColor = true;
@@ -230,10 +236,11 @@
             // txtDhur
             // 
             txtDhur.Anchor = AnchorStyles.Top | AnchorStyles.Left | AnchorStyles.Right;
+            txtDhur.BorderStyle = BorderStyle.FixedSingle;
             txtDhur.Font = new Font("Segoe UI", 9F);
             txtDhur.Location = new Point(120, 301);
             txtDhur.Name = "txtDhur";
-            txtDhur.Size = new Size(143, 27);
+            txtDhur.Size = new Size(118, 27);
             txtDhur.TabIndex = 19;
             txtDhur.TextAlign = HorizontalAlignment.Right;
             // 
@@ -250,10 +257,11 @@
             // txtKattha
             // 
             txtKattha.Anchor = AnchorStyles.Top | AnchorStyles.Left | AnchorStyles.Right;
+            txtKattha.BorderStyle = BorderStyle.FixedSingle;
             txtKattha.Font = new Font("Segoe UI", 9F);
             txtKattha.Location = new Point(120, 271);
             txtKattha.Name = "txtKattha";
-            txtKattha.Size = new Size(143, 27);
+            txtKattha.Size = new Size(118, 27);
             txtKattha.TabIndex = 17;
             txtKattha.TextAlign = HorizontalAlignment.Right;
             // 
@@ -270,12 +278,14 @@
             // txtBigha
             // 
             txtBigha.Anchor = AnchorStyles.Top | AnchorStyles.Left | AnchorStyles.Right;
+            txtBigha.BorderStyle = BorderStyle.FixedSingle;
             txtBigha.Font = new Font("Segoe UI", 9F);
             txtBigha.Location = new Point(120, 241);
             txtBigha.Name = "txtBigha";
-            txtBigha.Size = new Size(143, 27);
+            txtBigha.Size = new Size(118, 27);
             txtBigha.TabIndex = 15;
             txtBigha.TextAlign = HorizontalAlignment.Right;
+            txtBigha.TextChanged += txtBigha_TextChanged;
             // 
             // lblRapd
             // 
@@ -290,10 +300,11 @@
             // txtRapd
             // 
             txtRapd.Anchor = AnchorStyles.Top | AnchorStyles.Left | AnchorStyles.Right;
+            txtRapd.BorderStyle = BorderStyle.FixedSingle;
             txtRapd.Font = new Font("Segoe UI", 9F);
             txtRapd.Location = new Point(120, 211);
             txtRapd.Name = "txtRapd";
-            txtRapd.Size = new Size(143, 27);
+            txtRapd.Size = new Size(118, 27);
             txtRapd.TabIndex = 13;
             txtRapd.TextAlign = HorizontalAlignment.Right;
             // 
@@ -310,10 +321,11 @@
             // txtDam
             // 
             txtDam.Anchor = AnchorStyles.Top | AnchorStyles.Left | AnchorStyles.Right;
+            txtDam.BorderStyle = BorderStyle.FixedSingle;
             txtDam.Font = new Font("Segoe UI", 9F);
             txtDam.Location = new Point(120, 181);
             txtDam.Name = "txtDam";
-            txtDam.Size = new Size(143, 27);
+            txtDam.Size = new Size(118, 27);
             txtDam.TabIndex = 11;
             txtDam.TextAlign = HorizontalAlignment.Right;
             // 
@@ -330,10 +342,11 @@
             // txtPaisa
             // 
             txtPaisa.Anchor = AnchorStyles.Top | AnchorStyles.Left | AnchorStyles.Right;
+            txtPaisa.BorderStyle = BorderStyle.FixedSingle;
             txtPaisa.Font = new Font("Segoe UI", 9F);
             txtPaisa.Location = new Point(120, 151);
             txtPaisa.Name = "txtPaisa";
-            txtPaisa.Size = new Size(143, 27);
+            txtPaisa.Size = new Size(118, 27);
             txtPaisa.TabIndex = 9;
             txtPaisa.TextAlign = HorizontalAlignment.Right;
             // 
@@ -350,10 +363,11 @@
             // txtAana
             // 
             txtAana.Anchor = AnchorStyles.Top | AnchorStyles.Left | AnchorStyles.Right;
+            txtAana.BorderStyle = BorderStyle.FixedSingle;
             txtAana.Font = new Font("Segoe UI", 9F);
             txtAana.Location = new Point(120, 121);
             txtAana.Name = "txtAana";
-            txtAana.Size = new Size(143, 27);
+            txtAana.Size = new Size(118, 27);
             txtAana.TabIndex = 7;
             txtAana.TextAlign = HorizontalAlignment.Right;
             // 
@@ -370,10 +384,11 @@
             // txtRopani
             // 
             txtRopani.Anchor = AnchorStyles.Top | AnchorStyles.Left | AnchorStyles.Right;
+            txtRopani.BorderStyle = BorderStyle.FixedSingle;
             txtRopani.Font = new Font("Segoe UI", 9F);
             txtRopani.Location = new Point(120, 91);
             txtRopani.Name = "txtRopani";
-            txtRopani.Size = new Size(143, 27);
+            txtRopani.Size = new Size(118, 27);
             txtRopani.TabIndex = 5;
             txtRopani.TextAlign = HorizontalAlignment.Right;
             // 
@@ -390,10 +405,11 @@
             // txtSqft
             // 
             txtSqft.Anchor = AnchorStyles.Top | AnchorStyles.Left | AnchorStyles.Right;
+            txtSqft.BorderStyle = BorderStyle.FixedSingle;
             txtSqft.Font = new Font("Segoe UI", 9F);
             txtSqft.Location = new Point(120, 61);
             txtSqft.Name = "txtSqft";
-            txtSqft.Size = new Size(143, 27);
+            txtSqft.Size = new Size(118, 27);
             txtSqft.TabIndex = 3;
             txtSqft.TextAlign = HorizontalAlignment.Right;
             // 
@@ -410,23 +426,13 @@
             // txtSqm
             // 
             txtSqm.Anchor = AnchorStyles.Top | AnchorStyles.Left | AnchorStyles.Right;
+            txtSqm.BorderStyle = BorderStyle.FixedSingle;
             txtSqm.Font = new Font("Segoe UI", 9F);
             txtSqm.Location = new Point(120, 31);
             txtSqm.Name = "txtSqm";
-            txtSqm.Size = new Size(143, 27);
+            txtSqm.Size = new Size(118, 27);
             txtSqm.TabIndex = 1;
             txtSqm.TextAlign = HorizontalAlignment.Right;
-            // 
-            // lblProjectTitle
-            // 
-            lblProjectTitle.AutoSize = true;
-            lblProjectTitle.Font = new Font("Segoe UI", 9F, FontStyle.Bold, GraphicsUnit.Point, 0);
-            lblProjectTitle.Location = new Point(144, 14);
-            lblProjectTitle.Name = "lblProjectTitle";
-            lblProjectTitle.Size = new Size(74, 20);
-            lblProjectTitle.TabIndex = 0;
-            lblProjectTitle.Text = "Re-Plot©";
-            lblProjectTitle.Click += lblProjectTitle_Click;
             // 
             // grpConvertFrom
             // 
@@ -437,7 +443,7 @@
             grpConvertFrom.Controls.Add(radioButton2);
             grpConvertFrom.Controls.Add(radioButton1);
             grpConvertFrom.Font = new Font("Segoe UI", 9F, FontStyle.Bold, GraphicsUnit.Point, 0);
-            grpConvertFrom.Location = new Point(311, 86);
+            grpConvertFrom.Location = new Point(12, 128);
             grpConvertFrom.Name = "grpConvertFrom";
             grpConvertFrom.Size = new Size(386, 171);
             grpConvertFrom.TabIndex = 3;
@@ -477,6 +483,7 @@
             // 
             // txtFromSqm
             // 
+            txtFromSqm.BorderStyle = BorderStyle.FixedSingle;
             txtFromSqm.Font = new Font("Segoe UI", 9F);
             txtFromSqm.Location = new Point(46, 40);
             txtFromSqm.Name = "txtFromSqm";
@@ -539,7 +546,7 @@
             grpConvertTo.Controls.Add(radioButton8);
             grpConvertTo.Controls.Add(grpToRAPD);
             grpConvertTo.Font = new Font("Segoe UI", 9F, FontStyle.Bold, GraphicsUnit.Point, 0);
-            grpConvertTo.Location = new Point(309, 256);
+            grpConvertTo.Location = new Point(10, 298);
             grpConvertTo.Name = "grpConvertTo";
             grpConvertTo.Size = new Size(388, 164);
             grpConvertTo.TabIndex = 5;
@@ -549,7 +556,7 @@
             // btnCopy
             // 
             btnCopy.Anchor = AnchorStyles.Top | AnchorStyles.Right;
-            btnCopy.Location = new Point(307, 119);
+            btnCopy.Location = new Point(307, 115);
             btnCopy.Name = "btnCopy";
             btnCopy.Size = new Size(75, 34);
             btnCopy.TabIndex = 8;
@@ -688,6 +695,7 @@
             // 
             // txtToDaam
             // 
+            txtToDaam.BorderStyle = BorderStyle.FixedSingle;
             txtToDaam.Font = new Font("Segoe UI", 9F);
             txtToDaam.Location = new Point(241, 40);
             txtToDaam.Name = "txtToDaam";
@@ -698,6 +706,7 @@
             // 
             // txtToPaisa
             // 
+            txtToPaisa.BorderStyle = BorderStyle.FixedSingle;
             txtToPaisa.Font = new Font("Segoe UI", 9F);
             txtToPaisa.Location = new Point(170, 40);
             txtToPaisa.Name = "txtToPaisa";
@@ -707,6 +716,7 @@
             // 
             // txtToAana
             // 
+            txtToAana.BorderStyle = BorderStyle.FixedSingle;
             txtToAana.Font = new Font("Segoe UI", 9F);
             txtToAana.Location = new Point(99, 40);
             txtToAana.Name = "txtToAana";
@@ -716,22 +726,13 @@
             // 
             // txtToRopanee
             // 
+            txtToRopanee.BorderStyle = BorderStyle.FixedSingle;
             txtToRopanee.Font = new Font("Segoe UI", 9F);
             txtToRopanee.Location = new Point(7, 40);
             txtToRopanee.Name = "txtToRopanee";
             txtToRopanee.Size = new Size(68, 27);
             txtToRopanee.TabIndex = 22;
             txtToRopanee.TextAlign = HorizontalAlignment.Right;
-            // 
-            // label10
-            // 
-            label10.AutoSize = true;
-            label10.Font = new Font("Segoe UI", 12F, FontStyle.Bold, GraphicsUnit.Point, 0);
-            label10.Location = new Point(77, 34);
-            label10.Name = "label10";
-            label10.Size = new Size(202, 28);
-            label10.TabIndex = 6;
-            label10.Text = "Area Converter Tool";
             // 
             // txtConvertFromD
             // 
@@ -791,23 +792,45 @@
             // 
             grpTitle.Controls.Add(lblProjectTitle);
             grpTitle.Controls.Add(label10);
-            grpTitle.Location = new Point(311, 12);
+            grpTitle.Location = new Point(12, 12);
             grpTitle.Name = "grpTitle";
-            grpTitle.Size = new Size(386, 68);
+            grpTitle.Size = new Size(386, 73);
             grpTitle.TabIndex = 26;
             grpTitle.TabStop = false;
+            // 
+            // lblProjectTitle
+            // 
+            lblProjectTitle.AutoSize = true;
+            lblProjectTitle.Font = new Font("Segoe UI", 9F, FontStyle.Bold, GraphicsUnit.Point, 0);
+            lblProjectTitle.Location = new Point(144, 14);
+            lblProjectTitle.Name = "lblProjectTitle";
+            lblProjectTitle.Size = new Size(74, 20);
+            lblProjectTitle.TabIndex = 0;
+            lblProjectTitle.Text = "Re-Plot©";
+            lblProjectTitle.Click += lblProjectTitle_Click;
+            // 
+            // label10
+            // 
+            label10.AutoSize = true;
+            label10.Font = new Font("Segoe UI", 12F, FontStyle.Bold, GraphicsUnit.Point, 0);
+            label10.Location = new Point(77, 34);
+            label10.Name = "label10";
+            label10.Size = new Size(202, 28);
+            label10.TabIndex = 6;
+            label10.Text = "Area Converter Tool";
             // 
             // grpFromSqft
             // 
             grpFromSqft.Controls.Add(label1);
             grpFromSqft.Controls.Add(txtFromSqft);
             grpFromSqft.Font = new Font("Segoe UI", 9F, FontStyle.Regular, GraphicsUnit.Point, 0);
-            grpFromSqft.Location = new Point(703, 19);
+            grpFromSqft.Location = new Point(703, 22);
             grpFromSqft.Name = "grpFromSqft";
             grpFromSqft.Size = new Size(294, 74);
             grpFromSqft.TabIndex = 27;
             grpFromSqft.TabStop = false;
             grpFromSqft.Text = "Square Feet";
+            grpFromSqft.Visible = false;
             // 
             // label1
             // 
@@ -820,6 +843,7 @@
             // 
             // txtFromSqft
             // 
+            txtFromSqft.BorderStyle = BorderStyle.FixedSingle;
             txtFromSqft.Font = new Font("Segoe UI", 9F);
             txtFromSqft.Location = new Point(46, 40);
             txtFromSqft.Name = "txtFromSqft";
@@ -956,6 +980,7 @@
             grpSqm.TabIndex = 26;
             grpSqm.TabStop = false;
             grpSqm.Text = "Square Meter";
+            grpSqm.Visible = false;
             // 
             // label12
             // 
@@ -968,6 +993,7 @@
             // 
             // txtToSqm
             // 
+            txtToSqm.BorderStyle = BorderStyle.FixedSingle;
             txtToSqm.Font = new Font("Segoe UI", 9F);
             txtToSqm.Location = new Point(46, 40);
             txtToSqm.Name = "txtToSqm";
@@ -977,10 +1003,11 @@
             // 
             // txtToSqft
             // 
+            txtToSqft.BorderStyle = BorderStyle.FixedSingle;
             txtToSqft.Font = new Font("Segoe UI", 9F);
-            txtToSqft.Location = new Point(50, 40);
+            txtToSqft.Location = new Point(46, 40);
             txtToSqft.Name = "txtToSqft";
-            txtToSqft.Size = new Size(176, 27);
+            txtToSqft.Size = new Size(180, 27);
             txtToSqft.TabIndex = 23;
             txtToSqft.TextAlign = HorizontalAlignment.Right;
             // 
@@ -1004,6 +1031,7 @@
             grpToSqft.TabIndex = 26;
             grpToSqft.TabStop = false;
             grpToSqft.Text = "Square Feet";
+            grpToSqft.Visible = false;
             // 
             // grpToBKD
             // 
@@ -1022,6 +1050,7 @@
             grpToBKD.TabIndex = 25;
             grpToBKD.TabStop = false;
             grpToBKD.Text = "B-K-D";
+            grpToBKD.Visible = false;
             // 
             // label13
             // 
@@ -1062,7 +1091,7 @@
             // label17
             // 
             label17.AutoSize = true;
-            label17.Location = new Point(57, 20);
+            label17.Location = new Point(54, 20);
             label17.Name = "label17";
             label17.Size = new Size(47, 20);
             label17.TabIndex = 3;
@@ -1070,6 +1099,7 @@
             // 
             // txtToDhur
             // 
+            txtToDhur.BorderStyle = BorderStyle.FixedSingle;
             txtToDhur.Font = new Font("Segoe UI", 9F);
             txtToDhur.Location = new Point(198, 40);
             txtToDhur.Name = "txtToDhur";
@@ -1079,6 +1109,7 @@
             // 
             // txtToKattha
             // 
+            txtToKattha.BorderStyle = BorderStyle.FixedSingle;
             txtToKattha.Font = new Font("Segoe UI", 9F);
             txtToKattha.Location = new Point(133, 40);
             txtToKattha.Name = "txtToKattha";
@@ -1088,8 +1119,9 @@
             // 
             // txtToBigha
             // 
+            txtToBigha.BorderStyle = BorderStyle.FixedSingle;
             txtToBigha.Font = new Font("Segoe UI", 9F);
-            txtToBigha.Location = new Point(50, 40);
+            txtToBigha.Location = new Point(46, 40);
             txtToBigha.Name = "txtToBigha";
             txtToBigha.Size = new Size(65, 27);
             txtToBigha.TabIndex = 22;
@@ -1112,6 +1144,7 @@
             grpFromBKD.TabIndex = 26;
             grpFromBKD.TabStop = false;
             grpFromBKD.Text = "B-K-D";
+            grpFromBKD.Visible = false;
             // 
             // label25
             // 
@@ -1152,7 +1185,7 @@
             // label29
             // 
             label29.AutoSize = true;
-            label29.Location = new Point(57, 20);
+            label29.Location = new Point(54, 20);
             label29.Name = "label29";
             label29.Size = new Size(47, 20);
             label29.TabIndex = 3;
@@ -1160,6 +1193,7 @@
             // 
             // txtFromDhur
             // 
+            txtFromDhur.BorderStyle = BorderStyle.FixedSingle;
             txtFromDhur.Font = new Font("Segoe UI", 9F);
             txtFromDhur.Location = new Point(198, 40);
             txtFromDhur.Name = "txtFromDhur";
@@ -1169,6 +1203,7 @@
             // 
             // txtFromKattha
             // 
+            txtFromKattha.BorderStyle = BorderStyle.FixedSingle;
             txtFromKattha.Font = new Font("Segoe UI", 9F);
             txtFromKattha.Location = new Point(133, 40);
             txtFromKattha.Name = "txtFromKattha";
@@ -1178,8 +1213,9 @@
             // 
             // txtFromBigha
             // 
+            txtFromBigha.BorderStyle = BorderStyle.FixedSingle;
             txtFromBigha.Font = new Font("Segoe UI", 9F);
-            txtFromBigha.Location = new Point(50, 40);
+            txtFromBigha.Location = new Point(46, 40);
             txtFromBigha.Name = "txtFromBigha";
             txtFromBigha.Size = new Size(65, 27);
             txtFromBigha.TabIndex = 22;
@@ -1187,10 +1223,10 @@
             // 
             // btnExit
             // 
-            btnExit.Anchor = AnchorStyles.Top | AnchorStyles.Right;
-            btnExit.Location = new Point(622, 426);
+            btnExit.Font = new Font("Segoe UI", 9F, FontStyle.Bold, GraphicsUnit.Point, 0);
+            btnExit.Location = new Point(404, 425);
             btnExit.Name = "btnExit";
-            btnExit.Size = new Size(75, 37);
+            btnExit.Size = new Size(244, 37);
             btnExit.TabIndex = 9;
             btnExit.Text = "Exit";
             btnExit.UseVisualStyleBackColor = true;
@@ -1216,6 +1252,7 @@
             grpFromRAPD.TabIndex = 25;
             grpFromRAPD.TabStop = false;
             grpFromRAPD.Text = "R-A-P-D";
+            grpFromRAPD.Visible = false;
             // 
             // label30
             // 
@@ -1282,6 +1319,7 @@
             // 
             // txtFromDaam
             // 
+            txtFromDaam.BorderStyle = BorderStyle.FixedSingle;
             txtFromDaam.Font = new Font("Segoe UI", 9F);
             txtFromDaam.Location = new Point(241, 40);
             txtFromDaam.Name = "txtFromDaam";
@@ -1291,6 +1329,7 @@
             // 
             // txtFromPaisa
             // 
+            txtFromPaisa.BorderStyle = BorderStyle.FixedSingle;
             txtFromPaisa.Font = new Font("Segoe UI", 9F);
             txtFromPaisa.Location = new Point(170, 40);
             txtFromPaisa.Name = "txtFromPaisa";
@@ -1300,6 +1339,7 @@
             // 
             // txtFromAana
             // 
+            txtFromAana.BorderStyle = BorderStyle.FixedSingle;
             txtFromAana.Font = new Font("Segoe UI", 9F);
             txtFromAana.Location = new Point(99, 40);
             txtFromAana.Name = "txtFromAana";
@@ -1309,6 +1349,7 @@
             // 
             // txtFromRopanee
             // 
+            txtFromRopanee.BorderStyle = BorderStyle.FixedSingle;
             txtFromRopanee.Font = new Font("Segoe UI", 9F);
             txtFromRopanee.Location = new Point(7, 40);
             txtFromRopanee.Name = "txtFromRopanee";
@@ -1316,11 +1357,44 @@
             txtFromRopanee.TabIndex = 22;
             txtFromRopanee.TextAlign = HorizontalAlignment.Right;
             // 
+            // label37
+            // 
+            label37.AutoSize = true;
+            label37.Font = new Font("Segoe UI", 9F);
+            label37.Location = new Point(12, 94);
+            label37.Name = "label37";
+            label37.Size = new Size(268, 20);
+            label37.TabIndex = 22;
+            label37.Text = "Traditional Unit Precision (RAPD/BKD): ";
+            // 
+            // nudPrecision
+            // 
+            nudPrecision.BorderStyle = BorderStyle.FixedSingle;
+            nudPrecision.Location = new Point(286, 91);
+            nudPrecision.Name = "nudPrecision";
+            nudPrecision.Size = new Size(43, 27);
+            nudPrecision.TabIndex = 29;
+            nudPrecision.TextAlign = HorizontalAlignment.Center;
+            nudPrecision.Value = new decimal(new int[] { 2, 0, 0, 0 });
+            // 
+            // label38
+            // 
+            label38.AutoSize = true;
+            label38.Font = new Font("Segoe UI", 9F);
+            label38.Location = new Point(333, 94);
+            label38.Name = "label38";
+            label38.Size = new Size(59, 20);
+            label38.TabIndex = 30;
+            label38.Text = "digit(s).";
+            // 
             // frmAreaConverter
             // 
             AutoScaleDimensions = new SizeF(120F, 120F);
             AutoScaleMode = AutoScaleMode.Dpi;
-            ClientSize = new Size(1161, 677);
+            ClientSize = new Size(1007, 505);
+            Controls.Add(label38);
+            Controls.Add(nudPrecision);
+            Controls.Add(label37);
             Controls.Add(grpFromRAPD);
             Controls.Add(btnExit);
             Controls.Add(grpFromBKD);
@@ -1365,7 +1439,9 @@
             grpFromBKD.PerformLayout();
             grpFromRAPD.ResumeLayout(false);
             grpFromRAPD.PerformLayout();
+            ((System.ComponentModel.ISupportInitialize)nudPrecision).EndInit();
             ResumeLayout(false);
+            PerformLayout();
         }
 
         #endregion
@@ -1394,7 +1470,6 @@
         private Label lblBkd;
         private TextBox txtBkd;
         private Button btnResetQuickConvert;
-        private Label lblProjectTitle;
         private GroupBox grpConvertFrom;
         private RadioButton radioButton4;
         private RadioButton radioButton3;
@@ -1407,7 +1482,6 @@
         private RadioButton radioButton6;
         private RadioButton radioButton7;
         private RadioButton radioButton8;
-        private Label label10;
         private Button btnCopy;
         private Label lblD;
         private Label lblP;
@@ -1484,5 +1558,10 @@
         private TextBox txtFromPaisa;
         private TextBox txtFromAana;
         private TextBox txtFromRopanee;
+        private Label label37;
+        private NumericUpDown nudPrecision;
+        private Label label38;
+        private Label lblProjectTitle;
+        private Label label10;
     }
 }
