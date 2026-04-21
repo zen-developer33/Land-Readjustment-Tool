@@ -142,8 +142,11 @@
             txtFromAana = new TextBox();
             txtFromRopanee = new TextBox();
             label37 = new Label();
-            nudPrecision = new NumericUpDown();
+            nudOtherAreaPrecision = new NumericUpDown();
             label38 = new Label();
+            label39 = new Label();
+            nudTranditionalUnitPrecision = new NumericUpDown();
+            label40 = new Label();
             grpQuickConvert.SuspendLayout();
             grpConvertFrom.SuspendLayout();
             grpFromSqm.SuspendLayout();
@@ -156,7 +159,8 @@
             grpToBKD.SuspendLayout();
             grpFromBKD.SuspendLayout();
             grpFromRAPD.SuspendLayout();
-            ((System.ComponentModel.ISupportInitialize)nudPrecision).BeginInit();
+            ((System.ComponentModel.ISupportInitialize)nudOtherAreaPrecision).BeginInit();
+            ((System.ComponentModel.ISupportInitialize)nudTranditionalUnitPrecision).BeginInit();
             SuspendLayout();
             // 
             // grpQuickConvert
@@ -187,7 +191,7 @@
             grpQuickConvert.Font = new Font("Segoe UI", 9F, FontStyle.Bold);
             grpQuickConvert.Location = new Point(404, 12);
             grpQuickConvert.Name = "grpQuickConvert";
-            grpQuickConvert.Size = new Size(244, 408);
+            grpQuickConvert.Size = new Size(244, 422);
             grpQuickConvert.TabIndex = 0;
             grpQuickConvert.TabStop = false;
             grpQuickConvert.Text = "Quick Convert";
@@ -226,9 +230,9 @@
             // btnResetQuickConvert
             // 
             btnResetQuickConvert.Anchor = AnchorStyles.Top | AnchorStyles.Left | AnchorStyles.Right;
-            btnResetQuickConvert.Location = new Point(6, 364);
+            btnResetQuickConvert.Location = new Point(6, 371);
             btnResetQuickConvert.Name = "btnResetQuickConvert";
-            btnResetQuickConvert.Size = new Size(232, 34);
+            btnResetQuickConvert.Size = new Size(232, 45);
             btnResetQuickConvert.TabIndex = 1;
             btnResetQuickConvert.Text = "Reset";
             btnResetQuickConvert.UseVisualStyleBackColor = true;
@@ -443,9 +447,9 @@
             grpConvertFrom.Controls.Add(radioButton2);
             grpConvertFrom.Controls.Add(radioButton1);
             grpConvertFrom.Font = new Font("Segoe UI", 9F, FontStyle.Bold, GraphicsUnit.Point, 0);
-            grpConvertFrom.Location = new Point(12, 128);
+            grpConvertFrom.Location = new Point(10, 151);
             grpConvertFrom.Name = "grpConvertFrom";
-            grpConvertFrom.Size = new Size(386, 171);
+            grpConvertFrom.Size = new Size(388, 171);
             grpConvertFrom.TabIndex = 3;
             grpConvertFrom.TabStop = false;
             grpConvertFrom.Text = "Convert From Unit";
@@ -453,7 +457,7 @@
             // btnReset
             // 
             btnReset.Anchor = AnchorStyles.Top | AnchorStyles.Right;
-            btnReset.Location = new Point(305, 120);
+            btnReset.Location = new Point(307, 120);
             btnReset.Name = "btnReset";
             btnReset.Size = new Size(75, 37);
             btnReset.TabIndex = 7;
@@ -546,7 +550,7 @@
             grpConvertTo.Controls.Add(radioButton8);
             grpConvertTo.Controls.Add(grpToRAPD);
             grpConvertTo.Font = new Font("Segoe UI", 9F, FontStyle.Bold, GraphicsUnit.Point, 0);
-            grpConvertTo.Location = new Point(10, 298);
+            grpConvertTo.Location = new Point(10, 323);
             grpConvertTo.Name = "grpConvertTo";
             grpConvertTo.Size = new Size(388, 164);
             grpConvertTo.TabIndex = 5;
@@ -1224,9 +1228,9 @@
             // btnExit
             // 
             btnExit.Font = new Font("Segoe UI", 9F, FontStyle.Bold, GraphicsUnit.Point, 0);
-            btnExit.Location = new Point(404, 425);
+            btnExit.Location = new Point(410, 440);
             btnExit.Name = "btnExit";
-            btnExit.Size = new Size(244, 37);
+            btnExit.Size = new Size(238, 47);
             btnExit.TabIndex = 9;
             btnExit.Text = "Exit";
             btnExit.UseVisualStyleBackColor = true;
@@ -1363,19 +1367,19 @@
             label37.Font = new Font("Segoe UI", 9F);
             label37.Location = new Point(12, 94);
             label37.Name = "label37";
-            label37.Size = new Size(268, 20);
+            label37.Size = new Size(233, 20);
             label37.TabIndex = 22;
-            label37.Text = "Traditional Unit Precision (RAPD/BKD): ";
+            label37.Text = "Display Area Precision (Sqm/Sqft)";
             // 
-            // nudPrecision
+            // nudOtherAreaPrecision
             // 
-            nudPrecision.BorderStyle = BorderStyle.FixedSingle;
-            nudPrecision.Location = new Point(286, 91);
-            nudPrecision.Name = "nudPrecision";
-            nudPrecision.Size = new Size(43, 27);
-            nudPrecision.TabIndex = 29;
-            nudPrecision.TextAlign = HorizontalAlignment.Center;
-            nudPrecision.Value = new decimal(new int[] { 2, 0, 0, 0 });
+            nudOtherAreaPrecision.BorderStyle = BorderStyle.FixedSingle;
+            nudOtherAreaPrecision.Location = new Point(286, 91);
+            nudOtherAreaPrecision.Name = "nudOtherAreaPrecision";
+            nudOtherAreaPrecision.Size = new Size(43, 27);
+            nudOtherAreaPrecision.TabIndex = 29;
+            nudOtherAreaPrecision.TextAlign = HorizontalAlignment.Center;
+            nudOtherAreaPrecision.Value = new decimal(new int[] { 3, 0, 0, 0 });
             // 
             // label38
             // 
@@ -1387,13 +1391,46 @@
             label38.TabIndex = 30;
             label38.Text = "digit(s).";
             // 
+            // label39
+            // 
+            label39.AutoSize = true;
+            label39.Font = new Font("Segoe UI", 9F);
+            label39.Location = new Point(333, 123);
+            label39.Name = "label39";
+            label39.Size = new Size(59, 20);
+            label39.TabIndex = 33;
+            label39.Text = "digit(s).";
+            // 
+            // nudTranditionalUnitPrecision
+            // 
+            nudTranditionalUnitPrecision.BorderStyle = BorderStyle.FixedSingle;
+            nudTranditionalUnitPrecision.Location = new Point(286, 120);
+            nudTranditionalUnitPrecision.Name = "nudTranditionalUnitPrecision";
+            nudTranditionalUnitPrecision.Size = new Size(43, 27);
+            nudTranditionalUnitPrecision.TabIndex = 32;
+            nudTranditionalUnitPrecision.TextAlign = HorizontalAlignment.Center;
+            nudTranditionalUnitPrecision.Value = new decimal(new int[] { 2, 0, 0, 0 });
+            // 
+            // label40
+            // 
+            label40.AutoSize = true;
+            label40.Font = new Font("Segoe UI", 9F);
+            label40.Location = new Point(12, 123);
+            label40.Name = "label40";
+            label40.Size = new Size(268, 20);
+            label40.TabIndex = 31;
+            label40.Text = "Traditional Unit Precision (RAPD/BKD): ";
+            // 
             // frmAreaConverter
             // 
             AutoScaleDimensions = new SizeF(120F, 120F);
             AutoScaleMode = AutoScaleMode.Dpi;
-            ClientSize = new Size(1007, 505);
+            ClientSize = new Size(655, 657);
+            Controls.Add(label39);
+            Controls.Add(nudTranditionalUnitPrecision);
+            Controls.Add(label40);
             Controls.Add(label38);
-            Controls.Add(nudPrecision);
+            Controls.Add(nudOtherAreaPrecision);
             Controls.Add(label37);
             Controls.Add(grpFromRAPD);
             Controls.Add(btnExit);
@@ -1439,7 +1476,8 @@
             grpFromBKD.PerformLayout();
             grpFromRAPD.ResumeLayout(false);
             grpFromRAPD.PerformLayout();
-            ((System.ComponentModel.ISupportInitialize)nudPrecision).EndInit();
+            ((System.ComponentModel.ISupportInitialize)nudOtherAreaPrecision).EndInit();
+            ((System.ComponentModel.ISupportInitialize)nudTranditionalUnitPrecision).EndInit();
             ResumeLayout(false);
             PerformLayout();
         }
@@ -1559,9 +1597,12 @@
         private TextBox txtFromAana;
         private TextBox txtFromRopanee;
         private Label label37;
-        private NumericUpDown nudPrecision;
+        private NumericUpDown nudOtherAreaPrecision;
         private Label label38;
         private Label lblProjectTitle;
         private Label label10;
+        private Label label39;
+        private NumericUpDown nudTranditionalUnitPrecision;
+        private Label label40;
     }
 }

@@ -5,12 +5,15 @@ namespace Land_Readjustment_Tool
 {
     public partial class frmAreaConverter : Form
     {
-        private const int DisplayPrecision = 3;
+        private const int DisplayPrecision = 4;
+        private const int MinTraditionalPrecision = 0;
+        private static int MaxTraditionalPrecision => Math.Max(MinTraditionalPrecision, DisplayPrecision - 1);
 
         private readonly Dictionary<TextBox, string> _lastValidNumericText = new();
         private string _lastValidRapdInput = string.Empty;
         private string _lastValidBkdInput = string.Empty;
         private bool _suppressTextValidation;
+        private bool _suppressConvertSectionUpdates;
         private Point _convertFromGroupLocation;
         private Point _convertToGroupLocation;
         private bool _unitGroupLayoutInitialized;
@@ -24,8 +27,12 @@ namespace Land_Readjustment_Tool
         private void frmAreaConverter_Load(object sender, EventArgs e)
         {
             InitializeUnitGroupLayouts();
+            InitializePrecisionValidation();
+            InitializeConvertSectionOutputReadOnly();
             ApplyUnitGroupVisibility();
             ResetValues();
+            ResetConvertFromInputsAndFocus();
+            UpdateConvertToFromActiveInput();
         }
 
         private void HookValidationEvents()
@@ -63,6 +70,8 @@ namespace Land_Readjustment_Tool
 
             btnResetQuickConvert.Click += btnReset_Click;
             btnExit.Click += (_, _) => Close();
+            btnReset.Click += btnConvertFromReset_Click;
+            btnCopy.Click += btnCopy_Click;
 
             radioButton1.CheckedChanged += UnitSelectionRadio_CheckedChanged;
             radioButton2.CheckedChanged += UnitSelectionRadio_CheckedChanged;
@@ -72,6 +81,29 @@ namespace Land_Readjustment_Tool
             radioButton7.CheckedChanged += UnitSelectionRadio_CheckedChanged;
             radioButton6.CheckedChanged += UnitSelectionRadio_CheckedChanged;
             radioButton5.CheckedChanged += UnitSelectionRadio_CheckedChanged;
+            nudOtherAreaPrecision.ValueChanged += nudPrecision_ValueChanged;
+            nudOtherAreaPrecision.KeyPress += nudPrecision_KeyPress;
+
+            txtFromSqm.TextChanged += ConvertFromInput_TextChanged;
+            txtFromSqft.TextChanged += ConvertFromInput_TextChanged;
+            txtFromRopanee.TextChanged += ConvertFromInput_TextChanged;
+            txtFromAana.TextChanged += ConvertFromInput_TextChanged;
+            txtFromPaisa.TextChanged += ConvertFromInput_TextChanged;
+            txtFromDaam.TextChanged += ConvertFromInput_TextChanged;
+            txtFromBigha.TextChanged += ConvertFromInput_TextChanged;
+            txtFromKattha.TextChanged += ConvertFromInput_TextChanged;
+            txtFromDhur.TextChanged += ConvertFromInput_TextChanged;
+
+            foreach (var box in new[] { txtFromSqm, txtFromSqft, txtFromRopanee, txtFromAana, txtFromPaisa, txtFromDaam, txtFromBigha, txtFromKattha, txtFromDhur })
+            {
+                box.KeyPress += NumericTextBox_KeyPress;
+                box.Enter += TextBox_EnterSelectAll;
+            }
+
+            foreach (var box in new[] { txtToSqm, txtToSqft, txtToRopanee, txtToAana, txtToPaisa, txtToDaam, txtToBigha, txtToKattha, txtToDhur })
+            {
+                box.Enter += TextBox_EnterSelectAll;
+            }
 
             foreach (var box in new[] { txtSqm, txtSqft, txtRopani, txtAana, txtPaisa, txtDam, txtBigha, txtKattha, txtDhur })
             {
@@ -91,17 +123,18 @@ namespace Land_Readjustment_Tool
         {
             _suppressTextValidation = true;
 
-            txtSqm.Text = "0.000";
-            txtSqft.Text = "0.000";
-            txtRopani.Text = "0.000";
-            txtAana.Text = "0.000";
-            txtPaisa.Text = "0.000";
-            txtDam.Text = "0.000";
-            txtRapd.Text = "0-0-0-0.00";
-            txtBigha.Text = "0.000";
-            txtKattha.Text = "0.000";
-            txtDhur.Text = "0.000";
-            txtBkd.Text = "0-0-0.00";
+            string formattedZero = FormatNumber(0);
+            txtSqm.Text = formattedZero;
+            txtSqft.Text = formattedZero;
+            txtRopani.Text = formattedZero;
+            txtAana.Text = formattedZero;
+            txtPaisa.Text = formattedZero;
+            txtDam.Text = formattedZero;
+            txtRapd.Text = AreaConverterService.FormatRAPD(0, 0, 0, 0, GetTraditionalPrecision());
+            txtBigha.Text = formattedZero;
+            txtKattha.Text = formattedZero;
+            txtDhur.Text = formattedZero;
+            txtBkd.Text = AreaConverterService.FormatBKD(0, 0, 0, GetTraditionalPrecision());
 
             _lastValidRapdInput = txtRapd.Text;
             _lastValidBkdInput = txtBkd.Text;
@@ -158,6 +191,15 @@ namespace Land_Readjustment_Tool
 
             if (!TryParseDouble(text, out double value))
                 return;
+
+            if (value == 0 && IsZeroLikeInput(text))
+            {
+                _suppressTextValidation = true;
+                source.Text = FormatNumber(0);
+                source.SelectionStart = source.Text.Length;
+                _suppressTextValidation = false;
+                _lastValidNumericText[source] = source.Text;
+            }
 
             double sqm = source.Name switch
             {
@@ -224,7 +266,7 @@ namespace Land_Readjustment_Tool
             string current = txtRapd.Text.Trim();
             if (string.IsNullOrEmpty(current))
             {
-                _lastValidRapdInput = "0-0-0-0.00";
+                _lastValidRapdInput = AreaConverterService.FormatRAPD(0, 0, 0, 0, GetTraditionalPrecision());
                 UpdateAllFromSqm(0, txtRapd);
                 return;
             }
@@ -256,7 +298,7 @@ namespace Land_Readjustment_Tool
             string current = txtBkd.Text.Trim();
             if (string.IsNullOrEmpty(current))
             {
-                _lastValidBkdInput = "0-0-0.00";
+                _lastValidBkdInput = AreaConverterService.FormatBKD(0, 0, 0, GetTraditionalPrecision());
                 UpdateAllFromSqm(0, txtBkd);
                 return;
             }
@@ -289,12 +331,12 @@ namespace Land_Readjustment_Tool
             if (source != txtRopani) txtRopani.Text = FormatNumber(AreaConverterService.SqmToRopani(sqm, DisplayPrecision));
             if (source != txtAana) txtAana.Text = FormatNumber(AreaConverterService.SqmToAana(sqm, DisplayPrecision));
             if (source != txtPaisa) txtPaisa.Text = FormatNumber(AreaConverterService.SqmToPaisa(sqm, DisplayPrecision));
-            if (source != txtDam) txtDam.Text = FormatNumber(AreaConverterService.SqmToDam(sqm, DisplayPrecision));
-            if (source != txtRapd) txtRapd.Text = AreaConverterService.SqmToRAPDString(sqm, damPrecision: 2);
+            if (source != txtDam) txtDam.Text = FormatTraditionalSubUnit(AreaConverterService.SqmToDam(sqm, GetTraditionalPrecision()));
+            if (source != txtRapd) txtRapd.Text = AreaConverterService.SqmToRAPDString(sqm, damPrecision: GetTraditionalPrecision());
             if (source != txtBigha) txtBigha.Text = FormatNumber(AreaConverterService.SqmToBigha(sqm, DisplayPrecision));
             if (source != txtKattha) txtKattha.Text = FormatNumber(AreaConverterService.SqmToKattha(sqm, DisplayPrecision));
-            if (source != txtDhur) txtDhur.Text = FormatNumber(AreaConverterService.SqmToDhur(sqm, DisplayPrecision));
-            if (source != txtBkd) txtBkd.Text = AreaConverterService.SqmToBKDString(sqm, dhurPrecision: 2);
+            if (source != txtDhur) txtDhur.Text = FormatTraditionalSubUnit(AreaConverterService.SqmToDhur(sqm, GetTraditionalPrecision()));
+            if (source != txtBkd) txtBkd.Text = AreaConverterService.SqmToBKDString(sqm, dhurPrecision: GetTraditionalPrecision());
 
             _lastValidRapdInput = txtRapd.Text;
             _lastValidBkdInput = txtBkd.Text;
@@ -368,7 +410,14 @@ namespace Land_Readjustment_Tool
         }
 
         private static string FormatNumber(double value)
-            => value.ToString("0.000", CultureInfo.InvariantCulture);
+            => value.ToString($"F{DisplayPrecision}", CultureInfo.InvariantCulture);
+
+        private static bool IsZeroLikeInput(string text)
+        {
+            string normalized = text.Trim();
+            return normalized.Length > 0
+                && normalized.All(ch => ch == '0' || ch == '.');
+        }
 
         private static void ShowMessage(string message)
         {
@@ -576,6 +625,13 @@ namespace Land_Readjustment_Tool
                 return;
 
             ApplyUnitGroupVisibility();
+
+            if (radioButton == radioButton1 || radioButton == radioButton2 || radioButton == radioButton3 || radioButton == radioButton4)
+            {
+                ResetConvertFromInputsAndFocus();
+            }
+
+            UpdateConvertToFromActiveInput();
         }
 
         private void ApplyUnitGroupVisibility()
@@ -609,6 +665,237 @@ namespace Land_Readjustment_Tool
             }
 
             selectedGroup.BringToFront();
+        }
+
+        private void InitializePrecisionValidation()
+        {
+            nudOtherAreaPrecision.Minimum = MinTraditionalPrecision;
+            nudOtherAreaPrecision.Maximum = MaxTraditionalPrecision;
+            ValidatePrecisionRange();
+        }
+
+        private void nudPrecision_ValueChanged(object? sender, EventArgs e)
+        {
+            ValidatePrecisionRange();
+            ApplyTraditionalPrecisionFormatting();
+            UpdateConvertToFromActiveInput();
+        }
+
+        private void nudPrecision_KeyPress(object? sender, KeyPressEventArgs e)
+        {
+            if (char.IsControl(e.KeyChar))
+                return;
+
+            if (!char.IsDigit(e.KeyChar))
+            {
+                e.Handled = true;
+                ShowMessage($"Precision must be between {MinTraditionalPrecision} and {MaxTraditionalPrecision}.");
+                return;
+            }
+
+            string currentText = nudOtherAreaPrecision.Text.Trim();
+            string nextText = string.IsNullOrEmpty(currentText) || currentText == "0"
+                ? e.KeyChar.ToString()
+                : currentText + e.KeyChar;
+
+            if (!int.TryParse(nextText, out int nextValue)
+                || nextValue < MinTraditionalPrecision
+                || nextValue > MaxTraditionalPrecision)
+            {
+                e.Handled = true;
+                ShowMessage($"Precision must be between {MinTraditionalPrecision} and {MaxTraditionalPrecision}.");
+            }
+        }
+
+        private void InitializeConvertSectionOutputReadOnly()
+        {
+            foreach (var box in new[] { txtToSqm, txtToSqft, txtToRopanee, txtToAana, txtToPaisa, txtToDaam, txtToBigha, txtToKattha, txtToDhur })
+            {
+                box.ReadOnly = true;
+                box.TabStop = false;
+            }
+        }
+
+        private int GetTraditionalPrecision() => (int)nudOtherAreaPrecision.Value;
+
+        private void ResetConvertFromInputsAndFocus()
+        {
+            _suppressConvertSectionUpdates = true;
+
+            string formattedZero = FormatNumber(0);
+            txtFromSqm.Text = formattedZero;
+            txtFromSqft.Text = formattedZero;
+
+            txtFromRopanee.Text = "0";
+            txtFromAana.Text = "0";
+            txtFromPaisa.Text = "0";
+            txtFromDaam.Text = FormatTraditionalSubUnit(0);
+
+            txtFromBigha.Text = "0";
+            txtFromKattha.Text = "0";
+            txtFromDhur.Text = FormatTraditionalSubUnit(0);
+
+            _suppressConvertSectionUpdates = false;
+
+            TextBox first = GetActiveFromFirstTextBox();
+            first.Focus();
+            first.SelectAll();
+        }
+
+        private TextBox GetActiveFromFirstTextBox()
+        {
+            if (radioButton2.Checked) return txtFromSqft;
+            if (radioButton3.Checked) return txtFromRopanee;
+            if (radioButton4.Checked) return txtFromBigha;
+            return txtFromSqm;
+        }
+
+        private void ConvertFromInput_TextChanged(object? sender, EventArgs e)
+        {
+            if (_suppressConvertSectionUpdates)
+                return;
+
+            UpdateConvertToFromActiveInput();
+        }
+
+        private void UpdateConvertToFromActiveInput()
+        {
+            double sqm = GetSqmFromConvertFromInputs();
+            UpdateConvertToOutputs(sqm);
+        }
+
+        private double GetSqmFromConvertFromInputs()
+        {
+            if (radioButton1.Checked)
+            {
+                return TryParseDouble(txtFromSqm.Text.Trim(), out double sqm) ? sqm : 0;
+            }
+
+            if (radioButton2.Checked)
+            {
+                return TryParseDouble(txtFromSqft.Text.Trim(), out double sqft)
+                    ? AreaConverterService.SqftToSqm(sqft, 9)
+                    : 0;
+            }
+
+            if (radioButton3.Checked)
+            {
+                int ropanee = ParseIntegerOrZero(txtFromRopanee.Text);
+                int aana = ParseIntegerOrZero(txtFromAana.Text);
+                int paisa = ParseIntegerOrZero(txtFromPaisa.Text);
+                double daam = ParseDoubleOrZero(txtFromDaam.Text);
+
+                if (aana >= 16 || paisa >= 4 || daam >= 4)
+                    return 0;
+
+                return AreaConverterService.RAPDToSqm(ropanee, aana, paisa, daam, 9);
+            }
+
+            int bigha = ParseIntegerOrZero(txtFromBigha.Text);
+            int kattha = ParseIntegerOrZero(txtFromKattha.Text);
+            double dhur = ParseDoubleOrZero(txtFromDhur.Text);
+
+            if (kattha >= 20 || dhur >= 20)
+                return 0;
+
+            return AreaConverterService.BKDToSqm(bigha, kattha, dhur, 9);
+        }
+
+        private void UpdateConvertToOutputs(double sqm)
+        {
+            _suppressConvertSectionUpdates = true;
+
+            txtToSqm.Text = FormatNumber(sqm);
+            txtToSqft.Text = FormatNumber(AreaConverterService.SqmToSqft(sqm, DisplayPrecision));
+
+            var rapd = AreaConverterService.SqmToRAPDComponents(sqm, GetTraditionalPrecision());
+            txtToRopanee.Text = rapd.Ropani.ToString(CultureInfo.InvariantCulture);
+            txtToAana.Text = rapd.Aana.ToString(CultureInfo.InvariantCulture);
+            txtToPaisa.Text = rapd.Paisa.ToString(CultureInfo.InvariantCulture);
+            txtToDaam.Text = FormatTraditionalSubUnit(rapd.Dam);
+
+            var bkd = AreaConverterService.SqmToBKDComponents(sqm, GetTraditionalPrecision());
+            txtToBigha.Text = bkd.Bigha.ToString(CultureInfo.InvariantCulture);
+            txtToKattha.Text = bkd.Kattha.ToString(CultureInfo.InvariantCulture);
+            txtToDhur.Text = FormatTraditionalSubUnit(bkd.Dhur);
+
+            _suppressConvertSectionUpdates = false;
+        }
+
+        private static int ParseIntegerOrZero(string? text)
+        {
+            return int.TryParse(text?.Trim(), NumberStyles.Integer, CultureInfo.InvariantCulture, out int value)
+                ? Math.Max(0, value)
+                : 0;
+        }
+
+        private static double ParseDoubleOrZero(string? text)
+        {
+            return TryParseDouble(text?.Trim() ?? string.Empty, out double value)
+                ? Math.Max(0, value)
+                : 0;
+        }
+
+        private string FormatTraditionalSubUnit(double value)
+            => value.ToString($"F{GetTraditionalPrecision()}", CultureInfo.InvariantCulture);
+
+        private void ApplyTraditionalPrecisionFormatting()
+        {
+            _suppressTextValidation = true;
+
+            if (TryParseDouble(txtSqm.Text.Trim(), out double sqm))
+            {
+                txtDam.Text = FormatTraditionalSubUnit(AreaConverterService.SqmToDam(sqm, GetTraditionalPrecision()));
+                txtDhur.Text = FormatTraditionalSubUnit(AreaConverterService.SqmToDhur(sqm, GetTraditionalPrecision()));
+            }
+
+            if (AreaConverterService.ParseRAPDToSqm(txtRapd.Text, 9) is double rapdSqm)
+            {
+                txtRapd.Text = AreaConverterService.SqmToRAPDString(rapdSqm, damPrecision: GetTraditionalPrecision());
+            }
+
+            if (AreaConverterService.ParseBKDToSqm(txtBkd.Text, 9) is double bkdSqm)
+            {
+                txtBkd.Text = AreaConverterService.SqmToBKDString(bkdSqm, dhurPrecision: GetTraditionalPrecision());
+            }
+
+            _lastValidRapdInput = txtRapd.Text;
+            _lastValidBkdInput = txtBkd.Text;
+            _suppressTextValidation = false;
+
+            txtFromDaam.Text = FormatTraditionalSubUnit(ParseDoubleOrZero(txtFromDaam.Text));
+            txtFromDhur.Text = FormatTraditionalSubUnit(ParseDoubleOrZero(txtFromDhur.Text));
+            txtToDaam.Text = FormatTraditionalSubUnit(ParseDoubleOrZero(txtToDaam.Text));
+            txtToDhur.Text = FormatTraditionalSubUnit(ParseDoubleOrZero(txtToDhur.Text));
+        }
+
+        private void btnConvertFromReset_Click(object? sender, EventArgs e)
+        {
+            ResetConvertFromInputsAndFocus();
+            UpdateConvertToFromActiveInput();
+        }
+
+        private void btnCopy_Click(object? sender, EventArgs e)
+        {
+            string text = radioButton8.Checked
+                ? txtToSqm.Text
+                : radioButton7.Checked
+                    ? txtToSqft.Text
+                    : radioButton6.Checked
+                        ? $"{txtToRopanee.Text}-{txtToAana.Text}-{txtToPaisa.Text}-{txtToDaam.Text}"
+                        : $"{txtToBigha.Text}-{txtToKattha.Text}-{txtToDhur.Text}";
+
+            Clipboard.SetText(text);
+        }
+
+        private void ValidatePrecisionRange()
+        {
+            decimal clamped = Math.Clamp(nudOtherAreaPrecision.Value, nudOtherAreaPrecision.Minimum, nudOtherAreaPrecision.Maximum);
+            if (clamped != nudOtherAreaPrecision.Value)
+            {
+                nudOtherAreaPrecision.Value = clamped;
+                ShowMessage($"Precision must be between {MinTraditionalPrecision} and {MaxTraditionalPrecision}.");
+            }
         }
 
         private void lblConvertFrom_Click(object sender, EventArgs e)
