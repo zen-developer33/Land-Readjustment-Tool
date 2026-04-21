@@ -11,6 +11,9 @@ namespace Land_Readjustment_Tool
         private string _lastValidRapdInput = string.Empty;
         private string _lastValidBkdInput = string.Empty;
         private bool _suppressTextValidation;
+        private Point _convertFromGroupLocation;
+        private Point _convertToGroupLocation;
+        private bool _unitGroupLayoutInitialized;
 
         public frmAreaConverter()
         {
@@ -20,6 +23,8 @@ namespace Land_Readjustment_Tool
 
         private void frmAreaConverter_Load(object sender, EventArgs e)
         {
+            InitializeUnitGroupLayouts();
+            ApplyUnitGroupVisibility();
             ResetValues();
         }
 
@@ -59,6 +64,15 @@ namespace Land_Readjustment_Tool
             btnResetQuickConvert.Click += btnReset_Click;
             btnExit.Click += (_, _) => Close();
 
+            radioButton1.CheckedChanged += UnitSelectionRadio_CheckedChanged;
+            radioButton2.CheckedChanged += UnitSelectionRadio_CheckedChanged;
+            radioButton3.CheckedChanged += UnitSelectionRadio_CheckedChanged;
+            radioButton4.CheckedChanged += UnitSelectionRadio_CheckedChanged;
+            radioButton8.CheckedChanged += UnitSelectionRadio_CheckedChanged;
+            radioButton7.CheckedChanged += UnitSelectionRadio_CheckedChanged;
+            radioButton6.CheckedChanged += UnitSelectionRadio_CheckedChanged;
+            radioButton5.CheckedChanged += UnitSelectionRadio_CheckedChanged;
+
             foreach (var box in new[] { txtSqm, txtSqft, txtRopani, txtAana, txtPaisa, txtDam, txtBigha, txtKattha, txtDhur })
             {
                 _lastValidNumericText[box] = string.Empty;
@@ -77,16 +91,16 @@ namespace Land_Readjustment_Tool
         {
             _suppressTextValidation = true;
 
-            txtSqm.Text = "0";
-            txtSqft.Text = "0";
-            txtRopani.Text = "0";
-            txtAana.Text = "0";
-            txtPaisa.Text = "0";
-            txtDam.Text = "0";
+            txtSqm.Text = "0.000";
+            txtSqft.Text = "0.000";
+            txtRopani.Text = "0.000";
+            txtAana.Text = "0.000";
+            txtPaisa.Text = "0.000";
+            txtDam.Text = "0.000";
             txtRapd.Text = "0-0-0-0.00";
-            txtBigha.Text = "0";
-            txtKattha.Text = "0";
-            txtDhur.Text = "0";
+            txtBigha.Text = "0.000";
+            txtKattha.Text = "0.000";
+            txtDhur.Text = "0.000";
             txtBkd.Text = "0-0-0.00";
 
             _lastValidRapdInput = txtRapd.Text;
@@ -354,7 +368,7 @@ namespace Land_Readjustment_Tool
         }
 
         private static string FormatNumber(double value)
-            => value.ToString("0.###", CultureInfo.InvariantCulture);
+            => value.ToString("0.000", CultureInfo.InvariantCulture);
 
         private static void ShowMessage(string message)
         {
@@ -533,6 +547,70 @@ namespace Land_Readjustment_Tool
             return value.All(ch => char.IsDigit(ch) || ch == '.');
         }
 
+        private void InitializeUnitGroupLayouts()
+        {
+            if (_unitGroupLayoutInitialized)
+                return;
+
+            _convertFromGroupLocation = grpFromSqm.Location;
+            _convertToGroupLocation = grpToRAPD.Location;
+
+            foreach (var group in new[] { grpFromSqm, grpFromSqft, grpFromRAPD, grpFromBKD })
+            {
+                group.Parent = grpConvertFrom;
+                group.Location = _convertFromGroupLocation;
+            }
+
+            foreach (var group in new[] { grpToRAPD, grpToSqft, grpSqm, grpToBKD })
+            {
+                group.Parent = grpConvertTo;
+                group.Location = _convertToGroupLocation;
+            }
+
+            _unitGroupLayoutInitialized = true;
+        }
+
+        private void UnitSelectionRadio_CheckedChanged(object? sender, EventArgs e)
+        {
+            if (sender is not RadioButton radioButton || !radioButton.Checked)
+                return;
+
+            ApplyUnitGroupVisibility();
+        }
+
+        private void ApplyUnitGroupVisibility()
+        {
+            ShowOnlySelectedGroup(
+                radioButton1.Checked ? grpFromSqm :
+                radioButton2.Checked ? grpFromSqft :
+                radioButton3.Checked ? grpFromRAPD :
+                grpFromBKD,
+                grpFromSqm,
+                grpFromSqft,
+                grpFromRAPD,
+                grpFromBKD);
+
+            ShowOnlySelectedGroup(
+                radioButton8.Checked ? grpSqm :
+                radioButton7.Checked ? grpToSqft :
+                radioButton6.Checked ? grpToRAPD :
+                grpToBKD,
+                grpSqm,
+                grpToSqft,
+                grpToRAPD,
+                grpToBKD);
+        }
+
+        private static void ShowOnlySelectedGroup(GroupBox selectedGroup, params GroupBox[] allGroups)
+        {
+            foreach (GroupBox group in allGroups)
+            {
+                group.Visible = group == selectedGroup;
+            }
+
+            selectedGroup.BringToFront();
+        }
+
         private void lblConvertFrom_Click(object sender, EventArgs e)
         {
 
@@ -544,6 +622,11 @@ namespace Land_Readjustment_Tool
         }
 
         private void textBox2_TextChanged(object sender, EventArgs e)
+        {
+
+        }
+
+        private void txtBigha_TextChanged(object sender, EventArgs e)
         {
 
         }
