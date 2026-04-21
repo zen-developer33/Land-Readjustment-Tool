@@ -28,7 +28,9 @@ namespace Land_Readjustment_Tool
         /// </summary>
         private void InitializeComponent()
         {
+            System.ComponentModel.ComponentResourceManager resources = new System.ComponentModel.ComponentResourceManager(typeof(frmAreaConverter));
             grpQuickConvert = new GroupBox();
+            btnCopyToClipboard = new Button();
             lblBkd = new Label();
             txtBkd = new TextBox();
             lblDhur = new Label();
@@ -106,7 +108,6 @@ namespace Land_Readjustment_Tool
             label11 = new Label();
             grpSqm = new GroupBox();
             label12 = new Label();
-            txtToSqm = new TextBox();
             txtToSqft = new TextBox();
             lblConvertToSqft = new Label();
             grpToSqft = new GroupBox();
@@ -147,6 +148,8 @@ namespace Land_Readjustment_Tool
             label39 = new Label();
             nudOtherUnitPrecision = new NumericUpDown();
             label40 = new Label();
+            label41 = new Label();
+            txtToSqm = new TextBox();
             grpQuickConvert.SuspendLayout();
             grpConvertFrom.SuspendLayout();
             grpFromSqm.SuspendLayout();
@@ -165,6 +168,7 @@ namespace Land_Readjustment_Tool
             // 
             // grpQuickConvert
             // 
+            grpQuickConvert.Controls.Add(btnCopyToClipboard);
             grpQuickConvert.Controls.Add(lblBkd);
             grpQuickConvert.Controls.Add(txtBkd);
             grpQuickConvert.Controls.Add(lblDhur);
@@ -192,9 +196,19 @@ namespace Land_Readjustment_Tool
             grpQuickConvert.Location = new Point(404, 12);
             grpQuickConvert.Name = "grpQuickConvert";
             grpQuickConvert.Size = new Size(244, 422);
-            grpQuickConvert.TabIndex = 0;
+            grpQuickConvert.TabIndex = 30;
             grpQuickConvert.TabStop = false;
             grpQuickConvert.Text = "Quick Convert";
+            // 
+            // btnCopyToClipboard
+            // 
+            btnCopyToClipboard.Anchor = AnchorStyles.Top | AnchorStyles.Right;
+            btnCopyToClipboard.Location = new Point(6, 381);
+            btnCopyToClipboard.Name = "btnCopyToClipboard";
+            btnCopyToClipboard.Size = new Size(144, 35);
+            btnCopyToClipboard.TabIndex = 18;
+            btnCopyToClipboard.Text = "Copy to Clipboard";
+            btnCopyToClipboard.UseVisualStyleBackColor = true;
             // 
             // lblBkd
             // 
@@ -209,12 +223,11 @@ namespace Land_Readjustment_Tool
             // txtBkd
             // 
             txtBkd.Anchor = AnchorStyles.Top | AnchorStyles.Left | AnchorStyles.Right;
-            txtBkd.BorderStyle = BorderStyle.FixedSingle;
             txtBkd.Font = new Font("Segoe UI", 9F);
             txtBkd.Location = new Point(120, 331);
             txtBkd.Name = "txtBkd";
             txtBkd.Size = new Size(118, 27);
-            txtBkd.TabIndex = 28;
+            txtBkd.TabIndex = 40;
             txtBkd.TextAlign = HorizontalAlignment.Right;
             // 
             // lblDhur
@@ -230,22 +243,21 @@ namespace Land_Readjustment_Tool
             // btnResetQuickConvert
             // 
             btnResetQuickConvert.Anchor = AnchorStyles.Top | AnchorStyles.Left | AnchorStyles.Right;
-            btnResetQuickConvert.Location = new Point(6, 371);
+            btnResetQuickConvert.Location = new Point(156, 381);
             btnResetQuickConvert.Name = "btnResetQuickConvert";
-            btnResetQuickConvert.Size = new Size(232, 45);
-            btnResetQuickConvert.TabIndex = 29;
+            btnResetQuickConvert.Size = new Size(82, 35);
+            btnResetQuickConvert.TabIndex = 41;
             btnResetQuickConvert.Text = "Reset";
             btnResetQuickConvert.UseVisualStyleBackColor = true;
             // 
             // txtDhur
             // 
             txtDhur.Anchor = AnchorStyles.Top | AnchorStyles.Left | AnchorStyles.Right;
-            txtDhur.BorderStyle = BorderStyle.FixedSingle;
             txtDhur.Font = new Font("Segoe UI", 9F);
             txtDhur.Location = new Point(120, 301);
             txtDhur.Name = "txtDhur";
             txtDhur.Size = new Size(118, 27);
-            txtDhur.TabIndex = 27;
+            txtDhur.TabIndex = 39;
             txtDhur.TextAlign = HorizontalAlignment.Right;
             // 
             // lblKattha
@@ -261,12 +273,11 @@ namespace Land_Readjustment_Tool
             // txtKattha
             // 
             txtKattha.Anchor = AnchorStyles.Top | AnchorStyles.Left | AnchorStyles.Right;
-            txtKattha.BorderStyle = BorderStyle.FixedSingle;
             txtKattha.Font = new Font("Segoe UI", 9F);
             txtKattha.Location = new Point(120, 271);
             txtKattha.Name = "txtKattha";
             txtKattha.Size = new Size(118, 27);
-            txtKattha.TabIndex = 26;
+            txtKattha.TabIndex = 38;
             txtKattha.TextAlign = HorizontalAlignment.Right;
             // 
             // lblBigha
@@ -282,12 +293,11 @@ namespace Land_Readjustment_Tool
             // txtBigha
             // 
             txtBigha.Anchor = AnchorStyles.Top | AnchorStyles.Left | AnchorStyles.Right;
-            txtBigha.BorderStyle = BorderStyle.FixedSingle;
             txtBigha.Font = new Font("Segoe UI", 9F);
             txtBigha.Location = new Point(120, 241);
             txtBigha.Name = "txtBigha";
             txtBigha.Size = new Size(118, 27);
-            txtBigha.TabIndex = 25;
+            txtBigha.TabIndex = 37;
             txtBigha.TextAlign = HorizontalAlignment.Right;
             txtBigha.TextChanged += txtBigha_TextChanged;
             // 
@@ -304,12 +314,11 @@ namespace Land_Readjustment_Tool
             // txtRapd
             // 
             txtRapd.Anchor = AnchorStyles.Top | AnchorStyles.Left | AnchorStyles.Right;
-            txtRapd.BorderStyle = BorderStyle.FixedSingle;
             txtRapd.Font = new Font("Segoe UI", 9F);
             txtRapd.Location = new Point(120, 211);
             txtRapd.Name = "txtRapd";
             txtRapd.Size = new Size(118, 27);
-            txtRapd.TabIndex = 24;
+            txtRapd.TabIndex = 36;
             txtRapd.TextAlign = HorizontalAlignment.Right;
             // 
             // lblDam
@@ -325,12 +334,11 @@ namespace Land_Readjustment_Tool
             // txtDam
             // 
             txtDam.Anchor = AnchorStyles.Top | AnchorStyles.Left | AnchorStyles.Right;
-            txtDam.BorderStyle = BorderStyle.FixedSingle;
             txtDam.Font = new Font("Segoe UI", 9F);
             txtDam.Location = new Point(120, 181);
             txtDam.Name = "txtDam";
             txtDam.Size = new Size(118, 27);
-            txtDam.TabIndex = 23;
+            txtDam.TabIndex = 35;
             txtDam.TextAlign = HorizontalAlignment.Right;
             // 
             // lblPaisa
@@ -346,13 +354,13 @@ namespace Land_Readjustment_Tool
             // txtPaisa
             // 
             txtPaisa.Anchor = AnchorStyles.Top | AnchorStyles.Left | AnchorStyles.Right;
-            txtPaisa.BorderStyle = BorderStyle.FixedSingle;
             txtPaisa.Font = new Font("Segoe UI", 9F);
             txtPaisa.Location = new Point(120, 151);
             txtPaisa.Name = "txtPaisa";
             txtPaisa.Size = new Size(118, 27);
-            txtPaisa.TabIndex = 22;
+            txtPaisa.TabIndex = 34;
             txtPaisa.TextAlign = HorizontalAlignment.Right;
+            txtPaisa.TextChanged += txtPaisa_TextChanged;
             // 
             // lblAana
             // 
@@ -367,12 +375,11 @@ namespace Land_Readjustment_Tool
             // txtAana
             // 
             txtAana.Anchor = AnchorStyles.Top | AnchorStyles.Left | AnchorStyles.Right;
-            txtAana.BorderStyle = BorderStyle.FixedSingle;
             txtAana.Font = new Font("Segoe UI", 9F);
             txtAana.Location = new Point(120, 121);
             txtAana.Name = "txtAana";
             txtAana.Size = new Size(118, 27);
-            txtAana.TabIndex = 21;
+            txtAana.TabIndex = 33;
             txtAana.TextAlign = HorizontalAlignment.Right;
             // 
             // lblRopani
@@ -388,12 +395,11 @@ namespace Land_Readjustment_Tool
             // txtRopani
             // 
             txtRopani.Anchor = AnchorStyles.Top | AnchorStyles.Left | AnchorStyles.Right;
-            txtRopani.BorderStyle = BorderStyle.FixedSingle;
             txtRopani.Font = new Font("Segoe UI", 9F);
             txtRopani.Location = new Point(120, 91);
             txtRopani.Name = "txtRopani";
             txtRopani.Size = new Size(118, 27);
-            txtRopani.TabIndex = 20;
+            txtRopani.TabIndex = 32;
             txtRopani.TextAlign = HorizontalAlignment.Right;
             // 
             // lblSqft
@@ -409,12 +415,11 @@ namespace Land_Readjustment_Tool
             // txtSqft
             // 
             txtSqft.Anchor = AnchorStyles.Top | AnchorStyles.Left | AnchorStyles.Right;
-            txtSqft.BorderStyle = BorderStyle.FixedSingle;
             txtSqft.Font = new Font("Segoe UI", 9F);
             txtSqft.Location = new Point(120, 61);
             txtSqft.Name = "txtSqft";
             txtSqft.Size = new Size(118, 27);
-            txtSqft.TabIndex = 19;
+            txtSqft.TabIndex = 31;
             txtSqft.TextAlign = HorizontalAlignment.Right;
             // 
             // lblSqm
@@ -430,12 +435,11 @@ namespace Land_Readjustment_Tool
             // txtSqm
             // 
             txtSqm.Anchor = AnchorStyles.Top | AnchorStyles.Left | AnchorStyles.Right;
-            txtSqm.BorderStyle = BorderStyle.FixedSingle;
             txtSqm.Font = new Font("Segoe UI", 9F);
             txtSqm.Location = new Point(120, 31);
             txtSqm.Name = "txtSqm";
             txtSqm.Size = new Size(118, 27);
-            txtSqm.TabIndex = 18;
+            txtSqm.TabIndex = 30;
             txtSqm.TextAlign = HorizontalAlignment.Right;
             // 
             // grpConvertFrom
@@ -450,7 +454,7 @@ namespace Land_Readjustment_Tool
             grpConvertFrom.Location = new Point(10, 156);
             grpConvertFrom.Name = "grpConvertFrom";
             grpConvertFrom.Size = new Size(388, 166);
-            grpConvertFrom.TabIndex = 0;
+            grpConvertFrom.TabIndex = 10;
             grpConvertFrom.TabStop = false;
             grpConvertFrom.Text = "Convert From Unit";
             // 
@@ -460,9 +464,10 @@ namespace Land_Readjustment_Tool
             btnReset.Location = new Point(307, 120);
             btnReset.Name = "btnReset";
             btnReset.Size = new Size(75, 37);
-            btnReset.TabIndex = 8;
+            btnReset.TabIndex = 9;
             btnReset.Text = "Reset";
             btnReset.UseVisualStyleBackColor = true;
+            btnReset.Click += btnReset_Click_1;
             // 
             // grpFromSqm
             // 
@@ -472,7 +477,7 @@ namespace Land_Readjustment_Tool
             grpFromSqm.Location = new Point(6, 83);
             grpFromSqm.Name = "grpFromSqm";
             grpFromSqm.Size = new Size(294, 74);
-            grpFromSqm.TabIndex = 80;
+            grpFromSqm.TabIndex = 7;
             grpFromSqm.TabStop = false;
             grpFromSqm.Text = "Square Meter";
             // 
@@ -487,12 +492,11 @@ namespace Land_Readjustment_Tool
             // 
             // txtFromSqm
             // 
-            txtFromSqm.BorderStyle = BorderStyle.FixedSingle;
             txtFromSqm.Font = new Font("Segoe UI", 9F);
             txtFromSqm.Location = new Point(46, 40);
             txtFromSqm.Name = "txtFromSqm";
             txtFromSqm.Size = new Size(180, 27);
-            txtFromSqm.TabIndex = 7;
+            txtFromSqm.TabIndex = 8;
             txtFromSqm.TextAlign = HorizontalAlignment.Right;
             // 
             // radioButton4
@@ -536,7 +540,7 @@ namespace Land_Readjustment_Tool
             radioButton1.Location = new Point(6, 23);
             radioButton1.Name = "radioButton1";
             radioButton1.Size = new Size(119, 24);
-            radioButton1.TabIndex = 400;
+            radioButton1.TabIndex = 3;
             radioButton1.TabStop = true;
             radioButton1.Text = "Square Meter";
             radioButton1.UseVisualStyleBackColor = true;
@@ -553,7 +557,7 @@ namespace Land_Readjustment_Tool
             grpConvertTo.Location = new Point(10, 328);
             grpConvertTo.Name = "grpConvertTo";
             grpConvertTo.Size = new Size(388, 159);
-            grpConvertTo.TabIndex = 0;
+            grpConvertTo.TabIndex = 20;
             grpConvertTo.TabStop = false;
             grpConvertTo.Text = "Convert To Unit";
             // 
@@ -574,7 +578,8 @@ namespace Land_Readjustment_Tool
             radioButton5.Location = new Point(126, 49);
             radioButton5.Name = "radioButton5";
             radioButton5.Size = new Size(71, 24);
-            radioButton5.TabIndex = 12;
+            radioButton5.TabIndex = 13;
+            radioButton5.TabStop = true;
             radioButton5.Text = "B-K-D";
             radioButton5.UseVisualStyleBackColor = true;
             // 
@@ -586,7 +591,7 @@ namespace Land_Readjustment_Tool
             radioButton6.Location = new Point(6, 49);
             radioButton6.Name = "radioButton6";
             radioButton6.Size = new Size(86, 24);
-            radioButton6.TabIndex = 500;
+            radioButton6.TabIndex = 12;
             radioButton6.TabStop = true;
             radioButton6.Text = "R-A-P-D";
             radioButton6.UseVisualStyleBackColor = true;
@@ -598,7 +603,7 @@ namespace Land_Readjustment_Tool
             radioButton7.Location = new Point(126, 23);
             radioButton7.Name = "radioButton7";
             radioButton7.Size = new Size(108, 24);
-            radioButton7.TabIndex = 10;
+            radioButton7.TabIndex = 11;
             radioButton7.Text = "Square Feet";
             radioButton7.UseVisualStyleBackColor = true;
             // 
@@ -609,7 +614,7 @@ namespace Land_Readjustment_Tool
             radioButton8.Location = new Point(6, 23);
             radioButton8.Name = "radioButton8";
             radioButton8.Size = new Size(119, 24);
-            radioButton8.TabIndex = 9;
+            radioButton8.TabIndex = 10;
             radioButton8.Text = "Square Meter";
             radioButton8.UseVisualStyleBackColor = true;
             // 
@@ -630,7 +635,7 @@ namespace Land_Readjustment_Tool
             grpToRAPD.Location = new Point(8, 79);
             grpToRAPD.Name = "grpToRAPD";
             grpToRAPD.Size = new Size(294, 74);
-            grpToRAPD.TabIndex = 202;
+            grpToRAPD.TabIndex = 14;
             grpToRAPD.TabStop = false;
             grpToRAPD.Text = "R-A-P-D";
             // 
@@ -699,47 +704,47 @@ namespace Land_Readjustment_Tool
             // 
             // txtToDaam
             // 
-            txtToDaam.BorderStyle = BorderStyle.FixedSingle;
             txtToDaam.Font = new Font("Segoe UI", 9F);
             txtToDaam.Location = new Point(241, 40);
             txtToDaam.Name = "txtToDaam";
             txtToDaam.ReadOnly = true;
             txtToDaam.Size = new Size(47, 27);
             txtToDaam.TabIndex = 16;
+            txtToDaam.TabStop = false;
             txtToDaam.TextAlign = HorizontalAlignment.Right;
             txtToDaam.TextChanged += textBox2_TextChanged;
             // 
             // txtToPaisa
             // 
-            txtToPaisa.BorderStyle = BorderStyle.FixedSingle;
             txtToPaisa.Font = new Font("Segoe UI", 9F);
             txtToPaisa.Location = new Point(170, 40);
             txtToPaisa.Name = "txtToPaisa";
             txtToPaisa.ReadOnly = true;
             txtToPaisa.Size = new Size(47, 27);
             txtToPaisa.TabIndex = 15;
+            txtToPaisa.TabStop = false;
             txtToPaisa.TextAlign = HorizontalAlignment.Right;
             // 
             // txtToAana
             // 
-            txtToAana.BorderStyle = BorderStyle.FixedSingle;
             txtToAana.Font = new Font("Segoe UI", 9F);
             txtToAana.Location = new Point(99, 40);
             txtToAana.Name = "txtToAana";
             txtToAana.ReadOnly = true;
             txtToAana.Size = new Size(47, 27);
             txtToAana.TabIndex = 14;
+            txtToAana.TabStop = false;
             txtToAana.TextAlign = HorizontalAlignment.Right;
             // 
             // txtToRopanee
             // 
-            txtToRopanee.BorderStyle = BorderStyle.FixedSingle;
             txtToRopanee.Font = new Font("Segoe UI", 9F);
             txtToRopanee.Location = new Point(7, 40);
             txtToRopanee.Name = "txtToRopanee";
             txtToRopanee.ReadOnly = true;
             txtToRopanee.Size = new Size(68, 27);
             txtToRopanee.TabIndex = 13;
+            txtToRopanee.TabStop = false;
             txtToRopanee.TextAlign = HorizontalAlignment.Right;
             // 
             // txtConvertFromD
@@ -810,7 +815,7 @@ namespace Land_Readjustment_Tool
             // 
             lblProjectTitle.AutoSize = true;
             lblProjectTitle.Font = new Font("Segoe UI", 9F, FontStyle.Bold, GraphicsUnit.Point, 0);
-            lblProjectTitle.Location = new Point(144, 14);
+            lblProjectTitle.Location = new Point(155, 14);
             lblProjectTitle.Name = "lblProjectTitle";
             lblProjectTitle.Size = new Size(74, 20);
             lblProjectTitle.TabIndex = 0;
@@ -821,11 +826,11 @@ namespace Land_Readjustment_Tool
             // 
             label10.AutoSize = true;
             label10.Font = new Font("Segoe UI", 12F, FontStyle.Bold, GraphicsUnit.Point, 0);
-            label10.Location = new Point(77, 34);
+            label10.Location = new Point(20, 34);
             label10.Name = "label10";
-            label10.Size = new Size(202, 28);
+            label10.Size = new Size(354, 28);
             label10.TabIndex = 1;
-            label10.Text = "Area Converter Tool";
+            label10.Text = "Area Converter Tool(Debug Version)";
             // 
             // grpFromSqft
             // 
@@ -998,16 +1003,6 @@ namespace Land_Readjustment_Tool
             label12.Size = new Size(43, 20);
             label12.TabIndex = 0;
             label12.Text = "sq.m.";
-            // 
-            // txtToSqm
-            // 
-            txtToSqm.BorderStyle = BorderStyle.FixedSingle;
-            txtToSqm.Font = new Font("Segoe UI", 9F);
-            txtToSqm.Location = new Point(46, 40);
-            txtToSqm.Name = "txtToSqm";
-            txtToSqm.Size = new Size(180, 27);
-            txtToSqm.TabIndex = 1;
-            txtToSqm.TextAlign = HorizontalAlignment.Right;
             // 
             // txtToSqft
             // 
@@ -1232,10 +1227,10 @@ namespace Land_Readjustment_Tool
             // btnExit
             // 
             btnExit.Font = new Font("Segoe UI", 9F, FontStyle.Bold, GraphicsUnit.Point, 0);
-            btnExit.Location = new Point(410, 440);
+            btnExit.Location = new Point(560, 441);
             btnExit.Name = "btnExit";
-            btnExit.Size = new Size(232, 47);
-            btnExit.TabIndex = 300;
+            btnExit.Size = new Size(88, 46);
+            btnExit.TabIndex = 50;
             btnExit.Text = "Exit";
             btnExit.UseVisualStyleBackColor = true;
             btnExit.Click += frmAreaConverter_Load;
@@ -1371,14 +1366,13 @@ namespace Land_Readjustment_Tool
             label37.Font = new Font("Segoe UI", 9F);
             label37.Location = new Point(12, 94);
             label37.Name = "label37";
-            label37.Size = new Size(233, 20);
+            label37.Size = new Size(169, 20);
             label37.TabIndex = 5;
-            label37.Text = "Display Area Precision (Sqm/Sqft)";
+            label37.Text = "Precision for Other Units";
             // 
             // nudTraditionalUnitPrecision
             // 
-            nudTraditionalUnitPrecision.BorderStyle = BorderStyle.FixedSingle;
-            nudTraditionalUnitPrecision.Location = new Point(286, 126);
+            nudTraditionalUnitPrecision.Location = new Point(225, 126);
             nudTraditionalUnitPrecision.Name = "nudTraditionalUnitPrecision";
             nudTraditionalUnitPrecision.Size = new Size(43, 27);
             nudTraditionalUnitPrecision.TabIndex = 2;
@@ -1389,7 +1383,7 @@ namespace Land_Readjustment_Tool
             // 
             label38.AutoSize = true;
             label38.Font = new Font("Segoe UI", 9F);
-            label38.Location = new Point(333, 94);
+            label38.Location = new Point(272, 94);
             label38.Name = "label38";
             label38.Size = new Size(59, 20);
             label38.TabIndex = 4;
@@ -1399,7 +1393,7 @@ namespace Land_Readjustment_Tool
             // 
             label39.AutoSize = true;
             label39.Font = new Font("Segoe UI", 9F);
-            label39.Location = new Point(333, 128);
+            label39.Location = new Point(272, 128);
             label39.Name = "label39";
             label39.Size = new Size(59, 20);
             label39.TabIndex = 1;
@@ -1407,8 +1401,7 @@ namespace Land_Readjustment_Tool
             // 
             // nudOtherUnitPrecision
             // 
-            nudOtherUnitPrecision.BorderStyle = BorderStyle.FixedSingle;
-            nudOtherUnitPrecision.Location = new Point(286, 92);
+            nudOtherUnitPrecision.Location = new Point(225, 92);
             nudOtherUnitPrecision.Name = "nudOtherUnitPrecision";
             nudOtherUnitPrecision.Size = new Size(43, 27);
             nudOtherUnitPrecision.TabIndex = 1;
@@ -1421,15 +1414,36 @@ namespace Land_Readjustment_Tool
             label40.Font = new Font("Segoe UI", 9F);
             label40.Location = new Point(12, 128);
             label40.Name = "label40";
-            label40.Size = new Size(268, 20);
+            label40.Size = new Size(206, 20);
             label40.TabIndex = 3;
-            label40.Text = "Traditional Unit Precision (RAPD/BKD): ";
+            label40.Text = "Precision for R-A-P-D / B-K-D";
+            // 
+            // label41
+            // 
+            label41.AutoSize = true;
+            label41.Font = new Font("Segoe UI Semibold", 10.8F, FontStyle.Bold, GraphicsUnit.Point, 0);
+            label41.Location = new Point(428, 453);
+            label41.Name = "label41";
+            label41.Size = new Size(109, 25);
+            label41.TabIndex = 2;
+            label41.Text = "©Kapil Rijal";
+            // 
+            // txtToSqm
+            // 
+            txtToSqm.BorderStyle = BorderStyle.FixedSingle;
+            txtToSqm.Font = new Font("Segoe UI", 9F);
+            txtToSqm.Location = new Point(46, 40);
+            txtToSqm.Name = "txtToSqm";
+            txtToSqm.Size = new Size(180, 27);
+            txtToSqm.TabIndex = 1;
+            txtToSqm.TextAlign = HorizontalAlignment.Right;
             // 
             // frmAreaConverter
             // 
             AutoScaleDimensions = new SizeF(120F, 120F);
             AutoScaleMode = AutoScaleMode.Dpi;
-            ClientSize = new Size(654, 493);
+            ClientSize = new Size(653, 493);
+            Controls.Add(label41);
             Controls.Add(nudTraditionalUnitPrecision);
             Controls.Add(label39);
             Controls.Add(nudOtherUnitPrecision);
@@ -1448,6 +1462,7 @@ namespace Land_Readjustment_Tool
             Controls.Add(grpQuickConvert);
             Controls.Add(grpTitle);
             FormBorderStyle = FormBorderStyle.FixedSingle;
+            Icon = (Icon)resources.GetObject("$this.Icon");
             Margin = new Padding(4);
             MaximizeBox = false;
             MinimizeBox = false;
@@ -1554,7 +1569,6 @@ namespace Land_Readjustment_Tool
         private Label label6;
         private GroupBox grpSqm;
         private Label label12;
-        private TextBox txtToSqm;
         private TextBox txtToSqft;
         private Label lblConvertToSqft;
         private GroupBox grpToSqft;
@@ -1608,5 +1622,8 @@ namespace Land_Readjustment_Tool
         private Label label39;
         private NumericUpDown nudOtherUnitPrecision;
         private Label label40;
+        private Button btnCopyToClipboard;
+        private TextBox txtToSqm;
+        private Label label41;
     }
 }

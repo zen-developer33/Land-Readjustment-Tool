@@ -7,7 +7,12 @@
     <Nullable>enable</Nullable>
     <UseWindowsForms>true</UseWindowsForms>
     <ImplicitUsings>enable</ImplicitUsings>
+    <ApplicationIcon>Area Converter.ico</ApplicationIcon>
   </PropertyGroup>
+
+  <ItemGroup>
+    <Content Include="Area Converter.ico" />
+  </ItemGroup>
 
   <ItemGroup>
     <PackageReference Include="SQLitePCLRaw.provider.sqlite3" Version="3.0.2" />

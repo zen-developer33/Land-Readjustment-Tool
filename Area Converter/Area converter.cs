@@ -5,7 +5,7 @@ namespace Land_Readjustment_Tool
 {
     public partial class frmAreaConverter : Form
     {
-        private const int MaxOtherUnitPrecision = 10;
+        private const int MaxOtherUnitPrecision = 6;
         private const int MinTraditionalPrecision = 0;
 
         private readonly Dictionary<TextBox, string> _lastValidNumericText = new();
@@ -13,6 +13,7 @@ namespace Land_Readjustment_Tool
         private string _lastValidBkdInput = string.Empty;
         private bool _suppressTextValidation;
         private bool _suppressConvertSectionUpdates;
+        private TextBox? _lastFocusedQuickConvertTextBox;
         private Point _convertFromGroupLocation;
         private Point _convertToGroupLocation;
         private bool _unitGroupLayoutInitialized;
@@ -40,6 +41,7 @@ namespace Land_Readjustment_Tool
             foreach (var box in new[] { txtSqm, txtSqft, txtRopani, txtAana, txtPaisa, txtDam, txtRapd, txtBigha, txtKattha, txtDhur, txtBkd })
             {
                 box.Enter += TextBox_EnterSelectAll;
+                box.Enter += QuickConvertTextBox_Enter;
             }
 
             txtSqm.TextChanged += NumericTextBox_TextChanged;
@@ -69,6 +71,7 @@ namespace Land_Readjustment_Tool
             txtBkd.KeyPress += txtBkd_KeyPress;
 
             btnResetQuickConvert.Click += btnReset_Click;
+            btnCopyToClipboard.Click += btnCopyToClipboard_Click;
             btnExit.Click += (_, _) => Close();
             btnReset.Click += btnConvertFromReset_Click;
             btnCopy.Click += btnCopy_Click;
@@ -118,6 +121,14 @@ namespace Land_Readjustment_Tool
             if (sender is TextBox box)
             {
                 box.BeginInvoke(new Action(box.SelectAll));
+            }
+        }
+
+        private void QuickConvertTextBox_Enter(object? sender, EventArgs e)
+        {
+            if (sender is TextBox box)
+            {
+                _lastFocusedQuickConvertTextBox = box;
             }
         }
 
@@ -315,7 +326,7 @@ namespace Land_Readjustment_Tool
             UpdateAllFromSqm(sqm.Value, txtBkd);
         }
 
-        private void UpdateAllFromSqm(double sqm, TextBox source)
+        private void UpdateAllFromSqm(double sqm, TextBox? source)
         {
             _suppressTextValidation = true;
 
@@ -904,6 +915,14 @@ namespace Land_Readjustment_Tool
             Clipboard.SetText(text);
         }
 
+        private void btnCopyToClipboard_Click(object? sender, EventArgs e)
+        {
+            if (_lastFocusedQuickConvertTextBox is not null)
+            {
+                Clipboard.SetText(_lastFocusedQuickConvertTextBox.Text);
+            }
+        }
+
         private void ValidatePrecisionRange()
         {
             decimal clamped = Math.Clamp(nudTraditionalUnitPrecision.Value, nudTraditionalUnitPrecision.Minimum, nudTraditionalUnitPrecision.Maximum);
@@ -934,7 +953,7 @@ namespace Land_Readjustment_Tool
             if (!TryParseDouble(txtSqm.Text, out double sqm))
                 return;
 
-            UpdateAllFromSqm(sqm, txtSqm);
+            UpdateAllFromSqm(sqm, null);
         }
 
         private void lblConvertFrom_Click(object sender, EventArgs e)
@@ -953,6 +972,16 @@ namespace Land_Readjustment_Tool
         }
 
         private void txtBigha_TextChanged(object sender, EventArgs e)
+        {
+
+        }
+
+        private void btnReset_Click_1(object sender, EventArgs e)
+        {
+
+        }
+
+        private void txtPaisa_TextChanged(object sender, EventArgs e)
         {
 
         }
