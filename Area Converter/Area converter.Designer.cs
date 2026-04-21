@@ -55,10 +55,11 @@ namespace Land_Readjustment_Tool
             lblSqm = new Label();
             txtSqm = new TextBox();
             grpConvertFrom = new GroupBox();
-            btnReset = new Button();
             grpFromSqm = new GroupBox();
             lblConvertToSqm = new Label();
             txtFromSqm = new TextBox();
+            btnReset = new Button();
+            btnCalculator = new Button();
             radioButton4 = new RadioButton();
             radioButton3 = new RadioButton();
             radioButton2 = new RadioButton();
@@ -448,8 +449,9 @@ namespace Land_Readjustment_Tool
             // 
             // grpConvertFrom
             // 
-            grpConvertFrom.Controls.Add(btnReset);
             grpConvertFrom.Controls.Add(grpFromSqm);
+            grpConvertFrom.Controls.Add(btnReset);
+            grpConvertFrom.Controls.Add(btnCalculator);
             grpConvertFrom.Controls.Add(radioButton4);
             grpConvertFrom.Controls.Add(radioButton3);
             grpConvertFrom.Controls.Add(radioButton2);
@@ -461,17 +463,6 @@ namespace Land_Readjustment_Tool
             grpConvertFrom.TabIndex = 10;
             grpConvertFrom.TabStop = false;
             grpConvertFrom.Text = "Convert From";
-            // 
-            // btnReset
-            // 
-            btnReset.Anchor = AnchorStyles.Top | AnchorStyles.Right;
-            btnReset.Location = new Point(307, 120);
-            btnReset.Name = "btnReset";
-            btnReset.Size = new Size(75, 37);
-            btnReset.TabIndex = 9;
-            btnReset.Text = "Reset";
-            btnReset.UseVisualStyleBackColor = true;
-            btnReset.Click += btnReset_Click_1;
             // 
             // grpFromSqm
             // 
@@ -502,6 +493,27 @@ namespace Land_Readjustment_Tool
             txtFromSqm.Size = new Size(180, 27);
             txtFromSqm.TabIndex = 8;
             txtFromSqm.TextAlign = HorizontalAlignment.Right;
+            // 
+            // btnReset
+            // 
+            btnReset.Anchor = AnchorStyles.Top | AnchorStyles.Right;
+            btnReset.Location = new Point(307, 120);
+            btnReset.Name = "btnReset";
+            btnReset.Size = new Size(75, 37);
+            btnReset.TabIndex = 9;
+            btnReset.Text = "Reset";
+            btnReset.UseVisualStyleBackColor = true;
+            btnReset.Click += btnReset_Click_1;
+            // 
+            // btnCalculator
+            // 
+            btnCalculator.Image = Area_Converter.Properties.Resources.icons8_calculator_48;
+            btnCalculator.Location = new Point(241, 18);
+            btnCalculator.Name = "btnCalculator";
+            btnCalculator.Size = new Size(59, 59);
+            btnCalculator.TabIndex = 52;
+            btnCalculator.TextImageRelation = TextImageRelation.ImageBeforeText;
+            btnCalculator.UseVisualStyleBackColor = true;
             // 
             // radioButton4
             // 
@@ -1467,7 +1479,7 @@ namespace Land_Readjustment_Tool
             AutoScaleDimensions = new SizeF(120F, 120F);
             AutoScaleMode = AutoScaleMode.Dpi;
             BackColor = Color.White;
-            ClientSize = new Size(685, 522);
+            ClientSize = new Size(689, 522);
             Controls.Add(groupBox1);
             Controls.Add(nudTraditionalUnitPrecision);
             Controls.Add(label39);
@@ -1653,5 +1665,6 @@ namespace Land_Readjustment_Tool
         private GroupBox groupBox1;
         private RadioButton rdoDarkTheme;
         private RadioButton rdoLightTheme;
+        private Button btnCalculator;
     }
 }

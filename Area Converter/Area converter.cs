@@ -103,6 +103,7 @@ namespace Land_Readjustment_Tool
             btnExit.Click += (_, _) => Close();
             btnReset.Click += btnConvertFromReset_Click;
             btnCopy.Click += btnCopy_Click;
+            btnCalculator.Click += BtnCalculator_Click;
 
             radioButton1.CheckedChanged += UnitSelectionRadio_CheckedChanged;
             radioButton2.CheckedChanged += UnitSelectionRadio_CheckedChanged;
@@ -1082,7 +1083,7 @@ namespace Land_Readjustment_Tool
                 // Highlight the previously focused box if it was a quick convert box
                 if (sourceToSkip is not null)
                 {
-                   HighlightQuickConvertTextBox(sourceToSkip);
+                    HighlightQuickConvertTextBox(sourceToSkip);
                 }
             }
         }
@@ -1297,5 +1298,44 @@ namespace Land_Readjustment_Tool
 
         [DllImport("dwmapi.dll")]
         private static extern int DwmSetWindowAttribute(IntPtr hwnd, int dwAttribute, ref int pvAttribute, int cbAttribute);
+
+
+
+        private void BtnCalculator_Click(object? sender, EventArgs e)
+        {
+            // Detect dark theme: if the form's BackColor is dark, pass true.
+            bool isDark = IsDarkTheme();
+
+            using var calc = new frmCalculator(isDark);
+            if (calc.ShowDialog(this) != DialogResult.OK || !calc.Result.HasValue)
+                return;
+
+            string resultText = calc.Result.Value
+                .ToString(System.Globalization.CultureInfo.InvariantCulture);
+
+            // Route result only to sqm or sqft inputs; RAPD and BKD get clipboard only.
+            if (radioButton1.Checked)           // Sq.Meter
+            {
+                txtFromSqm.Text = resultText;
+                txtFromSqm.Focus();
+            }
+            else if (radioButton2.Checked)      // Sq.Feet
+            {
+                txtFromSqft.Text = resultText;
+                txtFromSqft.Focus();
+            }
+            // radioButton3 = RAPD, radioButton4 = BKD → clipboard only (already set inside frmCalculator)
+        }
+
+        /// <summary>
+        /// Simple heuristic: form background luminance below 128 → dark theme.
+        /// Replace with your actual theme flag if you have one.
+        /// </summary>
+        private bool IsDarkTheme()
+        {
+            Color bg = BackColor;
+            double luminance = (0.299 * bg.R + 0.587 * bg.G + 0.114 * bg.B);
+            return luminance < 128;
+        }
     }
 }
