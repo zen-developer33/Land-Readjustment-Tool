@@ -9,6 +9,7 @@ namespace Land_Readjustment_Tool
         private const int MinTraditionalPrecision = 0;
 
         private readonly Dictionary<TextBox, string> _lastValidNumericText = new();
+        private readonly Dictionary<TextBox, Color> _quickConvertDefaultBackColors = new();
         private string _lastValidRapdInput = string.Empty;
         private string _lastValidBkdInput = string.Empty;
         private bool _suppressTextValidation;
@@ -17,6 +18,7 @@ namespace Land_Readjustment_Tool
         private Point _convertFromGroupLocation;
         private Point _convertToGroupLocation;
         private bool _unitGroupLayoutInitialized;
+        private static readonly Color QuickConvertHighlightColor = Color.FromArgb(255, 251, 235);
 
         public frmAreaConverter()
         {
@@ -42,6 +44,11 @@ namespace Land_Readjustment_Tool
             {
                 box.Enter += TextBox_EnterSelectAll;
                 box.Enter += QuickConvertTextBox_Enter;
+
+                if (!_quickConvertDefaultBackColors.ContainsKey(box))
+                {
+                    _quickConvertDefaultBackColors[box] = box.BackColor;
+                }
             }
 
             txtSqm.TextChanged += NumericTextBox_TextChanged;
@@ -129,6 +136,17 @@ namespace Land_Readjustment_Tool
             if (sender is TextBox box)
             {
                 _lastFocusedQuickConvertTextBox = box;
+                HighlightQuickConvertTextBox(box);
+            }
+        }
+
+        private void HighlightQuickConvertTextBox(TextBox focusedBox)
+        {
+            foreach (var pair in _quickConvertDefaultBackColors)
+            {
+                pair.Key.BackColor = pair.Key == focusedBox
+                    ? QuickConvertHighlightColor
+                    : pair.Value;
             }
         }
 
@@ -950,10 +968,120 @@ namespace Land_Readjustment_Tool
 
         private void ApplyOtherUnitPrecisionFormatting()
         {
-            if (!TryParseDouble(txtSqm.Text, out double sqm))
-                return;
+            TextBox? sourceToSkip = _lastFocusedQuickConvertTextBox;
 
-            UpdateAllFromSqm(sqm, null);
+            if (sourceToSkip is not null && TryGetSqmFromQuickConvertInput(sourceToSkip, out double sourceSqm))
+            {
+                UpdateAllFromSqm(sourceSqm, sourceToSkip);
+                return;
+            }
+
+            if (TryParseDouble(txtSqm.Text, out double sqm))
+            {
+                UpdateAllFromSqm(sqm, null);
+            }
+        }
+
+        private bool TryGetSqmFromQuickConvertInput(TextBox source, out double sqm)
+        {
+            sqm = 0;
+
+            if (source == txtSqm)
+                return TryParseDouble(txtSqm.Text.Trim(), out sqm);
+
+            if (source == txtSqft)
+            {
+                if (!TryParseDouble(txtSqft.Text.Trim(), out double sqft))
+                    return false;
+
+                sqm = AreaConverterService.SqftToSqm(sqft, 9);
+                return true;
+            }
+
+            if (source == txtRopani)
+            {
+                if (!TryParseDouble(txtRopani.Text.Trim(), out double ropani))
+                    return false;
+
+                sqm = AreaConverterService.RopaniToSqm(ropani, 9);
+                return true;
+            }
+
+            if (source == txtAana)
+            {
+                if (!TryParseDouble(txtAana.Text.Trim(), out double aana))
+                    return false;
+
+                sqm = AreaConverterService.AanaToSqm(aana, 9);
+                return true;
+            }
+
+            if (source == txtPaisa)
+            {
+                if (!TryParseDouble(txtPaisa.Text.Trim(), out double paisa))
+                    return false;
+
+                sqm = AreaConverterService.PaisaToSqm(paisa, 9);
+                return true;
+            }
+
+            if (source == txtDam)
+            {
+                if (!TryParseDouble(txtDam.Text.Trim(), out double dam))
+                    return false;
+
+                sqm = AreaConverterService.DamToSqm(dam, 9);
+                return true;
+            }
+
+            if (source == txtBigha)
+            {
+                if (!TryParseDouble(txtBigha.Text.Trim(), out double bigha))
+                    return false;
+
+                sqm = AreaConverterService.BighaToSqm(bigha, 9);
+                return true;
+            }
+
+            if (source == txtKattha)
+            {
+                if (!TryParseDouble(txtKattha.Text.Trim(), out double kattha))
+                    return false;
+
+                sqm = AreaConverterService.KatthaToSqm(kattha, 9);
+                return true;
+            }
+
+            if (source == txtDhur)
+            {
+                if (!TryParseDouble(txtDhur.Text.Trim(), out double dhur))
+                    return false;
+
+                sqm = AreaConverterService.DhurToSqm(dhur, 9);
+                return true;
+            }
+
+            if (source == txtRapd)
+            {
+                double? rapdSqm = AreaConverterService.ParseRAPDToSqm(txtRapd.Text.Trim(), 9);
+                if (!rapdSqm.HasValue)
+                    return false;
+
+                sqm = rapdSqm.Value;
+                return true;
+            }
+
+            if (source == txtBkd)
+            {
+                double? bkdSqm = AreaConverterService.ParseBKDToSqm(txtBkd.Text.Trim(), 9);
+                if (!bkdSqm.HasValue)
+                    return false;
+
+                sqm = bkdSqm.Value;
+                return true;
+            }
+
+            return false;
         }
 
         private void lblConvertFrom_Click(object sender, EventArgs e)
@@ -982,6 +1110,11 @@ namespace Land_Readjustment_Tool
         }
 
         private void txtPaisa_TextChanged(object sender, EventArgs e)
+        {
+
+        }
+
+        private void txtSqm_TextChanged(object sender, EventArgs e)
         {
 
         }

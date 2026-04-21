@@ -108,6 +108,7 @@ namespace Land_Readjustment_Tool
             label11 = new Label();
             grpSqm = new GroupBox();
             label12 = new Label();
+            txtToSqm = new TextBox();
             txtToSqft = new TextBox();
             lblConvertToSqft = new Label();
             grpToSqft = new GroupBox();
@@ -149,7 +150,6 @@ namespace Land_Readjustment_Tool
             nudOtherUnitPrecision = new NumericUpDown();
             label40 = new Label();
             label41 = new Label();
-            txtToSqm = new TextBox();
             grpQuickConvert.SuspendLayout();
             grpConvertFrom.SuspendLayout();
             grpFromSqm.SuspendLayout();
@@ -441,6 +441,7 @@ namespace Land_Readjustment_Tool
             txtSqm.Size = new Size(118, 27);
             txtSqm.TabIndex = 30;
             txtSqm.TextAlign = HorizontalAlignment.Right;
+            txtSqm.TextChanged += txtSqm_TextChanged;
             // 
             // grpConvertFrom
             // 
@@ -843,7 +844,6 @@ namespace Land_Readjustment_Tool
             grpFromSqft.TabIndex = 12;
             grpFromSqft.TabStop = false;
             grpFromSqft.Text = "Square Feet";
-            grpFromSqft.Visible = false;
             // 
             // label1
             // 
@@ -993,7 +993,6 @@ namespace Land_Readjustment_Tool
             grpSqm.TabIndex = 11;
             grpSqm.TabStop = false;
             grpSqm.Text = "Square Meter";
-            grpSqm.Visible = false;
             // 
             // label12
             // 
@@ -1003,6 +1002,16 @@ namespace Land_Readjustment_Tool
             label12.Size = new Size(43, 20);
             label12.TabIndex = 0;
             label12.Text = "sq.m.";
+            // 
+            // txtToSqm
+            // 
+            txtToSqm.BorderStyle = BorderStyle.FixedSingle;
+            txtToSqm.Font = new Font("Segoe UI", 9F);
+            txtToSqm.Location = new Point(46, 40);
+            txtToSqm.Name = "txtToSqm";
+            txtToSqm.Size = new Size(180, 27);
+            txtToSqm.TabIndex = 1;
+            txtToSqm.TextAlign = HorizontalAlignment.Right;
             // 
             // txtToSqft
             // 
@@ -1034,7 +1043,6 @@ namespace Land_Readjustment_Tool
             grpToSqft.TabIndex = 10;
             grpToSqft.TabStop = false;
             grpToSqft.Text = "Square Feet";
-            grpToSqft.Visible = false;
             // 
             // grpToBKD
             // 
@@ -1053,7 +1061,6 @@ namespace Land_Readjustment_Tool
             grpToBKD.TabIndex = 9;
             grpToBKD.TabStop = false;
             grpToBKD.Text = "B-K-D";
-            grpToBKD.Visible = false;
             // 
             // label13
             // 
@@ -1147,7 +1154,6 @@ namespace Land_Readjustment_Tool
             grpFromBKD.TabIndex = 8;
             grpFromBKD.TabStop = false;
             grpFromBKD.Text = "B-K-D";
-            grpFromBKD.Visible = false;
             // 
             // label25
             // 
@@ -1255,7 +1261,6 @@ namespace Land_Readjustment_Tool
             grpFromRAPD.TabIndex = 6;
             grpFromRAPD.TabStop = false;
             grpFromRAPD.Text = "R-A-P-D";
-            grpFromRAPD.Visible = false;
             // 
             // label30
             // 
@@ -1428,21 +1433,11 @@ namespace Land_Readjustment_Tool
             label41.TabIndex = 2;
             label41.Text = "©Kapil Rijal";
             // 
-            // txtToSqm
-            // 
-            txtToSqm.BorderStyle = BorderStyle.FixedSingle;
-            txtToSqm.Font = new Font("Segoe UI", 9F);
-            txtToSqm.Location = new Point(46, 40);
-            txtToSqm.Name = "txtToSqm";
-            txtToSqm.Size = new Size(180, 27);
-            txtToSqm.TabIndex = 1;
-            txtToSqm.TextAlign = HorizontalAlignment.Right;
-            // 
             // frmAreaConverter
             // 
             AutoScaleDimensions = new SizeF(120F, 120F);
             AutoScaleMode = AutoScaleMode.Dpi;
-            ClientSize = new Size(653, 493);
+            ClientSize = new Size(655, 494);
             Controls.Add(label41);
             Controls.Add(nudTraditionalUnitPrecision);
             Controls.Add(label39);
