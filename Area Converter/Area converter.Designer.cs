@@ -508,9 +508,9 @@ namespace Land_Readjustment_Tool
             // btnCalculator
             // 
             btnCalculator.Image = Area_Converter.Properties.Resources.icons8_calculator_48;
-            btnCalculator.Location = new Point(241, 18);
+            btnCalculator.Location = new Point(331, 18);
             btnCalculator.Name = "btnCalculator";
-            btnCalculator.Size = new Size(59, 59);
+            btnCalculator.Size = new Size(51, 50);
             btnCalculator.TabIndex = 52;
             btnCalculator.TextImageRelation = TextImageRelation.ImageBeforeText;
             btnCalculator.UseVisualStyleBackColor = true;

@@ -3,37 +3,45 @@ using System.Globalization;
 
 namespace Land_Readjustment_Tool
 {
-    /// <summary>
-    /// A compact calculator window that inherits the theme of the calling form.
-    /// On OK the result is placed in the caller's active numeric input and clipboard.
-    /// On Cancel (or X) nothing is transferred.
-    /// </summary>
     public partial class frmCalculator : Form
     {
         private readonly CalculatorService _calc = new();
 
-        /// <summary>Numeric result after the user presses OK. Null if cancelled.</summary>
         public decimal? Result { get; private set; }
 
-        // ── Theme colours ────────────────────────────────────────────────────────
-        private static readonly Color DarkBackground   = Color.FromArgb(20,  20,  20);
-        private static readonly Color DarkSurface      = Color.FromArgb(28,  28,  28);
-        private static readonly Color DarkDisplay      = Color.FromArgb(14,  14,  14);
-        private static readonly Color DarkForeground   = Color.FromArgb(230, 230, 230);
-        private static readonly Color DarkOperator     = Color.FromArgb(79,  145, 214);
-        private static readonly Color DarkEquals       = Color.FromArgb(67,  167, 114);
-        private static readonly Color DarkOk           = Color.FromArgb(67,  167, 114);
-        private static readonly Color DarkButtonHover  = Color.FromArgb(45,  45,  45);
-        private static readonly Color DarkClear        = Color.FromArgb(204, 85,  85);
+        // ── Theme colours aligned with the main form ───────────────────────────
 
-        private static readonly Color LightBackground  = Color.FromArgb(249, 249, 249);
+        // Dark theme matches the app's dark surface tone instead of using black.
+        private static readonly Color DarkBackground   = Color.FromArgb(45, 45, 48);
+        private static readonly Color DarkSurface      = Color.FromArgb(37, 37, 38);
+        private static readonly Color DarkDisplay      = Color.FromArgb(30, 30, 31);
+        private static readonly Color DarkForeground   = Color.FromArgb(220, 220, 220);
+
+        private static readonly Color DarkOperator     = Color.FromArgb(0, 122, 204);
+        private static readonly Color DarkOperatorHover = Color.FromArgb(18, 139, 230);
+        private static readonly Color DarkEquals       = Color.FromArgb(0, 153, 102);
+        private static readonly Color DarkEqualsHover  = Color.FromArgb(18, 171, 120);
+        private static readonly Color DarkOk           = Color.FromArgb(0, 153, 102);
+        private static readonly Color DarkOkHover      = Color.FromArgb(18, 171, 120);
+        private static readonly Color DarkClear        = Color.FromArgb(204, 85, 85);
+        private static readonly Color DarkClearHover   = Color.FromArgb(220, 104, 104);
+        private static readonly Color DarkButtonHover  = Color.FromArgb(53, 53, 56);
+
+        // Light theme keeps the same clean base with softer accent colours.
+        private static readonly Color LightBackground  = Color.FromArgb(246, 247, 251);
         private static readonly Color LightSurface     = Color.FromArgb(255, 255, 255);
-        private static readonly Color LightDisplay     = Color.FromArgb(245, 245, 245);
-        private static readonly Color LightForeground  = Color.FromArgb(30,  30,  30);
-        private static readonly Color LightOperator    = Color.FromArgb(79,  145, 214);
-        private static readonly Color LightEquals      = Color.FromArgb(67,  167, 114);
-        private static readonly Color LightOk          = Color.FromArgb(67,  167, 114);
-        private static readonly Color LightClear       = Color.FromArgb(204, 85,  85);
+        private static readonly Color LightDisplay     = Color.FromArgb(248, 249, 252);
+        private static readonly Color LightForeground  = Color.FromArgb(28, 30, 36);
+
+        private static readonly Color LightOperator    = Color.FromArgb(0, 122, 204);
+        private static readonly Color LightOperatorHover = Color.FromArgb(26, 141, 224);
+        private static readonly Color LightEquals      = Color.FromArgb(0, 153, 102);
+        private static readonly Color LightEqualsHover  = Color.FromArgb(18, 171, 120);
+        private static readonly Color LightOk          = Color.FromArgb(0, 153, 102);
+        private static readonly Color LightOkHover     = Color.FromArgb(18, 171, 120);
+        private static readonly Color LightClear       = Color.FromArgb(204, 85, 85);
+        private static readonly Color LightClearHover  = Color.FromArgb(220, 104, 104);
+        private static readonly Color LightButtonHover = Color.FromArgb(235, 238, 245);
 
         private readonly bool _isDark;
 
@@ -49,61 +57,68 @@ namespace Land_Readjustment_Tool
 
         private void ApplyTheme()
         {
-            Color bg       = _isDark ? DarkBackground  : LightBackground;
-            Color surface  = _isDark ? DarkSurface     : LightSurface;
-            Color display  = _isDark ? DarkDisplay     : LightDisplay;
-            Color fg       = _isDark ? DarkForeground  : LightForeground;
-            Color opColor  = _isDark ? DarkOperator    : LightOperator;
-            Color eqColor  = _isDark ? DarkEquals      : LightEquals;
-            Color okColor  = _isDark ? DarkOk          : LightOk;
-            Color clrColor = _isDark ? DarkClear       : LightClear;
+            Color bg        = _isDark ? DarkBackground    : LightBackground;
+            Color surface   = _isDark ? DarkSurface       : LightSurface;
+            Color display   = _isDark ? DarkDisplay       : LightDisplay;
+            Color fg        = _isDark ? DarkForeground    : LightForeground;
+            Color opColor   = _isDark ? DarkOperator      : LightOperator;
+            Color opHover   = _isDark ? DarkOperatorHover : LightOperatorHover;
+            Color eqColor   = _isDark ? DarkEquals        : LightEquals;
+            Color eqHover   = _isDark ? DarkEqualsHover   : LightEqualsHover;
+            Color okColor   = _isDark ? DarkOk            : LightOk;
+            Color okHover   = _isDark ? DarkOkHover       : LightOkHover;
+            Color clrColor  = _isDark ? DarkClear         : LightClear;
+            Color clrHover  = _isDark ? DarkClearHover    : LightClearHover;
+            Color border    = _isDark ? Color.FromArgb(90, 90, 95) : Color.FromArgb(210, 215, 225);
+            Color digitHover = _isDark ? DarkButtonHover : LightButtonHover;
 
-            BackColor                    = bg;
-            txtDisplay.BackColor         = display;
-            txtDisplay.ForeColor         = fg;
+            BackColor            = bg;
+            ForeColor            = fg;
+            txtDisplay.BackColor  = display;
+            txtDisplay.ForeColor  = fg;
 
             // Digit buttons
             foreach (var btn in new[] { btn0, btn1, btn2, btn3, btn4, btn5, btn6, btn7, btn8, btn9, btnDot, btnSign })
             {
-                btn.BackColor  = surface;
-                btn.ForeColor  = fg;
-                btn.FlatAppearance.BorderColor     = _isDark ? Color.FromArgb(70, 70, 70) : Color.FromArgb(200, 200, 200);
-                btn.FlatAppearance.MouseOverBackColor = _isDark ? DarkButtonHover : Color.FromArgb(220, 220, 220);
+                btn.BackColor = surface;
+                btn.ForeColor = fg;
+                btn.FlatAppearance.BorderColor = border;
+                btn.FlatAppearance.MouseOverBackColor = digitHover;
             }
 
             // Operator buttons
             foreach (var btn in new[] { btnAdd, btnSub, btnMul, btnDiv })
             {
-                btn.BackColor  = opColor;
-                btn.ForeColor  = Color.White;
-                btn.FlatAppearance.BorderColor     = opColor;
-                btn.FlatAppearance.MouseOverBackColor = ControlPaint.Dark(opColor, 0.1f);
+                btn.BackColor = opColor;
+                btn.ForeColor = Color.White;
+                btn.FlatAppearance.BorderColor = opColor;
+                btn.FlatAppearance.MouseOverBackColor = opHover;
             }
 
             btnEquals.BackColor = eqColor;
             btnEquals.ForeColor = Color.White;
             btnEquals.FlatAppearance.BorderColor = eqColor;
-            btnEquals.FlatAppearance.MouseOverBackColor = ControlPaint.Dark(eqColor, 0.1f);
+            btnEquals.FlatAppearance.MouseOverBackColor = eqHover;
 
             btnClear.BackColor = clrColor;
             btnClear.ForeColor = Color.White;
             btnClear.FlatAppearance.BorderColor = clrColor;
-            btnClear.FlatAppearance.MouseOverBackColor = ControlPaint.Dark(clrColor, 0.1f);
+            btnClear.FlatAppearance.MouseOverBackColor = clrHover;
 
             btnBackspace.BackColor = surface;
-            btnBackspace.ForeColor = _isDark ? Color.FromArgb(230, 130, 130) : Color.FromArgb(180, 50, 50);
-            btnBackspace.FlatAppearance.BorderColor = _isDark ? Color.FromArgb(70, 70, 70) : Color.FromArgb(200, 200, 200);
-            btnBackspace.FlatAppearance.MouseOverBackColor = _isDark ? DarkButtonHover : Color.FromArgb(220, 220, 220);
+            btnBackspace.ForeColor = _isDark ? Color.FromArgb(235, 147, 147) : Color.FromArgb(180, 70, 70);
+            btnBackspace.FlatAppearance.BorderColor = border;
+            btnBackspace.FlatAppearance.MouseOverBackColor = digitHover;
 
             btnOk.BackColor = okColor;
             btnOk.ForeColor = Color.White;
             btnOk.FlatAppearance.BorderColor = okColor;
-            btnOk.FlatAppearance.MouseOverBackColor = ControlPaint.Dark(okColor, 0.1f);
+            btnOk.FlatAppearance.MouseOverBackColor = okHover;
 
             btnCancel.BackColor = surface;
             btnCancel.ForeColor = fg;
-            btnCancel.FlatAppearance.BorderColor = _isDark ? Color.FromArgb(70, 70, 70) : Color.FromArgb(200, 200, 200);
-            btnCancel.FlatAppearance.MouseOverBackColor = _isDark ? DarkButtonHover : Color.FromArgb(220, 220, 220);
+            btnCancel.FlatAppearance.BorderColor = border;
+            btnCancel.FlatAppearance.MouseOverBackColor = digitHover;
         }
 
         // ── Display ──────────────────────────────────────────────────────────────
@@ -194,15 +209,18 @@ namespace Land_Readjustment_Tool
                 case Keys.D7: case Keys.NumPad7: _calc.InputDigit("7"); RefreshDisplay(); return true;
                 case Keys.D8: case Keys.NumPad8: _calc.InputDigit("8"); RefreshDisplay(); return true;
                 case Keys.D9: case Keys.NumPad9: _calc.InputDigit("9"); RefreshDisplay(); return true;
+
                 case Keys.OemPeriod: case Keys.Decimal: _calc.InputDigit("."); RefreshDisplay(); return true;
-                case Keys.Add:      case Keys.Oemplus | Keys.Shift: _calc.ApplyOperator('+'); RefreshDisplay(); return true;
+
+                case Keys.Add: case Keys.Oemplus | Keys.Shift: _calc.ApplyOperator('+'); RefreshDisplay(); return true;
                 case Keys.Subtract: case Keys.OemMinus: _calc.ApplyOperator('-'); RefreshDisplay(); return true;
                 case Keys.Multiply: _calc.ApplyOperator('*'); RefreshDisplay(); return true;
-                case Keys.Divide:   case Keys.OemQuestion: _calc.ApplyOperator('/'); RefreshDisplay(); return true;
+                case Keys.Divide: case Keys.OemQuestion: _calc.ApplyOperator('/'); RefreshDisplay(); return true;
+
                 case Keys.Enter: _calc.Equals(); RefreshDisplay(); return true;
-                case Keys.Back:     _calc.Backspace(); RefreshDisplay(); return true;
-                case Keys.Escape:   BtnCancel_Click(null, EventArgs.Empty); return true;
-                case Keys.F2:       BtnOk_Click(null, EventArgs.Empty); return true;
+                case Keys.Back: _calc.Backspace(); RefreshDisplay(); return true;
+                case Keys.Escape: BtnCancel_Click(null, EventArgs.Empty); return true;
+                case Keys.F2: BtnOk_Click(null, EventArgs.Empty); return true;
             }
 
             return base.ProcessCmdKey(ref msg, keyData);
