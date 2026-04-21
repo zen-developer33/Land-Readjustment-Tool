@@ -65,12 +65,13 @@ namespace Land_Readjustment_Tool
             // 
             // txtDisplay
             // 
+            txtDisplay.BackColor = SystemColors.ControlLightLight;
             txtDisplay.BorderStyle = BorderStyle.FixedSingle;
-            txtDisplay.Font = new Font("Segoe UI", 22.2F, FontStyle.Regular, GraphicsUnit.Point, 0);
-            txtDisplay.Location = new Point(10, 12);
+            txtDisplay.Font = new Font("Segoe UI Semibold", 19.8000011F, FontStyle.Bold, GraphicsUnit.Point, 0);
+            txtDisplay.Location = new Point(10, 18);
             txtDisplay.Name = "txtDisplay";
             txtDisplay.ReadOnly = true;
-            txtDisplay.Size = new Size(222, 57);
+            txtDisplay.Size = new Size(219, 51);
             txtDisplay.TabIndex = 0;
             txtDisplay.TabStop = false;
             txtDisplay.Text = "0";
@@ -80,8 +81,8 @@ namespace Land_Readjustment_Tool
             // 
             btnClear.Cursor = Cursors.Hand;
             btnClear.FlatStyle = FlatStyle.Flat;
-            btnClear.Font = new Font("Segoe UI", 9F);
-            btnClear.Location = new Point(10, 75);
+            btnClear.Font = new Font("Segoe UI Semibold", 10.2F, FontStyle.Bold);
+            btnClear.Location = new Point(10, 83);
             btnClear.Name = "btnClear";
             btnClear.Size = new Size(52, 44);
             btnClear.TabIndex = 0;
@@ -93,8 +94,8 @@ namespace Land_Readjustment_Tool
             // 
             btnBackspace.Cursor = Cursors.Hand;
             btnBackspace.FlatStyle = FlatStyle.Flat;
-            btnBackspace.Font = new Font("Segoe UI", 9F);
-            btnBackspace.Location = new Point(66, 75);
+            btnBackspace.Font = new Font("Segoe UI Semibold", 10.2F, FontStyle.Bold);
+            btnBackspace.Location = new Point(66, 83);
             btnBackspace.Name = "btnBackspace";
             btnBackspace.Size = new Size(52, 44);
             btnBackspace.TabIndex = 1;
@@ -106,8 +107,8 @@ namespace Land_Readjustment_Tool
             // 
             btnSign.Cursor = Cursors.Hand;
             btnSign.FlatStyle = FlatStyle.Flat;
-            btnSign.Font = new Font("Segoe UI", 9F);
-            btnSign.Location = new Point(122, 75);
+            btnSign.Font = new Font("Segoe UI Semibold", 10.2F, FontStyle.Bold);
+            btnSign.Location = new Point(122, 83);
             btnSign.Name = "btnSign";
             btnSign.Size = new Size(52, 44);
             btnSign.TabIndex = 2;
@@ -120,8 +121,8 @@ namespace Land_Readjustment_Tool
             // 
             btnDiv.Cursor = Cursors.Hand;
             btnDiv.FlatStyle = FlatStyle.Flat;
-            btnDiv.Font = new Font("Segoe UI", 9F);
-            btnDiv.Location = new Point(178, 75);
+            btnDiv.Font = new Font("Segoe UI Semibold", 10.2F, FontStyle.Bold);
+            btnDiv.Location = new Point(178, 83);
             btnDiv.Name = "btnDiv";
             btnDiv.Size = new Size(52, 44);
             btnDiv.TabIndex = 3;
@@ -134,8 +135,8 @@ namespace Land_Readjustment_Tool
             // 
             btn7.Cursor = Cursors.Hand;
             btn7.FlatStyle = FlatStyle.Flat;
-            btn7.Font = new Font("Segoe UI", 9F);
-            btn7.Location = new Point(10, 123);
+            btn7.Font = new Font("Segoe UI Semibold", 10.2F, FontStyle.Bold);
+            btn7.Location = new Point(10, 131);
             btn7.Name = "btn7";
             btn7.Size = new Size(52, 44);
             btn7.TabIndex = 4;
@@ -148,8 +149,8 @@ namespace Land_Readjustment_Tool
             // 
             btn8.Cursor = Cursors.Hand;
             btn8.FlatStyle = FlatStyle.Flat;
-            btn8.Font = new Font("Segoe UI", 9F);
-            btn8.Location = new Point(66, 123);
+            btn8.Font = new Font("Segoe UI Semibold", 10.2F, FontStyle.Bold);
+            btn8.Location = new Point(66, 131);
             btn8.Name = "btn8";
             btn8.Size = new Size(52, 44);
             btn8.TabIndex = 5;
@@ -162,8 +163,8 @@ namespace Land_Readjustment_Tool
             // 
             btn9.Cursor = Cursors.Hand;
             btn9.FlatStyle = FlatStyle.Flat;
-            btn9.Font = new Font("Segoe UI", 9F);
-            btn9.Location = new Point(122, 123);
+            btn9.Font = new Font("Segoe UI Semibold", 10.2F, FontStyle.Bold);
+            btn9.Location = new Point(122, 131);
             btn9.Name = "btn9";
             btn9.Size = new Size(52, 44);
             btn9.TabIndex = 6;
@@ -176,8 +177,8 @@ namespace Land_Readjustment_Tool
             // 
             btnMul.Cursor = Cursors.Hand;
             btnMul.FlatStyle = FlatStyle.Flat;
-            btnMul.Font = new Font("Segoe UI", 9F);
-            btnMul.Location = new Point(178, 123);
+            btnMul.Font = new Font("Segoe UI Semibold", 10.2F, FontStyle.Bold);
+            btnMul.Location = new Point(178, 131);
             btnMul.Name = "btnMul";
             btnMul.Size = new Size(52, 44);
             btnMul.TabIndex = 7;
@@ -190,8 +191,8 @@ namespace Land_Readjustment_Tool
             // 
             btn4.Cursor = Cursors.Hand;
             btn4.FlatStyle = FlatStyle.Flat;
-            btn4.Font = new Font("Segoe UI", 9F);
-            btn4.Location = new Point(10, 171);
+            btn4.Font = new Font("Segoe UI Semibold", 10.2F, FontStyle.Bold);
+            btn4.Location = new Point(10, 179);
             btn4.Name = "btn4";
             btn4.Size = new Size(52, 44);
             btn4.TabIndex = 8;
@@ -204,8 +205,8 @@ namespace Land_Readjustment_Tool
             // 
             btn5.Cursor = Cursors.Hand;
             btn5.FlatStyle = FlatStyle.Flat;
-            btn5.Font = new Font("Segoe UI", 9F);
-            btn5.Location = new Point(66, 171);
+            btn5.Font = new Font("Segoe UI Semibold", 10.2F, FontStyle.Bold);
+            btn5.Location = new Point(66, 179);
             btn5.Name = "btn5";
             btn5.Size = new Size(52, 44);
             btn5.TabIndex = 9;
@@ -218,8 +219,8 @@ namespace Land_Readjustment_Tool
             // 
             btn6.Cursor = Cursors.Hand;
             btn6.FlatStyle = FlatStyle.Flat;
-            btn6.Font = new Font("Segoe UI", 9F);
-            btn6.Location = new Point(122, 171);
+            btn6.Font = new Font("Segoe UI Semibold", 10.2F, FontStyle.Bold);
+            btn6.Location = new Point(122, 179);
             btn6.Name = "btn6";
             btn6.Size = new Size(52, 44);
             btn6.TabIndex = 10;
@@ -232,8 +233,8 @@ namespace Land_Readjustment_Tool
             // 
             btnSub.Cursor = Cursors.Hand;
             btnSub.FlatStyle = FlatStyle.Flat;
-            btnSub.Font = new Font("Segoe UI", 9F);
-            btnSub.Location = new Point(178, 171);
+            btnSub.Font = new Font("Segoe UI Semibold", 10.2F, FontStyle.Bold);
+            btnSub.Location = new Point(178, 179);
             btnSub.Name = "btnSub";
             btnSub.Size = new Size(52, 44);
             btnSub.TabIndex = 11;
@@ -246,8 +247,8 @@ namespace Land_Readjustment_Tool
             // 
             btn1.Cursor = Cursors.Hand;
             btn1.FlatStyle = FlatStyle.Flat;
-            btn1.Font = new Font("Segoe UI", 9F);
-            btn1.Location = new Point(10, 219);
+            btn1.Font = new Font("Segoe UI Semibold", 10.2F, FontStyle.Bold);
+            btn1.Location = new Point(10, 227);
             btn1.Name = "btn1";
             btn1.Size = new Size(52, 44);
             btn1.TabIndex = 12;
@@ -260,8 +261,8 @@ namespace Land_Readjustment_Tool
             // 
             btn2.Cursor = Cursors.Hand;
             btn2.FlatStyle = FlatStyle.Flat;
-            btn2.Font = new Font("Segoe UI", 9F);
-            btn2.Location = new Point(66, 219);
+            btn2.Font = new Font("Segoe UI Semibold", 10.2F, FontStyle.Bold);
+            btn2.Location = new Point(66, 227);
             btn2.Name = "btn2";
             btn2.Size = new Size(52, 44);
             btn2.TabIndex = 13;
@@ -274,8 +275,8 @@ namespace Land_Readjustment_Tool
             // 
             btn3.Cursor = Cursors.Hand;
             btn3.FlatStyle = FlatStyle.Flat;
-            btn3.Font = new Font("Segoe UI", 9F);
-            btn3.Location = new Point(122, 219);
+            btn3.Font = new Font("Segoe UI Semibold", 10.2F, FontStyle.Bold);
+            btn3.Location = new Point(122, 227);
             btn3.Name = "btn3";
             btn3.Size = new Size(52, 44);
             btn3.TabIndex = 14;
@@ -288,8 +289,8 @@ namespace Land_Readjustment_Tool
             // 
             btnAdd.Cursor = Cursors.Hand;
             btnAdd.FlatStyle = FlatStyle.Flat;
-            btnAdd.Font = new Font("Segoe UI", 9F);
-            btnAdd.Location = new Point(178, 219);
+            btnAdd.Font = new Font("Segoe UI Semibold", 10.2F, FontStyle.Bold);
+            btnAdd.Location = new Point(178, 227);
             btnAdd.Name = "btnAdd";
             btnAdd.Size = new Size(52, 44);
             btnAdd.TabIndex = 15;
@@ -302,8 +303,8 @@ namespace Land_Readjustment_Tool
             // 
             btn0.Cursor = Cursors.Hand;
             btn0.FlatStyle = FlatStyle.Flat;
-            btn0.Font = new Font("Segoe UI", 9F);
-            btn0.Location = new Point(66, 267);
+            btn0.Font = new Font("Segoe UI Semibold", 10.2F, FontStyle.Bold);
+            btn0.Location = new Point(66, 275);
             btn0.Name = "btn0";
             btn0.Size = new Size(52, 44);
             btn0.TabIndex = 16;
@@ -316,8 +317,8 @@ namespace Land_Readjustment_Tool
             // 
             btnDot.Cursor = Cursors.Hand;
             btnDot.FlatStyle = FlatStyle.Flat;
-            btnDot.Font = new Font("Segoe UI", 9F);
-            btnDot.Location = new Point(10, 267);
+            btnDot.Font = new Font("Segoe UI Semibold", 10.2F, FontStyle.Bold);
+            btnDot.Location = new Point(10, 275);
             btnDot.Name = "btnDot";
             btnDot.Size = new Size(52, 44);
             btnDot.TabIndex = 17;
@@ -330,8 +331,8 @@ namespace Land_Readjustment_Tool
             // 
             btnEquals.Cursor = Cursors.Hand;
             btnEquals.FlatStyle = FlatStyle.Flat;
-            btnEquals.Font = new Font("Segoe UI", 9F);
-            btnEquals.Location = new Point(122, 267);
+            btnEquals.Font = new Font("Segoe UI Semibold", 10.2F, FontStyle.Bold);
+            btnEquals.Location = new Point(122, 275);
             btnEquals.Name = "btnEquals";
             btnEquals.Size = new Size(108, 44);
             btnEquals.TabIndex = 18;
@@ -344,8 +345,8 @@ namespace Land_Readjustment_Tool
             // 
             btnCancel.Cursor = Cursors.Hand;
             btnCancel.FlatStyle = FlatStyle.Flat;
-            btnCancel.Font = new Font("Segoe UI", 9F);
-            btnCancel.Location = new Point(10, 319);
+            btnCancel.Font = new Font("Segoe UI", 9F, FontStyle.Bold);
+            btnCancel.Location = new Point(8, 331);
             btnCancel.Name = "btnCancel";
             btnCancel.Size = new Size(108, 47);
             btnCancel.TabIndex = 19;
@@ -357,8 +358,8 @@ namespace Land_Readjustment_Tool
             // 
             btnOk.Cursor = Cursors.Hand;
             btnOk.FlatStyle = FlatStyle.Flat;
-            btnOk.Font = new Font("Segoe UI", 9F);
-            btnOk.Location = new Point(122, 319);
+            btnOk.Font = new Font("Segoe UI", 9F, FontStyle.Bold);
+            btnOk.Location = new Point(122, 331);
             btnOk.Name = "btnOk";
             btnOk.Size = new Size(108, 47);
             btnOk.TabIndex = 20;
@@ -370,7 +371,7 @@ namespace Land_Readjustment_Tool
             // 
             AutoScaleDimensions = new SizeF(9F, 21F);
             AutoScaleMode = AutoScaleMode.Font;
-            ClientSize = new Size(240, 377);
+            ClientSize = new Size(240, 389);
             Controls.Add(txtDisplay);
             Controls.Add(btnClear);
             Controls.Add(btnBackspace);
