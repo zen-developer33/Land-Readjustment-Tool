@@ -1,5 +1,6 @@
 ﻿using Land_Readjustment_Tool.Services;
 using System.Globalization;
+using System.Runtime.InteropServices;
 
 namespace Land_Readjustment_Tool
 {
@@ -10,15 +11,17 @@ namespace Land_Readjustment_Tool
 
         private readonly Dictionary<TextBox, string> _lastValidNumericText = new();
         private readonly Dictionary<TextBox, Color> _quickConvertDefaultBackColors = new();
+        private readonly Dictionary<TextBox, Color> _textBoxDefaultBackColors = new();
         private string _lastValidRapdInput = string.Empty;
         private string _lastValidBkdInput = string.Empty;
         private bool _suppressTextValidation;
         private bool _suppressConvertSectionUpdates;
         private TextBox? _lastFocusedQuickConvertTextBox;
+        private TextBox? _lastFocusedTextBox;
         private Point _convertFromGroupLocation;
         private Point _convertToGroupLocation;
         private bool _unitGroupLayoutInitialized;
-        private static readonly Color QuickConvertHighlightColor = Color.FromArgb(255, 251, 235);
+        private ThemeManager.Theme _currentTheme = ThemeManager.Theme.Light;
 
         public frmAreaConverter()
         {
@@ -36,6 +39,13 @@ namespace Land_Readjustment_Tool
             ResetConvertFromInputsAndFocus();
             UpdateConvertToFromActiveInput();
             BeginInvoke(new Action(FocusActiveConvertFromInput));
+
+            // Wire up theme radio buttons
+            rdoLightTheme.CheckedChanged += ThemeRadioButton_CheckedChanged;
+            rdoDarkTheme.CheckedChanged += ThemeRadioButton_CheckedChanged;
+
+            // Apply initial theme
+            ApplyCurrentTheme();
         }
 
         private void HookValidationEvents()
@@ -48,6 +58,17 @@ namespace Land_Readjustment_Tool
                 if (!_quickConvertDefaultBackColors.ContainsKey(box))
                 {
                     _quickConvertDefaultBackColors[box] = box.BackColor;
+                }
+            }
+
+            foreach (TextBox box in GetAllTextBoxes(this))
+            {
+                box.Enter += TextBox_FocusHighlight_Enter;
+                box.Leave += TextBox_FocusHighlight_Leave;
+
+                if (!_textBoxDefaultBackColors.ContainsKey(box))
+                {
+                    _textBoxDefaultBackColors[box] = box.BackColor;
                 }
             }
 
@@ -123,6 +144,64 @@ namespace Land_Readjustment_Tool
             }
         }
 
+        private static IEnumerable<TextBox> GetAllTextBoxes(Control parent)
+        {
+            foreach (Control control in parent.Controls)
+            {
+                if (control is TextBox textBox)
+                {
+                    yield return textBox;
+                }
+
+                foreach (TextBox nested in GetAllTextBoxes(control))
+                {
+                    yield return nested;
+                }
+            }
+        }
+
+        private void TextBox_FocusHighlight_Enter(object? sender, EventArgs e)
+        {
+            if (sender is not TextBox current)
+                return;
+
+            if (_lastFocusedTextBox is not null && _lastFocusedTextBox != current)
+            {
+                _lastFocusedTextBox.BackColor = GetDefaultTextBoxBackColor(_lastFocusedTextBox);
+            }
+
+            current.BackColor = ThemeManager.GetTextBoxFocusBackColor(_currentTheme);
+            _lastFocusedTextBox = current;
+        }
+
+        private void TextBox_FocusHighlight_Leave(object? sender, EventArgs e)
+        {
+            if (sender is not TextBox current)
+                return;
+
+            current.BackColor = GetDefaultTextBoxBackColor(current);
+
+            if (_lastFocusedTextBox == current)
+            {
+                _lastFocusedTextBox = null;
+            }
+        }
+
+        private Color GetDefaultTextBoxBackColor(TextBox textBox)
+        {
+            if (textBox == _lastFocusedQuickConvertTextBox)
+            {
+                return ThemeManager.GetQuickConvertHighlightColor(_currentTheme);
+            }
+
+            if (_textBoxDefaultBackColors.TryGetValue(textBox, out Color color))
+            {
+                return color;
+            }
+
+            return ThemeManager.GetTextBoxDefaultBackColor(_currentTheme);
+        }
+
         private static void TextBox_EnterSelectAll(object? sender, EventArgs e)
         {
             if (sender is TextBox box)
@@ -135,8 +214,13 @@ namespace Land_Readjustment_Tool
         {
             if (sender is TextBox box)
             {
+                var previous = _lastFocusedQuickConvertTextBox;
                 _lastFocusedQuickConvertTextBox = box;
-                HighlightQuickConvertTextBox(box);
+
+                if (previous != null && previous != box)
+                {
+                    previous.BackColor = GetDefaultTextBoxBackColor(previous);
+                }
             }
         }
 
@@ -145,7 +229,7 @@ namespace Land_Readjustment_Tool
             foreach (var pair in _quickConvertDefaultBackColors)
             {
                 pair.Key.BackColor = pair.Key == focusedBox
-                    ? QuickConvertHighlightColor
+                    ? ThemeManager.GetQuickConvertHighlightColor(_currentTheme)
                     : pair.Value;
             }
         }
@@ -718,6 +802,11 @@ namespace Land_Readjustment_Tool
             ValidatePrecisionRange();
             ApplyTraditionalPrecisionFormatting();
             UpdateConvertToFromActiveInput();
+
+            if (_lastFocusedQuickConvertTextBox is not null)
+            {
+                HighlightQuickConvertTextBox(_lastFocusedQuickConvertTextBox);
+            }
         }
 
         private void nudPrecision_KeyPress(object? sender, KeyPressEventArgs e)
@@ -894,14 +983,23 @@ namespace Land_Readjustment_Tool
         {
             _suppressTextValidation = true;
 
-            if (AreaConverterService.ParseRAPDToSqm(txtRapd.Text, 9) is double rapdSqm)
-            {
-                txtRapd.Text = AreaConverterService.SqmToRAPDString(rapdSqm, damPrecision: GetTraditionalPrecision());
-            }
+            TextBox? sourceToSkip = _lastFocusedQuickConvertTextBox;
 
-            if (AreaConverterService.ParseBKDToSqm(txtBkd.Text, 9) is double bkdSqm)
+            if (sourceToSkip is not null && TryGetSqmFromQuickConvertInput(sourceToSkip, out double sourceSqm))
             {
-                txtBkd.Text = AreaConverterService.SqmToBKDString(bkdSqm, dhurPrecision: GetTraditionalPrecision());
+                if (sourceToSkip != txtRapd)
+                {
+                    txtRapd.Text = AreaConverterService.SqmToRAPDString(sourceSqm, damPrecision: GetTraditionalPrecision());
+                }
+                if (sourceToSkip != txtBkd)
+                {
+                    txtBkd.Text = AreaConverterService.SqmToBKDString(sourceSqm, dhurPrecision: GetTraditionalPrecision());
+                }
+            }
+            else if (TryParseDouble(txtSqm.Text, out double sqm))
+            {
+                txtRapd.Text = AreaConverterService.SqmToRAPDString(sqm, damPrecision: GetTraditionalPrecision());
+                txtBkd.Text = AreaConverterService.SqmToBKDString(sqm, dhurPrecision: GetTraditionalPrecision());
             }
 
             _lastValidRapdInput = txtRapd.Text;
@@ -973,12 +1071,19 @@ namespace Land_Readjustment_Tool
             if (sourceToSkip is not null && TryGetSqmFromQuickConvertInput(sourceToSkip, out double sourceSqm))
             {
                 UpdateAllFromSqm(sourceSqm, sourceToSkip);
+                // Maintain the quick convert highlight after upating values in nud value change.
+                HighlightQuickConvertTextBox(sourceToSkip);
                 return;
             }
 
             if (TryParseDouble(txtSqm.Text, out double sqm))
             {
                 UpdateAllFromSqm(sqm, null);
+                // Highlight the previously focused box if it was a quick convert box
+                if (sourceToSkip is not null)
+                {
+                   HighlightQuickConvertTextBox(sourceToSkip);
+                }
             }
         }
 
@@ -1118,5 +1223,79 @@ namespace Land_Readjustment_Tool
         {
 
         }
+
+        private void ThemeRadioButton_CheckedChanged(object? sender, EventArgs e)
+        {
+            if (rdoLightTheme.Checked)
+            {
+                _currentTheme = ThemeManager.Theme.Light;
+            }
+            else if (rdoDarkTheme.Checked)
+            {
+                _currentTheme = ThemeManager.Theme.Dark;
+            }
+            else
+            {
+                return;
+            }
+
+            ApplyCurrentTheme();
+        }
+
+        private void ApplyCurrentTheme()
+        {
+            ThemeManager.ApplyTheme(this, _currentTheme);
+            ApplyTitleBarTheme();
+
+            Color defaultTextBoxColor = ThemeManager.GetTextBoxDefaultBackColor(_currentTheme);
+
+            foreach (TextBox box in _textBoxDefaultBackColors.Keys.ToList())
+            {
+                _textBoxDefaultBackColors[box] = defaultTextBoxColor;
+
+                if (box != _lastFocusedTextBox)
+                {
+                    box.BackColor = defaultTextBoxColor;
+                }
+            }
+
+            foreach (TextBox box in _quickConvertDefaultBackColors.Keys.ToList())
+            {
+                _quickConvertDefaultBackColors[box] = defaultTextBoxColor;
+                if (box == _lastFocusedQuickConvertTextBox && box != _lastFocusedTextBox)
+                {
+                    box.BackColor = ThemeManager.GetQuickConvertHighlightColor(_currentTheme);
+                }
+            }
+
+            if (_lastFocusedTextBox is not null)
+            {
+                _lastFocusedTextBox.BackColor = ThemeManager.GetTextBoxFocusBackColor(_currentTheme);
+            }
+        }
+
+        private void ApplyTitleBarTheme()
+        {
+            if (!IsHandleCreated)
+            {
+                return;
+            }
+
+            if (!OperatingSystem.IsWindows())
+            {
+                return;
+            }
+
+            int useDark = _currentTheme == ThemeManager.Theme.Dark ? 1 : 0;
+
+            _ = DwmSetWindowAttribute(Handle, DwmwaUseImmersiveDarkMode, ref useDark, sizeof(int));
+            _ = DwmSetWindowAttribute(Handle, DwmwaUseImmersiveDarkModeBefore20H1, ref useDark, sizeof(int));
+        }
+
+        private const int DwmwaUseImmersiveDarkMode = 20;
+        private const int DwmwaUseImmersiveDarkModeBefore20H1 = 19;
+
+        [DllImport("dwmapi.dll")]
+        private static extern int DwmSetWindowAttribute(IntPtr hwnd, int dwAttribute, ref int pvAttribute, int cbAttribute);
     }
 }
