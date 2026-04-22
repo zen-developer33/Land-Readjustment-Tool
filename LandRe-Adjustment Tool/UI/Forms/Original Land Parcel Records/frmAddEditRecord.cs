@@ -1,7 +1,7 @@
 ﻿using Land_Readjustment_Tool.Models;
-using Land_Readjustment_Tool.Repositories;
+using Land_Readjustment_Tool.Data;
 using Land_Readjustment_Tool.Services;
-using System.Data.SQLite;
+using Land_Readjustment_Tool.Services.LandData;
 
 namespace Land_Readjustment_Tool.Forms
 {
@@ -9,15 +9,14 @@ namespace Land_Readjustment_Tool.Forms
     {
         private bool _isEditMode = false;
         private bool _ownerFieldsReadOnly = false;
-        private BaselineLandParceRecord _currentRecord;
+        private BaselineLandParceRecord _currentRecord = new();
         private int _recordIndex = -1;
         private readonly Func<string?, string?, int?, bool>? _parcelExists;
         private int? _parcelId;
-        private LandOwnerRepository? _repository;
-        private SQLiteConnection? _connection;
+        private LandRecordsService? _landRecordsService;
         private List<BaselineLandParceRecord>? _importedRecords;
 
-        public BaselineLandParceRecord Record { get; private set; }
+        public BaselineLandParceRecord Record { get; private set; } = new();
         public bool IsDeleted { get; private set; } = false;
 
         // Constructor for ADD mode (Import Manager - all fields editable)
@@ -159,10 +158,10 @@ namespace Land_Readjustment_Tool.Forms
             {
                 lookupForm = new frmOwnerLookup(_importedRecords);
             }
-            // Otherwise use the repository (LandParcelRecords mode)
-            else if (_repository != null)
+            // Otherwise use owners from project database (LandParcelRecords mode)
+            else if (_landRecordsService != null)
             {
-                lookupForm = new frmOwnerLookup(_repository);
+                lookupForm = new frmOwnerLookup(_landRecordsService.GetAllOwners());
             }
             else
             {
@@ -175,15 +174,16 @@ namespace Land_Readjustment_Tool.Forms
             {
                 if (lookupForm.ShowDialog() == DialogResult.OK && lookupForm.SelectedOwner != null)
                 {
-                    var owner = _repository.GetOwnerById(lookupForm.SelectedOwner.LandOwnerId);
-
-                    LoadOwnerToForm(owner);
+                    LoadOwnerToForm(lookupForm.SelectedOwner);
                 }
             }
         }
 
-        private void LoadOwnerToForm(LandOwner owner)
+        private void LoadOwnerToForm(LandOwner? owner)
         {
+            if (owner == null)
+                return;
+
             txtLandOwnersName.Text = owner.LandOwnersName ?? "";
             txtFatherSpouse.Text = owner.FatherSpouse ?? "";
 
@@ -212,19 +212,15 @@ namespace Land_Readjustment_Tool.Forms
             cbMapSheetNo.AutoCompleteMode = AutoCompleteMode.SuggestAppend;
             cbMapSheetNo.AutoCompleteSource = AutoCompleteSource.ListItems;
 
-            if (CurrentProject.Info == null || string.IsNullOrWhiteSpace(CurrentProject.Info.ProjectPath))
+            if (!AppServices.HasContext)
             {
                 return;
             }
 
             try
             {
-                var dbHelper = new DatabaseHelper(CurrentProject.Info.ProjectPath);
-                dbHelper.InitializeDatabase();
-                _connection = dbHelper.GetConnection();
-                _repository = new LandOwnerRepository(_connection);
-
-                var mapSheets = _repository.GetUniqueMapSheets();
+                _landRecordsService = new LandRecordsService(AppServices.Context.Session, AppServices.Context.ProjectFilePath);
+                var mapSheets = _landRecordsService.GetUniqueMapSheets();
                 cbMapSheetNo.BeginUpdate();
                 cbMapSheetNo.Items.Clear();
                 foreach (var mapSheet in mapSheets)

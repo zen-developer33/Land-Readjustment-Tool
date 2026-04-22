@@ -1,21 +1,21 @@
 using Land_Readjustment_Tool.Models;
-using Land_Readjustment_Tool.Repositories;
+using Land_Readjustment_Tool.Services.LandData;
 
 namespace Land_Readjustment_Tool.Forms
 {
     /// <summary>
     /// Displays all land parcels belonging to a specific landowner in a DataGridView.
-    /// </summary>
-    public partial class frmOwnerParcels : Form
-    {
-        private readonly LandOwner _owner;
-        private readonly LandOwnerRepository _repository;
+        /// </summary>
+        public partial class frmOwnerParcels : Form
+        {
+            private readonly LandOwner _owner;
+        private readonly LandRecordsService _landRecordsService;
 
-        public frmOwnerParcels(LandOwner owner, LandOwnerRepository repository)
+        public frmOwnerParcels(LandOwner owner, LandRecordsService landRecordsService)
         {
             InitializeComponent();
             _owner = owner;
-            _repository = repository;
+            _landRecordsService = landRecordsService;
 
             Text = $"Parcels - {_owner.LandOwnersName}";
             SetupColumns();
@@ -93,7 +93,7 @@ namespace Land_Readjustment_Tool.Forms
         {
             try
             {
-                var parcels = _repository.GetParcelsByOwnerId(_owner.LandOwnerId);
+                var parcels = _landRecordsService.GetParcelsByOwnerId(_owner.LandOwnerId);
                 
                 // Transform data to include formatted location
                 var displayData = parcels.Select(p => new

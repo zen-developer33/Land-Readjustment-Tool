@@ -1,14 +1,11 @@
 using Land_Readjustment_Tool.Models;
-using Land_Readjustment_Tool.Repositories;
-using Land_Readjustment_Tool.Services;
 using System.ComponentModel;
-using System.Data.SQLite;
 
 namespace Land_Readjustment_Tool.Forms
 {
     public partial class frmOwnerLookup : Form
     {
-        private readonly LandOwnerRepository? _repository;
+        private readonly List<LandOwner>? _ownersFromDatabase;
         private readonly List<BaselineLandParceRecord>? _importedRecords;
         private List<LandOwner> _allOwners = [];
         private List<LandOwner> _filteredOwners = [];
@@ -17,9 +14,9 @@ namespace Land_Readjustment_Tool.Forms
         public LandOwner? SelectedOwner { get; private set; }
 
         // Constructor for database mode (LandParcelRecords form)
-        public frmOwnerLookup(LandOwnerRepository repository)
+        public frmOwnerLookup(List<LandOwner> owners)
         {
-            _repository = repository;
+            _ownersFromDatabase = owners;
             _importedRecords = null;
             InitializeComponents();
             LoadOwners();
@@ -28,7 +25,7 @@ namespace Land_Readjustment_Tool.Forms
         // Constructor for imported records mode (Import Manager)
         public frmOwnerLookup(List<BaselineLandParceRecord> importedRecords)
         {
-            _repository = null;
+            _ownersFromDatabase = null;
             _importedRecords = importedRecords;
             InitializeComponents();
             LoadOwnersFromImportedRecords();
@@ -146,7 +143,7 @@ namespace Land_Readjustment_Tool.Forms
         {
             try
             {
-                _allOwners = _repository?.GetAllOwners() ?? [];
+                _allOwners = _ownersFromDatabase?.ToList() ?? [];
                 _filteredOwners = [.. _allOwners];
                 BindOwnersToGrid(_filteredOwners);
             }
@@ -188,7 +185,7 @@ namespace Land_Readjustment_Tool.Forms
                         uniqueOwners[key] = new LandOwner
                         {
                             LandOwnerId = tempId++, // Temporary ID for display purposes
-                            LandOwnersName = record.LandOwnersName,
+                            LandOwnersName = record.LandOwnersName ?? "",
                             FatherSpouse = record.FatherSpouse,
                             Gender = record.Gender,
                             CitizenshipNumber = record.CitizenshipNumber,

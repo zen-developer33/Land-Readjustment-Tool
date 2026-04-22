@@ -1,6 +1,7 @@
 ﻿using Land_Readjustment_Tool.Models;
-using Land_Readjustment_Tool.Repositories;
+using Land_Readjustment_Tool.Data;
 using Land_Readjustment_Tool.Services;
+using Land_Readjustment_Tool.Services.LandData;
 
 namespace Land_Readjustment_Tool.Forms.Land_Owners_Record
 {
@@ -9,7 +10,7 @@ namespace Land_Readjustment_Tool.Forms.Land_Owners_Record
         private readonly int _landOwnerId;
         private bool _readOnlyMode;
         private readonly bool _isAddMode;
-        private readonly LandOwnerRepository _repository;
+        private readonly LandRecordsService _landRecordsService;
         private readonly string _projectPath;
         private LandOwner? _owner;
         private string? _tempPhotoPath; // Temporary photo path for add mode
@@ -23,13 +24,11 @@ namespace Land_Readjustment_Tool.Forms.Land_Owners_Record
             _landOwnerId = landOwnerId;
             _readOnlyMode = readOnlyMode;
             _isAddMode = false;
-            _projectPath = CurrentProject.Info.ProjectPath;
+            if (!AppServices.HasContext)
+                throw new InvalidOperationException("No open project context found.");
 
-            // Initialize repository
-            var dbHelper = new DatabaseHelper(_projectPath);
-            dbHelper.InitializeDatabase();
-            var connection = dbHelper.GetConnection();
-            _repository = new LandOwnerRepository(connection);
+            _projectPath = AppServices.Context.ProjectFilePath;
+            _landRecordsService = new LandRecordsService(AppServices.Context.Session, _projectPath);
 
             LoadOwnerDetails();
             LoadOwnerSummary();
@@ -45,13 +44,11 @@ namespace Land_Readjustment_Tool.Forms.Land_Owners_Record
             _landOwnerId = 0;
             _readOnlyMode = false;
             _isAddMode = true;
-            _projectPath = CurrentProject.Info.ProjectPath;
+            if (!AppServices.HasContext)
+                throw new InvalidOperationException("No open project context found.");
 
-            // Initialize repository
-            var dbHelper = new DatabaseHelper(_projectPath);
-            dbHelper.InitializeDatabase();
-            var connection = dbHelper.GetConnection();
-            _repository = new LandOwnerRepository(connection);
+            _projectPath = AppServices.Context.ProjectFilePath;
+            _landRecordsService = new LandRecordsService(AppServices.Context.Session, _projectPath);
 
             SetAddMode();
         }
@@ -95,7 +92,7 @@ namespace Land_Readjustment_Tool.Forms.Land_Owners_Record
 
         private void LoadOwnerDetails()
         {
-            _owner = _repository.GetOwnerById(_landOwnerId);
+            _owner = _landRecordsService.GetOwnerById(_landOwnerId);
             if (_owner == null)
             {
                 _ = MessageBox.Show("Owner not found!", "Error", MessageBoxButtons.OK, MessageBoxIcon.Error);
@@ -150,9 +147,9 @@ namespace Land_Readjustment_Tool.Forms.Land_Owners_Record
 
         private void LoadOwnerSummary()
         {
-            int parcelCount = _repository.GetParcelsByOwnerId(_landOwnerId).Count;
-            double totalAreaSqm = _repository.GetTotalAreaByOwnerId(_landOwnerId);
-            int documentCount = _repository.GetDocumentCountByOwnerId(_landOwnerId);
+            int parcelCount = _landRecordsService.GetParcelsByOwnerId(_landOwnerId).Count;
+            double totalAreaSqm = _landRecordsService.GetTotalAreaByOwnerId(_landOwnerId);
+            int documentCount = _landRecordsService.GetDocumentCountByOwnerId(_landOwnerId);
 
             // Update summary labels
             if (parcelCount == 0)
@@ -260,7 +257,7 @@ namespace Land_Readjustment_Tool.Forms.Land_Owners_Record
                 if (_isAddMode)
                 {
                     // Check for duplicate owner
-                    if (_repository.OwnerExists(txtFullName.Text.Trim(), txtFatherSpouse.Text.Trim(), txtCitizenshipNo.Text.Trim()))
+                    if (_landRecordsService.OwnerExists(txtFullName.Text.Trim(), txtFatherSpouse.Text.Trim(), txtCitizenshipNo.Text.Trim()))
                     {
                         var result = MessageBox.Show(
                             "An owner with the same name, father/spouse, and citizenship number already exists.\n\nDo you want to add this owner anyway?",
@@ -291,7 +288,7 @@ namespace Land_Readjustment_Tool.Forms.Land_Owners_Record
                         CreatedDate = DateTime.Now
                     };
 
-                    int newOwnerId = _repository.CreateOwner(newOwner);
+                    int newOwnerId = _landRecordsService.CreateOwner(newOwner);
 
                     // Save photo if one was selected in add mode
                     if (!string.IsNullOrWhiteSpace(_tempPhotoPath) && File.Exists(_tempPhotoPath))
@@ -309,7 +306,7 @@ namespace Land_Readjustment_Tool.Forms.Land_Owners_Record
                             File.Copy(_tempPhotoPath, destPath, overwrite: true);
 
                             string relativePath = Path.Combine("OwnerPhotos", fileName);
-                            _repository.UpdateOwnerPhotoPath(newOwnerId, relativePath);
+                            _landRecordsService.UpdateOwnerPhotoPath(newOwnerId, relativePath);
                         }
                         catch
                         {
@@ -321,8 +318,8 @@ namespace Land_Readjustment_Tool.Forms.Land_Owners_Record
                         "Success",
                         MessageBoxButtons.OK, MessageBoxIcon.Information);
 
-                    if (DialogResult == DialogResult.OK)
-                        Close();
+                    DialogResult = DialogResult.OK;
+                    Close();
 
                 }
                 else
@@ -331,7 +328,7 @@ namespace Land_Readjustment_Tool.Forms.Land_Owners_Record
                     if (_owner == null) return;
 
                     // Check for duplicate owner (excluding current owner)
-                    if (_repository.OwnerExists(txtFullName.Text.Trim(), txtFatherSpouse.Text.Trim(), txtCitizenshipNo.Text.Trim(), _landOwnerId))
+                    if (_landRecordsService.OwnerExists(txtFullName.Text.Trim(), txtFatherSpouse.Text.Trim(), txtCitizenshipNo.Text.Trim(), _landOwnerId))
                     {
                         var result = MessageBox.Show(
                             "An owner with the same name, father/spouse, and citizenship number already exists.\n\nDo you want to save these changes anyway?",
@@ -359,7 +356,7 @@ namespace Land_Readjustment_Tool.Forms.Land_Owners_Record
                     _owner.ModifiedDate = DateTime.Now;
 
                     // Save to database
-                    _ = _repository.UpdateOwner(_owner);
+                    _ = _landRecordsService.UpdateOwner(_owner);
 
                     _ = MessageBox.Show("Owner details updated successfully!", "Success",
                         MessageBoxButtons.OK, MessageBoxIcon.Information);
@@ -417,7 +414,7 @@ namespace Land_Readjustment_Tool.Forms.Land_Owners_Record
         {
             if (_owner == null) return;
 
-            using var docsForm = new frmOwnerDocuments(_projectPath, _owner, _repository, _readOnlyMode);
+            using var docsForm = new frmOwnerDocuments(_projectPath, _owner, _landRecordsService, _readOnlyMode);
             _ = docsForm.ShowDialog();
 
             // Refresh summary after closing documents form
@@ -433,7 +430,7 @@ namespace Land_Readjustment_Tool.Forms.Land_Owners_Record
         {
             if (_owner == null) return;
 
-            using var parcelsForm = new frmOwnerParcels(_owner, _repository);
+            using var parcelsForm = new frmOwnerParcels(_owner, _landRecordsService);
             _ = parcelsForm.ShowDialog();
         }
 
@@ -490,7 +487,7 @@ namespace Land_Readjustment_Tool.Forms.Land_Owners_Record
                     // Update database
                     string relativePath = Path.Combine("OwnerPhotos", fileName);
                     _owner.PhotoPath = relativePath;
-                    _repository.UpdateOwnerPhotoPath(_landOwnerId, relativePath);
+                    _landRecordsService.UpdateOwnerPhotoPath(_landOwnerId, relativePath);
 
                     // Reload photo
                     LoadPhoto();
@@ -523,4 +520,5 @@ namespace Land_Readjustment_Tool.Forms.Land_Owners_Record
         }
     }
 }
+
 

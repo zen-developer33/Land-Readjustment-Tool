@@ -1,5 +1,5 @@
 using Land_Readjustment_Tool.Models;
-using Land_Readjustment_Tool.Repositories;
+using Land_Readjustment_Tool.Services.LandData;
 using System.Diagnostics;
 using System.IO;
 
@@ -13,16 +13,16 @@ namespace Land_Readjustment_Tool.Forms
     {
         private readonly string _projectPath;
         private readonly LandOwner _owner;
-        private readonly LandOwnerRepository _repository;
+        private readonly LandRecordsService _landRecordsService;
 
 
-        public frmOwnerDocuments(string projectPath, LandOwner owner, LandOwnerRepository repository, bool isReadOnly)
+        public frmOwnerDocuments(string projectPath, LandOwner owner, LandRecordsService landRecordsService, bool isReadOnly)
         {
             
             InitializeComponent();
             _projectPath = projectPath;
             _owner = owner;
-            _repository = repository;
+            _landRecordsService = landRecordsService;
             
               Text = $"Documents - {_owner.LandOwnersName}";
             LoadDocuments();
@@ -90,7 +90,7 @@ namespace Land_Readjustment_Tool.Forms
             string relativePath = Path.Combine("Documents", $"LandOwner_{_owner.LandOwnerId}");
             if (_owner.DocumentsFolderPath != relativePath)
             {
-                _repository.UpdateOwnerDocumentsFolder(_owner.LandOwnerId, relativePath);
+                _landRecordsService.UpdateOwnerDocumentsFolder(_owner.LandOwnerId, relativePath);
                 _owner.DocumentsFolderPath = relativePath;
             }
 

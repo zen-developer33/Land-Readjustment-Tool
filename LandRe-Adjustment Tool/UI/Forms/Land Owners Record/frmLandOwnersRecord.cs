@@ -1,10 +1,8 @@
 using Land_Readjustment_Tool.Forms.Land_Owners_Record;
 using Land_Readjustment_Tool.Models;
-using Land_Readjustment_Tool.Repositories;
-using Land_Readjustment_Tool.Services;
+using Land_Readjustment_Tool.Data;
+using Land_Readjustment_Tool.Services.LandData;
 using System.ComponentModel;
-using System.Data;
-using System.Data.SQLite;
 
 namespace Land_Readjustment_Tool.Forms
 {
@@ -14,8 +12,7 @@ namespace Land_Readjustment_Tool.Forms
     public partial class frmLandOwnersRecord : Form
     {
         private readonly string _projectPath;
-        private SQLiteConnection _connection = null!;
-        private LandOwnerRepository _repository = null!;
+        private LandRecordsService _landRecordsService = null!;
         private List<LandOwner> _allOwners = [];
         private List<LandOwner> _filteredOwners = [];
         private BindingList<LandOwnerDisplayModel> _displayedOwners = [];
@@ -23,30 +20,20 @@ namespace Land_Readjustment_Tool.Forms
         public frmLandOwnersRecord()
         {
             InitializeComponent();
-            _projectPath = CurrentProject.Info.ProjectPath;
+            if (!AppServices.HasContext)
+                throw new InvalidOperationException("No open project context found.");
+
+            _projectPath = AppServices.Context.ProjectFilePath;
             Text = "Land Owners Record";
 
-            InitializeRepository();
+            InitializeService();
             SetupEventHandlers();
             SetupDataGridView();
         }
 
-        private void InitializeRepository()
+        private void InitializeService()
         {
-            var dbHelper = new DatabaseHelper(_projectPath);
-            dbHelper.InitializeDatabase();
-            _connection = dbHelper.GetConnection();
-
-            if (!DatabaseSchema.HasCorrectSchema(_connection))
-            {
-                DatabaseSchema.RecreateSchema(_connection);
-            }
-            else
-            {
-                DatabaseSchema.CreateSchema(_connection);
-            }
-
-            _repository = new LandOwnerRepository(_connection);
+            _landRecordsService = new LandRecordsService(AppServices.Context.Session, _projectPath);
         }
 
         private void SetupEventHandlers()
@@ -141,7 +128,7 @@ namespace Land_Readjustment_Tool.Forms
             {
                 Cursor = Cursors.WaitCursor;
 
-                _allOwners = _repository.GetAllOwners();
+                _allOwners = _landRecordsService.GetAllOwners();
                 _filteredOwners = [.. _allOwners];
 
                 BindOwnersToGrid(_filteredOwners);
@@ -175,8 +162,8 @@ namespace Land_Readjustment_Tool.Forms
                 PermanentAddress = o.PermanentAddress ?? "",
                 ContactNumber = o.ContactNumber ?? "",
                 EmailID = o.EmailID ?? "",
-                ParcelCount = _repository.GetParcelsByOwnerId(o.LandOwnerId).Count,
-                TotalAreaSqm = _repository.GetTotalAreaByOwnerId(o.LandOwnerId)
+                ParcelCount = _landRecordsService.GetParcelsByOwnerId(o.LandOwnerId).Count,
+                TotalAreaSqm = _landRecordsService.GetTotalAreaByOwnerId(o.LandOwnerId)
             }).ToList();
 
             _displayedOwners = new BindingList<LandOwnerDisplayModel>(displayModels);
@@ -266,7 +253,7 @@ namespace Land_Readjustment_Tool.Forms
             {
                 if (dgvRecords.SelectedRows[0].DataBoundItem is LandOwnerDisplayModel model)
                 {
-                    _repository.DeleteOwnerWithParcels(model.LandOwnerId);
+                    _landRecordsService.DeleteOwnerWithParcels(model.LandOwnerId);
                     LoadOwners();
 
                     MessageBox.Show("Owner deleted successfully!", "Success",

@@ -1,9 +1,9 @@
-﻿using Land_Readjustment_Tool.Forms.Land_Owners_Record;
+using Land_Readjustment_Tool.Forms.Land_Owners_Record;
 using Land_Readjustment_Tool.Models;
-using Land_Readjustment_Tool.Repositories;
+using Land_Readjustment_Tool.Data;
 using Land_Readjustment_Tool.Services;
+using Land_Readjustment_Tool.Services.LandData;
 using System.ComponentModel;
-using System.Data.SQLite;
 
 namespace Land_Readjustment_Tool.Forms.LandOwnersRecord_Managerment
 {
@@ -15,8 +15,7 @@ namespace Land_Readjustment_Tool.Forms.LandOwnersRecord_Managerment
         #region Fields
 
         private readonly string _projectPath;
-        private SQLiteConnection _connection = null!;
-        private LandOwnerRepository _repository = null!;
+        private LandRecordsService _landRecordsService = null!;
         private List<OriginalLandParcel> _allRecords = [];
         private List<OriginalLandParcel> _filteredRecords = [];
         private BindingList<LandParcelDisplayModel> _displayedRecords = [];
@@ -38,10 +37,13 @@ namespace Land_Readjustment_Tool.Forms.LandOwnersRecord_Managerment
         public frmLandParcelOwnersRecord()
         {
             InitializeComponent();
-            _projectPath = CurrentProject.Info.ProjectPath;
+            if (!AppServices.HasContext)
+                throw new InvalidOperationException("No open project context found.");
+
+            _projectPath = AppServices.Context.ProjectFilePath;
             Text = "Original Land Parcel Records";
 
-            InitializeRepository();
+            InitializeService();
             SetupEventHandlers();
             SetupInputValidation();
             InitializeDataGridView();
@@ -51,22 +53,9 @@ namespace Land_Readjustment_Tool.Forms.LandOwnersRecord_Managerment
 
         #region Initialization
 
-        private void InitializeRepository()
+        private void InitializeService()
         {
-            var dbHelper = new DatabaseHelper(_projectPath);
-            dbHelper.InitializeDatabase();
-            _connection = dbHelper.GetConnection();
-
-            if (!DatabaseSchema.HasCorrectSchema(_connection))
-            {
-                DatabaseSchema.RecreateSchema(_connection);
-            }
-            else
-            {
-                DatabaseSchema.CreateSchema(_connection);
-            }
-
-            _repository = new LandOwnerRepository(_connection);
+            _landRecordsService = new LandRecordsService(AppServices.Context.Session, _projectPath);
         }
 
         private void SetupEventHandlers()
@@ -221,7 +210,7 @@ namespace Land_Readjustment_Tool.Forms.LandOwnersRecord_Managerment
             {
                 Cursor = Cursors.WaitCursor;
 
-                _allRecords = _repository.GetAllParcelsWithOwners();
+                _allRecords = _landRecordsService.GetAllParcelsWithOwners();
                 _filteredRecords = [.. _allRecords];
 
                 CacheUniqueValues();
@@ -754,7 +743,7 @@ namespace Land_Readjustment_Tool.Forms.LandOwnersRecord_Managerment
 
         private void BtnAdd_Click(object? sender, EventArgs e)
         {
-            using var addForm = new frmAddEditRecord(_repository.ParcelExists, ownerFieldsReadOnly: true);
+            using var addForm = new frmAddEditRecord(_landRecordsService.ParcelExists, ownerFieldsReadOnly: true);
             if (addForm.ShowDialog() == DialogResult.OK)
             {
                 try
@@ -792,14 +781,14 @@ namespace Land_Readjustment_Tool.Forms.LandOwnersRecord_Managerment
 
             var record = ConvertToEditableRecord(parcel);
 
-            using var editForm = new frmAddEditRecord(record, model.ParcelId, _repository.ParcelExists, ownerFieldsReadOnly: true);
+            using var editForm = new frmAddEditRecord(record, model.ParcelId, _landRecordsService.ParcelExists, ownerFieldsReadOnly: true);
             if (editForm.ShowDialog() == DialogResult.OK)
             {
                 try
                 {
                     if (editForm.IsDeleted)
                     {
-                        _repository.DeleteParcel(model.ParcelId);
+                        _landRecordsService.DeleteParcel(model.ParcelId);
                         MessageBox.Show("Record deleted successfully!", "Success",
                             MessageBoxButtons.OK, MessageBoxIcon.Information);
                     }
@@ -839,7 +828,7 @@ namespace Land_Readjustment_Tool.Forms.LandOwnersRecord_Managerment
             {
                 if (dgvRecords.SelectedRows[0].DataBoundItem is LandParcelDisplayModel model)
                 {
-                    _repository.DeleteParcel(model.ParcelId);
+                    _landRecordsService.DeleteParcel(model.ParcelId);
                     LoadAllRecords();
                     PopulateFilterDropdowns();
                     ApplyFilters();
@@ -918,8 +907,8 @@ namespace Land_Readjustment_Tool.Forms.LandOwnersRecord_Managerment
             }
 
             // Step 3: Save using the deduplication result
-            var parcelToOwnerMap = _repository.SaveUniqueOwnersFromDeduplication(deduplicationResult);
-            int savedCount = _repository.SaveParcelsWithDeduplication(records, parcelToOwnerMap);
+            var parcelToOwnerMap = _landRecordsService.SaveUniqueOwnersFromDeduplication(deduplicationResult);
+            int savedCount = _landRecordsService.SaveParcelsWithDeduplication(records, parcelToOwnerMap);
 
             if (savedCount == 0)
             {
@@ -964,7 +953,7 @@ namespace Land_Readjustment_Tool.Forms.LandOwnersRecord_Managerment
                 }
 
                 // Step 4: Save or get the owner ID
-                var parcelToOwnerMap = _repository.SaveUniqueOwnersFromDeduplication(deduplicationResult);
+                var parcelToOwnerMap = _landRecordsService.SaveUniqueOwnersFromDeduplication(deduplicationResult);
 
                 // The first (and only) record in our list is at index 0
                 if (parcelToOwnerMap.TryGetValue(0, out int newOwnerId))
@@ -994,7 +983,7 @@ namespace Land_Readjustment_Tool.Forms.LandOwnersRecord_Managerment
                     EmailID = record.EmailID,
                     ModifiedDate = DateTime.Now
                 };
-                _repository.UpdateOwner(owner);
+                _landRecordsService.UpdateOwner(owner);
             }
 
             // Step 6: Update the parcel with the correct owner ID
@@ -1019,7 +1008,7 @@ namespace Land_Readjustment_Tool.Forms.LandOwnersRecord_Managerment
                 PaanaNo = record.PaanaNo,
                 Remarks = record.Remarks
             };
-            _repository.UpdateParcel(parcel);
+            _landRecordsService.UpdateParcel(parcel);
         }
 
         private static BaselineLandParceRecord ConvertToEditableRecord(OriginalLandParcel parcel)
@@ -1175,3 +1164,4 @@ namespace Land_Readjustment_Tool.Forms.LandOwnersRecord_Managerment
 
     #endregion
 }
+
