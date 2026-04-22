@@ -39,7 +39,11 @@ namespace Land_Readjustment_Tool
 
         private void InitializeComponent()
         {
+            components = new System.ComponentModel.Container();
             txtDisplay = new TextBox();
+            ResultTextRightClickContext = new ContextMenuStrip(components);
+            copyToolStripMenuItem = new ToolStripMenuItem();
+            pasteToolStripMenuItem = new ToolStripMenuItem();
             btnClear = new Button();
             btnBackspace = new Button();
             btnSign = new Button();
@@ -61,12 +65,14 @@ namespace Land_Readjustment_Tool
             btnEquals = new Button();
             btnCancel = new Button();
             btnOk = new Button();
+            ResultTextRightClickContext.SuspendLayout();
             SuspendLayout();
             // 
             // txtDisplay
             // 
             txtDisplay.BackColor = SystemColors.ControlLightLight;
             txtDisplay.BorderStyle = BorderStyle.FixedSingle;
+            txtDisplay.ContextMenuStrip = ResultTextRightClickContext;
             txtDisplay.Font = new Font("Arial Narrow", 18F, FontStyle.Regular, GraphicsUnit.Point, 0);
             txtDisplay.Location = new Point(20, 11);
             txtDisplay.Name = "txtDisplay";
@@ -76,6 +82,27 @@ namespace Land_Readjustment_Tool
             txtDisplay.TabStop = false;
             txtDisplay.Text = "0";
             txtDisplay.TextAlign = HorizontalAlignment.Right;
+            // 
+            // ResultTextRightClickContext
+            // 
+            ResultTextRightClickContext.ImageScalingSize = new Size(20, 20);
+            ResultTextRightClickContext.Items.AddRange(new ToolStripItem[] { copyToolStripMenuItem, pasteToolStripMenuItem });
+            ResultTextRightClickContext.Name = "contextMenuStrip1";
+            ResultTextRightClickContext.Size = new Size(208, 52);
+            // 
+            // copyToolStripMenuItem
+            // 
+            copyToolStripMenuItem.Name = "copyToolStripMenuItem";
+            copyToolStripMenuItem.ShortcutKeys = Keys.Control | Keys.C;
+            copyToolStripMenuItem.Size = new Size(207, 24);
+            copyToolStripMenuItem.Text = "Copy Result";
+            // 
+            // pasteToolStripMenuItem
+            // 
+            pasteToolStripMenuItem.Name = "pasteToolStripMenuItem";
+            pasteToolStripMenuItem.ShortcutKeys = Keys.Control | Keys.V;
+            pasteToolStripMenuItem.Size = new Size(207, 24);
+            pasteToolStripMenuItem.Text = "Paste";
             // 
             // btnClear
             // 
@@ -364,7 +391,6 @@ namespace Land_Readjustment_Tool
             btnOk.Size = new Size(111, 35);
             btnOk.TabIndex = 20;
             btnOk.Text = "↩Return(F2)";
-            btnOk.TextAlign = ContentAlignment.MiddleLeft;
             btnOk.UseVisualStyleBackColor = false;
             btnOk.Click += BtnReturn_Click;
             // 
@@ -372,7 +398,7 @@ namespace Land_Readjustment_Tool
             // 
             AutoScaleDimensions = new SizeF(9F, 21F);
             AutoScaleMode = AutoScaleMode.Font;
-            ClientSize = new Size(267, 389);
+            ClientSize = new Size(705, 505);
             Controls.Add(txtDisplay);
             Controls.Add(btnClear);
             Controls.Add(btnCancel);
@@ -407,8 +433,13 @@ namespace Land_Readjustment_Tool
             Text = "Calculator";
             TopMost = true;
             Load += frmCalculator_Load;
+            ResultTextRightClickContext.ResumeLayout(false);
             ResumeLayout(false);
             PerformLayout();
         }
+
+        private ContextMenuStrip ResultTextRightClickContext;
+        private ToolStripMenuItem copyToolStripMenuItem;
+        private ToolStripMenuItem pasteToolStripMenuItem;
     }
 }
