@@ -60,16 +60,16 @@ namespace Land_Readjustment_Tool
             txtFromSqm = new TextBox();
             btnReset = new Button();
             btnCalculator = new Button();
-            radioButton4 = new RadioButton();
-            radioButton3 = new RadioButton();
-            radioButton2 = new RadioButton();
-            radioButton1 = new RadioButton();
+            rdoFromBKD = new RadioButton();
+            rdoFromRAPD = new RadioButton();
+            rdoFromSqft = new RadioButton();
+            rdoFromSqm = new RadioButton();
             grpConvertTo = new GroupBox();
             btnCopy = new Button();
-            radioButton5 = new RadioButton();
-            radioButton6 = new RadioButton();
-            radioButton7 = new RadioButton();
-            radioButton8 = new RadioButton();
+            rdoToBKD = new RadioButton();
+            rdoToRAPD = new RadioButton();
+            rdoToSqft = new RadioButton();
+            rdoToSqm = new RadioButton();
             grpToRAPD = new GroupBox();
             label18 = new Label();
             label19 = new Label();
@@ -88,7 +88,6 @@ namespace Land_Readjustment_Tool
             txtConvertFromP = new TextBox();
             txtConvertFromR = new TextBox();
             lblR = new Label();
-            grpTitle = new GroupBox();
             lblProjectTitle = new Label();
             label10 = new Label();
             grpFromSqft = new GroupBox();
@@ -158,7 +157,6 @@ namespace Land_Readjustment_Tool
             grpFromSqm.SuspendLayout();
             grpConvertTo.SuspendLayout();
             grpToRAPD.SuspendLayout();
-            grpTitle.SuspendLayout();
             grpFromSqft.SuspendLayout();
             grpSqm.SuspendLayout();
             grpToSqft.SuspendLayout();
@@ -452,10 +450,10 @@ namespace Land_Readjustment_Tool
             grpConvertFrom.Controls.Add(grpFromSqm);
             grpConvertFrom.Controls.Add(btnReset);
             grpConvertFrom.Controls.Add(btnCalculator);
-            grpConvertFrom.Controls.Add(radioButton4);
-            grpConvertFrom.Controls.Add(radioButton3);
-            grpConvertFrom.Controls.Add(radioButton2);
-            grpConvertFrom.Controls.Add(radioButton1);
+            grpConvertFrom.Controls.Add(rdoFromBKD);
+            grpConvertFrom.Controls.Add(rdoFromRAPD);
+            grpConvertFrom.Controls.Add(rdoFromSqft);
+            grpConvertFrom.Controls.Add(rdoFromSqm);
             grpConvertFrom.Font = new Font("Segoe UI", 9F, FontStyle.Bold, GraphicsUnit.Point, 0);
             grpConvertFrom.Location = new Point(22, 168);
             grpConvertFrom.Name = "grpConvertFrom";
@@ -515,59 +513,59 @@ namespace Land_Readjustment_Tool
             btnCalculator.TextImageRelation = TextImageRelation.ImageBeforeText;
             btnCalculator.UseVisualStyleBackColor = true;
             // 
-            // radioButton4
+            // rdoFromBKD
             // 
-            radioButton4.AutoSize = true;
-            radioButton4.Font = new Font("Segoe UI", 9F);
-            radioButton4.Location = new Point(126, 49);
-            radioButton4.Name = "radioButton4";
-            radioButton4.Size = new Size(71, 24);
-            radioButton4.TabIndex = 6;
-            radioButton4.Text = "B-K-D";
-            radioButton4.UseVisualStyleBackColor = true;
+            rdoFromBKD.AutoSize = true;
+            rdoFromBKD.Font = new Font("Segoe UI", 9F);
+            rdoFromBKD.Location = new Point(126, 49);
+            rdoFromBKD.Name = "rdoFromBKD";
+            rdoFromBKD.Size = new Size(71, 24);
+            rdoFromBKD.TabIndex = 6;
+            rdoFromBKD.Text = "B-K-D";
+            rdoFromBKD.UseVisualStyleBackColor = true;
             // 
-            // radioButton3
+            // rdoFromRAPD
             // 
-            radioButton3.AutoSize = true;
-            radioButton3.Font = new Font("Segoe UI", 9F);
-            radioButton3.Location = new Point(6, 49);
-            radioButton3.Name = "radioButton3";
-            radioButton3.Size = new Size(86, 24);
-            radioButton3.TabIndex = 5;
-            radioButton3.Text = "R-A-P-D";
-            radioButton3.UseVisualStyleBackColor = true;
+            rdoFromRAPD.AutoSize = true;
+            rdoFromRAPD.Font = new Font("Segoe UI", 9F);
+            rdoFromRAPD.Location = new Point(6, 49);
+            rdoFromRAPD.Name = "rdoFromRAPD";
+            rdoFromRAPD.Size = new Size(86, 24);
+            rdoFromRAPD.TabIndex = 5;
+            rdoFromRAPD.Text = "R-A-P-D";
+            rdoFromRAPD.UseVisualStyleBackColor = true;
             // 
-            // radioButton2
+            // rdoFromSqft
             // 
-            radioButton2.AutoSize = true;
-            radioButton2.Font = new Font("Segoe UI", 9F);
-            radioButton2.Location = new Point(126, 23);
-            radioButton2.Name = "radioButton2";
-            radioButton2.Size = new Size(108, 24);
-            radioButton2.TabIndex = 4;
-            radioButton2.Text = "Square Feet";
-            radioButton2.UseVisualStyleBackColor = true;
+            rdoFromSqft.AutoSize = true;
+            rdoFromSqft.Font = new Font("Segoe UI", 9F);
+            rdoFromSqft.Location = new Point(126, 23);
+            rdoFromSqft.Name = "rdoFromSqft";
+            rdoFromSqft.Size = new Size(108, 24);
+            rdoFromSqft.TabIndex = 4;
+            rdoFromSqft.Text = "Square Feet";
+            rdoFromSqft.UseVisualStyleBackColor = true;
             // 
-            // radioButton1
+            // rdoFromSqm
             // 
-            radioButton1.AutoSize = true;
-            radioButton1.Checked = true;
-            radioButton1.Font = new Font("Segoe UI", 9F);
-            radioButton1.Location = new Point(6, 23);
-            radioButton1.Name = "radioButton1";
-            radioButton1.Size = new Size(119, 24);
-            radioButton1.TabIndex = 3;
-            radioButton1.TabStop = true;
-            radioButton1.Text = "Square Meter";
-            radioButton1.UseVisualStyleBackColor = true;
+            rdoFromSqm.AutoSize = true;
+            rdoFromSqm.Checked = true;
+            rdoFromSqm.Font = new Font("Segoe UI", 9F);
+            rdoFromSqm.Location = new Point(6, 23);
+            rdoFromSqm.Name = "rdoFromSqm";
+            rdoFromSqm.Size = new Size(119, 24);
+            rdoFromSqm.TabIndex = 3;
+            rdoFromSqm.TabStop = true;
+            rdoFromSqm.Text = "Square Meter";
+            rdoFromSqm.UseVisualStyleBackColor = true;
             // 
             // grpConvertTo
             // 
             grpConvertTo.Controls.Add(btnCopy);
-            grpConvertTo.Controls.Add(radioButton5);
-            grpConvertTo.Controls.Add(radioButton6);
-            grpConvertTo.Controls.Add(radioButton7);
-            grpConvertTo.Controls.Add(radioButton8);
+            grpConvertTo.Controls.Add(rdoToBKD);
+            grpConvertTo.Controls.Add(rdoToRAPD);
+            grpConvertTo.Controls.Add(rdoToSqft);
+            grpConvertTo.Controls.Add(rdoToSqm);
             grpConvertTo.Controls.Add(grpToRAPD);
             grpConvertTo.Font = new Font("Segoe UI", 9F, FontStyle.Bold, GraphicsUnit.Point, 0);
             grpConvertTo.Location = new Point(22, 340);
@@ -587,52 +585,52 @@ namespace Land_Readjustment_Tool
             btnCopy.Text = "Copy";
             btnCopy.UseVisualStyleBackColor = true;
             // 
-            // radioButton5
+            // rdoToBKD
             // 
-            radioButton5.AutoSize = true;
-            radioButton5.Font = new Font("Segoe UI", 9F);
-            radioButton5.Location = new Point(126, 49);
-            radioButton5.Name = "radioButton5";
-            radioButton5.Size = new Size(71, 24);
-            radioButton5.TabIndex = 13;
-            radioButton5.TabStop = true;
-            radioButton5.Text = "B-K-D";
-            radioButton5.UseVisualStyleBackColor = true;
+            rdoToBKD.AutoSize = true;
+            rdoToBKD.Font = new Font("Segoe UI", 9F);
+            rdoToBKD.Location = new Point(126, 49);
+            rdoToBKD.Name = "rdoToBKD";
+            rdoToBKD.Size = new Size(71, 24);
+            rdoToBKD.TabIndex = 13;
+            rdoToBKD.TabStop = true;
+            rdoToBKD.Text = "B-K-D";
+            rdoToBKD.UseVisualStyleBackColor = true;
             // 
-            // radioButton6
+            // rdoToRAPD
             // 
-            radioButton6.AutoSize = true;
-            radioButton6.Checked = true;
-            radioButton6.Font = new Font("Segoe UI", 9F);
-            radioButton6.Location = new Point(6, 49);
-            radioButton6.Name = "radioButton6";
-            radioButton6.Size = new Size(86, 24);
-            radioButton6.TabIndex = 12;
-            radioButton6.TabStop = true;
-            radioButton6.Text = "R-A-P-D";
-            radioButton6.UseVisualStyleBackColor = true;
+            rdoToRAPD.AutoSize = true;
+            rdoToRAPD.Checked = true;
+            rdoToRAPD.Font = new Font("Segoe UI", 9F);
+            rdoToRAPD.Location = new Point(6, 49);
+            rdoToRAPD.Name = "rdoToRAPD";
+            rdoToRAPD.Size = new Size(86, 24);
+            rdoToRAPD.TabIndex = 12;
+            rdoToRAPD.TabStop = true;
+            rdoToRAPD.Text = "R-A-P-D";
+            rdoToRAPD.UseVisualStyleBackColor = true;
             // 
-            // radioButton7
+            // rdoToSqft
             // 
-            radioButton7.AutoSize = true;
-            radioButton7.Font = new Font("Segoe UI", 9F);
-            radioButton7.Location = new Point(126, 23);
-            radioButton7.Name = "radioButton7";
-            radioButton7.Size = new Size(108, 24);
-            radioButton7.TabIndex = 11;
-            radioButton7.Text = "Square Feet";
-            radioButton7.UseVisualStyleBackColor = true;
+            rdoToSqft.AutoSize = true;
+            rdoToSqft.Font = new Font("Segoe UI", 9F);
+            rdoToSqft.Location = new Point(126, 23);
+            rdoToSqft.Name = "rdoToSqft";
+            rdoToSqft.Size = new Size(108, 24);
+            rdoToSqft.TabIndex = 11;
+            rdoToSqft.Text = "Square Feet";
+            rdoToSqft.UseVisualStyleBackColor = true;
             // 
-            // radioButton8
+            // rdoToSqm
             // 
-            radioButton8.AutoSize = true;
-            radioButton8.Font = new Font("Segoe UI", 9F);
-            radioButton8.Location = new Point(6, 23);
-            radioButton8.Name = "radioButton8";
-            radioButton8.Size = new Size(119, 24);
-            radioButton8.TabIndex = 10;
-            radioButton8.Text = "Square Meter";
-            radioButton8.UseVisualStyleBackColor = true;
+            rdoToSqm.AutoSize = true;
+            rdoToSqm.Font = new Font("Segoe UI", 9F);
+            rdoToSqm.Location = new Point(6, 23);
+            rdoToSqm.Name = "rdoToSqm";
+            rdoToSqm.Size = new Size(119, 24);
+            rdoToSqm.TabIndex = 10;
+            rdoToSqm.Text = "Square Meter";
+            rdoToSqm.UseVisualStyleBackColor = true;
             // 
             // grpToRAPD
             // 
@@ -817,21 +815,11 @@ namespace Land_Readjustment_Tool
             lblR.TabIndex = 0;
             lblR.Text = "Bigha";
             // 
-            // grpTitle
-            // 
-            grpTitle.Controls.Add(lblProjectTitle);
-            grpTitle.Controls.Add(label10);
-            grpTitle.Location = new Point(24, 5);
-            grpTitle.Name = "grpTitle";
-            grpTitle.Size = new Size(386, 88);
-            grpTitle.TabIndex = 16;
-            grpTitle.TabStop = false;
-            // 
             // lblProjectTitle
             // 
             lblProjectTitle.AutoSize = true;
             lblProjectTitle.Font = new Font("Segoe UI", 9F, FontStyle.Bold, GraphicsUnit.Point, 0);
-            lblProjectTitle.Location = new Point(169, 23);
+            lblProjectTitle.Location = new Point(179, 20);
             lblProjectTitle.Name = "lblProjectTitle";
             lblProjectTitle.Size = new Size(61, 20);
             lblProjectTitle.TabIndex = 0;
@@ -842,7 +830,7 @@ namespace Land_Readjustment_Tool
             // 
             label10.AutoSize = true;
             label10.Font = new Font("Segoe UI", 12F, FontStyle.Bold, GraphicsUnit.Point, 0);
-            label10.Location = new Point(26, 45);
+            label10.Location = new Point(36, 42);
             label10.Name = "label10";
             label10.Size = new Size(354, 28);
             label10.TabIndex = 1;
@@ -1479,7 +1467,9 @@ namespace Land_Readjustment_Tool
             AutoScaleDimensions = new SizeF(120F, 120F);
             AutoScaleMode = AutoScaleMode.Dpi;
             BackColor = Color.White;
-            ClientSize = new Size(689, 522);
+            ClientSize = new Size(681, 514);
+            Controls.Add(lblProjectTitle);
+            Controls.Add(label10);
             Controls.Add(groupBox1);
             Controls.Add(nudTraditionalUnitPrecision);
             Controls.Add(label39);
@@ -1497,7 +1487,6 @@ namespace Land_Readjustment_Tool
             Controls.Add(grpConvertTo);
             Controls.Add(grpConvertFrom);
             Controls.Add(grpQuickConvert);
-            Controls.Add(grpTitle);
             FormBorderStyle = FormBorderStyle.FixedSingle;
             Icon = (Icon)resources.GetObject("$this.Icon");
             Margin = new Padding(4);
@@ -1517,8 +1506,6 @@ namespace Land_Readjustment_Tool
             grpConvertTo.PerformLayout();
             grpToRAPD.ResumeLayout(false);
             grpToRAPD.PerformLayout();
-            grpTitle.ResumeLayout(false);
-            grpTitle.PerformLayout();
             grpFromSqft.ResumeLayout(false);
             grpFromSqft.PerformLayout();
             grpSqm.ResumeLayout(false);
@@ -1566,17 +1553,17 @@ namespace Land_Readjustment_Tool
         private TextBox txtBkd;
         private Button btnResetQuickConvert;
         private GroupBox grpConvertFrom;
-        private RadioButton radioButton4;
-        private RadioButton radioButton3;
-        private RadioButton radioButton2;
-        private RadioButton radioButton1;
+        private RadioButton rdoFromBKD;
+        private RadioButton rdoFromRAPD;
+        private RadioButton rdoFromSqft;
+        private RadioButton rdoFromSqm;
         private TextBox txtFromSqm;
         private Button btnReset;
         private GroupBox grpConvertTo;
-        private RadioButton radioButton5;
-        private RadioButton radioButton6;
-        private RadioButton radioButton7;
-        private RadioButton radioButton8;
+        private RadioButton rdoToBKD;
+        private RadioButton rdoToRAPD;
+        private RadioButton rdoToSqft;
+        private RadioButton rdoToSqm;
         private Button btnCopy;
         private Label lblD;
         private Label lblP;
@@ -1586,7 +1573,6 @@ namespace Land_Readjustment_Tool
         private TextBox txtConvertFromR;
         private Label lblConvertToSqm;
         private GroupBox grpFromSqm;
-        private GroupBox grpTitle;
         private TextBox txt;
         private GroupBox grpFromSqft;
         private Label label1;

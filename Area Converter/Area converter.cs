@@ -105,14 +105,14 @@ namespace Land_Readjustment_Tool
             btnCopy.Click += btnCopy_Click;
             btnCalculator.Click += BtnCalculator_Click;
 
-            radioButton1.CheckedChanged += UnitSelectionRadio_CheckedChanged;
-            radioButton2.CheckedChanged += UnitSelectionRadio_CheckedChanged;
-            radioButton3.CheckedChanged += UnitSelectionRadio_CheckedChanged;
-            radioButton4.CheckedChanged += UnitSelectionRadio_CheckedChanged;
-            radioButton8.CheckedChanged += UnitSelectionRadio_CheckedChanged;
-            radioButton7.CheckedChanged += UnitSelectionRadio_CheckedChanged;
-            radioButton6.CheckedChanged += UnitSelectionRadio_CheckedChanged;
-            radioButton5.CheckedChanged += UnitSelectionRadio_CheckedChanged;
+            rdoFromSqm.CheckedChanged += UnitSelectionRadio_CheckedChanged;
+            rdoFromSqft.CheckedChanged += UnitSelectionRadio_CheckedChanged;
+            rdoFromRAPD.CheckedChanged += UnitSelectionRadio_CheckedChanged;
+            rdoFromBKD.CheckedChanged += UnitSelectionRadio_CheckedChanged;
+            rdoToSqm.CheckedChanged += UnitSelectionRadio_CheckedChanged;
+            rdoToSqft.CheckedChanged += UnitSelectionRadio_CheckedChanged;
+            rdoToRAPD.CheckedChanged += UnitSelectionRadio_CheckedChanged;
+            rdoToBKD.CheckedChanged += UnitSelectionRadio_CheckedChanged;
             nudOtherUnitPrecision.ValueChanged += nudOtherUnitPrecision_ValueChanged;
             nudOtherUnitPrecision.KeyPress += nudOtherUnitPrecision_KeyPress;
             nudTraditionalUnitPrecision.ValueChanged += nudPrecision_ValueChanged;
@@ -519,9 +519,13 @@ namespace Land_Readjustment_Tool
         private string FormatNumber(double value)
             => value.ToString($"F{GetOtherUnitPrecision()}", CultureInfo.InvariantCulture);
 
-        private static void ShowMessage(string message)
+        private static void ShowMessage(
+            string message,
+            string title = "Invalid Input",
+            MessageBoxButtons buttons = MessageBoxButtons.OK,
+            MessageBoxIcon icon = MessageBoxIcon.Warning)
         {
-            MessageBox.Show(message, "Invalid Input", MessageBoxButtons.OK, MessageBoxIcon.Warning);
+            MessageBox.Show(message, title, buttons, icon);
         }
 
         private static void ShowRapdValidationMessage()
@@ -726,7 +730,7 @@ namespace Land_Readjustment_Tool
 
             ApplyUnitGroupVisibility();
 
-            if (radioButton == radioButton1 || radioButton == radioButton2 || radioButton == radioButton3 || radioButton == radioButton4)
+            if (radioButton == rdoFromSqm || radioButton == rdoFromSqft || radioButton == rdoFromRAPD || radioButton == rdoFromBKD)
             {
                 ResetConvertFromInputsAndFocus();
             }
@@ -737,9 +741,9 @@ namespace Land_Readjustment_Tool
         private void ApplyUnitGroupVisibility()
         {
             ShowOnlySelectedGroup(
-                radioButton1.Checked ? grpFromSqm :
-                radioButton2.Checked ? grpFromSqft :
-                radioButton3.Checked ? grpFromRAPD :
+                rdoFromSqm.Checked ? grpFromSqm :
+                rdoFromSqft.Checked ? grpFromSqft :
+                rdoFromRAPD.Checked ? grpFromRAPD :
                 grpFromBKD,
                 grpFromSqm,
                 grpFromSqft,
@@ -747,9 +751,9 @@ namespace Land_Readjustment_Tool
                 grpFromBKD);
 
             ShowOnlySelectedGroup(
-                radioButton8.Checked ? grpSqm :
-                radioButton7.Checked ? grpToSqft :
-                radioButton6.Checked ? grpToRAPD :
+                rdoToSqm.Checked ? grpSqm :
+                rdoToSqft.Checked ? grpToSqft :
+                rdoToRAPD.Checked ? grpToRAPD :
                 grpToBKD,
                 grpSqm,
                 grpToSqft,
@@ -878,9 +882,9 @@ namespace Land_Readjustment_Tool
 
         private TextBox GetActiveFromFirstTextBox()
         {
-            if (radioButton2.Checked) return txtFromSqft;
-            if (radioButton3.Checked) return txtFromRopanee;
-            if (radioButton4.Checked) return txtFromBigha;
+            if (rdoFromSqft.Checked) return txtFromSqft;
+            if (rdoFromRAPD.Checked) return txtFromRopanee;
+            if (rdoFromBKD.Checked) return txtFromBigha;
             return txtFromSqm;
         }
 
@@ -907,19 +911,19 @@ namespace Land_Readjustment_Tool
 
         private double GetSqmFromConvertFromInputs()
         {
-            if (radioButton1.Checked)
+            if (rdoFromSqm.Checked)
             {
                 return TryParseDouble(txtFromSqm.Text.Trim(), out double sqm) ? sqm : 0;
             }
 
-            if (radioButton2.Checked)
+            if (rdoFromSqft.Checked)
             {
                 return TryParseDouble(txtFromSqft.Text.Trim(), out double sqft)
                     ? AreaConverterService.SqftToSqm(sqft, 9)
                     : 0;
             }
 
-            if (radioButton3.Checked)
+            if (rdoFromRAPD.Checked)
             {
                 int ropanee = ParseIntegerOrZero(txtFromRopanee.Text);
                 int aana = ParseIntegerOrZero(txtFromAana.Text);
@@ -1021,11 +1025,11 @@ namespace Land_Readjustment_Tool
 
         private void btnCopy_Click(object? sender, EventArgs e)
         {
-            string text = radioButton8.Checked
+            string text = rdoToSqm.Checked
                 ? txtToSqm.Text
-                : radioButton7.Checked
+                : rdoToSqft.Checked
                     ? txtToSqft.Text
-                    : radioButton6.Checked
+                    : rdoToRAPD.Checked
                         ? $"{txtToRopanee.Text}-{txtToAana.Text}-{txtToPaisa.Text}-{txtToDaam.Text}"
                         : $"{txtToBigha.Text}-{txtToKattha.Text}-{txtToDhur.Text}";
 
@@ -1308,18 +1312,26 @@ namespace Land_Readjustment_Tool
 
             using var calc = new frmCalculator(isDark);
             if (calc.ShowDialog(this) != DialogResult.OK || !calc.Result.HasValue)
+            {
                 return;
+            }
+
+            //if (calc.Result.Value < 0)
+            //{
+            //    ShowMessage("Negative value. The result is not returned.", "Invalid Result", MessageBoxButtons.OK, MessageBoxIcon.Warning);
+            //    return;
+            //}
 
             string resultText = calc.Result.Value
                 .ToString(System.Globalization.CultureInfo.InvariantCulture);
 
             // Route result only to sqm or sqft inputs; RAPD and BKD get clipboard only.
-            if (radioButton1.Checked)           // Sq.Meter
+            if (rdoFromSqm.Checked)           // Sq.Meter
             {
                 txtFromSqm.Text = resultText;
                 txtFromSqm.Focus();
             }
-            else if (radioButton2.Checked)      // Sq.Feet
+            else if (rdoFromSqft.Checked)      // Sq.Feet
             {
                 txtFromSqft.Text = resultText;
                 txtFromSqft.Focus();
@@ -1337,5 +1349,7 @@ namespace Land_Readjustment_Tool
             double luminance = (0.299 * bg.R + 0.587 * bg.G + 0.114 * bg.B);
             return luminance < 128;
         }
+
+
     }
 }
