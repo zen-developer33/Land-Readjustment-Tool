@@ -209,7 +209,7 @@ namespace Land_Readjustment_Tool
             // btnCopyToClipboard
             // 
             btnCopyToClipboard.Anchor = AnchorStyles.Top | AnchorStyles.Right;
-            btnCopyToClipboard.Location = new Point(6, 381);
+            btnCopyToClipboard.Location = new Point(6, 375);
             btnCopyToClipboard.Name = "btnCopyToClipboard";
             btnCopyToClipboard.Size = new Size(144, 35);
             btnCopyToClipboard.TabIndex = 18;
@@ -249,7 +249,7 @@ namespace Land_Readjustment_Tool
             // btnResetQuickConvert
             // 
             btnResetQuickConvert.Anchor = AnchorStyles.Top | AnchorStyles.Left | AnchorStyles.Right;
-            btnResetQuickConvert.Location = new Point(156, 381);
+            btnResetQuickConvert.Location = new Point(156, 375);
             btnResetQuickConvert.Name = "btnResetQuickConvert";
             btnResetQuickConvert.Size = new Size(82, 35);
             btnResetQuickConvert.TabIndex = 41;
@@ -459,7 +459,7 @@ namespace Land_Readjustment_Tool
             grpConvertFrom.Controls.Add(rdoFromSqft);
             grpConvertFrom.Controls.Add(rdoFromSqm);
             grpConvertFrom.Font = new Font("Segoe UI", 9F, FontStyle.Bold, GraphicsUnit.Point, 0);
-            grpConvertFrom.Location = new Point(22, 168);
+            grpConvertFrom.Location = new Point(22, 174);
             grpConvertFrom.Name = "grpConvertFrom";
             grpConvertFrom.Size = new Size(388, 166);
             grpConvertFrom.TabIndex = 10;
@@ -1394,25 +1394,26 @@ namespace Land_Readjustment_Tool
             groupBox2.Controls.Add(label10);
             groupBox2.Location = new Point(22, 3);
             groupBox2.Name = "groupBox2";
-            groupBox2.Size = new Size(388, 67);
+            groupBox2.Size = new Size(388, 77);
             groupBox2.TabIndex = 52;
             groupBox2.TabStop = false;
             // 
             // lblProjectTitle
             // 
             lblProjectTitle.AutoSize = true;
-            lblProjectTitle.Font = new Font("Segoe UI", 9F, FontStyle.Bold, GraphicsUnit.Point, 0);
-            lblProjectTitle.Location = new Point(164, 15);
+            lblProjectTitle.Font = new Font("Segoe UI", 7.8F, FontStyle.Bold, GraphicsUnit.Point, 0);
+            lblProjectTitle.Location = new Point(30, 23);
             lblProjectTitle.Name = "lblProjectTitle";
-            lblProjectTitle.Size = new Size(61, 20);
+            lblProjectTitle.Size = new Size(330, 17);
             lblProjectTitle.TabIndex = 2;
-            lblProjectTitle.Text = "Re-Plot";
+            lblProjectTitle.Text = "RePlot : A professional Land Readjustment Software";
+            lblProjectTitle.TextAlign = ContentAlignment.MiddleCenter;
             // 
             // label10
             // 
             label10.AutoSize = true;
             label10.Font = new Font("Segoe UI", 12F, FontStyle.Bold | FontStyle.Underline, GraphicsUnit.Point, 0);
-            label10.Location = new Point(95, 35);
+            label10.Location = new Point(93, 44);
             label10.Name = "label10";
             label10.Size = new Size(202, 28);
             label10.TabIndex = 3;
@@ -1426,14 +1427,17 @@ namespace Land_Readjustment_Tool
             groupBox3.Controls.Add(label40);
             groupBox3.Controls.Add(label38);
             groupBox3.Controls.Add(label37);
-            groupBox3.Location = new Point(22, 73);
+            groupBox3.Font = new Font("Segoe UI", 9F, FontStyle.Bold, GraphicsUnit.Point, 0);
+            groupBox3.Location = new Point(22, 86);
             groupBox3.Name = "groupBox3";
             groupBox3.Size = new Size(388, 89);
             groupBox3.TabIndex = 53;
             groupBox3.TabStop = false;
+            groupBox3.Text = "Precision";
             // 
             // nudTraditionalUnitPrecision
             // 
+            nudTraditionalUnitPrecision.Font = new Font("Segoe UI", 9F);
             nudTraditionalUnitPrecision.Location = new Point(226, 52);
             nudTraditionalUnitPrecision.Name = "nudTraditionalUnitPrecision";
             nudTraditionalUnitPrecision.Size = new Size(43, 27);
@@ -1453,6 +1457,7 @@ namespace Land_Readjustment_Tool
             // 
             // nudOtherUnitPrecision
             // 
+            nudOtherUnitPrecision.Font = new Font("Segoe UI", 9F);
             nudOtherUnitPrecision.Location = new Point(226, 22);
             nudOtherUnitPrecision.Name = "nudOtherUnitPrecision";
             nudOtherUnitPrecision.Size = new Size(43, 27);
@@ -1468,7 +1473,7 @@ namespace Land_Readjustment_Tool
             label40.Name = "label40";
             label40.Size = new Size(206, 20);
             label40.TabIndex = 9;
-            label40.Text = "Precision for R-A-P-D / B-K-D";
+            label40.Text = "Precision for Traditional Units:";
             // 
             // label38
             // 
@@ -1486,9 +1491,9 @@ namespace Land_Readjustment_Tool
             label37.Font = new Font("Segoe UI", 9F);
             label37.Location = new Point(13, 24);
             label37.Name = "label37";
-            label37.Size = new Size(169, 20);
+            label37.Size = new Size(172, 20);
             label37.TabIndex = 11;
-            label37.Text = "Precision for Other Units";
+            label37.Text = "Precision for Other Units:";
             // 
             // frmAreaConverter
             // 
@@ -1515,7 +1520,7 @@ namespace Land_Readjustment_Tool
             MaximizeBox = false;
             Name = "frmAreaConverter";
             StartPosition = FormStartPosition.CenterScreen;
-            Text = "Area Converter v2.0 ©Kapil Rijal ";
+            Text = "Area Converter v2.2 ©Kapil Rijal ";
             TopMost = true;
             Load += frmAreaConverter_Load;
             grpQuickConvert.ResumeLayout(false);

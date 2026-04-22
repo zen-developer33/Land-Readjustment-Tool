@@ -43,7 +43,8 @@ namespace Land_Readjustment_Tool
             // Wire up theme radio buttons
             rdoLightTheme.CheckedChanged += ThemeRadioButton_CheckedChanged;
             rdoDarkTheme.CheckedChanged += ThemeRadioButton_CheckedChanged;
-
+            nudOtherUnitPrecision.MouseWheel += nudOtherUnitPrecision_MouseWheel;
+            nudTraditionalUnitPrecision.MouseWheel += nudTraditionalUnitPrecision_MouseWheel;
             // Apply initial theme
             ApplyCurrentTheme();
         }
@@ -1351,5 +1352,16 @@ namespace Land_Readjustment_Tool
         }
 
 
+
+        private void nudOtherUnitPrecision_MouseWheel(object sender, MouseEventArgs e)
+        {
+            // This stops the scroll from reaching the internal logic of the control
+            ((HandledMouseEventArgs)e).Handled = true;
+        }
+        private void nudTraditionalUnitPrecision_MouseWheel(object sender, MouseEventArgs e)
+        {
+            // This stops the scroll from reaching the internal logic of the control
+            ((HandledMouseEventArgs)e).Handled = true;
+        }
     }
 }
