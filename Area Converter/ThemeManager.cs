@@ -136,7 +136,7 @@ namespace Land_Readjustment_Tool
 
                 case Button button:
                     button.UseVisualStyleBackColor = true;
-                    button.BackColor = LightButtonColor;
+                  
                     button.ForeColor = LightForegroundColor;
                     button.FlatStyle = FlatStyle.Standard;
                     button.SizeChanged -= Button_SizeChanged;
