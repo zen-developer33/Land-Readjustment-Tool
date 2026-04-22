@@ -29,7 +29,7 @@ namespace Land_Readjustment_Tool
         private void InitializeComponent()
         {
             System.ComponentModel.ComponentResourceManager resources = new System.ComponentModel.ComponentResourceManager(typeof(frmAreaConverter));
-            grpQuickConvert = new GroupBox();
+            grpQuickConvert = new ThemedGroupBox();
             btnCopyToClipboard = new Button();
             lblBkd = new Label();
             txtBkd = new TextBox();
@@ -54,8 +54,8 @@ namespace Land_Readjustment_Tool
             txtSqft = new TextBox();
             lblSqm = new Label();
             txtSqm = new TextBox();
-            grpConvertFrom = new GroupBox();
-            grpFromSqm = new GroupBox();
+            grpConvertFrom = new ThemedGroupBox();
+            grpFromSqm = new ThemedGroupBox();
             lblConvertToSqm = new Label();
             txtFromSqm = new TextBox();
             btnReset = new Button();
@@ -64,13 +64,13 @@ namespace Land_Readjustment_Tool
             rdoFromRAPD = new RadioButton();
             rdoFromSqft = new RadioButton();
             rdoFromSqm = new RadioButton();
-            grpConvertTo = new GroupBox();
+            grpConvertTo = new ThemedGroupBox();
             btnCopy = new Button();
             rdoToBKD = new RadioButton();
             rdoToRAPD = new RadioButton();
             rdoToSqft = new RadioButton();
             rdoToSqm = new RadioButton();
-            grpToRAPD = new GroupBox();
+            grpToRAPD = new ThemedGroupBox();
             label18 = new Label();
             label19 = new Label();
             label20 = new Label();
@@ -88,7 +88,7 @@ namespace Land_Readjustment_Tool
             txtConvertFromP = new TextBox();
             txtConvertFromR = new TextBox();
             lblR = new Label();
-            grpFromSqft = new GroupBox();
+            grpFromSqft = new ThemedGroupBox();
             label1 = new Label();
             txtFromSqft = new TextBox();
             label2 = new Label();
@@ -104,13 +104,13 @@ namespace Land_Readjustment_Tool
             label8 = new Label();
             label9 = new Label();
             label11 = new Label();
-            grpSqm = new GroupBox();
+            grpSqm = new ThemedGroupBox();
             label12 = new Label();
             txtToSqm = new TextBox();
             txtToSqft = new TextBox();
             lblConvertToSqft = new Label();
-            grpToSqft = new GroupBox();
-            grpToBKD = new GroupBox();
+            grpToSqft = new ThemedGroupBox();
+            grpToBKD = new ThemedGroupBox();
             label13 = new Label();
             label14 = new Label();
             label15 = new Label();
@@ -119,7 +119,7 @@ namespace Land_Readjustment_Tool
             txtToDhur = new TextBox();
             txtToKattha = new TextBox();
             txtToBigha = new TextBox();
-            grpFromBKD = new GroupBox();
+            grpFromBKD = new ThemedGroupBox();
             label25 = new Label();
             label26 = new Label();
             label27 = new Label();
@@ -129,7 +129,7 @@ namespace Land_Readjustment_Tool
             txtFromKattha = new TextBox();
             txtFromBigha = new TextBox();
             btnExit = new Button();
-            grpFromRAPD = new GroupBox();
+            grpFromRAPD = new ThemedGroupBox();
             label30 = new Label();
             label31 = new Label();
             label32 = new Label();
@@ -141,13 +141,13 @@ namespace Land_Readjustment_Tool
             txtFromPaisa = new TextBox();
             txtFromAana = new TextBox();
             txtFromRopanee = new TextBox();
-            groupBox1 = new GroupBox();
+            ThemedGroupBox1 = new ThemedGroupBox();
             rdoDarkTheme = new RadioButton();
             rdoLightTheme = new RadioButton();
-            groupBox2 = new GroupBox();
+            ThemedGroupBox2 = new ThemedGroupBox();
             lblProjectTitle = new Label();
             label10 = new Label();
-            groupBox3 = new GroupBox();
+            ThemedGroupBox3 = new ThemedGroupBox();
             nudTraditionalUnitPrecision = new NumericUpDown();
             label39 = new Label();
             nudOtherUnitPrecision = new NumericUpDown();
@@ -165,9 +165,9 @@ namespace Land_Readjustment_Tool
             grpToBKD.SuspendLayout();
             grpFromBKD.SuspendLayout();
             grpFromRAPD.SuspendLayout();
-            groupBox1.SuspendLayout();
-            groupBox2.SuspendLayout();
-            groupBox3.SuspendLayout();
+            ThemedGroupBox1.SuspendLayout();
+            ThemedGroupBox2.SuspendLayout();
+            ThemedGroupBox3.SuspendLayout();
             ((System.ComponentModel.ISupportInitialize)nudTraditionalUnitPrecision).BeginInit();
             ((System.ComponentModel.ISupportInitialize)nudOtherUnitPrecision).BeginInit();
             SuspendLayout();
@@ -1352,17 +1352,17 @@ namespace Land_Readjustment_Tool
             txtFromRopanee.TabIndex = 4;
             txtFromRopanee.TextAlign = HorizontalAlignment.Right;
             // 
-            // groupBox1
+            // ThemedGroupBox1
             // 
-            groupBox1.Controls.Add(rdoDarkTheme);
-            groupBox1.Controls.Add(rdoLightTheme);
-            groupBox1.Font = new Font("Segoe UI", 9F, FontStyle.Bold, GraphicsUnit.Point, 0);
-            groupBox1.Location = new Point(422, 439);
-            groupBox1.Name = "groupBox1";
-            groupBox1.Size = new Size(150, 60);
-            groupBox1.TabIndex = 51;
-            groupBox1.TabStop = false;
-            groupBox1.Text = "Theme";
+            ThemedGroupBox1.Controls.Add(rdoDarkTheme);
+            ThemedGroupBox1.Controls.Add(rdoLightTheme);
+            ThemedGroupBox1.Font = new Font("Segoe UI", 9F, FontStyle.Bold, GraphicsUnit.Point, 0);
+            ThemedGroupBox1.Location = new Point(422, 439);
+            ThemedGroupBox1.Name = "ThemedGroupBox1";
+            ThemedGroupBox1.Size = new Size(150, 60);
+            ThemedGroupBox1.TabIndex = 51;
+            ThemedGroupBox1.TabStop = false;
+            ThemedGroupBox1.Text = "Theme";
             // 
             // rdoDarkTheme
             // 
@@ -1388,15 +1388,15 @@ namespace Land_Readjustment_Tool
             rdoLightTheme.Text = "Light";
             rdoLightTheme.UseVisualStyleBackColor = true;
             // 
-            // groupBox2
+            // ThemedGroupBox2
             // 
-            groupBox2.Controls.Add(lblProjectTitle);
-            groupBox2.Controls.Add(label10);
-            groupBox2.Location = new Point(22, 3);
-            groupBox2.Name = "groupBox2";
-            groupBox2.Size = new Size(388, 77);
-            groupBox2.TabIndex = 52;
-            groupBox2.TabStop = false;
+            ThemedGroupBox2.Controls.Add(lblProjectTitle);
+            ThemedGroupBox2.Controls.Add(label10);
+            ThemedGroupBox2.Location = new Point(22, 3);
+            ThemedGroupBox2.Name = "ThemedGroupBox2";
+            ThemedGroupBox2.Size = new Size(388, 77);
+            ThemedGroupBox2.TabIndex = 52;
+            ThemedGroupBox2.TabStop = false;
             // 
             // lblProjectTitle
             // 
@@ -1419,26 +1419,26 @@ namespace Land_Readjustment_Tool
             label10.TabIndex = 3;
             label10.Text = "Area Converter Tool";
             // 
-            // groupBox3
+            // ThemedGroupBox3
             // 
-            groupBox3.Controls.Add(nudTraditionalUnitPrecision);
-            groupBox3.Controls.Add(label39);
-            groupBox3.Controls.Add(nudOtherUnitPrecision);
-            groupBox3.Controls.Add(label40);
-            groupBox3.Controls.Add(label38);
-            groupBox3.Controls.Add(label37);
-            groupBox3.Font = new Font("Segoe UI", 9F, FontStyle.Bold, GraphicsUnit.Point, 0);
-            groupBox3.Location = new Point(22, 86);
-            groupBox3.Name = "groupBox3";
-            groupBox3.Size = new Size(388, 89);
-            groupBox3.TabIndex = 53;
-            groupBox3.TabStop = false;
-            groupBox3.Text = "Precision";
+            ThemedGroupBox3.Controls.Add(nudTraditionalUnitPrecision);
+            ThemedGroupBox3.Controls.Add(label39);
+            ThemedGroupBox3.Controls.Add(nudOtherUnitPrecision);
+            ThemedGroupBox3.Controls.Add(label40);
+            ThemedGroupBox3.Controls.Add(label38);
+            ThemedGroupBox3.Controls.Add(label37);
+            ThemedGroupBox3.Font = new Font("Segoe UI", 9F, FontStyle.Bold, GraphicsUnit.Point, 0);
+            ThemedGroupBox3.Location = new Point(22, 86);
+            ThemedGroupBox3.Name = "ThemedGroupBox3";
+            ThemedGroupBox3.Size = new Size(388, 82);
+            ThemedGroupBox3.TabIndex = 53;
+            ThemedGroupBox3.TabStop = false;
+            ThemedGroupBox3.Text = "Precision";
             // 
             // nudTraditionalUnitPrecision
             // 
             nudTraditionalUnitPrecision.Font = new Font("Segoe UI", 9F);
-            nudTraditionalUnitPrecision.Location = new Point(226, 52);
+            nudTraditionalUnitPrecision.Location = new Point(226, 48);
             nudTraditionalUnitPrecision.Name = "nudTraditionalUnitPrecision";
             nudTraditionalUnitPrecision.Size = new Size(43, 27);
             nudTraditionalUnitPrecision.TabIndex = 8;
@@ -1449,7 +1449,7 @@ namespace Land_Readjustment_Tool
             // 
             label39.AutoSize = true;
             label39.Font = new Font("Segoe UI", 9F);
-            label39.Location = new Point(273, 54);
+            label39.Location = new Point(273, 50);
             label39.Name = "label39";
             label39.Size = new Size(59, 20);
             label39.TabIndex = 6;
@@ -1458,7 +1458,7 @@ namespace Land_Readjustment_Tool
             // nudOtherUnitPrecision
             // 
             nudOtherUnitPrecision.Font = new Font("Segoe UI", 9F);
-            nudOtherUnitPrecision.Location = new Point(226, 22);
+            nudOtherUnitPrecision.Location = new Point(226, 18);
             nudOtherUnitPrecision.Name = "nudOtherUnitPrecision";
             nudOtherUnitPrecision.Size = new Size(43, 27);
             nudOtherUnitPrecision.TabIndex = 7;
@@ -1469,7 +1469,7 @@ namespace Land_Readjustment_Tool
             // 
             label40.AutoSize = true;
             label40.Font = new Font("Segoe UI", 9F);
-            label40.Location = new Point(13, 54);
+            label40.Location = new Point(13, 50);
             label40.Name = "label40";
             label40.Size = new Size(206, 20);
             label40.TabIndex = 9;
@@ -1479,7 +1479,7 @@ namespace Land_Readjustment_Tool
             // 
             label38.AutoSize = true;
             label38.Font = new Font("Segoe UI", 9F);
-            label38.Location = new Point(273, 24);
+            label38.Location = new Point(273, 20);
             label38.Name = "label38";
             label38.Size = new Size(59, 20);
             label38.TabIndex = 10;
@@ -1489,7 +1489,7 @@ namespace Land_Readjustment_Tool
             // 
             label37.AutoSize = true;
             label37.Font = new Font("Segoe UI", 9F);
-            label37.Location = new Point(13, 24);
+            label37.Location = new Point(13, 20);
             label37.Name = "label37";
             label37.Size = new Size(172, 20);
             label37.TabIndex = 11;
@@ -1501,7 +1501,7 @@ namespace Land_Readjustment_Tool
             AutoScaleMode = AutoScaleMode.Dpi;
             BackColor = Color.White;
             ClientSize = new Size(681, 514);
-            Controls.Add(groupBox1);
+            Controls.Add(ThemedGroupBox1);
             Controls.Add(grpFromRAPD);
             Controls.Add(btnExit);
             Controls.Add(grpFromBKD);
@@ -1512,8 +1512,8 @@ namespace Land_Readjustment_Tool
             Controls.Add(grpConvertTo);
             Controls.Add(grpConvertFrom);
             Controls.Add(grpQuickConvert);
-            Controls.Add(groupBox2);
-            Controls.Add(groupBox3);
+            Controls.Add(ThemedGroupBox2);
+            Controls.Add(ThemedGroupBox3);
             FormBorderStyle = FormBorderStyle.FixedSingle;
             Icon = (Icon)resources.GetObject("$this.Icon");
             Margin = new Padding(4);
@@ -1545,12 +1545,12 @@ namespace Land_Readjustment_Tool
             grpFromBKD.PerformLayout();
             grpFromRAPD.ResumeLayout(false);
             grpFromRAPD.PerformLayout();
-            groupBox1.ResumeLayout(false);
-            groupBox1.PerformLayout();
-            groupBox2.ResumeLayout(false);
-            groupBox2.PerformLayout();
-            groupBox3.ResumeLayout(false);
-            groupBox3.PerformLayout();
+            ThemedGroupBox1.ResumeLayout(false);
+            ThemedGroupBox1.PerformLayout();
+            ThemedGroupBox2.ResumeLayout(false);
+            ThemedGroupBox2.PerformLayout();
+            ThemedGroupBox3.ResumeLayout(false);
+            ThemedGroupBox3.PerformLayout();
             ((System.ComponentModel.ISupportInitialize)nudTraditionalUnitPrecision).EndInit();
             ((System.ComponentModel.ISupportInitialize)nudOtherUnitPrecision).EndInit();
             ResumeLayout(false);
@@ -1558,7 +1558,7 @@ namespace Land_Readjustment_Tool
 
         #endregion
 
-        private GroupBox grpQuickConvert;
+        private ThemedGroupBox grpQuickConvert;
         private Label lblSqm;
         private TextBox txtSqm;
         private Label lblSqft;
@@ -1582,14 +1582,14 @@ namespace Land_Readjustment_Tool
         private Label lblBkd;
         private TextBox txtBkd;
         private Button btnResetQuickConvert;
-        private GroupBox grpConvertFrom;
+        private ThemedGroupBox grpConvertFrom;
         private RadioButton rdoFromBKD;
         private RadioButton rdoFromRAPD;
         private RadioButton rdoFromSqft;
         private RadioButton rdoFromSqm;
         private TextBox txtFromSqm;
         private Button btnReset;
-        private GroupBox grpConvertTo;
+        private ThemedGroupBox grpConvertTo;
         private RadioButton rdoToBKD;
         private RadioButton rdoToRAPD;
         private RadioButton rdoToSqft;
@@ -1602,12 +1602,12 @@ namespace Land_Readjustment_Tool
         private TextBox txtConvertFromP;
         private TextBox txtConvertFromR;
         private Label lblConvertToSqm;
-        private GroupBox grpFromSqm;
+        private ThemedGroupBox grpFromSqm;
         private TextBox txt;
-        private GroupBox grpFromSqft;
+        private ThemedGroupBox grpFromSqft;
         private Label label1;
         private TextBox txtFromSqft;
-        private GroupBox grpToRAPD;
+        private ThemedGroupBox grpToRAPD;
         private Label label2;
         private Label label3;
         private Label label4;
@@ -1621,11 +1621,11 @@ namespace Land_Readjustment_Tool
         private Label label8;
         private Label label7;
         private Label label6;
-        private GroupBox grpSqm;
+        private ThemedGroupBox grpSqm;
         private Label label12;
         private TextBox txtToSqft;
         private Label lblConvertToSqft;
-        private GroupBox grpToSqft;
+        private ThemedGroupBox grpToSqft;
         private Label label18;
         private Label label19;
         private Label label20;
@@ -1637,7 +1637,7 @@ namespace Land_Readjustment_Tool
         private TextBox txtToPaisa;
         private TextBox txtToAana;
         private TextBox txtToRopanee;
-        private GroupBox grpToBKD;
+        private ThemedGroupBox grpToBKD;
         private Label label13;
         private Label label14;
         private Label label15;
@@ -1646,7 +1646,7 @@ namespace Land_Readjustment_Tool
         private TextBox txtToDhur;
         private TextBox txtToKattha;
         private TextBox txtToBigha;
-        private GroupBox grpFromBKD;
+        private ThemedGroupBox grpFromBKD;
         private Label label25;
         private Label label26;
         private Label label27;
@@ -1656,7 +1656,7 @@ namespace Land_Readjustment_Tool
         private TextBox txtFromKattha;
         private TextBox txtFromBigha;
         private Button btnExit;
-        private GroupBox grpFromRAPD;
+        private ThemedGroupBox grpFromRAPD;
         private Label label30;
         private Label label31;
         private Label label32;
@@ -1670,19 +1670,19 @@ namespace Land_Readjustment_Tool
         private TextBox txtFromRopanee;
         private Button btnCopyToClipboard;
         private TextBox txtToSqm;
-        private GroupBox groupBox1;
+        private ThemedGroupBox ThemedGroupBox1;
         private RadioButton rdoDarkTheme;
         private RadioButton rdoLightTheme;
         private Button btnCalculator;
-        private GroupBox groupBox2;
+        private ThemedGroupBox ThemedGroupBox2;
         private Label lblProjectTitle;
         private Label label10;
-        private GroupBox groupBox3;
-        private NumericUpDown nudTraditionalUnitPrecision;
+        private ThemedGroupBox ThemedGroupBox3;
         private Label label39;
+        private Label label38;
+        private NumericUpDown nudTraditionalUnitPrecision;
         private NumericUpDown nudOtherUnitPrecision;
         private Label label40;
-        private Label label38;
         private Label label37;
     }
 }

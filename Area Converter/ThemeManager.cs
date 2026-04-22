@@ -14,11 +14,13 @@ namespace Land_Readjustment_Tool
         private static readonly Color DarkButtonHover = Color.FromArgb(80, 80, 84);
         private static readonly Color DarkButtonPressed = Color.FromArgb(0, 122, 204);
         private static readonly Color DarkFocusedTextBoxColor = Color.FromArgb(60, 75, 95);
+        private static readonly Color DarkGroupBoxBorder = Color.FromArgb(64, 64, 64) ;
 
         private static readonly Color LightBackgroundColor = Color.White;
         private static readonly Color LightControlColor = Color.White;
         private static readonly Color LightForegroundColor = Color.Black;
         private static readonly Color LightButtonColor = SystemColors.Control;
+        private static readonly Color LightGroupBoxBorder = SystemColors.ControlLight;
         private static readonly Color LightFocusedTextBoxColor = Color.FromArgb(255, 251, 235);
 
         public enum Theme { Light, Dark }
@@ -76,13 +78,18 @@ namespace Land_Readjustment_Tool
                     ApplyRoundedButtonRegion(button);
                     break;
 
+                // ThemedGroupBox: set colour properties — OnPaint handles drawing.
+                case ThemedGroupBox themedGroupBox:
+                    themedGroupBox.BackColor = DarkBackgroundColor;
+                    themedGroupBox.ForeColor = DarkForegroundColor;
+                    themedGroupBox.BorderColor = DarkGroupBoxBorder;
+                    
+                    break;
+
+                // Plain GroupBox fallback — should not appear if designer uses ThemedGroupBox.
                 case GroupBox groupBox:
                     groupBox.BackColor = DarkBackgroundColor;
                     groupBox.ForeColor = DarkForegroundColor;
-                    groupBox.FlatStyle = FlatStyle.Flat;
-                    // Unhook first to avoid double-subscription on repeated theme calls.
-                    groupBox.Paint -= GroupBox_PaintDarkBorder;
-                    groupBox.Paint += GroupBox_PaintDarkBorder;
                     break;
 
                 case Label label:
@@ -138,11 +145,15 @@ namespace Land_Readjustment_Tool
                     button.Region = null;
                     break;
 
+                case ThemedGroupBox themedGroupBox:
+                    themedGroupBox.BackColor = LightBackgroundColor;
+                    themedGroupBox.ForeColor = LightForegroundColor;
+                    themedGroupBox.BorderColor = LightGroupBoxBorder;
+                    break;
+
                 case GroupBox groupBox:
                     groupBox.BackColor = LightBackgroundColor;
                     groupBox.ForeColor = LightForegroundColor;
-                    // Remove dark paint handler when switching back to light.
-                    groupBox.Paint -= GroupBox_PaintDarkBorder;
                     break;
 
                 case Label label:
@@ -168,46 +179,6 @@ namespace Land_Readjustment_Tool
 
             foreach (Control child in control.Controls)
                 ApplyLightTheme(child);
-        }
-
-        // ── GroupBox border painter ───────────────────────────────────────────────
-
-        /// <summary>
-        /// Redraws the GroupBox border in the same DarkButtonBorder colour used by buttons,
-        /// keeping the title text visible and correctly positioned.
-        /// </summary>
-        private static void GroupBox_PaintDarkBorder(object? sender, PaintEventArgs e)
-        {
-            if (sender is not GroupBox groupBox)
-                return;
-
-            Graphics g = e.Graphics;
-            Rectangle bounds = groupBox.ClientRectangle;
-
-            // Measure the title so we can leave a gap in the top border line.
-            SizeF titleSize = g.MeasureString(groupBox.Text, groupBox.Font);
-            int titleLeft = 8;                          // left indent of the title text
-            int titleHeight = (int)(titleSize.Height / 2);
-            int borderTop = titleHeight;                // vertical centre of the top border line
-
-            using Pen borderPen = new(DarkButtonBorder, 1f);
-
-            // Top border — left segment
-            if (titleLeft > 0)
-                g.DrawLine(borderPen, bounds.Left, borderTop, bounds.Left + titleLeft - 2, borderTop);
-
-            // Top border — right segment (after the title)
-            int titleRight = titleLeft + (int)titleSize.Width + 2;
-            g.DrawLine(borderPen, titleRight, borderTop, bounds.Right - 1, borderTop);
-
-            // Left, bottom, right sides
-            g.DrawLine(borderPen, bounds.Left, borderTop, bounds.Left, bounds.Bottom - 1);
-            g.DrawLine(borderPen, bounds.Left, bounds.Bottom - 1, bounds.Right - 1, bounds.Bottom - 1);
-            g.DrawLine(borderPen, bounds.Right - 1, borderTop, bounds.Right - 1, bounds.Bottom - 1);
-
-            // Draw the title text in the foreground colour
-            using SolidBrush textBrush = new(groupBox.ForeColor);
-            g.DrawString(groupBox.Text, groupBox.Font, textBrush, titleLeft, 0);
         }
 
         // ── Button helpers ────────────────────────────────────────────────────────
