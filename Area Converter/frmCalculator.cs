@@ -10,14 +10,12 @@ namespace Land_Readjustment_Tool
 
         public decimal? Result { get; private set; }
 
-        // ── Theme colours aligned with the main form ───────────────────────────
+        // ── Theme colours aligned with the main form ──────────────────────────────
 
-        // Dark theme matches the app's dark surface tone instead of using black.
         private static readonly Color DarkBackground = Color.FromArgb(45, 45, 48);
         private static readonly Color DarkSurface = Color.FromArgb(37, 37, 38);
         private static readonly Color DarkDisplay = Color.FromArgb(30, 30, 31);
         private static readonly Color DarkForeground = Color.FromArgb(220, 220, 220);
-
         private static readonly Color DarkOperator = Color.FromArgb(0, 122, 204);
         private static readonly Color DarkOperatorHover = Color.FromArgb(18, 139, 230);
         private static readonly Color DarkEquals = Color.FromArgb(0, 153, 102);
@@ -28,12 +26,10 @@ namespace Land_Readjustment_Tool
         private static readonly Color DarkClearHover = Color.FromArgb(220, 104, 104);
         private static readonly Color DarkButtonHover = Color.FromArgb(53, 53, 56);
 
-        // Light theme aligned with the main form theme.
         private static readonly Color LightBackground = Color.White;
         private static readonly Color LightSurface = SystemColors.Control;
         private static readonly Color LightDisplay = Color.White;
         private static readonly Color LightForeground = Color.Black;
-
         private static readonly Color LightOperator = Color.FromArgb(0, 122, 204);
         private static readonly Color LightOperatorHover = Color.FromArgb(26, 141, 224);
         private static readonly Color LightEquals = Color.FromArgb(0, 153, 102);
@@ -60,7 +56,7 @@ namespace Land_Readjustment_Tool
             ApplyTitleBarTheme();
         }
 
-        // ── Theme application ────────────────────────────────────────────────────
+        // ── Theme ─────────────────────────────────────────────────────────────────
 
         private void ApplyTheme()
         {
@@ -81,10 +77,14 @@ namespace Land_Readjustment_Tool
 
             BackColor = bg;
             ForeColor = fg;
-            lblDisplay.BackColor = display;
-            lblDisplay.ForeColor = fg;
 
-            // Digit buttons
+            txtResult.BackColor = display;
+            txtResult.ForeColor = fg;
+            lblCalculationStep.BackColor = display;
+            lblCalculationStep.ForeColor = _isDark
+                ? Color.FromArgb(160, 160, 165)
+                : Color.FromArgb(95, 95, 95);
+
             foreach (var btn in new[] { btn0, btn1, btn2, btn3, btn4, btn5, btn6, btn7, btn8, btn9, btnDot, btnSign })
             {
                 btn.BackColor = surface;
@@ -93,7 +93,6 @@ namespace Land_Readjustment_Tool
                 btn.FlatAppearance.MouseOverBackColor = digitHover;
             }
 
-            // Operator buttons
             foreach (var btn in new[] { btnAdd, btnSub, btnMul, btnDiv })
             {
                 btn.BackColor = opColor;
@@ -113,14 +112,16 @@ namespace Land_Readjustment_Tool
             btnClear.FlatAppearance.MouseOverBackColor = clrHover;
 
             btnBackspace.BackColor = surface;
-            btnBackspace.ForeColor = _isDark ? Color.FromArgb(235, 147, 147) : Color.FromArgb(180, 70, 70);
+            btnBackspace.ForeColor = _isDark
+                ? Color.FromArgb(235, 147, 147)
+                : Color.FromArgb(180, 70, 70);
             btnBackspace.FlatAppearance.BorderColor = border;
             btnBackspace.FlatAppearance.MouseOverBackColor = digitHover;
 
-            btnOk.BackColor = okColor;
-            btnOk.ForeColor = Color.White;
-            btnOk.FlatAppearance.BorderColor = okColor;
-            btnOk.FlatAppearance.MouseOverBackColor = okHover;
+            btnOk.BackColor = surface;
+            btnOk.ForeColor = fg;
+            btnOk.FlatAppearance.BorderColor = border;
+            btnOk.FlatAppearance.MouseOverBackColor = digitHover;
 
             btnCancel.BackColor = surface;
             btnCancel.ForeColor = fg;
@@ -133,9 +134,7 @@ namespace Land_Readjustment_Tool
         private void ApplyTitleBarTheme()
         {
             if (!IsHandleCreated || !OperatingSystem.IsWindows())
-            {
                 return;
-            }
 
             int useDark = _isDark ? 1 : 0;
             _ = DwmSetWindowAttribute(Handle, DwmwaUseImmersiveDarkMode, ref useDark, sizeof(int));
@@ -148,14 +147,15 @@ namespace Land_Readjustment_Tool
         [DllImport("dwmapi.dll")]
         private static extern int DwmSetWindowAttribute(IntPtr hwnd, int dwAttribute, ref int pvAttribute, int cbAttribute);
 
-        // ── Display ──────────────────────────────────────────────────────────────
+        // ── Display ───────────────────────────────────────────────────────────────
 
         private void RefreshDisplay()
         {
-            lblDisplay.Text = _calc.Display;
+            txtResult.Text = _calc.Display;
+            lblCalculationStep.Text = _calc.CalculationStep;
         }
 
-        // ── Button event handlers ────────────────────────────────────────────────
+        // ── Button handlers ───────────────────────────────────────────────────────
 
         private void BtnDigit_Click(object? sender, EventArgs e)
         {
@@ -211,13 +211,18 @@ namespace Land_Readjustment_Tool
 
             if (Result < 0)
             {
-                if (MessageBox.Show("Negative value. The result will not be returned.", "Invalid Result", MessageBoxButtons.OKCancel, MessageBoxIcon.Warning) == DialogResult.Cancel)
+                if (MessageBox.Show(
+                    "Negative value. The result will not be returned.",
+                    "Invalid Result",
+                    MessageBoxButtons.OKCancel,
+                    MessageBoxIcon.Warning) == DialogResult.Cancel)
                     return;
+
                 Result = null;
             }
+
             DialogResult = DialogResult.OK;
             Close();
-            
         }
 
         private void BtnCancel_Click(object? sender, EventArgs e)
@@ -227,7 +232,7 @@ namespace Land_Readjustment_Tool
             Close();
         }
 
-        // ── Keyboard support ─────────────────────────────────────────────────────
+        // ── Keyboard support ──────────────────────────────────────────────────────
 
         protected override bool ProcessCmdKey(ref Message msg, Keys keyData)
         {
@@ -243,14 +248,11 @@ namespace Land_Readjustment_Tool
                 case Keys.D7: case Keys.NumPad7: _calc.InputDigit("7"); RefreshDisplay(); return true;
                 case Keys.D8: case Keys.NumPad8: _calc.InputDigit("8"); RefreshDisplay(); return true;
                 case Keys.D9: case Keys.NumPad9: _calc.InputDigit("9"); RefreshDisplay(); return true;
-
                 case Keys.OemPeriod: case Keys.Decimal: _calc.InputDigit("."); RefreshDisplay(); return true;
-
                 case Keys.Add: case Keys.Oemplus | Keys.Shift: _calc.ApplyOperator('+'); RefreshDisplay(); return true;
                 case Keys.Subtract: case Keys.OemMinus: _calc.ApplyOperator('-'); RefreshDisplay(); return true;
                 case Keys.Multiply: _calc.ApplyOperator('*'); RefreshDisplay(); return true;
                 case Keys.Divide: case Keys.OemQuestion: _calc.ApplyOperator('/'); RefreshDisplay(); return true;
-
                 case Keys.Enter: _calc.Equals(); RefreshDisplay(); return true;
                 case Keys.Back: _calc.Backspace(); RefreshDisplay(); return true;
                 case Keys.Escape: BtnCancel_Click(null, EventArgs.Empty); return true;
@@ -260,66 +262,40 @@ namespace Land_Readjustment_Tool
             return base.ProcessCmdKey(ref msg, keyData);
         }
 
-        private void frmCalculator_Load(object sender, EventArgs e)
-        {
-
-        }
+        // ── Context menu (right-click on display) ─────────────────────────────────
 
         private void copyToolStripMenuItem_Click(object? sender, EventArgs e)
         {
-            string text = lblDisplay.Text?.Trim() ?? string.Empty;
+            string text = txtResult.Text.Trim();
             if (text.Length > 0)
-            {
                 Clipboard.SetText(text);
-            }
         }
 
         private void pasteToolStripMenuItem_Click(object? sender, EventArgs e)
         {
             if (!Clipboard.ContainsText())
-            {
                 return;
-            }
 
             string pasted = Clipboard.GetText().Trim();
             if (!IsValidPastedNumber(pasted))
-            {
                 return;
-            }
 
             if (_calc.TrySetDisplay(pasted))
-            {
                 RefreshDisplay();
-            }
         }
 
         private static bool IsValidPastedNumber(string input)
         {
             if (string.IsNullOrWhiteSpace(input))
-            {
                 return false;
-            }
 
             bool hasDot = false;
             for (int i = 0; i < input.Length; i++)
             {
                 char c = input[i];
-                if (char.IsDigit(c))
-                {
-                    continue;
-                }
-
-                if (c == '.' && !hasDot)
-                {
-                    hasDot = true;
-                    continue;
-                }
-
-                if (c == '-' && i == 0)
-                {
-                    continue;
-                }
-
+                if (char.IsDigit(c)) continue;
+                if (c == '.' && !hasDot) { hasDot = true; continue; }
+                if (c == '-' && i == 0) continue;
                 return false;
             }
 

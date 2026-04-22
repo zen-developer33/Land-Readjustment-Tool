@@ -43,6 +43,8 @@ namespace Land_Readjustment_Tool
         public static Color GetQuickConvertHighlightColor(Theme theme)
             => GetTextBoxFocusBackColor(theme);
 
+        // ── Dark theme ────────────────────────────────────────────────────────────
+
         private static void ApplyDarkTheme(Control control)
         {
             switch (control)
@@ -51,11 +53,13 @@ namespace Land_Readjustment_Tool
                     form.BackColor = DarkBackgroundColor;
                     form.ForeColor = DarkForegroundColor;
                     break;
+
                 case TextBox textBox:
                     textBox.BackColor = DarkControlColor;
                     textBox.ForeColor = DarkForegroundColor;
                     textBox.BorderStyle = BorderStyle.FixedSingle;
                     break;
+
                 case Button button:
                     button.UseVisualStyleBackColor = false;
                     button.BackColor = DarkButtonColor;
@@ -71,22 +75,31 @@ namespace Land_Readjustment_Tool
                     button.Paint += Button_PaintDarkRoundedBorder;
                     ApplyRoundedButtonRegion(button);
                     break;
+
                 case GroupBox groupBox:
                     groupBox.BackColor = DarkBackgroundColor;
                     groupBox.ForeColor = DarkForegroundColor;
+                    groupBox.FlatStyle = FlatStyle.Flat;
+                    // Unhook first to avoid double-subscription on repeated theme calls.
+                    groupBox.Paint -= GroupBox_PaintDarkBorder;
+                    groupBox.Paint += GroupBox_PaintDarkBorder;
                     break;
+
                 case Label label:
                     label.BackColor = DarkBackgroundColor;
                     label.ForeColor = DarkForegroundColor;
                     break;
+
                 case RadioButton radioButton:
                     radioButton.BackColor = DarkBackgroundColor;
                     radioButton.ForeColor = DarkForegroundColor;
                     break;
+
                 case NumericUpDown numericUpDown:
                     numericUpDown.BackColor = DarkControlColor;
                     numericUpDown.ForeColor = DarkForegroundColor;
                     break;
+
                 default:
                     control.BackColor = DarkBackgroundColor;
                     control.ForeColor = DarkForegroundColor;
@@ -94,10 +107,10 @@ namespace Land_Readjustment_Tool
             }
 
             foreach (Control child in control.Controls)
-            {
                 ApplyDarkTheme(child);
-            }
         }
+
+        // ── Light theme ───────────────────────────────────────────────────────────
 
         private static void ApplyLightTheme(Control control)
         {
@@ -107,11 +120,13 @@ namespace Land_Readjustment_Tool
                     form.BackColor = LightBackgroundColor;
                     form.ForeColor = LightForegroundColor;
                     break;
+
                 case TextBox textBox:
                     textBox.BackColor = LightControlColor;
                     textBox.ForeColor = LightForegroundColor;
                     textBox.BorderStyle = BorderStyle.FixedSingle;
                     break;
+
                 case Button button:
                     button.UseVisualStyleBackColor = true;
                     button.BackColor = LightButtonColor;
@@ -122,22 +137,29 @@ namespace Land_Readjustment_Tool
                     button.Region?.Dispose();
                     button.Region = null;
                     break;
+
                 case GroupBox groupBox:
                     groupBox.BackColor = LightBackgroundColor;
                     groupBox.ForeColor = LightForegroundColor;
+                    // Remove dark paint handler when switching back to light.
+                    groupBox.Paint -= GroupBox_PaintDarkBorder;
                     break;
+
                 case Label label:
                     label.BackColor = LightBackgroundColor;
                     label.ForeColor = LightForegroundColor;
                     break;
+
                 case RadioButton radioButton:
                     radioButton.BackColor = LightBackgroundColor;
                     radioButton.ForeColor = LightForegroundColor;
                     break;
+
                 case NumericUpDown numericUpDown:
                     numericUpDown.BackColor = LightControlColor;
                     numericUpDown.ForeColor = LightForegroundColor;
                     break;
+
                 default:
                     control.BackColor = LightBackgroundColor;
                     control.ForeColor = LightForegroundColor;
@@ -145,17 +167,55 @@ namespace Land_Readjustment_Tool
             }
 
             foreach (Control child in control.Controls)
-            {
                 ApplyLightTheme(child);
-            }
         }
+
+        // ── GroupBox border painter ───────────────────────────────────────────────
+
+        /// <summary>
+        /// Redraws the GroupBox border in the same DarkButtonBorder colour used by buttons,
+        /// keeping the title text visible and correctly positioned.
+        /// </summary>
+        private static void GroupBox_PaintDarkBorder(object? sender, PaintEventArgs e)
+        {
+            if (sender is not GroupBox groupBox)
+                return;
+
+            Graphics g = e.Graphics;
+            Rectangle bounds = groupBox.ClientRectangle;
+
+            // Measure the title so we can leave a gap in the top border line.
+            SizeF titleSize = g.MeasureString(groupBox.Text, groupBox.Font);
+            int titleLeft = 8;                          // left indent of the title text
+            int titleHeight = (int)(titleSize.Height / 2);
+            int borderTop = titleHeight;                // vertical centre of the top border line
+
+            using Pen borderPen = new(DarkButtonBorder, 1f);
+
+            // Top border — left segment
+            if (titleLeft > 0)
+                g.DrawLine(borderPen, bounds.Left, borderTop, bounds.Left + titleLeft - 2, borderTop);
+
+            // Top border — right segment (after the title)
+            int titleRight = titleLeft + (int)titleSize.Width + 2;
+            g.DrawLine(borderPen, titleRight, borderTop, bounds.Right - 1, borderTop);
+
+            // Left, bottom, right sides
+            g.DrawLine(borderPen, bounds.Left, borderTop, bounds.Left, bounds.Bottom - 1);
+            g.DrawLine(borderPen, bounds.Left, bounds.Bottom - 1, bounds.Right - 1, bounds.Bottom - 1);
+            g.DrawLine(borderPen, bounds.Right - 1, borderTop, bounds.Right - 1, bounds.Bottom - 1);
+
+            // Draw the title text in the foreground colour
+            using SolidBrush textBrush = new(groupBox.ForeColor);
+            g.DrawString(groupBox.Text, groupBox.Font, textBrush, titleLeft, 0);
+        }
+
+        // ── Button helpers ────────────────────────────────────────────────────────
 
         private static void Button_SizeChanged(object? sender, EventArgs e)
         {
             if (sender is Button button)
-            {
                 ApplyRoundedButtonRegion(button);
-            }
         }
 
         private static void ApplyRoundedButtonRegion(Button button)
@@ -178,15 +238,14 @@ namespace Land_Readjustment_Tool
         private static void Button_PaintDarkRoundedBorder(object? sender, PaintEventArgs e)
         {
             if (sender is not Button button || button.Width <= 1 || button.Height <= 1)
-            {
                 return;
-            }
 
             const int radius = 4;
             int diameter = radius * 2;
             Rectangle rect = new(0, 0, button.Width - 1, button.Height - 1);
 
             e.Graphics.SmoothingMode = SmoothingMode.AntiAlias;
+
             using GraphicsPath path = new();
             path.AddArc(rect.X, rect.Y, diameter, diameter, 180, 90);
             path.AddArc(rect.Right - diameter, rect.Y, diameter, diameter, 270, 90);

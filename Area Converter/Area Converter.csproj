@@ -2,21 +2,22 @@
 
   <PropertyGroup>
     <OutputType>WinExe</OutputType>
-    <TargetFramework>net10.0-windows</TargetFramework>
+    <TargetFramework>net10.0-windows7.0</TargetFramework>
     <RootNamespace>Area_Converter</RootNamespace>
     <Nullable>enable</Nullable>
     <UseWindowsForms>true</UseWindowsForms>
     <ImplicitUsings>enable</ImplicitUsings>
     <ApplicationIcon>Area Converter.ico</ApplicationIcon>
+    <SupportedOSPlatformVersion>7.0</SupportedOSPlatformVersion>
+    <StartupObject>Area_Converter.Program</StartupObject>
+    <AssemblyTitle>Area Converter</AssemblyTitle>
+    <IncludeSymbols>False</IncludeSymbols>
+    <Version>2.2</Version>
+    <Title>Area Converter</Title>
   </PropertyGroup>
 
   <ItemGroup>
     <Content Include="Area Converter.ico" />
-  </ItemGroup>
-
-  <ItemGroup>
-    <PackageReference Include="SQLitePCLRaw.provider.sqlite3" Version="3.0.2" />
-    <PackageReference Include="System.Data.SQLite.Core" Version="1.0.119" />
   </ItemGroup>
 
   <ItemGroup>
