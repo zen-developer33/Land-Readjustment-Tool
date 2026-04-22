@@ -201,7 +201,7 @@ namespace Land_Readjustment_Tool
             grpQuickConvert.Font = new Font("Segoe UI", 9F, FontStyle.Bold);
             grpQuickConvert.Location = new Point(422, 12);
             grpQuickConvert.Name = "grpQuickConvert";
-            grpQuickConvert.Size = new Size(244, 421);
+            grpQuickConvert.Size = new Size(244, 412);
             grpQuickConvert.TabIndex = 30;
             grpQuickConvert.TabStop = false;
             grpQuickConvert.Text = "Quick Convert";
@@ -209,7 +209,7 @@ namespace Land_Readjustment_Tool
             // btnCopyToClipboard
             // 
             btnCopyToClipboard.Anchor = AnchorStyles.Top | AnchorStyles.Right;
-            btnCopyToClipboard.Location = new Point(6, 375);
+            btnCopyToClipboard.Location = new Point(6, 371);
             btnCopyToClipboard.Name = "btnCopyToClipboard";
             btnCopyToClipboard.Size = new Size(144, 35);
             btnCopyToClipboard.TabIndex = 18;
@@ -249,7 +249,7 @@ namespace Land_Readjustment_Tool
             // btnResetQuickConvert
             // 
             btnResetQuickConvert.Anchor = AnchorStyles.Top | AnchorStyles.Left | AnchorStyles.Right;
-            btnResetQuickConvert.Location = new Point(156, 375);
+            btnResetQuickConvert.Location = new Point(156, 371);
             btnResetQuickConvert.Name = "btnResetQuickConvert";
             btnResetQuickConvert.Size = new Size(82, 35);
             btnResetQuickConvert.TabIndex = 41;
@@ -1357,9 +1357,9 @@ namespace Land_Readjustment_Tool
             ThemedGroupBox1.Controls.Add(rdoDarkTheme);
             ThemedGroupBox1.Controls.Add(rdoLightTheme);
             ThemedGroupBox1.Font = new Font("Segoe UI", 9F, FontStyle.Bold, GraphicsUnit.Point, 0);
-            ThemedGroupBox1.Location = new Point(422, 439);
+            ThemedGroupBox1.Location = new Point(422, 430);
             ThemedGroupBox1.Name = "ThemedGroupBox1";
-            ThemedGroupBox1.Size = new Size(150, 60);
+            ThemedGroupBox1.Size = new Size(150, 69);
             ThemedGroupBox1.TabIndex = 51;
             ThemedGroupBox1.TabStop = false;
             ThemedGroupBox1.Text = "Theme";
@@ -1392,17 +1392,18 @@ namespace Land_Readjustment_Tool
             // 
             ThemedGroupBox2.Controls.Add(lblProjectTitle);
             ThemedGroupBox2.Controls.Add(label10);
-            ThemedGroupBox2.Location = new Point(22, 3);
+            ThemedGroupBox2.Location = new Point(22, 12);
             ThemedGroupBox2.Name = "ThemedGroupBox2";
-            ThemedGroupBox2.Size = new Size(388, 77);
+            ThemedGroupBox2.Size = new Size(388, 68);
             ThemedGroupBox2.TabIndex = 52;
             ThemedGroupBox2.TabStop = false;
+            ThemedGroupBox2.Enter += ThemedGroupBox2_Enter;
             // 
             // lblProjectTitle
             // 
             lblProjectTitle.AutoSize = true;
             lblProjectTitle.Font = new Font("Segoe UI", 7.8F, FontStyle.Bold, GraphicsUnit.Point, 0);
-            lblProjectTitle.Location = new Point(30, 23);
+            lblProjectTitle.Location = new Point(30, 12);
             lblProjectTitle.Name = "lblProjectTitle";
             lblProjectTitle.Size = new Size(330, 17);
             lblProjectTitle.TabIndex = 2;
@@ -1412,8 +1413,8 @@ namespace Land_Readjustment_Tool
             // label10
             // 
             label10.AutoSize = true;
-            label10.Font = new Font("Segoe UI", 12F, FontStyle.Bold | FontStyle.Underline, GraphicsUnit.Point, 0);
-            label10.Location = new Point(93, 44);
+            label10.Font = new Font("Segoe UI", 12F, FontStyle.Bold, GraphicsUnit.Point, 0);
+            label10.Location = new Point(93, 33);
             label10.Name = "label10";
             label10.Size = new Size(202, 28);
             label10.TabIndex = 3;
@@ -1500,7 +1501,7 @@ namespace Land_Readjustment_Tool
             AutoScaleDimensions = new SizeF(120F, 120F);
             AutoScaleMode = AutoScaleMode.Dpi;
             BackColor = Color.White;
-            ClientSize = new Size(681, 514);
+            ClientSize = new Size(681, 519);
             Controls.Add(ThemedGroupBox1);
             Controls.Add(grpFromRAPD);
             Controls.Add(btnExit);

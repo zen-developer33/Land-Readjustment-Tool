@@ -1363,5 +1363,10 @@ namespace Land_Readjustment_Tool
             // This stops the scroll from reaching the internal logic of the control
             ((HandledMouseEventArgs)e).Handled = true;
         }
+
+        private void ThemedGroupBox2_Enter(object sender, EventArgs e)
+        {
+
+        }
     }
 }
