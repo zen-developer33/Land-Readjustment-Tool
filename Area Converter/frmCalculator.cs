@@ -81,8 +81,8 @@ namespace Land_Readjustment_Tool
 
             BackColor = bg;
             ForeColor = fg;
-            txtDisplay.BackColor = display;
-            txtDisplay.ForeColor = fg;
+            lblDisplay.BackColor = display;
+            lblDisplay.ForeColor = fg;
 
             // Digit buttons
             foreach (var btn in new[] { btn0, btn1, btn2, btn3, btn4, btn5, btn6, btn7, btn8, btn9, btnDot, btnSign })
@@ -152,7 +152,7 @@ namespace Land_Readjustment_Tool
 
         private void RefreshDisplay()
         {
-            txtDisplay.Text = _calc.Display;
+            lblDisplay.Text = _calc.Display;
         }
 
         // ── Button event handlers ────────────────────────────────────────────────
@@ -263,6 +263,67 @@ namespace Land_Readjustment_Tool
         private void frmCalculator_Load(object sender, EventArgs e)
         {
 
+        }
+
+        private void copyToolStripMenuItem_Click(object? sender, EventArgs e)
+        {
+            string text = lblDisplay.Text?.Trim() ?? string.Empty;
+            if (text.Length > 0)
+            {
+                Clipboard.SetText(text);
+            }
+        }
+
+        private void pasteToolStripMenuItem_Click(object? sender, EventArgs e)
+        {
+            if (!Clipboard.ContainsText())
+            {
+                return;
+            }
+
+            string pasted = Clipboard.GetText().Trim();
+            if (!IsValidPastedNumber(pasted))
+            {
+                return;
+            }
+
+            if (_calc.TrySetDisplay(pasted))
+            {
+                RefreshDisplay();
+            }
+        }
+
+        private static bool IsValidPastedNumber(string input)
+        {
+            if (string.IsNullOrWhiteSpace(input))
+            {
+                return false;
+            }
+
+            bool hasDot = false;
+            for (int i = 0; i < input.Length; i++)
+            {
+                char c = input[i];
+                if (char.IsDigit(c))
+                {
+                    continue;
+                }
+
+                if (c == '.' && !hasDot)
+                {
+                    hasDot = true;
+                    continue;
+                }
+
+                if (c == '-' && i == 0)
+                {
+                    continue;
+                }
+
+                return false;
+            }
+
+            return input != "." && input != "-" && input != "-.";
         }
     }
 }

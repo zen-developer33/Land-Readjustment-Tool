@@ -88,8 +88,6 @@ namespace Land_Readjustment_Tool
             txtConvertFromP = new TextBox();
             txtConvertFromR = new TextBox();
             lblR = new Label();
-            lblProjectTitle = new Label();
-            label10 = new Label();
             grpFromSqft = new GroupBox();
             label1 = new Label();
             txtFromSqft = new TextBox();
@@ -143,15 +141,19 @@ namespace Land_Readjustment_Tool
             txtFromPaisa = new TextBox();
             txtFromAana = new TextBox();
             txtFromRopanee = new TextBox();
-            label37 = new Label();
-            nudTraditionalUnitPrecision = new NumericUpDown();
-            label38 = new Label();
-            label39 = new Label();
-            nudOtherUnitPrecision = new NumericUpDown();
-            label40 = new Label();
             groupBox1 = new GroupBox();
             rdoDarkTheme = new RadioButton();
             rdoLightTheme = new RadioButton();
+            groupBox2 = new GroupBox();
+            lblProjectTitle = new Label();
+            label10 = new Label();
+            groupBox3 = new GroupBox();
+            nudTraditionalUnitPrecision = new NumericUpDown();
+            label39 = new Label();
+            nudOtherUnitPrecision = new NumericUpDown();
+            label40 = new Label();
+            label38 = new Label();
+            label37 = new Label();
             grpQuickConvert.SuspendLayout();
             grpConvertFrom.SuspendLayout();
             grpFromSqm.SuspendLayout();
@@ -163,9 +165,11 @@ namespace Land_Readjustment_Tool
             grpToBKD.SuspendLayout();
             grpFromBKD.SuspendLayout();
             grpFromRAPD.SuspendLayout();
+            groupBox1.SuspendLayout();
+            groupBox2.SuspendLayout();
+            groupBox3.SuspendLayout();
             ((System.ComponentModel.ISupportInitialize)nudTraditionalUnitPrecision).BeginInit();
             ((System.ComponentModel.ISupportInitialize)nudOtherUnitPrecision).BeginInit();
-            groupBox1.SuspendLayout();
             SuspendLayout();
             // 
             // grpQuickConvert
@@ -195,9 +199,9 @@ namespace Land_Readjustment_Tool
             grpQuickConvert.Controls.Add(lblSqm);
             grpQuickConvert.Controls.Add(txtSqm);
             grpQuickConvert.Font = new Font("Segoe UI", 9F, FontStyle.Bold);
-            grpQuickConvert.Location = new Point(422, 5);
+            grpQuickConvert.Location = new Point(422, 12);
             grpQuickConvert.Name = "grpQuickConvert";
-            grpQuickConvert.Size = new Size(244, 428);
+            grpQuickConvert.Size = new Size(244, 421);
             grpQuickConvert.TabIndex = 30;
             grpQuickConvert.TabStop = false;
             grpQuickConvert.Text = "Quick Convert";
@@ -816,27 +820,6 @@ namespace Land_Readjustment_Tool
             lblR.TabIndex = 0;
             lblR.Text = "Bigha";
             // 
-            // lblProjectTitle
-            // 
-            lblProjectTitle.AutoSize = true;
-            lblProjectTitle.Font = new Font("Segoe UI", 9F, FontStyle.Bold, GraphicsUnit.Point, 0);
-            lblProjectTitle.Location = new Point(22, 22);
-            lblProjectTitle.Name = "lblProjectTitle";
-            lblProjectTitle.Size = new Size(61, 20);
-            lblProjectTitle.TabIndex = 0;
-            lblProjectTitle.Text = "Re-Plot";
-            lblProjectTitle.Click += lblProjectTitle_Click;
-            // 
-            // label10
-            // 
-            label10.AutoSize = true;
-            label10.Font = new Font("Segoe UI", 12F, FontStyle.Bold | FontStyle.Underline, GraphicsUnit.Point, 0);
-            label10.Location = new Point(22, 42);
-            label10.Name = "label10";
-            label10.Size = new Size(354, 28);
-            label10.TabIndex = 1;
-            label10.Text = "Area Converter Tool(Debug Version)";
-            // 
             // grpFromSqft
             // 
             grpFromSqft.Controls.Add(label1);
@@ -1369,64 +1352,6 @@ namespace Land_Readjustment_Tool
             txtFromRopanee.TabIndex = 4;
             txtFromRopanee.TextAlign = HorizontalAlignment.Right;
             // 
-            // label37
-            // 
-            label37.AutoSize = true;
-            label37.Font = new Font("Segoe UI", 9F);
-            label37.Location = new Point(24, 103);
-            label37.Name = "label37";
-            label37.Size = new Size(169, 20);
-            label37.TabIndex = 5;
-            label37.Text = "Precision for Other Units";
-            // 
-            // nudTraditionalUnitPrecision
-            // 
-            nudTraditionalUnitPrecision.Location = new Point(237, 135);
-            nudTraditionalUnitPrecision.Name = "nudTraditionalUnitPrecision";
-            nudTraditionalUnitPrecision.Size = new Size(43, 27);
-            nudTraditionalUnitPrecision.TabIndex = 2;
-            nudTraditionalUnitPrecision.TextAlign = HorizontalAlignment.Center;
-            nudTraditionalUnitPrecision.Value = new decimal(new int[] { 2, 0, 0, 0 });
-            // 
-            // label38
-            // 
-            label38.AutoSize = true;
-            label38.Font = new Font("Segoe UI", 9F);
-            label38.Location = new Point(284, 103);
-            label38.Name = "label38";
-            label38.Size = new Size(59, 20);
-            label38.TabIndex = 4;
-            label38.Text = "digit(s).";
-            // 
-            // label39
-            // 
-            label39.AutoSize = true;
-            label39.Font = new Font("Segoe UI", 9F);
-            label39.Location = new Point(284, 137);
-            label39.Name = "label39";
-            label39.Size = new Size(59, 20);
-            label39.TabIndex = 1;
-            label39.Text = "digit(s).";
-            // 
-            // nudOtherUnitPrecision
-            // 
-            nudOtherUnitPrecision.Location = new Point(237, 101);
-            nudOtherUnitPrecision.Name = "nudOtherUnitPrecision";
-            nudOtherUnitPrecision.Size = new Size(43, 27);
-            nudOtherUnitPrecision.TabIndex = 1;
-            nudOtherUnitPrecision.TextAlign = HorizontalAlignment.Center;
-            nudOtherUnitPrecision.Value = new decimal(new int[] { 3, 0, 0, 0 });
-            // 
-            // label40
-            // 
-            label40.AutoSize = true;
-            label40.Font = new Font("Segoe UI", 9F);
-            label40.Location = new Point(24, 137);
-            label40.Name = "label40";
-            label40.Size = new Size(206, 20);
-            label40.TabIndex = 3;
-            label40.Text = "Precision for R-A-P-D / B-K-D";
-            // 
             // groupBox1
             // 
             groupBox1.Controls.Add(rdoDarkTheme);
@@ -1463,21 +1388,115 @@ namespace Land_Readjustment_Tool
             rdoLightTheme.Text = "Light";
             rdoLightTheme.UseVisualStyleBackColor = true;
             // 
+            // groupBox2
+            // 
+            groupBox2.Controls.Add(lblProjectTitle);
+            groupBox2.Controls.Add(label10);
+            groupBox2.Location = new Point(22, 3);
+            groupBox2.Name = "groupBox2";
+            groupBox2.Size = new Size(388, 67);
+            groupBox2.TabIndex = 52;
+            groupBox2.TabStop = false;
+            // 
+            // lblProjectTitle
+            // 
+            lblProjectTitle.AutoSize = true;
+            lblProjectTitle.Font = new Font("Segoe UI", 9F, FontStyle.Bold, GraphicsUnit.Point, 0);
+            lblProjectTitle.Location = new Point(164, 15);
+            lblProjectTitle.Name = "lblProjectTitle";
+            lblProjectTitle.Size = new Size(61, 20);
+            lblProjectTitle.TabIndex = 2;
+            lblProjectTitle.Text = "Re-Plot";
+            // 
+            // label10
+            // 
+            label10.AutoSize = true;
+            label10.Font = new Font("Segoe UI", 12F, FontStyle.Bold | FontStyle.Underline, GraphicsUnit.Point, 0);
+            label10.Location = new Point(95, 35);
+            label10.Name = "label10";
+            label10.Size = new Size(202, 28);
+            label10.TabIndex = 3;
+            label10.Text = "Area Converter Tool";
+            // 
+            // groupBox3
+            // 
+            groupBox3.Controls.Add(nudTraditionalUnitPrecision);
+            groupBox3.Controls.Add(label39);
+            groupBox3.Controls.Add(nudOtherUnitPrecision);
+            groupBox3.Controls.Add(label40);
+            groupBox3.Controls.Add(label38);
+            groupBox3.Controls.Add(label37);
+            groupBox3.Location = new Point(22, 73);
+            groupBox3.Name = "groupBox3";
+            groupBox3.Size = new Size(388, 89);
+            groupBox3.TabIndex = 53;
+            groupBox3.TabStop = false;
+            // 
+            // nudTraditionalUnitPrecision
+            // 
+            nudTraditionalUnitPrecision.Location = new Point(226, 52);
+            nudTraditionalUnitPrecision.Name = "nudTraditionalUnitPrecision";
+            nudTraditionalUnitPrecision.Size = new Size(43, 27);
+            nudTraditionalUnitPrecision.TabIndex = 8;
+            nudTraditionalUnitPrecision.TextAlign = HorizontalAlignment.Center;
+            nudTraditionalUnitPrecision.Value = new decimal(new int[] { 2, 0, 0, 0 });
+            // 
+            // label39
+            // 
+            label39.AutoSize = true;
+            label39.Font = new Font("Segoe UI", 9F);
+            label39.Location = new Point(273, 54);
+            label39.Name = "label39";
+            label39.Size = new Size(59, 20);
+            label39.TabIndex = 6;
+            label39.Text = "digit(s).";
+            // 
+            // nudOtherUnitPrecision
+            // 
+            nudOtherUnitPrecision.Location = new Point(226, 22);
+            nudOtherUnitPrecision.Name = "nudOtherUnitPrecision";
+            nudOtherUnitPrecision.Size = new Size(43, 27);
+            nudOtherUnitPrecision.TabIndex = 7;
+            nudOtherUnitPrecision.TextAlign = HorizontalAlignment.Center;
+            nudOtherUnitPrecision.Value = new decimal(new int[] { 3, 0, 0, 0 });
+            // 
+            // label40
+            // 
+            label40.AutoSize = true;
+            label40.Font = new Font("Segoe UI", 9F);
+            label40.Location = new Point(13, 54);
+            label40.Name = "label40";
+            label40.Size = new Size(206, 20);
+            label40.TabIndex = 9;
+            label40.Text = "Precision for R-A-P-D / B-K-D";
+            // 
+            // label38
+            // 
+            label38.AutoSize = true;
+            label38.Font = new Font("Segoe UI", 9F);
+            label38.Location = new Point(273, 24);
+            label38.Name = "label38";
+            label38.Size = new Size(59, 20);
+            label38.TabIndex = 10;
+            label38.Text = "digit(s).";
+            // 
+            // label37
+            // 
+            label37.AutoSize = true;
+            label37.Font = new Font("Segoe UI", 9F);
+            label37.Location = new Point(13, 24);
+            label37.Name = "label37";
+            label37.Size = new Size(169, 20);
+            label37.TabIndex = 11;
+            label37.Text = "Precision for Other Units";
+            // 
             // frmAreaConverter
             // 
             AutoScaleDimensions = new SizeF(120F, 120F);
             AutoScaleMode = AutoScaleMode.Dpi;
             BackColor = Color.White;
             ClientSize = new Size(681, 514);
-            Controls.Add(lblProjectTitle);
-            Controls.Add(label10);
             Controls.Add(groupBox1);
-            Controls.Add(nudTraditionalUnitPrecision);
-            Controls.Add(label39);
-            Controls.Add(nudOtherUnitPrecision);
-            Controls.Add(label40);
-            Controls.Add(label38);
-            Controls.Add(label37);
             Controls.Add(grpFromRAPD);
             Controls.Add(btnExit);
             Controls.Add(grpFromBKD);
@@ -1488,6 +1507,8 @@ namespace Land_Readjustment_Tool
             Controls.Add(grpConvertTo);
             Controls.Add(grpConvertFrom);
             Controls.Add(grpQuickConvert);
+            Controls.Add(groupBox2);
+            Controls.Add(groupBox3);
             FormBorderStyle = FormBorderStyle.FixedSingle;
             Icon = (Icon)resources.GetObject("$this.Icon");
             Margin = new Padding(4);
@@ -1519,12 +1540,15 @@ namespace Land_Readjustment_Tool
             grpFromBKD.PerformLayout();
             grpFromRAPD.ResumeLayout(false);
             grpFromRAPD.PerformLayout();
-            ((System.ComponentModel.ISupportInitialize)nudTraditionalUnitPrecision).EndInit();
-            ((System.ComponentModel.ISupportInitialize)nudOtherUnitPrecision).EndInit();
             groupBox1.ResumeLayout(false);
             groupBox1.PerformLayout();
+            groupBox2.ResumeLayout(false);
+            groupBox2.PerformLayout();
+            groupBox3.ResumeLayout(false);
+            groupBox3.PerformLayout();
+            ((System.ComponentModel.ISupportInitialize)nudTraditionalUnitPrecision).EndInit();
+            ((System.ComponentModel.ISupportInitialize)nudOtherUnitPrecision).EndInit();
             ResumeLayout(false);
-            PerformLayout();
         }
 
         #endregion
@@ -1639,19 +1663,21 @@ namespace Land_Readjustment_Tool
         private TextBox txtFromPaisa;
         private TextBox txtFromAana;
         private TextBox txtFromRopanee;
-        private Label label37;
-        private NumericUpDown nudTraditionalUnitPrecision;
-        private Label label38;
-        private Label lblProjectTitle;
-        private Label label10;
-        private Label label39;
-        private NumericUpDown nudOtherUnitPrecision;
-        private Label label40;
         private Button btnCopyToClipboard;
         private TextBox txtToSqm;
         private GroupBox groupBox1;
         private RadioButton rdoDarkTheme;
         private RadioButton rdoLightTheme;
         private Button btnCalculator;
+        private GroupBox groupBox2;
+        private Label lblProjectTitle;
+        private Label label10;
+        private GroupBox groupBox3;
+        private NumericUpDown nudTraditionalUnitPrecision;
+        private Label label39;
+        private NumericUpDown nudOtherUnitPrecision;
+        private Label label40;
+        private Label label38;
+        private Label label37;
     }
 }
