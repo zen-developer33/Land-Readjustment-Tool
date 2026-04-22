@@ -505,10 +505,11 @@ namespace Land_Readjustment_Tool
             // 
             // btnCalculator
             // 
+            btnCalculator.DialogResult = DialogResult.OK;
             btnCalculator.Image = Area_Converter.Properties.Resources.icons8_calculator_48;
             btnCalculator.Location = new Point(331, 18);
             btnCalculator.Name = "btnCalculator";
-            btnCalculator.Size = new Size(51, 50);
+            btnCalculator.Size = new Size(51, 51);
             btnCalculator.TabIndex = 52;
             btnCalculator.TextImageRelation = TextImageRelation.ImageBeforeText;
             btnCalculator.UseVisualStyleBackColor = true;
@@ -819,7 +820,7 @@ namespace Land_Readjustment_Tool
             // 
             lblProjectTitle.AutoSize = true;
             lblProjectTitle.Font = new Font("Segoe UI", 9F, FontStyle.Bold, GraphicsUnit.Point, 0);
-            lblProjectTitle.Location = new Point(179, 20);
+            lblProjectTitle.Location = new Point(22, 22);
             lblProjectTitle.Name = "lblProjectTitle";
             lblProjectTitle.Size = new Size(61, 20);
             lblProjectTitle.TabIndex = 0;
@@ -829,8 +830,8 @@ namespace Land_Readjustment_Tool
             // label10
             // 
             label10.AutoSize = true;
-            label10.Font = new Font("Segoe UI", 12F, FontStyle.Bold, GraphicsUnit.Point, 0);
-            label10.Location = new Point(36, 42);
+            label10.Font = new Font("Segoe UI", 12F, FontStyle.Bold | FontStyle.Underline, GraphicsUnit.Point, 0);
+            label10.Location = new Point(22, 42);
             label10.Name = "label10";
             label10.Size = new Size(354, 28);
             label10.TabIndex = 1;
