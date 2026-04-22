@@ -398,7 +398,7 @@ namespace Land_Readjustment_Tool
             // 
             AutoScaleDimensions = new SizeF(9F, 21F);
             AutoScaleMode = AutoScaleMode.Font;
-            ClientSize = new Size(266, 384);
+            ClientSize = new Size(266, 389);
             Controls.Add(lblDisplay);
             Controls.Add(btnClear);
             Controls.Add(btnCancel);
