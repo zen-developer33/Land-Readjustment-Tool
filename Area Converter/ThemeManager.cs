@@ -1,4 +1,5 @@
 using System.Drawing;
+using System.Drawing.Drawing2D;
 using System.Windows.Forms;
 
 namespace Land_Readjustment_Tool
@@ -61,9 +62,14 @@ namespace Land_Readjustment_Tool
                     button.ForeColor = DarkForegroundColor;
                     button.FlatStyle = FlatStyle.Flat;
                     button.FlatAppearance.BorderColor = DarkButtonBorder;
-                    button.FlatAppearance.BorderSize = 1;
+                    button.FlatAppearance.BorderSize = 0;
                     button.FlatAppearance.MouseOverBackColor = DarkButtonHover;
                     button.FlatAppearance.MouseDownBackColor = DarkButtonPressed;
+                    button.SizeChanged -= Button_SizeChanged;
+                    button.SizeChanged += Button_SizeChanged;
+                    button.Paint -= Button_PaintDarkRoundedBorder;
+                    button.Paint += Button_PaintDarkRoundedBorder;
+                    ApplyRoundedButtonRegion(button);
                     break;
                 case GroupBox groupBox:
                     groupBox.BackColor = DarkBackgroundColor;
@@ -111,6 +117,10 @@ namespace Land_Readjustment_Tool
                     button.BackColor = LightButtonColor;
                     button.ForeColor = LightForegroundColor;
                     button.FlatStyle = FlatStyle.Standard;
+                    button.SizeChanged -= Button_SizeChanged;
+                    button.Paint -= Button_PaintDarkRoundedBorder;
+                    button.Region?.Dispose();
+                    button.Region = null;
                     break;
                 case GroupBox groupBox:
                     groupBox.BackColor = LightBackgroundColor;
@@ -138,6 +148,54 @@ namespace Land_Readjustment_Tool
             {
                 ApplyLightTheme(child);
             }
+        }
+
+        private static void Button_SizeChanged(object? sender, EventArgs e)
+        {
+            if (sender is Button button)
+            {
+                ApplyRoundedButtonRegion(button);
+            }
+        }
+
+        private static void ApplyRoundedButtonRegion(Button button)
+        {
+            const int radius = 3;
+            int diameter = radius * 2;
+            Rectangle rect = new(0, 0, button.Width, button.Height);
+
+            using GraphicsPath path = new();
+            path.AddArc(rect.X, rect.Y, diameter, diameter, 180, 90);
+            path.AddArc(rect.Right - diameter, rect.Y, diameter, diameter, 270, 90);
+            path.AddArc(rect.Right - diameter, rect.Bottom - diameter, diameter, diameter, 0, 90);
+            path.AddArc(rect.X, rect.Bottom - diameter, diameter, diameter, 90, 90);
+            path.CloseFigure();
+
+            button.Region?.Dispose();
+            button.Region = new Region(path);
+        }
+
+        private static void Button_PaintDarkRoundedBorder(object? sender, PaintEventArgs e)
+        {
+            if (sender is not Button button || button.Width <= 1 || button.Height <= 1)
+            {
+                return;
+            }
+
+            const int radius = 4;
+            int diameter = radius * 2;
+            Rectangle rect = new(0, 0, button.Width - 1, button.Height - 1);
+
+            e.Graphics.SmoothingMode = SmoothingMode.AntiAlias;
+            using GraphicsPath path = new();
+            path.AddArc(rect.X, rect.Y, diameter, diameter, 180, 90);
+            path.AddArc(rect.Right - diameter, rect.Y, diameter, diameter, 270, 90);
+            path.AddArc(rect.Right - diameter, rect.Bottom - diameter, diameter, diameter, 0, 90);
+            path.AddArc(rect.X, rect.Bottom - diameter, diameter, diameter, 90, 90);
+            path.CloseFigure();
+
+            using Pen pen = new(button.FlatAppearance.BorderColor, 1f);
+            e.Graphics.DrawPath(pen, path);
         }
     }
 }
