@@ -107,6 +107,22 @@ namespace Land_Readjustment_Tool.Services
                 System.Globalization.CultureInfo.InvariantCulture, out decimal v) ? v : null;
         }
 
+        public bool TrySetDisplay(string value)
+        {
+            if (!decimal.TryParse(value,
+                System.Globalization.NumberStyles.AllowLeadingSign | System.Globalization.NumberStyles.AllowDecimalPoint,
+                System.Globalization.CultureInfo.InvariantCulture,
+                out decimal parsed))
+            {
+                return false;
+            }
+
+            Display = FormatDecimal(parsed);
+            _startNewOperand = false;
+            _hasResult = false;
+            return true;
+        }
+
         private void Evaluate(decimal rightOperand)
         {
             _accumulator = _pendingOperator switch

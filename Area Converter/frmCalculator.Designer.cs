@@ -4,7 +4,7 @@ namespace Land_Readjustment_Tool
     {
         private System.ComponentModel.IContainer components = null;
 
-        private System.Windows.Forms.TextBox txtDisplay;
+        private System.Windows.Forms.Label lblDisplay;
 
         private System.Windows.Forms.Button btn0;
         private System.Windows.Forms.Button btn1;
@@ -40,7 +40,7 @@ namespace Land_Readjustment_Tool
         private void InitializeComponent()
         {
             components = new System.ComponentModel.Container();
-            txtDisplay = new TextBox();
+            lblDisplay = new Label();
             ResultTextRightClickContext = new ContextMenuStrip(components);
             copyToolStripMenuItem = new ToolStripMenuItem();
             pasteToolStripMenuItem = new ToolStripMenuItem();
@@ -68,20 +68,18 @@ namespace Land_Readjustment_Tool
             ResultTextRightClickContext.SuspendLayout();
             SuspendLayout();
             // 
-            // txtDisplay
+            // lblDisplay
             // 
-            txtDisplay.BackColor = SystemColors.ControlLightLight;
-            txtDisplay.BorderStyle = BorderStyle.FixedSingle;
-            txtDisplay.ContextMenuStrip = ResultTextRightClickContext;
-            txtDisplay.Font = new Font("Arial Narrow", 18F, FontStyle.Regular, GraphicsUnit.Point, 0);
-            txtDisplay.Location = new Point(20, 11);
-            txtDisplay.Name = "txtDisplay";
-            txtDisplay.ReadOnly = true;
-            txtDisplay.Size = new Size(227, 42);
-            txtDisplay.TabIndex = 0;
-            txtDisplay.TabStop = false;
-            txtDisplay.Text = "0";
-            txtDisplay.TextAlign = HorizontalAlignment.Right;
+            lblDisplay.BackColor = SystemColors.ControlLightLight;
+            lblDisplay.BorderStyle = BorderStyle.FixedSingle;
+            lblDisplay.ContextMenuStrip = ResultTextRightClickContext;
+            lblDisplay.Font = new Font("Arial Narrow", 18F, FontStyle.Regular, GraphicsUnit.Point, 0);
+            lblDisplay.Location = new Point(20, 11);
+            lblDisplay.Name = "lblDisplay";
+            lblDisplay.Size = new Size(227, 42);
+            lblDisplay.TabIndex = 0;
+            lblDisplay.Text = "0";
+            lblDisplay.TextAlign = ContentAlignment.MiddleRight;
             // 
             // ResultTextRightClickContext
             // 
@@ -96,6 +94,7 @@ namespace Land_Readjustment_Tool
             copyToolStripMenuItem.ShortcutKeys = Keys.Control | Keys.C;
             copyToolStripMenuItem.Size = new Size(207, 24);
             copyToolStripMenuItem.Text = "Copy Result";
+            copyToolStripMenuItem.Click += copyToolStripMenuItem_Click;
             // 
             // pasteToolStripMenuItem
             // 
@@ -103,6 +102,7 @@ namespace Land_Readjustment_Tool
             pasteToolStripMenuItem.ShortcutKeys = Keys.Control | Keys.V;
             pasteToolStripMenuItem.Size = new Size(207, 24);
             pasteToolStripMenuItem.Text = "Paste";
+            pasteToolStripMenuItem.Click += pasteToolStripMenuItem_Click;
             // 
             // btnClear
             // 
@@ -398,8 +398,8 @@ namespace Land_Readjustment_Tool
             // 
             AutoScaleDimensions = new SizeF(9F, 21F);
             AutoScaleMode = AutoScaleMode.Font;
-            ClientSize = new Size(705, 505);
-            Controls.Add(txtDisplay);
+            ClientSize = new Size(266, 384);
+            Controls.Add(lblDisplay);
             Controls.Add(btnClear);
             Controls.Add(btnCancel);
             Controls.Add(btnEquals);
@@ -435,7 +435,6 @@ namespace Land_Readjustment_Tool
             Load += frmCalculator_Load;
             ResultTextRightClickContext.ResumeLayout(false);
             ResumeLayout(false);
-            PerformLayout();
         }
 
         private ContextMenuStrip ResultTextRightClickContext;
