@@ -1,4 +1,6 @@
 ﻿using Land_Readjustment_Tool.UI.CustomControls;
+using Land_Readjustment_Tool.Data;
+using Land_Readjustment_Tool.Core;
 namespace Land_Readjustment_Tool
 {
     partial class frmMain
@@ -350,7 +352,7 @@ namespace Land_Readjustment_Tool
             // 
             importDataToolStripMenuItem1.DropDownItems.AddRange(new ToolStripItem[] { ImportParcelOwnerShipRecords, toolStripSeparator5, importCadastralDataDXFDWGShapefileToolStripMenuItem, ImportProjectBoundaryDXFDWGToolStripMenuItem, toolStripSeparator6, baseMapsToolStripMenuItem, topographicalMapToolStripMenuItem });
             importDataToolStripMenuItem1.Name = "importDataToolStripMenuItem1";
-            importDataToolStripMenuItem1.Size = new Size(207, 26);
+            importDataToolStripMenuItem1.Size = new Size(224, 26);
             importDataToolStripMenuItem1.Text = "Import Data";
             // 
             // ImportParcelOwnerShipRecords
@@ -359,6 +361,7 @@ namespace Land_Readjustment_Tool
             ImportParcelOwnerShipRecords.Name = "ImportParcelOwnerShipRecords";
             ImportParcelOwnerShipRecords.Size = new Size(342, 26);
             ImportParcelOwnerShipRecords.Text = "Parcel Ownership Records (Excel/CSV)";
+            ImportParcelOwnerShipRecords.Click += ImportParcelOwnerShipRecords_Click    ;
             // 
             // toolStripSeparator5
             // 
@@ -416,7 +419,7 @@ namespace Land_Readjustment_Tool
             // viewEditRecordToolStripMenuItem
             // 
             viewEditRecordToolStripMenuItem.Name = "viewEditRecordToolStripMenuItem";
-            viewEditRecordToolStripMenuItem.Size = new Size(207, 26);
+            viewEditRecordToolStripMenuItem.Size = new Size(224, 26);
             viewEditRecordToolStripMenuItem.Text = "View/Edit Record";
             viewEditRecordToolStripMenuItem.Click += viewEditRecordToolStripMenuItem_Click;
             // 
@@ -424,13 +427,13 @@ namespace Land_Readjustment_Tool
             // 
             landOwnerDataToolStripMenuItem.Enabled = false;
             landOwnerDataToolStripMenuItem.Name = "landOwnerDataToolStripMenuItem";
-            landOwnerDataToolStripMenuItem.Size = new Size(207, 26);
+            landOwnerDataToolStripMenuItem.Size = new Size(224, 26);
             landOwnerDataToolStripMenuItem.Text = "Land Owner Data";
             // 
             // importToolStripMenuItem
             // 
             importToolStripMenuItem.Name = "importToolStripMenuItem";
-            importToolStripMenuItem.Size = new Size(207, 26);
+            importToolStripMenuItem.Size = new Size(224, 26);
             // 
             // contributionToolStripMenuItem
             // 
@@ -473,7 +476,7 @@ namespace Land_Readjustment_Tool
             // mnuAreaConverterTool
             // 
             mnuAreaConverterTool.Name = "mnuAreaConverterTool";
-            mnuAreaConverterTool.Size = new Size(224, 26);
+            mnuAreaConverterTool.Size = new Size(191, 26);
             mnuAreaConverterTool.Text = "Area Converter";
             mnuAreaConverterTool.Click += mnuAreaConverterTool_Click;
             // 

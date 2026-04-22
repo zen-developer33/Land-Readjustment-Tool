@@ -1,6 +1,8 @@
-using Land_Readjustment_Tool.Models;
-using Land_Readjustment_Tool.Repositories;
+﻿using Land_Readjustment_Tool.Models;
 using Land_Readjustment_Tool.Services;
+using Land_Readjustment_Tool.Services.Import;
+using Land_Readjustment_Tool.Data;
+using Land_Readjustment_Tool.Core.Interfaces;
 using System.ComponentModel;
 using System.Data;
 using System.Text;
@@ -46,6 +48,16 @@ namespace Land_Readjustment_Tool.Forms
             InitializeSteps();
             InitializeDataGridView();
             InitializeMappingGridStyles();
+        }
+
+        private IImportPersistenceService GetPersistenceService()
+        {
+            if (!AppServices.HasContext)
+            {
+                throw new InvalidOperationException("No open project context found.");
+            }
+
+            return new ImportPersistenceService(AppServices.Context.Session);
         }
 
         private void InitializeMappingGridStyles()
@@ -1075,7 +1087,7 @@ namespace Land_Readjustment_Tool.Forms
             }
         }
 
-        private void btnSaveToDatabase_Click(object sender, EventArgs e)
+        private async void btnSaveToDatabase_Click(object sender, EventArgs e)
         {
             if (_validationErrors.Any())
             {
@@ -1093,8 +1105,23 @@ namespace Land_Readjustment_Tool.Forms
             }
 
             // Check if there are existing records in the database
-            int existingParcelCount = GetExistingParcelCount();
-            int existingOwnerCount = GetExistingOwnerCount();
+            int existingParcelCount = 0;
+            int existingOwnerCount = 0;
+            try
+            {
+                var counts = await GetPersistenceService().GetExistingCountsAsync();
+                existingOwnerCount = counts.Owners;
+                existingParcelCount = counts.Parcels;
+            }
+            catch (Exception ex)
+            {
+                MessageBox.Show(
+                    $"Failed to read existing database counts:\n{ex.Message}",
+                    "Database Error",
+                    MessageBoxButtons.OK,
+                    MessageBoxIcon.Error);
+                return;
+            }
 
             bool replaceExisting = false;
 
@@ -1140,8 +1167,8 @@ namespace Land_Readjustment_Tool.Forms
             int uniqueOwnerCount = _deduplicationResult?.UniqueOwners.Count ?? 0;
             var result = MessageBox.Show(
                 $"Ready to save to database:\n\n" +
-                $"• Unique Landowners: {uniqueOwnerCount}\n" +
-                $"• Land Parcels: {_importedRecords.Count}\n\n" +
+                $"- Unique Landowners: {uniqueOwnerCount}\n" +
+                $"- Land Parcels: {_importedRecords.Count}\n\n" +
                 $"Do you want to continue?",
                 "Confirm Save",
                 MessageBoxButtons.YesNo,
@@ -1153,45 +1180,23 @@ namespace Land_Readjustment_Tool.Forms
             progressBar.Style = ProgressBarStyle.Marquee;
             UpdateStatusBar("Saving to database...");
 
+            var sourceFilePath = txtFilePath.Text;
+            var sourceFileName = Path.GetFileName(sourceFilePath);
+            if (string.IsNullOrWhiteSpace(sourceFileName))
+            {
+                sourceFileName = "ManualImport.xlsx";
+            }
+
             _backgroundWorker.RunWorkerAsync(new BackgroundOperation
             {
                 OperationType = OperationType.SaveToDatabase,
                 Records = _importedRecords.ToList(),
                 DeduplicationResult = _deduplicationResult,
-                ReplaceExistingData = replaceExisting
+                ReplaceExistingData = replaceExisting,
+                SourceFilePath = sourceFilePath,
+                SourceFileName = sourceFileName,
+                SheetName = cbSelectSheet.SelectedItem?.ToString()
             });
-        }
-
-        private int GetExistingParcelCount()
-        {
-            try
-            {
-                var dbHelper = new DatabaseHelper(_projectPath);
-                dbHelper.InitializeDatabase();
-                var connection = dbHelper.GetConnection();
-                var repository = new LandOwnerRepository(connection);
-                return repository.GetTotalRecordCount();
-            }
-            catch
-            {
-                return 0;
-            }
-        }
-
-        private int GetExistingOwnerCount()
-        {
-            try
-            {
-                var dbHelper = new DatabaseHelper(_projectPath);
-                dbHelper.InitializeDatabase();
-                var connection = dbHelper.GetConnection();
-                var repository = new LandOwnerRepository(connection);
-                return repository.GetAllOwners().Count;
-            }
-            catch
-            {
-                return 0;
-            }
         }
 
         private void btnCancel_Click(object sender, EventArgs e)
@@ -1220,7 +1225,14 @@ namespace Land_Readjustment_Tool.Forms
                 OperationType.LoadFile => LoadFileOperation(operation.FilePath!, worker!),
                 OperationType.TransformData => TransformDataOperation(operation.SourceData!, operation.FieldMappings!, worker!),
                 OperationType.ValidateData => ValidateDataOperation(operation.Records!, worker!),
-                OperationType.SaveToDatabase => SaveToDatabaseOperation(operation.Records!, operation.DeduplicationResult, operation.ReplaceExistingData, worker!),
+                OperationType.SaveToDatabase => SaveToDatabaseOperation(
+                    operation.Records!,
+                    operation.DeduplicationResult,
+                    operation.ReplaceExistingData,
+                    operation.SourceFileName,
+                    operation.SourceFilePath,
+                    operation.SheetName,
+                    worker!),
                 _ => new OperationResult { Success = false, Message = "Unknown operation" }
             };
         }
@@ -1271,132 +1283,75 @@ namespace Land_Readjustment_Tool.Forms
         }
 
         private OperationResult SaveToDatabaseOperation(List<BaselineLandParceRecord> records,
-            OwnerDeduplicationService.DeduplicationResult? deduplicationResult, bool replaceExisting, BackgroundWorker worker)
+            OwnerDeduplicationService.DeduplicationResult? deduplicationResult,
+            bool replaceExisting,
+            string? sourceFileName,
+            string? sourceFilePath,
+            string? sheetName,
+            BackgroundWorker worker)
         {
             worker.ReportProgress(10);
 
             try
             {
-                // Validate project path
-                if (string.IsNullOrWhiteSpace(_projectPath))
+                if (!AppServices.HasContext)
                 {
                     return new OperationResult
                     {
                         Success = false,
-                        Message = "Failed to save to database: Project path is not set. Please ensure a project is open."
+                        Message = "Failed to save: no open project context found."
                     };
                 }
 
-                if (!File.Exists(_projectPath))
+                if (string.IsNullOrWhiteSpace(_projectPath) || !File.Exists(_projectPath))
                 {
                     return new OperationResult
                     {
                         Success = false,
-                        Message = $"Failed to save to database: Project file not found at '{_projectPath}'."
+                        Message = $"Failed to save: project file not found at '{_projectPath}'."
                     };
                 }
 
-                var dbHelper = new DatabaseHelper(_projectPath);
-                dbHelper.InitializeDatabase();
-                var connection = dbHelper.GetConnection();
+                var persistenceService = GetPersistenceService();
+                worker.ReportProgress(25);
 
-                if (connection == null)
+                if (string.IsNullOrWhiteSpace(sourceFileName))
                 {
-                    return new OperationResult
-                    {
-                        Success = false,
-                        Message = "Failed to save to database: Could not establish database connection."
-                    };
+                    sourceFileName = "ManualImport.xlsx";
                 }
 
-                // Schema should already exist from project creation
-                // Just ensure it exists without dropping/recreating
-                DatabaseSchema.CreateSchema(connection);
-
-                worker.ReportProgress(20);
-
-                var repository = new LandOwnerRepository(connection);
-
-                // Get counts before clearing
-                int initialParcelCount = repository.GetTotalRecordCount();
-                int initialOwnerCount = repository.GetAllOwners().Count;
-
-                // Clear existing data if replace option was selected
-                int deletedParcels = 0;
-                int deletedOwners = 0;
-                if (replaceExisting)
-                {
-                    try
-                    {
-                        var clearResult = repository.ClearAllData();
-                        deletedParcels = clearResult.DeletedParcels;
-                        deletedOwners = clearResult.DeletedOwners;
-                    }
-                    catch (Exception clearEx)
-                    {
-                        return new OperationResult
-                        {
-                            Success = false,
-                            Message = $"Failed to clear existing data: {clearEx.Message}\n\nPlease ensure the database is not locked by another application."
-                        };
-                    }
-                    worker.ReportProgress(30);
-                }
-
-                // Get counts after clearing
-                int afterClearParcelCount = repository.GetTotalRecordCount();
-                int afterClearOwnerCount = repository.GetAllOwners().Count;
-
-                int savedParcels = 0;
-                int savedOwners = 0;
-                int skippedDuplicates = 0;
-
-                if (deduplicationResult != null && deduplicationResult.UniqueOwners.Count > 0)
-                {
-                    // Use the deduplication result for proper owner mapping
-                    worker.ReportProgress(40);
-
-                    // Save unique owners and get parcel-to-owner mapping
-                    var parcelToOwnerMap = repository.SaveUniqueOwnersFromDeduplication(deduplicationResult);
-                    savedOwners = deduplicationResult.UniqueOwners.Count;
-
-                    worker.ReportProgress(60);
-
-                    // Save parcels with proper owner references
-                    savedParcels = repository.SaveParcelsWithDeduplication(records, parcelToOwnerMap);
-                    skippedDuplicates = records.Count - savedParcels;
-                }
-                else
-                {
-                    // Fallback: Use legacy method (extract owners from records directly)
-                    worker.ReportProgress(40);
-                    var ownerMap = repository.ExtractAndSaveUniqueOwners(records);
-                    savedOwners = ownerMap.Count;
-
-                    worker.ReportProgress(60);
-                    savedParcels = repository.SaveParcels(records, ownerMap);
-                    skippedDuplicates = records.Count - savedParcels;
-                }
+                var persistResult = persistenceService
+                    .PersistImportAsync(
+                        records,
+                        deduplicationResult,
+                        replaceExisting,
+                        sourceFileName,
+                        sourceFilePath,
+                        sheetName)
+                    .GetAwaiter()
+                    .GetResult();
 
                 worker.ReportProgress(100);
 
-                string resultMessage = $"Successfully saved to database!\n\n" +
-                                      $"• Replace Existing: {(replaceExisting ? "YES" : "NO")}\n" +
-                                      $"• Initial Data: {initialOwnerCount} owners, {initialParcelCount} parcels\n" +
-                                      (replaceExisting ? $"• Deleted: {deletedOwners} owners, {deletedParcels} parcels\n" : "") +
-                                      $"• After Clear: {afterClearOwnerCount} owners, {afterClearParcelCount} parcels\n" +
-                                      $"• Unique Landowners: {savedOwners}\n" +
-                                      $"• Land Parcels: {savedParcels}";
-                
-                if (skippedDuplicates > 0)
-                {
-                    resultMessage += $"\n• Skipped Duplicates: {skippedDuplicates}";
-                }
+                string resultMessage =
+                    $"Successfully saved to database via EF Core.\n\n" +
+                    $"- Replace Existing: {(persistResult.ReplacedExistingData ? "YES" : "NO")}\n" +
+                    $"- Initial Data: {persistResult.InitialOwners} owners, {persistResult.InitialParcels} parcels\n" +
+                    (persistResult.ReplacedExistingData
+                        ? $"- Deleted: {persistResult.DeletedOwners} owners, {persistResult.DeletedParcels} parcels\n"
+                        : string.Empty) +
+                    $"- Import Session ID: {persistResult.ImportSessionId}\n" +
+                    $"- Saved Owners (linked): {persistResult.SavedOwners}\n" +
+                    $"- New Owners Created: {persistResult.NewOwnersCreated}\n" +
+                    $"- Existing Owners Updated: {persistResult.ExistingOwnersUpdated}\n" +
+                    $"- Saved Parcels: {persistResult.SavedParcels}\n" +
+                    $"- Skipped Duplicate Parcels: {persistResult.SkippedDuplicateParcels}";
 
                 return new OperationResult
                 {
                     Success = true,
-                    Message = resultMessage
+                    Message = resultMessage,
+                    PersistenceResult = persistResult
                 };
             }
             catch (Exception ex)
@@ -1473,9 +1428,9 @@ namespace Land_Readjustment_Tool.Forms
             {
                 HandleDataValidated(result.TransformResult);
             }
-            else if (result.Message.Contains("saved"))
+            else if (result.PersistenceResult != null)
             {
-                HandleDataSaved(result.Message);
+                HandleDataSaved(result.Message, result.PersistenceResult);
             }
 
             UpdateStatusBar(result.Message);
@@ -1675,9 +1630,13 @@ namespace Land_Readjustment_Tool.Forms
                 result.HasErrors ? MessageBoxIcon.Warning : MessageBoxIcon.Information);
         }
 
-        private void HandleDataSaved(string message)
+        private void HandleDataSaved(string message, ImportPersistenceResult saveResult)
         {
             UpdateStepStatus(4, StepStatus.Success, "Saved!");
+            if (AppServices.HasContext)
+            {
+                AppServices.Context.MarkAsModified();
+            }
 
             MessageBox.Show(message, "Save Complete",
                 MessageBoxButtons.OK, MessageBoxIcon.Information);
@@ -1764,7 +1723,7 @@ namespace Land_Readjustment_Tool.Forms
 
             // No warning needed when re-running - just run fresh analysis
             RunOwnerDeduplication();
-            btnSaveToDatabase.Enabled = true;
+            UpdateValidationStatus();
         }
 
         private void RunOwnerDeduplication()
@@ -2013,6 +1972,9 @@ namespace Land_Readjustment_Tool.Forms
         public List<BaselineLandParceRecord>? Records { get; set; }
         public OwnerDeduplicationService.DeduplicationResult? DeduplicationResult { get; set; }
         public bool ReplaceExistingData { get; set; }
+        public string? SourceFileName { get; set; }
+        public string? SourceFilePath { get; set; }
+        public string? SheetName { get; set; }
     }
 
     internal class OperationResult
@@ -2020,6 +1982,7 @@ namespace Land_Readjustment_Tool.Forms
         public bool Success { get; set; }
         public DataSet? DataSet { get; set; }
         public TransformationResult? TransformResult { get; set; }
+        public ImportPersistenceResult? PersistenceResult { get; set; }
         public string Message { get; set; } = string.Empty;
     }
 

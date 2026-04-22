@@ -114,6 +114,13 @@ namespace Land_Readjustment_Tool.Data
                 .IsUnique()
                 .HasFilter("CitizenshipNumber IS NOT NULL");
 
+            modelBuilder.Entity<ImportedRawRecord>()
+                .HasIndex(r => new { r.ImportSessionId, r.RowNumber })
+                .IsUnique();
+
+            modelBuilder.Entity<ValidationError>()
+                .HasIndex(v => v.ImportedRawRecordId);
+
             // ── SPATIAL RELATIONSHIPS ────────────────
 
             // CoordinateSystem → ProjectionParameters (one to one)
@@ -144,6 +151,30 @@ namespace Land_Readjustment_Tool.Data
                 .HasOne(c => c.CitizenshipConflict)
                 .WithMany(c => c.ConflictingRecords)
                 .HasForeignKey(c => c.CitizenshipConflictId)
+                .OnDelete(DeleteBehavior.Cascade);
+
+            modelBuilder.Entity<ImportedRawRecord>()
+                .HasOne(r => r.ImportSession)
+                .WithMany(s => s.ImportedRawRecords)
+                .HasForeignKey(r => r.ImportSessionId)
+                .OnDelete(DeleteBehavior.Cascade);
+
+            modelBuilder.Entity<ValidationError>()
+                .HasOne(v => v.ImportSession)
+                .WithMany(s => s.ValidationErrors)
+                .HasForeignKey(v => v.ImportSessionId)
+                .OnDelete(DeleteBehavior.Cascade);
+
+            modelBuilder.Entity<ValidationError>()
+                .HasOne(v => v.ImportedRawRecord)
+                .WithMany(r => r.ValidationErrors)
+                .HasForeignKey(v => v.ImportedRawRecordId)
+                .OnDelete(DeleteBehavior.Cascade);
+
+            modelBuilder.Entity<CitizenshipConflict>()
+                .HasOne(c => c.ImportSession)
+                .WithMany(s => s.CitizenshipConflicts)
+                .HasForeignKey(c => c.ImportSessionId)
                 .OnDelete(DeleteBehavior.Cascade);
 
             modelBuilder.Entity<ParcelFrontage>()

@@ -846,12 +846,40 @@ namespace Land_Readjustment_Tool
 
         private void ImportParcelOwnerShipRecords_Click(object sender, EventArgs e)
         {
-            // TODO: implement import
+            if (!AppServices.HasContext)
+            {
+                MessageBox.Show(
+                    "Please open or create a project first.",
+                    "No Project Open",
+                    MessageBoxButtons.OK,
+                    MessageBoxIcon.Warning);
+                return;
+            }
+
+            using var frm = new frmImportParcelOwnershipRecords(
+                AppServices.Context.ProjectFilePath);
+
+            if (frm.ShowDialog(this) == DialogResult.OK)
+            {
+                AppServices.Context.MarkAsModified();
+                UpdateWindowTitle();
+            }
         }
 
         private void landOwnerDataToolStripMenuItem_Click(object sender, EventArgs e)
         {
-            // TODO: implement land owner data
+            if (!AppServices.HasContext)
+            {
+                MessageBox.Show(
+                    "Please open or create a project first.",
+                    "No Project Open",
+                    MessageBoxButtons.OK,
+                    MessageBoxIcon.Warning);
+                return;
+            }
+
+            using var frm = new frmLandOwnersRecord();
+            frm.ShowDialog(this);
         }
 
         private void startReplotWorkspaceToolStripMenuItem_Click(object sender, EventArgs e)
@@ -1190,7 +1218,7 @@ namespace Land_Readjustment_Tool
             if (AppServices.HasContext)
             {
                 var confirm = MessageBox.Show(
-                    "Are you sure want to close the current project and open the selected project?\n"+
+                    "Are you sure want to close the current project and open the selected project?\n" +
                     path,
                     "Open Recent Project",
                     MessageBoxButtons.YesNo,
@@ -1398,6 +1426,7 @@ namespace Land_Readjustment_Tool
                     MessageBoxIcon.Error);
             }
         }
+
     }
 }
 
