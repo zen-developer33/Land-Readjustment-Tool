@@ -11,26 +11,61 @@ namespace Land_Readjustment_Tool.Forms.Land_Owners_Record
         private bool _readOnlyMode;
         private readonly bool _isAddMode;
         private readonly LandRecordsService _landRecordsService;
+        private readonly OwnerFileStorageService _ownerFileStorageService;
         private readonly string _projectPath;
+        private readonly bool _allowEditInReadOnly;
         private LandOwner? _owner;
         private string? _tempPhotoPath; // Temporary photo path for add mode
+        private bool _hasChanges;
 
         /// <summary>
         /// Constructor for viewing/editing existing owner
         /// </summary>
         public frmLandOwnerDetails(int landOwnerId, bool readOnlyMode)
+            : this(
+                landOwnerId,
+                readOnlyMode,
+                CreateDefaultLandRecordsService(out var projectPath),
+                projectPath)
+        {
+        }
+
+        /// <summary>
+        /// Constructor for viewing/editing existing owner with injected dependencies.
+        /// </summary>
+        public frmLandOwnerDetails(
+            int landOwnerId,
+            bool readOnlyMode,
+            LandRecordsService landRecordsService,
+            string projectPath)
+            : this(landOwnerId, readOnlyMode, landRecordsService, projectPath, allowEditInReadOnly: true)
+        {
+        }
+
+        /// <summary>
+        /// Constructor for viewing/editing existing owner with injected dependencies.
+        /// </summary>
+        public frmLandOwnerDetails(
+            int landOwnerId,
+            bool readOnlyMode,
+            LandRecordsService landRecordsService,
+            string projectPath,
+            bool allowEditInReadOnly)
         {
             InitializeComponent();
             _landOwnerId = landOwnerId;
             _readOnlyMode = readOnlyMode;
             _isAddMode = false;
-            if (!AppServices.HasContext)
-                throw new InvalidOperationException("No open project context found.");
-
-            _projectPath = AppServices.Context.ProjectFilePath;
-            _landRecordsService = new LandRecordsService(AppServices.Context.Session, _projectPath);
+            _projectPath = projectPath;
+            _landRecordsService = landRecordsService;
+            _ownerFileStorageService = new OwnerFileStorageService(_projectPath);
+            _allowEditInReadOnly = allowEditInReadOnly;
 
             LoadOwnerDetails();
+            if (_owner == null)
+            {
+                return;
+            }
             LoadOwnerSummary();
             SetReadOnlyMode(_readOnlyMode);
         }
@@ -39,18 +74,34 @@ namespace Land_Readjustment_Tool.Forms.Land_Owners_Record
         /// Constructor for adding new owner
         /// </summary>
         public frmLandOwnerDetails()
+            : this(CreateDefaultLandRecordsService(out var projectPath), projectPath)
+        {
+        }
+
+        /// <summary>
+        /// Constructor for adding new owner with injected dependencies.
+        /// </summary>
+        public frmLandOwnerDetails(LandRecordsService landRecordsService, string projectPath)
         {
             InitializeComponent();
             _landOwnerId = 0;
             _readOnlyMode = false;
             _isAddMode = true;
+            _projectPath = projectPath;
+            _landRecordsService = landRecordsService;
+            _ownerFileStorageService = new OwnerFileStorageService(_projectPath);
+            _allowEditInReadOnly = false;
+
+            SetAddMode();
+        }
+
+        private static LandRecordsService CreateDefaultLandRecordsService(out string projectPath)
+        {
             if (!AppServices.HasContext)
                 throw new InvalidOperationException("No open project context found.");
 
-            _projectPath = AppServices.Context.ProjectFilePath;
-            _landRecordsService = new LandRecordsService(AppServices.Context.Session, _projectPath);
-
-            SetAddMode();
+            projectPath = AppServices.Context.ProjectFilePath;
+            return new LandRecordsService(AppServices.Context.Session, projectPath);
         }
 
         private void SetAddMode()
@@ -61,6 +112,7 @@ namespace Land_Readjustment_Tool.Forms.Land_Owners_Record
             txtFullName.Text = "";
             txtFatherSpouse.Text = "";
             cbGender.SelectedIndex = -1;
+            cbGender.Text = "";
             txtCitizenshipNo.Text = "";
             txtIssueDistrict.Text = "";
             txtIssueDate.Text = "";
@@ -68,7 +120,7 @@ namespace Land_Readjustment_Tool.Forms.Land_Owners_Record
             txtTemporaryAddress.Text = "";
             txtContactNumber.Text = "";
             txtEmailID.Text = "";
-            picPhoto.Image = null;
+            ReplacePhotoPreview(null);
 
             // Update summary labels to show no parcels
             lblParcelCount.Text = "-";
@@ -77,8 +129,10 @@ namespace Land_Readjustment_Tool.Forms.Land_Owners_Record
 
             // Disable parcel and document buttons (can't view for new owner)
             btnViewParcels.Text = "View Parcels Owned (0)";
+            btnViewParcels.Enabled = false;
 
             btnAttachViewDocuments.Text = "Attach/View Documents (0)";
+            btnAttachViewDocuments.Enabled = false;
 
 
             // Show save and cancel buttons
@@ -103,7 +157,7 @@ namespace Land_Readjustment_Tool.Forms.Land_Owners_Record
             // Populate controls
             txtFullName.Text = _owner.LandOwnersName ?? "";
             txtFatherSpouse.Text = _owner.FatherSpouse ?? "";
-            cbGender.SelectedItem = _owner.Gender ?? "";
+            SetGenderValue(_owner.Gender);
             txtCitizenshipNo.Text = _owner.CitizenshipNumber ?? "";
             txtIssueDistrict.Text = _owner.CitizenshipIssuedDistrict ?? "";
             txtIssueDate.Text = _owner.CitizenshipIssuedDate ?? "";
@@ -118,31 +172,38 @@ namespace Land_Readjustment_Tool.Forms.Land_Owners_Record
 
         private void LoadPhoto()
         {
-            if (_owner == null || string.IsNullOrWhiteSpace(_owner.PhotoPath))
+            var image = _ownerFileStorageService.LoadPhotoFromStoredPath(_owner?.PhotoPath);
+            ReplacePhotoPreview(image);
+        }
+
+        private void ReplacePhotoPreview(Image? image)
+        {
+            var previousImage = picPhoto.Image;
+            picPhoto.Image = image;
+            picPhoto.SizeMode = PictureBoxSizeMode.Zoom;
+            previousImage?.Dispose();
+        }
+
+        private void SetGenderValue(string? gender)
+        {
+            cbGender.SelectedIndex = -1;
+            var value = gender?.Trim() ?? string.Empty;
+
+            if (string.IsNullOrWhiteSpace(value))
             {
-                picPhoto.Image = null; // No default image
+                cbGender.Text = string.Empty;
                 return;
             }
 
-            string projectDir = Path.GetDirectoryName(_projectPath) ?? "";
-            string photoPath = Path.Combine(projectDir, _owner.PhotoPath);
+            var index = cbGender.FindStringExact(value);
+            if (index >= 0)
+            {
+                cbGender.SelectedIndex = index;
+                return;
+            }
 
-            if (File.Exists(photoPath))
-            {
-                try
-                {
-                    picPhoto.Image = Image.FromFile(photoPath);
-                    picPhoto.SizeMode = PictureBoxSizeMode.Zoom;
-                }
-                catch
-                {
-                    picPhoto.Image = null;
-                }
-            }
-            else
-            {
-                picPhoto.Image = null;
-            }
+            cbGender.Items.Add(value);
+            cbGender.SelectedIndex = cbGender.FindStringExact(value);
         }
 
         private void LoadOwnerSummary()
@@ -150,6 +211,7 @@ namespace Land_Readjustment_Tool.Forms.Land_Owners_Record
             int parcelCount = _landRecordsService.GetParcelsByOwnerId(_landOwnerId).Count;
             double totalAreaSqm = _landRecordsService.GetTotalAreaByOwnerId(_landOwnerId);
             int documentCount = _landRecordsService.GetDocumentCountByOwnerId(_landOwnerId);
+            string traditionalUnit = _landRecordsService.GetTraditionalAreaUnit();
 
             // Update summary labels
             if (parcelCount == 0)
@@ -160,15 +222,19 @@ namespace Land_Readjustment_Tool.Forms.Land_Owners_Record
             }
             else
             {
-                string areaRAPD = AreaConverterService.SqmToRAPDString(totalAreaSqm);
+                string areaTraditional = string.Equals(traditionalUnit, "BKD", StringComparison.OrdinalIgnoreCase)
+                    ? AreaConverterService.SqmToBKDString(totalAreaSqm)
+                    : AreaConverterService.SqmToRAPDString(totalAreaSqm);
                 lblParcelCount.Text = parcelCount.ToString();
                 lblAreasqm.Text = $"{totalAreaSqm:F2} sq.m";
-                lblAreaLocal.Text = areaRAPD;
+                lblAreaLocal.Text = areaTraditional;
             }
 
             // Update button texts with counts
             btnViewParcels.Text = $"View Parcels Owned ({parcelCount})";
             btnAttachViewDocuments.Text = $"Attach/View Documents ({documentCount})";
+            btnViewParcels.Enabled = true;
+            btnAttachViewDocuments.Enabled = true;
         }
 
         private void SetReadOnlyMode(bool readOnly)
@@ -205,14 +271,17 @@ namespace Land_Readjustment_Tool.Forms.Land_Owners_Record
                 btnSave.Enabled = false;
                 btnCancel.Enabled = false;
                 btnUploadChangePhoto.Enabled = false;
+                chkEdit.Visible = _allowEditInReadOnly;
+                chkEdit.Enabled = _allowEditInReadOnly;
 
                 Text = "Land Owner Details (Read-Only)";
                 _readOnlyMode = true;
             }
             else
             {
-                _readOnlyMode = false;
-                Text = "Land Owner Details";
+                enableEditing();
+                chkEdit.Visible = _allowEditInReadOnly;
+                chkEdit.Enabled = _allowEditInReadOnly;
             }
         }
 
@@ -276,7 +345,7 @@ namespace Land_Readjustment_Tool.Forms.Land_Owners_Record
                     {
                         LandOwnersName = txtFullName.Text.Trim(),
                         FatherSpouse = txtFatherSpouse.Text.Trim(),
-                        Gender = cbGender.SelectedItem?.ToString() ?? "",
+                        Gender = cbGender.Text.Trim(),
                         CitizenshipNumber = txtCitizenshipNo.Text.Trim(),
                         CitizenshipIssuedDistrict = txtIssueDistrict.Text.Trim(),
                         CitizenshipIssuedDate = txtIssueDate.Text.Trim(),
@@ -295,22 +364,16 @@ namespace Land_Readjustment_Tool.Forms.Land_Owners_Record
                     {
                         try
                         {
-                            string projectDir = Path.GetDirectoryName(_projectPath) ?? "";
-                            string photosFolder = Path.Combine(projectDir, "OwnerPhotos");
-                            _ = Directory.CreateDirectory(photosFolder);
-
-                            string extension = Path.GetExtension(_tempPhotoPath);
-                            string fileName = $"Owner_{newOwnerId}{extension}";
-                            string destPath = Path.Combine(photosFolder, fileName);
-
-                            File.Copy(_tempPhotoPath, destPath, overwrite: true);
-
-                            string relativePath = Path.Combine("OwnerPhotos", fileName);
+                            string relativePath = _ownerFileStorageService.SaveOwnerPhoto(newOwnerId, _tempPhotoPath);
                             _landRecordsService.UpdateOwnerPhotoPath(newOwnerId, relativePath);
                         }
-                        catch
+                        catch (Exception photoEx)
                         {
-                            // Photo save failed, but owner was created successfully - just continue
+                            MessageBox.Show(
+                                $"Owner was created, but the photo could not be saved: {photoEx.Message}",
+                                "Photo Not Saved",
+                                MessageBoxButtons.OK,
+                                MessageBoxIcon.Warning);
                         }
                     }
 
@@ -318,6 +381,7 @@ namespace Land_Readjustment_Tool.Forms.Land_Owners_Record
                         "Success",
                         MessageBoxButtons.OK, MessageBoxIcon.Information);
 
+                    _hasChanges = true;
                     DialogResult = DialogResult.OK;
                     Close();
 
@@ -345,7 +409,7 @@ namespace Land_Readjustment_Tool.Forms.Land_Owners_Record
                     // Update owner object with form values
                     _owner.LandOwnersName = txtFullName.Text.Trim();
                     _owner.FatherSpouse = txtFatherSpouse.Text.Trim();
-                    _owner.Gender = cbGender.SelectedItem?.ToString() ?? "";
+                    _owner.Gender = cbGender.Text.Trim();
                     _owner.CitizenshipNumber = txtCitizenshipNo.Text.Trim();
                     _owner.CitizenshipIssuedDistrict = txtIssueDistrict.Text.Trim();
                     _owner.CitizenshipIssuedDate = txtIssueDate.Text.Trim();
@@ -361,6 +425,7 @@ namespace Land_Readjustment_Tool.Forms.Land_Owners_Record
                     _ = MessageBox.Show("Owner details updated successfully!", "Success",
                         MessageBoxButtons.OK, MessageBoxIcon.Information);
 
+                    _hasChanges = true;
                     SetReadOnlyMode(true);
                 }
             }
@@ -405,6 +470,7 @@ namespace Land_Readjustment_Tool.Forms.Land_Owners_Record
             btnSave.Enabled = true;
             btnCancel.Enabled = true;
             btnUploadChangePhoto.Enabled = true;
+            _readOnlyMode = false;
             //chkEdit.Text = "Stop Editing";
             this.Text = "Land Owner Details";
         }
@@ -414,11 +480,19 @@ namespace Land_Readjustment_Tool.Forms.Land_Owners_Record
         {
             if (_owner == null) return;
 
-            using var docsForm = new frmOwnerDocuments(_projectPath, _owner, _landRecordsService, _readOnlyMode);
-            _ = docsForm.ShowDialog();
+            using var docsForm = new frmOwnerDocuments(
+                _owner,
+                _landRecordsService,
+                _ownerFileStorageService,
+                _readOnlyMode);
+            var result = docsForm.ShowDialog();
 
             // Refresh summary after closing documents form
             LoadOwnerSummary();
+            if (result == DialogResult.OK)
+            {
+                _hasChanges = true;
+            }
         }
 
         private void frmLandOwnerDetails_Load(object sender, EventArgs e)
@@ -445,6 +519,28 @@ namespace Land_Readjustment_Tool.Forms.Land_Owners_Record
             Close();
         }
 
+        protected override void OnFormClosing(FormClosingEventArgs e)
+        {
+            if (_hasChanges && DialogResult == DialogResult.None)
+            {
+                DialogResult = DialogResult.OK;
+            }
+
+            base.OnFormClosing(e);
+        }
+
+        protected override void OnFormClosed(FormClosedEventArgs e)
+        {
+            var image = picPhoto?.Image;
+            if (picPhoto != null)
+            {
+                picPhoto.Image = null;
+            }
+            image?.Dispose();
+
+            base.OnFormClosed(e);
+        }
+
         private void btnUploadChangePhoto_Click(object sender, EventArgs e)
         {
             using var ofd = new OpenFileDialog();
@@ -460,8 +556,8 @@ namespace Land_Readjustment_Tool.Forms.Land_Owners_Record
                 {
                     // In add mode, just store the photo temporarily and display it
                     _tempPhotoPath = ofd.FileName;
-                    picPhoto.Image = Image.FromFile(_tempPhotoPath);
-                    picPhoto.SizeMode = PictureBoxSizeMode.Zoom;
+                    var previewImage = _ownerFileStorageService.LoadPhotoFromStoredPath(_tempPhotoPath);
+                    ReplacePhotoPreview(previewImage);
 
                     _ = MessageBox.Show("Photo selected. It will be saved when you add the owner.", "Photo Selected",
                         MessageBoxButtons.OK, MessageBoxIcon.Information);
@@ -471,26 +567,14 @@ namespace Land_Readjustment_Tool.Forms.Land_Owners_Record
                     // Edit mode - save photo immediately
                     if (_owner == null) return;
 
-                    // Create OwnerPhotos folder if it doesn't exist
-                    string projectDir = Path.GetDirectoryName(_projectPath) ?? "";
-                    string photosFolder = Path.Combine(projectDir, "OwnerPhotos");
-                    _ = Directory.CreateDirectory(photosFolder);
-
-                    // Generate unique filename
-                    string extension = Path.GetExtension(ofd.FileName);
-                    string fileName = $"Owner_{_landOwnerId}{extension}";
-                    string destPath = Path.Combine(photosFolder, fileName);
-
-                    // Copy file
-                    File.Copy(ofd.FileName, destPath, overwrite: true);
-
-                    // Update database
-                    string relativePath = Path.Combine("OwnerPhotos", fileName);
+                    // Save and persist photo path
+                    string relativePath = _ownerFileStorageService.SaveOwnerPhoto(_landOwnerId, ofd.FileName);
                     _owner.PhotoPath = relativePath;
                     _landRecordsService.UpdateOwnerPhotoPath(_landOwnerId, relativePath);
 
                     // Reload photo
                     LoadPhoto();
+                    _hasChanges = true;
 
                     _ = MessageBox.Show("Photo uploaded successfully!", "Success",
                         MessageBoxButtons.OK, MessageBoxIcon.Information);
@@ -510,6 +594,12 @@ namespace Land_Readjustment_Tool.Forms.Land_Owners_Record
 
         private void chkEdit_CheckedChanged(object sender, EventArgs e)
         {
+            if (!_allowEditInReadOnly)
+            {
+                chkEdit.Checked = false;
+                return;
+            }
+
             if (chkEdit.Checked)
             {
                 enableEditing();

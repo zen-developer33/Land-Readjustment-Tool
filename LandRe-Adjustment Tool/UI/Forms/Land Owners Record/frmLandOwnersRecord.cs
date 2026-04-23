@@ -12,28 +12,34 @@ namespace Land_Readjustment_Tool.Forms
     public partial class frmLandOwnersRecord : Form
     {
         private readonly string _projectPath;
-        private LandRecordsService _landRecordsService = null!;
+        private readonly LandRecordsService _landRecordsService;
         private List<LandOwner> _allOwners = [];
         private List<LandOwner> _filteredOwners = [];
         private BindingList<LandOwnerDisplayModel> _displayedOwners = [];
 
         public frmLandOwnersRecord()
+            : this(CreateDefaultLandRecordsService(out var projectPath), projectPath)
+        {
+        }
+
+        public frmLandOwnersRecord(LandRecordsService landRecordsService, string projectPath)
         {
             InitializeComponent();
-            if (!AppServices.HasContext)
-                throw new InvalidOperationException("No open project context found.");
-
-            _projectPath = AppServices.Context.ProjectFilePath;
+            _landRecordsService = landRecordsService ?? throw new ArgumentNullException(nameof(landRecordsService));
+            _projectPath = projectPath ?? throw new ArgumentNullException(nameof(projectPath));
             Text = "Land Owners Record";
 
-            InitializeService();
             SetupEventHandlers();
             SetupDataGridView();
         }
 
-        private void InitializeService()
+        private static LandRecordsService CreateDefaultLandRecordsService(out string projectPath)
         {
-            _landRecordsService = new LandRecordsService(AppServices.Context.Session, _projectPath);
+            if (!AppServices.HasContext)
+                throw new InvalidOperationException("No open project context found.");
+
+            projectPath = AppServices.Context.ProjectFilePath;
+            return new LandRecordsService(AppServices.Context.Session, projectPath);
         }
 
         private void SetupEventHandlers()
@@ -143,6 +149,8 @@ namespace Land_Readjustment_Tool.Forms
                     MessageBoxButtons.OK, MessageBoxIcon.Error);
                 _allOwners = [];
                 _filteredOwners = [];
+                BindOwnersToGrid(_filteredOwners);
+                UpdateStatusLabels();
             }
             finally
             {
@@ -152,8 +160,11 @@ namespace Land_Readjustment_Tool.Forms
 
         private void BindOwnersToGrid(List<LandOwner> owners)
         {
+            var ownerStats = _landRecordsService.GetOwnerParcelStats();
             var displayModels = owners.Select(o => new LandOwnerDisplayModel
             {
+                ParcelCount = ownerStats.TryGetValue(o.LandOwnerId, out var stats) ? stats.ParcelCount : 0,
+                TotalAreaSqm = stats?.TotalAreaSqm ?? 0,
                 LandOwnerId = o.LandOwnerId,
                 LandOwnersName = o.LandOwnersName ?? "",
                 FatherSpouse = o.FatherSpouse ?? "",
@@ -162,10 +173,9 @@ namespace Land_Readjustment_Tool.Forms
                 IssuedDistrict = o.CitizenshipIssuedDistrict ?? "",
                 IssuedDate = o.CitizenshipIssuedDate ?? "",
                 PermanentAddress = o.PermanentAddress ?? "",
+                TemporaryAddress = o.TemporaryAddress ?? "",
                 ContactNumber = o.ContactNumber ?? "",
-                EmailID = o.EmailID ?? "",
-                ParcelCount = _landRecordsService.GetParcelsByOwnerId(o.LandOwnerId).Count,
-                TotalAreaSqm = _landRecordsService.GetTotalAreaByOwnerId(o.LandOwnerId)
+                EmailID = o.EmailID ?? ""
             }).ToList();
 
             _displayedOwners = new BindingList<LandOwnerDisplayModel>(displayModels);
@@ -192,7 +202,7 @@ namespace Land_Readjustment_Tool.Forms
 
         private void ApplySearch()
         {
-            string searchText = txtSearch.Text?.Trim().ToLower() ?? "";
+            string searchText = txtSearch.Text?.Trim() ?? "";
 
             if (string.IsNullOrWhiteSpace(searchText))
             {
@@ -201,10 +211,11 @@ namespace Land_Readjustment_Tool.Forms
             else
             {
                 _filteredOwners = _allOwners.Where(o =>
-                    (o.LandOwnersName?.ToLower().Contains(searchText) ?? false) ||
-                    (o.FatherSpouse?.ToLower().Contains(searchText) ?? false) ||
-                    (o.CitizenshipNumber?.ToLower().Contains(searchText) ?? false) ||
-                    (o.PermanentAddress?.ToLower().Contains(searchText) ?? false)
+                    (o.LandOwnersName?.Contains(searchText, StringComparison.OrdinalIgnoreCase) ?? false) ||
+                    (o.FatherSpouse?.Contains(searchText, StringComparison.OrdinalIgnoreCase) ?? false) ||
+                    (o.CitizenshipNumber?.Contains(searchText, StringComparison.OrdinalIgnoreCase) ?? false) ||
+                    (o.PermanentAddress?.Contains(searchText, StringComparison.OrdinalIgnoreCase) ?? false) ||
+                    (o.TemporaryAddress?.Contains(searchText, StringComparison.OrdinalIgnoreCase) ?? false)
                 ).ToList();
             }
 
@@ -214,7 +225,7 @@ namespace Land_Readjustment_Tool.Forms
 
         private void BtnAdd_Click(object? sender, EventArgs e)
         {
-            using var addForm = new frmLandOwnerDetails();
+            using var addForm = new frmLandOwnerDetails(_landRecordsService, _projectPath);
             if (addForm.ShowDialog() == DialogResult.OK)
             {
                 LoadOwners();
@@ -232,7 +243,11 @@ namespace Land_Readjustment_Tool.Forms
             if (dgvRecords.SelectedRows[0].DataBoundItem is not LandOwnerDisplayModel model)
                 return;
 
-            using var detailsForm = new frmLandOwnerDetails(model.LandOwnerId, readOnlyMode: true);
+            using var detailsForm = new frmLandOwnerDetails(
+                model.LandOwnerId,
+                readOnlyMode: true,
+                _landRecordsService,
+                _projectPath);
             if (detailsForm.ShowDialog() == DialogResult.OK)
             {
                 LoadOwners();
@@ -341,6 +356,7 @@ namespace Land_Readjustment_Tool.Forms
         public string IssuedDistrict { get; set; } = "";
         public string IssuedDate { get; set; } = "";
         public string PermanentAddress { get; set; } = "";
+        public string TemporaryAddress { get; set; } = "";
         public string ContactNumber { get; set; } = "";
         public string EmailID { get; set; } = "";
         public int ParcelCount { get; set; }

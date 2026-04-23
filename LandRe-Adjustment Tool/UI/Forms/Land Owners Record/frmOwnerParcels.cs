@@ -9,22 +9,24 @@ namespace Land_Readjustment_Tool.Forms
         public partial class frmOwnerParcels : Form
         {
             private readonly LandOwner _owner;
-        private readonly LandRecordsService _landRecordsService;
+            private readonly LandRecordsService _landRecordsService;
+            private readonly string _traditionalAreaUnit;
 
-        public frmOwnerParcels(LandOwner owner, LandRecordsService landRecordsService)
-        {
-            InitializeComponent();
-            _owner = owner;
-            _landRecordsService = landRecordsService;
+            public frmOwnerParcels(LandOwner owner, LandRecordsService landRecordsService)
+            {
+                InitializeComponent();
+                _owner = owner;
+                _landRecordsService = landRecordsService;
+                _traditionalAreaUnit = _landRecordsService.GetTraditionalAreaUnit();
 
-            Text = $"Parcels - {_owner.LandOwnersName}";
-            SetupColumns();
-            LoadParcels();
+                Text = $"Parcels - {_owner.LandOwnersName}";
+                SetupColumns();
+                ApplyTraditionalAreaUnitColumns();
+                LoadParcels();
 
-            // Wire up event to populate serial numbers after data binding
-            dgvParcels.DataBindingComplete += DgvParcels_DataBindingComplete;
-            
-        }
+                // Wire up event to populate serial numbers after data binding
+                dgvParcels.DataBindingComplete += DgvParcels_DataBindingComplete;
+            }
 
         private void SetupColumns()
         {
@@ -87,6 +89,23 @@ namespace Land_Readjustment_Tool.Forms
                 DataPropertyName = dataPropertyName,
                 Width = width
             });
+        }
+
+        private void ApplyTraditionalAreaUnitColumns()
+        {
+            bool showBkd = string.Equals(_traditionalAreaUnit, "BKD", StringComparison.OrdinalIgnoreCase);
+
+            var rapdColumn = dgvParcels.Columns["AreaInRAPD"];
+            if (rapdColumn != null)
+            {
+                rapdColumn.Visible = !showBkd;
+            }
+
+            var bkdColumn = dgvParcels.Columns["AreaInBKD"];
+            if (bkdColumn != null)
+            {
+                bkdColumn.Visible = showBkd;
+            }
         }
 
         private void LoadParcels()

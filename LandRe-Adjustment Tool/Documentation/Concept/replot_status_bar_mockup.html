@@ -1,0 +1,246 @@
+<style>
+  .app-window { background: #1a2332; border-radius: 8px; overflow: hidden; font-family: var(--font-sans); }
+  .titlebar { background: #111820; padding: 8px 16px; display: flex; align-items: center; gap: 8px; border-bottom: 1px solid #0a0f16; }
+  .dot { width: 12px; height: 12px; border-radius: 50%; }
+  .menu-bar { background: #1a2332; border-bottom: 1px solid #243040; padding: 2px 8px; display: flex; gap: 2px; }
+  .menu-item { color: #8ba0b8; font-size: 12px; padding: 3px 10px; border-radius: 4px; cursor: pointer; }
+  .menu-item:hover { background: #243040; color: #c8d8e8; }
+  .toolbar { background: #1e2a3a; border-bottom: 1px solid #243040; padding: 4px 8px; display: flex; align-items: center; gap: 6px; }
+  .tool-btn { background: transparent; border: 1px solid transparent; border-radius: 4px; color: #8ba0b8; font-size: 11px; padding: 3px 8px; cursor: pointer; white-space: nowrap; }
+  .tool-btn.active { background: #2a4060; border-color: #3a6090; color: #7ab4e8; }
+  .sep { width: 1px; height: 20px; background: #2a3848; margin: 0 2px; }
+  .workspace { display: flex; background: #1a2332; min-height: 180px; }
+  .left-panel { width: 36px; background: #1e2a3a; border-right: 1px solid #243040; display: flex; flex-direction: column; align-items: center; padding: 6px 0; gap: 4px; }
+  .side-btn { width: 28px; height: 28px; border-radius: 4px; background: transparent; border: 1px solid transparent; cursor: pointer; display: flex; align-items: center; justify-content: center; }
+  .side-btn svg { width: 16px; height: 16px; fill: none; stroke: #607888; stroke-width: 1.5; stroke-linecap: round; }
+  .side-btn.active { background: #2a4060; border-color: #3a6090; }
+  .side-btn.active svg { stroke: #7ab4e8; }
+  .canvas-area { flex: 1; background: #1e2933; position: relative; min-height: 180px; overflow: hidden; }
+  .grid-line-h { position: absolute; left: 0; right: 0; height: 1px; background: rgba(42,58,72,0.6); }
+  .grid-line-v { position: absolute; top: 0; bottom: 0; width: 1px; background: rgba(42,58,72,0.6); }
+  .parcel { position: absolute; border: 1.5px solid #4a9060; background: rgba(40,120,60,0.12); }
+  .parcel.selected { border-color: #5bc8ff; background: rgba(91,200,255,0.10); }
+  .parcel-label { position: absolute; font-size: 9px; color: #6ab880; font-family: monospace; top: 3px; left: 4px; }
+  .cursor-dot { position: absolute; width: 8px; height: 8px; border: 1.5px solid #5bc8ff; border-radius: 50%; transform: translate(-50%,-50%); }
+  .snap-box { position: absolute; width: 10px; height: 10px; border: 1.5px solid #44ff88; transform: translate(-50%,-50%); }
+  .crosshair-h { position: absolute; height: 1px; background: rgba(91,200,255,0.25); left: 0; right: 0; }
+  .crosshair-v { position: absolute; width: 1px; background: rgba(91,200,255,0.25); top: 0; bottom: 0; }
+
+  .status-bar { 
+    background: #111820; 
+    border-top: 1px solid #243040; 
+    height: 26px;
+    display: flex;
+    align-items: stretch;
+    font-family: monospace;
+    font-size: 12px;
+  }
+  .sb-panel {
+    display: flex;
+    align-items: center;
+    padding: 0 10px;
+    border-right: 1px solid #1e2a38;
+    gap: 5px;
+    white-space: nowrap;
+    cursor: default;
+  }
+  .sb-panel:last-child { border-right: none; }
+  .sb-panel:hover { background: #1a2838; }
+  .sb-label { color: #4a6070; font-size: 10px; }
+  .sb-value { color: #90b8d0; }
+  .sb-value.green { color: #4ec870; }
+  .sb-value.amber { color: #e0a030; }
+  .sb-value.blue { color: #5bc8ff; }
+  .sb-value.red { color: #e05050; }
+  .sb-spacer { flex: 1; }
+  .sb-dot { width: 7px; height: 7px; border-radius: 50%; background: #4ec870; }
+  .sb-dot.amber { background: #e0a030; }
+
+  .annotation-area { padding: 16px; }
+  .ann-row { display: flex; align-items: flex-start; gap: 10px; margin-bottom: 14px; }
+  .ann-num { min-width: 22px; height: 22px; border-radius: 50%; background: var(--color-background-info); color: var(--color-text-info); font-size: 12px; font-weight: 500; display: flex; align-items: center; justify-content: center; flex-shrink: 0; }
+  .ann-text { font-size: 13px; color: var(--color-text-primary); line-height: 1.5; }
+  .ann-sub { font-size: 12px; color: var(--color-text-secondary); margin-top: 2px; font-family: var(--font-mono); }
+</style>
+
+<div style="padding: 0.5rem 0;">
+
+<div class="app-window">
+  <div class="titlebar">
+    <div class="dot" style="background:#e05050"></div>
+    <div class="dot" style="background:#e0a030"></div>
+    <div class="dot" style="background:#4ec870"></div>
+    <span style="color:#607888;font-size:12px;margin-left:8px">Ward5_Replot* — RePlot</span>
+  </div>
+
+  <div class="menu-bar">
+    <span class="menu-item">File</span>
+    <span class="menu-item">Edit</span>
+    <span class="menu-item">View</span>
+    <span class="menu-item">Draw</span>
+    <span class="menu-item">Replot</span>
+    <span class="menu-item">Tools</span>
+  </div>
+
+  <div class="toolbar">
+    <button class="tool-btn">New</button>
+    <button class="tool-btn">Open</button>
+    <button class="tool-btn">Save</button>
+    <div class="sep"></div>
+    <button class="tool-btn">Undo</button>
+    <button class="tool-btn">Redo</button>
+    <div class="sep"></div>
+    <button class="tool-btn active">Select</button>
+    <button class="tool-btn">Polyline</button>
+    <button class="tool-btn">Split</button>
+    <button class="tool-btn">Merge</button>
+    <div class="sep"></div>
+    <button class="tool-btn">Snap ✓</button>
+    <button class="tool-btn">Grid ✓</button>
+  </div>
+
+  <div class="workspace">
+    <div class="left-panel">
+      <div class="side-btn active">
+        <svg viewBox="0 0 16 16"><path d="M3 3 L13 8 L3 13 L3 3Z"/></svg>
+      </div>
+      <div class="side-btn">
+        <svg viewBox="0 0 16 16"><path d="M3 3L13 3L13 13L3 13Z"/></svg>
+      </div>
+      <div class="side-btn">
+        <svg viewBox="0 0 16 16"><circle cx="8" cy="8" r="5"/></svg>
+      </div>
+      <div class="side-btn">
+        <svg viewBox="0 0 16 16"><path d="M3 13L8 3L13 13"/></svg>
+      </div>
+      <div class="side-btn">
+        <svg viewBox="0 0 16 16"><path d="M2 6h12M6 2v12"/></svg>
+      </div>
+    </div>
+
+    <div class="canvas-area" id="canvas">
+      <div class="grid-line-h" style="top:30px"></div>
+      <div class="grid-line-h" style="top:60px"></div>
+      <div class="grid-line-h" style="top:90px"></div>
+      <div class="grid-line-h" style="top:120px"></div>
+      <div class="grid-line-h" style="top:150px"></div>
+      <div class="grid-line-v" style="left:60px"></div>
+      <div class="grid-line-v" style="left:120px"></div>
+      <div class="grid-line-v" style="left:180px"></div>
+      <div class="grid-line-v" style="left:240px"></div>
+      <div class="grid-line-v" style="left:300px"></div>
+      <div class="grid-line-v" style="left:360px"></div>
+      <div class="grid-line-v" style="left:420px"></div>
+      <div class="grid-line-v" style="left:480px"></div>
+
+      <div class="parcel" style="left:30px;top:20px;width:110px;height:80px;">
+        <span class="parcel-label">P-001</span>
+      </div>
+      <div class="parcel selected" style="left:155px;top:20px;width:90px;height:80px;">
+        <span class="parcel-label" style="color:#5bc8ff">P-002</span>
+      </div>
+      <div class="parcel" style="left:260px;top:20px;width:130px;height:80px;">
+        <span class="parcel-label">P-003</span>
+      </div>
+      <div class="parcel" style="left:30px;top:115px;width:90px;height:55px;">
+        <span class="parcel-label">P-004</span>
+      </div>
+      <div class="parcel" style="left:135px;top:115px;width:110px;height:55px;">
+        <span class="parcel-label">P-005</span>
+      </div>
+
+      <div class="crosshair-h" style="top:58px"></div>
+      <div class="crosshair-v" style="left:200px"></div>
+      <div class="cursor-dot" style="left:200px;top:58px"></div>
+      <div class="snap-box" style="left:200px;top:58px"></div>
+    </div>
+  </div>
+
+  <div class="status-bar">
+    <div class="sb-panel">
+      <div class="sb-dot"></div>
+      <span class="sb-value green">Ward5_Replot</span>
+    </div>
+
+    <div class="sb-panel">
+      <span class="sb-label">Tool</span>
+      <span class="sb-value blue">Select</span>
+    </div>
+
+    <div class="sb-panel">
+      <span class="sb-label">X</span>
+      <span class="sb-value">383,241.84</span>
+      <span class="sb-label" style="margin-left:4px">Y</span>
+      <span class="sb-value">3,012,874.62</span>
+    </div>
+
+    <div class="sb-panel">
+      <span class="sb-label">Snap</span>
+      <span class="sb-value green">Endpoint</span>
+    </div>
+
+    <div class="sb-panel">
+      <span class="sb-label">Zoom</span>
+      <span class="sb-value">1 : 500</span>
+    </div>
+
+    <div class="sb-panel">
+      <span class="sb-label">Layer</span>
+      <span class="sb-value">Parcels</span>
+    </div>
+
+    <div class="sb-panel">
+      <span class="sb-label">Selected</span>
+      <span class="sb-value amber">P-002  ·  342.5 m²</span>
+    </div>
+
+    <div class="sb-spacer"></div>
+
+    <div class="sb-panel">
+      <span class="sb-label">Shapes</span>
+      <span class="sb-value">127</span>
+    </div>
+
+    <div class="sb-panel">
+      <span class="sb-label">Unsaved</span>
+      <div class="sb-dot amber"></div>
+    </div>
+  </div>
+</div>
+
+<div class="annotation-area">
+  <div class="ann-row">
+    <div class="ann-num">1</div>
+    <div><div class="ann-text">Project name + save state</div><div class="ann-sub">Green dot = saved · Amber dot = unsaved changes (*)</div></div>
+  </div>
+  <div class="ann-row">
+    <div class="ann-num">2</div>
+    <div><div class="ann-text">Active tool</div><div class="ann-sub">Select · Polyline · Split · Move · etc.</div></div>
+  </div>
+  <div class="ann-row">
+    <div class="ann-num">3</div>
+    <div><div class="ann-text">Live world coordinates (X, Y)</div><div class="ann-sub">Updated every MouseMove. Real UTM/survey coords — not screen pixels.</div></div>
+  </div>
+  <div class="ann-row">
+    <div class="ann-num">4</div>
+    <div><div class="ann-text">Active snap type</div><div class="ann-sub">Endpoint · Midpoint · Intersection · Perpendicular · Off</div></div>
+  </div>
+  <div class="ann-row">
+    <div class="ann-num">5</div>
+    <div><div class="ann-text">Zoom / scale</div><div class="ann-sub">1:500 · 1:1000 · 150% — matches drawing scale</div></div>
+  </div>
+  <div class="ann-row">
+    <div class="ann-num">6</div>
+    <div><div class="ann-text">Active layer</div><div class="ann-sub">Parcels · Roads · Boundaries · Annotations</div></div>
+  </div>
+  <div class="ann-row">
+    <div class="ann-num">7</div>
+    <div><div class="ann-text">Selected object info</div><div class="ann-sub">Parcel number + area in m² when one parcel is selected</div></div>
+  </div>
+  <div class="ann-row">
+    <div class="ann-num">8</div>
+    <div><div class="ann-text">Total shape count</div><div class="ann-sub">How many objects are currently loaded in the canvas</div></div>
+  </div>
+</div>
+
+</div>

@@ -11,53 +11,39 @@ namespace Land_Readjustment_Tool.Forms
     /// </summary>
     public partial class frmOwnerDocuments : Form
     {
-        private readonly string _projectPath;
         private readonly LandOwner _owner;
         private readonly LandRecordsService _landRecordsService;
+        private readonly OwnerFileStorageService _ownerFileStorageService;
+        private bool _hasChanges;
 
 
-        public frmOwnerDocuments(string projectPath, LandOwner owner, LandRecordsService landRecordsService, bool isReadOnly)
+        public frmOwnerDocuments(
+            LandOwner owner,
+            LandRecordsService landRecordsService,
+            OwnerFileStorageService ownerFileStorageService,
+            bool isReadOnly)
         {
-            
             InitializeComponent();
-            _projectPath = projectPath;
             _owner = owner;
             _landRecordsService = landRecordsService;
-            
-              Text = $"Documents - {_owner.LandOwnersName}";
+            _ownerFileStorageService = ownerFileStorageService;
+
+            Text = $"Documents - {_owner.LandOwnersName}";
             LoadDocuments();
             btnAttach.Enabled = !isReadOnly;
             btnDelete.Enabled = !isReadOnly;
-            
+            btnClose.Click += btnClose_Click;
         }
 
         private void LoadDocuments()
         {
             dgvDocuments.Rows.Clear();
 
-            if (string.IsNullOrWhiteSpace(_owner.DocumentsFolderPath))
-            {
-                lblDocCount.Text = "Documents: 0";
-                return;
-            }
-
-            string docsFolder = Path.Combine(
-                Path.GetDirectoryName(_projectPath)!,
-                _owner.DocumentsFolderPath
-            );
-
-            if (!Directory.Exists(docsFolder))
-            {
-                lblDocCount.Text = "Documents: 0";
-                return;
-            }
-
             try
             {
-                var files = Directory.GetFiles(docsFolder);
-                foreach (var file in files)
+                var files = _ownerFileStorageService.GetDocuments(_owner.DocumentsFolderPath);
+                foreach (var info in files)
                 {
-                    var info = new FileInfo(file);
                     string size = info.Length < 1024
                         ? $"{info.Length} B"
                         : info.Length < 1024 * 1024
@@ -67,7 +53,7 @@ namespace Land_Readjustment_Tool.Forms
                     dgvDocuments.Rows.Add(info.Name, info.Extension.TrimStart('.').ToUpper(), size);
                 }
 
-                lblDocCount.Text = $"Documents: {files.Length}";
+                lblDocCount.Text = $"Documents: {files.Count}";
             }
             catch (Exception ex)
             {
@@ -78,23 +64,16 @@ namespace Land_Readjustment_Tool.Forms
 
         private string GetDocumentsFolder()
         {
-            string docsFolder = Path.Combine(
-                Path.GetDirectoryName(_projectPath)!,
-                "Documents",
-                $"LandOwner_{_owner.LandOwnerId}"
-            );
-
-            Directory.CreateDirectory(docsFolder);
+            var (absolutePath, relativePath) = _ownerFileStorageService.EnsureOwnerDocumentsFolder(_owner.LandOwnerId);
 
             // Ensure database has the folder path
-            string relativePath = Path.Combine("Documents", $"LandOwner_{_owner.LandOwnerId}");
-            if (_owner.DocumentsFolderPath != relativePath)
+            if (!string.Equals(_owner.DocumentsFolderPath, relativePath, StringComparison.OrdinalIgnoreCase))
             {
                 _landRecordsService.UpdateOwnerDocumentsFolder(_owner.LandOwnerId, relativePath);
                 _owner.DocumentsFolderPath = relativePath;
             }
 
-            return docsFolder;
+            return absolutePath;
         }
 
         private void btnAttach_Click(object sender, EventArgs e)
@@ -111,26 +90,15 @@ namespace Land_Readjustment_Tool.Forms
             {
                 string docsFolder = GetDocumentsFolder();
 
-                foreach (string filePath in ofd.FileNames)
-                {
-                    string fileName = Path.GetFileName(filePath);
-                    string destPath = Path.Combine(docsFolder, fileName);
-
-                    int counter = 1;
-                    while (File.Exists(destPath))
-                    {
-                        string nameWithoutExt = Path.GetFileNameWithoutExtension(fileName);
-                        string extension = Path.GetExtension(fileName);
-                        destPath = Path.Combine(docsFolder, $"{nameWithoutExt}_{counter}{extension}");
-                        counter++;
-                    }
-
-                    File.Copy(filePath, destPath);
-                }
+                var attachedCount = _ownerFileStorageService.AttachDocuments(docsFolder, ofd.FileNames);
 
                 LoadDocuments();
+                if (attachedCount > 0)
+                {
+                    _hasChanges = true;
+                }
 
-                MessageBox.Show($"{ofd.FileNames.Length} document(s) attached successfully!", "Success",
+                MessageBox.Show($"{attachedCount} document(s) attached successfully!", "Success",
                     MessageBoxButtons.OK, MessageBoxIcon.Information);
             }
             catch (Exception ex)
@@ -167,17 +135,15 @@ namespace Land_Readjustment_Tool.Forms
 
             try
             {
-                string docsFolder = Path.Combine(
-                    Path.GetDirectoryName(_projectPath)!,
-                    _owner.DocumentsFolderPath!
-                );
-
-                string filePath = Path.Combine(docsFolder, fileName);
-
-                if (File.Exists(filePath))
+                if (_ownerFileStorageService.DeleteDocument(_owner.DocumentsFolderPath, fileName))
                 {
-                    File.Delete(filePath);
                     LoadDocuments();
+                    _hasChanges = true;
+                }
+                else
+                {
+                    MessageBox.Show("Document could not be deleted because it no longer exists.", "Not Found",
+                        MessageBoxButtons.OK, MessageBoxIcon.Information);
                 }
             }
             catch (Exception ex)
@@ -203,10 +169,9 @@ namespace Land_Readjustment_Tool.Forms
 
             try
             {
-                string docsFolder = Path.Combine(
-                    Path.GetDirectoryName(_projectPath)!,
-                    _owner.DocumentsFolderPath
-                );
+                var docsFolder = _ownerFileStorageService.ResolveStoredPath(_owner.DocumentsFolderPath);
+                if (string.IsNullOrWhiteSpace(docsFolder))
+                    return;
 
                 string filePath = Path.Combine(docsFolder, fileName);
 
@@ -229,6 +194,21 @@ namespace Land_Readjustment_Tool.Forms
         private void frmOwnerDocuments_Load(object sender, EventArgs e)
         {
 
+        }
+
+        private void btnClose_Click(object? sender, EventArgs e)
+        {
+            Close();
+        }
+
+        protected override void OnFormClosing(FormClosingEventArgs e)
+        {
+            if (_hasChanges && DialogResult == DialogResult.None)
+            {
+                DialogResult = DialogResult.OK;
+            }
+
+            base.OnFormClosing(e);
         }
     }
 }

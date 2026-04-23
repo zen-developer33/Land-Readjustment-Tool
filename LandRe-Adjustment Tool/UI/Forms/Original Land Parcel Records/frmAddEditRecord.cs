@@ -7,7 +7,6 @@ namespace Land_Readjustment_Tool.Forms
 {
     public partial class frmAddEditRecord : Form
     {
-        private bool _isEditMode = false;
         private bool _ownerFieldsReadOnly = false;
         private BaselineLandParceRecord _currentRecord = new();
         private int _recordIndex = -1;
@@ -89,7 +88,6 @@ namespace Land_Readjustment_Tool.Forms
 
         private void SetAddMode()
         {
-            _isEditMode = false;
             this.Text = "Add New Parcel Record";
             btnAdd.Visible = true;
 
@@ -101,7 +99,6 @@ namespace Land_Readjustment_Tool.Forms
 
         private void SetEditMode()
         {
-            _isEditMode = true;
             this.Text = "Edit Parcel Record";
             btnAdd.Visible = false;
             btnUpdate.Visible = true;
@@ -186,16 +183,7 @@ namespace Land_Readjustment_Tool.Forms
 
             txtLandOwnersName.Text = owner.LandOwnersName ?? "";
             txtFatherSpouse.Text = owner.FatherSpouse ?? "";
-
-            if (!string.IsNullOrWhiteSpace(owner.Gender))
-            {
-                int genderIndex = cmbGender.FindStringExact(owner.Gender);
-                cmbGender.SelectedIndex = genderIndex >= 0 ? genderIndex : -1;
-            }
-            else
-            {
-                cmbGender.SelectedIndex = -1;
-            }
+            SetComboValue(cmbGender, owner.Gender);
 
             txtCitizenshipNumber.Text = owner.CitizenshipNumber ?? "";
             txtIssueDistrict.Text = owner.CitizenshipIssuedDistrict ?? "";
@@ -310,12 +298,7 @@ namespace Land_Readjustment_Tool.Forms
             // Owner Information
             txtLandOwnersName.Text = _currentRecord.LandOwnersName ?? "";
             txtFatherSpouse.Text = _currentRecord.FatherSpouse ?? "";
-
-            if (!string.IsNullOrWhiteSpace(_currentRecord.Gender))
-            {
-                int genderIndex = cmbGender.FindStringExact(_currentRecord.Gender);
-                cmbGender.SelectedIndex = genderIndex >= 0 ? genderIndex : -1;
-            }
+            SetComboValue(cmbGender, _currentRecord.Gender);
 
             // Citizenship Information
             txtCitizenshipNumber.Text = _currentRecord.CitizenshipNumber ?? "";
@@ -330,20 +313,8 @@ namespace Land_Readjustment_Tool.Forms
 
             // Other Parcel Information
             txtTenant.Text = _currentRecord.Tenant ?? "";
-
-            if (!string.IsNullOrWhiteSpace(_currentRecord.LandOwnershipType))
-            {
-                int ownershipIndex = cbOwnershipType.FindStringExact(_currentRecord.LandOwnershipType);
-                cbOwnershipType.SelectedIndex = ownershipIndex >= 0 ? ownershipIndex : -1;
-                if (ownershipIndex < 0)
-                    cbOwnershipType.Text = _currentRecord.LandOwnershipType;
-            }
-
-            if (!string.IsNullOrWhiteSpace(_currentRecord.LandUse))
-            {
-                int landUseIndex = cmbLandUse.FindStringExact(_currentRecord.LandUse);
-                cmbLandUse.SelectedIndex = landUseIndex >= 0 ? landUseIndex : -1;
-            }
+            SetComboValue(cbOwnershipType, _currentRecord.LandOwnershipType);
+            SetComboValue(cmbLandUse, _currentRecord.LandUse);
 
             // Area Information
             txtAreaInSqm.Text = _currentRecord.AreaInSqm?.ToString() ?? "";
@@ -375,7 +346,7 @@ namespace Land_Readjustment_Tool.Forms
                 // Owner Information
                 LandOwnersName = txtLandOwnersName.Text.Trim(),
                 FatherSpouse = txtFatherSpouse.Text.Trim(),
-                Gender = cmbGender.SelectedItem?.ToString() ?? "",
+                Gender = cmbGender.Text.Trim(),
 
                 // Citizenship Information
                 CitizenshipNumber = txtCitizenshipNumber.Text.Trim(),
@@ -391,7 +362,7 @@ namespace Land_Readjustment_Tool.Forms
                 // Other Parcel Information
                 Tenant = txtTenant.Text.Trim(),
                 LandOwnershipType = cbOwnershipType.SelectedItem?.ToString() ?? cbOwnershipType.Text.Trim(),
-                LandUse = cmbLandUse.SelectedItem?.ToString() ?? "",
+                LandUse = cmbLandUse.SelectedItem?.ToString() ?? cmbLandUse.Text.Trim(),
 
                 // Registry References
                 MothNo = txtMothNo.Text.Trim(),
@@ -410,6 +381,39 @@ namespace Land_Readjustment_Tool.Forms
             }
 
             return record;
+        }
+
+        private static void SetComboValue(ComboBox comboBox, string? value)
+        {
+            comboBox.SelectedIndex = -1;
+
+            var normalized = value?.Trim();
+            if (string.IsNullOrWhiteSpace(normalized))
+            {
+                comboBox.Text = string.Empty;
+                return;
+            }
+
+            int index = comboBox.FindStringExact(normalized);
+            if (index >= 0)
+            {
+                comboBox.SelectedIndex = index;
+                return;
+            }
+
+            if (!comboBox.Items.Contains(normalized))
+            {
+                comboBox.Items.Add(normalized);
+            }
+
+            index = comboBox.FindStringExact(normalized);
+            if (index >= 0)
+            {
+                comboBox.SelectedIndex = index;
+                return;
+            }
+
+            comboBox.Text = normalized;
         }
 
         private bool ValidateRecord()

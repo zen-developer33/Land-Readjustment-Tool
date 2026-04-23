@@ -34,6 +34,12 @@ namespace Land_Readjustment_Tool.Services.LandData
             _projectFilePath = projectFilePath;
         }
 
+        public sealed class OwnerParcelStats
+        {
+            public int ParcelCount { get; init; }
+            public double TotalAreaSqm { get; init; }
+        }
+
         public List<LegacyLandOwner> GetAllOwners()
         {
             return _context.LandOwners
@@ -43,12 +49,44 @@ namespace Land_Readjustment_Tool.Services.LandData
                 .ToList();
         }
 
+        public Dictionary<int, OwnerParcelStats> GetOwnerParcelStats()
+        {
+            return _context.BaselineParcels
+                .AsNoTracking()
+                .GroupBy(p => p.LandOwnerId)
+                .Select(group => new
+                {
+                    OwnerId = group.Key,
+                    ParcelCount = group.Count(),
+                    TotalAreaSqm = group.Sum(p => (double?)p.OriginalAreaSqm) ?? 0
+                })
+                .ToDictionary(
+                    x => x.OwnerId,
+                    x => new OwnerParcelStats
+                    {
+                        ParcelCount = x.ParcelCount,
+                        TotalAreaSqm = x.TotalAreaSqm
+                    });
+        }
+
         public LegacyLandOwner? GetOwnerById(int ownerId)
         {
             var owner = _context.LandOwners
                 .AsNoTracking()
                 .FirstOrDefault(o => o.Id == ownerId);
             return owner == null ? null : MapOwner(owner);
+        }
+
+        public string GetTraditionalAreaUnit()
+        {
+            var unit = _context.ProjectSettings
+                .AsNoTracking()
+                .Select(s => s.TraditionalAreaUnit)
+                .FirstOrDefault();
+
+            return string.Equals(unit, "BKD", StringComparison.OrdinalIgnoreCase)
+                ? "BKD"
+                : "RAPD";
         }
 
         public List<LegacyParcel> GetAllParcelsWithOwners()
@@ -97,7 +135,9 @@ namespace Land_Readjustment_Tool.Services.LandData
                 return 0;
 
             var projectDir = Path.GetDirectoryName(_projectFilePath) ?? string.Empty;
-            var docsFolder = Path.Combine(projectDir, owner.DocumentsFolderPath);
+            var docsFolder = Path.IsPathRooted(owner.DocumentsFolderPath)
+                ? owner.DocumentsFolderPath
+                : Path.Combine(projectDir, owner.DocumentsFolderPath);
             return Directory.Exists(docsFolder) ? Directory.GetFiles(docsFolder).Length : 0;
         }
 
@@ -390,6 +430,7 @@ namespace Land_Readjustment_Tool.Services.LandData
             using var tx = _context.Database.BeginTransaction();
             try
             {
+                var ownerCache = _context.LandOwners.ToList();
                 foreach (var unique in deduplicationResult.UniqueOwners)
                 {
                     var owner = new LegacyLandOwner
@@ -405,10 +446,10 @@ namespace Land_Readjustment_Tool.Services.LandData
                         ContactNumber = unique.ContactNumber,
                         EmailID = unique.EmailID,
                         IsAnonymous = unique.IsAnonymous,
-                        CreatedDate = DateTime.Now
+                        CreatedDate = DateTime.UtcNow
                     };
 
-                    var ownerId = SaveOrGetOwnerId(owner);
+                    var ownerId = SaveOrGetOwnerId(owner, ownerCache);
                     foreach (var index in unique.ParcelIndices)
                     {
                         parcelToOwnerMap[index] = ownerId;
@@ -506,31 +547,30 @@ namespace Land_Readjustment_Tool.Services.LandData
             }
         }
 
-        private int SaveOrGetOwnerId(LegacyLandOwner owner)
+        private int SaveOrGetOwnerId(LegacyLandOwner owner, List<CoreLandOwner> ownerCache)
         {
             var normalizedName = Normalize(owner.LandOwnersName) ?? "Unknown Owner";
             var isInstitution = IsInstitutionOwnerName(normalizedName);
             var normalizedCitizenship = NormalizeCitizenship(owner.CitizenshipNumber);
             var normalizedFather = Normalize(owner.FatherSpouse) ?? string.Empty;
             CoreLandOwner? existing = null;
-            var owners = _context.LandOwners.ToList();
 
             if (isInstitution)
             {
-                existing = owners.FirstOrDefault(o =>
+                existing = ownerCache.FirstOrDefault(o =>
                     IsInstitutionOwnerName(o.FullName) &&
                     NormalizeName(o.FullName) == NormalizeName(normalizedName));
             }
             else if (!string.IsNullOrWhiteSpace(normalizedCitizenship))
             {
-                existing = owners.FirstOrDefault(o =>
+                existing = ownerCache.FirstOrDefault(o =>
                     !string.IsNullOrWhiteSpace(o.CitizenshipNumber) &&
                     NormalizeCitizenship(o.CitizenshipNumber) == normalizedCitizenship);
             }
 
             if (!isInstitution && existing == null)
             {
-                existing = owners.FirstOrDefault(o =>
+                existing = ownerCache.FirstOrDefault(o =>
                     NormalizeName(o.FullName) == NormalizeName(normalizedName) &&
                     NormalizeName(o.FatherOrSpouseName ?? string.Empty) == NormalizeName(normalizedFather));
             }
@@ -586,7 +626,14 @@ namespace Land_Readjustment_Tool.Services.LandData
                 owner.EmailID = null;
             }
 
-            return CreateOwner(owner);
+            var createdId = CreateOwner(owner);
+            var created = _context.LandOwners.FirstOrDefault(o => o.Id == createdId);
+            if (created != null)
+            {
+                ownerCache.Add(created);
+            }
+
+            return createdId;
         }
 
         private ImportSession CreateManualImportSession(string notes)
@@ -613,9 +660,11 @@ namespace Land_Readjustment_Tool.Services.LandData
             if (string.IsNullOrWhiteSpace(normalizedMoth))
                 return null;
 
+            var normalizedMothLower = normalizedMoth.ToLowerInvariant();
             var existing = _context.MalpotReferences.FirstOrDefault(m =>
                 m.LandOwnerId == ownerId &&
-                m.MothNo.ToLower() == normalizedMoth.ToLower());
+                m.MothNo != null &&
+                m.MothNo.ToLower() == normalizedMothLower);
 
             if (existing != null)
             {

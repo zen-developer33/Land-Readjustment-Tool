@@ -1,0 +1,448 @@
+<style>
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body { font-family: "Segoe UI", Tahoma, sans-serif; font-size: 12px; }
+
+  .win { background: #f0f0f0; border: 2px solid #999; width: 100%; }
+
+  /* Title bar */
+  .titlebar {
+    background: linear-gradient(to bottom, #e8e8e8, #d4d4d4);
+    border-bottom: 1px solid #aaa;
+    padding: 5px 8px;
+    display: flex; align-items: center; justify-content: space-between;
+  }
+  .tb-left { display: flex; align-items: center; gap: 6px; }
+  .tb-icon { width: 16px; height: 16px; background: #4a8a4a; border-radius: 2px; display:flex; align-items:center; justify-content:center; }
+  .tb-icon span { color: white; font-size: 9px; font-weight: bold; }
+  .tb-title { font-size: 12px; color: #222; font-weight: 400; }
+  .tb-btns { display: flex; gap: 2px; }
+  .tb-btn { width: 24px; height: 20px; background: #e0e0e0; border: 1px solid #aaa; font-size: 11px; display:flex; align-items:center; justify-content:center; cursor:pointer; color: #333; }
+  .tb-btn:hover { background: #d0d0d0; }
+  .tb-btn.close:hover { background: #e05050; color: white; }
+
+  /* Menu bar */
+  .menubar {
+    background: #f0f0f0;
+    border-bottom: 1px solid #ccc;
+    padding: 2px 0;
+    display: flex;
+  }
+  .mi { padding: 3px 10px; color: #111; font-size: 12px; cursor: pointer; }
+  .mi:hover { background: #d8e8f8; color: #000; }
+
+  /* Main layout */
+  .main-layout { display: flex; height: 420px; }
+
+  /* Left panel */
+  .left-panel {
+    width: 200px;
+    border-right: 1px solid #ccc;
+    display: flex;
+    flex-direction: column;
+    background: #f8f8f8;
+    flex-shrink: 0;
+  }
+
+  .panel-header {
+    background: #e8e8e8;
+    border-bottom: 1px solid #ccc;
+    padding: 4px 8px;
+    font-size: 12px;
+    font-weight: 600;
+    color: #222;
+  }
+
+  .layer-tree { flex: 1; padding: 4px; overflow: hidden; }
+  .tree-node { display: flex; align-items: center; gap: 4px; padding: 2px 4px; font-size: 12px; color: #333; cursor: pointer; }
+  .tree-node:hover { background: #d8e8f8; }
+  .tree-node.selected { background: #cce0ff; }
+  .tree-expand { width: 12px; height: 12px; border: 1px solid #999; display:flex; align-items:center; justify-content:center; font-size: 9px; color:#555; background: white; flex-shrink:0; }
+  .tree-check { width: 13px; height: 13px; border: 1px solid #888; background: white; flex-shrink:0; display:flex; align-items:center; justify-content:center; font-size:9px; }
+  .tree-check.checked::after { content: "✓"; color: #333; font-size:9px; }
+  .tree-label { font-size: 12px; }
+
+  .divider { height: 1px; background: #ccc; margin: 0; }
+
+  /* Layer props */
+  .lp-section { padding: 6px 8px; }
+  .lp-title { font-size: 12px; font-weight: 600; color: #222; margin-bottom: 4px; }
+  .lp-tabs { display: flex; border-bottom: 1px solid #ccc; margin-bottom: 6px; }
+  .lp-tab { padding: 3px 10px; font-size: 11px; color: #333; cursor: pointer; border: 1px solid transparent; border-bottom: none; margin-bottom: -1px; background: #e8e8e8; }
+  .lp-tab.active { background: #f8f8f8; border-color: #ccc; border-bottom-color: #f8f8f8; }
+  .lp-row { display: flex; align-items: center; margin-bottom: 5px; gap: 4px; }
+  .lp-label { width: 80px; font-size: 11px; color: #444; flex-shrink:0; }
+  .lp-input { flex:1; height: 22px; border: 1px solid #aaa; background: white; padding: 0 4px; font-size: 11px; }
+  .lp-select { flex:1; height: 22px; border: 1px solid #aaa; background: white; padding: 0 2px; font-size: 11px; appearance: none; }
+  .lp-color-box { width: 24px; height: 20px; background: #000; border: 1px solid #888; }
+  .lp-btn { padding: 2px 8px; font-size: 11px; background: #e0e0e0; border: 1px solid #aaa; cursor: pointer; height: 22px; }
+  .lp-btn:hover { background: #d0d0d0; }
+  .lp-checks { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 4px; }
+  .lp-check { display: flex; align-items: center; gap: 4px; font-size: 11px; color: #333; }
+  .cb { width: 13px; height: 13px; border: 1px solid #888; background: white; flex-shrink:0; }
+
+  /* Canvas */
+  .canvas-area {
+    flex: 1;
+    background: #e8e8e8;
+    position: relative;
+    overflow: hidden;
+  }
+  .canvas-bg {
+    position: absolute; inset: 0;
+    background: white;
+    margin: 4px;
+  }
+  /* subtle grid */
+  .canvas-bg::before {
+    content: '';
+    position: absolute; inset: 0;
+    background-image:
+      linear-gradient(rgba(180,180,200,0.3) 1px, transparent 1px),
+      linear-gradient(90deg, rgba(180,180,200,0.3) 1px, transparent 1px);
+    background-size: 40px 40px;
+  }
+  .parcel-shape {
+    position: absolute;
+    border: 1.5px solid #444;
+    background: rgba(200,220,255,0.25);
+    display: flex; align-items: center; justify-content: center;
+    font-size: 10px; color: #333;
+  }
+  .parcel-shape.selected {
+    border-color: #0078d4;
+    background: rgba(0,120,212,0.12);
+  }
+  .cursor-cross-h { position:absolute; height:1px; background: rgba(0,0,200,0.2); left:0; right:0; pointer-events:none; }
+  .cursor-cross-v { position:absolute; width:1px; background: rgba(0,0,200,0.2); top:0; bottom:0; pointer-events:none; }
+  .snap-indicator { position:absolute; width:10px; height:10px; border:1.5px solid #00a000; transform:translate(-50%,-50%); pointer-events:none; }
+
+  /* Right panel */
+  .right-panel {
+    width: 180px;
+    border-left: 1px solid #ccc;
+    background: #f8f8f8;
+    flex-shrink: 0;
+    display: flex;
+    flex-direction: column;
+  }
+
+  /* ═══════════════════════════════════════
+     STATUS BAR — this is what we're adding
+     ═══════════════════════════════════════ */
+  .status-bar {
+    height: 24px;
+    background: #f0f0f0;
+    border-top: 2px solid #999;
+    display: flex;
+    align-items: stretch;
+    font-size: 11px;
+    font-family: "Segoe UI", Tahoma, sans-serif;
+  }
+
+  .sb-panel {
+    display: flex;
+    align-items: center;
+    padding: 0 8px;
+    border-right: 1px solid #bbb;
+    gap: 4px;
+    white-space: nowrap;
+    color: #222;
+    min-width: 0;
+  }
+  .sb-panel:last-child { border-right: none; }
+
+  .sb-label {
+    color: #666;
+    font-size: 10px;
+  }
+  .sb-value {
+    color: #111;
+    font-size: 11px;
+  }
+  .sb-value.blue { color: #0055aa; font-weight: 500; }
+  .sb-value.green { color: #006600; font-weight: 500; }
+  .sb-value.red { color: #aa0000; }
+  .sb-value.orange { color: #cc6600; font-weight: 500; }
+
+  .sb-spacer { flex: 1; }
+
+  /* sunken inset panel look — classic Windows style */
+  .sb-panel {
+    border-right: 1px solid #bbb;
+    box-shadow: inset 1px 1px 0 #fff, inset -1px -1px 0 #aaa;
+    background: #ececec;
+  }
+
+  /* highlight the coordinate panel — most important */
+  .sb-panel.coords {
+    background: #e8f0ff;
+    box-shadow: inset 1px 1px 0 #fff, inset -1px -1px 0 #9ab;
+    min-width: 180px;
+    font-family: "Courier New", monospace;
+  }
+
+  .sb-panel.snap-panel {
+    min-width: 100px;
+  }
+
+  .sb-dot {
+    width: 8px; height: 8px; border-radius: 50%;
+    flex-shrink: 0;
+  }
+  .sb-dot.green { background: #008800; }
+  .sb-dot.orange { background: #cc6600; }
+  .sb-dot.gray { background: #aaa; }
+
+  /* annotation table below */
+  .ann-table { width: 100%; border-collapse: collapse; font-size: 13px; margin-top: 14px; }
+  .ann-table th { background: #e0e8f0; text-align: left; padding: 6px 10px; font-size: 12px; color: #333; border-bottom: 2px solid #c0cce0; }
+  .ann-table td { padding: 6px 10px; border-bottom: 1px solid #e8e8e8; vertical-align: top; color: var(--color-text-primary); font-size: 12px; }
+  .ann-table tr:nth-child(even) td { background: #f8f8f8; }
+  .panel-label { display: inline-block; background: #dde8f8; color: #1a4a80; border: 1px solid #b0c8e8; border-radius: 3px; padding: 1px 7px; font-size: 11px; font-family: "Courier New", monospace; }
+  .event-label { display: inline-block; background: #f0ffe0; color: #2a6600; border: 1px solid #b0d890; border-radius: 3px; padding: 1px 7px; font-size: 11px; font-family: "Courier New", monospace; }
+</style>
+
+<div style="padding: 0.5rem 0;">
+
+<div class="win">
+
+  <!-- Title bar -->
+  <div class="titlebar">
+    <div class="tb-left">
+      <div class="tb-icon"><span>R</span></div>
+      <span class="tb-title">Baireni land Pooling Project - RePlot</span>
+    </div>
+    <div class="tb-btns">
+      <div class="tb-btn">&#8211;</div>
+      <div class="tb-btn">&#9633;</div>
+      <div class="tb-btn close">&#10005;</div>
+    </div>
+  </div>
+
+  <!-- Menu bar -->
+  <div class="menubar">
+    <span class="mi">File</span>
+    <span class="mi">Project</span>
+    <span class="mi">Data</span>
+    <span class="mi">Contribution</span>
+    <span class="mi">Replotting</span>
+    <span class="mi">Validation</span>
+    <span class="mi">Output</span>
+    <span class="mi">Tools</span>
+    <span class="mi">Help</span>
+  </div>
+
+  <!-- Main layout -->
+  <div class="main-layout">
+
+    <!-- Left panel -->
+    <div class="left-panel">
+      <div class="panel-header">Layers</div>
+      <div class="layer-tree">
+        <div class="tree-node">
+          <div class="tree-expand">+</div>
+          <div class="tree-check checked"></div>
+          <span class="tree-label">Node0</span>
+        </div>
+        <div class="tree-node" style="padding-left:20px">
+          <div class="tree-expand">+</div>
+          <div class="tree-check checked"></div>
+          <span class="tree-label" style="color:#0055aa">Parcels</span>
+        </div>
+        <div class="tree-node" style="padding-left:20px">
+          <div class="tree-expand"> </div>
+          <div class="tree-check"></div>
+          <span class="tree-label">Roads</span>
+        </div>
+        <div class="tree-node" style="padding-left:20px">
+          <div class="tree-expand"> </div>
+          <div class="tree-check"></div>
+          <span class="tree-label">Boundaries</span>
+        </div>
+      </div>
+
+      <div class="divider"></div>
+
+      <div class="lp-section">
+        <div class="lp-title">Layer Properties</div>
+        <div class="lp-tabs">
+          <div class="lp-tab active">General</div>
+          <div class="lp-tab">Fill</div>
+          <div class="lp-tab">Labels</div>
+        </div>
+        <div class="lp-row">
+          <span class="lp-label">Name:</span>
+          <input class="lp-input" value="Parcels" readonly/>
+        </div>
+        <div class="lp-row">
+          <span class="lp-label">Type:</span>
+          <select class="lp-select"><option>Polygon</option></select>
+        </div>
+        <div class="lp-row">
+          <span class="lp-label">Border Color:</span>
+          <div class="lp-color-box"></div>
+          <button class="lp-btn">Choose...</button>
+        </div>
+        <div class="lp-row">
+          <span class="lp-label">Line Style:</span>
+          <select class="lp-select"><option>Solid</option></select>
+        </div>
+        <div class="lp-row">
+          <span class="lp-label">Line Weight:</span>
+          <select class="lp-select"><option>0.5 px</option></select>
+        </div>
+        <div class="lp-checks">
+          <label class="lp-check"><div class="cb"></div> Visible</label>
+          <label class="lp-check"><div class="cb"></div> Locked</label>
+          <label class="lp-check"><div class="cb"></div> Selectable</label>
+          <label class="lp-check"><div class="cb"></div> Printable</label>
+        </div>
+      </div>
+    </div>
+
+    <!-- Canvas -->
+    <div class="canvas-area">
+      <div class="canvas-bg">
+        <!-- parcels -->
+        <div class="parcel-shape" style="left:40px;top:30px;width:130px;height:100px;">P-001</div>
+        <div class="parcel-shape selected" style="left:185px;top:30px;width:110px;height:100px;">P-002</div>
+        <div class="parcel-shape" style="left:308px;top:30px;width:150px;height:100px;">P-003</div>
+        <div class="parcel-shape" style="left:40px;top:145px;width:110px;height:80px;">P-004</div>
+        <div class="parcel-shape" style="left:163px;top:145px;width:130px;height:80px;">P-005</div>
+        <div class="parcel-shape" style="left:306px;top:145px;width:152px;height:80px;">P-006</div>
+
+        <!-- crosshair at cursor -->
+        <div class="cursor-cross-h" style="top:78px"></div>
+        <div class="cursor-cross-v" style="left:240px"></div>
+        <div class="snap-indicator" style="left:240px;top:78px;"></div>
+      </div>
+    </div>
+
+    <!-- Right panel -->
+    <div class="right-panel">
+      <div class="panel-header">Parcel</div>
+    </div>
+
+  </div><!-- end main-layout -->
+
+  <!-- ═══════════════════════════════════ -->
+  <!-- STATUS BAR                          -->
+  <!-- ═══════════════════════════════════ -->
+  <div class="status-bar">
+
+    <!-- Panel 1: Save state -->
+    <div class="sb-panel" style="min-width:140px">
+      <div class="sb-dot orange"></div>
+      <span class="sb-value orange">Baireni land Pooling*</span>
+    </div>
+
+    <!-- Panel 2: Active tool -->
+    <div class="sb-panel">
+      <span class="sb-label">Tool:</span>
+      <span class="sb-value blue">Select</span>
+    </div>
+
+    <!-- Panel 3: Coordinates — most important -->
+    <div class="sb-panel coords">
+      <span class="sb-label">X:</span>
+      <span class="sb-value">383,241.84</span>
+      <span class="sb-label" style="margin-left:6px">Y:</span>
+      <span class="sb-value">3,012,874.62</span>
+    </div>
+
+    <!-- Panel 4: Snap -->
+    <div class="sb-panel snap-panel">
+      <span class="sb-label">Snap:</span>
+      <span class="sb-value green">Endpoint</span>
+    </div>
+
+    <!-- Panel 5: Zoom / Scale -->
+    <div class="sb-panel">
+      <span class="sb-label">Scale:</span>
+      <span class="sb-value">1 : 500</span>
+    </div>
+
+    <!-- Panel 6: Active Layer -->
+    <div class="sb-panel">
+      <span class="sb-label">Layer:</span>
+      <span class="sb-value blue">Parcels</span>
+    </div>
+
+    <!-- Panel 7: Selected parcel info -->
+    <div class="sb-panel">
+      <span class="sb-label">Selected:</span>
+      <span class="sb-value orange">P-002 · 342.5 m²</span>
+    </div>
+
+    <!-- Spacer -->
+    <div class="sb-spacer" style="background:#ececec; box-shadow: inset 1px 1px 0 #fff, inset -1px -1px 0 #aaa;"></div>
+
+    <!-- Panel 8: Shape count -->
+    <div class="sb-panel">
+      <span class="sb-value">127 objects</span>
+    </div>
+
+  </div>
+  <!-- END STATUS BAR -->
+
+</div><!-- end .win -->
+
+<!-- Annotation table -->
+<table class="ann-table">
+  <tr>
+    <th>#</th>
+    <th>Panel</th>
+    <th>What it shows</th>
+    <th>Updates on event</th>
+  </tr>
+  <tr>
+    <td>1</td>
+    <td><span class="panel-label">Project name</span></td>
+    <td>Project name + orange dot = unsaved (*). Green dot = saved.</td>
+    <td><span class="event-label">StateChanged</span></td>
+  </tr>
+  <tr>
+    <td>2</td>
+    <td><span class="panel-label">Tool</span></td>
+    <td>Currently active drawing tool (Select, Polyline, Split, Move…)</td>
+    <td><span class="event-label">ActiveToolChanged</span></td>
+  </tr>
+  <tr>
+    <td>3</td>
+    <td><span class="panel-label">X / Y coords</span></td>
+    <td>Live world-space cursor position in survey coordinates (UTM/local). Monospace font for alignment.</td>
+    <td><span class="event-label">MouseMove</span></td>
+  </tr>
+  <tr>
+    <td>4</td>
+    <td><span class="panel-label">Snap</span></td>
+    <td>Active snap type: Endpoint, Midpoint, Intersection, Perpendicular, or Off.</td>
+    <td><span class="event-label">SnapTypeChanged</span></td>
+  </tr>
+  <tr>
+    <td>5</td>
+    <td><span class="panel-label">Scale</span></td>
+    <td>Current drawing scale (1:500, 1:1000). Updates on every zoom.</td>
+    <td><span class="event-label">ZoomChanged</span></td>
+  </tr>
+  <tr>
+    <td>6</td>
+    <td><span class="panel-label">Layer</span></td>
+    <td>Name of the currently active drawing layer.</td>
+    <td><span class="event-label">ActiveLayerChanged</span></td>
+  </tr>
+  <tr>
+    <td>7</td>
+    <td><span class="panel-label">Selected</span></td>
+    <td>Parcel number + area in m² when one parcel is selected. Empty when nothing selected.</td>
+    <td><span class="event-label">SelectionChanged</span></td>
+  </tr>
+  <tr>
+    <td>8</td>
+    <td><span class="panel-label">Object count</span></td>
+    <td>Total number of shapes currently loaded on the canvas.</td>
+    <td><span class="event-label">ShapeAdded / Removed</span></td>
+  </tr>
+</table>
+
+</div>

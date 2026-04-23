@@ -4,6 +4,7 @@ using Land_Readjustment_Tool.Data;
 using Land_Readjustment_Tool.Services;
 using Land_Readjustment_Tool.Services.LandData;
 using System.ComponentModel;
+using System.Globalization;
 
 namespace Land_Readjustment_Tool.Forms.LandOwnersRecord_Managerment
 {
@@ -15,10 +16,18 @@ namespace Land_Readjustment_Tool.Forms.LandOwnersRecord_Managerment
         #region Fields
 
         private readonly string _projectPath;
-        private LandRecordsService _landRecordsService = null!;
+        private readonly LandRecordsService _landRecordsService;
+        private string _traditionalAreaUnit;
         private List<OriginalLandParcel> _allRecords = [];
         private List<OriginalLandParcel> _filteredRecords = [];
         private BindingList<LandParcelDisplayModel> _displayedRecords = [];
+        private GroupBox? _groupBoxAreaBkd;
+        private RadioButton? _rbBkdSqm;
+        private RadioButton? _rbBigha;
+        private RadioButton? _rbKattha;
+        private RadioButton? _rbDhur;
+        private TextBox? _txtFromAreaBkd;
+        private TextBox? _txtToAreaBkd;
 
         // Filter unique values cache
         private HashSet<string> _uniqueProvinces = [];
@@ -29,33 +38,82 @@ namespace Land_Readjustment_Tool.Forms.LandOwnersRecord_Managerment
         private HashSet<string> _uniqueOwnershipTypes = [];
 
         private double _maxAreaSqm;
+        private bool _isUpdatingControls;
+
+        private readonly FilterCriteria _appliedFilter = new();
+        private readonly SearchCriteria _appliedSearch = new();
 
         #endregion
 
         #region Constructor
 
         public frmLandParcelOwnersRecord()
+            : this(CreateDefaultLandRecordsService(out var projectPath), projectPath)
+        {
+        }
+
+        public frmLandParcelOwnersRecord(LandRecordsService landRecordsService, string projectPath)
         {
             InitializeComponent();
-            if (!AppServices.HasContext)
-                throw new InvalidOperationException("No open project context found.");
-
-            _projectPath = AppServices.Context.ProjectFilePath;
+            _landRecordsService = landRecordsService ?? throw new ArgumentNullException(nameof(landRecordsService));
+            _projectPath = projectPath ?? throw new ArgumentNullException(nameof(projectPath));
+            _traditionalAreaUnit = _landRecordsService.GetTraditionalAreaUnit();
             Text = "Original Land Parcel Records";
 
-            InitializeService();
+            InitializeTraditionalAreaFilterGroups();
             SetupEventHandlers();
             SetupInputValidation();
             InitializeDataGridView();
+            ApplyTraditionalAreaUnitColumns();
+            ApplyTraditionalAreaFilterGroupVisibility();
+            UpdateAreaFilterPlaceholders();
+            UpdateApplyButtonStates();
+        }
+
+        #endregion
+
+        #region Criteria State
+
+        private enum AreaUnit
+        {
+            Sqm,
+            Ropani,
+            Aana,
+            Bigha,
+            Kattha,
+            Dhur
+        }
+
+        private sealed class FilterCriteria
+        {
+            public string? Province { get; set; }
+            public string? District { get; set; }
+            public string? MunicipalityVillage { get; set; }
+            public string? WardNo { get; set; }
+            public string? MapSheetNo { get; set; }
+            public string? LandOwnershipType { get; set; }
+            public double? FromArea { get; set; }
+            public double? ToArea { get; set; }
+            public AreaUnit AreaUnit { get; set; } = AreaUnit.Sqm;
+        }
+
+        private sealed class SearchCriteria
+        {
+            public string ParcelNo { get; set; } = string.Empty;
+            public string OwnerSearchText { get; set; } = string.Empty;
         }
 
         #endregion
 
         #region Initialization
 
-        private void InitializeService()
+        private static LandRecordsService CreateDefaultLandRecordsService(out string projectPath)
         {
-            _landRecordsService = new LandRecordsService(AppServices.Context.Session, _projectPath);
+            if (!AppServices.HasContext)
+                throw new InvalidOperationException("No open project context found.");
+
+            projectPath = AppServices.Context.ProjectFilePath;
+            return new LandRecordsService(AppServices.Context.Session, projectPath);
         }
 
         private void SetupEventHandlers()
@@ -84,12 +142,36 @@ namespace Land_Readjustment_Tool.Forms.LandOwnersRecord_Managerment
             rbSqm.CheckedChanged += RadioButton_CheckedChanged;
             rbRopanee.CheckedChanged += RadioButton_CheckedChanged;
             rbAana.CheckedChanged += RadioButton_CheckedChanged;
+            if (_rbBkdSqm != null)
+            {
+                _rbBkdSqm.CheckedChanged += RadioButton_CheckedChanged;
+            }
+            if (_rbBigha != null)
+            {
+                _rbBigha.CheckedChanged += RadioButton_CheckedChanged;
+            }
+            if (_rbKattha != null)
+            {
+                _rbKattha.CheckedChanged += RadioButton_CheckedChanged;
+            }
+            if (_rbDhur != null)
+            {
+                _rbDhur.CheckedChanged += RadioButton_CheckedChanged;
+            }
 
             // Text changes for quick search
             txtParcelNo.TextChanged += TxtSearch_TextChanged;
             txtLandOwner.TextChanged += TxtSearch_TextChanged;
             txtFromArea.TextChanged += TxtArea_TextChanged;
             txtToArea.TextChanged += TxtArea_TextChanged;
+            if (_txtFromAreaBkd != null)
+            {
+                _txtFromAreaBkd.TextChanged += TxtArea_TextChanged;
+            }
+            if (_txtToAreaBkd != null)
+            {
+                _txtToAreaBkd.TextChanged += TxtArea_TextChanged;
+            }
 
             // CRUD buttons
             btnAdd.Click += BtnAdd_Click;
@@ -102,6 +184,7 @@ namespace Land_Readjustment_Tool.Forms.LandOwnersRecord_Managerment
             dgvRecords.SelectionChanged += DgvRecords_SelectionChanged;
             dgvRecords.CellDoubleClick += DgvRecords_CellDoubleClick;
             dgvRecords.RowPostPaint += DgvRecords_RowPostPaint;
+            Activated += FrmLandParcelOwnersRecord_Activated;
         }
 
         private void SetupInputValidation()
@@ -109,6 +192,14 @@ namespace Land_Readjustment_Tool.Forms.LandOwnersRecord_Managerment
             // Area textboxes: only allow digits and decimal point
             txtFromArea.KeyPress += AreaTextBox_KeyPress;
             txtToArea.KeyPress += AreaTextBox_KeyPress;
+            if (_txtFromAreaBkd != null)
+            {
+                _txtFromAreaBkd.KeyPress += AreaTextBox_KeyPress;
+            }
+            if (_txtToAreaBkd != null)
+            {
+                _txtToAreaBkd.KeyPress += AreaTextBox_KeyPress;
+            }
 
             // Parcel number: only allow positive integers
             txtParcelNo.KeyPress += ParcelNo_KeyPress;
@@ -120,6 +211,10 @@ namespace Land_Readjustment_Tool.Forms.LandOwnersRecord_Managerment
 
             // Set default radio button
             rbSqm.Checked = true;
+            if (_rbBkdSqm != null)
+            {
+                _rbBkdSqm.Checked = true;
+            }
         }
 
         private void InitializeDataGridView()
@@ -193,14 +288,240 @@ namespace Land_Readjustment_Tool.Forms.LandOwnersRecord_Managerment
             });
         }
 
+        private void ApplyTraditionalAreaUnitColumns()
+        {
+            bool showBkd = string.Equals(_traditionalAreaUnit, "BKD", StringComparison.OrdinalIgnoreCase);
+
+            var rapdColumn = dgvRecords.Columns["AreaInRAPD"];
+            if (rapdColumn != null)
+            {
+                rapdColumn.Visible = !showBkd;
+            }
+
+            var bkdColumn = dgvRecords.Columns["AreaInBKD"];
+            if (bkdColumn != null)
+            {
+                bkdColumn.Visible = showBkd;
+            }
+        }
+
+        private void InitializeTraditionalAreaFilterGroups()
+        {
+            _groupBoxAreaBkd = new GroupBox
+            {
+                Name = "groupBoxAreaBkd",
+                Text = "Filter by Area Range",
+                Font = groupBox3.Font,
+                ForeColor = groupBox3.ForeColor,
+                Location = groupBox3.Location,
+                Size = groupBox3.Size,
+                Margin = groupBox3.Margin,
+                Padding = groupBox3.Padding,
+                Visible = false
+            };
+
+            _rbBkdSqm = new RadioButton
+            {
+                Name = "rbBkdSqm",
+                Text = "sq.m.",
+                AutoSize = true,
+                Font = rbSqm.Font,
+                ForeColor = rbSqm.ForeColor
+            };
+
+            _rbBigha = new RadioButton
+            {
+                Name = "rbBigha",
+                Text = "Bigha",
+                AutoSize = true,
+                Font = rbSqm.Font,
+                ForeColor = rbSqm.ForeColor
+            };
+
+            _rbKattha = new RadioButton
+            {
+                Name = "rbKattha",
+                Text = "Kattha",
+                AutoSize = true,
+                Font = rbSqm.Font,
+                ForeColor = rbSqm.ForeColor
+            };
+
+            _rbDhur = new RadioButton
+            {
+                Name = "rbDhur",
+                Text = "Dhur",
+                AutoSize = true,
+                Font = rbSqm.Font,
+                ForeColor = rbSqm.ForeColor
+            };
+
+            _txtFromAreaBkd = new TextBox
+            {
+                Name = "txtFromAreaBkd",
+                BorderStyle = txtFromArea.BorderStyle,
+                Font = txtFromArea.Font,
+                Location = txtFromArea.Location,
+                Size = txtFromArea.Size,
+                PlaceholderText = "sq.m.",
+                TextAlign = txtFromArea.TextAlign
+            };
+
+            _txtToAreaBkd = new TextBox
+            {
+                Name = "txtToAreaBkd",
+                BorderStyle = txtToArea.BorderStyle,
+                Font = txtToArea.Font,
+                Location = txtToArea.Location,
+                Size = txtToArea.Size,
+                PlaceholderText = "sq.m.",
+                TextAlign = txtToArea.TextAlign
+            };
+
+            var lblToBkd = new Label
+            {
+                Name = "labelAreaToBkd",
+                Text = label8.Text,
+                AutoSize = true,
+                Font = label8.Font,
+                ForeColor = label8.ForeColor,
+                Location = label8.Location
+            };
+
+            _groupBoxAreaBkd.Controls.Add(_rbBkdSqm);
+            _groupBoxAreaBkd.Controls.Add(_rbBigha);
+            _groupBoxAreaBkd.Controls.Add(_rbKattha);
+            _groupBoxAreaBkd.Controls.Add(_rbDhur);
+            _groupBoxAreaBkd.Controls.Add(_txtFromAreaBkd);
+            _groupBoxAreaBkd.Controls.Add(_txtToAreaBkd);
+            _groupBoxAreaBkd.Controls.Add(lblToBkd);
+            _groupBoxAreaBkd.Resize += GroupBoxAreaBkd_Resize;
+            LayoutBkdAreaRadioButtons();
+            panel1.Controls.Add(_groupBoxAreaBkd);
+            _groupBoxAreaBkd.BringToFront();
+        }
+
+        private void GroupBoxAreaBkd_Resize(object? sender, EventArgs e)
+        {
+            LayoutBkdAreaRadioButtons();
+        }
+
+        private void LayoutBkdAreaRadioButtons()
+        {
+            if (_groupBoxAreaBkd == null ||
+                _rbBkdSqm == null ||
+                _rbBigha == null ||
+                _rbKattha == null ||
+                _rbDhur == null)
+            {
+                return;
+            }
+
+            var radios = new[] { _rbBkdSqm, _rbBigha, _rbKattha, _rbDhur };
+            const int leftPadding = 16;
+            const int rightPadding = 12;
+            const int top = 27;
+            const int minGap = 10;
+
+            int totalWidth = radios.Sum(r => r.PreferredSize.Width);
+            int availableWidth = _groupBoxAreaBkd.ClientSize.Width - leftPadding - rightPadding;
+            int calculatedGap = (availableWidth - totalWidth) / Math.Max(1, radios.Length - 1);
+            int gap = Math.Max(minGap, calculatedGap);
+
+            int x = leftPadding;
+            foreach (var rb in radios)
+            {
+                rb.Location = new Point(x, top);
+                x += rb.PreferredSize.Width + gap;
+            }
+        }
+
+        private void ApplyTraditionalAreaFilterGroupVisibility()
+        {
+            bool showBkd = string.Equals(_traditionalAreaUnit, "BKD", StringComparison.OrdinalIgnoreCase);
+            groupBox3.Visible = !showBkd;
+
+            if (_groupBoxAreaBkd != null)
+            {
+                _groupBoxAreaBkd.Visible = showBkd;
+            }
+        }
+
+        private void UpdateAreaFilterPlaceholders()
+        {
+            if (rbRopanee.Checked)
+            {
+                txtFromArea.PlaceholderText = "Ropani";
+                txtToArea.PlaceholderText = "Ropani";
+            }
+            else if (rbAana.Checked)
+            {
+                txtFromArea.PlaceholderText = "Aana";
+                txtToArea.PlaceholderText = "Aana";
+            }
+            else
+            {
+                txtFromArea.PlaceholderText = "sq.m.";
+                txtToArea.PlaceholderText = "sq.m.";
+            }
+
+            if (_txtFromAreaBkd == null || _txtToAreaBkd == null)
+                return;
+
+            if (_rbBigha?.Checked == true)
+            {
+                _txtFromAreaBkd.PlaceholderText = "Bigha";
+                _txtToAreaBkd.PlaceholderText = "Bigha";
+            }
+            else if (_rbKattha?.Checked == true)
+            {
+                _txtFromAreaBkd.PlaceholderText = "Kattha";
+                _txtToAreaBkd.PlaceholderText = "Kattha";
+            }
+            else if (_rbDhur?.Checked == true)
+            {
+                _txtFromAreaBkd.PlaceholderText = "Dhur";
+                _txtToAreaBkd.PlaceholderText = "Dhur";
+            }
+            else
+            {
+                _txtFromAreaBkd.PlaceholderText = "sq.m.";
+                _txtToAreaBkd.PlaceholderText = "sq.m.";
+            }
+        }
+
+        private TextBox GetActiveFromAreaTextBox()
+        {
+            return string.Equals(_traditionalAreaUnit, "BKD", StringComparison.OrdinalIgnoreCase) &&
+                   _txtFromAreaBkd != null
+                ? _txtFromAreaBkd
+                : txtFromArea;
+        }
+
+        private TextBox GetActiveToAreaTextBox()
+        {
+            return string.Equals(_traditionalAreaUnit, "BKD", StringComparison.OrdinalIgnoreCase) &&
+                   _txtToAreaBkd != null
+                ? _txtToAreaBkd
+                : txtToArea;
+        }
+
         #endregion
 
         #region Data Loading
 
         private void frmLandParcelOwnersRecord_Load(object sender, EventArgs e)
         {
+            _traditionalAreaUnit = _landRecordsService.GetTraditionalAreaUnit();
+            ApplyTraditionalAreaUnitColumns();
+            ApplyTraditionalAreaFilterGroupVisibility();
+            UpdateAreaFilterPlaceholders();
+
             LoadAllRecords();
             PopulateFilterDropdowns();
+            CaptureFilterCriteriaFromControls();
+            CaptureSearchCriteriaFromControls();
+            ApplyCurrentCriteria(showValidationMessage: false);
             UpdateButtonStates();
         }
 
@@ -223,6 +544,8 @@ namespace Land_Readjustment_Tool.Forms.LandOwnersRecord_Managerment
                     MessageBoxButtons.OK, MessageBoxIcon.Error);
                 _allRecords = [];
                 _filteredRecords = [];
+                BindRecordsToGrid(_filteredRecords);
+                UpdateStatusLabels();
             }
             finally
             {
@@ -245,12 +568,20 @@ namespace Land_Readjustment_Tool.Forms.LandOwnersRecord_Managerment
 
         private void PopulateFilterDropdowns()
         {
-            PopulateComboBox(cbProvince, _uniqueProvinces, "-- All Provinces --");
-            PopulateComboBox(cbDistrict, _uniqueDistricts, "-- All Districts --");
-            PopulateComboBox(cbMunicipalityVillage, _uniqueMunicipalities, "-- All Municipalities --");
-            PopulateComboBox(cbWardNo, _uniqueWards, "-- All --");
-            PopulateComboBox(cbMapSheet, _uniqueMapSheets, "-- All Map Sheets --");
-            PopulateComboBox(cbLandOwnership, _uniqueOwnershipTypes, "-- All Types --");
+            _isUpdatingControls = true;
+            try
+            {
+                PopulateComboBox(cbProvince, _uniqueProvinces, "-- All Provinces --");
+                PopulateComboBox(cbDistrict, _uniqueDistricts, "-- All Districts --");
+                PopulateComboBox(cbMunicipalityVillage, _uniqueMunicipalities, "-- All Municipalities --");
+                PopulateComboBox(cbWardNo, _uniqueWards, "-- All --");
+                PopulateComboBox(cbMapSheet, _uniqueMapSheets, "-- All Map Sheets --");
+                PopulateComboBox(cbLandOwnership, _uniqueOwnershipTypes, "-- All Types --");
+            }
+            finally
+            {
+                _isUpdatingControls = false;
+            }
         }
 
         private static void PopulateComboBox(ComboBox comboBox, HashSet<string> values, string defaultText)
@@ -324,34 +655,34 @@ namespace Land_Readjustment_Tool.Forms.LandOwnersRecord_Managerment
 
         private void ApplyFilters()
         {
-            ApplyFilters(showValidationMessage: true);
+            ApplyCurrentCriteria(showValidationMessage: true);
         }
 
-        private void ApplyFilters(bool showValidationMessage)
+        private void ApplyCurrentCriteria(bool showValidationMessage)
         {
             var filtered = _allRecords.AsEnumerable();
 
             // Location filters
-            filtered = ApplyComboFilter(filtered, cbProvince, r => r.Province);
-            filtered = ApplyComboFilter(filtered, cbDistrict, r => r.District);
-            filtered = ApplyComboFilter(filtered, cbMunicipalityVillage, r => r.MunicipalityVillage);
-            filtered = ApplyComboFilter(filtered, cbWardNo, r => r.WardNo);
+            filtered = ApplyComboFilter(filtered, _appliedFilter.Province, r => r.Province);
+            filtered = ApplyComboFilter(filtered, _appliedFilter.District, r => r.District);
+            filtered = ApplyComboFilter(filtered, _appliedFilter.MunicipalityVillage, r => r.MunicipalityVillage);
+            filtered = ApplyComboFilter(filtered, _appliedFilter.WardNo, r => r.WardNo);
 
             // Map sheet filter
-            filtered = ApplyComboFilter(filtered, cbMapSheet, r => r.MapSheetNo);
+            filtered = ApplyComboFilter(filtered, _appliedFilter.MapSheetNo, r => r.MapSheetNo);
 
             // Ownership filter
-            filtered = ApplyComboFilter(filtered, cbLandOwnership, r => r.LandOwnershipType);
+            filtered = ApplyComboFilter(filtered, _appliedFilter.LandOwnershipType, r => r.LandOwnershipType);
 
             // Area range filter (returns null if validation fails)
-            var areaFiltered = ApplyAreaFilter(filtered, showValidationMessage);
+            var areaFiltered = ApplyAreaFilter(filtered, _appliedFilter, showValidationMessage);
             if (areaFiltered == null)
                 return; // Stop filtering if area validation failed
 
             filtered = areaFiltered;
 
             // Search filters
-            filtered = ApplySearchFiltersToRecords(filtered);
+            filtered = ApplySearchFiltersToRecords(filtered, _appliedSearch);
 
             _filteredRecords = [.. filtered];
             BindRecordsToGrid(_filteredRecords);
@@ -360,44 +691,40 @@ namespace Land_Readjustment_Tool.Forms.LandOwnersRecord_Managerment
 
         private static IEnumerable<OriginalLandParcel> ApplyComboFilter(
             IEnumerable<OriginalLandParcel> records,
-            ComboBox comboBox,
+            string? selectedValue,
             Func<OriginalLandParcel, string?> selector)
         {
-            if (comboBox.SelectedIndex <= 0 || !comboBox.Enabled)
+            if (string.IsNullOrWhiteSpace(selectedValue))
                 return records;
 
-            string selected = comboBox.SelectedItem?.ToString() ?? "";
-            return records.Where(r => (selector(r) ?? "") == selected);
+            return records.Where(r =>
+                string.Equals(selector(r) ?? string.Empty, selectedValue, StringComparison.OrdinalIgnoreCase));
         }
 
-        private IEnumerable<OriginalLandParcel>? ApplyAreaFilter(IEnumerable<OriginalLandParcel> records, bool showValidationMessage)
+        private IEnumerable<OriginalLandParcel>? ApplyAreaFilter(
+            IEnumerable<OriginalLandParcel> records,
+            FilterCriteria criteria,
+            bool showValidationMessage)
         {
             // Skip if both fields are empty
-            if (string.IsNullOrWhiteSpace(txtFromArea.Text) && string.IsNullOrWhiteSpace(txtToArea.Text))
+            if (!criteria.FromArea.HasValue && !criteria.ToArea.HasValue)
                 return records;
 
-            double fromArea = ParseAreaValue(txtFromArea.Text, 0);
-            double toArea = ParseAreaValue(txtToArea.Text, _maxAreaSqm > 0 ? _maxAreaSqm : double.MaxValue);
-
-            // Determine the selected unit for comparison
-            bool isRopaneeMode = rbRopanee.Checked;
-            bool isAanaMode = rbAana.Checked;
+            double maxInSelectedUnit = ConvertSqmToSelectedAreaUnit(_maxAreaSqm, criteria.AreaUnit);
+            double fromArea = criteria.FromArea ?? 0;
+            double toArea = criteria.ToArea ?? (maxInSelectedUnit > 0 ? maxInSelectedUnit : double.MaxValue);
+            string unitName = GetAreaUnitDisplayName(criteria.AreaUnit);
 
             // Validate: From area should not be greater than To area
             if (fromArea > 0 && toArea < double.MaxValue && fromArea > toArea)
             {
                 if (showValidationMessage)
                 {
-                    string unit = isRopaneeMode ? "Ropani" : isAanaMode ? "Aana" : "sqm";
-                    string fromDisplay = (isRopaneeMode || isAanaMode)
-                        ? ParseAreaValue(txtFromArea.Text, 0).ToString("F2")
-                        : txtFromArea.Text;
-                    string toDisplay = (isRopaneeMode || isAanaMode)
-                        ? ParseAreaValue(txtToArea.Text, 0).ToString("F2")
-                        : txtToArea.Text;
+                    string fromDisplay = fromArea.ToString("0.###", CultureInfo.InvariantCulture);
+                    string toDisplay = toArea.ToString("0.###", CultureInfo.InvariantCulture);
 
                     MessageBox.Show(
-                        $"'From Area' ({fromDisplay} {unit}) cannot be greater than 'To Area' ({toDisplay} {unit}).\n\nPlease correct the area range.",
+                        $"'From Area' ({fromDisplay} {unitName}) cannot be greater than 'To Area' ({toDisplay} {unitName}).\n\nPlease correct the area range.",
                         "Invalid Area Range",
                         MessageBoxButtons.OK,
                         MessageBoxIcon.Warning);
@@ -408,23 +735,8 @@ namespace Land_Readjustment_Tool.Forms.LandOwnersRecord_Managerment
             }
 
             // Skip filtering if range covers all
-            if (isRopaneeMode)
-            {
-                double maxRopani = _maxAreaSqm / 508.74; // Convert max sqm to Ropani
-                if (fromArea <= 0 && toArea >= maxRopani)
-                    return records;
-            }
-            else if (isAanaMode)
-            {
-                double maxAana = _maxAreaSqm / 31.796875; // Convert max sqm to Aana
-                if (fromArea <= 0 && toArea >= maxAana)
-                    return records;
-            }
-            else
-            {
-                if (fromArea <= 0 && toArea >= _maxAreaSqm)
-                    return records;
-            }
+            if (fromArea <= 0 && toArea >= maxInSelectedUnit)
+                return records;
 
             return records.Where(r =>
             {
@@ -432,31 +744,18 @@ namespace Land_Readjustment_Tool.Forms.LandOwnersRecord_Managerment
                 if (!areaSqm.HasValue) return false;
 
                 // Convert the parcel area to the selected unit
-                double areaInSelectedUnit;
-                if (isRopaneeMode)
-                {
-                    // Convert sqm to Ropani
-                    areaInSelectedUnit = AreaConverterService.SqmToRopani(areaSqm.Value);
-                }
-                else if (isAanaMode)
-                {
-                    // Convert sqm to Aana (1 Aana = 31.796875 sqm)
-                    areaInSelectedUnit = areaSqm.Value / 31.796875;
-                }
-                else
-                {
-                    // sqm mode - no conversion needed
-                    areaInSelectedUnit = areaSqm.Value;
-                }
+                double areaInSelectedUnit = ConvertSqmToSelectedAreaUnit(areaSqm.Value, criteria.AreaUnit);
 
                 return areaInSelectedUnit >= fromArea && areaInSelectedUnit <= toArea;
             });
         }
 
-        private IEnumerable<OriginalLandParcel> ApplySearchFiltersToRecords(IEnumerable<OriginalLandParcel> records)
+        private static IEnumerable<OriginalLandParcel> ApplySearchFiltersToRecords(
+            IEnumerable<OriginalLandParcel> records,
+            SearchCriteria criteria)
         {
-            string parcelSearch = txtParcelNo.Text.Trim();
-            string ownerSearch = txtLandOwner.Text.Trim().ToLower();
+            string parcelSearch = criteria.ParcelNo.Trim();
+            string ownerSearch = criteria.OwnerSearchText.Trim();
 
             // Exact match for parcel number
             if (!string.IsNullOrWhiteSpace(parcelSearch))
@@ -468,8 +767,8 @@ namespace Land_Readjustment_Tool.Forms.LandOwnersRecord_Managerment
             if (!string.IsNullOrWhiteSpace(ownerSearch))
             {
                 records = records.Where(r =>
-                    r.Owner?.LandOwnersName?.ToLower().Contains(ownerSearch) == true ||
-                    r.Owner?.FatherSpouse?.ToLower().Contains(ownerSearch) == true);
+                    r.Owner?.LandOwnersName?.Contains(ownerSearch, StringComparison.OrdinalIgnoreCase) == true ||
+                    r.Owner?.FatherSpouse?.Contains(ownerSearch, StringComparison.OrdinalIgnoreCase) == true);
             }
 
             return records;
@@ -480,57 +779,183 @@ namespace Land_Readjustment_Tool.Forms.LandOwnersRecord_Managerment
         /// </summary>
         private void ApplySearchFilters()
         {
-            ApplySearchFilters(showValidationMessage: true);
+            ApplyCurrentCriteria(showValidationMessage: true);
         }
 
-        private void ApplySearchFilters(bool showValidationMessage)
+        private void CaptureFilterCriteriaFromControls()
         {
-            ApplyFilters(showValidationMessage);
+            _appliedFilter.Province = GetSelectedComboValue(cbProvince);
+            _appliedFilter.District = GetSelectedComboValue(cbDistrict);
+            _appliedFilter.MunicipalityVillage = GetSelectedComboValue(cbMunicipalityVillage);
+            _appliedFilter.WardNo = GetSelectedComboValue(cbWardNo);
+            _appliedFilter.MapSheetNo = GetSelectedComboValue(cbMapSheet);
+            _appliedFilter.LandOwnershipType = GetSelectedComboValue(cbLandOwnership);
+            var fromAreaTextBox = GetActiveFromAreaTextBox();
+            var toAreaTextBox = GetActiveToAreaTextBox();
+            _appliedFilter.FromArea = TryParseAreaInput(fromAreaTextBox.Text, out var fromValue) ? fromValue : null;
+            _appliedFilter.ToArea = TryParseAreaInput(toAreaTextBox.Text, out var toValue) ? toValue : null;
+            _appliedFilter.AreaUnit = GetSelectedAreaUnit();
         }
 
-        private static double ParseAreaValue(string text, double defaultValue)
+        private void CaptureSearchCriteriaFromControls()
         {
+            _appliedSearch.ParcelNo = txtParcelNo.Text.Trim();
+            _appliedSearch.OwnerSearchText = txtLandOwner.Text.Trim();
+        }
+
+        private static string? GetSelectedComboValue(ComboBox comboBox)
+        {
+            if (!comboBox.Enabled || comboBox.SelectedIndex <= 0)
+                return null;
+
+            var value = comboBox.SelectedItem?.ToString()?.Trim();
+            return string.IsNullOrWhiteSpace(value) ? null : value;
+        }
+
+        private AreaUnit GetSelectedAreaUnit()
+        {
+            if (string.Equals(_traditionalAreaUnit, "BKD", StringComparison.OrdinalIgnoreCase))
+            {
+                if (_rbBigha?.Checked == true)
+                    return AreaUnit.Bigha;
+                if (_rbKattha?.Checked == true)
+                    return AreaUnit.Kattha;
+                if (_rbDhur?.Checked == true)
+                    return AreaUnit.Dhur;
+                return AreaUnit.Sqm;
+            }
+
+            if (rbRopanee.Checked)
+                return AreaUnit.Ropani;
+            if (rbAana.Checked)
+                return AreaUnit.Aana;
+            return AreaUnit.Sqm;
+        }
+
+        private static bool TryParseAreaInput(string? text, out double value)
+        {
+            value = 0;
             if (string.IsNullOrWhiteSpace(text))
-                return defaultValue;
+                return false;
 
-            return double.TryParse(text.Trim(), out double value) && value >= 0
-                ? value
-                : defaultValue;
+            var normalized = text.Trim();
+            if (double.TryParse(normalized, NumberStyles.Float, CultureInfo.CurrentCulture, out value) && value >= 0)
+                return true;
+
+            if (double.TryParse(normalized, NumberStyles.Float, CultureInfo.InvariantCulture, out value) && value >= 0)
+                return true;
+
+            var swapped = normalized.Replace(',', '.');
+            if (double.TryParse(swapped, NumberStyles.Float, CultureInfo.InvariantCulture, out value) && value >= 0)
+                return true;
+
+            value = 0;
+            return false;
+        }
+
+        private static string GetAreaUnitDisplayName(AreaUnit areaUnit)
+        {
+            return areaUnit switch
+            {
+                AreaUnit.Ropani => "Ropani",
+                AreaUnit.Aana => "Aana",
+                AreaUnit.Bigha => "Bigha",
+                AreaUnit.Kattha => "Kattha",
+                AreaUnit.Dhur => "Dhur",
+                _ => "sq.m."
+            };
+        }
+
+        private static double ConvertSqmToSelectedAreaUnit(double areaSqm, AreaUnit areaUnit)
+        {
+            return areaUnit switch
+            {
+                AreaUnit.Ropani => AreaConverterService.SqmToRopani(areaSqm),
+                AreaUnit.Aana => AreaConverterService.SqmToAana(areaSqm),
+                AreaUnit.Bigha => AreaConverterService.SqmToBigha(areaSqm),
+                AreaUnit.Kattha => AreaConverterService.SqmToKattha(areaSqm),
+                AreaUnit.Dhur => AreaConverterService.SqmToDhur(areaSqm),
+                _ => areaSqm
+            };
+        }
+
+        private void RefreshTraditionalAreaSettingsFromProject()
+        {
+            string latestUnit = _landRecordsService.GetTraditionalAreaUnit();
+            if (string.Equals(_traditionalAreaUnit, latestUnit, StringComparison.OrdinalIgnoreCase))
+                return;
+
+            _traditionalAreaUnit = latestUnit;
+            ApplyTraditionalAreaUnitColumns();
+            ApplyTraditionalAreaFilterGroupVisibility();
+            UpdateAreaFilterPlaceholders();
+            CaptureFilterCriteriaFromControls();
+            ApplyCurrentCriteria(showValidationMessage: false);
+        }
+
+        private void UpdateApplyButtonStates()
+        {
+            btnApplyFilter.Enabled = !chkToggleQuickFilter.Checked;
+            btnApplySearch.Enabled = !chkToggleQuickSearch.Checked;
         }
 
         private void ClearFilters()
         {
-            // Reset all comboboxes to first item
-            if (cbProvince.Items.Count > 0) cbProvince.SelectedIndex = 0;
-            if (cbDistrict.Items.Count > 0) cbDistrict.SelectedIndex = 0;
-            if (cbMunicipalityVillage.Items.Count > 0) cbMunicipalityVillage.SelectedIndex = 0;
-            if (cbWardNo.Items.Count > 0) cbWardNo.SelectedIndex = 0;
-            if (cbMapSheet.Items.Count > 0) cbMapSheet.SelectedIndex = 0;
-            if (cbLandOwnership.Items.Count > 0) cbLandOwnership.SelectedIndex = 0;
+            _isUpdatingControls = true;
+            try
+            {
+                // Reset all comboboxes to first item
+                if (cbProvince.Items.Count > 0) cbProvince.SelectedIndex = 0;
+                if (cbDistrict.Items.Count > 0) cbDistrict.SelectedIndex = 0;
+                if (cbMunicipalityVillage.Items.Count > 0) cbMunicipalityVillage.SelectedIndex = 0;
+                if (cbWardNo.Items.Count > 0) cbWardNo.SelectedIndex = 0;
+                if (cbMapSheet.Items.Count > 0) cbMapSheet.SelectedIndex = 0;
+                if (cbLandOwnership.Items.Count > 0) cbLandOwnership.SelectedIndex = 0;
 
-            // Clear area filter text boxes
-            txtFromArea.Clear();
-            txtToArea.Clear();
+                // Clear area filter text boxes
+                txtFromArea.Clear();
+                txtToArea.Clear();
+                if (_txtFromAreaBkd != null)
+                {
+                    _txtFromAreaBkd.Clear();
+                }
+                if (_txtToAreaBkd != null)
+                {
+                    _txtToAreaBkd.Clear();
+                }
 
-            // Reset radio button
-            rbSqm.Checked = true;
+                // Reset radio button
+                rbSqm.Checked = true;
+                if (_rbBkdSqm != null)
+                {
+                    _rbBkdSqm.Checked = true;
+                }
+            }
+            finally
+            {
+                _isUpdatingControls = false;
+            }
 
-            // Refresh data
-            _filteredRecords = [.. _allRecords];
-            BindRecordsToGrid(_filteredRecords);
-            UpdateStatusLabels();
+            CaptureFilterCriteriaFromControls();
+            ApplyCurrentCriteria(showValidationMessage: false);
         }
 
         private void ClearSearch()
         {
-            // Clear search text boxes
-            txtParcelNo.Clear();
-            txtLandOwner.Clear();
+            _isUpdatingControls = true;
+            try
+            {
+                // Clear search text boxes
+                txtParcelNo.Clear();
+                txtLandOwner.Clear();
+            }
+            finally
+            {
+                _isUpdatingControls = false;
+            }
 
-            // Refresh data
-            _filteredRecords = [.. _allRecords];
-            BindRecordsToGrid(_filteredRecords);
-            UpdateStatusLabels();
+            CaptureSearchCriteriaFromControls();
+            ApplyCurrentCriteria(showValidationMessage: false);
         }
 
         private void ClearAllFilters()
@@ -601,6 +1026,7 @@ namespace Land_Readjustment_Tool.Forms.LandOwnersRecord_Managerment
 
         private void BtnApplyFilter_Click(object? sender, EventArgs e)
         {
+            CaptureFilterCriteriaFromControls();
             ApplyFilters();
         }
 
@@ -611,6 +1037,7 @@ namespace Land_Readjustment_Tool.Forms.LandOwnersRecord_Managerment
 
         private void BtnApplySearch_Click(object? sender, EventArgs e)
         {
+            CaptureSearchCriteriaFromControls();
             ApplySearchFilters();
         }
 
@@ -621,79 +1048,77 @@ namespace Land_Readjustment_Tool.Forms.LandOwnersRecord_Managerment
 
         private void ChkToggleQuickFilter_CheckedChanged(object? sender, EventArgs e)
         {
-            btnApplyFilter.Enabled = !chkToggleQuickFilter.Checked;
+            UpdateApplyButtonStates();
 
             if (chkToggleQuickFilter.Checked)
             {
-                ApplyFilters(showValidationMessage: false);
+                CaptureFilterCriteriaFromControls();
+                ApplyCurrentCriteria(showValidationMessage: false);
             }
         }
 
         private void ChkToggleQuickSearch_CheckedChanged(object? sender, EventArgs e)
         {
-            btnApplySearch.Enabled = !chkToggleQuickSearch.Checked;
+            UpdateApplyButtonStates();
 
             if (chkToggleQuickSearch.Checked)
             {
-                ApplySearchFilters(showValidationMessage: false);
+                CaptureSearchCriteriaFromControls();
+                ApplyCurrentCriteria(showValidationMessage: false);
             }
+        }
+
+        private void FrmLandParcelOwnersRecord_Activated(object? sender, EventArgs e)
+        {
+            RefreshTraditionalAreaSettingsFromProject();
         }
 
         private void ComboFilter_SelectedIndexChanged(object? sender, EventArgs e)
         {
+            if (_isUpdatingControls)
+                return;
+
             if (chkToggleQuickFilter.Checked)
             {
-                ApplyFilters(showValidationMessage: false);
+                CaptureFilterCriteriaFromControls();
+                ApplyCurrentCriteria(showValidationMessage: false);
             }
         }
 
         private void TxtSearch_TextChanged(object? sender, EventArgs e)
         {
-            btnApplySearch.Focus();
+            if (_isUpdatingControls)
+                return;
+
             if (chkToggleQuickSearch.Checked)
             {
-                ApplySearchFilters(showValidationMessage: false);
+                CaptureSearchCriteriaFromControls();
+                ApplyCurrentCriteria(showValidationMessage: false);
             }
         }
 
         private void TxtArea_TextChanged(object? sender, EventArgs e)
         {
+            if (_isUpdatingControls)
+                return;
+
             if (chkToggleQuickFilter.Checked)
             {
-                ApplyFilters(showValidationMessage: false);
+                CaptureFilterCriteriaFromControls();
+                ApplyCurrentCriteria(showValidationMessage: false);
             }
         }
 
         private void RadioButton_CheckedChanged(object? sender, EventArgs e)
         {
+            if (_isUpdatingControls)
+                return;
 
-
-            if (rbRopanee.Checked)
-            {
-                //double ropanee = AreaConverterService.SqmToRopani(double.Parse(txtFromArea.Text));
-                //txtFromArea.Text = ropanee.ToString();
-                //ropanee = AreaConverterService.SqmToRopani(double.Parse(txtToArea.Text));
-                //txtToArea.Text = ropanee.ToString();
-                txtFromArea.PlaceholderText = "Ropanee";
-                txtToArea.PlaceholderText = "Ropanee";
-            }
-            else if (rbSqm.Checked)
-            {
-                //double  sqm= AreaConverterService.RopaniDecimalToSqm(double.Parse(txtFromArea.Text));
-                //txtFromArea.Text = sqm.ToString();
-                // sqm = AreaConverterService.RopaniDecimalToSqm(double.Parse(txtToArea.Text));
-                //txtToArea.Text = sqm.ToString();
-                txtFromArea.PlaceholderText = "sq.m.";
-                txtToArea.PlaceholderText = "sq.m.";
-            }
-            else
-            {
-                txtFromArea.PlaceholderText = "Aana";
-                txtToArea.PlaceholderText = "Aana";
-            }
+            UpdateAreaFilterPlaceholders();
             if (chkToggleQuickFilter.Checked)
             {
-                ApplyFilters(showValidationMessage: false);
+                CaptureFilterCriteriaFromControls();
+                ApplyCurrentCriteria(showValidationMessage: false);
             }
         }
 
@@ -749,9 +1174,14 @@ namespace Land_Readjustment_Tool.Forms.LandOwnersRecord_Managerment
                 try
                 {
                     var record = addForm.Record;
-                    SaveNewRecord(record);
+                    if (!SaveNewRecord(record))
+                    {
+                        return;
+                    }
                     LoadAllRecords();
                     PopulateFilterDropdowns();
+                    CaptureFilterCriteriaFromControls();
+                    CaptureSearchCriteriaFromControls();
                     ApplyFilters();
 
                     MessageBox.Show("Record added successfully!", "Success",
@@ -795,13 +1225,18 @@ namespace Land_Readjustment_Tool.Forms.LandOwnersRecord_Managerment
                     else
                     {
                         var updatedRecord = editForm.Record;
-                        UpdateExistingRecord(model.ParcelId, model.LandOwnerId, updatedRecord);
+                        if (!UpdateExistingRecord(model.ParcelId, model.LandOwnerId, updatedRecord))
+                        {
+                            return;
+                        }
                         MessageBox.Show("Record updated successfully!", "Success",
                             MessageBoxButtons.OK, MessageBoxIcon.Information);
                     }
 
                     LoadAllRecords();
                     PopulateFilterDropdowns();
+                    CaptureFilterCriteriaFromControls();
+                    CaptureSearchCriteriaFromControls();
                     ApplyFilters();
                 }
                 catch (Exception ex)
@@ -831,6 +1266,8 @@ namespace Land_Readjustment_Tool.Forms.LandOwnersRecord_Managerment
                     _landRecordsService.DeleteParcel(model.ParcelId);
                     LoadAllRecords();
                     PopulateFilterDropdowns();
+                    CaptureFilterCriteriaFromControls();
+                    CaptureSearchCriteriaFromControls();
                     ApplyFilters();
 
                     MessageBox.Show("Record deleted successfully!", "Success",
@@ -848,6 +1285,8 @@ namespace Land_Readjustment_Tool.Forms.LandOwnersRecord_Managerment
         {
             LoadAllRecords();
             PopulateFilterDropdowns();
+            CaptureFilterCriteriaFromControls();
+            CaptureSearchCriteriaFromControls();
             ClearAllFilters();
         }
 
@@ -871,11 +1310,19 @@ namespace Land_Readjustment_Tool.Forms.LandOwnersRecord_Managerment
             var parcel = _allRecords.FirstOrDefault(r => r.ParcelId == model.ParcelId);
             if (parcel == null) return;
 
-            using var detailsForm = new frmLandOwnerDetails(parcel.LandOwnerId, readOnlyMode: true);
+            using var detailsForm = new frmLandOwnerDetails(
+                parcel.LandOwnerId,
+                readOnlyMode: true,
+                _landRecordsService,
+                _projectPath,
+                allowEditInReadOnly: false);
             detailsForm.ShowDialog();
 
             // Refresh after details form closes in case changes were made
             LoadAllRecords();
+            PopulateFilterDropdowns();
+            CaptureFilterCriteriaFromControls();
+            CaptureSearchCriteriaFromControls();
             ApplyFilters();
         }
 
@@ -883,7 +1330,7 @@ namespace Land_Readjustment_Tool.Forms.LandOwnersRecord_Managerment
 
         #region Helper Methods
 
-        private void SaveNewRecord(BaselineLandParceRecord record)
+        private bool SaveNewRecord(BaselineLandParceRecord record)
         {
             var records = new List<BaselineLandParceRecord> { record };
 
@@ -899,7 +1346,7 @@ namespace Land_Readjustment_Tool.Forms.LandOwnersRecord_Managerment
                 if (reviewForm.ShowDialog() != DialogResult.OK)
                 {
                     // User cancelled the review
-                    return;
+                    return false;
                 }
 
                 // The deduplicationResult was modified in-place by the review form
@@ -914,9 +1361,11 @@ namespace Land_Readjustment_Tool.Forms.LandOwnersRecord_Managerment
             {
                 throw new Exception("Failed to save parcel - it may be a duplicate.");
             }
+
+            return true;
         }
 
-        private void UpdateExistingRecord(int parcelId, int existingLandOwnerId, BaselineLandParceRecord record)
+        private bool UpdateExistingRecord(int parcelId, int existingLandOwnerId, BaselineLandParceRecord record)
         {
             // Step 1: Check if owner information has changed
             var existingParcel = _allRecords.FirstOrDefault(p => p.ParcelId == parcelId);
@@ -946,7 +1395,7 @@ namespace Land_Readjustment_Tool.Forms.LandOwnersRecord_Managerment
                     if (reviewForm.ShowDialog() != DialogResult.OK)
                     {
                         // User cancelled the review
-                        return;
+                        return false;
                     }
 
                     // The deduplicationResult was modified in-place by the review form
@@ -1009,6 +1458,8 @@ namespace Land_Readjustment_Tool.Forms.LandOwnersRecord_Managerment
                 Remarks = record.Remarks
             };
             _landRecordsService.UpdateParcel(parcel);
+
+            return true;
         }
 
         private static BaselineLandParceRecord ConvertToEditableRecord(OriginalLandParcel parcel)
