@@ -361,7 +361,7 @@ namespace Land_Readjustment_Tool
             ImportParcelOwnerShipRecords.Name = "ImportParcelOwnerShipRecords";
             ImportParcelOwnerShipRecords.Size = new Size(342, 26);
             ImportParcelOwnerShipRecords.Text = "Parcel Ownership Records (Excel/CSV)";
-            ImportParcelOwnerShipRecords.Click += ImportParcelOwnerShipRecords_Click    ;
+            ImportParcelOwnerShipRecords.Click += ImportParcelOwnerShipRecords_Click;
             // 
             // toolStripSeparator5
             // 
@@ -429,6 +429,7 @@ namespace Land_Readjustment_Tool
             landOwnerDataToolStripMenuItem.Name = "landOwnerDataToolStripMenuItem";
             landOwnerDataToolStripMenuItem.Size = new Size(224, 26);
             landOwnerDataToolStripMenuItem.Text = "Land Owner Data";
+            landOwnerDataToolStripMenuItem.Click += landOwnerDataToolStripMenuItem_Click;
             // 
             // importToolStripMenuItem
             // 

@@ -1,6 +1,7 @@
 ﻿
 using Land_Readjustment_Tool.Data;
 using Land_Readjustment_Tool.Forms;
+using Land_Readjustment_Tool.Forms.LandOwnersRecord_Managerment;
 using Land_Readjustment_Tool.Properties;
 using Land_Readjustment_Tool.Repositories.Project;
 using Land_Readjustment_Tool.Repositories.Spatial;
@@ -1380,8 +1381,8 @@ namespace Land_Readjustment_Tool
 
         private void viewEditRecordToolStripMenuItem_Click(object sender, EventArgs e)
         {
-            frmLandOwnersRecord frmLandOwnersRecord = new frmLandOwnersRecord();
-            frmLandOwnersRecord.ShowDialog();
+            frmLandParcelOwnersRecord frm = new frmLandParcelOwnersRecord();
+            frm.ShowDialog();
         }
 
         private void mnuSaveAsProject_Click(object sender, EventArgs e)

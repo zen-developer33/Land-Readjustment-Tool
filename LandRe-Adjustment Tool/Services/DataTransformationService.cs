@@ -1,12 +1,22 @@
 ﻿using Land_Readjustment_Tool.Models;
 using System.Data;
+using System.Text;
 using System.Text.RegularExpressions;
 
 
 namespace Land_Readjustment_Tool.Services
 {
-    public class DataTransformationService
-    {
+public class DataTransformationService
+{
+        private static readonly string[] InstitutionKeywords =
+        [
+            "नेपाल सरकार", "सरकार", "government", "govt", "sarkar",
+            "ministry", "department", "कार्यालय", "मन्त्रालय", "विभाग",
+            "नगरपालिका", "गाउँपालिका", "गाउपालिका", "गा.पा", "न.पा",
+            "वडा कार्यालय", "सार्वजनिक", "public", "committee", "समिति",
+            "trust", "गुठी", "school", "विद्यालय", "bank", "company", "कम्पनी", "ltd", "pvt"
+        ];
+
         // ==================== GRID → DATATABLE ====================
 
         public static DataTable ConvertGridToDataTable(DataGridView grid)
@@ -78,6 +88,7 @@ namespace Land_Readjustment_Tool.Services
                         );
                     }
 
+                    ApplyOwnerSemanticNormalization(record);
                     ValidateBusinessRules(record, rowNumber, rowErrors);
 
                     result.AllOriginalRecords.Add(record);
@@ -139,6 +150,7 @@ namespace Land_Readjustment_Tool.Services
                         );
                     }
 
+                    ApplyOwnerSemanticNormalization(record);
                     ValidateBusinessRules(record, rowNumber, rowErrors);
 
                     result.AllOriginalRecords.Add(record);
@@ -233,8 +245,8 @@ namespace Land_Readjustment_Tool.Services
                     !string.IsNullOrWhiteSpace(x.record.MapSheetNo))
                 .GroupBy(x => new
                 {
-                    MapSheet = x.record.MapSheetNo.Trim().ToUpper(),
-                    Parcel = x.record.ParcelNo.Trim().ToUpper()
+                    MapSheet = (x.record.MapSheetNo ?? string.Empty).Trim().ToUpperInvariant(),
+                    Parcel = (x.record.ParcelNo ?? string.Empty).Trim().ToUpperInvariant()
                 })
                 .Where(g => g.Count() > 1);
 
@@ -340,6 +352,98 @@ namespace Land_Readjustment_Tool.Services
             return 0.0;
         }
 
+        // ==================== OWNER SEMANTICS ====================
+
+        private static void ApplyOwnerSemanticNormalization(BaselineLandParceRecord record)
+        {
+            record.LandOwnersName = NormalizeNullable(record.LandOwnersName);
+            record.FatherSpouse = NormalizeNullable(record.FatherSpouse);
+            record.Gender = NormalizeNullable(record.Gender);
+            record.CitizenshipNumber = NormalizeNullable(record.CitizenshipNumber);
+            record.CitizenshipIssuedDistrict = NormalizeNullable(record.CitizenshipIssuedDistrict);
+            record.citizenshipIssuedDate = NormalizeNullable(record.citizenshipIssuedDate);
+            record.PermanentAddress = NormalizeNullable(record.PermanentAddress);
+            record.TempoaryAddress = NormalizeNullable(record.TempoaryAddress);
+            record.ContactNumber = NormalizeNullable(record.ContactNumber);
+            record.EmailID = NormalizeNullable(record.EmailID);
+            record.LandOwnershipType = NormalizeNullable(record.LandOwnershipType);
+
+            if (!string.IsNullOrWhiteSpace(record.CitizenshipNumber))
+            {
+                record.CitizenshipNumber = NormalizeCitizenship(record.CitizenshipNumber);
+            }
+
+            if (!IsInstitutionOwner(record.LandOwnersName, record.LandOwnershipType))
+            {
+                return;
+            }
+
+            // Institution/government owners should never retain person-only identity fields.
+            record.FatherSpouse = null;
+            record.Gender = null;
+            record.CitizenshipNumber = null;
+            record.CitizenshipIssuedDistrict = null;
+            record.citizenshipIssuedDate = null;
+            record.PermanentAddress = null;
+            record.TempoaryAddress = null;
+            record.ContactNumber = null;
+            record.EmailID = null;
+            record.LandOwnershipType ??= "Government/Institution";
+        }
+
+        private static bool IsInstitutionOwner(string? ownerName, string? ownershipType)
+        {
+            return ContainsInstitutionKeyword(ownerName) || ContainsInstitutionKeyword(ownershipType);
+        }
+
+        private static bool ContainsInstitutionKeyword(string? value)
+        {
+            if (string.IsNullOrWhiteSpace(value))
+                return false;
+
+            var normalized = OwnerDeduplicationService.NormalizeString(value);
+            return InstitutionKeywords.Any(keyword =>
+                normalized.Contains(
+                    OwnerDeduplicationService.NormalizeString(keyword),
+                    StringComparison.OrdinalIgnoreCase));
+        }
+
+        private static string? NormalizeNullable(string? value)
+        {
+            if (string.IsNullOrWhiteSpace(value))
+                return null;
+
+            var cleaned = CleanString(value);
+            return string.IsNullOrWhiteSpace(cleaned) ? null : cleaned;
+        }
+
+        private static string NormalizeCitizenship(string value)
+        {
+            var converted = ConvertDevanagariToArabicDigits(value);
+            var normalized = new string(converted.Where(char.IsLetterOrDigit).ToArray()).ToUpperInvariant();
+            return string.IsNullOrWhiteSpace(normalized) ? string.Empty : normalized;
+        }
+
+        private static string ConvertDevanagariToArabicDigits(string input)
+        {
+            if (string.IsNullOrEmpty(input))
+                return input;
+
+            var builder = new StringBuilder(input.Length);
+            foreach (var c in input)
+            {
+                if (c >= '\u0966' && c <= '\u096F')
+                {
+                    builder.Append((char)('0' + (c - '\u0966')));
+                }
+                else
+                {
+                    builder.Append(c);
+                }
+            }
+
+            return builder.ToString();
+        }
         // ==================== BASE BUSINESS RULES ====================
 
         private static void ValidateBusinessRules(
@@ -392,3 +496,4 @@ namespace Land_Readjustment_Tool.Services
         public string ErrorSummary => $"Row {RowNumber}: {string.Join("; ", Errors)}";
     }
 }
+

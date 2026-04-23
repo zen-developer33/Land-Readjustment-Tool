@@ -5,6 +5,7 @@ using Land_Readjustment_Tool.Data;
 using Land_Readjustment_Tool.Infrastructure.Logging;
 using Microsoft.EntityFrameworkCore;
 using BaselineRecord = Land_Readjustment_Tool.Models.BaselineLandParceRecord;
+using System.Text;
 
 namespace Land_Readjustment_Tool.Services.Import
 {
@@ -13,6 +14,22 @@ namespace Land_Readjustment_Tool.Services.Import
         private readonly AppDbContext _context;
         private readonly IAppLogger _logger;
         private readonly IImportManagerService _importManagerService;
+
+        private static readonly string[] InstitutionKeywords =
+        [
+            "नेपाल सरकार", "सरकार", "government", "govt", "sarkar",
+            "ministry", "department", "कार्यालय", "मन्त्रालय", "विभाग",
+            "नगरपालिका", "गाउँपालिका", "गाउपालिका", "गा.पा", "न.पा",
+            "वडा कार्यालय", "सार्वजनिक", "public", "committee", "समिति",
+            "trust", "गुठी", "school", "विद्यालय", "bank", "company", "कम्पनी", "ltd", "pvt"
+        ];
+
+        private enum OwnerCategory
+        {
+            Unknown = 0,
+            Person = 1,
+            Institution = 2
+        }
 
         public ImportPersistenceService(ProjectSession session)
         {
@@ -176,22 +193,18 @@ namespace Land_Readjustment_Tool.Services.Import
             {
                 foreach (var unique in deduplicationResult.UniqueOwners)
                 {
-                    var seed = new OwnerSeed
-                    {
-                        FullName = NormalizeText(unique.LandOwnersName) ?? "Unknown Owner",
-                        FatherOrSpouseName = NormalizeText(unique.FatherSpouse),
-                        Gender = NormalizeText(unique.Gender),
-                        CitizenshipNumber = NormalizeText(unique.CitizenshipNumber),
-                        CitizenshipIssueDistrict = NormalizeText(unique.CitizenshipIssuedDistrict),
-                        CitizenshipIssueDate = NormalizeText(unique.CitizenshipIssuedDate),
-                        PermanentAddress = NormalizeText(unique.PermanentAddress),
-                        TemporaryAddress = NormalizeText(unique.TemporaryAddress),
-                        ContactNumber = NormalizeText(unique.ContactNumber),
-                        Email = NormalizeText(unique.EmailID),
-                        IdentificationMethod = string.IsNullOrWhiteSpace(unique.CitizenshipNumber) ? "NameFatherFuzzy" : "CitizenshipNumber",
-                        MatchConfidenceScore = unique.CompletenessScore / 10.0,
-                        NeedsManualReview = false
-                    };
+                    var seed = CreateSeed(
+                        unique.LandOwnersName,
+                        unique.FatherSpouse,
+                        unique.Gender,
+                        unique.CitizenshipNumber,
+                        unique.CitizenshipIssuedDistrict,
+                        unique.CitizenshipIssuedDate,
+                        unique.PermanentAddress,
+                        unique.TemporaryAddress,
+                        unique.ContactNumber,
+                        unique.EmailID,
+                        unique.IsAnonymous);
 
                     foreach (var index in unique.ParcelIndices)
                     {
@@ -207,22 +220,18 @@ namespace Land_Readjustment_Tool.Services.Import
                     continue;
 
                 var record = records[i];
-                seeds[i] = new OwnerSeed
-                {
-                    FullName = NormalizeText(record.LandOwnersName) ?? "Unknown Owner",
-                    FatherOrSpouseName = NormalizeText(record.FatherSpouse),
-                    Gender = NormalizeText(record.Gender),
-                    CitizenshipNumber = NormalizeText(record.CitizenshipNumber),
-                    CitizenshipIssueDistrict = NormalizeText(record.CitizenshipIssuedDistrict),
-                    CitizenshipIssueDate = NormalizeText(record.citizenshipIssuedDate),
-                    PermanentAddress = NormalizeText(record.PermanentAddress),
-                    TemporaryAddress = NormalizeText(record.TempoaryAddress),
-                    ContactNumber = NormalizeText(record.ContactNumber),
-                    Email = NormalizeText(record.EmailID),
-                    IdentificationMethod = string.IsNullOrWhiteSpace(record.CitizenshipNumber) ? "NameFatherFuzzy" : "CitizenshipNumber",
-                    MatchConfidenceScore = 0.8,
-                    NeedsManualReview = false
-                };
+                seeds[i] = CreateSeed(
+                    record.LandOwnersName,
+                    record.FatherSpouse,
+                    record.Gender,
+                    record.CitizenshipNumber,
+                    record.CitizenshipIssuedDistrict,
+                    record.citizenshipIssuedDate,
+                    record.PermanentAddress,
+                    record.TempoaryAddress,
+                    record.ContactNumber,
+                    record.EmailID,
+                    isAnonymous: false);
             }
 
             return seeds;
@@ -234,6 +243,7 @@ namespace Land_Readjustment_Tool.Services.Import
         {
             var ownerByRow = new Dictionary<int, LandOwner>(ownerSeedsByRow.Count);
             var ownerCache = await _context.LandOwners.ToListAsync(ct);
+            var ownerLookup = OwnerLookupIndex.Build(ownerCache);
             var newOwnersCreated = 0;
             var existingOwnersUpdated = 0;
 
@@ -242,7 +252,7 @@ namespace Land_Readjustment_Tool.Services.Import
                 var rowIndex = pair.Key;
                 var seed = pair.Value;
 
-                var matched = ownerCache.FirstOrDefault(o => IsOwnerMatch(o, seed));
+                var matched = ownerLookup.FindMatch(seed);
                 if (matched == null)
                 {
                     matched = new LandOwner
@@ -266,12 +276,14 @@ namespace Land_Readjustment_Tool.Services.Import
 
                     _context.LandOwners.Add(matched);
                     ownerCache.Add(matched);
+                    ownerLookup.IndexOwner(matched);
                     newOwnersCreated++;
                 }
                 else
                 {
                     MergeOwnerData(matched, seed);
                     matched.LastModifiedDate = DateTime.UtcNow;
+                    ownerLookup.IndexOwner(matched);
                     existingOwnersUpdated++;
                 }
 
@@ -422,34 +434,210 @@ namespace Land_Readjustment_Tool.Services.Import
             return value.Trim();
         }
 
-        private static bool IsOwnerMatch(LandOwner existing, OwnerSeed incoming)
+        private static OwnerSeed CreateSeed(
+            string? fullName,
+            string? fatherOrSpouse,
+            string? gender,
+            string? citizenshipNumber,
+            string? citizenshipIssueDistrict,
+            string? citizenshipIssueDate,
+            string? permanentAddress,
+            string? temporaryAddress,
+            string? contactNumber,
+            string? email,
+            bool isAnonymous)
         {
-            if (!string.IsNullOrWhiteSpace(incoming.CitizenshipNumber) &&
-                !string.IsNullOrWhiteSpace(existing.CitizenshipNumber))
+            var normalizedName = NormalizeText(fullName) ?? "Unknown Owner";
+            var normalizedFather = NormalizeText(fatherOrSpouse);
+            var normalizedGender = NormalizeText(gender);
+            var normalizedCitizenship = NormalizeText(citizenshipNumber);
+            var normalizedIssueDistrict = NormalizeText(citizenshipIssueDistrict);
+            var normalizedIssueDate = NormalizeText(citizenshipIssueDate);
+            var normalizedPermanent = NormalizeText(permanentAddress);
+            var normalizedTemporary = NormalizeText(temporaryAddress);
+            var normalizedContact = NormalizeText(contactNumber);
+            var normalizedEmail = NormalizeText(email);
+
+            var category = DetermineOwnerCategory(normalizedName, normalizedFather, normalizedCitizenship, normalizedGender);
+
+            var identificationMethod = "NameExact";
+            var confidence = 0.85;
+            var needsManualReview = false;
+
+            if (category == OwnerCategory.Institution)
             {
-                return string.Equals(
-                    existing.CitizenshipNumber.Trim(),
-                    incoming.CitizenshipNumber.Trim(),
-                    StringComparison.OrdinalIgnoreCase);
+                identificationMethod = "InstitutionName";
+                confidence = 1.0;
+                normalizedFather = null;
+                normalizedGender = null;
+                normalizedCitizenship = null;
+                normalizedIssueDistrict = null;
+                normalizedIssueDate = null;
+                normalizedPermanent = null;
+                normalizedTemporary = null;
+                normalizedContact = null;
+                normalizedEmail = null;
+            }
+            else if (!string.IsNullOrWhiteSpace(normalizedCitizenship))
+            {
+                identificationMethod = "CitizenshipNumber";
+                confidence = 1.0;
+            }
+            else if (!string.IsNullOrWhiteSpace(normalizedFather))
+            {
+                identificationMethod = "NameFatherExact";
+                confidence = 0.92;
+            }
+            else if (isAnonymous)
+            {
+                identificationMethod = "AnonymousOwner";
+                confidence = 0.5;
+                needsManualReview = true;
             }
 
-            return string.Equals(existing.FullName.Trim(), incoming.FullName.Trim(), StringComparison.OrdinalIgnoreCase) &&
-                   string.Equals((existing.FatherOrSpouseName ?? string.Empty).Trim(),
-                                 (incoming.FatherOrSpouseName ?? string.Empty).Trim(),
-                                 StringComparison.OrdinalIgnoreCase);
+            return new OwnerSeed
+            {
+                FullName = normalizedName,
+                FatherOrSpouseName = normalizedFather,
+                Gender = normalizedGender,
+                CitizenshipNumber = normalizedCitizenship,
+                CitizenshipIssueDistrict = normalizedIssueDistrict,
+                CitizenshipIssueDate = normalizedIssueDate,
+                PermanentAddress = normalizedPermanent,
+                TemporaryAddress = normalizedTemporary,
+                ContactNumber = normalizedContact,
+                Email = normalizedEmail,
+                IdentificationMethod = identificationMethod,
+                MatchConfidenceScore = confidence,
+                NeedsManualReview = needsManualReview,
+                Category = category
+            };
+        }
+
+        private static OwnerCategory DetermineOwnerCategory(
+            string? fullName,
+            string? fatherOrSpouse,
+            string? citizenshipNumber,
+            string? gender)
+        {
+            if (!string.IsNullOrWhiteSpace(fullName))
+            {
+                var normalized = OwnerDeduplicationService.NormalizeString(fullName);
+                if (InstitutionKeywords.Any(k =>
+                    normalized.Contains(OwnerDeduplicationService.NormalizeString(k), StringComparison.OrdinalIgnoreCase)))
+                {
+                    return OwnerCategory.Institution;
+                }
+            }
+
+            if (!string.IsNullOrWhiteSpace(citizenshipNumber) ||
+                !string.IsNullOrWhiteSpace(fatherOrSpouse) ||
+                !string.IsNullOrWhiteSpace(gender))
+            {
+                return OwnerCategory.Person;
+            }
+
+            return string.IsNullOrWhiteSpace(fullName)
+                ? OwnerCategory.Unknown
+                : OwnerCategory.Person;
+        }
+
+        private static string NormalizeCitizenship(string? input)
+        {
+            if (string.IsNullOrWhiteSpace(input))
+                return string.Empty;
+
+            var converted = ConvertDevanagariToArabicDigits(input);
+            return new string(converted.Where(char.IsLetterOrDigit).ToArray()).ToUpperInvariant();
+        }
+
+        private static string ConvertDevanagariToArabicDigits(string input)
+        {
+            if (string.IsNullOrEmpty(input))
+                return input;
+
+            var builder = new StringBuilder(input.Length);
+            foreach (var c in input)
+            {
+                if (c >= '\u0966' && c <= '\u096F')
+                {
+                    builder.Append((char)('0' + (c - '\u0966')));
+                }
+                else
+                {
+                    builder.Append(c);
+                }
+            }
+
+            return builder.ToString();
+        }
+
+        private static bool IsOwnerMatch(LandOwner existing, OwnerSeed incoming)
+        {
+            var existingCategory = DetermineOwnerCategory(existing.FullName, existing.FatherOrSpouseName, existing.CitizenshipNumber, existing.Gender);
+
+            if (incoming.Category == OwnerCategory.Institution || existingCategory == OwnerCategory.Institution)
+            {
+                return incoming.Category == OwnerCategory.Institution &&
+                       existingCategory == OwnerCategory.Institution &&
+                       string.Equals(
+                           OwnerDeduplicationService.NormalizeString(existing.FullName),
+                           OwnerDeduplicationService.NormalizeString(incoming.FullName),
+                           StringComparison.OrdinalIgnoreCase);
+            }
+
+            var incomingCitizenship = NormalizeCitizenship(incoming.CitizenshipNumber);
+            var existingCitizenship = NormalizeCitizenship(existing.CitizenshipNumber);
+
+            if (!string.IsNullOrWhiteSpace(incomingCitizenship) &&
+                !string.IsNullOrWhiteSpace(existingCitizenship))
+            {
+                return string.Equals(incomingCitizenship, existingCitizenship, StringComparison.OrdinalIgnoreCase);
+            }
+
+            var incomingName = OwnerDeduplicationService.NormalizeString(incoming.FullName);
+            var existingName = OwnerDeduplicationService.NormalizeString(existing.FullName);
+            var incomingFather = OwnerDeduplicationService.NormalizeString(incoming.FatherOrSpouseName ?? string.Empty);
+            var existingFather = OwnerDeduplicationService.NormalizeString(existing.FatherOrSpouseName ?? string.Empty);
+
+            if (!string.IsNullOrWhiteSpace(incomingFather) || !string.IsNullOrWhiteSpace(existingFather))
+            {
+                return string.Equals(incomingName, existingName, StringComparison.OrdinalIgnoreCase) &&
+                       string.Equals(incomingFather, existingFather, StringComparison.OrdinalIgnoreCase);
+            }
+
+            return string.Equals(incomingName, existingName, StringComparison.OrdinalIgnoreCase);
         }
 
         private static void MergeOwnerData(LandOwner target, OwnerSeed source)
         {
-            target.FatherOrSpouseName ??= source.FatherOrSpouseName;
-            target.Gender ??= source.Gender;
-            target.CitizenshipNumber ??= source.CitizenshipNumber;
-            target.CitizenshipIssueDistrict ??= source.CitizenshipIssueDistrict;
-            target.CitizenshipIssueDate ??= source.CitizenshipIssueDate;
-            target.PermanentAddress ??= source.PermanentAddress;
-            target.TemporaryAddress ??= source.TemporaryAddress;
-            target.ContactNumber ??= source.ContactNumber;
-            target.Email ??= source.Email;
+            if (source.Category == OwnerCategory.Institution)
+            {
+                // Hard safety rule: institutional owners do not carry personal identity attributes.
+                target.FatherOrSpouseName = null;
+                target.Gender = null;
+                target.CitizenshipNumber = null;
+                target.CitizenshipIssueDistrict = null;
+                target.CitizenshipIssueDate = null;
+                target.PermanentAddress = null;
+                target.TemporaryAddress = null;
+                target.ContactNumber = null;
+                target.Email = null;
+            }
+            else
+            {
+                target.FatherOrSpouseName ??= source.FatherOrSpouseName;
+                target.Gender ??= source.Gender;
+                target.CitizenshipNumber ??= source.CitizenshipNumber;
+                target.CitizenshipIssueDistrict ??= source.CitizenshipIssueDistrict;
+                target.CitizenshipIssueDate ??= source.CitizenshipIssueDate;
+                target.PermanentAddress ??= source.PermanentAddress;
+                target.TemporaryAddress ??= source.TemporaryAddress;
+                target.ContactNumber ??= source.ContactNumber;
+                target.Email ??= source.Email;
+            }
+
+            target.IdentificationMethod = source.IdentificationMethod;
             target.MatchConfidenceScore = Math.Max(target.MatchConfidenceScore ?? 0, source.MatchConfidenceScore ?? 0);
             target.NeedsManualReview = target.NeedsManualReview || source.NeedsManualReview;
         }
@@ -469,6 +657,122 @@ namespace Land_Readjustment_Tool.Services.Import
             public string IdentificationMethod { get; init; } = "NameFatherFuzzy";
             public double? MatchConfidenceScore { get; init; }
             public bool NeedsManualReview { get; init; }
+            public OwnerCategory Category { get; init; }
+        }
+
+        private sealed class OwnerLookupIndex
+        {
+            private readonly Dictionary<string, LandOwner> _institutionByName = new(StringComparer.OrdinalIgnoreCase);
+            private readonly Dictionary<string, LandOwner> _personByCitizenship = new(StringComparer.OrdinalIgnoreCase);
+            private readonly Dictionary<string, LandOwner> _personByNameFather = new(StringComparer.OrdinalIgnoreCase);
+            private readonly Dictionary<string, LandOwner> _personByName = new(StringComparer.OrdinalIgnoreCase);
+
+            public static OwnerLookupIndex Build(IEnumerable<LandOwner> owners)
+            {
+                var index = new OwnerLookupIndex();
+                foreach (var owner in owners)
+                {
+                    index.IndexOwner(owner);
+                }
+
+                return index;
+            }
+
+            public void IndexOwner(LandOwner owner)
+            {
+                var category = DetermineOwnerCategory(owner.FullName, owner.FatherOrSpouseName, owner.CitizenshipNumber, owner.Gender);
+
+                if (category == OwnerCategory.Institution)
+                {
+                    var key = BuildInstitutionKey(owner.FullName);
+                    if (!string.IsNullOrWhiteSpace(key))
+                    {
+                        _institutionByName[key] = owner;
+                    }
+
+                    return;
+                }
+
+                var citizenshipKey = BuildCitizenshipKey(owner.CitizenshipNumber);
+                if (!string.IsNullOrWhiteSpace(citizenshipKey))
+                {
+                    _personByCitizenship[citizenshipKey] = owner;
+                }
+
+                var nameFatherKey = BuildNameFatherKey(owner.FullName, owner.FatherOrSpouseName);
+                if (!string.IsNullOrWhiteSpace(nameFatherKey))
+                {
+                    _personByNameFather[nameFatherKey] = owner;
+                }
+
+                var nameKey = BuildNameKey(owner.FullName);
+                if (!string.IsNullOrWhiteSpace(nameKey))
+                {
+                    _personByName[nameKey] = owner;
+                }
+            }
+
+            public LandOwner? FindMatch(OwnerSeed seed)
+            {
+                if (seed.Category == OwnerCategory.Institution)
+                {
+                    var institutionKey = BuildInstitutionKey(seed.FullName);
+                    return !string.IsNullOrWhiteSpace(institutionKey) &&
+                           _institutionByName.TryGetValue(institutionKey, out var institution)
+                        ? institution
+                        : null;
+                }
+
+                var citizenshipKey = BuildCitizenshipKey(seed.CitizenshipNumber);
+                if (!string.IsNullOrWhiteSpace(citizenshipKey) &&
+                    _personByCitizenship.TryGetValue(citizenshipKey, out var byCitizenship))
+                {
+                    return byCitizenship;
+                }
+
+                var nameFatherKey = BuildNameFatherKey(seed.FullName, seed.FatherOrSpouseName);
+                if (!string.IsNullOrWhiteSpace(nameFatherKey) &&
+                    _personByNameFather.TryGetValue(nameFatherKey, out var byNameFather))
+                {
+                    return byNameFather;
+                }
+
+                var nameKey = BuildNameKey(seed.FullName);
+                if (!string.IsNullOrWhiteSpace(nameKey) &&
+                    _personByName.TryGetValue(nameKey, out var byName))
+                {
+                    return byName;
+                }
+
+                return null;
+            }
+
+            private static string BuildInstitutionKey(string? fullName)
+            {
+                return OwnerDeduplicationService.NormalizeString(fullName ?? string.Empty);
+            }
+
+            private static string BuildCitizenshipKey(string? citizenshipNumber)
+            {
+                return NormalizeCitizenship(citizenshipNumber);
+            }
+
+            private static string BuildNameFatherKey(string? fullName, string? fatherOrSpouse)
+            {
+                var name = OwnerDeduplicationService.NormalizeString(fullName ?? string.Empty);
+                var father = OwnerDeduplicationService.NormalizeString(fatherOrSpouse ?? string.Empty);
+                if (string.IsNullOrWhiteSpace(name))
+                {
+                    return string.Empty;
+                }
+
+                return $"{name}|{father}";
+            }
+
+            private static string BuildNameKey(string? fullName)
+            {
+                return OwnerDeduplicationService.NormalizeString(fullName ?? string.Empty);
+            }
         }
 
         private sealed record OwnerUpsertResult(

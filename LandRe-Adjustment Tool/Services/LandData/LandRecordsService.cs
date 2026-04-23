@@ -19,6 +19,15 @@ namespace Land_Readjustment_Tool.Services.LandData
         private readonly AppDbContext _context;
         private readonly string _projectFilePath;
 
+        private static readonly string[] InstitutionKeywords =
+        [
+            "नेपाल सरकार", "सरकार", "government", "govt", "sarkar",
+            "ministry", "department", "कार्यालय", "मन्त्रालय", "विभाग",
+            "नगरपालिका", "गाउँपालिका", "गाउपालिका", "गा.पा", "न.पा",
+            "वडा कार्यालय", "सार्वजनिक", "public", "committee", "समिति",
+            "trust", "गुठी", "school", "विद्यालय", "bank", "company", "कम्पनी", "ltd", "pvt"
+        ];
+
         public LandRecordsService(ProjectSession session, string projectFilePath)
         {
             _context = session.GetDbContext();
@@ -94,40 +103,71 @@ namespace Land_Readjustment_Tool.Services.LandData
 
         public bool OwnerExists(string? name, string? fatherSpouse, string? citizenshipNumber, int? excludeOwnerId = null)
         {
-            var normalizedName = Normalize(name);
+            var normalizedName = NormalizeName(name);
             if (string.IsNullOrWhiteSpace(normalizedName))
                 return false;
 
-            var normalizedFather = Normalize(fatherSpouse) ?? string.Empty;
-            var normalizedCitizenship = Normalize(citizenshipNumber) ?? string.Empty;
+            var isInstitution = IsInstitutionOwnerName(normalizedName);
+            var normalizedFather = NormalizeName(fatherSpouse);
+            var normalizedCitizenship = NormalizeCitizenship(citizenshipNumber);
 
             var query = _context.LandOwners.AsNoTracking().AsQueryable();
             if (excludeOwnerId.HasValue)
                 query = query.Where(o => o.Id != excludeOwnerId.Value);
 
-            return query.Any(o =>
-                o.FullName.Trim().ToLower() == normalizedName.ToLower() &&
-                (o.FatherOrSpouseName ?? string.Empty).Trim().ToLower() == normalizedFather.ToLower() &&
-                (o.CitizenshipNumber ?? string.Empty).Trim().ToLower() == normalizedCitizenship.ToLower());
+            var owners = query
+                .Select(o => new
+                {
+                    o.FullName,
+                    o.FatherOrSpouseName,
+                    o.CitizenshipNumber
+                })
+                .ToList();
+
+            if (isInstitution)
+            {
+                return owners.Any(o =>
+                    IsInstitutionOwnerName(o.FullName) &&
+                    NormalizeName(o.FullName) == normalizedName);
+            }
+
+            if (!string.IsNullOrWhiteSpace(normalizedCitizenship))
+            {
+                return owners.Any(o =>
+                    !IsInstitutionOwnerName(o.FullName) &&
+                    NormalizeCitizenship(o.CitizenshipNumber) == normalizedCitizenship);
+            }
+
+            return owners.Any(o =>
+                !IsInstitutionOwnerName(o.FullName) &&
+                NormalizeName(o.FullName) == normalizedName &&
+                NormalizeName(o.FatherOrSpouseName ?? string.Empty) == normalizedFather);
         }
 
         public int CreateOwner(LegacyLandOwner owner)
         {
+            var fullName = Normalize(owner.LandOwnersName) ?? "Unknown Owner";
+            var isInstitution = IsInstitutionOwnerName(fullName);
+
             var entity = new CoreLandOwner
             {
-                FullName = Normalize(owner.LandOwnersName) ?? "Unknown Owner",
-                FatherOrSpouseName = Normalize(owner.FatherSpouse),
-                Gender = Normalize(owner.Gender),
-                CitizenshipNumber = Normalize(owner.CitizenshipNumber),
-                CitizenshipIssueDistrict = Normalize(owner.CitizenshipIssuedDistrict),
-                CitizenshipIssueDate = Normalize(owner.CitizenshipIssuedDate),
-                PermanentAddress = Normalize(owner.PermanentAddress),
-                TemporaryAddress = Normalize(owner.TemporaryAddress),
-                ContactNumber = Normalize(owner.ContactNumber),
-                Email = Normalize(owner.EmailID),
+                FullName = fullName,
+                FatherOrSpouseName = isInstitution ? null : Normalize(owner.FatherSpouse),
+                Gender = isInstitution ? null : Normalize(owner.Gender),
+                CitizenshipNumber = isInstitution ? null : Normalize(owner.CitizenshipNumber),
+                CitizenshipIssueDistrict = isInstitution ? null : Normalize(owner.CitizenshipIssuedDistrict),
+                CitizenshipIssueDate = isInstitution ? null : Normalize(owner.CitizenshipIssuedDate),
+                PermanentAddress = isInstitution ? null : Normalize(owner.PermanentAddress),
+                TemporaryAddress = isInstitution ? null : Normalize(owner.TemporaryAddress),
+                ContactNumber = isInstitution ? null : Normalize(owner.ContactNumber),
+                Email = isInstitution ? null : Normalize(owner.EmailID),
                 PhotoPath = Normalize(owner.PhotoPath),
                 DocumentsFolderPath = Normalize(owner.DocumentsFolderPath),
-                IdentificationMethod = string.IsNullOrWhiteSpace(owner.CitizenshipNumber) ? "NameFatherFuzzy" : "CitizenshipNumber",
+                IdentificationMethod = isInstitution
+                    ? "InstitutionName"
+                    : string.IsNullOrWhiteSpace(owner.CitizenshipNumber)
+                        ? "NameFatherFuzzy"
+                        : "CitizenshipNumber",
                 MatchConfidenceScore = 1.0,
                 NeedsManualReview = false,
                 CreatedDate = DateTime.UtcNow,
@@ -146,16 +186,24 @@ namespace Land_Readjustment_Tool.Services.LandData
             if (entity == null)
                 return false;
 
-            entity.FullName = Normalize(owner.LandOwnersName) ?? entity.FullName;
-            entity.FatherOrSpouseName = Normalize(owner.FatherSpouse);
-            entity.Gender = Normalize(owner.Gender);
-            entity.CitizenshipNumber = Normalize(owner.CitizenshipNumber);
-            entity.CitizenshipIssueDistrict = Normalize(owner.CitizenshipIssuedDistrict);
-            entity.CitizenshipIssueDate = Normalize(owner.CitizenshipIssuedDate);
-            entity.PermanentAddress = Normalize(owner.PermanentAddress);
-            entity.TemporaryAddress = Normalize(owner.TemporaryAddress);
-            entity.ContactNumber = Normalize(owner.ContactNumber);
-            entity.Email = Normalize(owner.EmailID);
+            var fullName = Normalize(owner.LandOwnersName) ?? entity.FullName;
+            var isInstitution = IsInstitutionOwnerName(fullName);
+
+            entity.FullName = fullName;
+            entity.FatherOrSpouseName = isInstitution ? null : Normalize(owner.FatherSpouse);
+            entity.Gender = isInstitution ? null : Normalize(owner.Gender);
+            entity.CitizenshipNumber = isInstitution ? null : Normalize(owner.CitizenshipNumber);
+            entity.CitizenshipIssueDistrict = isInstitution ? null : Normalize(owner.CitizenshipIssuedDistrict);
+            entity.CitizenshipIssueDate = isInstitution ? null : Normalize(owner.CitizenshipIssuedDate);
+            entity.PermanentAddress = isInstitution ? null : Normalize(owner.PermanentAddress);
+            entity.TemporaryAddress = isInstitution ? null : Normalize(owner.TemporaryAddress);
+            entity.ContactNumber = isInstitution ? null : Normalize(owner.ContactNumber);
+            entity.Email = isInstitution ? null : Normalize(owner.EmailID);
+            entity.IdentificationMethod = isInstitution
+                ? "InstitutionName"
+                : string.IsNullOrWhiteSpace(owner.CitizenshipNumber)
+                    ? "NameFatherFuzzy"
+                    : "CitizenshipNumber";
             entity.PhotoPath = Normalize(owner.PhotoPath);
             entity.DocumentsFolderPath = Normalize(owner.DocumentsFolderPath);
             entity.LastModifiedDate = DateTime.UtcNow;
@@ -458,38 +506,61 @@ namespace Land_Readjustment_Tool.Services.LandData
 
         private int SaveOrGetOwnerId(LegacyLandOwner owner)
         {
-            var normalizedCitizenship = Normalize(owner.CitizenshipNumber);
+            var normalizedName = Normalize(owner.LandOwnersName) ?? "Unknown Owner";
+            var isInstitution = IsInstitutionOwnerName(normalizedName);
+            var normalizedCitizenship = NormalizeCitizenship(owner.CitizenshipNumber);
+            var normalizedFather = Normalize(owner.FatherSpouse) ?? string.Empty;
             CoreLandOwner? existing = null;
+            var owners = _context.LandOwners.ToList();
 
-            if (!string.IsNullOrWhiteSpace(normalizedCitizenship))
+            if (isInstitution)
             {
-                existing = _context.LandOwners.FirstOrDefault(o =>
-                    o.CitizenshipNumber != null &&
-                    o.CitizenshipNumber.ToLower() == normalizedCitizenship.ToLower());
+                existing = owners.FirstOrDefault(o =>
+                    IsInstitutionOwnerName(o.FullName) &&
+                    NormalizeName(o.FullName) == NormalizeName(normalizedName));
+            }
+            else if (!string.IsNullOrWhiteSpace(normalizedCitizenship))
+            {
+                existing = owners.FirstOrDefault(o =>
+                    !string.IsNullOrWhiteSpace(o.CitizenshipNumber) &&
+                    NormalizeCitizenship(o.CitizenshipNumber) == normalizedCitizenship);
             }
 
-            if (existing == null)
+            if (!isInstitution && existing == null)
             {
-                var normalizedName = Normalize(owner.LandOwnersName);
-                var normalizedFather = Normalize(owner.FatherSpouse) ?? string.Empty;
-
-                existing = _context.LandOwners.FirstOrDefault(o =>
-                    o.FullName.ToLower() == (normalizedName ?? string.Empty).ToLower() &&
-                    (o.FatherOrSpouseName ?? string.Empty).ToLower() == normalizedFather.ToLower());
+                existing = owners.FirstOrDefault(o =>
+                    NormalizeName(o.FullName) == NormalizeName(normalizedName) &&
+                    NormalizeName(o.FatherOrSpouseName ?? string.Empty) == NormalizeName(normalizedFather));
             }
 
             if (existing != null)
             {
                 var changed = false;
-                changed |= MergeIfEmpty(existing.FatherOrSpouseName, Normalize(owner.FatherSpouse), v => existing.FatherOrSpouseName = v);
-                changed |= MergeIfEmpty(existing.Gender, Normalize(owner.Gender), v => existing.Gender = v);
-                changed |= MergeIfEmpty(existing.CitizenshipNumber, normalizedCitizenship, v => existing.CitizenshipNumber = v);
-                changed |= MergeIfEmpty(existing.CitizenshipIssueDistrict, Normalize(owner.CitizenshipIssuedDistrict), v => existing.CitizenshipIssueDistrict = v);
-                changed |= MergeIfEmpty(existing.CitizenshipIssueDate, Normalize(owner.CitizenshipIssuedDate), v => existing.CitizenshipIssueDate = v);
-                changed |= MergeIfEmpty(existing.PermanentAddress, Normalize(owner.PermanentAddress), v => existing.PermanentAddress = v);
-                changed |= MergeIfEmpty(existing.TemporaryAddress, Normalize(owner.TemporaryAddress), v => existing.TemporaryAddress = v);
-                changed |= MergeIfEmpty(existing.ContactNumber, Normalize(owner.ContactNumber), v => existing.ContactNumber = v);
-                changed |= MergeIfEmpty(existing.Email, Normalize(owner.EmailID), v => existing.Email = v);
+                if (isInstitution)
+                {
+                    changed |= ClearIfNotEmpty(existing.FatherOrSpouseName, v => existing.FatherOrSpouseName = v);
+                    changed |= ClearIfNotEmpty(existing.Gender, v => existing.Gender = v);
+                    changed |= ClearIfNotEmpty(existing.CitizenshipNumber, v => existing.CitizenshipNumber = v);
+                    changed |= ClearIfNotEmpty(existing.CitizenshipIssueDistrict, v => existing.CitizenshipIssueDistrict = v);
+                    changed |= ClearIfNotEmpty(existing.CitizenshipIssueDate, v => existing.CitizenshipIssueDate = v);
+                    changed |= ClearIfNotEmpty(existing.PermanentAddress, v => existing.PermanentAddress = v);
+                    changed |= ClearIfNotEmpty(existing.TemporaryAddress, v => existing.TemporaryAddress = v);
+                    changed |= ClearIfNotEmpty(existing.ContactNumber, v => existing.ContactNumber = v);
+                    changed |= ClearIfNotEmpty(existing.Email, v => existing.Email = v);
+                    changed |= UpdateIfDifferent(existing.IdentificationMethod, "InstitutionName", v => existing.IdentificationMethod = v);
+                }
+                else
+                {
+                    changed |= MergeIfEmpty(existing.FatherOrSpouseName, Normalize(owner.FatherSpouse), v => existing.FatherOrSpouseName = v);
+                    changed |= MergeIfEmpty(existing.Gender, Normalize(owner.Gender), v => existing.Gender = v);
+                    changed |= MergeIfEmpty(existing.CitizenshipNumber, Normalize(owner.CitizenshipNumber), v => existing.CitizenshipNumber = v);
+                    changed |= MergeIfEmpty(existing.CitizenshipIssueDistrict, Normalize(owner.CitizenshipIssuedDistrict), v => existing.CitizenshipIssueDistrict = v);
+                    changed |= MergeIfEmpty(existing.CitizenshipIssueDate, Normalize(owner.CitizenshipIssuedDate), v => existing.CitizenshipIssueDate = v);
+                    changed |= MergeIfEmpty(existing.PermanentAddress, Normalize(owner.PermanentAddress), v => existing.PermanentAddress = v);
+                    changed |= MergeIfEmpty(existing.TemporaryAddress, Normalize(owner.TemporaryAddress), v => existing.TemporaryAddress = v);
+                    changed |= MergeIfEmpty(existing.ContactNumber, Normalize(owner.ContactNumber), v => existing.ContactNumber = v);
+                    changed |= MergeIfEmpty(existing.Email, Normalize(owner.EmailID), v => existing.Email = v);
+                }
 
                 if (changed)
                 {
@@ -498,6 +569,19 @@ namespace Land_Readjustment_Tool.Services.LandData
                 }
 
                 return existing.Id;
+            }
+
+            if (isInstitution)
+            {
+                owner.FatherSpouse = null;
+                owner.Gender = null;
+                owner.CitizenshipNumber = null;
+                owner.CitizenshipIssuedDistrict = null;
+                owner.CitizenshipIssuedDate = null;
+                owner.PermanentAddress = null;
+                owner.TemporaryAddress = null;
+                owner.ContactNumber = null;
+                owner.EmailID = null;
             }
 
             return CreateOwner(owner);
@@ -598,9 +682,66 @@ namespace Land_Readjustment_Tool.Services.LandData
             return false;
         }
 
+        private static bool ClearIfNotEmpty(string? target, Action<string?> assign)
+        {
+            if (!string.IsNullOrWhiteSpace(target))
+            {
+                assign(null);
+                return true;
+            }
+
+            return false;
+        }
+
+        private static bool UpdateIfDifferent(string? current, string next, Action<string> assign)
+        {
+            if (!string.Equals(current, next, StringComparison.Ordinal))
+            {
+                assign(next);
+                return true;
+            }
+
+            return false;
+        }
+
         private static string? Normalize(string? value)
         {
             return string.IsNullOrWhiteSpace(value) ? null : value.Trim();
+        }
+
+        private static string NormalizeName(string? value)
+        {
+            if (string.IsNullOrWhiteSpace(value))
+                return string.Empty;
+
+            return OwnerDeduplicationService.NormalizeString(value);
+        }
+
+        private static bool IsInstitutionOwnerName(string? ownerName)
+        {
+            if (string.IsNullOrWhiteSpace(ownerName))
+                return false;
+
+            var normalized = NormalizeName(ownerName);
+            return InstitutionKeywords.Any(keyword =>
+                normalized.Contains(NormalizeName(keyword), StringComparison.OrdinalIgnoreCase));
+        }
+
+        private static string NormalizeCitizenship(string? value)
+        {
+            if (string.IsNullOrWhiteSpace(value))
+                return string.Empty;
+
+            var converted = new System.Text.StringBuilder(value.Length);
+            foreach (var c in value)
+            {
+                if (c >= '\u0966' && c <= '\u096F')
+                    converted.Append((char)('0' + (c - '\u0966')));
+                else
+                    converted.Append(c);
+            }
+
+            return new string(converted.ToString().Where(char.IsLetterOrDigit).ToArray()).ToUpperInvariant();
         }
 
         private LegacyParcel MapParcel(BaselineParcel parcel)
@@ -637,7 +778,7 @@ namespace Land_Readjustment_Tool.Services.LandData
 
         private static LegacyLandOwner MapOwner(CoreLandOwner owner)
         {
-            return new LegacyLandOwner
+            var model = new LegacyLandOwner
             {
                 LandOwnerId = owner.Id,
                 LandOwnersName = owner.FullName,
@@ -656,6 +797,21 @@ namespace Land_Readjustment_Tool.Services.LandData
                 CreatedDate = owner.CreatedDate,
                 ModifiedDate = owner.LastModifiedDate
             };
+
+            if (IsInstitutionOwnerName(model.LandOwnersName))
+            {
+                model.FatherSpouse = null;
+                model.Gender = null;
+                model.CitizenshipNumber = null;
+                model.CitizenshipIssuedDistrict = null;
+                model.CitizenshipIssuedDate = null;
+                model.PermanentAddress = null;
+                model.TemporaryAddress = null;
+                model.ContactNumber = null;
+                model.EmailID = null;
+            }
+
+            return model;
         }
 
         private static void MarkModified()

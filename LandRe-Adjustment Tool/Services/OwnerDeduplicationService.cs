@@ -1,21 +1,42 @@
-﻿using Land_Readjustment_Tool.Models;
+using Land_Readjustment_Tool.Models;
+using System.Text;
 
 namespace Land_Readjustment_Tool.Services
 {
     /// <summary>
-    /// Service for extracting unique landowners from imported records
-    /// Handles fuzzy matching, anonymous owner creation, and deduplication
+    /// Owner deduplication with strict identity rules.
+    /// Design goals:
+    /// - Never auto-merge institutional owners with person owners.
+    /// - Prefer deterministic keys (citizenship, exact normalized name/father) over fuzzy merges.
+    /// - Keep merged data safe: institution owners do not carry person-only attributes.
     /// </summary>
     public class OwnerDeduplicationService
     {
-        // Threshold for citizenship fuzzy matching (95% character match after normalization)
-        private const double CitizenshipMatchThreshold = 0.95;
-        // Threshold for name+father fuzzy matching (85% character match - higher for better accuracy)
-        private const double NameFatherMatchThreshold = 0.85;
+        private const double HighNameThresholdForCitizenshipRule = 0.80;
+        private const double HighNameFatherCombinedThreshold = 0.95;
+        private const double MinimumReviewThreshold = 0.80;
 
-        /// <summary>
-        /// Result of the deduplication process
-        /// </summary>
+        private static readonly string[] AnonymousKeywords =
+        [
+            "anonymous", "unknown", "अज्ञात", "अनाम"
+        ];
+
+        private static readonly string[] InstitutionKeywords =
+        [
+            "नेपाल सरकार", "सरकार", "government", "govt", "sarkar",
+            "ministry", "department", "कार्यालय", "मन्त्रालय", "विभाग",
+            "नगरपालिका", "गाउँपालिका", "गाउपालिका", "गा.पा", "न.पा",
+            "वडा कार्यालय", "सार्वजनिक", "public", "committee", "समिति",
+            "trust", "गुठी", "school", "विद्यालय", "bank", "कम्पनी", "company", "ltd", "pvt"
+        ];
+
+        private enum OwnerCategory
+        {
+            Unknown = 0,
+            Person = 1,
+            Institution = 2
+        }
+
         public class DeduplicationResult
         {
             public List<UniqueOwner> UniqueOwners { get; set; } = new();
@@ -26,10 +47,6 @@ namespace Land_Readjustment_Tool.Services
             public int AutoMergedCount { get; set; }
         }
 
-        /// <summary>
-        /// Represents a unique owner with all their parcel indices
-        /// Contains only owner-specific fields for deduplication
-        /// </summary>
         public class UniqueOwner
         {
             public string LandOwnersName { get; set; } = string.Empty;
@@ -42,590 +59,751 @@ namespace Land_Readjustment_Tool.Services
             public string? TemporaryAddress { get; set; }
             public string? ContactNumber { get; set; }
             public string? EmailID { get; set; }
-            public List<int> ParcelIndices { get; set; } = new(); // Indices in original list
+            public List<int> ParcelIndices { get; set; } = new();
             public bool IsAnonymous { get; set; }
             public int CompletenessScore => GetCompletenessScore(this);
         }
 
-        /// <summary>
-        /// Group of potential duplicates that need user review
-        /// </summary>
         public class DuplicateGroup
         {
-            // A duplicate group may contain more than two owners that look like duplicates
             public List<UniqueOwner> Owners { get; set; } = new();
-
-            // Representative similarity score for the group (e.g., 0.80 for name+father matches)
             public double Similarity { get; set; }
-
-            // Confidence components
             public double CitizenshipConfidence { get; set; }
             public double NameFatherConfidence { get; set; }
-
-            // When automatically merged via citizenship, keep a reference so user can undo
             public UniqueOwner? AutoMergedOwner { get; set; }
-
-            // Whether this was auto-merged based on citizenship
             public bool IsAutoMerged { get; set; }
-
-            // Match type description
             public string MatchType { get; set; } = string.Empty;
-
-            // User's decision for this group (null if not decided yet)
             public UserDecisionType? UserDecision { get; set; }
         }
 
-        /// <summary>
-        /// User's decision for a duplicate group
-        /// </summary>
         public enum UserDecisionType
         {
             Merge,
             KeepSeparate
         }
 
-        /// <summary>
-        /// Main method: Extract unique owners from imported records
-        /// Strategy:
-        /// 1. Find citizenship-based duplicates (auto-merge if citizenship matches >= 95%)
-        /// 2. For remaining owners, find name+father duplicates
-        /// 3. If name+father matches AND citizenship also matches (or one is missing), auto-merge
-        /// 4. If only name+father matches, flag for review
-        /// </summary>
-        /// <param name="records">List of records to analyze</param>
-        /// <param name="excludeAnonymous">When true, skips records with "Anonymous" or "Unknown" in the name (used for subsequent deduplication runs)</param>
+        private enum ConfidenceBand
+        {
+            None = 0,
+            Medium = 1,
+            High = 2
+        }
+
+        private sealed class OwnerToken
+        {
+            public required int Index { get; init; }
+            public required UniqueOwner Owner { get; init; }
+            public required string NormalizedName { get; init; }
+            public required string NormalizedFather { get; init; }
+            public required string NormalizedCitizenship { get; init; }
+        }
+
+        private sealed class PairAssessment
+        {
+            public required int LeftIndex { get; init; }
+            public required int RightIndex { get; init; }
+            public required ConfidenceBand Band { get; init; }
+            public required double Similarity { get; init; }
+            public required double CitizenshipConfidence { get; init; }
+            public required double NameFatherConfidence { get; init; }
+            public required bool UsesCitizenship { get; init; }
+            public required string MatchType { get; init; }
+        }
+
         public static DeduplicationResult ExtractUniqueOwners(
             List<BaselineLandParceRecord> records,
             bool excludeAnonymous = false)
         {
+            if (records == null)
+                throw new ArgumentNullException(nameof(records));
+
             var result = new DeduplicationResult
             {
                 TotalOriginalRecords = records.Count
             };
 
-            // Step 1: Handle anonymous owners and create initial owner list
-            var potentialOwners = CreateInitialOwnerList(records, result, excludeAnonymous);
-
-            var uniqueOwners = new List<UniqueOwner>();
-            var processedIndices = new HashSet<int>();
-
-            // Step 2: Find citizenship-based duplicates (fuzzy match with 95% threshold)
-            // Only auto-merge if citizenship matches well
-            var citizenshipGroups = FindCitizenshipDuplicates(potentialOwners);
-
-            foreach (var group in citizenshipGroups)
-            {
-                if (group.Count > 1)
-                {
-                    // Multiple owners with similar citizenship - auto-merge
-                    var merged = MergeOwners(group);
-                    uniqueOwners.Add(merged);
-
-                    foreach (var owner in group)
-                    {
-                        foreach (var idx in owner.ParcelIndices)
-                            _ = processedIndices.Add(idx);
-                    }
-
-                    // Add to auto-merged list for user visibility (can undo)
-                    var dupGroup = new DuplicateGroup
-                    {
-                        Owners = group,
-                        Similarity = 0.95,
-                        CitizenshipConfidence = 0.95,
-                        NameFatherConfidence = 0.0,
-                        AutoMergedOwner = merged,
-                        IsAutoMerged = true,
-                        MatchType = "Citizenship Match (Auto-merged)"
-                    };
-                    result.DuplicatesNeedingReview.Add(dupGroup);
-                    result.AutoMergedGroups.Add(dupGroup);
-                    result.AutoMergedCount++;
-                }
-                // Note: Single-owner groups are NOT marked as processed here
-                // They will go through name+father matching in Step 3
-            }
-
-            // Step 3: For ALL owners not yet processed, find name+father duplicates
-            // This includes owners with citizenship that didn't match anyone
-            var remainingOwners = potentialOwners
-                .Where(o => !o.ParcelIndices.Any(idx => processedIndices.Contains(idx)))
+            var seedOwners = CreateInitialOwnerList(records, result, excludeAnonymous);
+            var anonymousOwners = seedOwners.Where(o => o.IsAnonymous).ToList();
+            var institutionOwners = seedOwners
+                .Where(o => !o.IsAnonymous && DetermineOwnerCategory(o) == OwnerCategory.Institution)
+                .ToList();
+            var personOwners = seedOwners
+                .Where(o => !o.IsAnonymous && DetermineOwnerCategory(o) == OwnerCategory.Person)
                 .ToList();
 
-            var nameFatherGroups = FindNameFatherDuplicatesWithCitizenshipCheck(remainingOwners);
+            // Anonymous owners are intentionally isolated.
+            result.UniqueOwners.AddRange(anonymousOwners.Select(CloneOwner));
 
-            foreach (var group in nameFatherGroups)
-            {
-                if (group.Owners.Count == 1)
-                {
-                    // No duplicates found - add as unique
-                    uniqueOwners.Add(group.Owners[0]);
-                }
-                else if (group.IsAutoMerged)
-                {
-                    // Name+Father matches AND citizenship confirms (or missing)
-                    var merged = MergeOwners(group.Owners);
-                    uniqueOwners.Add(merged);
-                    group.AutoMergedOwner = merged;
-                    result.DuplicatesNeedingReview.Add(group);
-                    result.AutoMergedGroups.Add(group);
-                    result.AutoMergedCount++;
-                }
-                else
-                {
-                    // Name+Father matches but citizenship doesn't confirm - needs review
-                    uniqueOwners.Add(group.Owners[0]);
-                    result.DuplicatesNeedingReview.Add(group);
-                }
-            }
-
-            result.UniqueOwners = uniqueOwners;
-            return result;
-        }
-
-        /// <summary>
-        /// Find groups of owners with similar citizenship numbers (>= 95% character match)
-        /// Anonymous owners are excluded from this grouping - they are always kept separate
-        /// </summary>
-        private static List<List<UniqueOwner>> FindCitizenshipDuplicates(List<UniqueOwner> owners)
-        {
-            var groups = new List<List<UniqueOwner>>();
-            var processed = new HashSet<int>();
-
-            // Exclude anonymous owners from citizenship-based matching
-            var ownersWithCitizenship = owners
-                .Select((o, idx) => (Owner: o, Index: idx))
-                .Where(x => !string.IsNullOrWhiteSpace(x.Owner.CitizenshipNumber) && !x.Owner.IsAnonymous)
+            // Institutions: only exact normalized-name grouping.
+            var institutionGroups = institutionOwners
+                .GroupBy(o => NormalizeString(o.LandOwnersName), StringComparer.OrdinalIgnoreCase)
                 .ToList();
 
-            for (int i = 0; i < ownersWithCitizenship.Count; i++)
+            foreach (var institutionGroup in institutionGroups)
             {
-                if (processed.Contains(i)) continue;
-
-                var current = ownersWithCitizenship[i];
-                var group = new List<UniqueOwner> { current.Owner };
-                _ = processed.Add(i);
-
-                string normalizedCurrent = NormalizeCitizenship(current.Owner.CitizenshipNumber!);
-
-                for (int j = i + 1; j < ownersWithCitizenship.Count; j++)
+                var members = institutionGroup.ToList();
+                if (members.Count == 1)
                 {
-                    if (processed.Contains(j)) continue;
-
-                    var other = ownersWithCitizenship[j];
-                    string normalizedOther = NormalizeCitizenship(other.Owner.CitizenshipNumber!);
-
-                    double similarity = CalculateCharacterSimilarity(normalizedCurrent, normalizedOther);
-
-                    if (similarity >= CitizenshipMatchThreshold)
-                    {
-                        group.Add(other.Owner);
-                        _ = processed.Add(j);
-                    }
+                    result.UniqueOwners.Add(CloneOwner(members[0]));
+                    continue;
                 }
 
-                groups.Add(group);
+                var mergedOwner = MergeOwners(members);
+                result.UniqueOwners.Add(mergedOwner);
+
+                var group = new DuplicateGroup
+                {
+                    Owners = members,
+                    Similarity = 1.0,
+                    CitizenshipConfidence = 0.0,
+                    NameFatherConfidence = 1.0,
+                    AutoMergedOwner = mergedOwner,
+                    IsAutoMerged = true,
+                    MatchType = "High Confidence (Institution Name Exact Match)"
+                };
+
+                result.AutoMergedGroups.Add(group);
+                result.DuplicatesNeedingReview.Add(group);
+                result.AutoMergedCount++;
             }
 
-            // NOTE: Owners without citizenship are NOT added here
-            // They will be processed by FindNameFatherDuplicates instead
+            var personTokens = BuildOwnerTokens(personOwners);
+            var highPairs = FindPairAssessments(personTokens, ConfidenceBand.High);
+            var highComponents = BuildConnectedComponents(personTokens.Count, highPairs);
 
-            return groups;
-        }
-
-        /// <summary>
-        /// Find groups of owners with similar name+father combination (>= 50% character match)
-        /// </summary>
-        private static List<DuplicateGroup> FindNameFatherDuplicates(List<UniqueOwner> owners)
-        {
-            var groups = new List<DuplicateGroup>();
-            var processed = new HashSet<int>();
-
-            for (int i = 0; i < owners.Count; i++)
+            var processedPersonIndexes = new HashSet<int>();
+            foreach (var component in highComponents)
             {
-                if (processed.Contains(i)) continue;
-
-                var current = owners[i];
-                var group = new List<UniqueOwner> { current };
-                _ = processed.Add(i);
-
-                string normalizedCurrent = GetNormalizedNameFatherKey(current);
-
-                for (int j = i + 1; j < owners.Count; j++)
+                if (component.Count == 1)
                 {
-                    if (processed.Contains(j)) continue;
-
-                    var other = owners[j];
-                    string normalizedOther = GetNormalizedNameFatherKey(other);
-
-                    double similarity = CalculateCharacterSimilarity(normalizedCurrent, normalizedOther);
-
-                    if (similarity >= NameFatherMatchThreshold)
-                    {
-                        group.Add(other);
-                        _ = processed.Add(j);
-                    }
+                    var single = personTokens[component[0]].Owner;
+                    result.UniqueOwners.Add(CloneOwner(single));
+                    _ = processedPersonIndexes.Add(component[0]);
+                    continue;
                 }
 
-                groups.Add(new DuplicateGroup
+                var ownersToMerge = component.Select(index => personTokens[index].Owner).ToList();
+                var mergedOwner = MergeOwners(ownersToMerge);
+                result.UniqueOwners.Add(mergedOwner);
+
+                var componentPairs = highPairs
+                    .Where(p => component.Contains(p.LeftIndex) && component.Contains(p.RightIndex))
+                    .ToList();
+
+                var group = new DuplicateGroup
                 {
-                    Owners = group,
-                    Similarity = group.Count > 1 ? CalculateGroupSimilarity(group) : 1.0,
-                    NameFatherConfidence = group.Count > 1 ? CalculateGroupSimilarity(group) : 1.0,
-                    CitizenshipConfidence = 0.0
-                });
-            }
+                    Owners = ownersToMerge,
+                    Similarity = componentPairs.Count > 0 ? componentPairs.Max(p => p.Similarity) : 1.0,
+                    CitizenshipConfidence = componentPairs.Count > 0 ? componentPairs.Max(p => p.CitizenshipConfidence) : 0.0,
+                    NameFatherConfidence = componentPairs.Count > 0 ? componentPairs.Max(p => p.NameFatherConfidence) : 1.0,
+                    AutoMergedOwner = mergedOwner,
+                    IsAutoMerged = true,
+                    MatchType = "High Confidence (Citizenship + Name/Father)"
+                };
 
-            return groups;
-        }
+                result.AutoMergedGroups.Add(group);
+                result.DuplicatesNeedingReview.Add(group);
+                result.AutoMergedCount++;
 
-        /// <summary>
-        /// Find groups of owners with similar name+father combination,
-        /// then check if citizenship confirms or conflicts.
-        /// - If name+father matches AND citizenship matches (or one is missing): auto-merge
-        /// - If name+father matches but citizenship is different: needs review
-        /// </summary>
-        private static List<DuplicateGroup> FindNameFatherDuplicatesWithCitizenshipCheck(List<UniqueOwner> owners)
-        {
-            var groups = new List<DuplicateGroup>();
-            var processed = new HashSet<int>();
-
-            for (int i = 0; i < owners.Count; i++)
-            {
-                if (processed.Contains(i)) continue;
-
-                var current = owners[i];
-                var group = new List<UniqueOwner> { current };
-                _ = processed.Add(i);
-
-                string normalizedCurrentNameFather = GetNormalizedNameFatherKey(current);
-                string normalizedCurrentCitizenship = NormalizeCitizenship(current.CitizenshipNumber ?? "");
-
-                for (int j = i + 1; j < owners.Count; j++)
+                foreach (var index in component)
                 {
-                    if (processed.Contains(j)) continue;
-
-                    var other = owners[j];
-                    string normalizedOtherNameFather = GetNormalizedNameFatherKey(other);
-
-                    double nameFatherSimilarity = CalculateCharacterSimilarity(normalizedCurrentNameFather, normalizedOtherNameFather);
-
-                    if (nameFatherSimilarity >= NameFatherMatchThreshold)
-                    {
-                        group.Add(other);
-                        _ = processed.Add(j);
-                    }
-                }
-
-                // Now determine if this group should be auto-merged or needs review
-                // IMPORTANT: Never auto-merge anonymous owners - they should always be kept separate
-                bool shouldAutoMerge = false;
-                double citizenshipConfidence = 0.0;
-                double nameFatherConfidence = group.Count > 1 ? CalculateGroupSimilarity(group) : 1.0;
-
-                // Check if any owner in the group is anonymous
-                bool hasAnonymousOwner = group.Any(o => o.IsAnonymous);
-
-                if (group.Count > 1 && !hasAnonymousOwner)
-                {
-                    // Check citizenship compatibility
-                    var ownersWithCitizenship = group
-                        .Where(o => !string.IsNullOrWhiteSpace(o.CitizenshipNumber))
-                        .ToList();
-
-                    if (ownersWithCitizenship.Count == 0)
-                    {
-                        // No owners have citizenship - cannot confirm based on citizenship
-                        shouldAutoMerge = true; // Can auto-merge based on name+father only
-                        citizenshipConfidence = 0.0; // No citizenship data to compare
-                    }
-                    else if (ownersWithCitizenship.Count == 1)
-                    {
-                        // Only one owner has citizenship - cannot confirm but safe to merge
-                        shouldAutoMerge = true;
-                        citizenshipConfidence = 0.0; // Only one citizenship, nothing to compare
-                    }
-                    else
-                    {
-                        // Multiple owners have citizenship - check if they match
-                        var firstCitizenship = NormalizeCitizenship(ownersWithCitizenship[0].CitizenshipNumber!);
-                        bool allMatch = true;
-                        double totalSimilarity = 0;
-                        int comparisons = 0;
-
-                        for (int k = 1; k < ownersWithCitizenship.Count; k++)
-                        {
-                            var otherCitizenship = NormalizeCitizenship(ownersWithCitizenship[k].CitizenshipNumber!);
-                            double similarity = CalculateCharacterSimilarity(firstCitizenship, otherCitizenship);
-                            totalSimilarity += similarity;
-                            comparisons++;
-
-                            if (similarity < CitizenshipMatchThreshold)
-                            {
-                                allMatch = false;
-                            }
-                        }
-
-                        citizenshipConfidence = comparisons > 0 ? totalSimilarity / comparisons : 0.0;
-                        shouldAutoMerge = allMatch;
-                    }
-                }
-
-                string matchType;
-                if (group.Count == 1)
-                {
-                    matchType = "Unique";
-                }
-                else if (hasAnonymousOwner)
-                {
-                    matchType = "Contains Anonymous Owner (Keep Separate)";
-                }
-                else if (shouldAutoMerge)
-                {
-                    matchType = "Name + Father Match + Citizenship Confirmed (Auto-merged)";
-                }
-                else
-                {
-                    matchType = "Name + Father Match - Citizenship Differs (Review Required)";
-                }
-
-                groups.Add(new DuplicateGroup
-                {
-                    Owners = group,
-                    Similarity = nameFatherConfidence,
-                    NameFatherConfidence = nameFatherConfidence,
-                    CitizenshipConfidence = citizenshipConfidence,
-                    IsAutoMerged = shouldAutoMerge && group.Count > 1,
-                    MatchType = matchType
-                });
-            }
-
-            return groups;
-        }
-
-        /// <summary>
-        /// Calculate character-level similarity between two strings (0.0 to 1.0)
-        /// </summary>
-        public static double CalculateCharacterSimilarity(string s1, string s2)
-        {
-            if (string.IsNullOrEmpty(s1) && string.IsNullOrEmpty(s2)) return 1.0;
-            if (string.IsNullOrEmpty(s1) || string.IsNullOrEmpty(s2)) return 0.0;
-
-            // Use Levenshtein distance for character-level comparison
-            int distance = LevenshteinDistance(s1, s2);
-            int maxLength = Math.Max(s1.Length, s2.Length);
-
-            return 1.0 - ((double)distance / maxLength);
-        }
-
-        /// <summary>
-        /// Calculate Levenshtein distance between two strings
-        /// </summary>
-        private static int LevenshteinDistance(string s1, string s2)
-        {
-            int[,] d = new int[s1.Length + 1, s2.Length + 1];
-
-            for (int i = 0; i <= s1.Length; i++)
-                d[i, 0] = i;
-            for (int j = 0; j <= s2.Length; j++)
-                d[0, j] = j;
-
-            for (int i = 1; i <= s1.Length; i++)
-            {
-                for (int j = 1; j <= s2.Length; j++)
-                {
-                    int cost = (s1[i - 1] == s2[j - 1]) ? 0 : 1;
-                    d[i, j] = Math.Min(
-                        Math.Min(d[i - 1, j] + 1, d[i, j - 1] + 1),
-                        d[i - 1, j - 1] + cost);
+                    _ = processedPersonIndexes.Add(index);
                 }
             }
 
-            return d[s1.Length, s2.Length];
-        }
-
-        /// <summary>
-        /// Get normalized combined key of name + father/spouse for comparison
-        /// </summary>
-        private static string GetNormalizedNameFatherKey(UniqueOwner owner)
-        {
-            string name = NormalizeString(owner.LandOwnersName ?? string.Empty);
-            string father = NormalizeString(owner.FatherSpouse ?? string.Empty);
-            return $"{name} {father}".Trim().ToUpper();
-        }
-
-        /// <summary>
-        /// Calculate average similarity for a group of owners
-        /// </summary>
-        private static double CalculateGroupSimilarity(List<UniqueOwner> group)
-        {
-            if (group.Count <= 1) return 1.0;
-
-            double totalSimilarity = 0;
-            int comparisons = 0;
-
-            for (int i = 0; i < group.Count; i++)
+            for (int i = 0; i < personTokens.Count; i++)
             {
-                for (int j = i + 1; j < group.Count; j++)
-                {
-                    string key1 = GetNormalizedNameFatherKey(group[i]);
-                    string key2 = GetNormalizedNameFatherKey(group[j]);
-                    totalSimilarity += CalculateCharacterSimilarity(key1, key2);
-                    comparisons++;
-                }
-            }
-
-            return comparisons > 0 ? totalSimilarity / comparisons : 1.0;
-        }
-
-        /// <summary>
-        /// Step 1: Create initial owner list, handling anonymous cases
-        /// </summary>
-        /// <param name="records">List of records to process</param>
-        /// <param name="result">Deduplication result to populate</param>
-        /// <param name="excludeAnonymous">When true, excludes owners with "Anonymous" or "Unknown" in their name</param>
-        private static List<UniqueOwner> CreateInitialOwnerList(
-            List<BaselineLandParceRecord> records,
-            DeduplicationResult result,
-            bool excludeAnonymous = false)
-        {
-            var owners = new List<UniqueOwner>();
-            int anonymousCounter = 1;
-
-            for (int i = 0; i < records.Count; i++)
-            {
-                var record = records[i];
-                bool isAnonymous = false;
-
-                // Handle empty/null owner names
-                if (string.IsNullOrWhiteSpace(record.LandOwnersName))
-                {
-                    record.LandOwnersName = $"Anonymous Owner {anonymousCounter}";
-                    isAnonymous = true;
-                    anonymousCounter++;
-                    result.AnonymousOwnersCreated++;
-                }
-
-                // Check if owner name contains "Anonymous" or "Unknown" (case-insensitive)
-                string ownerNameLower = record.LandOwnersName.ToLower();
-                if (ownerNameLower.Contains("anonymous") || ownerNameLower.Contains("unknown"))
-                {
-                    isAnonymous = true;
-                }
-
-                // Skip anonymous owners if requested (for subsequent deduplication runs)
-                if (excludeAnonymous && isAnonymous)
+                if (processedPersonIndexes.Contains(i))
                 {
                     continue;
                 }
 
+                result.UniqueOwners.Add(CloneOwner(personTokens[i].Owner));
+            }
+
+            // Medium confidence groups are always sent to manual review.
+            var mediumReviewCandidates = result.UniqueOwners
+                .Where(o => IsManualReviewCandidate(o))
+                .ToList();
+
+            var reviewSuggestions = BuildManualReviewSuggestions(mediumReviewCandidates);
+            result.DuplicatesNeedingReview.AddRange(reviewSuggestions);
+
+            return result;
+        }
+
+        private static List<DuplicateGroup> BuildManualReviewSuggestions(List<UniqueOwner> uniqueOwners)
+        {
+            var suggestions = new List<DuplicateGroup>();
+            var tokens = BuildOwnerTokens(uniqueOwners);
+            var mediumPairs = FindPairAssessments(tokens, ConfidenceBand.Medium);
+            if (mediumPairs.Count == 0)
+            {
+                return suggestions;
+            }
+
+            var mediumComponents = BuildConnectedComponents(tokens.Count, mediumPairs);
+            foreach (var component in mediumComponents.Where(c => c.Count > 1))
+            {
+                var owners = component.Select(index => tokens[index].Owner).ToList();
+                var componentPairs = mediumPairs
+                    .Where(p => component.Contains(p.LeftIndex) && component.Contains(p.RightIndex))
+                    .ToList();
+
+                suggestions.Add(new DuplicateGroup
+                {
+                    Owners = owners,
+                    Similarity = componentPairs.Max(p => p.Similarity),
+                    CitizenshipConfidence = componentPairs.Max(p => p.CitizenshipConfidence),
+                    NameFatherConfidence = componentPairs.Max(p => p.NameFatherConfidence),
+                    IsAutoMerged = false,
+                    MatchType = componentPairs.Any(p => p.UsesCitizenship)
+                        ? "Medium Confidence (Review: Citizenship + Name/Father)"
+                        : "Medium Confidence (Review: Name + Father/Spouse)"
+                });
+            }
+
+            return suggestions;
+        }
+
+        private static List<OwnerToken> BuildOwnerTokens(List<UniqueOwner> owners)
+        {
+            var tokens = new List<OwnerToken>(owners.Count);
+            for (int i = 0; i < owners.Count; i++)
+            {
+                var owner = owners[i];
+                tokens.Add(new OwnerToken
+                {
+                    Index = i,
+                    Owner = owner,
+                    NormalizedName = NormalizeString(owner.LandOwnersName),
+                    NormalizedFather = NormalizeString(owner.FatherSpouse ?? string.Empty),
+                    NormalizedCitizenship = NormalizeCitizenship(owner.CitizenshipNumber ?? string.Empty)
+                });
+            }
+
+            return tokens;
+        }
+
+        private static bool IsManualReviewCandidate(UniqueOwner owner)
+        {
+            return !owner.IsAnonymous &&
+                   DetermineOwnerCategory(owner) == OwnerCategory.Person;
+        }
+
+        private static List<PairAssessment> FindPairAssessments(List<OwnerToken> tokens, ConfidenceBand targetBand)
+        {
+            var assessments = new List<PairAssessment>();
+            if (tokens.Count <= 1)
+            {
+                return assessments;
+            }
+
+            var buckets = new Dictionary<string, List<int>>(StringComparer.OrdinalIgnoreCase);
+            for (int i = 0; i < tokens.Count; i++)
+            {
+                foreach (var key in BuildComparisonBucketKeys(tokens[i]))
+                {
+                    if (!buckets.TryGetValue(key, out var bucket))
+                    {
+                        bucket = new List<int>();
+                        buckets[key] = bucket;
+                    }
+
+                    bucket.Add(i);
+                }
+            }
+
+            var pairSeen = new HashSet<long>();
+            foreach (var bucket in buckets.Values)
+            {
+                if (bucket.Count <= 1)
+                {
+                    continue;
+                }
+
+                for (int i = 0; i < bucket.Count; i++)
+                {
+                    for (int j = i + 1; j < bucket.Count; j++)
+                    {
+                        int leftIndex = Math.Min(bucket[i], bucket[j]);
+                        int rightIndex = Math.Max(bucket[i], bucket[j]);
+                        long pairKey = ((long)leftIndex << 32) | (uint)rightIndex;
+                        if (!pairSeen.Add(pairKey))
+                        {
+                            continue;
+                        }
+
+                        var assessment = AssessPersonDuplicate(tokens[leftIndex], tokens[rightIndex]);
+                        if (assessment.Band == targetBand)
+                        {
+                            assessments.Add(assessment);
+                        }
+                    }
+                }
+            }
+
+            return assessments;
+        }
+
+        private static IEnumerable<string> BuildComparisonBucketKeys(OwnerToken token)
+        {
+            var keys = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+            keys.Add(BuildSuggestionBucketKey(token.NormalizedName, token.NormalizedFather));
+
+            if (!string.IsNullOrWhiteSpace(token.NormalizedCitizenship))
+            {
+                string prefix4 = token.NormalizedCitizenship.Length > 4
+                    ? token.NormalizedCitizenship[..4]
+                    : token.NormalizedCitizenship;
+                keys.Add($"CIT::{prefix4}::{token.NormalizedCitizenship.Length}");
+            }
+
+            return keys;
+        }
+
+        private static string BuildSuggestionBucketKey(string normalizedName, string normalizedFather)
+        {
+            var name = normalizedName;
+            var father = normalizedFather;
+
+            var namePrefix = name.Length >= 3 ? name[..3] : name;
+            var fatherPrefix = father.Length >= 2 ? father[..2] : father;
+            var lengthBucket = name.Length / 3;
+
+            return $"NF::{namePrefix}::{fatherPrefix}::{lengthBucket}";
+        }
+
+        private static PairAssessment AssessPersonDuplicate(OwnerToken left, OwnerToken right)
+        {
+            bool hasCitizenshipLeft = !string.IsNullOrWhiteSpace(left.NormalizedCitizenship);
+            bool hasCitizenshipRight = !string.IsNullOrWhiteSpace(right.NormalizedCitizenship);
+            bool hasBothCitizenship = hasCitizenshipLeft && hasCitizenshipRight;
+
+            bool hasFatherLeft = !string.IsNullOrWhiteSpace(left.NormalizedFather);
+            bool hasFatherRight = !string.IsNullOrWhiteSpace(right.NormalizedFather);
+            bool hasBothFather = hasFatherLeft && hasFatherRight;
+
+            double nameSimilarity = CalculateCharacterSimilarity(left.NormalizedName, right.NormalizedName);
+            double fatherSimilarity = hasBothFather
+                ? CalculateCharacterSimilarity(left.NormalizedFather, right.NormalizedFather)
+                : 0.0;
+
+            double nameFatherConfidence = hasBothFather
+                ? (nameSimilarity + fatherSimilarity) / 2.0
+                : nameSimilarity;
+
+            double citizenshipConfidence = hasBothCitizenship
+                ? CalculateCharacterSimilarity(left.NormalizedCitizenship, right.NormalizedCitizenship)
+                : 0.0;
+
+            // RULE 3: if any available identity signal drops below 80%, keep separate.
+            if (nameSimilarity < MinimumReviewThreshold)
+            {
+                return CreatePairAssessment(
+                    ConfidenceBand.None,
+                    hasBothCitizenship,
+                    "Keep Separate (<80% Name Match)",
+                    left.Index,
+                    right.Index,
+                    citizenshipConfidence,
+                    nameFatherConfidence);
+            }
+
+            if (hasBothFather && fatherSimilarity < MinimumReviewThreshold)
+            {
+                return CreatePairAssessment(
+                    ConfidenceBand.None,
+                    hasBothCitizenship,
+                    "Keep Separate (<80% Father/Spouse Match)",
+                    left.Index,
+                    right.Index,
+                    citizenshipConfidence,
+                    nameFatherConfidence);
+            }
+
+            if (hasBothCitizenship && citizenshipConfidence < MinimumReviewThreshold)
+            {
+                return CreatePairAssessment(
+                    ConfidenceBand.None,
+                    true,
+                    "Keep Separate (<80% Citizenship Match)",
+                    left.Index,
+                    right.Index,
+                    citizenshipConfidence,
+                    nameFatherConfidence);
+            }
+
+            // RULE 1: 100% citizenship match + >80% owner-name match => high confidence auto-merge.
+            if (hasBothCitizenship)
+            {
+                if (citizenshipConfidence == 1.0 && nameSimilarity > HighNameThresholdForCitizenshipRule)
+                {
+                    return CreatePairAssessment(ConfidenceBand.High, true,
+                        "High Confidence (100% Citizenship + >80% Name)", left.Index, right.Index,
+                        citizenshipConfidence, nameFatherConfidence);
+                }
+            }
+
+            // RULE 2: (owner-name + father/spouse) combined >95% => high confidence auto-merge.
+            if (hasBothFather && nameFatherConfidence > HighNameFatherCombinedThreshold)
+            {
+                return CreatePairAssessment(ConfidenceBand.High, hasBothCitizenship,
+                    "High Confidence (>95% Name + Father/Spouse)", left.Index, right.Index,
+                    citizenshipConfidence, nameFatherConfidence);
+            }
+
+            // RULE 4: all remaining records in 80-100 confidence range => manual review.
+            bool qualifiesForReview;
+            if (hasBothCitizenship && hasBothFather)
+            {
+                qualifiesForReview =
+                    citizenshipConfidence >= MinimumReviewThreshold &&
+                    nameSimilarity >= MinimumReviewThreshold &&
+                    fatherSimilarity >= MinimumReviewThreshold;
+            }
+            else if (hasBothCitizenship)
+            {
+                qualifiesForReview =
+                    citizenshipConfidence >= MinimumReviewThreshold &&
+                    nameSimilarity >= MinimumReviewThreshold;
+            }
+            else if (hasBothFather)
+            {
+                qualifiesForReview =
+                    nameSimilarity >= MinimumReviewThreshold &&
+                    fatherSimilarity >= MinimumReviewThreshold;
+            }
+            else
+            {
+                qualifiesForReview = nameSimilarity >= MinimumReviewThreshold;
+            }
+
+            if (qualifiesForReview)
+            {
+                var reviewType = hasBothCitizenship
+                    ? "Review Required (80-100% Citizenship + Name/Father)"
+                    : hasBothFather
+                        ? "Review Required (80-100% Name + Father/Spouse)"
+                        : "Review Required (80-100% Name)";
+
+                return CreatePairAssessment(ConfidenceBand.Medium, hasBothCitizenship,
+                    reviewType, left.Index, right.Index,
+                    citizenshipConfidence, nameFatherConfidence);
+            }
+
+            return CreatePairAssessment(
+                ConfidenceBand.None,
+                hasBothCitizenship,
+                "Keep Separate",
+                left.Index,
+                right.Index,
+                citizenshipConfidence,
+                nameFatherConfidence);
+        }
+
+        private static PairAssessment CreatePairAssessment(
+            ConfidenceBand band,
+            bool usesCitizenship,
+            string matchType,
+            int leftIndex,
+            int rightIndex,
+            double citizenshipConfidence,
+            double nameFatherConfidence)
+        {
+            return new PairAssessment
+            {
+                LeftIndex = leftIndex,
+                RightIndex = rightIndex,
+                Band = band,
+                UsesCitizenship = usesCitizenship,
+                MatchType = matchType,
+                CitizenshipConfidence = citizenshipConfidence,
+                NameFatherConfidence = nameFatherConfidence,
+                Similarity = Math.Max(citizenshipConfidence, nameFatherConfidence)
+            };
+        }
+
+        private static List<List<int>> BuildConnectedComponents(int nodeCount, List<PairAssessment> edges)
+        {
+            var adjacency = new List<int>[nodeCount];
+            for (int i = 0; i < nodeCount; i++)
+            {
+                adjacency[i] = new List<int>();
+            }
+
+            foreach (var edge in edges)
+            {
+                adjacency[edge.LeftIndex].Add(edge.RightIndex);
+                adjacency[edge.RightIndex].Add(edge.LeftIndex);
+            }
+
+            var components = new List<List<int>>();
+            var visited = new bool[nodeCount];
+            for (int i = 0; i < nodeCount; i++)
+            {
+                if (visited[i])
+                {
+                    continue;
+                }
+
+                var component = new List<int>();
+                var stack = new Stack<int>();
+                stack.Push(i);
+                visited[i] = true;
+
+                while (stack.Count > 0)
+                {
+                    int node = stack.Pop();
+                    component.Add(node);
+
+                    foreach (var neighbor in adjacency[node])
+                    {
+                        if (visited[neighbor])
+                        {
+                            continue;
+                        }
+
+                        visited[neighbor] = true;
+                        stack.Push(neighbor);
+                    }
+                }
+
+                components.Add(component);
+            }
+
+            return components;
+        }
+
+        private static List<UniqueOwner> CreateInitialOwnerList(
+            List<BaselineLandParceRecord> records,
+            DeduplicationResult result,
+            bool excludeAnonymous)
+        {
+            var owners = new List<UniqueOwner>(records.Count);
+            var anonymousCounter = 1;
+
+            for (int i = 0; i < records.Count; i++)
+            {
+                var record = records[i];
+                var rawName = NormalizeNullable(record.LandOwnersName);
+
+                var isAnonymous = string.IsNullOrWhiteSpace(rawName) || ContainsAnonymousKeyword(rawName!);
+                var name = isAnonymous ? $"Anonymous Owner {anonymousCounter++}" : rawName!;
+
+                if (isAnonymous)
+                    result.AnonymousOwnersCreated++;
+
+                if (excludeAnonymous && isAnonymous)
+                    continue;
+
                 var owner = new UniqueOwner
                 {
-                    LandOwnersName = record.LandOwnersName.Trim(),
-                    FatherSpouse = record.FatherSpouse?.Trim(),
-                    Gender = record.Gender?.Trim(),
-                    CitizenshipNumber = record.CitizenshipNumber?.Trim(),
-                    CitizenshipIssuedDistrict = record.CitizenshipIssuedDistrict?.Trim(),
-                    CitizenshipIssuedDate = record.citizenshipIssuedDate?.Trim(),
-                    PermanentAddress = record.PermanentAddress?.Trim(),
-                    TemporaryAddress = record.TempoaryAddress?.Trim(),
-                    ContactNumber = record.ContactNumber?.Trim(),
-                    EmailID = record.EmailID?.Trim(),
+                    LandOwnersName = name,
+                    FatherSpouse = NormalizeNullable(record.FatherSpouse),
+                    Gender = NormalizeNullable(record.Gender),
+                    CitizenshipNumber = NormalizeNullable(record.CitizenshipNumber),
+                    CitizenshipIssuedDistrict = NormalizeNullable(record.CitizenshipIssuedDistrict),
+                    CitizenshipIssuedDate = NormalizeNullable(record.citizenshipIssuedDate),
+                    PermanentAddress = NormalizeNullable(record.PermanentAddress),
+                    TemporaryAddress = NormalizeNullable(record.TempoaryAddress),
+                    ContactNumber = NormalizeNullable(record.ContactNumber),
+                    EmailID = NormalizeNullable(record.EmailID),
                     ParcelIndices = new List<int> { i },
                     IsAnonymous = isAnonymous
                 };
 
+                SanitizeOwnerByCategory(owner);
                 owners.Add(owner);
             }
 
             return owners;
         }
 
-        /// <summary>
-        /// Merge multiple owner records into a single representative owner
-        /// </summary>
+        private static string BuildIdentityKey(UniqueOwner owner)
+        {
+            var category = DetermineOwnerCategory(owner);
+            var normalizedName = NormalizeString(owner.LandOwnersName);
+            var normalizedFather = NormalizeString(owner.FatherSpouse ?? string.Empty);
+            var normalizedCitizenship = NormalizeCitizenship(owner.CitizenshipNumber ?? string.Empty);
+
+            if (owner.IsAnonymous)
+            {
+                // Keep anonymous owners isolated by their row linkage.
+                return $"A::{normalizedName}::{string.Join(",", owner.ParcelIndices.OrderBy(x => x))}";
+            }
+
+            if (category == OwnerCategory.Institution)
+            {
+                return $"I::{normalizedName}";
+            }
+
+            if (!string.IsNullOrWhiteSpace(normalizedCitizenship))
+            {
+                return $"P::C::{normalizedCitizenship}";
+            }
+
+            if (!string.IsNullOrWhiteSpace(normalizedFather))
+            {
+                return $"P::NF::{normalizedName}::{normalizedFather}";
+            }
+
+            return $"P::N::{normalizedName}";
+        }
+
+        private static OwnerCategory DetermineOwnerCategory(UniqueOwner owner)
+        {
+            if (IsLikelyInstitution(owner.LandOwnersName))
+                return OwnerCategory.Institution;
+
+            if (!string.IsNullOrWhiteSpace(owner.CitizenshipNumber) ||
+                !string.IsNullOrWhiteSpace(owner.FatherSpouse) ||
+                !string.IsNullOrWhiteSpace(owner.Gender))
+            {
+                return OwnerCategory.Person;
+            }
+
+            return string.IsNullOrWhiteSpace(owner.LandOwnersName)
+                ? OwnerCategory.Unknown
+                : OwnerCategory.Person;
+        }
+
+        private static bool IsLikelyInstitution(string? ownerName)
+        {
+            if (string.IsNullOrWhiteSpace(ownerName))
+                return false;
+
+            var normalized = NormalizeString(ownerName);
+            return InstitutionKeywords.Any(k =>
+                normalized.Contains(NormalizeString(k), StringComparison.OrdinalIgnoreCase));
+        }
+
+        private static bool ContainsAnonymousKeyword(string normalizedName)
+        {
+            var name = NormalizeString(normalizedName);
+            return AnonymousKeywords.Any(k =>
+                name.Contains(NormalizeString(k), StringComparison.OrdinalIgnoreCase));
+        }
+
+        private static void SanitizeOwnerByCategory(UniqueOwner owner)
+        {
+            if (DetermineOwnerCategory(owner) != OwnerCategory.Institution)
+                return;
+
+            // Institution/government owners should not carry personal identity fields.
+            owner.FatherSpouse = null;
+            owner.Gender = null;
+            owner.CitizenshipNumber = null;
+            owner.CitizenshipIssuedDistrict = null;
+            owner.CitizenshipIssuedDate = null;
+            owner.PermanentAddress = null;
+            owner.TemporaryAddress = null;
+            owner.ContactNumber = null;
+            owner.EmailID = null;
+        }
+
         private static UniqueOwner MergeOwners(List<UniqueOwner> owners)
         {
-            if (owners.Count == 1)
-                return owners[0];
+            if (owners == null || owners.Count == 0)
+                throw new ArgumentException("Owner list cannot be empty.", nameof(owners));
 
-            // Strategy: Use the most complete record as base
-            var baseOwner = owners
-                .OrderByDescending(o => GetCompletenessScore(o))
+            if (owners.Count == 1)
+                return CloneOwner(owners[0]);
+
+            var best = owners
+                .OrderByDescending(GetCompletenessScore)
                 .First();
 
-            // Merge all parcel indices
-            var allIndices = owners.SelectMany(o => o.ParcelIndices).Distinct().ToList();
+            var merged = CloneOwner(best);
+            merged.ParcelIndices = owners.SelectMany(o => o.ParcelIndices).Distinct().OrderBy(x => x).ToList();
 
-            return new UniqueOwner
+            if (DetermineOwnerCategory(merged) == OwnerCategory.Institution)
             {
-                LandOwnersName = baseOwner.LandOwnersName,
-                FatherSpouse = baseOwner.FatherSpouse ?? owners.FirstOrDefault(o => !string.IsNullOrWhiteSpace(o.FatherSpouse))?.FatherSpouse,
-                Gender = baseOwner.Gender ?? owners.FirstOrDefault(o => !string.IsNullOrWhiteSpace(o.Gender))?.Gender,
-                CitizenshipNumber = baseOwner.CitizenshipNumber ?? owners.FirstOrDefault(o => !string.IsNullOrWhiteSpace(o.CitizenshipNumber))?.CitizenshipNumber,
-                CitizenshipIssuedDistrict = baseOwner.CitizenshipIssuedDistrict ?? owners.FirstOrDefault(o => !string.IsNullOrWhiteSpace(o.CitizenshipIssuedDistrict))?.CitizenshipIssuedDistrict,
-                CitizenshipIssuedDate = baseOwner.CitizenshipIssuedDate ?? owners.FirstOrDefault(o => !string.IsNullOrWhiteSpace(o.CitizenshipIssuedDate))?.CitizenshipIssuedDate,
-                PermanentAddress = baseOwner.PermanentAddress ?? owners.FirstOrDefault(o => !string.IsNullOrWhiteSpace(o.PermanentAddress))?.PermanentAddress,
-                TemporaryAddress = baseOwner.TemporaryAddress ?? owners.FirstOrDefault(o => !string.IsNullOrWhiteSpace(o.TemporaryAddress))?.TemporaryAddress,
-                ContactNumber = baseOwner.ContactNumber ?? owners.FirstOrDefault(o => !string.IsNullOrWhiteSpace(o.ContactNumber))?.ContactNumber,
-                EmailID = baseOwner.EmailID ?? owners.FirstOrDefault(o => !string.IsNullOrWhiteSpace(o.EmailID))?.EmailID,
-                ParcelIndices = allIndices,
-                IsAnonymous = baseOwner.IsAnonymous
-            };
+                SanitizeOwnerByCategory(merged);
+                return merged;
+            }
+
+            merged.FatherSpouse ??= owners.FirstOrDefault(o => !string.IsNullOrWhiteSpace(o.FatherSpouse))?.FatherSpouse;
+            merged.Gender ??= owners.FirstOrDefault(o => !string.IsNullOrWhiteSpace(o.Gender))?.Gender;
+            merged.CitizenshipNumber ??= owners.FirstOrDefault(o => !string.IsNullOrWhiteSpace(o.CitizenshipNumber))?.CitizenshipNumber;
+            merged.CitizenshipIssuedDistrict ??= owners.FirstOrDefault(o => !string.IsNullOrWhiteSpace(o.CitizenshipIssuedDistrict))?.CitizenshipIssuedDistrict;
+            merged.CitizenshipIssuedDate ??= owners.FirstOrDefault(o => !string.IsNullOrWhiteSpace(o.CitizenshipIssuedDate))?.CitizenshipIssuedDate;
+            merged.PermanentAddress ??= owners.FirstOrDefault(o => !string.IsNullOrWhiteSpace(o.PermanentAddress))?.PermanentAddress;
+            merged.TemporaryAddress ??= owners.FirstOrDefault(o => !string.IsNullOrWhiteSpace(o.TemporaryAddress))?.TemporaryAddress;
+            merged.ContactNumber ??= owners.FirstOrDefault(o => !string.IsNullOrWhiteSpace(o.ContactNumber))?.ContactNumber;
+            merged.EmailID ??= owners.FirstOrDefault(o => !string.IsNullOrWhiteSpace(o.EmailID))?.EmailID;
+
+            return merged;
         }
 
         public static UniqueOwner MergeOwnerRecords(
-    UniqueOwner owner1,
-    UniqueOwner owner2,
-    List<int> owner1Indices,
-    List<int> owner2Indices)
+            UniqueOwner owner1,
+            UniqueOwner owner2,
+            List<int> owner1Indices,
+            List<int> owner2Indices)
         {
-            var ownersToMerge = new List<UniqueOwner>
-    {
-        new UniqueOwner
-        {
-            LandOwnersName = owner1.LandOwnersName,
-            FatherSpouse = owner1.FatherSpouse,
-            Gender = owner1.Gender,
-            CitizenshipNumber = owner1.CitizenshipNumber,
-            CitizenshipIssuedDistrict = owner1.CitizenshipIssuedDistrict,
-            CitizenshipIssuedDate = owner1.CitizenshipIssuedDate,
-            PermanentAddress = owner1.PermanentAddress,
-            TemporaryAddress = owner1.TemporaryAddress,
-            ContactNumber = owner1.ContactNumber,
-            EmailID = owner1.EmailID,
-            ParcelIndices = owner1Indices.ToList(),
-            IsAnonymous = owner1.IsAnonymous
-        },
-        new UniqueOwner
-        {
-            LandOwnersName = owner2.LandOwnersName,
-            FatherSpouse = owner2.FatherSpouse,
-            Gender = owner2.Gender,
-            CitizenshipNumber = owner2.CitizenshipNumber,
-            CitizenshipIssuedDistrict = owner2.CitizenshipIssuedDistrict,
-            CitizenshipIssuedDate = owner2.CitizenshipIssuedDate,
-            PermanentAddress = owner2.PermanentAddress,
-            TemporaryAddress = owner2.TemporaryAddress,
-            ContactNumber = owner2.ContactNumber,
-            EmailID = owner2.EmailID,
-            ParcelIndices = owner2Indices.ToList(),
+            var left = CloneOwner(owner1);
+            left.ParcelIndices = owner1Indices.ToList();
+            var right = CloneOwner(owner2);
+            right.ParcelIndices = owner2Indices.ToList();
 
-            IsAnonymous = owner2.IsAnonymous
-        }
-    };
-
-            return MergeOwners(ownersToMerge);
+            var merged = MergeOwners([left, right]);
+            return merged;
         }
 
+        public static UniqueOwner MergeOwnersList(List<UniqueOwner> owners) => MergeOwners(owners);
 
-        /// <summary>
-        /// Calculate completeness score for an owner record
-        /// Higher score = more complete data
-        /// </summary>
+        public static void ApplyDeduplicationToRecords(
+            List<BaselineLandParceRecord> records,
+            DeduplicationResult deduplicationResult)
+        {
+            foreach (var owner in deduplicationResult.UniqueOwners)
+            {
+                var category = DetermineOwnerCategory(owner);
+                foreach (var index in owner.ParcelIndices)
+                {
+                    if (index < 0 || index >= records.Count)
+                        continue;
+
+                    var record = records[index];
+                    record.LandOwnersName = owner.LandOwnersName;
+
+                    if (category == OwnerCategory.Institution)
+                    {
+                        record.FatherSpouse = null;
+                        record.Gender = null;
+                        record.CitizenshipNumber = null;
+                        record.CitizenshipIssuedDistrict = null;
+                        record.citizenshipIssuedDate = null;
+                        record.PermanentAddress = null;
+                        record.TempoaryAddress = null;
+                        record.ContactNumber = null;
+                        record.EmailID = null;
+                    }
+                    else
+                    {
+                        record.FatherSpouse = owner.FatherSpouse;
+                        record.Gender = owner.Gender;
+                        record.CitizenshipNumber = owner.CitizenshipNumber;
+                        record.CitizenshipIssuedDistrict = owner.CitizenshipIssuedDistrict;
+                        record.citizenshipIssuedDate = owner.CitizenshipIssuedDate;
+                        record.PermanentAddress = owner.PermanentAddress;
+                        record.TempoaryAddress = owner.TemporaryAddress;
+                        record.ContactNumber = owner.ContactNumber;
+                        record.EmailID = owner.EmailID;
+                    }
+                }
+            }
+        }
+
         public static int GetCompletenessScore(UniqueOwner owner)
         {
-            int score = 0;
+            if (DetermineOwnerCategory(owner) == OwnerCategory.Institution)
+            {
+                return !string.IsNullOrWhiteSpace(owner.LandOwnersName) ? 10 : 0;
+            }
+
+            var score = 0;
             if (!string.IsNullOrWhiteSpace(owner.LandOwnersName) && !owner.IsAnonymous) score += 10;
             if (!string.IsNullOrWhiteSpace(owner.FatherSpouse)) score += 5;
             if (!string.IsNullOrWhiteSpace(owner.CitizenshipNumber)) score += 8;
@@ -637,108 +815,149 @@ namespace Land_Readjustment_Tool.Services
             return score;
         }
 
-        /// <summary>
-        /// Normalize citizenship number for comparison
-        /// - Converts Devanagari digits (०१२३४५६७८९) to Arabic digits (0123456789)
-        /// - Removes /, -, and other special characters
-        /// </summary>
-        private static string NormalizeCitizenship(string citizenship)
+        public static double CalculateCharacterSimilarity(string s1, string s2)
         {
-            if (string.IsNullOrWhiteSpace(citizenship))
-                return string.Empty;
+            if (string.IsNullOrEmpty(s1) && string.IsNullOrEmpty(s2))
+                return 1.0;
 
-            // Convert Devanagari digits to Arabic digits
-            var converted = ConvertDevanagariToArabicDigits(citizenship);
+            if (string.IsNullOrEmpty(s1) || string.IsNullOrEmpty(s2))
+                return 0.0;
 
-            // Remove all non-alphanumeric characters (/, -, spaces, etc.)
-            return new string(converted.Where(char.IsLetterOrDigit).ToArray()).ToUpperInvariant();
+            var distance = LevenshteinDistance(s1, s2);
+            var maxLen = Math.Max(s1.Length, s2.Length);
+            return 1.0 - ((double)distance / maxLen);
         }
 
-        /// <summary>
-        /// Converts Devanagari numerals to Arabic numerals
-        /// ० -> 0, १ -> 1, २ -> 2, ... ९ -> 9
-        /// </summary>
-        private static string ConvertDevanagariToArabicDigits(string input)
-        {
-            if (string.IsNullOrEmpty(input)) return input;
-
-            var result = new System.Text.StringBuilder(input.Length);
-
-            foreach (char c in input)
-            {
-                // Devanagari digits are in Unicode range U+0966 to U+096F
-                if (c >= '\u0966' && c <= '\u096F')
-                {
-                    // Convert to Arabic digit (0-9)
-                    _ = result.Append((char)('0' + (c - '\u0966')));
-                }
-                else
-                {
-                    _ = result.Append(c);
-                }
-            }
-
-            return result.ToString();
-        }
-
-        /// <summary>
-        /// Normalize a name or father/spouse string for comparison.
-        /// Handles Devanagari (Nepali/Hindi) script properly.
-        /// - Normalizes Unicode to composed form (NFC)
-        /// - Removes punctuation and special characters
-        /// - Collapses whitespace
-        /// - Converts to uppercase for Latin characters
-        /// </summary>
         public static string NormalizeString(string input)
         {
-            if (string.IsNullOrWhiteSpace(input)) return string.Empty;
+            if (string.IsNullOrWhiteSpace(input))
+                return string.Empty;
 
-            // Normalize Unicode to composed form (important for Devanagari)
-            string normalized = input.Normalize(System.Text.NormalizationForm.FormC);
-
-            // Keep letters (including Devanagari), digits, and spaces
-            var cleaned = new string(normalized.Where(c =>
-                char.IsLetterOrDigit(c) || char.IsWhiteSpace(c)).ToArray());
-
-            // Collapse multiple spaces
-            var parts = cleaned.Split(new[] { ' ' }, StringSplitOptions.RemoveEmptyEntries);
-
-            // Join and convert to uppercase (Devanagari has no case, so it stays unchanged)
+            var normalized = input.Normalize(NormalizationForm.FormC);
+            var cleaned = new string(normalized.Where(c => char.IsLetterOrDigit(c) || char.IsWhiteSpace(c)).ToArray());
+            var parts = cleaned.Split(' ', StringSplitOptions.RemoveEmptyEntries);
             return string.Join(" ", parts).ToUpperInvariant();
         }
 
-        /// <summary>
-        /// Public wrapper to merge multiple UniqueOwner records into one representative owner
-        /// </summary>
-        public static UniqueOwner MergeOwnersList(List<UniqueOwner> owners) => MergeOwners(owners);
-
-        /// <summary>
-        /// Apply the deduplication result back to the original records
-        /// Updates all records with normalized owner information
-        /// </summary>
-        public static void ApplyDeduplicationToRecords(
-            List<BaselineLandParceRecord> records,
-            DeduplicationResult deduplicationResult)
+        private static string NormalizeCitizenship(string input)
         {
-            foreach (var uniqueOwner in deduplicationResult.UniqueOwners)
-            {
-                // Update all parcels belonging to this owner
-                foreach (int index in uniqueOwner.ParcelIndices)
-                {
-                    if (index >= 0 && index < records.Count)
-                    {
-                        var record = records[index];
+            if (string.IsNullOrWhiteSpace(input))
+                return string.Empty;
 
-                        // Normalize owner information across all parcels
-                        // Note: ParcelLocation stays with the parcel record, not the owner
-                        record.LandOwnersName = uniqueOwner.LandOwnersName;
-                        record.FatherSpouse = uniqueOwner.FatherSpouse;
-                        record.Gender = uniqueOwner.Gender;
-                        record.CitizenshipNumber = uniqueOwner.CitizenshipNumber;
-                        record.PermanentAddress = uniqueOwner.PermanentAddress;
-                    }
+            var converted = ConvertDevanagariToArabicDigits(input);
+            return new string(converted.Where(char.IsLetterOrDigit).ToArray()).ToUpperInvariant();
+        }
+
+        private static string ConvertDevanagariToArabicDigits(string input)
+        {
+            if (string.IsNullOrEmpty(input))
+                return input;
+
+            var builder = new StringBuilder(input.Length);
+            foreach (var c in input)
+            {
+                if (c >= '\u0966' && c <= '\u096F')
+                {
+                    builder.Append((char)('0' + (c - '\u0966')));
+                }
+                else
+                {
+                    builder.Append(c);
                 }
             }
+
+            return builder.ToString();
+        }
+
+        private static int LevenshteinDistance(string s1, string s2)
+        {
+            var d = new int[s1.Length + 1, s2.Length + 1];
+
+            for (var i = 0; i <= s1.Length; i++) d[i, 0] = i;
+            for (var j = 0; j <= s2.Length; j++) d[0, j] = j;
+
+            for (var i = 1; i <= s1.Length; i++)
+            {
+                for (var j = 1; j <= s2.Length; j++)
+                {
+                    var cost = s1[i - 1] == s2[j - 1] ? 0 : 1;
+                    d[i, j] = Math.Min(
+                        Math.Min(d[i - 1, j] + 1, d[i, j - 1] + 1),
+                        d[i - 1, j - 1] + cost);
+                }
+            }
+
+            return d[s1.Length, s2.Length];
+        }
+
+        private static double CalculateGroupCitizenshipConfidence(List<UniqueOwner> owners)
+        {
+            var withCitizenship = owners
+                .Select(o => NormalizeCitizenship(o.CitizenshipNumber ?? string.Empty))
+                .Where(c => !string.IsNullOrWhiteSpace(c))
+                .Distinct(StringComparer.OrdinalIgnoreCase)
+                .ToList();
+
+            if (withCitizenship.Count <= 1)
+                return withCitizenship.Count == 1 ? 1.0 : 0.0;
+
+            return 0.0;
+        }
+
+        private static double CalculateGroupNameFatherConfidence(List<UniqueOwner> owners)
+        {
+            if (owners.Count <= 1)
+                return 1.0;
+
+            var comparisons = 0;
+            var total = 0.0;
+            for (var i = 0; i < owners.Count; i++)
+            {
+                for (var j = i + 1; j < owners.Count; j++)
+                {
+                    total += CalculateCharacterSimilarity(
+                        GetNormalizedNameFatherKey(owners[i]),
+                        GetNormalizedNameFatherKey(owners[j]));
+                    comparisons++;
+                }
+            }
+
+            return comparisons == 0 ? 1.0 : total / comparisons;
+        }
+
+        private static string GetNormalizedNameFatherKey(UniqueOwner owner)
+        {
+            var name = NormalizeString(owner.LandOwnersName);
+            var father = NormalizeString(owner.FatherSpouse ?? string.Empty);
+            return $"{name} {father}".Trim();
+        }
+
+        private static string? NormalizeNullable(string? value)
+        {
+            if (string.IsNullOrWhiteSpace(value))
+                return null;
+
+            var trimmed = value.Trim();
+            return string.IsNullOrWhiteSpace(trimmed) ? null : trimmed;
+        }
+
+        private static UniqueOwner CloneOwner(UniqueOwner owner)
+        {
+            return new UniqueOwner
+            {
+                LandOwnersName = owner.LandOwnersName,
+                FatherSpouse = owner.FatherSpouse,
+                Gender = owner.Gender,
+                CitizenshipNumber = owner.CitizenshipNumber,
+                CitizenshipIssuedDistrict = owner.CitizenshipIssuedDistrict,
+                CitizenshipIssuedDate = owner.CitizenshipIssuedDate,
+                PermanentAddress = owner.PermanentAddress,
+                TemporaryAddress = owner.TemporaryAddress,
+                ContactNumber = owner.ContactNumber,
+                EmailID = owner.EmailID,
+                ParcelIndices = owner.ParcelIndices.ToList(),
+                IsAnonymous = owner.IsAnonymous
+            };
         }
     }
 }

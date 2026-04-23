@@ -159,6 +159,8 @@ namespace Land_Readjustment_Tool.Forms
                 FatherSpouse = o.FatherSpouse ?? "",
                 Gender = o.Gender ?? "",
                 CitizenshipNumber = o.CitizenshipNumber ?? "",
+                IssuedDistrict = o.CitizenshipIssuedDistrict ?? "",
+                IssuedDate = o.CitizenshipIssuedDate ?? "",
                 PermanentAddress = o.PermanentAddress ?? "",
                 ContactNumber = o.ContactNumber ?? "",
                 EmailID = o.EmailID ?? "",
@@ -336,6 +338,8 @@ namespace Land_Readjustment_Tool.Forms
         public string FatherSpouse { get; set; } = "";
         public string Gender { get; set; } = "";
         public string CitizenshipNumber { get; set; } = "";
+        public string IssuedDistrict { get; set; } = "";
+        public string IssuedDate { get; set; } = "";
         public string PermanentAddress { get; set; } = "";
         public string ContactNumber { get; set; } = "";
         public string EmailID { get; set; } = "";

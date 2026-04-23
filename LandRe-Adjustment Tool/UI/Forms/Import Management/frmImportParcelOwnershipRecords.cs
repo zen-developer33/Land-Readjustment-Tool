@@ -269,7 +269,13 @@ namespace Land_Readjustment_Tool.Forms
                 ClearAllData();
             }
 
-            string sheetName = cbSelectSheet.SelectedItem.ToString();
+            string? sheetName = cbSelectSheet.SelectedItem?.ToString();
+            if (string.IsNullOrWhiteSpace(sheetName))
+            {
+                MessageBox.Show("Please select a valid sheet to import.", "No Sheet Selected",
+                    MessageBoxButtons.OK, MessageBoxIcon.Warning);
+                return;
+            }
             _selectedSheet = ExcelImportService.GetSheetByName(_excelDataSet, sheetName);
             string error = string.Empty;
             if (_selectedSheet == null || !ExcelImportService.ValidateDataTable(_selectedSheet, out error))
@@ -1555,7 +1561,14 @@ namespace Land_Readjustment_Tool.Forms
                 return "Trust (Guthi)";
 
             // Check for Public (Government) keywords
-            string[] publicKeywords = ["public", "government", "सार्वजनिक", "सार्वाजनिक", "सरकारी", "सार्वाजिनिक"];
+            string[] publicKeywords =
+            [
+                "public", "government", "govt", "sarkar",
+                "नेपाल सरकार", "सरकार", "सरकारी",
+                "सार्वजनिक", "सार्वाजनिक", "सार्वाजिनिक",
+                "नगरपालिका", "गाउँपालिका", "गाउपालिका", "गा.पा", "न.पा",
+                "मन्त्रालय", "विभाग", "कार्यालय"
+            ];
             if (publicKeywords.Any(k => combined.Contains(k, StringComparison.OrdinalIgnoreCase)))
                 return "Public (Government)";
 
@@ -1734,7 +1747,7 @@ namespace Land_Readjustment_Tool.Forms
 
             try
             {
-                // STEP 1: Extract unique owners with fuzzy matching on CURRENT data
+                // STEP 1: Extract unique owners with confidence-based matching on current data
                 // On subsequent runs (when _isDeduplicationDone is true), exclude anonymous owners from matching
                 bool excludeAnonymous = _isDeduplicationDone;
                 _deduplicationResult = OwnerDeduplicationService.ExtractUniqueOwners(_importedRecords.ToList(), excludeAnonymous);
@@ -1776,8 +1789,8 @@ namespace Land_Readjustment_Tool.Forms
                                 $"═══════════════════════════\n" +
                                 $"🔍 Unique Landowners Found: {_deduplicationResult.UniqueOwners.Count}\n" +
                                 $"👤 Anonymous(Unknown) Owners: {_deduplicationResult.AnonymousOwnersCreated}\n" +
-                                $"🔗 Auto-Merged (Citizenship+Name Match): {autoMergedCount}\n" +
-                                $"⚠ Needs Review (Name+Father Match ≥85%): {reviewNeededCount}";
+                                $"🔗 Auto-Merged (High Confidence): {autoMergedCount}\n" +
+                                $"⚠ Needs Review (Medium Confidence): {reviewNeededCount}";
                 
                 // Add note if this is a re-run
                 if (excludeAnonymous)
@@ -1785,65 +1798,45 @@ namespace Land_Readjustment_Tool.Forms
                     message += $"\n\n📌 Note: Anonymous/Unknown owners were excluded from this analysis.";
                 }
 
-                // STEP 5: Check if there are potential duplicates needing manual review
-                if (reviewNeededCount > 0)
+                message += "\n\nClick OK to open duplicate review.";
+                MessageBox.Show(message, "Deduplication Results",
+                    MessageBoxButtons.OK, MessageBoxIcon.Information);
+
+                // Always allow manual review, including auto-merged groups.
+                using (var reviewForm = new frmReviewDuplicates(_deduplicationResult, _importedRecords))
                 {
-                    message += $"\n\nClick OK to review and resolve duplicates.";
-
-                    MessageBox.Show(message, "Deduplication Results",
-                        MessageBoxButtons.OK, MessageBoxIcon.Information);
-
-                    // STEP 6: Show duplicate review form for manual resolution
-                    using (var reviewForm = new frmReviewDuplicates(_deduplicationResult, _importedRecords))
+                    if (reviewForm.ShowDialog() == DialogResult.OK)
                     {
-                        if (reviewForm.ShowDialog() == DialogResult.OK)
+                        if (reviewForm.ChangesWereMade)
                         {
-                            if (reviewForm.ChangesWereMade)
-                            {
-                                // STEP 7: The review form already applied changes to _importedRecords
-                                // Just refresh the UI
-                                _isDeduplicationDone = true;
-                                RefreshDataGridView();
+                            _isDeduplicationDone = true;
+                            RefreshDataGridView();
 
-                                // Update step statuses
-                                UpdateStepStatus(3, StepStatus.Success, "Deduplicated");
-                                UpdateStepStatus(4, StepStatus.InProgress, "Ready to save");
+                            UpdateStepStatus(3, StepStatus.Success, "Deduplicated");
+                            UpdateStepStatus(4, StepStatus.InProgress, "Ready to save");
 
-                                MessageBox.Show(
-                                    "Duplicate resolution complete!\n\n" +
-                                    "Owner data has been normalized and duplicates have been merged.\n\n" +
-                                    "You can:\n" +
-                                    "• Edit records if needed\n" +
-                                    "• Run 'Resolve Owner Duplication' again to check for more duplicates\n" +
-                                    "• Save the data to the database when satisfied",
-                                    "Resolution Complete",
-                                    MessageBoxButtons.OK,
-                                    MessageBoxIcon.Information);
+                            MessageBox.Show(
+                                "Duplicate resolution complete!\n\n" +
+                                "Owner data has been normalized and deduplication decisions have been applied.\n\n" +
+                                "You can:\n" +
+                                "• Edit records if needed\n" +
+                                "• Run 'Resolve Owner Duplication' again to re-check duplicates\n" +
+                                "• Save the data to the database when satisfied",
+                                "Resolution Complete",
+                                MessageBoxButtons.OK,
+                                MessageBoxIcon.Information);
 
-                                UpdateStatusBar("Owner deduplication completed successfully.");
-                            }
-                            else
-                            {
-                                UpdateStatusBar("Duplicate review completed - no changes made.");
-                            }
+                            UpdateStatusBar("Owner deduplication review completed successfully.");
                         }
                         else
                         {
-                            UpdateStatusBar("Duplicate review cancelled.");
+                            UpdateStatusBar("Duplicate review completed.");
                         }
                     }
-                }
-                else
-                {
-                    // Only auto-merged duplicates - no manual review needed
-                    message += "\n\n✅ All duplicates resolved automatically!\n" +
-                               "No manual review required.";
-
-                    MessageBox.Show(message, "Deduplication Complete",
-                        MessageBoxButtons.OK, MessageBoxIcon.Information);
-
-                    ApplyDeduplicationAndRefresh();
-                    UpdateStatusBar("Owner deduplication completed successfully - all records processed.");
+                    else
+                    {
+                        UpdateStatusBar("Duplicate review cancelled.");
+                    }
                 }
             }
             catch (Exception ex)
