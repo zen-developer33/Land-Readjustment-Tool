@@ -353,6 +353,7 @@ namespace Land_Readjustment_Tool.Services.LandData
             entity.WardNo = Normalize(parcel.WardNo);
             entity.OriginalAreaSqm = parcel.AreaInSqm ?? 0;
             entity.LandUse = Normalize(parcel.LandUse);
+            entity.LandOwnershipType = Normalize(parcel.LandOwnershipType);
             entity.HasTenant = ParseTenant(parcel.IsTenant);
             entity.Remarks = Normalize(parcel.Remarks);
             entity.LastModifiedDate = DateTime.UtcNow;
@@ -470,6 +471,7 @@ namespace Land_Readjustment_Tool.Services.LandData
                         WardNo = Normalize(record.WardNo),
                         OriginalAreaSqm = record.AreaInSqm ?? 0,
                         LandUse = Normalize(record.LandUse),
+                        LandOwnershipType = Normalize(record.LandOwnershipType),
                         HasTenant = ParseTenant(record.Tenant),
                         Remarks = Normalize(record.Remarks),
                         CreatedDate = DateTime.UtcNow,
@@ -761,7 +763,7 @@ namespace Land_Readjustment_Tool.Services.LandData
                 MapSheetNo = parcel.MapSheetNo,
                 IsTenant = parcel.HasTenant ? "Yes" : "No",
                 LandUse = parcel.LandUse,
-                LandOwnershipType = null,
+                LandOwnershipType = parcel.LandOwnershipType,
                 AreaInSqm = areaSqm,
                 AreaInRAPD = AreaConverterService.SqmToRAPDString(areaSqm),
                 AreaInBKD = AreaConverterService.SqmToBKDString(areaSqm),

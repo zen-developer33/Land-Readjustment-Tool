@@ -385,6 +385,7 @@ namespace Land_Readjustment_Tool.Services.Import
                     EffectiveAreaSqm = null,
                     IsEffectiveAreaManual = false,
                     LandUse = NormalizeText(record.LandUse),
+                    LandOwnershipType = NormalizeText(record.LandOwnershipType),
                     HasTenant = ParseTenant(record.Tenant),
                     TenantName = null,
                     Remarks = NormalizeText(record.Remarks),

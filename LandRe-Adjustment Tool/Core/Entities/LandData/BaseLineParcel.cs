@@ -50,6 +50,7 @@ namespace Land_Readjustment_Tool.Core.Entities.LandData
 
         // Land info
         public string? LandUse { get; set; }
+        public string? LandOwnershipType { get; set; }
         public bool HasTenant { get; set; } = false;
         public string? TenantName { get; set; }
         public string? Remarks { get; set; }

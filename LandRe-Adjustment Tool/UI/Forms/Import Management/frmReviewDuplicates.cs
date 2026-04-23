@@ -175,9 +175,28 @@ namespace Land_Readjustment_Tool.Forms
                         : "-";
                     row.Tag = i;
 
-                    if (group.IsAutoMerged && !_userDecisions.ContainsKey(i))
+                    if (!_userDecisions.ContainsKey(i))
                     {
-                        _userDecisions[i] = UserDecision.Merge;
+                        var shouldAutoMergeByScore =
+                            !group.IsAutoMerged &&
+                            group.Owners.Count == 2 &&
+                            group.NameFatherConfidence >= 0.9995;
+
+                        if (shouldAutoMergeByScore)
+                        {
+                            group.IsAutoMerged = true;
+                            group.AutoMergedOwner ??= OwnerDeduplicationService.MergeOwnersList(group.Owners);
+                            if (string.IsNullOrWhiteSpace(group.MatchType) ||
+                                group.MatchType.StartsWith("Medium Confidence", StringComparison.OrdinalIgnoreCase))
+                            {
+                                group.MatchType = "High Confidence (100% Name + Father/Spouse Exact)";
+                            }
+                        }
+
+                        if (group.IsAutoMerged)
+                        {
+                            _userDecisions[i] = UserDecision.Merge;
+                        }
                     }
 
                     if (_userDecisions.TryGetValue(i, out var savedDecision))

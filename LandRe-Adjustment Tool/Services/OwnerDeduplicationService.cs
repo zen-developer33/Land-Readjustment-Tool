@@ -14,7 +14,7 @@ namespace Land_Readjustment_Tool.Services
     {
         private const double HighNameThresholdForCitizenshipRule = 0.80;
         private const double HighNameFatherCombinedThreshold = 0.95;
-        private const double MinimumReviewThreshold = 0.80;
+        private const double MinimumReviewThreshold = 0.75;
 
         private static readonly string[] AnonymousKeywords =
         [
@@ -228,6 +228,11 @@ namespace Land_Readjustment_Tool.Services
 
             var reviewSuggestions = BuildManualReviewSuggestions(mediumReviewCandidates);
             result.DuplicatesNeedingReview.AddRange(reviewSuggestions);
+            foreach (var auto in reviewSuggestions.Where(g => g.IsAutoMerged))
+            {
+                result.AutoMergedGroups.Add(auto);
+                result.AutoMergedCount++;
+            }
 
             return result;
         }
@@ -250,20 +255,44 @@ namespace Land_Readjustment_Tool.Services
                     .Where(p => component.Contains(p.LeftIndex) && component.Contains(p.RightIndex))
                     .ToList();
 
+                var exactNameFatherMatch = IsExactNameFatherGroup(owners);
+                var autoMergedOwner = exactNameFatherMatch ? MergeOwners(owners) : null;
+
                 suggestions.Add(new DuplicateGroup
                 {
                     Owners = owners,
                     Similarity = componentPairs.Max(p => p.Similarity),
                     CitizenshipConfidence = componentPairs.Max(p => p.CitizenshipConfidence),
                     NameFatherConfidence = componentPairs.Max(p => p.NameFatherConfidence),
-                    IsAutoMerged = false,
-                    MatchType = componentPairs.Any(p => p.UsesCitizenship)
-                        ? "Medium Confidence (Review: Citizenship + Name/Father)"
-                        : "Medium Confidence (Review: Name + Father/Spouse)"
+                    IsAutoMerged = exactNameFatherMatch,
+                    AutoMergedOwner = autoMergedOwner,
+                    MatchType = exactNameFatherMatch
+                        ? "High Confidence (100% Name + Father/Spouse Exact)"
+                        : componentPairs.Any(p => p.UsesCitizenship)
+                            ? "Medium Confidence (Review: Citizenship + Name/Father)"
+                            : "Medium Confidence (Review: Name + Father/Spouse)"
                 });
             }
 
             return suggestions;
+        }
+
+        private static bool IsExactNameFatherGroup(List<UniqueOwner> owners)
+        {
+            if (owners == null || owners.Count < 2)
+                return false;
+
+            var normalizedNames = owners
+                .Select(o => NormalizeString(o.LandOwnersName))
+                .Distinct(StringComparer.OrdinalIgnoreCase)
+                .ToList();
+
+            var normalizedFathers = owners
+                .Select(o => NormalizeString(o.FatherSpouse ?? string.Empty))
+                .Distinct(StringComparer.OrdinalIgnoreCase)
+                .ToList();
+
+            return normalizedNames.Count == 1 && normalizedFathers.Count == 1;
         }
 
         private static List<OwnerToken> BuildOwnerTokens(List<UniqueOwner> owners)
@@ -397,43 +426,6 @@ namespace Land_Readjustment_Tool.Services
                 ? CalculateCharacterSimilarity(left.NormalizedCitizenship, right.NormalizedCitizenship)
                 : 0.0;
 
-            // RULE 3: if any available identity signal drops below 80%, keep separate.
-            if (nameSimilarity < MinimumReviewThreshold)
-            {
-                return CreatePairAssessment(
-                    ConfidenceBand.None,
-                    hasBothCitizenship,
-                    "Keep Separate (<80% Name Match)",
-                    left.Index,
-                    right.Index,
-                    citizenshipConfidence,
-                    nameFatherConfidence);
-            }
-
-            if (hasBothFather && fatherSimilarity < MinimumReviewThreshold)
-            {
-                return CreatePairAssessment(
-                    ConfidenceBand.None,
-                    hasBothCitizenship,
-                    "Keep Separate (<80% Father/Spouse Match)",
-                    left.Index,
-                    right.Index,
-                    citizenshipConfidence,
-                    nameFatherConfidence);
-            }
-
-            if (hasBothCitizenship && citizenshipConfidence < MinimumReviewThreshold)
-            {
-                return CreatePairAssessment(
-                    ConfidenceBand.None,
-                    true,
-                    "Keep Separate (<80% Citizenship Match)",
-                    left.Index,
-                    right.Index,
-                    citizenshipConfidence,
-                    nameFatherConfidence);
-            }
-
             // RULE 1: 100% citizenship match + >80% owner-name match => high confidence auto-merge.
             if (hasBothCitizenship)
             {
@@ -446,14 +438,58 @@ namespace Land_Readjustment_Tool.Services
             }
 
             // RULE 2: (owner-name + father/spouse) combined >95% => high confidence auto-merge.
-            if (hasBothFather && nameFatherConfidence > HighNameFatherCombinedThreshold)
+            // Also auto-merge exact 100% normalized name-father score (as shown in UI),
+            // even when father/spouse is missing on one side.
+            if (nameFatherConfidence > HighNameFatherCombinedThreshold &&
+                (hasBothFather || nameSimilarity == 1.0))
             {
+                var highType = hasBothFather
+                    ? "High Confidence (>95% Name + Father/Spouse)"
+                    : "High Confidence (100% Name Match)";
+
                 return CreatePairAssessment(ConfidenceBand.High, hasBothCitizenship,
-                    "High Confidence (>95% Name + Father/Spouse)", left.Index, right.Index,
+                    highType, left.Index, right.Index,
                     citizenshipConfidence, nameFatherConfidence);
             }
 
-            // RULE 4: all remaining records in 80-100 confidence range => manual review.
+            // RULE 3: if any available identity signal drops below 75%, keep separate.
+            if (nameSimilarity < MinimumReviewThreshold)
+            {
+                return CreatePairAssessment(
+                    ConfidenceBand.None,
+                    hasBothCitizenship,
+                    "Keep Separate (<75% Name Match)",
+                    left.Index,
+                    right.Index,
+                    citizenshipConfidence,
+                    nameFatherConfidence);
+            }
+
+            if (hasBothFather && fatherSimilarity < MinimumReviewThreshold)
+            {
+                return CreatePairAssessment(
+                    ConfidenceBand.None,
+                    hasBothCitizenship,
+                    "Keep Separate (<75% Father/Spouse Match)",
+                    left.Index,
+                    right.Index,
+                    citizenshipConfidence,
+                    nameFatherConfidence);
+            }
+
+            if (hasBothCitizenship && citizenshipConfidence < MinimumReviewThreshold)
+            {
+                return CreatePairAssessment(
+                    ConfidenceBand.None,
+                    true,
+                    "Keep Separate (<75% Citizenship Match)",
+                    left.Index,
+                    right.Index,
+                    citizenshipConfidence,
+                    nameFatherConfidence);
+            }
+
+            // RULE 4: all remaining records in 75-100 confidence range => manual review.
             bool qualifiesForReview;
             if (hasBothCitizenship && hasBothFather)
             {
@@ -482,10 +518,10 @@ namespace Land_Readjustment_Tool.Services
             if (qualifiesForReview)
             {
                 var reviewType = hasBothCitizenship
-                    ? "Review Required (80-100% Citizenship + Name/Father)"
+                    ? "Review Required (75-100% Citizenship + Name/Father)"
                     : hasBothFather
-                        ? "Review Required (80-100% Name + Father/Spouse)"
-                        : "Review Required (80-100% Name)";
+                        ? "Review Required (75-100% Name + Father/Spouse)"
+                        : "Review Required (75-100% Name)";
 
                 return CreatePairAssessment(ConfidenceBand.Medium, hasBothCitizenship,
                     reviewType, left.Index, right.Index,
