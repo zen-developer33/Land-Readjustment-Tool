@@ -390,7 +390,7 @@ namespace Land_Readjustment_Tool
             btnCancel.Cursor = Cursors.Hand;
             btnCancel.FlatStyle = FlatStyle.Flat;
             btnCancel.Font = new Font("Segoe UI", 9F, FontStyle.Bold);
-            btnCancel.Location = new Point(20, 361);
+            btnCancel.Location = new Point(20, 357);
             btnCancel.Name = "btnCancel";
             btnCancel.Size = new Size(108, 35);
             btnCancel.TabIndex = 19;
@@ -403,7 +403,7 @@ namespace Land_Readjustment_Tool
             btnOk.Cursor = Cursors.Hand;
             btnOk.FlatStyle = FlatStyle.Flat;
             btnOk.Font = new Font("Segoe UI", 9F, FontStyle.Bold);
-            btnOk.Location = new Point(138, 361);
+            btnOk.Location = new Point(138, 357);
             btnOk.Name = "btnOk";
             btnOk.Size = new Size(111, 35);
             btnOk.TabIndex = 20;
@@ -415,7 +415,7 @@ namespace Land_Readjustment_Tool
             // 
             AutoScaleDimensions = new SizeF(9F, 21F);
             AutoScaleMode = AutoScaleMode.Font;
-            ClientSize = new Size(269, 412);
+            ClientSize = new Size(268, 408);
             Controls.Add(lblCalculationStep);
             Controls.Add(txtResult);
             Controls.Add(btnClear);
@@ -450,7 +450,6 @@ namespace Land_Readjustment_Tool
             StartPosition = FormStartPosition.CenterParent;
             Text = "Calculator";
             TopMost = true;
-           
             ResultTextRightClickContext.ResumeLayout(false);
             ResumeLayout(false);
             PerformLayout();

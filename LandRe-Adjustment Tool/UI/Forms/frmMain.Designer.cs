@@ -80,7 +80,6 @@ namespace Land_Readjustment_Tool
             cadastralDataToolStripMenuItem = new ToolStripMenuItem();
             importDataToolStripMenuItem = new ToolStripMenuItem();
             viewEditRecordsToolStripMenuItem = new ToolStripMenuItem();
-            colorDialog1 = new ColorDialog();
             leftSplitContainer = new SplitContainer();
             grpLayer = new GroupBox();
             treeView1 = new TreeView();
@@ -136,7 +135,6 @@ namespace Land_Readjustment_Tool
             toolStripSeparator11 = new ToolStripSeparator();
             grpParcelObjProp = new GroupBox();
             dgvParcelObjProperty = new DataGridView();
-            tsProjectMenu = new ToolStrip();
             mnuNewProject = new ToolStripButton();
             mnuOpenProject = new ToolStripButton();
             mnuSaveProject = new ToolStripButton();
@@ -161,6 +159,7 @@ namespace Land_Readjustment_Tool
             toolStripSeparator15 = new ToolStripSeparator();
             toolStripSeparator16 = new ToolStripSeparator();
             toolStripComboBox1 = new ToolStripComboBox();
+            tsProjectMenu = new ToolStrip();
             mainMenuStrip.SuspendLayout();
             ((System.ComponentModel.ISupportInitialize)leftSplitContainer).BeginInit();
             leftSplitContainer.Panel1.SuspendLayout();
@@ -352,7 +351,7 @@ namespace Land_Readjustment_Tool
             // 
             importDataToolStripMenuItem1.DropDownItems.AddRange(new ToolStripItem[] { ImportParcelOwnerShipRecords, toolStripSeparator5, importCadastralDataDXFDWGShapefileToolStripMenuItem, ImportProjectBoundaryDXFDWGToolStripMenuItem, toolStripSeparator6, baseMapsToolStripMenuItem, topographicalMapToolStripMenuItem });
             importDataToolStripMenuItem1.Name = "importDataToolStripMenuItem1";
-            importDataToolStripMenuItem1.Size = new Size(224, 26);
+            importDataToolStripMenuItem1.Size = new Size(207, 26);
             importDataToolStripMenuItem1.Text = "Import Data";
             // 
             // ImportParcelOwnerShipRecords
@@ -419,7 +418,7 @@ namespace Land_Readjustment_Tool
             // viewEditRecordToolStripMenuItem
             // 
             viewEditRecordToolStripMenuItem.Name = "viewEditRecordToolStripMenuItem";
-            viewEditRecordToolStripMenuItem.Size = new Size(224, 26);
+            viewEditRecordToolStripMenuItem.Size = new Size(207, 26);
             viewEditRecordToolStripMenuItem.Text = "View/Edit Record";
             viewEditRecordToolStripMenuItem.Click += viewEditRecordToolStripMenuItem_Click;
             // 
@@ -427,14 +426,14 @@ namespace Land_Readjustment_Tool
             // 
             landOwnerDataToolStripMenuItem.Enabled = false;
             landOwnerDataToolStripMenuItem.Name = "landOwnerDataToolStripMenuItem";
-            landOwnerDataToolStripMenuItem.Size = new Size(224, 26);
+            landOwnerDataToolStripMenuItem.Size = new Size(207, 26);
             landOwnerDataToolStripMenuItem.Text = "Land Owner Data";
             landOwnerDataToolStripMenuItem.Click += landOwnerDataToolStripMenuItem_Click;
             // 
             // importToolStripMenuItem
             // 
             importToolStripMenuItem.Name = "importToolStripMenuItem";
-            importToolStripMenuItem.Size = new Size(224, 26);
+            importToolStripMenuItem.Size = new Size(207, 26);
             // 
             // contributionToolStripMenuItem
             // 
@@ -504,10 +503,6 @@ namespace Land_Readjustment_Tool
             viewEditRecordsToolStripMenuItem.Name = "viewEditRecordsToolStripMenuItem";
             viewEditRecordsToolStripMenuItem.Size = new Size(213, 26);
             viewEditRecordsToolStripMenuItem.Text = "View/Edit Records";
-            // 
-            // colorDialog1
-            // 
-            colorDialog1.AllowFullOpen = false;
             // 
             // leftSplitContainer
             // 
@@ -1151,16 +1146,6 @@ namespace Land_Readjustment_Tool
             dgvParcelObjProperty.Size = new Size(304, 532);
             dgvParcelObjProperty.TabIndex = 0;
             // 
-            // tsProjectMenu
-            // 
-            tsProjectMenu.ImageScalingSize = new Size(20, 20);
-            tsProjectMenu.Items.AddRange(new ToolStripItem[] { mnuNewProject, mnuOpenProject, mnuSaveProject, mnuSaveAsProject, mnuBackup, mnuRestoreBackup, mnuCloseProject, toolStripSeparator9, toolStripButton3, mnuProjectInfo, mnuProjectSettings, toolStripSeparator12, toolStripSeparator13, mnuUndo, mnuRedo, toolStripSeparator14, mnuPan, mnuZoomIn, mnuZoomOut, mnuZoomExtent, mnuZoomWindow, toolStripSeparator15, toolStripSeparator16, toolStripComboBox1 });
-            tsProjectMenu.Location = new Point(0, 28);
-            tsProjectMenu.Name = "tsProjectMenu";
-            tsProjectMenu.Size = new Size(1328, 28);
-            tsProjectMenu.TabIndex = 4;
-            tsProjectMenu.Text = "Project Menu";
-            // 
             // mnuNewProject
             // 
             mnuNewProject.DisplayStyle = ToolStripItemDisplayStyle.Image;
@@ -1348,6 +1333,16 @@ namespace Land_Readjustment_Tool
             toolStripComboBox1.Name = "toolStripComboBox1";
             toolStripComboBox1.Size = new Size(121, 28);
             // 
+            // tsProjectMenu
+            // 
+            tsProjectMenu.ImageScalingSize = new Size(20, 20);
+            tsProjectMenu.Items.AddRange(new ToolStripItem[] { mnuNewProject, mnuOpenProject, mnuSaveProject, mnuSaveAsProject, mnuBackup, mnuRestoreBackup, mnuCloseProject, toolStripSeparator9, toolStripButton3, mnuProjectInfo, mnuProjectSettings, toolStripSeparator12, toolStripSeparator13, mnuUndo, mnuRedo, toolStripSeparator14, mnuPan, mnuZoomIn, mnuZoomOut, mnuZoomExtent, mnuZoomWindow, toolStripSeparator15, toolStripSeparator16, toolStripComboBox1 });
+            tsProjectMenu.Location = new Point(0, 28);
+            tsProjectMenu.Name = "tsProjectMenu";
+            tsProjectMenu.Size = new Size(1328, 28);
+            tsProjectMenu.TabIndex = 4;
+            tsProjectMenu.Text = "Project Menu";
+            // 
             // frmMain
             // 
             AutoScaleMode = AutoScaleMode.None;
@@ -1450,7 +1445,6 @@ namespace Land_Readjustment_Tool
         private ToolStripMenuItem topographicalMapToolStripMenuItem;
         private ToolStripMenuItem ImportParcelOwnerShipRecords;
         private DrawingCanvasControl drawingCanvasControl1;
-        private ColorDialog colorDialog1;
         private DrawingCanvasControl drawingCanvasControl2;
         private SplitContainer leftSplitContainer;
         private GroupBox grpLayer;
@@ -1498,18 +1492,8 @@ namespace Land_Readjustment_Tool
         private ComboBox cboLabelField;
         private Label label1;
         private SplitContainer mainSplitContainer;
-        private ToolStrip tsProjectMenu;
-        private ToolStripButton mnuNewProject;
         private ToolStripSeparator toolStripSeparator7;
         private ToolStripSeparator toolStripSeparator8;
-        private ToolStripButton mnuOpenProject;
-        private ToolStripSeparator toolStripButton3;
-        private ToolStripButton mnuSaveProject;
-        private ToolStripButton mnuSaveAsProject;
-        private ToolStripSeparator toolStripSeparator9;
-        private ToolStripButton mnuCloseProject;
-        private ToolStripButton mnuProjectInfo;
-        private ToolStripButton mnuProjectSettings;
         private SplitContainer splitContainer3;
         private ToolStrip toolStrip2;
         private ToolStripButton tsmExpandCollapseLeftPanel;
@@ -1519,10 +1503,20 @@ namespace Land_Readjustment_Tool
         private ToolStripSeparator toolStripSeparator11;
         private GroupBox grpParcelObjProp;
         private DataGridView dgvParcelObjProperty;
+        private ToolStripButton mnuNewProject;
+        private ToolStripButton mnuOpenProject;
+        private ToolStripButton mnuSaveProject;
+        private ToolStripButton mnuSaveAsProject;
+        private ToolStripButton mnuBackup;
+        private ToolStripButton mnuRestoreBackup;
+        private ToolStripButton mnuCloseProject;
+        private ToolStripSeparator toolStripSeparator9;
+        private ToolStripSeparator toolStripButton3;
+        private ToolStripButton mnuProjectInfo;
+        private ToolStripButton mnuProjectSettings;
         private ToolStripSeparator toolStripSeparator12;
         private ToolStripSeparator toolStripSeparator13;
         private ToolStripButton mnuUndo;
-        private ToolStripButton mnuRestoreBackup;
         private ToolStripButton mnuRedo;
         private ToolStripSeparator toolStripSeparator14;
         private ToolStripButton mnuPan;
@@ -1533,6 +1527,6 @@ namespace Land_Readjustment_Tool
         private ToolStripSeparator toolStripSeparator15;
         private ToolStripSeparator toolStripSeparator16;
         private ToolStripComboBox toolStripComboBox1;
-        private ToolStripButton mnuBackup;
+        private ToolStrip tsProjectMenu;
     }
 }
