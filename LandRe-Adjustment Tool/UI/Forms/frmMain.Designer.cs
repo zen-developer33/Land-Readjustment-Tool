@@ -69,14 +69,27 @@ namespace Land_Readjustment_Tool
             viewEditRecordToolStripMenuItem = new ToolStripMenuItem();
             landOwnerDataToolStripMenuItem = new ToolStripMenuItem();
             importToolStripMenuItem = new ToolStripMenuItem();
+            contributionSettingsToolStripMenuItem = new ToolStripMenuItem();
+            calculateContributionToolStripMenuItem = new ToolStripMenuItem();
+            contributionSummaryToolStripMenuItem = new ToolStripMenuItem();
             contributionToolStripMenuItem = new ToolStripMenuItem();
             replottingToolStripMenuItem = new ToolStripMenuItem();
             startReplotWorkspaceToolStripMenuItem = new ToolStripMenuItem();
+            parcelAdjustmentToolStripMenuItem = new ToolStripMenuItem();
+            roadNetworkToolStripMenuItem = new ToolStripMenuItem();
             validationToolStripMenuItem = new ToolStripMenuItem();
+            validateOwnershipRecordsToolStripMenuItem = new ToolStripMenuItem();
+            validateSpatialDataToolStripMenuItem = new ToolStripMenuItem();
+            validationIssuesToolStripMenuItem = new ToolStripMenuItem();
             reportsToolStripMenuItem = new ToolStripMenuItem();
+            ownerParcelReportToolStripMenuItem = new ToolStripMenuItem();
+            contributionReportToolStripMenuItem = new ToolStripMenuItem();
+            exportDataToolStripMenuItem = new ToolStripMenuItem();
             toolsToolStripMenuItem = new ToolStripMenuItem();
             mnuAreaConverterTool = new ToolStripMenuItem();
             helToolStripMenuItem = new ToolStripMenuItem();
+            userGuideToolStripMenuItem = new ToolStripMenuItem();
+            aboutRePlotToolStripMenuItem = new ToolStripMenuItem();
             cadastralDataToolStripMenuItem = new ToolStripMenuItem();
             importDataToolStripMenuItem = new ToolStripMenuItem();
             viewEditRecordsToolStripMenuItem = new ToolStripMenuItem();
@@ -342,17 +355,17 @@ namespace Land_Readjustment_Tool
             // 
             // dataToolStripMenuItem
             // 
-            dataToolStripMenuItem.DropDownItems.AddRange(new ToolStripItem[] { importDataToolStripMenuItem1, viewEditRecordToolStripMenuItem, landOwnerDataToolStripMenuItem, importToolStripMenuItem });
+            dataToolStripMenuItem.DropDownItems.AddRange(new ToolStripItem[] { importDataToolStripMenuItem1, importToolStripMenuItem });
             dataToolStripMenuItem.Name = "dataToolStripMenuItem";
-            dataToolStripMenuItem.Size = new Size(55, 24);
-            dataToolStripMenuItem.Text = "Data";
+            dataToolStripMenuItem.Size = new Size(144, 24);
+            dataToolStripMenuItem.Text = "Data Management";
             // 
             // importDataToolStripMenuItem1
             // 
             importDataToolStripMenuItem1.DropDownItems.AddRange(new ToolStripItem[] { ImportParcelOwnerShipRecords, toolStripSeparator5, importCadastralDataDXFDWGShapefileToolStripMenuItem, ImportProjectBoundaryDXFDWGToolStripMenuItem, toolStripSeparator6, baseMapsToolStripMenuItem, topographicalMapToolStripMenuItem });
             importDataToolStripMenuItem1.Name = "importDataToolStripMenuItem1";
-            importDataToolStripMenuItem1.Size = new Size(207, 26);
-            importDataToolStripMenuItem1.Text = "Import Data";
+            importDataToolStripMenuItem1.Size = new Size(190, 26);
+            importDataToolStripMenuItem1.Text = "Import";
             // 
             // ImportParcelOwnerShipRecords
             // 
@@ -418,32 +431,56 @@ namespace Land_Readjustment_Tool
             // viewEditRecordToolStripMenuItem
             // 
             viewEditRecordToolStripMenuItem.Name = "viewEditRecordToolStripMenuItem";
-            viewEditRecordToolStripMenuItem.Size = new Size(207, 26);
-            viewEditRecordToolStripMenuItem.Text = "View/Edit Record";
+            viewEditRecordToolStripMenuItem.Size = new Size(271, 26);
+            viewEditRecordToolStripMenuItem.Text = "Original Parcel Records";
             viewEditRecordToolStripMenuItem.Click += viewEditRecordToolStripMenuItem_Click;
             // 
             // landOwnerDataToolStripMenuItem
             // 
             landOwnerDataToolStripMenuItem.Enabled = false;
             landOwnerDataToolStripMenuItem.Name = "landOwnerDataToolStripMenuItem";
-            landOwnerDataToolStripMenuItem.Size = new Size(207, 26);
-            landOwnerDataToolStripMenuItem.Text = "Land Owner Data";
+            landOwnerDataToolStripMenuItem.Size = new Size(271, 26);
+            landOwnerDataToolStripMenuItem.Text = "Land Owners";
             landOwnerDataToolStripMenuItem.Click += landOwnerDataToolStripMenuItem_Click;
             // 
             // importToolStripMenuItem
             // 
+            importToolStripMenuItem.DropDownItems.AddRange(new ToolStripItem[] { viewEditRecordToolStripMenuItem, landOwnerDataToolStripMenuItem });
             importToolStripMenuItem.Name = "importToolStripMenuItem";
-            importToolStripMenuItem.Size = new Size(207, 26);
+            importToolStripMenuItem.Size = new Size(190, 26);
+            importToolStripMenuItem.Text = "Records";
+            // 
+            // contributionSettingsToolStripMenuItem
+            // 
+            contributionSettingsToolStripMenuItem.Enabled = false;
+            contributionSettingsToolStripMenuItem.Name = "contributionSettingsToolStripMenuItem";
+            contributionSettingsToolStripMenuItem.Size = new Size(245, 26);
+            contributionSettingsToolStripMenuItem.Text = "Contribution Settings";
+            // 
+            // calculateContributionToolStripMenuItem
+            // 
+            calculateContributionToolStripMenuItem.Enabled = false;
+            calculateContributionToolStripMenuItem.Name = "calculateContributionToolStripMenuItem";
+            calculateContributionToolStripMenuItem.Size = new Size(245, 26);
+            calculateContributionToolStripMenuItem.Text = "Calculate Contribution";
+            // 
+            // contributionSummaryToolStripMenuItem
+            // 
+            contributionSummaryToolStripMenuItem.Enabled = false;
+            contributionSummaryToolStripMenuItem.Name = "contributionSummaryToolStripMenuItem";
+            contributionSummaryToolStripMenuItem.Size = new Size(245, 26);
+            contributionSummaryToolStripMenuItem.Text = "Contribution Summary";
             // 
             // contributionToolStripMenuItem
             // 
+            contributionToolStripMenuItem.DropDownItems.AddRange(new ToolStripItem[] { contributionSettingsToolStripMenuItem, calculateContributionToolStripMenuItem, contributionSummaryToolStripMenuItem });
             contributionToolStripMenuItem.Name = "contributionToolStripMenuItem";
             contributionToolStripMenuItem.Size = new Size(106, 24);
             contributionToolStripMenuItem.Text = "Contribution";
             // 
             // replottingToolStripMenuItem
             // 
-            replottingToolStripMenuItem.DropDownItems.AddRange(new ToolStripItem[] { startReplotWorkspaceToolStripMenuItem });
+            replottingToolStripMenuItem.DropDownItems.AddRange(new ToolStripItem[] { startReplotWorkspaceToolStripMenuItem, parcelAdjustmentToolStripMenuItem, roadNetworkToolStripMenuItem });
             replottingToolStripMenuItem.Name = "replottingToolStripMenuItem";
             replottingToolStripMenuItem.Size = new Size(93, 24);
             replottingToolStripMenuItem.Text = "Replotting";
@@ -454,17 +491,75 @@ namespace Land_Readjustment_Tool
             startReplotWorkspaceToolStripMenuItem.Size = new Size(247, 26);
             startReplotWorkspaceToolStripMenuItem.Text = "Start Replot Workspace";
             // 
+            // parcelAdjustmentToolStripMenuItem
+            // 
+            parcelAdjustmentToolStripMenuItem.Enabled = false;
+            parcelAdjustmentToolStripMenuItem.Name = "parcelAdjustmentToolStripMenuItem";
+            parcelAdjustmentToolStripMenuItem.Size = new Size(247, 26);
+            parcelAdjustmentToolStripMenuItem.Text = "Parcel Adjustment";
+            // 
+            // roadNetworkToolStripMenuItem
+            // 
+            roadNetworkToolStripMenuItem.Enabled = false;
+            roadNetworkToolStripMenuItem.Name = "roadNetworkToolStripMenuItem";
+            roadNetworkToolStripMenuItem.Size = new Size(247, 26);
+            roadNetworkToolStripMenuItem.Text = "Road Network";
+            // 
             // validationToolStripMenuItem
             // 
+            validationToolStripMenuItem.DropDownItems.AddRange(new ToolStripItem[] { validateOwnershipRecordsToolStripMenuItem, validateSpatialDataToolStripMenuItem, validationIssuesToolStripMenuItem });
             validationToolStripMenuItem.Name = "validationToolStripMenuItem";
             validationToolStripMenuItem.Size = new Size(90, 24);
             validationToolStripMenuItem.Text = "Validation";
             // 
+            // validateOwnershipRecordsToolStripMenuItem
+            // 
+            validateOwnershipRecordsToolStripMenuItem.Enabled = false;
+            validateOwnershipRecordsToolStripMenuItem.Name = "validateOwnershipRecordsToolStripMenuItem";
+            validateOwnershipRecordsToolStripMenuItem.Size = new Size(275, 26);
+            validateOwnershipRecordsToolStripMenuItem.Text = "Validate Ownership Records";
+            // 
+            // validateSpatialDataToolStripMenuItem
+            // 
+            validateSpatialDataToolStripMenuItem.Enabled = false;
+            validateSpatialDataToolStripMenuItem.Name = "validateSpatialDataToolStripMenuItem";
+            validateSpatialDataToolStripMenuItem.Size = new Size(275, 26);
+            validateSpatialDataToolStripMenuItem.Text = "Validate Spatial Data";
+            // 
+            // validationIssuesToolStripMenuItem
+            // 
+            validationIssuesToolStripMenuItem.Enabled = false;
+            validationIssuesToolStripMenuItem.Name = "validationIssuesToolStripMenuItem";
+            validationIssuesToolStripMenuItem.Size = new Size(275, 26);
+            validationIssuesToolStripMenuItem.Text = "Validation Issues";
+            // 
             // reportsToolStripMenuItem
             // 
+            reportsToolStripMenuItem.DropDownItems.AddRange(new ToolStripItem[] { ownerParcelReportToolStripMenuItem, contributionReportToolStripMenuItem, exportDataToolStripMenuItem });
             reportsToolStripMenuItem.Name = "reportsToolStripMenuItem";
             reportsToolStripMenuItem.Size = new Size(69, 24);
             reportsToolStripMenuItem.Text = "Output";
+            // 
+            // ownerParcelReportToolStripMenuItem
+            // 
+            ownerParcelReportToolStripMenuItem.Enabled = false;
+            ownerParcelReportToolStripMenuItem.Name = "ownerParcelReportToolStripMenuItem";
+            ownerParcelReportToolStripMenuItem.Size = new Size(246, 26);
+            ownerParcelReportToolStripMenuItem.Text = "Owner/Parcel Report";
+            // 
+            // contributionReportToolStripMenuItem
+            // 
+            contributionReportToolStripMenuItem.Enabled = false;
+            contributionReportToolStripMenuItem.Name = "contributionReportToolStripMenuItem";
+            contributionReportToolStripMenuItem.Size = new Size(246, 26);
+            contributionReportToolStripMenuItem.Text = "Contribution Report";
+            // 
+            // exportDataToolStripMenuItem
+            // 
+            exportDataToolStripMenuItem.Enabled = false;
+            exportDataToolStripMenuItem.Name = "exportDataToolStripMenuItem";
+            exportDataToolStripMenuItem.Size = new Size(246, 26);
+            exportDataToolStripMenuItem.Text = "Export Data";
             // 
             // toolsToolStripMenuItem
             // 
@@ -482,9 +577,24 @@ namespace Land_Readjustment_Tool
             // 
             // helToolStripMenuItem
             // 
+            helToolStripMenuItem.DropDownItems.AddRange(new ToolStripItem[] { userGuideToolStripMenuItem, aboutRePlotToolStripMenuItem });
             helToolStripMenuItem.Name = "helToolStripMenuItem";
             helToolStripMenuItem.Size = new Size(55, 24);
             helToolStripMenuItem.Text = "Help";
+            // 
+            // userGuideToolStripMenuItem
+            // 
+            userGuideToolStripMenuItem.Enabled = false;
+            userGuideToolStripMenuItem.Name = "userGuideToolStripMenuItem";
+            userGuideToolStripMenuItem.Size = new Size(172, 26);
+            userGuideToolStripMenuItem.Text = "User Guide";
+            // 
+            // aboutRePlotToolStripMenuItem
+            // 
+            aboutRePlotToolStripMenuItem.Enabled = false;
+            aboutRePlotToolStripMenuItem.Name = "aboutRePlotToolStripMenuItem";
+            aboutRePlotToolStripMenuItem.Size = new Size(172, 26);
+            aboutRePlotToolStripMenuItem.Text = "About RePlot";
             // 
             // cadastralDataToolStripMenuItem
             // 
@@ -1433,6 +1543,19 @@ namespace Land_Readjustment_Tool
         private ToolStripMenuItem landOwnerDataToolStripMenuItem;
         private ToolStripMenuItem importDataToolStripMenuItem1;
         private ToolStripMenuItem importToolStripMenuItem;
+        private ToolStripMenuItem contributionSettingsToolStripMenuItem;
+        private ToolStripMenuItem calculateContributionToolStripMenuItem;
+        private ToolStripMenuItem contributionSummaryToolStripMenuItem;
+        private ToolStripMenuItem parcelAdjustmentToolStripMenuItem;
+        private ToolStripMenuItem roadNetworkToolStripMenuItem;
+        private ToolStripMenuItem validateOwnershipRecordsToolStripMenuItem;
+        private ToolStripMenuItem validateSpatialDataToolStripMenuItem;
+        private ToolStripMenuItem validationIssuesToolStripMenuItem;
+        private ToolStripMenuItem ownerParcelReportToolStripMenuItem;
+        private ToolStripMenuItem contributionReportToolStripMenuItem;
+        private ToolStripMenuItem exportDataToolStripMenuItem;
+        private ToolStripMenuItem userGuideToolStripMenuItem;
+        private ToolStripMenuItem aboutRePlotToolStripMenuItem;
         private ToolStripMenuItem importCadastralDataDXFDWGShapefileToolStripMenuItem;
         private ToolStripMenuItem viewEditRecordToolStripMenuItem;
         private ToolStripMenuItem baseMapsToolStripMenuItem;

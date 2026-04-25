@@ -235,33 +235,82 @@ namespace Land_Readjustment_Tool
 
 
 
+        /// <summary>
+        /// Enables project-scoped commands once a project context has been created or opened.
+        /// </summary>
         private void EnableProjectMenuItems()
         {
+            dataToolStripMenuItem.Enabled = true;
+            contributionToolStripMenuItem.Enabled = false;
+            replottingToolStripMenuItem.Enabled = false;
+            validationToolStripMenuItem.Enabled = false;
+            reportsToolStripMenuItem.Enabled = false;
+
             tsmSave.Enabled = true;
             mnuSaveProject.Enabled = true;
             tsmSaveAs.Enabled = true;
             mnuSaveAsProject.Enabled = true;
             tsmProjectInformation.Enabled = true;
+            mnuProjectInfo.Enabled = true;
             tsmProjectSetting.Enabled = true;
+            mnuProjectSettings.Enabled = true;
             tsmCloseProject.Enabled = true;
+            mnuCloseProject.Enabled = true;
             tsmBackupProject.Enabled = true;
+            mnuBackup.Enabled = true;
+            tsmRestoreBackup.Enabled = true;
+            mnuRestoreBackup.Enabled = true;
             ImportParcelOwnerShipRecords.Enabled = true;
+            viewEditRecordToolStripMenuItem.Enabled = true;
             landOwnerDataToolStripMenuItem.Enabled = true;
-            startReplotWorkspaceToolStripMenuItem.Enabled = true;
+            startReplotWorkspaceToolStripMenuItem.Enabled = false;
+            mnuUndo.Enabled = false;
+            mnuRedo.Enabled = false;
+            mnuPan.Enabled = true;
+            mnuZoomIn.Enabled = true;
+            mnuZoomOut.Enabled = true;
+            mnuZoomExtent.Enabled = true;
+            mnuZoomWindow.Enabled = true;
+            toolStripComboBox1.Enabled = true;
         }
 
-        // Disables menu items when no project is open
+        /// <summary>
+        /// Disables project-scoped commands when no project is active, preventing forms from opening without a project database.
+        /// </summary>
         private void DisableProjectMenuItems()
         {
+            dataToolStripMenuItem.Enabled = false;
+            contributionToolStripMenuItem.Enabled = false;
+            replottingToolStripMenuItem.Enabled = false;
+            validationToolStripMenuItem.Enabled = false;
+            reportsToolStripMenuItem.Enabled = false;
+
             tsmSave.Enabled = false;
+            mnuSaveProject.Enabled = false;
             tsmSaveAs.Enabled = false;
+            mnuSaveAsProject.Enabled = false;
             tsmProjectInformation.Enabled = false;
+            mnuProjectInfo.Enabled = false;
             tsmProjectSetting.Enabled = false;
+            mnuProjectSettings.Enabled = false;
             tsmCloseProject.Enabled = false;
+            mnuCloseProject.Enabled = false;
             tsmBackupProject.Enabled = false;
+            mnuBackup.Enabled = false;
+            tsmRestoreBackup.Enabled = false;
+            mnuRestoreBackup.Enabled = false;
             ImportParcelOwnerShipRecords.Enabled = false;
+            viewEditRecordToolStripMenuItem.Enabled = false;
             landOwnerDataToolStripMenuItem.Enabled = false;
             startReplotWorkspaceToolStripMenuItem.Enabled = false;
+            mnuUndo.Enabled = false;
+            mnuRedo.Enabled = false;
+            mnuPan.Enabled = false;
+            mnuZoomIn.Enabled = false;
+            mnuZoomOut.Enabled = false;
+            mnuZoomExtent.Enabled = false;
+            mnuZoomWindow.Enabled = false;
+            toolStripComboBox1.Enabled = false;
         }
 
         // ── NEW PROJECT ──────────────────────────────
@@ -1379,10 +1428,23 @@ namespace Land_Readjustment_Tool
             }
         }
 
+        /// <summary>
+        /// Opens the original parcel ownership records form for the active project.
+        /// </summary>
         private void viewEditRecordToolStripMenuItem_Click(object sender, EventArgs e)
         {
-            frmLandParcelOwnersRecord frm = new frmLandParcelOwnersRecord();
-            frm.ShowDialog();
+            if (!AppServices.HasContext)
+            {
+                MessageBox.Show(
+                    "Please open or create a project first.",
+                    "No Project Open",
+                    MessageBoxButtons.OK,
+                    MessageBoxIcon.Warning);
+                return;
+            }
+
+            using var frm = new frmLandParcelOwnersRecord();
+            frm.ShowDialog(this);
         }
 
         private void mnuSaveAsProject_Click(object sender, EventArgs e)
