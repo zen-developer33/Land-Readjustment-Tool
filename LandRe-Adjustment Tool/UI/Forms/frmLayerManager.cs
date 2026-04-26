@@ -4,6 +4,7 @@ using System.Drawing;
 using System.Linq;
 using System.Windows.Forms;
 using Land_Readjustment_Tool.Core.Entities.Canvas;
+using Land_Readjustment_Tool.UI.Helpers;
 
 namespace Land_Readjustment_Tool.UI.Forms
 {
@@ -231,7 +232,10 @@ namespace Land_Readjustment_Tool.UI.Forms
             if (layer == null) return;
 
             colorDialog1.Color = ParseHex(layer.BorderColor);
-            if (colorDialog1.ShowDialog() != DialogResult.OK) return;
+            ColorDialogCustomColorsStore.LoadInto(colorDialog1);
+            var result = colorDialog1.ShowDialog();
+            ColorDialogCustomColorsStore.SaveFrom(colorDialog1);
+            if (result != DialogResult.OK) return;
 
             layer.BorderColor = ToHex(colorDialog1.Color);
             dgvLayers.Rows[e.RowIndex].Cells["colColor"].Value = layer.BorderColor;
@@ -428,7 +432,11 @@ namespace Land_Readjustment_Tool.UI.Forms
         private void PickColor(Panel swatch)
         {
             colorDialog1.Color = swatch.BackColor;
-            if (colorDialog1.ShowDialog() != DialogResult.OK) return;
+            ColorDialogCustomColorsStore.LoadInto(colorDialog1);
+            var result = colorDialog1.ShowDialog();
+            ColorDialogCustomColorsStore.SaveFrom(colorDialog1);
+            if (result != DialogResult.OK) return;
+
             swatch.BackColor = colorDialog1.Color;
             SyncSelectedLayer();
         }

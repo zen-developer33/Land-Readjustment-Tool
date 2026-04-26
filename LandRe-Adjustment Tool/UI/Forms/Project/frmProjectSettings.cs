@@ -5,6 +5,7 @@ using Land_Readjustment_Tool.Data;
 using Land_Readjustment_Tool.Repositories.Project;
 using Land_Readjustment_Tool.Repositories.Spatial;
 using Land_Readjustment_Tool.Services.Project;
+using Land_Readjustment_Tool.UI.Helpers;
 
 namespace Land_Readjustment_Tool.UI.Forms.Project
 {
@@ -15,6 +16,21 @@ namespace Land_Readjustment_Tool.UI.Forms.Project
     /// </summary>
     public partial class frmProjectSettings : Form
     {
+        private enum CanvasThemeMode
+        {
+            Dark = 0,
+            Light = 1,
+            Custom = 2
+        }
+
+        // AutoCAD-like dark defaults (from current old renderer feel)
+        private static readonly Color DarkThemeBackground = Color.FromArgb(34, 41, 51);
+        private static readonly Color DarkThemeGrid = Color.FromArgb(42, 58, 71);
+
+        // ArcGIS-like light defaults (soft paper tint, visible but subtle grid)
+        private static readonly Color LightThemeBackground = Color.White;
+        private static readonly Color LightThemeGrid = Color.FromArgb(236, 236, 236);
+
         private readonly IProjectSettingsService _service;  //These are initialized through the frmProjectSettings contructor only. They cannot be changed.
         private readonly ICoordinateSystemRepository _crsRepo;
         private readonly IDatumTransformationRepository _datumRepo;
@@ -27,6 +43,7 @@ namespace Land_Readjustment_Tool.UI.Forms.Project
         // while we are programmatically rebinding the dropdown.
         private bool _bindingCrs = false;
         private bool _bindingDatum = false;
+        private bool _suppressCanvasThemeEvents = false;
 
         public frmProjectSettings(
             IProjectSettingsService service,
@@ -37,6 +54,8 @@ namespace Land_Readjustment_Tool.UI.Forms.Project
             _service = service;
             _crsRepo = crsRepo;
             _datumRepo = datumRepo;
+            pnlBgColor.Click += (_, _) => btnPickColor_Click(btnPickColor, EventArgs.Empty);
+            pnlGridColor.Click += (_, _) => btnPickGridColor_Click(btnPickGridColor, EventArgs.Empty);
 
             // BUG FIX 1: Do NOT use the Format event for DataSource-bound
             // ComboBoxes.  When DataSource is set, WinForms evaluates
@@ -60,12 +79,12 @@ namespace Land_Readjustment_Tool.UI.Forms.Project
             try
             {
                 SetFormEnabled(false);
-                lblStatus.Text = "Loading settings...";
+
 
                 var settingsTask = _service.GetAsync();
                 var crsTask = _crsRepo.GetAllActiveAsync();
                 var datumTask = _datumRepo.GetAllActiveAsync();
-                
+
                 await Task.WhenAll(settingsTask, crsTask, datumTask);  ///It defines a task that is completed only when all the tasks in the argument is completed.
 
                 _settings = settingsTask.Result;
@@ -87,10 +106,10 @@ namespace Land_Readjustment_Tool.UI.Forms.Project
                 BindCrsDropdown(_crsList);
                 BindDatumDropdown(_datumList);
                 PopulateForm(_settings);
-                if(!_settings.IsConfigured)
+                if (!_settings.IsConfigured)
                     grpDatumTransformation.Visible = false;
                 // Trigger initial filter of datum dropdown based on CRS
-                lblStatus.Text = "Ready";
+
             }
             catch (Exception ex)
             {
@@ -180,7 +199,7 @@ namespace Land_Readjustment_Tool.UI.Forms.Project
         private void PopulateForm(ProjectSettings s)
         {
             // ── COORDINATE SYSTEM ────────────────────
-                cmbCRS.SelectedValue = s.CoordinateSystemId!.Value;
+            cmbCRS.SelectedValue = s.CoordinateSystemId!.Value;
 
             // ── DATUM TRANSFORMATION ─────────────────
             if (s.DatumTransformationId.HasValue)
@@ -195,8 +214,16 @@ namespace Land_Readjustment_Tool.UI.Forms.Project
 
             // ── CANVAS ───────────────────────────────
             pnlBgColor.BackColor =
-                ColorTranslator.FromHtml(s.CanvasBackgroundColor);
-            lblBgColorHex.Text = ColorTranslator.ToHtml(pnlBgColor.BackColor);
+                ParseColorOrDefault(s.CanvasBackgroundColor, DarkThemeBackground);
+            pnlGridColor.BackColor =
+                ParseColorOrDefault(s.CanvasGridColor, DarkThemeGrid);
+            UpdateCanvasColorLabels();
+
+            _suppressCanvasThemeEvents = true;
+            cmbCanvasTheme.SelectedIndex = (int)GetThemeModeFromColors(
+                pnlBgColor.BackColor, pnlGridColor.BackColor);
+            _suppressCanvasThemeEvents = false;
+
             chkGridVisible.Checked = s.CanvasGridVisible;
             chkSnapEnabled.Checked = s.SnapEnabled;
             nudSnapTolerance.Value = (decimal)s.SnapTolerancePx;
@@ -234,6 +261,8 @@ namespace Land_Readjustment_Tool.UI.Forms.Project
 
             s.CanvasBackgroundColor =
                 ColorTranslator.ToHtml(pnlBgColor.BackColor);
+            s.CanvasGridColor =
+                ColorTranslator.ToHtml(pnlGridColor.BackColor);
             s.CanvasGridVisible = chkGridVisible.Checked;
             s.SnapEnabled = chkSnapEnabled.Checked;
             s.SnapTolerancePx = (double)nudSnapTolerance.Value;
@@ -398,16 +427,31 @@ namespace Land_Readjustment_Tool.UI.Forms.Project
 
         private void btnPickColor_Click(object? sender, EventArgs e)
         {
-            using ColorDialog cd = new()
-            {
-                Color = pnlBgColor.BackColor,
-                FullOpen = true
-            };
-            if (cd.ShowDialog() == DialogResult.OK)
-            {
-                pnlBgColor.BackColor = cd.Color;
-                lblBgColorHex.Text = ColorTranslator.ToHtml(cd.Color);
-            }
+            var selected = PickColor(pnlBgColor.BackColor);
+            if (!selected.HasValue) return;
+
+            pnlBgColor.BackColor = selected.Value;
+            SetCustomCanvasThemeSelection();
+            UpdateCanvasColorLabels();
+        }
+
+        private void btnPickGridColor_Click(object? sender, EventArgs e)
+        {
+            var selected = PickColor(pnlGridColor.BackColor);
+            if (!selected.HasValue) return;
+
+            pnlGridColor.BackColor = selected.Value;
+            SetCustomCanvasThemeSelection();
+            UpdateCanvasColorLabels();
+        }
+
+        private void cmbCanvasTheme_SelectedIndexChanged(object? sender, EventArgs e)
+        {
+            if (_suppressCanvasThemeEvents) return;
+            if (cmbCanvasTheme.SelectedIndex == (int)CanvasThemeMode.Custom) return;
+
+            ApplyThemePreset((CanvasThemeMode)cmbCanvasTheme.SelectedIndex);
+            UpdateCanvasColorLabels();
         }
 
         // ── SAVE ─────────────────────────────────────────────────────────────
@@ -419,7 +463,7 @@ namespace Land_Readjustment_Tool.UI.Forms.Project
             try
             {
                 SetFormEnabled(false);
-                lblStatus.Text = "Saving...";
+
 
                 CollectFormData(_settings);
                 await _service.SaveAsync(_settings);
@@ -444,7 +488,7 @@ namespace Land_Readjustment_Tool.UI.Forms.Project
             finally
             {
                 SetFormEnabled(true);
-                lblStatus.Text = "Ready";
+
             }
         }
 
@@ -454,15 +498,162 @@ namespace Land_Readjustment_Tool.UI.Forms.Project
             Close();
         }
 
+        private void btnRestoreDefaults_Click(object? sender, EventArgs e)
+        {
+            var result = MessageBox.Show(
+                "Are you sure you want to restore all settings to default values?\n\nUnsaved changes in this window will be lost.",
+                "Restore Defaults",
+                MessageBoxButtons.YesNo,
+                MessageBoxIcon.Warning,
+                MessageBoxDefaultButton.Button2);
+
+            if (result != DialogResult.Yes)
+                return;
+
+            ApplyDefaultValuesToForm();
+
+        }
+
         // ── HELPERS ──────────────────────────────────────────────────────────
 
         private void SetFormEnabled(bool enabled)
         {
+            btnRestoreDefaults.Enabled = enabled;
             btnOK.Enabled = enabled;
             tabSettings.Enabled = enabled;
         }
 
+        private void ApplyDefaultValuesToForm()
+        {
+            // Coordinate settings
+            _bindingCrs = true;
+            cmbCRS.SelectedIndex = -1;
+            _bindingCrs = false;
+            lblCrsInfo.Text = string.Empty;
+            BindDatumDropdown(_datumList);
+            cmbDatumTransformation.SelectedIndex = -1;
+            grpDatumTransformation.Visible = false;
+
+            // Area settings
+            cmbTraditionalUnit.SelectedIndex = 0; // RAPD
+
+            // Canvas settings
+            _suppressCanvasThemeEvents = true;
+            cmbCanvasTheme.SelectedIndex = (int)CanvasThemeMode.Dark;
+            _suppressCanvasThemeEvents = false;
+            ApplyThemePreset(CanvasThemeMode.Dark);
+            UpdateCanvasColorLabels();
+            chkGridVisible.Checked = true;
+            chkSnapEnabled.Checked = true;
+            nudSnapTolerance.Value = ClampToRange(nudSnapTolerance, 8m);
+
+            // Parcel settings
+            cmbParcelFormat.SelectedItem = "Sequential";
+            txtParcelPrefix.Text = string.Empty;
+            nudPadding.Value = ClampToRange(nudPadding, 3m);
+            nudMinPlot.Value = ClampToRange(nudMinPlot, 79.49m);
+
+            // Document settings
+            cmbLanguage.SelectedItem = "English";
+            cmbDateFormat.SelectedItem = "AD";
+
+            // Print settings
+            cmbPaperSize.SelectedItem = "A3";
+            nudPrintScale.Value = ClampToRange(nudPrintScale, 500m);
+        }
+
+        private static CanvasThemeMode GetThemeModeFromColors(
+            Color background,
+            Color grid)
+        {
+            if (background.ToArgb() == DarkThemeBackground.ToArgb() &&
+                grid.ToArgb() == DarkThemeGrid.ToArgb())
+            {
+                return CanvasThemeMode.Dark;
+            }
+
+            if (background.ToArgb() == LightThemeBackground.ToArgb() &&
+                grid.ToArgb() == LightThemeGrid.ToArgb())
+            {
+                return CanvasThemeMode.Light;
+            }
+
+            return CanvasThemeMode.Custom;
+        }
+
+        private void ApplyThemePreset(CanvasThemeMode mode)
+        {
+            switch (mode)
+            {
+                case CanvasThemeMode.Dark:
+                    pnlBgColor.BackColor = DarkThemeBackground;
+                    pnlGridColor.BackColor = DarkThemeGrid;
+                    break;
+                case CanvasThemeMode.Light:
+                    pnlBgColor.BackColor = LightThemeBackground;
+                    pnlGridColor.BackColor = LightThemeGrid;
+                    break;
+                default:
+                    break;
+            }
+        }
+
+        private void SetCustomCanvasThemeSelection()
+        {
+            _suppressCanvasThemeEvents = true;
+            cmbCanvasTheme.SelectedIndex = (int)CanvasThemeMode.Custom;
+            _suppressCanvasThemeEvents = false;
+        }
+
+        private static Color ParseColorOrDefault(string? colorText, Color fallback)
+        {
+            if (string.IsNullOrWhiteSpace(colorText))
+                return fallback;
+
+            try
+            {
+                return ColorTranslator.FromHtml(colorText);
+            }
+            catch
+            {
+                return fallback;
+            }
+        }
+
+        private static Color? PickColor(Color current)
+        {
+            using ColorDialog cd = new()
+            {
+                Color = current,
+                FullOpen = true
+            };
+
+            ColorDialogCustomColorsStore.LoadInto(cd);
+            var result = cd.ShowDialog();
+            ColorDialogCustomColorsStore.SaveFrom(cd);
+
+            return result == DialogResult.OK ? cd.Color : null;
+        }
+
+        private void UpdateCanvasColorLabels()
+        {
+            lblBgColorHex.Text = ColorTranslator.ToHtml(pnlBgColor.BackColor);
+            lblGridColorHex.Text = ColorTranslator.ToHtml(pnlGridColor.BackColor);
+        }
+
+        private static decimal ClampToRange(NumericUpDown input, decimal value)
+        {
+            if (value < input.Minimum) return input.Minimum;
+            if (value > input.Maximum) return input.Maximum;
+            return value;
+        }
+
         private void pnlHeader_Paint(object sender, PaintEventArgs e)
+        {
+
+        }
+
+        private void grpCanvasTheme_Enter(object sender, EventArgs e)
         {
 
         }

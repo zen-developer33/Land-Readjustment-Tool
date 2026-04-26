@@ -32,17 +32,24 @@ namespace Land_Readjustment_Tool.UI.Forms.Project
             lblTraditionalUnit = new Label();
             cmbTraditionalUnit = new ComboBox();
             lblAreaNote = new Label();
-            tabCanvas = new TabPage();
-            grpCanvas = new GroupBox();
+            tabMapCanvas = new TabPage();
+            grpOther = new GroupBox();
+            nudSnapTolerance = new NumericUpDown();
+            lblSnapTolerance = new Label();
+            chkGridVisible = new CheckBox();
+            chkSnapEnabled = new CheckBox();
+            lblSnapUnit = new Label();
+            grpCanvasTheme = new GroupBox();
+            lblCanvasTheme = new Label();
+            cmbCanvasTheme = new ComboBox();
             lblBgColor = new Label();
             pnlBgColor = new Panel();
             btnPickColor = new Button();
             lblBgColorHex = new Label();
-            chkGridVisible = new CheckBox();
-            chkSnapEnabled = new CheckBox();
-            lblSnapTolerance = new Label();
-            nudSnapTolerance = new NumericUpDown();
-            lblSnapUnit = new Label();
+            lblGridColor = new Label();
+            pnlGridColor = new Panel();
+            btnPickGridColor = new Button();
+            lblGridColorHex = new Label();
             tabParcel = new TabPage();
             grpParcelNum = new GroupBox();
             lblParcelFormat = new Label();
@@ -69,18 +76,19 @@ namespace Land_Readjustment_Tool.UI.Forms.Project
             lblScalePrefix = new Label();
             nudPrintScale = new NumericUpDown();
             pnlFooter = new Panel();
+            btnRestoreDefaults = new Button();
             btnOK = new Button();
             btnCancel = new Button();
-            lblStatus = new Label();
             tabSettings.SuspendLayout();
             tabCoordinates.SuspendLayout();
             grpCRS.SuspendLayout();
             grpDatumTransformation.SuspendLayout();
             tabArea.SuspendLayout();
             grpAreaUnit.SuspendLayout();
-            tabCanvas.SuspendLayout();
-            grpCanvas.SuspendLayout();
+            tabMapCanvas.SuspendLayout();
+            grpOther.SuspendLayout();
             ((System.ComponentModel.ISupportInitialize)nudSnapTolerance).BeginInit();
+            grpCanvasTheme.SuspendLayout();
             tabParcel.SuspendLayout();
             grpParcelNum.SuspendLayout();
             ((System.ComponentModel.ISupportInitialize)nudPadding).BeginInit();
@@ -98,7 +106,7 @@ namespace Land_Readjustment_Tool.UI.Forms.Project
             // 
             tabSettings.Controls.Add(tabCoordinates);
             tabSettings.Controls.Add(tabArea);
-            tabSettings.Controls.Add(tabCanvas);
+            tabSettings.Controls.Add(tabMapCanvas);
             tabSettings.Controls.Add(tabParcel);
             tabSettings.Controls.Add(tabDocument);
             tabSettings.Controls.Add(tabPrint);
@@ -109,7 +117,7 @@ namespace Land_Readjustment_Tool.UI.Forms.Project
             tabSettings.Name = "tabSettings";
             tabSettings.Padding = new Point(8, 4);
             tabSettings.SelectedIndex = 0;
-            tabSettings.Size = new Size(522, 429);
+            tabSettings.Size = new Size(563, 445);
             tabSettings.TabIndex = 0;
             // 
             // tabCoordinates
@@ -119,7 +127,7 @@ namespace Land_Readjustment_Tool.UI.Forms.Project
             tabCoordinates.Location = new Point(4, 31);
             tabCoordinates.Name = "tabCoordinates";
             tabCoordinates.Padding = new Padding(8);
-            tabCoordinates.Size = new Size(514, 394);
+            tabCoordinates.Size = new Size(555, 410);
             tabCoordinates.TabIndex = 0;
             tabCoordinates.Text = "Coordinate System";
             tabCoordinates.UseVisualStyleBackColor = true;
@@ -133,7 +141,7 @@ namespace Land_Readjustment_Tool.UI.Forms.Project
             grpCRS.Font = new Font("Segoe UI", 9F, FontStyle.Bold);
             grpCRS.Location = new Point(8, 8);
             grpCRS.Name = "grpCRS";
-            grpCRS.Size = new Size(502, 111);
+            grpCRS.Size = new Size(536, 111);
             grpCRS.TabIndex = 0;
             grpCRS.TabStop = false;
             grpCRS.Text = "Coordinate Reference System";
@@ -184,7 +192,7 @@ namespace Land_Readjustment_Tool.UI.Forms.Project
             grpDatumTransformation.Font = new Font("Segoe UI", 9F, FontStyle.Bold);
             grpDatumTransformation.Location = new Point(8, 125);
             grpDatumTransformation.Name = "grpDatumTransformation";
-            grpDatumTransformation.Size = new Size(502, 107);
+            grpDatumTransformation.Size = new Size(536, 107);
             grpDatumTransformation.TabIndex = 1;
             grpDatumTransformation.TabStop = false;
             grpDatumTransformation.Text = "Datum Transformation (MUTM zones only)";
@@ -232,7 +240,7 @@ namespace Land_Readjustment_Tool.UI.Forms.Project
             tabArea.Location = new Point(4, 31);
             tabArea.Name = "tabArea";
             tabArea.Padding = new Padding(8);
-            tabArea.Size = new Size(514, 394);
+            tabArea.Size = new Size(555, 410);
             tabArea.TabIndex = 1;
             tabArea.Text = "Area Units";
             tabArea.UseVisualStyleBackColor = true;
@@ -245,7 +253,7 @@ namespace Land_Readjustment_Tool.UI.Forms.Project
             grpAreaUnit.Font = new Font("Segoe UI", 9F, FontStyle.Bold);
             grpAreaUnit.Location = new Point(8, 8);
             grpAreaUnit.Name = "grpAreaUnit";
-            grpAreaUnit.Size = new Size(502, 100);
+            grpAreaUnit.Size = new Size(536, 110);
             grpAreaUnit.TabIndex = 0;
             grpAreaUnit.TabStop = false;
             grpAreaUnit.Text = "Traditional Area Display Unit";
@@ -275,47 +283,134 @@ namespace Land_Readjustment_Tool.UI.Forms.Project
             lblAreaNote.ForeColor = SystemColors.GrayText;
             lblAreaNote.Location = new Point(12, 78);
             lblAreaNote.Name = "lblAreaNote";
-            lblAreaNote.Size = new Size(476, 16);
+            lblAreaNote.Size = new Size(476, 29);
             lblAreaNote.TabIndex = 1;
             lblAreaNote.Text = "All internal calculations always use Square Meters.";
             // 
-            // tabCanvas
+            // tabMapCanvas
             // 
-            tabCanvas.Controls.Add(grpCanvas);
-            tabCanvas.Location = new Point(4, 31);
-            tabCanvas.Name = "tabCanvas";
-            tabCanvas.Padding = new Padding(8);
-            tabCanvas.Size = new Size(514, 394);
-            tabCanvas.TabIndex = 2;
-            tabCanvas.Text = "Canvas";
-            tabCanvas.UseVisualStyleBackColor = true;
+            tabMapCanvas.Controls.Add(grpOther);
+            tabMapCanvas.Controls.Add(grpCanvasTheme);
+            tabMapCanvas.Location = new Point(4, 31);
+            tabMapCanvas.Name = "tabMapCanvas";
+            tabMapCanvas.Padding = new Padding(8);
+            tabMapCanvas.Size = new Size(555, 410);
+            tabMapCanvas.TabIndex = 2;
+            tabMapCanvas.Text = "Map Canvas";
+            tabMapCanvas.UseVisualStyleBackColor = true;
             // 
-            // grpCanvas
+            // grpOther
             // 
-            grpCanvas.Controls.Add(lblBgColor);
-            grpCanvas.Controls.Add(pnlBgColor);
-            grpCanvas.Controls.Add(btnPickColor);
-            grpCanvas.Controls.Add(lblBgColorHex);
-            grpCanvas.Controls.Add(chkGridVisible);
-            grpCanvas.Controls.Add(chkSnapEnabled);
-            grpCanvas.Controls.Add(lblSnapTolerance);
-            grpCanvas.Controls.Add(nudSnapTolerance);
-            grpCanvas.Controls.Add(lblSnapUnit);
-            grpCanvas.Font = new Font("Segoe UI", 9F, FontStyle.Bold);
-            grpCanvas.Location = new Point(8, 8);
-            grpCanvas.Name = "grpCanvas";
-            grpCanvas.Size = new Size(502, 200);
-            grpCanvas.TabIndex = 0;
-            grpCanvas.TabStop = false;
-            grpCanvas.Text = "Canvas Display";
+            grpOther.Controls.Add(nudSnapTolerance);
+            grpOther.Controls.Add(lblSnapTolerance);
+            grpOther.Controls.Add(chkGridVisible);
+            grpOther.Controls.Add(chkSnapEnabled);
+            grpOther.Controls.Add(lblSnapUnit);
+            grpOther.Font = new Font("Segoe UI", 9F, FontStyle.Bold, GraphicsUnit.Point, 0);
+            grpOther.Location = new Point(8, 175);
+            grpOther.Name = "grpOther";
+            grpOther.Size = new Size(536, 97);
+            grpOther.TabIndex = 9;
+            grpOther.TabStop = false;
+            grpOther.Text = "Other";
+            // 
+            // nudSnapTolerance
+            // 
+            nudSnapTolerance.DecimalPlaces = 1;
+            nudSnapTolerance.Location = new Point(310, 47);
+            nudSnapTolerance.Maximum = new decimal(new int[] { 50, 0, 0, 0 });
+            nudSnapTolerance.Minimum = new decimal(new int[] { 1, 0, 0, 0 });
+            nudSnapTolerance.Name = "nudSnapTolerance";
+            nudSnapTolerance.Size = new Size(70, 27);
+            nudSnapTolerance.TabIndex = 5;
+            nudSnapTolerance.Value = new decimal(new int[] { 1, 0, 0, 0 });
+            // 
+            // lblSnapTolerance
+            // 
+            lblSnapTolerance.Font = new Font("Segoe UI", 9F);
+            lblSnapTolerance.Location = new Point(176, 49);
+            lblSnapTolerance.Name = "lblSnapTolerance";
+            lblSnapTolerance.Size = new Size(128, 22);
+            lblSnapTolerance.TabIndex = 7;
+            lblSnapTolerance.Text = "Snap Tolerance:";
+            // 
+            // chkGridVisible
+            // 
+            chkGridVisible.Font = new Font("Segoe UI", 9F);
+            chkGridVisible.Location = new Point(10, 26);
+            chkGridVisible.Name = "chkGridVisible";
+            chkGridVisible.Size = new Size(150, 22);
+            chkGridVisible.TabIndex = 3;
+            chkGridVisible.Text = "Show Grid Lines";
+            // 
+            // chkSnapEnabled
+            // 
+            chkSnapEnabled.Font = new Font("Segoe UI", 9F);
+            chkSnapEnabled.Location = new Point(10, 49);
+            chkSnapEnabled.Name = "chkSnapEnabled";
+            chkSnapEnabled.Size = new Size(150, 22);
+            chkSnapEnabled.TabIndex = 4;
+            chkSnapEnabled.Text = "Enable Snap";
+            // 
+            // lblSnapUnit
+            // 
+            lblSnapUnit.AutoSize = true;
+            lblSnapUnit.Font = new Font("Segoe UI", 9F);
+            lblSnapUnit.ForeColor = SystemColors.GrayText;
+            lblSnapUnit.Location = new Point(386, 49);
+            lblSnapUnit.Name = "lblSnapUnit";
+            lblSnapUnit.Size = new Size(47, 20);
+            lblSnapUnit.TabIndex = 8;
+            lblSnapUnit.Text = "pixels";
+            // 
+            // grpCanvasTheme
+            // 
+            grpCanvasTheme.Controls.Add(lblCanvasTheme);
+            grpCanvasTheme.Controls.Add(cmbCanvasTheme);
+            grpCanvasTheme.Controls.Add(lblBgColor);
+            grpCanvasTheme.Controls.Add(pnlBgColor);
+            grpCanvasTheme.Controls.Add(btnPickColor);
+            grpCanvasTheme.Controls.Add(lblBgColorHex);
+            grpCanvasTheme.Controls.Add(lblGridColor);
+            grpCanvasTheme.Controls.Add(pnlGridColor);
+            grpCanvasTheme.Controls.Add(btnPickGridColor);
+            grpCanvasTheme.Controls.Add(lblGridColorHex);
+            grpCanvasTheme.Font = new Font("Segoe UI", 9F, FontStyle.Bold);
+            grpCanvasTheme.Location = new Point(8, 8);
+            grpCanvasTheme.Name = "grpCanvasTheme";
+            grpCanvasTheme.Size = new Size(536, 161);
+            grpCanvasTheme.TabIndex = 0;
+            grpCanvasTheme.TabStop = false;
+            grpCanvasTheme.Text = "Canvas Theme";
+            grpCanvasTheme.Enter += grpCanvasTheme_Enter;
+            // 
+            // lblCanvasTheme
+            // 
+            lblCanvasTheme.Font = new Font("Segoe UI", 9F);
+            lblCanvasTheme.Location = new Point(12, 26);
+            lblCanvasTheme.Name = "lblCanvasTheme";
+            lblCanvasTheme.Size = new Size(110, 20);
+            lblCanvasTheme.TabIndex = 0;
+            lblCanvasTheme.Text = "Theme Preset:";
+            // 
+            // cmbCanvasTheme
+            // 
+            cmbCanvasTheme.DropDownStyle = ComboBoxStyle.DropDownList;
+            cmbCanvasTheme.Font = new Font("Segoe UI", 9F);
+            cmbCanvasTheme.Items.AddRange(new object[] { "Dark", "Light", "Custom" });
+            cmbCanvasTheme.Location = new Point(126, 24);
+            cmbCanvasTheme.Name = "cmbCanvasTheme";
+            cmbCanvasTheme.Size = new Size(145, 28);
+            cmbCanvasTheme.TabIndex = 0;
+            cmbCanvasTheme.SelectedIndexChanged += cmbCanvasTheme_SelectedIndexChanged;
             // 
             // lblBgColor
             // 
             lblBgColor.Font = new Font("Segoe UI", 9F);
-            lblBgColor.Location = new Point(12, 26);
+            lblBgColor.Location = new Point(12, 55);
             lblBgColor.Name = "lblBgColor";
             lblBgColor.Size = new Size(130, 20);
-            lblBgColor.TabIndex = 0;
+            lblBgColor.TabIndex = 1;
             lblBgColor.Text = "Background Color:";
             // 
             // pnlBgColor
@@ -323,17 +418,17 @@ namespace Land_Readjustment_Tool.UI.Forms.Project
             pnlBgColor.BackColor = Color.FromArgb(30, 41, 51);
             pnlBgColor.BorderStyle = BorderStyle.FixedSingle;
             pnlBgColor.Cursor = Cursors.Hand;
-            pnlBgColor.Location = new Point(12, 48);
+            pnlBgColor.Location = new Point(12, 77);
             pnlBgColor.Name = "pnlBgColor";
             pnlBgColor.Size = new Size(48, 24);
-            pnlBgColor.TabIndex = 1;
+            pnlBgColor.TabIndex = 2;
             // 
             // btnPickColor
             // 
-            btnPickColor.Location = new Point(66, 47);
+            btnPickColor.Location = new Point(66, 76);
             btnPickColor.Name = "btnPickColor";
             btnPickColor.Size = new Size(80, 26);
-            btnPickColor.TabIndex = 0;
+            btnPickColor.TabIndex = 1;
             btnPickColor.Text = "Choose...";
             btnPickColor.Click += btnPickColor_Click;
             // 
@@ -342,59 +437,48 @@ namespace Land_Readjustment_Tool.UI.Forms.Project
             lblBgColorHex.AutoSize = true;
             lblBgColorHex.Font = new Font("Consolas", 9F);
             lblBgColorHex.ForeColor = SystemColors.GrayText;
-            lblBgColorHex.Location = new Point(152, 51);
+            lblBgColorHex.Location = new Point(152, 81);
             lblBgColorHex.Name = "lblBgColorHex";
             lblBgColorHex.Size = new Size(0, 18);
-            lblBgColorHex.TabIndex = 2;
+            lblBgColorHex.TabIndex = 3;
             // 
-            // chkGridVisible
+            // lblGridColor
             // 
-            chkGridVisible.Font = new Font("Segoe UI", 9F);
-            chkGridVisible.Location = new Point(12, 84);
-            chkGridVisible.Name = "chkGridVisible";
-            chkGridVisible.Size = new Size(150, 22);
-            chkGridVisible.TabIndex = 1;
-            chkGridVisible.Text = "Show Grid Lines";
+            lblGridColor.Font = new Font("Segoe UI", 9F);
+            lblGridColor.Location = new Point(10, 106);
+            lblGridColor.Name = "lblGridColor";
+            lblGridColor.Size = new Size(130, 20);
+            lblGridColor.TabIndex = 4;
+            lblGridColor.Text = "Grid Color:";
             // 
-            // chkSnapEnabled
+            // pnlGridColor
             // 
-            chkSnapEnabled.Font = new Font("Segoe UI", 9F);
-            chkSnapEnabled.Location = new Point(12, 110);
-            chkSnapEnabled.Name = "chkSnapEnabled";
-            chkSnapEnabled.Size = new Size(150, 22);
-            chkSnapEnabled.TabIndex = 2;
-            chkSnapEnabled.Text = "Enable Snap";
+            pnlGridColor.BackColor = Color.FromArgb(74, 85, 98);
+            pnlGridColor.BorderStyle = BorderStyle.FixedSingle;
+            pnlGridColor.Cursor = Cursors.Hand;
+            pnlGridColor.Location = new Point(10, 128);
+            pnlGridColor.Name = "pnlGridColor";
+            pnlGridColor.Size = new Size(48, 24);
+            pnlGridColor.TabIndex = 5;
             // 
-            // lblSnapTolerance
+            // btnPickGridColor
             // 
-            lblSnapTolerance.Font = new Font("Segoe UI", 9F);
-            lblSnapTolerance.Location = new Point(12, 142);
-            lblSnapTolerance.Name = "lblSnapTolerance";
-            lblSnapTolerance.Size = new Size(110, 20);
-            lblSnapTolerance.TabIndex = 3;
-            lblSnapTolerance.Text = "Snap Tolerance:";
+            btnPickGridColor.Location = new Point(64, 127);
+            btnPickGridColor.Name = "btnPickGridColor";
+            btnPickGridColor.Size = new Size(80, 26);
+            btnPickGridColor.TabIndex = 2;
+            btnPickGridColor.Text = "Choose...";
+            btnPickGridColor.Click += btnPickGridColor_Click;
             // 
-            // nudSnapTolerance
+            // lblGridColorHex
             // 
-            nudSnapTolerance.DecimalPlaces = 1;
-            nudSnapTolerance.Location = new Point(126, 140);
-            nudSnapTolerance.Maximum = new decimal(new int[] { 50, 0, 0, 0 });
-            nudSnapTolerance.Minimum = new decimal(new int[] { 1, 0, 0, 0 });
-            nudSnapTolerance.Name = "nudSnapTolerance";
-            nudSnapTolerance.Size = new Size(70, 27);
-            nudSnapTolerance.TabIndex = 3;
-            nudSnapTolerance.Value = new decimal(new int[] { 1, 0, 0, 0 });
-            // 
-            // lblSnapUnit
-            // 
-            lblSnapUnit.AutoSize = true;
-            lblSnapUnit.Font = new Font("Segoe UI", 9F);
-            lblSnapUnit.ForeColor = SystemColors.GrayText;
-            lblSnapUnit.Location = new Point(202, 142);
-            lblSnapUnit.Name = "lblSnapUnit";
-            lblSnapUnit.Size = new Size(47, 20);
-            lblSnapUnit.TabIndex = 4;
-            lblSnapUnit.Text = "pixels";
+            lblGridColorHex.AutoSize = true;
+            lblGridColorHex.Font = new Font("Consolas", 9F);
+            lblGridColorHex.ForeColor = SystemColors.GrayText;
+            lblGridColorHex.Location = new Point(150, 132);
+            lblGridColorHex.Name = "lblGridColorHex";
+            lblGridColorHex.Size = new Size(0, 18);
+            lblGridColorHex.TabIndex = 6;
             // 
             // tabParcel
             // 
@@ -403,7 +487,7 @@ namespace Land_Readjustment_Tool.UI.Forms.Project
             tabParcel.Location = new Point(4, 31);
             tabParcel.Name = "tabParcel";
             tabParcel.Padding = new Padding(8);
-            tabParcel.Size = new Size(514, 394);
+            tabParcel.Size = new Size(555, 410);
             tabParcel.TabIndex = 3;
             tabParcel.Text = "Parcels";
             tabParcel.UseVisualStyleBackColor = true;
@@ -530,7 +614,7 @@ namespace Land_Readjustment_Tool.UI.Forms.Project
             tabDocument.Location = new Point(4, 31);
             tabDocument.Name = "tabDocument";
             tabDocument.Padding = new Padding(8);
-            tabDocument.Size = new Size(514, 394);
+            tabDocument.Size = new Size(555, 410);
             tabDocument.TabIndex = 4;
             tabDocument.Text = "Documents";
             tabDocument.UseVisualStyleBackColor = true;
@@ -593,7 +677,7 @@ namespace Land_Readjustment_Tool.UI.Forms.Project
             tabPrint.Location = new Point(4, 31);
             tabPrint.Name = "tabPrint";
             tabPrint.Padding = new Padding(8);
-            tabPrint.Size = new Size(514, 394);
+            tabPrint.Size = new Size(555, 410);
             tabPrint.TabIndex = 5;
             tabPrint.Text = "Print";
             tabPrint.UseVisualStyleBackColor = true;
@@ -664,19 +748,28 @@ namespace Land_Readjustment_Tool.UI.Forms.Project
             // 
             // pnlFooter
             // 
+            pnlFooter.Controls.Add(btnRestoreDefaults);
             pnlFooter.Controls.Add(btnOK);
             pnlFooter.Controls.Add(btnCancel);
-            pnlFooter.Controls.Add(lblStatus);
             pnlFooter.Dock = DockStyle.Bottom;
-            pnlFooter.Location = new Point(0, 429);
+            pnlFooter.Location = new Point(0, 445);
             pnlFooter.Name = "pnlFooter";
             pnlFooter.Padding = new Padding(8);
-            pnlFooter.Size = new Size(522, 44);
+            pnlFooter.Size = new Size(563, 42);
             pnlFooter.TabIndex = 1;
+            // 
+            // btnRestoreDefaults
+            // 
+            btnRestoreDefaults.Location = new Point(239, 6);
+            btnRestoreDefaults.Name = "btnRestoreDefaults";
+            btnRestoreDefaults.Size = new Size(141, 28);
+            btnRestoreDefaults.TabIndex = 2;
+            btnRestoreDefaults.Text = "Restore Defaults";
+            btnRestoreDefaults.Click += btnRestoreDefaults_Click;
             // 
             // btnOK
             // 
-            btnOK.Location = new Point(344, 8);
+            btnOK.Location = new Point(386, 6);
             btnOK.Name = "btnOK";
             btnOK.Size = new Size(80, 28);
             btnOK.TabIndex = 0;
@@ -685,37 +778,24 @@ namespace Land_Readjustment_Tool.UI.Forms.Project
             // 
             // btnCancel
             // 
-            btnCancel.Location = new Point(430, 8);
+            btnCancel.Location = new Point(472, 6);
             btnCancel.Name = "btnCancel";
             btnCancel.Size = new Size(80, 28);
-            btnCancel.TabIndex = 1;
+            btnCancel.TabIndex = 3;
             btnCancel.Text = "Cancel";
             btnCancel.Click += btnCancel_Click;
-            // 
-            // lblStatus
-            // 
-            lblStatus.AutoSize = true;
-            lblStatus.Font = new Font("Segoe UI", 8.5F, FontStyle.Italic);
-            lblStatus.ForeColor = SystemColors.GrayText;
-            lblStatus.Location = new Point(10, 14);
-            lblStatus.Name = "lblStatus";
-            lblStatus.Size = new Size(48, 20);
-            lblStatus.TabIndex = 2;
-            lblStatus.Text = "Ready";
             // 
             // frmProjectSettings
             // 
             AutoScaleDimensions = new SizeF(8F, 20F);
             AutoScaleMode = AutoScaleMode.Font;
-            ClientSize = new Size(522, 473);
+            ClientSize = new Size(563, 487);
             Controls.Add(tabSettings);
             Controls.Add(pnlFooter);
             Font = new Font("Segoe UI", 9F);
             FormBorderStyle = FormBorderStyle.FixedDialog;
             MaximizeBox = false;
-            MaximumSize = new Size(540, 520);
             MinimizeBox = false;
-            MinimumSize = new Size(540, 520);
             Name = "frmProjectSettings";
             StartPosition = FormStartPosition.CenterParent;
             Text = "Project Settings";
@@ -726,10 +806,12 @@ namespace Land_Readjustment_Tool.UI.Forms.Project
             grpDatumTransformation.ResumeLayout(false);
             tabArea.ResumeLayout(false);
             grpAreaUnit.ResumeLayout(false);
-            tabCanvas.ResumeLayout(false);
-            grpCanvas.ResumeLayout(false);
-            grpCanvas.PerformLayout();
+            tabMapCanvas.ResumeLayout(false);
+            grpOther.ResumeLayout(false);
+            grpOther.PerformLayout();
             ((System.ComponentModel.ISupportInitialize)nudSnapTolerance).EndInit();
+            grpCanvasTheme.ResumeLayout(false);
+            grpCanvasTheme.PerformLayout();
             tabParcel.ResumeLayout(false);
             grpParcelNum.ResumeLayout(false);
             grpParcelNum.PerformLayout();
@@ -744,7 +826,6 @@ namespace Land_Readjustment_Tool.UI.Forms.Project
             grpPrint.PerformLayout();
             ((System.ComponentModel.ISupportInitialize)nudPrintScale).EndInit();
             pnlFooter.ResumeLayout(false);
-            pnlFooter.PerformLayout();
             ResumeLayout(false);
         }
 
@@ -754,14 +835,14 @@ namespace Land_Readjustment_Tool.UI.Forms.Project
         private TabControl tabSettings;
         private TabPage tabCoordinates;
         private TabPage tabArea;
-        private TabPage tabCanvas;
+        private TabPage tabMapCanvas;
         private TabPage tabParcel;
         private TabPage tabDocument;
         private TabPage tabPrint;
         private Panel pnlFooter;
+        private Button btnRestoreDefaults;
         private Button btnOK;
         private Button btnCancel;
-        private Label lblStatus;
         private GroupBox grpCRS;
         private Label lblCRS;
         private ComboBox cmbCRS;
@@ -776,11 +857,17 @@ namespace Land_Readjustment_Tool.UI.Forms.Project
         private Label lblTraditionalUnit;
         private ComboBox cmbTraditionalUnit;
         private Label lblAreaNote;
-        private GroupBox grpCanvas;
+        private GroupBox grpCanvasTheme;
+        private Label lblCanvasTheme;
+        private ComboBox cmbCanvasTheme;
         private Label lblBgColor;
         private Panel pnlBgColor;
         private Button btnPickColor;
         private Label lblBgColorHex;
+        private Label lblGridColor;
+        private Panel pnlGridColor;
+        private Button btnPickGridColor;
+        private Label lblGridColorHex;
         private CheckBox chkGridVisible;
         private CheckBox chkSnapEnabled;
         private Label lblSnapTolerance;
@@ -808,5 +895,6 @@ namespace Land_Readjustment_Tool.UI.Forms.Project
         private Label lblScale;
         private Label lblScalePrefix;
         private NumericUpDown nudPrintScale;
+        private GroupBox grpOther;
     }
 }
