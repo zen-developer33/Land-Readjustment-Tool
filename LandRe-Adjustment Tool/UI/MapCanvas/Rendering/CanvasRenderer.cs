@@ -126,6 +126,18 @@ namespace Land_Readjustment_Tool.UI.MapCanvas.Rendering
             UpdateGridPens();
         }
 
+        public void SetBackgroundColor(Color color)
+        {
+            _backgroundColor = color;
+        }
+
+        public void SetGridColor(Color color)
+        {
+            _majorGridColor = Color.FromArgb(110, color.R, color.G, color.B);
+            _minorGridColor = Color.FromArgb(45, color.R, color.G, color.B);
+            UpdateGridPens();
+        }
+
         public Color BackgroundColor => _backgroundColor;
 
         #endregion

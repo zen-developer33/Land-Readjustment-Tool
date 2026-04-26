@@ -54,7 +54,7 @@ namespace Land_Readjustment_Tool.UI.CustomControls
             // toolStripContainer1.ContentPanel
             // 
             toolStripContainer1.ContentPanel.Controls.Add(panelCanvas);
-            toolStripContainer1.ContentPanel.Size = new Size(1358, 375);
+            toolStripContainer1.ContentPanel.Size = new Size(1005, 375);
             toolStripContainer1.Dock = DockStyle.Fill;
             // 
             // toolStripContainer1.LeftToolStripPanel
@@ -62,7 +62,7 @@ namespace Land_Readjustment_Tool.UI.CustomControls
             toolStripContainer1.LeftToolStripPanel.Controls.Add(toolStrip1);
             toolStripContainer1.Location = new Point(0, 0);
             toolStripContainer1.Name = "toolStripContainer1";
-            toolStripContainer1.Size = new Size(1388, 403);
+            toolStripContainer1.Size = new Size(1035, 403);
             toolStripContainer1.TabIndex = 1;
             toolStripContainer1.Text = "toolStripContainer1";
             // 
@@ -77,7 +77,7 @@ namespace Land_Readjustment_Tool.UI.CustomControls
             panelCanvas.Dock = DockStyle.Fill;
             panelCanvas.Location = new Point(0, 0);
             panelCanvas.Name = "panelCanvas";
-            panelCanvas.Size = new Size(1358, 375);
+            panelCanvas.Size = new Size(1005, 375);
             panelCanvas.TabIndex = 0;
             panelCanvas.Paint += panelCanvas_Paint;
             panelCanvas.MouseDown += PanelCanvas_MouseDown;
@@ -164,7 +164,7 @@ namespace Land_Readjustment_Tool.UI.CustomControls
             toolStrip2.Items.AddRange(new ToolStripItem[] { btnCollapseLeftPanel, btnPan, toolStripButton6, toolStripButton7, toolStripButton8, toolStripSeparator2, btnZoom, btnZoomOut, toolStripButton5, toolStripSeparator3, toolStripLabel1, cbTheme, btnLoadShapes, btnShowHideGrid, toolSnap, toolStripButton1, btnShowDebugLog });
             toolStrip2.Location = new Point(4, 0);
             toolStrip2.Name = "toolStrip2";
-            toolStrip2.Size = new Size(994, 28);
+            toolStrip2.Size = new Size(1031, 28);
             toolStrip2.TabIndex = 1;
             toolStrip2.Text = "toolStrip2";
             // 
@@ -324,7 +324,7 @@ namespace Land_Readjustment_Tool.UI.CustomControls
             Controls.Add(toolStripContainer1);
             DoubleBuffered = true;
             Name = "DrawingCanvasControl";
-            Size = new Size(1388, 403);
+            Size = new Size(1035, 403);
             toolStripContainer1.ContentPanel.ResumeLayout(false);
             toolStripContainer1.LeftToolStripPanel.ResumeLayout(false);
             toolStripContainer1.LeftToolStripPanel.PerformLayout();

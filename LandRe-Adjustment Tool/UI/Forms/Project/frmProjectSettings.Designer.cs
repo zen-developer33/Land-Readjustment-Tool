@@ -77,7 +77,7 @@ namespace Land_Readjustment_Tool.UI.Forms.Project
             nudPrintScale = new NumericUpDown();
             pnlFooter = new Panel();
             btnRestoreDefaults = new Button();
-            btnOK = new Button();
+            btnApply = new Button();
             btnCancel = new Button();
             tabSettings.SuspendLayout();
             tabCoordinates.SuspendLayout();
@@ -397,7 +397,7 @@ namespace Land_Readjustment_Tool.UI.Forms.Project
             // 
             cmbCanvasTheme.DropDownStyle = ComboBoxStyle.DropDownList;
             cmbCanvasTheme.Font = new Font("Segoe UI", 9F);
-            cmbCanvasTheme.Items.AddRange(new object[] { "Dark", "Light", "Custom" });
+            cmbCanvasTheme.Items.AddRange(new object[] { "Light", "Dark", "Custom" });
             cmbCanvasTheme.Location = new Point(126, 24);
             cmbCanvasTheme.Name = "cmbCanvasTheme";
             cmbCanvasTheme.Size = new Size(145, 28);
@@ -749,7 +749,7 @@ namespace Land_Readjustment_Tool.UI.Forms.Project
             // pnlFooter
             // 
             pnlFooter.Controls.Add(btnRestoreDefaults);
-            pnlFooter.Controls.Add(btnOK);
+            pnlFooter.Controls.Add(btnApply);
             pnlFooter.Controls.Add(btnCancel);
             pnlFooter.Dock = DockStyle.Bottom;
             pnlFooter.Location = new Point(0, 445);
@@ -767,14 +767,14 @@ namespace Land_Readjustment_Tool.UI.Forms.Project
             btnRestoreDefaults.Text = "Restore Defaults";
             btnRestoreDefaults.Click += btnRestoreDefaults_Click;
             // 
-            // btnOK
+            // btnApply
             // 
-            btnOK.Location = new Point(386, 6);
-            btnOK.Name = "btnOK";
-            btnOK.Size = new Size(80, 28);
-            btnOK.TabIndex = 0;
-            btnOK.Text = "Save";
-            btnOK.Click += btnSave_Click;
+            btnApply.Location = new Point(386, 6);
+            btnApply.Name = "btnApply";
+            btnApply.Size = new Size(80, 28);
+            btnApply.TabIndex = 0;
+            btnApply.Text = "Apply";
+            btnApply.Click += btnApply_Click;
             // 
             // btnCancel
             // 
@@ -841,7 +841,7 @@ namespace Land_Readjustment_Tool.UI.Forms.Project
         private TabPage tabPrint;
         private Panel pnlFooter;
         private Button btnRestoreDefaults;
-        private Button btnOK;
+        private Button btnApply;
         private Button btnCancel;
         private GroupBox grpCRS;
         private Label lblCRS;

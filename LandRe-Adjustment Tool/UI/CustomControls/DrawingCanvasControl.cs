@@ -1003,14 +1003,17 @@ namespace Land_Readjustment_Tool.UI.CustomControls
         /// </summary>
         public void ApplyBackgroundColor(Color color)
         {
-            // Update renderer directly
-            if (color.GetBrightness() < 0.5f)
-                _renderer.SetDarkTheme();
-            else
-                _renderer.SetLightTheme();
-
-            // Override with exact color from settings
+            _renderer.SetBackgroundColor(color);
             panelCanvas.BackColor = color;
+            panelCanvas.Invalidate();
+        }
+
+        /// <summary>
+        /// Sets grid color from project settings.
+        /// </summary>
+        public void ApplyGridColor(Color color)
+        {
+            _renderer.SetGridColor(color);
             panelCanvas.Invalidate();
         }
 

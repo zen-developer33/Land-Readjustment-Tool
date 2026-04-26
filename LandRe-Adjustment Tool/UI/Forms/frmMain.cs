@@ -1,4 +1,5 @@
 ﻿
+using Land_Readjustment_Tool.Core.Interfaces;
 using Land_Readjustment_Tool.Data;
 using Land_Readjustment_Tool.Forms;
 using Land_Readjustment_Tool.Forms.LandOwnersRecord_Managerment;
@@ -8,7 +9,9 @@ using Land_Readjustment_Tool.Repositories.Spatial;
 using Land_Readjustment_Tool.Services;
 using Land_Readjustment_Tool.Services.Project;
 using Land_Readjustment_Tool.UI.CustomControls;
+using Land_Readjustment_Tool.UI.Forms;
 using Land_Readjustment_Tool.UI.Forms.Project;
+using Land_Readjustment_Tool.UI.MapCanvas.Services;
 using Microsoft.Data.Sqlite;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.VisualBasic.ApplicationServices;
@@ -23,17 +26,43 @@ namespace Land_Readjustment_Tool
     {
         //--- INITIALIZE SERVICES -------
         #region
-        private readonly ProjectBackupService _backupService = new();
+        private readonly ProjectBackupService _backupService;
+        private readonly ProjectSessionFactory _sessionFactory;
+        private readonly ProjectService _projectService;
+        private readonly IProjectScopedFactory _projectScopedFactory;
         #endregion
 
         //App Title shown in window Title bar
         private readonly string _appTitle = "RePlot";
         private readonly string? _startupFilePath;
         //Canvas Control for drawing
-        private DrawingCanvasControl _drawingCanvas;
+        private DrawingCanvasControl? _drawingCanvas;
+        private frmReplotWorkspace? _replotWorkspaceForm;
         private frmAreaConverter? _areaConverterForm;
+
+        // Keeps designer/local fallback working without DI container.
         public frmMain(string? startupFilePath = null)
+            : this(
+                new ProjectBackupService(),
+                new ProjectSessionFactory(),
+                new ProjectService(),
+                new ProjectScopedFactory(),
+                startupFilePath)
         {
+        }
+
+        public frmMain(
+            ProjectBackupService backupService,
+            ProjectSessionFactory sessionFactory,
+            ProjectService projectService,
+            IProjectScopedFactory projectScopedFactory,
+            string? startupFilePath = null)
+        {
+            _backupService = backupService ?? throw new ArgumentNullException(nameof(backupService));
+            _sessionFactory = sessionFactory ?? throw new ArgumentNullException(nameof(sessionFactory));
+            _projectService = projectService ?? throw new ArgumentNullException(nameof(projectService));
+            _projectScopedFactory = projectScopedFactory ?? throw new ArgumentNullException(nameof(projectScopedFactory));
+
             InitializeComponent();
             _startupFilePath = startupFilePath;
             ConfigureSmoothSplitterLayout();
@@ -52,6 +81,12 @@ namespace Land_Readjustment_Tool
             mnuCloseProject.Click += tsmCloseProject_Click!;
             mnuProjectInfo.Click += tsmProjectInformation_Click!;
             mnuProjectSettings.Click += tsmProjectSetting_Click!;
+            startReplotWorkspaceToolStripMenuItem.Click += startReplotWorkspaceToolStripMenuItem_Click!;
+            mnuPan.CheckOnClick = true;
+            mnuZoomIn.Click += mnuZoomIn_Click!;
+            mnuZoomOut.Click += mnuZoomOut_Click!;
+            mnuZoomExtent.Click += mnuZoomExtent_Click!;
+            mnuZoomWindow.Click += mnuZoomWindow_Click!;
 
         }
 
@@ -113,14 +148,35 @@ namespace Land_Readjustment_Tool
         {
             mainSplitContainer.Visible = true;
             EnableProjectMenuItems();
-            // Initialize the drawing canvas
         }
 
         private void UnloadProjectWorkspace()
         {
+            CloseReplotWorkspace();
             mainSplitContainer.Visible = false;
             DisableProjectMenuItems();
-            // Clean up the drawing canvas
+        }
+
+        private void CloseReplotWorkspace()
+        {
+            if (_replotWorkspaceForm == null || _replotWorkspaceForm.IsDisposed)
+            {
+                _replotWorkspaceForm = null;
+                _drawingCanvas = null;
+                return;
+            }
+
+            _replotWorkspaceForm.FormClosed -= ReplotWorkspaceForm_FormClosed;
+            _replotWorkspaceForm.Close();
+            _replotWorkspaceForm.Dispose();
+            _replotWorkspaceForm = null;
+            _drawingCanvas = null;
+        }
+
+        private void ReplotWorkspaceForm_FormClosed(object? sender, FormClosedEventArgs e)
+        {
+            _replotWorkspaceForm = null;
+            _drawingCanvas = null;
         }
 
         private void UpdateWindowTitle()
@@ -242,7 +298,7 @@ namespace Land_Readjustment_Tool
         {
             dataToolStripMenuItem.Enabled = true;
             contributionToolStripMenuItem.Enabled = false;
-            replottingToolStripMenuItem.Enabled = false;
+            replottingToolStripMenuItem.Enabled = true;
             validationToolStripMenuItem.Enabled = false;
             reportsToolStripMenuItem.Enabled = false;
 
@@ -263,7 +319,7 @@ namespace Land_Readjustment_Tool
             ImportParcelOwnerShipRecords.Enabled = true;
             viewEditRecordToolStripMenuItem.Enabled = true;
             landOwnerDataToolStripMenuItem.Enabled = true;
-            startReplotWorkspaceToolStripMenuItem.Enabled = false;
+            startReplotWorkspaceToolStripMenuItem.Enabled = true;
             mnuUndo.Enabled = false;
             mnuRedo.Enabled = false;
             mnuPan.Enabled = true;
@@ -356,7 +412,7 @@ namespace Land_Readjustment_Tool
                 ProjectFolderCreator.CreateFolders(projectFolder);
 
                 // Create session and context
-                var session = new ProjectSessionFactory().CreateSession(projectFilePath);
+                var session = _sessionFactory.CreateSession(projectFilePath);
                 var context = new ProjectContext(session, projectFilePath);
 
                 // Register in AppServices
@@ -366,8 +422,7 @@ namespace Land_Readjustment_Tool
                 context.StateChanged += UpdateWindowTitle;
 
                 // Create project in database
-                var projectService = new ProjectService();
-                var info = await projectService.CreateNewProjectAsync(projectFilePath, projectFileName);
+                var info = await _projectService.CreateNewProjectAsync(projectFilePath, projectFileName);
 
                 // Set info on context
                 context.SetInfo(info);
@@ -446,7 +501,7 @@ namespace Land_Readjustment_Tool
 
             // Mark as configured regardless of choice —
             // prevents this prompt from showing again on next open.
-            var repo = new ProjectSettingsRepository(
+            var repo = _projectScopedFactory.CreateProjectSettingsRepository(
                 AppServices.Context.Session);
             await repo.MarkAsConfiguredAsync();
 
@@ -478,48 +533,81 @@ namespace Land_Readjustment_Tool
             if (!AppServices.HasContext) return; // Return if there is no Project Open. ((Has context --> the project is open))
 
             var context = AppServices.Context;
-            var repo = new ProjectSettingsRepository(context.Session);
-            var crsRepo = new CoordinateSystemRepository(context.Session);
-            var datumRepo = new DatumTransformationRepository(context.Session);
-            var service = new ProjectSettingsService(repo, context.Session.Logger);
+            var repo = _projectScopedFactory.CreateProjectSettingsRepository(context.Session);
+            var crsRepo = _projectScopedFactory.CreateCoordinateSystemRepository(context.Session);
+            var datumRepo = _projectScopedFactory.CreateDatumTransformationRepository(context.Session);
+            var service = _projectScopedFactory.CreateProjectSettingsService(context.Session);
 
             using var frm = new frmProjectSettings(service, crsRepo, datumRepo);
+            var appliedWhileOpen = false;
 
-            if (frm.ShowDialog() == DialogResult.OK)
+            frm.SettingsApplied += (_, _) =>
+            {
+                appliedWhileOpen = true;
+                AppServices.Context.MarkAsModified();
+                ApplySettings();
+            };
+
+            if (frm.ShowDialog() == DialogResult.OK && !appliedWhileOpen)
             {
                 AppServices.Context.MarkAsModified();
-                // Apply all settings immediately
-
+                ApplySettings();
             }
         }
 
         private async void ApplySettings()
         {
             if (!AppServices.HasContext) return;
-            if (_drawingCanvas == null) return;
 
             try
             {
-                var repo = new ProjectSettingsRepository(
+                var repo = _projectScopedFactory.CreateProjectSettingsRepository(
                     AppServices.Context.Session);
                 var settings = await repo
                     .GetProjectSettingsAsync();
 
                 if (settings == null) return;
 
-                var bgColor = ColorTranslator.FromHtml(
-                    settings.CanvasBackgroundColor);
+                var bgColor = ParseColorOrDefault(
+                    settings.CanvasBackgroundColor, Color.White);
+                var gridColor = ParseColorOrDefault(
+                    settings.CanvasGridColor, Color.LightGray);
 
-                _drawingCanvas.ApplyBackgroundColor(bgColor);
-                _drawingCanvas.ApplyGridVisible(
-                    settings.CanvasGridVisible);
-                _drawingCanvas.ApplySnapEnabled(
-                    settings.SnapEnabled);
+                mapCanvasControlMain.ApplyRenderSettings(
+                    MapCanvasSettingsService.FromProjectSettings(settings));
+                mapCanvasControlMain.ApplySnapEnabled(settings.SnapEnabled);
+
+                if (_drawingCanvas != null && !_drawingCanvas.IsDisposed)
+                {
+                    _drawingCanvas.ApplyBackgroundColor(bgColor);
+                    _drawingCanvas.ApplyGridColor(gridColor);
+                    _drawingCanvas.ApplyGridVisible(
+                        settings.CanvasGridVisible);
+                    _drawingCanvas.ApplySnapEnabled(
+                        settings.SnapEnabled);
+                }
             }
             catch (Exception ex)
             {
                 System.Diagnostics.Debug.WriteLine(
                     $"ApplyCanvasSettings failed: {ex.Message}");
+            }
+        }
+
+        private static Color ParseColorOrDefault(string? htmlColor, Color fallback)
+        {
+            if (string.IsNullOrWhiteSpace(htmlColor))
+            {
+                return fallback;
+            }
+
+            try
+            {
+                return ColorTranslator.FromHtml(htmlColor);
+            }
+            catch
+            {
+                return fallback;
             }
         }
         // ── CLOSE PROJECT ────────────────────────────
@@ -559,11 +647,7 @@ namespace Land_Readjustment_Tool
         private void OpenProjectDetails()
         {
             var context = AppServices.Context;
-
-            var repo = new ProjectInfoRepository(
-                context.Session);
-
-            var service = new ProjectInfoService(repo, context.Session.Logger);
+            var service = _projectScopedFactory.CreateProjectInfoService(context.Session);
 
             using var frm = new frm_ProjectDetails(service);
             if (frm.ShowDialog() == DialogResult.OK)
@@ -746,8 +830,7 @@ namespace Land_Readjustment_Tool
                 AppServices.ClearContext();
 
                 // 4f — Open new session at new location
-                var session = new ProjectSessionFactory()
-                    .CreateSession(destFile);
+                var session = _sessionFactory.CreateSession(destFile);
                 var context = new ProjectContext(
                     session, destFile);
 
@@ -906,8 +989,11 @@ namespace Land_Readjustment_Tool
                 return;
             }
 
+            var persistenceService = _projectScopedFactory.CreateImportPersistenceService(
+                AppServices.Context.Session);
             using var frm = new frmImportParcelOwnershipRecords(
-                AppServices.Context.ProjectFilePath);
+                AppServices.Context.ProjectFilePath,
+                persistenceService);
 
             if (frm.ShowDialog(this) == DialogResult.OK)
             {
@@ -928,13 +1014,46 @@ namespace Land_Readjustment_Tool
                 return;
             }
 
-            using var frm = new frmLandOwnersRecord();
+            var landRecordsService = _projectScopedFactory.CreateLandRecordsService(
+                AppServices.Context.Session,
+                AppServices.Context.ProjectFilePath);
+            using var frm = new frmLandOwnersRecord(
+                landRecordsService,
+                AppServices.Context.ProjectFilePath);
             frm.ShowDialog(this);
         }
 
         private void startReplotWorkspaceToolStripMenuItem_Click(object sender, EventArgs e)
         {
-            // TODO: implement replot workspace
+            if (!AppServices.HasContext)
+            {
+                MessageBox.Show(
+                    "Please open or create a project first.",
+                    "No Project Open",
+                    MessageBoxButtons.OK,
+                    MessageBoxIcon.Warning);
+                return;
+            }
+
+            if (_replotWorkspaceForm == null || _replotWorkspaceForm.IsDisposed)
+            {
+                _replotWorkspaceForm = new frmReplotWorkspace();
+                _replotWorkspaceForm.FormClosed += ReplotWorkspaceForm_FormClosed;
+                _replotWorkspaceForm.Show(this);
+            }
+            else
+            {
+                if (_replotWorkspaceForm.WindowState == FormWindowState.Minimized)
+                {
+                    _replotWorkspaceForm.WindowState = FormWindowState.Normal;
+                }
+
+                _replotWorkspaceForm.BringToFront();
+                _replotWorkspaceForm.Activate();
+            }
+
+            _drawingCanvas = _replotWorkspaceForm.CanvasControl;
+            ApplySettings();
         }
 
         private void AreaConverterToolStripMenuItem_Click(object sender, EventArgs e)
@@ -1001,8 +1120,7 @@ namespace Land_Readjustment_Tool
                 if (AppServices.HasContext)
                     AppServices.Context.StateChanged -= UpdateWindowTitle;
 
-                session = new ProjectSessionFactory()
-                    .CreateSession(projectFilePath);
+                session = _sessionFactory.CreateSession(projectFilePath);
 
                 // Ensure database schema is up to date
                 await session.GetDbContext().Database.MigrateAsync();
@@ -1010,9 +1128,7 @@ namespace Land_Readjustment_Tool
                 var context = new ProjectContext(
                     session, projectFilePath);
 
-                var repo = new ProjectInfoRepository(session);
-                var service = new ProjectInfoService(
-                    repo, session.Logger);
+                var service = _projectScopedFactory.CreateProjectInfoService(session);
 
                 var info = await service.GetAsync();
                 if (info == null)
@@ -1443,7 +1559,12 @@ namespace Land_Readjustment_Tool
                 return;
             }
 
-            using var frm = new frmLandParcelOwnersRecord();
+            var landRecordsService = _projectScopedFactory.CreateLandRecordsService(
+                AppServices.Context.Session,
+                AppServices.Context.ProjectFilePath);
+            using var frm = new frmLandParcelOwnersRecord(
+                landRecordsService,
+                AppServices.Context.ProjectFilePath);
             frm.ShowDialog(this);
         }
 
@@ -1459,7 +1580,34 @@ namespace Land_Readjustment_Tool
 
         private void mnuPan_Click(object sender, EventArgs e)
         {
+            mapCanvasControlMain.SetPanToolActive(mnuPan.Checked);
+        }
 
+        private void mnuZoomIn_Click(object sender, EventArgs e)
+        {
+            mnuPan.Checked = false;
+            mapCanvasControlMain.SetPanToolActive(false);
+            mapCanvasControlMain.ZoomIn();
+        }
+
+        private void mnuZoomOut_Click(object sender, EventArgs e)
+        {
+            mnuPan.Checked = false;
+            mapCanvasControlMain.SetPanToolActive(false);
+            mapCanvasControlMain.ZoomOut();
+        }
+
+        private void mnuZoomExtent_Click(object sender, EventArgs e)
+        {
+            mnuPan.Checked = false;
+            mapCanvasControlMain.SetPanToolActive(false);
+            mapCanvasControlMain.ZoomExtents();
+        }
+
+        private void mnuZoomWindow_Click(object sender, EventArgs e)
+        {
+            mnuPan.Checked = false;
+            mapCanvasControlMain.BeginZoomWindow();
         }
 
         private void mnuAreaConverterTool_Click(object sender, EventArgs e)
@@ -1490,6 +1638,10 @@ namespace Land_Readjustment_Tool
             }
         }
 
+        private void mapCanvasControlMain_Load(object sender, EventArgs e)
+        {
+
+        }
     }
 }
 

@@ -1,8 +1,13 @@
 ﻿
 
 using Land_Readjustment_Tool.Forms;
+using Land_Readjustment_Tool.Data;
+using Land_Readjustment_Tool.Services;
+using Land_Readjustment_Tool.Services.Project;
+using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Win32;
 using System.Text;
+using Land_Readjustment_Tool.Core.Interfaces;
 
 
 namespace Land_Readjustment_Tool
@@ -26,7 +31,15 @@ namespace Land_Readjustment_Tool
             // args is empty when launched normally from the Start Menu / taskbar
             string? startupFile = args.Length > 0 ? args[0] : null;
 
-            Application.Run(new frmMain(startupFile));
+            var services = new ServiceCollection();
+            ConfigureServices(services);
+
+            using var serviceProvider = services.BuildServiceProvider();
+            var mainForm = string.IsNullOrWhiteSpace(startupFile)
+                ? serviceProvider.GetRequiredService<frmMain>()
+                : ActivatorUtilities.CreateInstance<frmMain>(serviceProvider, startupFile);
+
+            Application.Run(mainForm);
 
             //Application.Run(new frmLandownersRecord());
         }
@@ -76,5 +89,17 @@ namespace Land_Readjustment_Tool
         private static extern void SHChangeNotify(
             int wEventId, int uFlags,
             IntPtr dwItem1, IntPtr dwItem2);
+
+        private static void ConfigureServices(IServiceCollection services)
+        {
+            // Core application services
+            services.AddSingleton<ProjectBackupService>();
+            services.AddSingleton<ProjectSessionFactory>();
+            services.AddSingleton<IProjectScopedFactory, ProjectScopedFactory>();
+            services.AddTransient<ProjectService>();
+
+            // Forms
+            services.AddTransient<frmMain>();
+        }
     }
 }

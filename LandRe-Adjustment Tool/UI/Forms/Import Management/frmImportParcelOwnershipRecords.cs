@@ -34,15 +34,24 @@ namespace Land_Readjustment_Tool.Forms
 
         // Database connection (injected from main form)
         private readonly string _projectPath;
+        private readonly IImportPersistenceService? _persistenceService;
 
         // ==================== PROPERTIES ====================
         public int ImportedCount => _importedRecords.Count;
 
         // ==================== CONSTRUCTOR ====================
         public frmImportParcelOwnershipRecords(string projectPath)
+            : this(projectPath, persistenceService: null)
+        {
+        }
+
+        public frmImportParcelOwnershipRecords(
+            string projectPath,
+            IImportPersistenceService? persistenceService)
         {
             InitializeComponent();
             _projectPath = projectPath;
+            _persistenceService = persistenceService;
             InitializeBackgroundWorker();
             InitializeContextMenu();
             InitializeSteps();
@@ -52,6 +61,11 @@ namespace Land_Readjustment_Tool.Forms
 
         private IImportPersistenceService GetPersistenceService()
         {
+            if (_persistenceService != null)
+            {
+                return _persistenceService;
+            }
+
             if (!AppServices.HasContext)
             {
                 throw new InvalidOperationException("No open project context found.");
