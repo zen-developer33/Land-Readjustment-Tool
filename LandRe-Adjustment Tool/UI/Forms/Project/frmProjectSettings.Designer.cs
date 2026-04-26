@@ -782,7 +782,7 @@ namespace Land_Readjustment_Tool.UI.Forms.Project
             btnCancel.Name = "btnCancel";
             btnCancel.Size = new Size(80, 28);
             btnCancel.TabIndex = 3;
-            btnCancel.Text = "Cancel";
+            btnCancel.Text = "OK";
             btnCancel.Click += btnCancel_Click;
             // 
             // frmProjectSettings

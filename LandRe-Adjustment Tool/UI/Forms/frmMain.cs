@@ -66,6 +66,7 @@ namespace Land_Readjustment_Tool
             InitializeComponent();
             _startupFilePath = startupFilePath;
             ConfigureSmoothSplitterLayout();
+            mapCanvasControlMain.StatusChanged += MapCanvasControlMain_StatusChanged;
 
             UpdateWindowTitle();
             DisableProjectMenuItems();
@@ -1641,6 +1642,14 @@ namespace Land_Readjustment_Tool
         private void mapCanvasControlMain_Load(object sender, EventArgs e)
         {
 
+        }
+
+        private void MapCanvasControlMain_StatusChanged(string coordinates, string zoom, string scale, string mode)
+        {
+            lblCanvasCoordinates.Text = coordinates;
+            lblCanvasZoom.Text = zoom;
+            lblCanvasScale.Text = scale;
+            lblCanvasMode.Text = mode;
         }
     }
 }

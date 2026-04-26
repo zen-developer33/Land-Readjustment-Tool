@@ -46,7 +46,7 @@ namespace Land_Readjustment_Tool.Core.Entities.Project
         // Canvas background color in hex
         [Required]
         public string CanvasBackgroundColor { get; set; }
-            = "#1E2933";
+            = "#FFFFFF";
 
         // Grid line color in hex
         [Required]

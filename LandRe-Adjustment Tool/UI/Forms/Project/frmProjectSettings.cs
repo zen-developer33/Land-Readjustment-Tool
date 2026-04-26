@@ -30,7 +30,7 @@ namespace Land_Readjustment_Tool.UI.Forms.Project
         private static readonly Color DarkThemeGrid = Color.FromArgb(42, 58, 71);
 
         // Project-created light defaults
-        private static readonly Color LightThemeBackground = Color.FromArgb(240, 240, 240); // #F0F0F0
+        private static readonly Color LightThemeBackground = Color.White; // #FFFFFF
         private static readonly Color LightThemeGrid = Color.FromArgb(204, 204, 204);       // #CCCCCC
 
         private readonly IProjectSettingsService _service;  //These are initialized through the frmProjectSettings contructor only. They cannot be changed.
@@ -47,8 +47,10 @@ namespace Land_Readjustment_Tool.UI.Forms.Project
         private bool _bindingDatum = false;
         private bool _suppressCanvasThemeEvents = false;
         private bool _settingsApplied = false;
+        private bool _settingsModified = false;
 
         public event EventHandler? SettingsApplied;
+        public event EventHandler? SettingsChanged;
 
         public frmProjectSettings(
             IProjectSettingsService service,
@@ -112,6 +114,12 @@ namespace Land_Readjustment_Tool.UI.Forms.Project
                 BindDatumDropdown(_datumList);
                 PopulateForm(_settings);
                 RefreshDatumUiForSelectedCrs(preserveSelection: true);
+                
+                // Attach change event handlers after form is fully loaded
+                AttachChangeEventHandlers();
+                
+                // Initialize button states
+                UpdateApplyButtonState();
 
             }
             catch (Exception ex)
@@ -381,6 +389,12 @@ namespace Land_Readjustment_Tool.UI.Forms.Project
             pnlBgColor.BackColor = selected.Value;
             SetCustomCanvasThemeSelection();
             UpdateCanvasColorLabels();
+            
+            if (!_settingsModified)
+            {
+                _settingsModified = true;
+                UpdateApplyButtonState();
+            }
         }
 
         private void btnPickGridColor_Click(object? sender, EventArgs e)
@@ -391,6 +405,12 @@ namespace Land_Readjustment_Tool.UI.Forms.Project
             pnlGridColor.BackColor = selected.Value;
             SetCustomCanvasThemeSelection();
             UpdateCanvasColorLabels();
+            
+            if (!_settingsModified)
+            {
+                _settingsModified = true;
+                UpdateApplyButtonState();
+            }
         }
 
         private void cmbCanvasTheme_SelectedIndexChanged(object? sender, EventArgs e)
@@ -417,13 +437,12 @@ namespace Land_Readjustment_Tool.UI.Forms.Project
                 await _service.SaveAsync(_settings);
 
                 _settingsApplied = true;
+                _settingsModified = false;
                 SettingsApplied?.Invoke(this, EventArgs.Empty);
+                
+                // Disable Apply button after successful save
+                UpdateApplyButtonState();
 
-                MessageBox.Show(
-                    "Project settings applied successfully.",
-                    "Settings Applied",
-                    MessageBoxButtons.OK,
-                    MessageBoxIcon.Information);
             }
             catch (InvalidOperationException ex)
             {
@@ -448,6 +467,23 @@ namespace Land_Readjustment_Tool.UI.Forms.Project
 
         private void btnCancel_Click(object? sender, EventArgs e)
         {
+            // If settings haven't been applied yet, ask the user
+            if (!_settingsApplied)
+            {
+                var result = MessageBox.Show(
+                    "Do you want to apply the settings before closing?",
+                    "Apply Settings",
+                    MessageBoxButtons.YesNo,
+                    MessageBoxIcon.Question,
+                    MessageBoxDefaultButton.Button1);
+
+                if (result == DialogResult.Yes)
+                {
+                    // Trigger the Apply button click
+                    btnApply_Click(null, EventArgs.Empty);
+                }
+            }
+
             DialogResult = _settingsApplied
                 ? DialogResult.OK
                 : DialogResult.Cancel;
@@ -467,7 +503,96 @@ namespace Land_Readjustment_Tool.UI.Forms.Project
                 return;
 
             ApplyDefaultValuesToForm();
+            _settingsModified = true;
+            UpdateApplyButtonState();
+        }
 
+        // ── CHANGE TRACKING ─────────────────────────────────────────────────
+
+        /// <summary>
+        /// Recursively attaches change event handlers to all input controls on the form.
+        /// This method automatically discovers all controls (including nested ones) and
+        /// subscribes them to the SettingsChanged event based on their type.
+        /// New controls added to the form will be automatically tracked.
+        /// </summary>
+        private void AttachChangeEventHandlers()
+        {
+            AttachChangeEventHandlersRecursive(this);
+        }
+
+        /// <summary>
+        /// Recursively processes a control and its children, attaching appropriate
+        /// event handlers for change tracking.
+        /// </summary>
+        private void AttachChangeEventHandlersRecursive(Control parent)
+        {
+            foreach (Control control in parent.Controls)
+            {
+                // Attach handlers based on control type
+                switch (control)
+                {
+                    case ComboBox comboBox:
+                        comboBox.SelectedIndexChanged += OnSettingChanged;
+                        break;
+
+                    case TextBox textBox:
+                        textBox.TextChanged += OnSettingChanged;
+                        break;
+
+                    case CheckBox checkBox:
+                        checkBox.CheckedChanged += OnSettingChanged;
+                        break;
+
+                    case RadioButton radioButton:
+                        radioButton.CheckedChanged += OnSettingChanged;
+                        break;
+
+                    case NumericUpDown numericUpDown:
+                        numericUpDown.ValueChanged += OnSettingChanged;
+                        break;
+
+                    case DateTimePicker dateTimePicker:
+                        dateTimePicker.ValueChanged += OnSettingChanged;
+                        break;
+
+                    case TrackBar trackBar:
+                        trackBar.ValueChanged += OnSettingChanged;
+                        break;
+
+                    case ListBox listBox:
+                        listBox.SelectedIndexChanged += OnSettingChanged;
+                        break;
+
+                    case DataGridView dataGridView:
+                        dataGridView.CellValueChanged += OnSettingChanged;
+                        break;
+                }
+
+                // Recursively process child controls (for containers like TabPages, GroupBoxes, Panels, etc.)
+                if (control.HasChildren)
+                {
+                    AttachChangeEventHandlersRecursive(control);
+                }
+            }
+        }
+
+        private void OnSettingChanged(object? sender, EventArgs e)
+        {
+            // Skip if we're in the middle of binding controls
+            if (_bindingCrs || _bindingDatum || _suppressCanvasThemeEvents)
+                return;
+
+            if (!_settingsModified)
+            {
+                _settingsModified = true;
+                UpdateApplyButtonState();
+                SettingsChanged?.Invoke(this, EventArgs.Empty);
+            }
+        }
+
+        private void UpdateApplyButtonState()
+        {
+            btnApply.Enabled = _settingsModified;
         }
 
         // ── HELPERS ──────────────────────────────────────────────────────────
@@ -475,7 +600,7 @@ namespace Land_Readjustment_Tool.UI.Forms.Project
         private void SetFormEnabled(bool enabled)
         {
             btnRestoreDefaults.Enabled = enabled;
-            btnApply.Enabled = enabled;
+            btnApply.Enabled = enabled && _settingsModified;
             tabSettings.Enabled = enabled;
         }
 
@@ -629,6 +754,16 @@ namespace Land_Readjustment_Tool.UI.Forms.Project
                 default:
                     break;
             }
+            
+            // Mark as modified after theme change
+            if (!_bindingCrs && !_bindingDatum && !_suppressCanvasThemeEvents)
+            {
+                if (!_settingsModified)
+                {
+                    _settingsModified = true;
+                    UpdateApplyButtonState();
+                }
+            }
         }
 
         private void SetCustomCanvasThemeSelection()
@@ -636,6 +771,12 @@ namespace Land_Readjustment_Tool.UI.Forms.Project
             _suppressCanvasThemeEvents = true;
             cmbCanvasTheme.SelectedIndex = (int)CanvasThemeMode.Custom;
             _suppressCanvasThemeEvents = false;
+            
+            if (!_settingsModified)
+            {
+                _settingsModified = true;
+                UpdateApplyButtonState();
+            }
         }
 
         private static Color ParseColorOrDefault(string? colorText, Color fallback)

@@ -14,6 +14,8 @@ namespace Land_Readjustment_Tool.UI.CustomControls
         private readonly MapCanvasRenderer _renderer;
         private MapCanvasRenderSettings _renderSettings;
 
+        public event Action<string, string, string, string>? StatusChanged;
+
         private bool _panToolActive;
         private bool _isPanning;
         private bool _zoomWindowActive;
@@ -311,13 +313,15 @@ namespace Land_Readjustment_Tool.UI.CustomControls
 
         private void UpdateStatusBar()
         {
-            lblCanvasCoordinates.Text = _currentMouseWorld.HasValue
+            string coordinatesText = _currentMouseWorld.HasValue
                 ? $"E: {_currentMouseWorld.Value.X:F4}    N: {_currentMouseWorld.Value.Y:F4}"
                 : "E: --    N: --";
 
-            lblCanvasZoom.Text = _engine.GetZoomLabel();
-            lblCanvasScale.Text = _engine.GetScaleLabel();
-            lblCanvasMode.Text = GetModeText();
+            string zoomText = _engine.GetZoomLabel();
+            string scaleText = _engine.GetScaleLabel();
+            string modeText = GetModeText();
+
+            StatusChanged?.Invoke(coordinatesText, zoomText, scaleText, modeText);
         }
 
         private string GetModeText()

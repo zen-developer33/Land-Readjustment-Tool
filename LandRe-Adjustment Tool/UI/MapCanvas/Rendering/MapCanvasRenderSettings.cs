@@ -1,4 +1,5 @@
 using System.Drawing;
+using Land_Readjustment_Tool.Core.Entities.Project;
 
 namespace Land_Readjustment_Tool.UI.MapCanvas.Rendering
 {
@@ -19,9 +20,11 @@ namespace Land_Readjustment_Tool.UI.MapCanvas.Rendering
 
         public static MapCanvasRenderSettings CreateLightDefaults()
         {
+            string projectBackgroundColor = new ProjectSettings().CanvasBackgroundColor;
+
             return new MapCanvasRenderSettings
             {
-                BackgroundColor = Color.FromArgb(248, 250, 252),
+                BackgroundColor = ColorTranslator.FromHtml(projectBackgroundColor),
                 MinorGridColor = Color.FromArgb(222, 232, 239),
                 MajorGridColor = Color.FromArgb(185, 202, 214),
                 GridLabelColor = Color.FromArgb(101, 116, 130),
