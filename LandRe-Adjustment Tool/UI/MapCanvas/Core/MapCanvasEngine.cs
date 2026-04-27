@@ -12,6 +12,10 @@ namespace Land_Readjustment_Tool.UI.MapCanvas.Core
         public const double MinZoom = 0.0001;
         public const double MaxZoom = 50000.0;
         public const double ZoomStep = 1.4;
+        private const double DefaultInitialCenterX = 245426.0206;
+        private const double DefaultInitialCenterY = 3121303.7884;
+        private const double DefaultInitialViewWidth = 8000.0;
+        private const double DefaultInitialViewHeight = 6000.0;
 
         private Size _canvasSize;
         private double _zoomScale = 1.0;
@@ -20,7 +24,12 @@ namespace Land_Readjustment_Tool.UI.MapCanvas.Core
         public MapCanvasEngine(Size canvasSize)
         {
             _canvasSize = ClampSize(canvasSize);
-            SetView(500.0, 500.0, 1000.0, 1000.0);
+            WorldBounds = DefaultWorldBounds;
+            SetView(
+                DefaultInitialCenterX,
+                DefaultInitialCenterY,
+                DefaultInitialViewWidth,
+                DefaultInitialViewHeight);
         }
 
         public static RectangleD DefaultWorldBounds => new(240000, 3060000, 300000, 120000);

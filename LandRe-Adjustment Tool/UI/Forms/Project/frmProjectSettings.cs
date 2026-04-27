@@ -426,12 +426,16 @@ namespace Land_Readjustment_Tool.UI.Forms.Project
 
         private async void btnApply_Click(object? sender, EventArgs e)
         {
-            if (_settings == null) return;
+            await ApplySettingsFromFormAsync();
+        }
+
+        private async Task<bool> ApplySettingsFromFormAsync()
+        {
+            if (_settings == null) return false;
 
             try
             {
                 SetFormEnabled(false);
-
 
                 CollectFormData(_settings);
                 await _service.SaveAsync(_settings);
@@ -439,10 +443,8 @@ namespace Land_Readjustment_Tool.UI.Forms.Project
                 _settingsApplied = true;
                 _settingsModified = false;
                 SettingsApplied?.Invoke(this, EventArgs.Empty);
-                
-                // Disable Apply button after successful save
                 UpdateApplyButtonState();
-
+                return true;
             }
             catch (InvalidOperationException ex)
             {
@@ -450,6 +452,7 @@ namespace Land_Readjustment_Tool.UI.Forms.Project
                     "Validation Error",
                     MessageBoxButtons.OK,
                     MessageBoxIcon.Warning);
+                return false;
             }
             catch (Exception)
             {
@@ -457,18 +460,18 @@ namespace Land_Readjustment_Tool.UI.Forms.Project
                     "Error",
                     MessageBoxButtons.OK,
                     MessageBoxIcon.Error);
+                return false;
             }
             finally
             {
                 SetFormEnabled(true);
-
             }
         }
 
-        private void btnCancel_Click(object? sender, EventArgs e)
+        private async void btnCancel_Click(object? sender, EventArgs e)
         {
-            // If settings haven't been applied yet, ask the user
-            if (!_settingsApplied)
+            // If there are unsaved changes, ask whether to apply before closing.
+            if (!_settingsApplied && _settingsModified)
             {
                 var result = MessageBox.Show(
                     "Do you want to apply the settings before closing?",
@@ -479,8 +482,12 @@ namespace Land_Readjustment_Tool.UI.Forms.Project
 
                 if (result == DialogResult.Yes)
                 {
-                    // Trigger the Apply button click
-                    btnApply_Click(null, EventArgs.Empty);
+                    bool applied = await ApplySettingsFromFormAsync();
+                    if (!applied)
+                    {
+                        // Keep the dialog open so the user can fix validation issues.
+                        return;
+                    }
                 }
             }
 

@@ -14,13 +14,14 @@ namespace Land_Readjustment_Tool.UI.CustomControls
         private readonly MapCanvasRenderer _renderer;
         private MapCanvasRenderSettings _renderSettings;
 
-        public event Action<string, string, string, string>? StatusChanged;
+        public event Action<string, string>? StatusChanged;
 
         private bool _panToolActive;
         private bool _isPanning;
         private bool _zoomWindowActive;
         private bool _isSelectingZoomWindow;
         private Point _lastPanPoint;
+        private PointD? _panStartWorld;
         private Point _zoomWindowStart;
         private Point _zoomWindowCurrent;
         private PointD? _currentMouseWorld;
@@ -202,6 +203,8 @@ namespace Land_Readjustment_Tool.UI.CustomControls
             {
                 _isPanning = true;
                 _lastPanPoint = e.Location;
+                _panStartWorld = _engine.ScreenToWorld(e.Location);
+                _currentMouseWorld = _panStartWorld;
                 canvasSurface.Capture = true;
                 UpdateCanvasCursor();
                 UpdateStatusBar();
@@ -210,10 +213,9 @@ namespace Land_Readjustment_Tool.UI.CustomControls
 
         private void canvasSurface_MouseMove(object? sender, MouseEventArgs e)
         {
-            _currentMouseWorld = _engine.ScreenToWorld(e.Location);
-
             if (_isSelectingZoomWindow)
             {
+                _currentMouseWorld = _engine.ScreenToWorld(e.Location);
                 _zoomWindowCurrent = e.Location;
                 RequestRender();
                 return;
@@ -221,6 +223,9 @@ namespace Land_Readjustment_Tool.UI.CustomControls
 
             if (_isPanning)
             {
+                // Freeze cursor world coordinates while panning to avoid jitter.
+                // During drag the cursor shows the world coordinate captured at pan start.
+                _currentMouseWorld = _panStartWorld;
                 int dx = e.X - _lastPanPoint.X;
                 int dy = e.Y - _lastPanPoint.Y;
                 _engine.PanByScreenDelta(dx, dy);
@@ -229,6 +234,7 @@ namespace Land_Readjustment_Tool.UI.CustomControls
                 return;
             }
 
+            _currentMouseWorld = _engine.ScreenToWorld(e.Location);
             RequestRender();
         }
 
@@ -254,6 +260,8 @@ namespace Land_Readjustment_Tool.UI.CustomControls
             {
                 _isPanning = false;
                 canvasSurface.Capture = false;
+                _currentMouseWorld = _engine.ScreenToWorld(e.Location);
+                _panStartWorld = null;
                 UpdateCanvasCursor();
                 RequestRender();
             }
@@ -317,11 +325,9 @@ namespace Land_Readjustment_Tool.UI.CustomControls
                 ? $"E: {_currentMouseWorld.Value.X:F4}    N: {_currentMouseWorld.Value.Y:F4}"
                 : "E: --    N: --";
 
-            string zoomText = _engine.GetZoomLabel();
-            string scaleText = _engine.GetScaleLabel();
             string modeText = GetModeText();
 
-            StatusChanged?.Invoke(coordinatesText, zoomText, scaleText, modeText);
+            StatusChanged?.Invoke(coordinatesText, modeText);
         }
 
         private string GetModeText()

@@ -67,6 +67,9 @@ namespace Land_Readjustment_Tool
             _startupFilePath = startupFilePath;
             ConfigureSmoothSplitterLayout();
             mapCanvasControlMain.StatusChanged += MapCanvasControlMain_StatusChanged;
+            ConfigureCanvasStatusBarLayout();
+            lblCanvasZoom.Visible = false;
+            lblCanvasScale.Visible = false;
 
             UpdateWindowTitle();
             DisableProjectMenuItems();
@@ -436,7 +439,7 @@ namespace Land_Readjustment_Tool
                 OpenProjectDetails();
                 PromptProjectSettings();
                 InitializeProjectWorkspace();
-                ApplySettings(); // ← add here
+                await ApplySettingsAsync();
             }
             catch (Exception ex)
             {
@@ -506,7 +509,7 @@ namespace Land_Readjustment_Tool
                 AppServices.Context.Session);
             await repo.MarkAsConfiguredAsync();
 
-            ApplySettings();
+            await ApplySettingsAsync();
 
             // Create the very first project backup.
             // This happens AFTER project info + settings are saved,
@@ -529,7 +532,7 @@ namespace Land_Readjustment_Tool
             }
         }
 
-        private void OpenProjectSettings()
+        private async void OpenProjectSettings()
         {
             if (!AppServices.HasContext) return; // Return if there is no Project Open. ((Has context --> the project is open))
 
@@ -546,17 +549,17 @@ namespace Land_Readjustment_Tool
             {
                 appliedWhileOpen = true;
                 AppServices.Context.MarkAsModified();
-                ApplySettings();
+                _ = ApplySettingsAsync();
             };
 
             if (frm.ShowDialog() == DialogResult.OK && !appliedWhileOpen)
             {
                 AppServices.Context.MarkAsModified();
-                ApplySettings();
+                await ApplySettingsAsync();
             }
         }
 
-        private async void ApplySettings()
+        private async Task ApplySettingsAsync()
         {
             if (!AppServices.HasContext) return;
 
@@ -1054,7 +1057,7 @@ namespace Land_Readjustment_Tool
             }
 
             _drawingCanvas = _replotWorkspaceForm.CanvasControl;
-            ApplySettings();
+            _ = ApplySettingsAsync();
         }
 
         private void AreaConverterToolStripMenuItem_Click(object sender, EventArgs e)
@@ -1145,6 +1148,7 @@ namespace Land_Readjustment_Tool
                 EnableProjectMenuItems();
                 UpdateWindowTitle();
                 InitializeProjectWorkspace();
+                await ApplySettingsAsync();
             }
             catch (Exception ex)
             {
@@ -1644,11 +1648,46 @@ namespace Land_Readjustment_Tool
 
         }
 
-        private void MapCanvasControlMain_StatusChanged(string coordinates, string zoom, string scale, string mode)
+        private void ConfigureCanvasStatusBarLayout()
+        {
+            // Force a stable layout regardless of designer defaults:
+            // mode/status on left, coordinates pinned on right.
+            statusCanvas.SuspendLayout();
+            try
+            {
+                statusCanvas.RightToLeft = RightToLeft.No;
+
+                lblCanvasMode.Alignment = ToolStripItemAlignment.Left;
+                lblCanvasMode.Spring = true;
+                lblCanvasMode.TextAlign = ContentAlignment.MiddleLeft;
+
+                lblCanvasCoordinates.Alignment = ToolStripItemAlignment.Right;
+                lblCanvasCoordinates.Spring = false;
+                lblCanvasCoordinates.AutoSize = true;
+                lblCanvasCoordinates.TextAlign = ContentAlignment.MiddleRight;
+
+                // Keep mode first in left group and coordinates last in right group.
+                if (statusCanvas.Items.Contains(lblCanvasMode))
+                {
+                    statusCanvas.Items.Remove(lblCanvasMode);
+                    statusCanvas.Items.Insert(0, lblCanvasMode);
+                }
+
+                if (statusCanvas.Items.Contains(lblCanvasCoordinates))
+                {
+                    statusCanvas.Items.Remove(lblCanvasCoordinates);
+                    statusCanvas.Items.Add(lblCanvasCoordinates);
+                }
+            }
+            finally
+            {
+                statusCanvas.ResumeLayout();
+            }
+        }
+
+        private void MapCanvasControlMain_StatusChanged(string coordinates, string mode)
         {
             lblCanvasCoordinates.Text = coordinates;
-            lblCanvasZoom.Text = zoom;
-            lblCanvasScale.Text = scale;
             lblCanvasMode.Text = mode;
         }
     }
