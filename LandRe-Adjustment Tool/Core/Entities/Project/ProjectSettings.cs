@@ -56,6 +56,10 @@ namespace Land_Readjustment_Tool.Core.Entities.Project
         // Show grid lines on canvas
         public bool CanvasGridVisible { get; set; } = false;
 
+        // Show origin marker and axis lines on canvas
+        // Default unchecked as requested.
+        public bool CanvasAxisMarkerVisible { get; set; } = false;
+
         // Enable snap to geometry points
         public bool SnapEnabled { get; set; } = true;
 

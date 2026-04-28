@@ -9,6 +9,7 @@ namespace Land_Readjustment_Tool.UI.MapCanvas.Rendering
     public sealed class MapCanvasRenderer : IDisposable
     {
         private readonly Font _gridFont = new("Arial", 8.0f, FontStyle.Regular);
+        private readonly Font _axisFont = new("Arial", 9.0f, FontStyle.Regular);
         private double _lastAdaptiveMinorSize;
 
         public void Render(
@@ -25,6 +26,11 @@ namespace Land_Readjustment_Tool.UI.MapCanvas.Rendering
                 RenderGrid(graphics, engine, settings);
             }
 
+            if (settings.ShowAxisLines || settings.ShowOriginMarker)
+            {
+                RenderAxisAndOriginMarker(graphics, engine, settings);
+            }
+
             if (zoomWindowRectangle.HasValue)
             {
                 RenderZoomWindow(graphics, settings, zoomWindowRectangle.Value);
@@ -34,6 +40,7 @@ namespace Land_Readjustment_Tool.UI.MapCanvas.Rendering
         public void Dispose()
         {
             _gridFont.Dispose();
+            _axisFont.Dispose();
         }
 
         private static void ConfigureGraphics(Graphics graphics)
@@ -183,6 +190,103 @@ namespace Land_Readjustment_Tool.UI.MapCanvas.Rendering
             graphics.DrawRectangle(border, rectangle);
         }
 
+        private void RenderAxisAndOriginMarker(
+            Graphics graphics,
+            MapCanvasEngine engine,
+            MapCanvasRenderSettings settings)
+        {
+            RectangleD viewport = engine.GetVisibleWorldBounds();
+            RectangleF clientRect = graphics.VisibleClipBounds;
+            PointD originScreen = engine.WorldToScreen(new PointD(0, 0));
+            PointD topScreen = engine.WorldToScreen(new PointD(0, viewport.Bottom));
+            PointD rightScreen = engine.WorldToScreen(new PointD(viewport.Right, 0));
+
+            if (settings.ShowAxisLines)
+            {
+                using Pen xAxisPen = new(settings.AxisXColor, settings.AxisLineWidth);
+                using Pen yAxisPen = new(settings.AxisYColor, settings.AxisLineWidth);
+
+                if (IsValidPoint(originScreen) && IsValidPoint(rightScreen) && IsFarEnough(originScreen, rightScreen))
+                {
+                    graphics.DrawLine(
+                        xAxisPen,
+                        (float)originScreen.X,
+                        (float)originScreen.Y,
+                        (float)rightScreen.X,
+                        (float)rightScreen.Y);
+                }
+
+                if (IsValidPoint(originScreen) && IsValidPoint(topScreen) && IsFarEnough(originScreen, topScreen))
+                {
+                    graphics.DrawLine(
+                        yAxisPen,
+                        (float)originScreen.X,
+                        (float)originScreen.Y,
+                        (float)topScreen.X,
+                        (float)topScreen.Y);
+                }
+            }
+
+            if (!settings.ShowOriginMarker)
+            {
+                return;
+            }
+
+            bool originInViewport = originScreen.X >= clientRect.Left &&
+                                    originScreen.X <= clientRect.Right &&
+                                    originScreen.Y >= clientRect.Top &&
+                                    originScreen.Y <= clientRect.Bottom;
+
+            float markerLength = settings.AxisMarkerLengthPx;
+            float markerSquareSize = settings.AxisMarkerSquareSizePx;
+
+            using Pen markerPen = new(settings.AxisMarkerColor, settings.AxisMarkerLineWidth);
+            using Brush markerBrush = new SolidBrush(settings.AxisMarkerColor);
+            using Brush markerTextBrush = new SolidBrush(settings.AxisLabelColor);
+
+            if (!originInViewport)
+            {
+                const float edgePadding = 18.0f;
+                float x = clientRect.Left + edgePadding;
+                float y = clientRect.Bottom - edgePadding;
+
+                graphics.DrawLine(markerPen, x, y, x + markerLength, y);
+                graphics.DrawLine(markerPen, x, y, x, y - markerLength);
+                graphics.FillRectangle(
+                    markerBrush,
+                    x - markerSquareSize / 2.0f,
+                    y - markerSquareSize / 2.0f,
+                    markerSquareSize,
+                    markerSquareSize);
+
+                if (settings.ShowAxisLabels)
+                {
+                    graphics.DrawString("X", _axisFont, markerTextBrush, x + markerLength + 4.0f, y - 10.0f);
+                    graphics.DrawString("Y", _axisFont, markerTextBrush, x - 14.0f, y - markerLength - 12.0f);
+                }
+
+                return;
+            }
+
+            float ox = (float)originScreen.X;
+            float oy = (float)originScreen.Y;
+
+            graphics.DrawLine(markerPen, ox, oy, ox + markerLength, oy);
+            graphics.DrawLine(markerPen, ox, oy, ox, oy - markerLength);
+            graphics.FillRectangle(
+                markerBrush,
+                ox - markerSquareSize / 2.0f,
+                oy - markerSquareSize / 2.0f,
+                markerSquareSize,
+                markerSquareSize);
+
+            if (settings.ShowAxisLabels)
+            {
+                graphics.DrawString("X", _axisFont, markerTextBrush, ox + markerLength + 4.0f, oy - 10.0f);
+                graphics.DrawString("Y", _axisFont, markerTextBrush, ox - 14.0f, oy - markerLength - 12.0f);
+            }
+        }
+
         private static bool IsValid(double value)
         {
             return !double.IsNaN(value) && !double.IsInfinity(value) && value > -1e6 && value < 1e6;
@@ -191,6 +295,11 @@ namespace Land_Readjustment_Tool.UI.MapCanvas.Rendering
         private static bool IsValidPoint(PointD point)
         {
             return IsValid(point.X) && IsValid(point.Y);
+        }
+
+        private static bool IsFarEnough(PointD a, PointD b)
+        {
+            return Math.Abs(a.X - b.X) > 1.0 || Math.Abs(a.Y - b.Y) > 1.0;
         }
 
         private static double SnapToNiceStep(double value)

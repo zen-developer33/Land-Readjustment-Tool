@@ -4,6 +4,7 @@ using Land_Readjustment_Tool.Forms;
 using Land_Readjustment_Tool.Data;
 using Land_Readjustment_Tool.Services;
 using Land_Readjustment_Tool.Services.Project;
+using Land_Readjustment_Tool.UI.Forms;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Win32;
 using System.Text;
@@ -26,6 +27,7 @@ namespace Land_Readjustment_Tool
             Encoding.RegisterProvider(CodePagesEncodingProvider.Instance);
             Application.EnableVisualStyles();           
             Application.SetCompatibleTextRenderingDefault(false);
+            ShowSplashScreen();
 
             // args[0] is the .lpp file path when opened from Explorer
             // args is empty when launched normally from the Start Menu / taskbar
@@ -43,6 +45,13 @@ namespace Land_Readjustment_Tool
 
             //Application.Run(new frmLandownersRecord());
         }
+
+        private static void ShowSplashScreen()
+        {
+            using var splashForm = new frmSplash();
+            Application.Run(splashForm);
+        }
+
         //[System.Runtime.InteropServices.DllImport("user32.dll")]
         //private static extern bool SetProcessDPIAware();
 

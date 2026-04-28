@@ -244,6 +244,7 @@ namespace Land_Readjustment_Tool.UI.Forms.Project
             _suppressCanvasThemeEvents = false;
 
             chkGridVisible.Checked = s.CanvasGridVisible;
+            chkOriginAxisMarkerVisible.Checked = s.CanvasAxisMarkerVisible;
             chkSnapEnabled.Checked = s.SnapEnabled;
             nudSnapTolerance.Value = (decimal)s.SnapTolerancePx;
 
@@ -285,6 +286,7 @@ namespace Land_Readjustment_Tool.UI.Forms.Project
             s.CanvasGridColor =
                 ColorTranslator.ToHtml(pnlGridColor.BackColor);
             s.CanvasGridVisible = chkGridVisible.Checked;
+            s.CanvasAxisMarkerVisible = chkOriginAxisMarkerVisible.Checked;
             s.SnapEnabled = chkSnapEnabled.Checked;
             s.SnapTolerancePx = (double)nudSnapTolerance.Value;
 
@@ -627,6 +629,7 @@ namespace Land_Readjustment_Tool.UI.Forms.Project
             ApplyThemePreset(CanvasThemeMode.Light);
             UpdateCanvasColorLabels();
             chkGridVisible.Checked = false;
+            chkOriginAxisMarkerVisible.Checked = false;
             chkSnapEnabled.Checked = true;
             nudSnapTolerance.Value = ClampToRange(nudSnapTolerance, 8m);
 

@@ -79,6 +79,7 @@ namespace Land_Readjustment_Tool.UI.Forms.Project
             btnRestoreDefaults = new Button();
             btnApply = new Button();
             btnCancel = new Button();
+            chkOriginAxisMarkerVisible = new CheckBox();
             tabSettings.SuspendLayout();
             tabCoordinates.SuspendLayout();
             grpCRS.SuspendLayout();
@@ -301,6 +302,7 @@ namespace Land_Readjustment_Tool.UI.Forms.Project
             // 
             // grpOther
             // 
+            grpOther.Controls.Add(chkOriginAxisMarkerVisible);
             grpOther.Controls.Add(nudSnapTolerance);
             grpOther.Controls.Add(lblSnapTolerance);
             grpOther.Controls.Add(chkGridVisible);
@@ -309,7 +311,7 @@ namespace Land_Readjustment_Tool.UI.Forms.Project
             grpOther.Font = new Font("Segoe UI", 9F, FontStyle.Bold, GraphicsUnit.Point, 0);
             grpOther.Location = new Point(8, 175);
             grpOther.Name = "grpOther";
-            grpOther.Size = new Size(536, 97);
+            grpOther.Size = new Size(536, 123);
             grpOther.TabIndex = 9;
             grpOther.TabStop = false;
             grpOther.Text = "Other";
@@ -317,7 +319,7 @@ namespace Land_Readjustment_Tool.UI.Forms.Project
             // nudSnapTolerance
             // 
             nudSnapTolerance.DecimalPlaces = 1;
-            nudSnapTolerance.Location = new Point(310, 47);
+            nudSnapTolerance.Location = new Point(277, 83);
             nudSnapTolerance.Maximum = new decimal(new int[] { 50, 0, 0, 0 });
             nudSnapTolerance.Minimum = new decimal(new int[] { 1, 0, 0, 0 });
             nudSnapTolerance.Name = "nudSnapTolerance";
@@ -328,7 +330,7 @@ namespace Land_Readjustment_Tool.UI.Forms.Project
             // lblSnapTolerance
             // 
             lblSnapTolerance.Font = new Font("Segoe UI", 9F);
-            lblSnapTolerance.Location = new Point(176, 49);
+            lblSnapTolerance.Location = new Point(143, 85);
             lblSnapTolerance.Name = "lblSnapTolerance";
             lblSnapTolerance.Size = new Size(128, 22);
             lblSnapTolerance.TabIndex = 7;
@@ -339,16 +341,16 @@ namespace Land_Readjustment_Tool.UI.Forms.Project
             chkGridVisible.Font = new Font("Segoe UI", 9F);
             chkGridVisible.Location = new Point(10, 26);
             chkGridVisible.Name = "chkGridVisible";
-            chkGridVisible.Size = new Size(150, 22);
+            chkGridVisible.Size = new Size(150, 27);
             chkGridVisible.TabIndex = 3;
             chkGridVisible.Text = "Show Grid Lines";
             // 
             // chkSnapEnabled
             // 
             chkSnapEnabled.Font = new Font("Segoe UI", 9F);
-            chkSnapEnabled.Location = new Point(10, 49);
+            chkSnapEnabled.Location = new Point(10, 84);
             chkSnapEnabled.Name = "chkSnapEnabled";
-            chkSnapEnabled.Size = new Size(150, 22);
+            chkSnapEnabled.Size = new Size(150, 27);
             chkSnapEnabled.TabIndex = 4;
             chkSnapEnabled.Text = "Enable Snap";
             // 
@@ -357,7 +359,7 @@ namespace Land_Readjustment_Tool.UI.Forms.Project
             lblSnapUnit.AutoSize = true;
             lblSnapUnit.Font = new Font("Segoe UI", 9F);
             lblSnapUnit.ForeColor = SystemColors.GrayText;
-            lblSnapUnit.Location = new Point(386, 49);
+            lblSnapUnit.Location = new Point(353, 85);
             lblSnapUnit.Name = "lblSnapUnit";
             lblSnapUnit.Size = new Size(47, 20);
             lblSnapUnit.TabIndex = 8;
@@ -785,6 +787,15 @@ namespace Land_Readjustment_Tool.UI.Forms.Project
             btnCancel.Text = "OK";
             btnCancel.Click += btnCancel_Click;
             // 
+            // chkOriginAxisMarkerVisible
+            // 
+            chkOriginAxisMarkerVisible.Font = new Font("Segoe UI", 9F);
+            chkOriginAxisMarkerVisible.Location = new Point(10, 55);
+            chkOriginAxisMarkerVisible.Name = "chkOriginAxisMarkerVisible";
+            chkOriginAxisMarkerVisible.Size = new Size(150, 27);
+            chkOriginAxisMarkerVisible.TabIndex = 9;
+            chkOriginAxisMarkerVisible.Text = "Show Origin/Axis Marker";
+            // 
             // frmProjectSettings
             // 
             AutoScaleDimensions = new SizeF(8F, 20F);
@@ -896,5 +907,6 @@ namespace Land_Readjustment_Tool.UI.Forms.Project
         private Label lblScalePrefix;
         private NumericUpDown nudPrintScale;
         private GroupBox grpOther;
+        private CheckBox chkOriginAxisMarkerVisible;
     }
 }

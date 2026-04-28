@@ -40,7 +40,27 @@ namespace Land_Readjustment_Tool.UI.MapCanvas.Services
             settings.AccentColor = IsDark(backgroundColor)
                 ? Color.FromArgb(78, 201, 176)
                 : Color.FromArgb(41, 128, 185);
+
+            settings.AxisXColor = IsDark(backgroundColor)
+                ? Color.FromArgb(218, 225, 97, 97)
+                : Color.FromArgb(206, 72, 72);
+
+            settings.AxisYColor = IsDark(backgroundColor)
+                ? Color.FromArgb(218, 115, 204, 135)
+                : Color.FromArgb(70, 162, 92);
+
+            settings.AxisMarkerColor = IsDark(backgroundColor)
+                ? Color.FromArgb(235, 243, 246)
+                : Color.FromArgb(44, 58, 71);
+
+            settings.AxisLabelColor = IsDark(backgroundColor)
+                ? Color.FromArgb(235, 243, 246)
+                : Color.FromArgb(54, 70, 82);
+
             settings.ShowGrid = projectSettings.CanvasGridVisible;
+            settings.ShowAxisLines = projectSettings.CanvasAxisMarkerVisible;
+            settings.ShowOriginMarker = projectSettings.CanvasAxisMarkerVisible;
+            settings.ShowAxisLabels = projectSettings.CanvasAxisMarkerVisible;
 
             return settings;
         }

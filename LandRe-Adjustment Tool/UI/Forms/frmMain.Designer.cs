@@ -177,7 +177,6 @@ namespace Land_Readjustment_Tool
             toolStripSeparator16 = new ToolStripSeparator();
             toolStripComboBox1 = new ToolStripComboBox();
             tsProjectMenu = new ToolStrip();
-            toolStripProgressBar1 = new ToolStripProgressBar();
             mainMenuStrip.SuspendLayout();
             ((System.ComponentModel.ISupportInitialize)leftSplitContainer).BeginInit();
             leftSplitContainer.Panel1.SuspendLayout();
@@ -1186,20 +1185,19 @@ namespace Land_Readjustment_Tool
             // 
             // statusCanvas
             // 
-            statusCanvas.BackColor = SystemColors.HighlightText;
+            statusCanvas.BackColor = SystemColors.Control;
             statusCanvas.ImageScalingSize = new Size(20, 20);
-            statusCanvas.Items.AddRange(new ToolStripItem[] { lblCanvasMode, toolStripProgressBar1, lblCanvasCoordinates });
+            statusCanvas.Items.AddRange(new ToolStripItem[] { lblCanvasMode, lblCanvasCoordinates });
             statusCanvas.Location = new Point(0, 481);
             statusCanvas.Name = "statusCanvas";
             statusCanvas.Size = new Size(708, 30);
-            statusCanvas.SizingGrip = false;
             statusCanvas.TabIndex = 4;
             statusCanvas.Text = "Map Canvas Status";
             // 
             // lblCanvasMode
             // 
             lblCanvasMode.Name = "lblCanvasMode";
-            lblCanvasMode.Size = new Size(466, 24);
+            lblCanvasMode.Size = new Size(346, 24);
             lblCanvasMode.Spring = true;
             lblCanvasMode.Text = "Mode: Ready";
             lblCanvasMode.TextAlign = ContentAlignment.MiddleLeft;
@@ -1208,9 +1206,11 @@ namespace Land_Readjustment_Tool
             // 
             lblCanvasCoordinates.Alignment = ToolStripItemAlignment.Right;
             lblCanvasCoordinates.BorderSides = ToolStripStatusLabelBorderSides.Right;
+            lblCanvasCoordinates.BorderStyle = Border3DStyle.RaisedOuter;
             lblCanvasCoordinates.Name = "lblCanvasCoordinates";
-            lblCanvasCoordinates.Size = new Size(86, 24);
-            lblCanvasCoordinates.Text = "E: --    N: --";
+            lblCanvasCoordinates.Size = new Size(346, 24);
+            lblCanvasCoordinates.Spring = true;
+            lblCanvasCoordinates.Text = "E: 0.0000    N: 0.0000";
             lblCanvasCoordinates.TextAlign = ContentAlignment.MiddleRight;
             // 
             // mapCanvasControlMain
@@ -1501,11 +1501,6 @@ namespace Land_Readjustment_Tool
             tsProjectMenu.TabIndex = 4;
             tsProjectMenu.Text = "Project Menu";
             // 
-            // toolStripProgressBar1
-            // 
-            toolStripProgressBar1.Name = "toolStripProgressBar1";
-            toolStripProgressBar1.Size = new Size(100, 22);
-            // 
             // frmMain
             // 
             AutoScaleMode = AutoScaleMode.None;
@@ -1706,8 +1701,7 @@ namespace Land_Readjustment_Tool
         private ToolStrip tsProjectMenu;
         private MapCanvasControl mapCanvasControlMain;
         private StatusStrip statusCanvas;
-        private ToolStripStatusLabel lblCanvasCoordinates;
         private ToolStripStatusLabel lblCanvasMode;
-        private ToolStripProgressBar toolStripProgressBar1;
+        private ToolStripStatusLabel lblCanvasCoordinates;
     }
 }

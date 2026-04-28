@@ -16,19 +16,28 @@
     <Compile Remove="Canvas\**" />
     <Compile Remove="Custom Controls\**" />
     <Compile Remove="Forms\**" />
+    <Compile Remove="OLD\**" />
     <Compile Remove="Properties\Resources\**" />
     <EmbeddedResource Remove="Canvas\**" />
     <EmbeddedResource Remove="Custom Controls\**" />
     <EmbeddedResource Remove="Forms\**" />
+    <EmbeddedResource Remove="OLD\**" />
     <EmbeddedResource Remove="Properties\Resources\**" />
     <None Remove="Canvas\**" />
     <None Remove="Custom Controls\**" />
     <None Remove="Forms\**" />
+    <None Remove="OLD\**" />
     <None Remove="Properties\Resources\**" />
   </ItemGroup>
 
   <ItemGroup>
     <Content Include="Resources\RePlot.ico" />
+    <Content Include="Resources\replot-splash-minimal.png">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </Content>
+    <Content Include="Resources\replot-splash-minimal-v2.png">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </Content>
     <Content Include="Resources\Cursors\Pan_hand.cur">
       <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
     </Content>

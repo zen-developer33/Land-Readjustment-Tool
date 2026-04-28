@@ -39,6 +39,12 @@ namespace Land_Readjustment_Tool
         private MapCanvasControl? _workspaceCanvas;
         private frmReplotWorkspace? _replotWorkspaceForm;
         private frmAreaConverter? _areaConverterForm;
+        private readonly ToolStripStatusLabel _statusSpacer = new()
+        {
+            Name = "lblStatusSpacer",
+            Spring = true,
+            Text = string.Empty
+        };
 
         // Keeps designer/local fallback working without DI container.
         public frmMain(string? startupFilePath = null)
@@ -68,6 +74,7 @@ namespace Land_Readjustment_Tool
             ConfigureSmoothSplitterLayout();
             mapCanvasControlMain.StatusChanged += MapCanvasControlMain_StatusChanged;
             ConfigureCanvasStatusBarLayout();
+            MapCanvasControlMain_StatusChanged("E: --    N: --", "Mode: Ready");
 
 
             UpdateWindowTitle();
@@ -1649,38 +1656,43 @@ namespace Land_Readjustment_Tool
 
         private void ConfigureCanvasStatusBarLayout()
         {
-            // Force a stable layout regardless of designer defaults:
-            // mode/status on left, coordinates pinned on right.
+            // Force a stable, readable layout regardless of designer changes:
+            // mode on left, coordinates pinned on right.
             statusCanvas.SuspendLayout();
             try
             {
+                statusCanvas.Visible = true;
+                statusCanvas.Dock = DockStyle.Bottom;
                 statusCanvas.RightToLeft = RightToLeft.No;
+                statusCanvas.BackColor = SystemColors.ControlLightLight;
+                statusCanvas.ForeColor = SystemColors.ControlText;
 
                 lblCanvasMode.Alignment = ToolStripItemAlignment.Left;
-                lblCanvasMode.Spring = true;
+                lblCanvasMode.Spring = false;
+                lblCanvasMode.AutoSize = true;
                 lblCanvasMode.TextAlign = ContentAlignment.MiddleLeft;
+                lblCanvasMode.ForeColor = SystemColors.ControlText;
+                lblCanvasMode.BorderSides = ToolStripStatusLabelBorderSides.None;
+                lblCanvasMode.BorderStyle = Border3DStyle.Flat;
 
                 lblCanvasCoordinates.Alignment = ToolStripItemAlignment.Right;
                 lblCanvasCoordinates.Spring = false;
                 lblCanvasCoordinates.AutoSize = true;
                 lblCanvasCoordinates.TextAlign = ContentAlignment.MiddleRight;
+                lblCanvasCoordinates.ForeColor = SystemColors.ControlText;
+                lblCanvasCoordinates.BorderSides = ToolStripStatusLabelBorderSides.Left;
+                lblCanvasCoordinates.BorderStyle = Border3DStyle.RaisedOuter;
+                lblCanvasCoordinates.Margin = new Padding(0, 3, 6, 2);
 
-                // Keep mode first in left group and coordinates last in right group.
-                if (statusCanvas.Items.Contains(lblCanvasMode))
-                {
-                    statusCanvas.Items.Remove(lblCanvasMode);
-                    statusCanvas.Items.Insert(0, lblCanvasMode);
-                }
-
-                if (statusCanvas.Items.Contains(lblCanvasCoordinates))
-                {
-                    statusCanvas.Items.Remove(lblCanvasCoordinates);
-                    statusCanvas.Items.Add(lblCanvasCoordinates);
-                }
+                // Rebuild order deterministically.
+                statusCanvas.Items.Clear();
+                statusCanvas.Items.Add(lblCanvasMode);
+                statusCanvas.Items.Add(_statusSpacer);
+                statusCanvas.Items.Add(lblCanvasCoordinates);
             }
             finally
             {
-                statusCanvas.ResumeLayout();
+                statusCanvas.ResumeLayout(performLayout: true);
             }
         }
 
