@@ -24,6 +24,8 @@ It is also the checklist Codex should use to stay aligned before future implemen
 - [x] Created this change tracker checklist
 - [x] Added code-size and old-implementation preservation guidance
 - [x] Added dynamic documentation and context-refresh guidance
+- [x] Added raster import, storage, and rendering architecture guide
+- [x] Expanded raster guide with package choices, DI structure, workflow, and performance rules
 
 ## Files Created in This Pass
 

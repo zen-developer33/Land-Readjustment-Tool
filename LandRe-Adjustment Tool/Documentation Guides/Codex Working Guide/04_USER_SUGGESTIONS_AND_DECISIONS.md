@@ -80,6 +80,34 @@ Recommended layer groups:
 - Annotation and Markup
 - Temporary Work
 
+## Raster Map Support Direction
+
+The user is now exploring raster map support for:
+
+- GeoTIFF
+- TIFF
+- MBTiles
+- JPG and similar image sources
+
+Standing architectural direction:
+
+- raster import should fit the project/session/database architecture
+- source files may be external in the project workspace
+- the application should use internal cached raster tiles for display
+- the map canvas should render visible tiles only
+- non-georeferenced images should support user georeferencing
+- project CRS alignment is important for RePlot, especially because MBTiles display is Web Mercator oriented
+
+This should be treated as part of the canvas foundation work, not as a one-off utility feature.
+
+Additional direction from discussion:
+
+- raster must connect to the same layer manager system used by vectors
+- raster visibility and rendering should be controlled by layer state
+- raster layers should appear in the left layer tree/panel
+- for architecture, prefer a top-level raster group in the layer tree with raster items beneath it, rather than an isolated rendering path outside the layer system
+- do not code this immediately; treat it as a deliberate architecture decision first
+
 ## Menu and Toolstrip Direction
 
 The application menu should be reorganized around real user workflows:
