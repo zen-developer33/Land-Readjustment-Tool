@@ -510,6 +510,38 @@ Use raster layers for:
 Do not use raster layers as the place where parcel topology truth lives.
 
 Your parcel truth should remain in structured geometry/domain objects. Raster layers support understanding, tracing, and review.
+
+---
+
+## 14. Layer Manager Integration Direction
+
+Raster support should not bypass the layer system.
+
+Recommended rule:
+
+- raster must participate in the same layer-management architecture as vector data
+- visibility, ordering, locking, selectability policy, naming, and tree placement should be layer-driven
+- the left panel layer tree should show raster in a dedicated `Raster` group or branch
+
+Recommended practical model:
+
+- one top-level raster group in the tree
+- one child layer entry per imported raster source
+
+This is better than placing all imported rasters into one undifferentiated flat layer because users will need:
+
+- per-raster visibility
+- per-raster opacity
+- per-raster draw order
+- per-raster extent zoom
+- per-raster source metadata
+- future replace/rebuild/remove behavior
+
+So the best architecture is:
+
+- shared layer system for all map content
+- raster-specific data model and renderer under that shared system
+- tree grouping by content family, not a completely separate UI path for raster
 - band reading
 - raster reprojection
 - cache generation

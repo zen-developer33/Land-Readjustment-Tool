@@ -6,6 +6,12 @@ This file defines the engineering principles Codex should apply when implementin
 
 These standards are meant to keep the project professional, maintainable, and understandable for the user.
 
+Standing priority:
+
+- correctness first
+- performance and smoothness immediately after correctness
+- visual richness only after correctness and performance are protected
+
 ## C# and Object-Oriented Design
 
 Use object-oriented design to separate responsibilities clearly:
@@ -166,6 +172,14 @@ Use:
 - spatial indexing for canvas queries
 - layer visibility to reduce rendering load
 - background work for expensive operations
+
+Additional standing rule:
+
+- treat performance as an architectural concern, not late-stage polish
+- avoid designs that require full redraws, full scans, or full loads when only a visible subset is needed
+- prefer cache-aware and index-aware workflows
+- keep the UI thread as thin as practical
+- measure hotspots before deep optimization changes
 
 ## User Understanding
 

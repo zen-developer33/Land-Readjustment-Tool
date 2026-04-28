@@ -165,3 +165,14 @@ Important guidance:
 ## Standing Decision
 
 For future work, Codex should connect implementation back to these guides and explain how the change fits the larger product.
+
+## Performance Priority Decision
+
+The user clarified a project-wide priority:
+
+- this is intended to become robust, practical spatial software, not a toy canvas
+- performance is a topmost priority across the whole application
+- smoothness and scalability matter more than visual richness
+- this applies to the full product, not only the map canvas
+- architecture should be chosen for large real-world workloads
+- Codex should think like an experienced .NET backend/spatial software engineer when evaluating designs

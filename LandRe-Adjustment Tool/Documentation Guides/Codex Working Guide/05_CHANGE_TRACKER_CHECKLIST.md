@@ -26,6 +26,7 @@ It is also the checklist Codex should use to stay aligned before future implemen
 - [x] Added dynamic documentation and context-refresh guidance
 - [x] Added raster import, storage, and rendering architecture guide
 - [x] Expanded raster guide with package choices, DI structure, workflow, and performance rules
+- [x] Added overall performance and scalability architecture guide
 
 ## Files Created in This Pass
 
