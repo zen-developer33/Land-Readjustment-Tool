@@ -222,3 +222,37 @@ The user later overrode the above checkbox approach and requested a custom owner
 - draw a small colored symbol rectangle beside each real layer node
 - keep expand/collapse, selection highlight, and node tree hierarchy behavior
 - toggle visibility only when the checkbox hit area is clicked
+
+## Layer Tree Implementation Direction
+
+Current implementation direction:
+
+- the left layer tree should show all major RePlot root groups, not only raster
+- standard project layers should exist as real `CanvasLayer` records when a project is open
+- root/group nodes remain organizational and non-renderable
+- child nodes represent real layers and can control visibility
+- layer grouping is currently derived in the layer-tree service until the database model receives a proper `LayerGroup` or `LayerCode` field later
+
+## Layer Tree UX Decision (Current Override)
+
+The user later requested a simpler first implementation:
+
+- do not custom-draw tree nodes or custom checkbox graphics
+- use default WinForms `TreeView` checkbox behavior first
+- keep layer grouping and visibility logic, but avoid extra rendering complexity at this stage
+
+Exact root list lock (current requirement):
+
+- `Original Data Layer`
+- `Proposed Data Layer`
+- `RasterLayer`
+- `Other External Layers`
+
+No additional root groups should be added in this phase.
+
+Child node visual requirement added:
+
+- add a few child layers under each root group
+- child nodes should show a color swatch box before the label text
+- swatch should be square/near-square with a dark border
+- keep root list as fixed four groups

@@ -27,6 +27,9 @@ It is also the checklist Codex should use to stay aligned before future implemen
 - [x] Added raster import, storage, and rendering architecture guide
 - [x] Expanded raster guide with package choices, DI structure, workflow, and performance rules
 - [x] Added overall performance and scalability architecture guide
+- [x] Implemented grouped main layer tree direction with standard RePlot layer roots and child layers
+- [x] Switched layer tree checkbox UX to default TreeView behavior (removed custom checkbox drawing path)
+- [x] Locked root groups to four nodes only: Original Data Layer, Proposed Data Layer, RasterLayer, Other External Layers
 - [x] Recorded raster-first layer-tree decisions and import-orchestrator direction
 - [x] Started main-window raster layer management implementation
 

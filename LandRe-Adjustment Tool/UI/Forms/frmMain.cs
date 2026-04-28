@@ -20,7 +20,6 @@ using System.Drawing;
 using System.Reflection;
 using System.Reflection.Metadata;
 using VisualStyles = System.Windows.Forms.VisualStyles;
-using static System.Windows.Forms.VisualStyles.VisualStyleElement.Rebar;
 
 namespace Land_Readjustment_Tool
 {
@@ -43,7 +42,6 @@ namespace Land_Readjustment_Tool
         private frmReplotWorkspace? _replotWorkspaceForm;
         private frmAreaConverter? _areaConverterForm;
         private CanvasLayerTreeService? _layerTreeService;
-        private ImageList? _layerTreeStateImages;
         private bool _suppressLayerTreeEvents;
         private readonly ToolStripStatusLabel _statusSpacer = new()
         {
@@ -51,14 +49,15 @@ namespace Land_Readjustment_Tool
             Spring = true,
             Text = string.Empty
         };
-        private const string RasterLayerRootNodeName = "RasterRoot";
-        private const int LayerStateImageBlank = 0;
-        private const int LayerStateImageUnchecked = 1;
-        private const int LayerStateImageChecked = 2;
+        private const string LayerGroupNodeNamePrefix = "LayerGroup_";
+        private const int LayerNodeCheckBoxSize = 14;
+        private const int LayerNodeCheckBoxGap = 6;
+        private const int LayerNodeColorBoxSize = 18;
+        private const int LayerNodeColorBoxGap = 4;
 
         private sealed class LayerTreeNodeState
         {
-            public bool IsCheckable { get; init; }
+            public bool IsLayerNode { get; init; }
             public CanvasLayer? Layer { get; set; }
         }
 
@@ -126,7 +125,6 @@ namespace Land_Readjustment_Tool
             EnableDoubleBuffering(mainSplitContainer);
             EnableDoubleBuffering(leftSplitContainer);
             EnableDoubleBuffering(splitContainer3);
-            EnableDoubleBuffering(tabProperties);
             EnableDoubleBuffering(grpProperties);
 
             HookSplitterRedrawHandlers();
@@ -148,15 +146,9 @@ namespace Land_Readjustment_Tool
             }
 
             grpProperties.SuspendLayout();
-            tabProperties.SuspendLayout();
-
             grpProperties.ResumeLayout(true);
-            tabProperties.ResumeLayout(true);
-
             grpProperties.Invalidate(true);
-            tabProperties.Invalidate(true);
             grpProperties.Update();
-            tabProperties.Update();
         }
 
         private static void EnableDoubleBuffering(Control control)
@@ -1682,47 +1674,235 @@ namespace Land_Readjustment_Tool
 
         private void ConfigureLayerTree()
         {
-            _layerTreeStateImages?.Dispose();
-            _layerTreeStateImages = BuildLayerTreeStateImages();
+            treeViewLayers.CheckBoxes = false;
+            treeViewLayers.DrawMode = TreeViewDrawMode.OwnerDrawText;
 
-            treeView1.CheckBoxes = false;
-            treeView1.HideSelection = false;
-            treeView1.ShowLines = false;
-            treeView1.ShowRootLines = false;
-            treeView1.StateImageList = _layerTreeStateImages;
-            treeView1.NodeMouseClick += treeView1_NodeMouseClick;
-            treeView1.AfterSelect += treeView1_AfterSelect;
-            treeView1.KeyDown += treeView1_KeyDown;
+            treeViewLayers.HideSelection = false;
+            treeViewLayers.ShowLines = true;
+            treeViewLayers.ShowRootLines = true;
+            treeViewLayers.ShowPlusMinus = true;
+            treeViewLayers.FullRowSelect = false;
+            treeViewLayers.HotTracking = false;
+
+            treeViewLayers.ImageList = null;
+            treeViewLayers.StateImageList = null;
+            treeViewLayers.ItemHeight = 24;
+            treeViewLayers.Font = new Font("Segoe UI", 9F);
+
+            treeViewLayers.DrawNode += treeViewLayers_DrawNode;
+            treeViewLayers.NodeMouseClick += treeView1_NodeMouseClick;
+            treeViewLayers.NodeMouseDoubleClick += treeViewLayers_NodeMouseDoubleClick;
+            treeViewLayers.KeyDown += treeView1_KeyDown;
+            treeViewLayers.AfterSelect += treeView1_AfterSelect;
 
             ResetLayerTree();
         }
 
         private void ConfigureLayerPropertiesPanel()
         {
-            txtLayerName.ReadOnly = true;
-            cboLayerType.Enabled = false;
-            btnBorderColor.Enabled = false;
-            btnFillColor.Enabled = false;
-            btnLabelColor.Enabled = false;
-            btnPickFont.Enabled = false;
-            pnlBorderColor.Enabled = false;
-            pnlFillColor.Enabled = false;
-            pnlLabelColor.Enabled = false;
-            cboLineStyle.Enabled = false;
-            cboLineWeight.Enabled = false;
-            cboFillStyle.Enabled = false;
-            cboHatch.Enabled = false;
-            trkTransparency.Enabled = false;
-            chkVisible.Enabled = false;
-            chkLocked.Enabled = false;
-            chkSelectable.Enabled = false;
-            chkPrintable.Enabled = false;
-            chkShowLabels.Enabled = false;
-            txtFontName.ReadOnly = true;
-            numFontSize.Enabled = false;
-            cboLabelField.Enabled = false;
+            grpProperties.Text = "Properties";
+        }
 
-            ClearLayerProperties();
+        private void treeViewLayers_DrawNode(object? sender, DrawTreeNodeEventArgs e)
+        {
+            if (e.Node == null) return;
+
+            bool selected = (e.State & TreeNodeStates.Selected) == TreeNodeStates.Selected;
+
+            LayerTreeNodeState? layerState = e.Node.Tag as LayerTreeNodeState;
+            CanvasLayer? activeLayer = layerState?.IsLayerNode == true
+                ? layerState.Layer
+                : null;
+            bool isLayer = activeLayer != null;
+
+            Graphics g = e.Graphics;
+            g.TextRenderingHint =
+                System.Drawing.Text.TextRenderingHint.ClearTypeGridFit;
+
+            Color backColor = selected
+                ? SystemColors.Highlight
+                : treeViewLayers.BackColor;
+
+            Color textColor = selected
+                ? SystemColors.HighlightText
+                : treeViewLayers.ForeColor;
+
+            Rectangle rowRect = new Rectangle(
+                e.Bounds.X,
+                e.Bounds.Y,
+                treeViewLayers.ClientSize.Width - e.Bounds.X,
+                e.Bounds.Height);
+
+            using (SolidBrush backBrush = new(backColor))
+                g.FillRectangle(backBrush, rowRect);
+
+            int x = e.Bounds.X;
+
+            if (isLayer)
+            {
+                CanvasLayer layer = activeLayer!;
+
+                Rectangle chkRect = GetLayerNodeCheckBoxRect(e.Node);
+
+                CheckBoxRenderer.DrawCheckBox(
+                    g,
+                    chkRect.Location,
+                    layer.IsVisible
+                        ? VisualStyles.CheckBoxState.CheckedNormal
+                        : VisualStyles.CheckBoxState.UncheckedNormal);
+
+                x = chkRect.Right + LayerNodeCheckBoxGap;
+
+                Color layerColor = ParseColorOrDefault(
+                    layer.BorderColor,
+                    Color.Black);
+
+                Rectangle colorRect = GetLayerNodeColorRect(e.Node);
+
+                using (SolidBrush colorBrush = new(layerColor))
+                    g.FillRectangle(colorBrush, colorRect);
+
+                using (Pen borderPen = new(Color.FromArgb(60, 60, 60)))
+                    g.DrawRectangle(borderPen, colorRect);
+
+                x = colorRect.Right + LayerNodeColorBoxGap;
+            }
+
+            TextRenderer.DrawText(
+                g,
+                e.Node.Text,
+                treeViewLayers.Font,
+                new Rectangle(
+                    x,
+                    e.Bounds.Y,
+                    treeViewLayers.ClientSize.Width - x,
+                    e.Bounds.Height),
+                textColor,
+                TextFormatFlags.Left |
+                TextFormatFlags.VerticalCenter |
+                TextFormatFlags.NoPrefix);
+        }
+
+        private TreeNode CreateLayerGroupNode(string key, string text)
+        {
+            return new TreeNode(text)
+            {
+                Name = $"{LayerGroupNodeNamePrefix}{key}",
+                Tag = new LayerTreeNodeState
+                {
+                    IsLayerNode = false
+                }
+            };
+        }
+
+        private TreeNode CreateLayerNode(CanvasLayer layer)
+        {
+            return new TreeNode(layer.Name)
+            {
+                Name = $"Layer_{layer.Id}",
+                Tag = new LayerTreeNodeState
+                {
+                    IsLayerNode = true,
+                    Layer = layer
+                }
+            };
+        }
+
+        private async void treeView1_NodeMouseClick(
+            object? sender,
+            TreeNodeMouseClickEventArgs e)
+        {
+            if (_suppressLayerTreeEvents || e.Node == null)
+                return;
+
+            treeViewLayers.SelectedNode = e.Node;
+
+            if (e.Node.Tag is not LayerTreeNodeState state ||
+                !state.IsLayerNode)
+                return;
+
+            Rectangle checkBoxRect = GetLayerNodeCheckBoxRect(e.Node);
+            Rectangle colorRect = GetLayerNodeColorRect(e.Node);
+
+            if (checkBoxRect.Contains(e.Location))
+            {
+                await ToggleLayerNodeVisibilityAsync(e.Node);
+                return;
+            }
+
+            if (colorRect.Contains(e.Location))
+                await OpenLayerPropertyManagerAsync(e.Node);
+        }
+
+        private async void treeViewLayers_NodeMouseDoubleClick(
+            object? sender,
+            TreeNodeMouseClickEventArgs e)
+        {
+            if (_suppressLayerTreeEvents || e.Node == null)
+                return;
+
+            if (e.Node.Tag is not LayerTreeNodeState state ||
+                !state.IsLayerNode)
+            {
+                return;
+            }
+
+            if (GetLayerNodeCheckBoxRect(e.Node).Contains(e.Location))
+                return;
+
+            await OpenLayerPropertyManagerAsync(e.Node);
+        }
+
+        private async void treeView1_KeyDown(object? sender, KeyEventArgs e)
+        {
+            if (_suppressLayerTreeEvents || e.KeyCode != Keys.Space)
+                return;
+
+            TreeNode? selectedNode = treeViewLayers.SelectedNode;
+
+            if (selectedNode == null)
+                return;
+
+            e.Handled = true;
+            await ToggleLayerNodeVisibilityAsync(selectedNode);
+        }
+
+        private void treeView1_AfterSelect(object? sender, TreeViewEventArgs e)
+        {
+        }
+
+        private async Task ToggleLayerNodeVisibilityAsync(TreeNode node)
+        {
+            if (_layerTreeService == null ||
+                node.Tag is not LayerTreeNodeState nodeState ||
+                !nodeState.IsLayerNode ||
+                nodeState.Layer == null)
+            {
+                return;
+            }
+
+            bool newVisibility = !nodeState.Layer.IsVisible;
+
+            CanvasLayer? updatedLayer =
+                await _layerTreeService.SetVisibilityAsync(
+                    nodeState.Layer.Id,
+                    newVisibility);
+
+            if (updatedLayer == null)
+                return;
+
+            nodeState.Layer = updatedLayer;
+            node.Text = updatedLayer.Name;
+
+            treeViewLayers.Invalidate();
+
+            if (AppServices.HasContext)
+            {
+                AppServices.Context.MarkAsModified();
+                UpdateWindowTitle();
+            }
+
+            mapCanvasControlMain.RequestRender();
         }
 
         private async Task RefreshLayerTreeAsync()
@@ -1735,12 +1915,15 @@ namespace Land_Readjustment_Tool
 
             try
             {
-                IReadOnlyList<CanvasLayer> rasterLayers = await _layerTreeService.GetRasterLayersAsync();
-                PopulateLayerTree(rasterLayers);
+                IReadOnlyList<CanvasLayerTreeGroup> layerGroups =
+                    await _layerTreeService.GetLayerTreeAsync();
+
+                PopulateLayerTree(layerGroups);
             }
             catch (Exception ex)
             {
                 ResetLayerTree();
+
                 MessageBox.Show(
                     $"Failed to load layers: {ex.Message}",
                     "Layer Manager",
@@ -1749,27 +1932,36 @@ namespace Land_Readjustment_Tool
             }
         }
 
-        private void PopulateLayerTree(IReadOnlyList<CanvasLayer> rasterLayers)
+        private void PopulateLayerTree(
+            IReadOnlyList<CanvasLayerTreeGroup> layerGroups)
         {
             _suppressLayerTreeEvents = true;
+
             try
             {
-                treeView1.BeginUpdate();
-                treeView1.Nodes.Clear();
+                treeViewLayers.BeginUpdate();
+                treeViewLayers.Nodes.Clear();
 
-                TreeNode rasterRoot = CreateLayerGroupNode("Raster");
-                foreach (CanvasLayer layer in rasterLayers)
+                foreach (CanvasLayerTreeGroup group in layerGroups)
                 {
-                    rasterRoot.Nodes.Add(CreateLayerNode(layer));
+                    TreeNode groupNode =
+                        CreateLayerGroupNode(group.Key, group.Name);
+
+                    foreach (CanvasLayer layer in group.Layers)
+                        groupNode.Nodes.Add(CreateLayerNode(layer));
+
+                    treeViewLayers.Nodes.Add(groupNode);
+                    groupNode.Expand();
                 }
 
-                treeView1.Nodes.Add(rasterRoot);
-                rasterRoot.Expand();
-                treeView1.SelectedNode = rasterRoot;
+                treeViewLayers.SelectedNode =
+                    treeViewLayers.Nodes.Count > 0
+                        ? treeViewLayers.Nodes[0]
+                        : null;
             }
             finally
             {
-                treeView1.EndUpdate();
+                treeViewLayers.EndUpdate();
                 _suppressLayerTreeEvents = false;
             }
         }
@@ -1777,240 +1969,184 @@ namespace Land_Readjustment_Tool
         private void ResetLayerTree()
         {
             _suppressLayerTreeEvents = true;
+
             try
             {
-                treeView1.BeginUpdate();
-                treeView1.Nodes.Clear();
-                treeView1.Nodes.Add(CreateLayerGroupNode("Raster"));
-                treeView1.Nodes[0].Expand();
-                treeView1.SelectedNode = treeView1.Nodes[0];
+                treeViewLayers.BeginUpdate();
+                treeViewLayers.Nodes.Clear();
+
+                foreach (CanvasLayerTreeGroup group
+                    in CanvasLayerTreeService.GetDefaultLayerTree())
+                {
+                    TreeNode groupNode =
+                        CreateLayerGroupNode(group.Key, group.Name);
+
+                    foreach (CanvasLayer layer in group.Layers)
+                        groupNode.Nodes.Add(CreateLayerNode(layer));
+
+                    treeViewLayers.Nodes.Add(groupNode);
+                    groupNode.Expand();
+                }
+
+                treeViewLayers.SelectedNode =
+                    treeViewLayers.Nodes.Count > 0
+                        ? treeViewLayers.Nodes[0]
+                        : null;
             }
             finally
             {
-                treeView1.EndUpdate();
+                treeViewLayers.EndUpdate();
                 _suppressLayerTreeEvents = false;
             }
         }
 
-        private TreeNode CreateLayerGroupNode(string text)
+        private void PopulateLayerProperties(CanvasLayer layer)
         {
-            return new TreeNode(text)
-            {
-                Name = RasterLayerRootNodeName,
-                StateImageIndex = LayerStateImageBlank,
-                SelectedImageIndex = -1,
-                ImageIndex = -1,
-                Tag = new LayerTreeNodeState { IsCheckable = false }
-            };
         }
 
-        private TreeNode CreateLayerNode(CanvasLayer layer)
+        private void ClearLayerProperties()
         {
-            return new TreeNode(layer.Name)
-            {
-                Name = $"Layer_{layer.Id}",
-                StateImageIndex = GetLayerStateImageIndex(layer.IsVisible),
-                SelectedImageIndex = -1,
-                ImageIndex = -1,
-                Tag = new LayerTreeNodeState
-                {
-                    IsCheckable = true,
-                    Layer = layer
-                }
-            };
         }
 
-        private static int GetLayerStateImageIndex(bool isVisible)
+        private Rectangle GetLayerNodeCheckBoxRect(TreeNode node)
         {
-            return isVisible ? LayerStateImageChecked : LayerStateImageUnchecked;
+            return new Rectangle(
+                node.Bounds.X,
+                node.Bounds.Y + Math.Max(0, (treeViewLayers.ItemHeight - LayerNodeCheckBoxSize) / 2),
+                LayerNodeCheckBoxSize,
+                LayerNodeCheckBoxSize);
         }
 
-        private static ImageList BuildLayerTreeStateImages()
+        private Rectangle GetLayerNodeColorRect(TreeNode node)
         {
-            ImageList images = new()
-            {
-                ColorDepth = ColorDepth.Depth32Bit,
-                ImageSize = new Size(16, 16)
-            };
+            Rectangle checkBoxRect = GetLayerNodeCheckBoxRect(node);
 
-            images.Images.Add(CreateBlankStateImage());
-            images.Images.Add(CreateCheckboxStateImage(VisualStyles.CheckBoxState.UncheckedNormal));
-            images.Images.Add(CreateCheckboxStateImage(VisualStyles.CheckBoxState.CheckedNormal));
-
-            return images;
+            return new Rectangle(
+                checkBoxRect.Right + LayerNodeCheckBoxGap,
+                node.Bounds.Y + Math.Max(0, (treeViewLayers.ItemHeight - LayerNodeColorBoxSize) / 2),
+                LayerNodeColorBoxSize,
+                LayerNodeColorBoxSize);
         }
 
-        private static Bitmap CreateBlankStateImage()
+        private async Task OpenLayerPropertyManagerAsync(TreeNode node)
         {
-            return new Bitmap(16, 16);
-        }
-
-        private static Bitmap CreateCheckboxStateImage(VisualStyles.CheckBoxState state)
-        {
-            Bitmap bitmap = new(16, 16);
-            using Graphics graphics = Graphics.FromImage(bitmap);
-            graphics.Clear(Color.Transparent);
-
-            if (Application.RenderWithVisualStyles)
-            {
-                CheckBoxRenderer.DrawCheckBox(graphics, new Point(1, 1), state);
-            }
-            else
-            {
-                ButtonState fallbackState = state == VisualStyles.CheckBoxState.CheckedNormal
-                    ? ButtonState.Checked
-                    : ButtonState.Normal;
-                ControlPaint.DrawCheckBox(graphics, new Rectangle(1, 1, 13, 13), fallbackState);
-            }
-
-            return bitmap;
-        }
-
-        private async void treeView1_NodeMouseClick(object? sender, TreeNodeMouseClickEventArgs e)
-        {
-            TreeNode? node = e.Node;
-            if (node == null)
-            {
-                return;
-            }
-
-            treeView1.SelectedNode = node;
-
-            if (_suppressLayerTreeEvents)
-            {
-                return;
-            }
-
-            TreeViewHitTestInfo hitTest = treeView1.HitTest(e.Location);
-            if (hitTest.Location != TreeViewHitTestLocations.StateImage)
-            {
-                return;
-            }
-
-            await ToggleLayerNodeAsync(node);
-        }
-
-        private async void treeView1_KeyDown(object? sender, KeyEventArgs e)
-        {
-            TreeNode? selectedNode = treeView1.SelectedNode;
-            if (e.KeyCode != Keys.Space || selectedNode == null)
-            {
-                return;
-            }
-
-            e.Handled = true;
-            await ToggleLayerNodeAsync(selectedNode);
-        }
-
-        private void treeView1_AfterSelect(object? sender, TreeViewEventArgs e)
-        {
-            if (_suppressLayerTreeEvents)
-            {
-                return;
-            }
-
-            if (e.Node?.Tag is not LayerTreeNodeState nodeState || nodeState.Layer == null)
-            {
-                ClearLayerProperties();
-                return;
-            }
-
-            PopulateLayerProperties(nodeState.Layer);
-        }
-
-        private async Task ToggleLayerNodeAsync(TreeNode node)
-        {
-            if (_layerTreeService == null ||
-                node.Tag is not LayerTreeNodeState nodeState ||
-                !nodeState.IsCheckable ||
+            if (node.Tag is not LayerTreeNodeState nodeState ||
+                !nodeState.IsLayerNode ||
                 nodeState.Layer == null)
             {
                 return;
             }
 
-            bool newVisibility = !nodeState.Layer.IsVisible;
-            CanvasLayer? updatedLayer = await _layerTreeService.SetVisibilityAsync(
-                nodeState.Layer.Id,
-                newVisibility);
+            CanvasLayer editableLayer = CloneLayer(nodeState.Layer);
 
-            if (updatedLayer == null)
+            using var frm = new frmLayerPropertyManager(editableLayer);
+            PositionLayerPropertyManager(frm);
+
+            if (frm.ShowDialog(this) != DialogResult.OK)
+                return;
+
+            if (!AppServices.HasContext)
             {
+                nodeState.Layer = editableLayer;
+                node.Text = editableLayer.Name;
+                treeViewLayers.Invalidate();
+                mapCanvasControlMain.RequestRender();
                 return;
             }
 
-            nodeState.Layer = updatedLayer;
-            node.Text = updatedLayer.Name;
-            node.StateImageIndex = GetLayerStateImageIndex(updatedLayer.IsVisible);
-
-            if (treeView1.SelectedNode == node)
+            try
             {
-                PopulateLayerProperties(updatedLayer);
-            }
+                var repository = _projectScopedFactory.CreateCanvasLayerRepository(
+                    AppServices.Context.Session);
 
-            if (AppServices.HasContext)
-            {
+                editableLayer.LastModifiedDate = DateTime.Now;
+                await repository.UpdateAsync(editableLayer);
+
+                nodeState.Layer = editableLayer;
+
                 AppServices.Context.MarkAsModified();
+                UpdateWindowTitle();
+
+                await RefreshLayerTreeAsync();
+                SelectLayerNodeById(editableLayer.Id);
+                mapCanvasControlMain.RequestRender();
             }
-
-            mapCanvasControlMain.RequestRender();
+            catch (Exception ex)
+            {
+                MessageBox.Show(
+                    $"Failed to update the layer properties: {ex.Message}",
+                    "Layer Properties",
+                    MessageBoxButtons.OK,
+                    MessageBoxIcon.Error);
+            }
         }
 
-        private void PopulateLayerProperties(CanvasLayer layer)
+        private void PositionLayerPropertyManager(Form form)
         {
-            txtLayerName.Text = layer.Name;
-            cboLayerType.Text = layer.LayerType;
-            pnlBorderColor.BackColor = ParseColorOrDefault(layer.BorderColor, Color.Black);
-            cboLineStyle.Text = layer.LineStyle;
-            cboLineWeight.Text = layer.LineWeight.ToString("0.##");
-            chkVisible.Checked = layer.IsVisible;
-            chkLocked.Checked = layer.IsLocked;
-            chkSelectable.Checked = layer.IsSelectable;
-            chkPrintable.Checked = layer.IsPrintable;
+            const int gap = 4;
 
-            pnlFillColor.BackColor = ParseColorOrDefault(layer.FillColor, Color.White);
-            cboFillStyle.Text = layer.FillStyle;
-            trkTransparency.Value = Math.Max(0, Math.Min(100, layer.FillTransparency));
-            lblTranspValue.Text = $"{trkTransparency.Value}%";
-            cboHatch.Text = layer.HatchPattern ?? string.Empty;
+            Point targetLocation = grpLayer.PointToScreen(
+                new Point(grpLayer.Width + gap, 0));
 
-            chkShowLabels.Checked = layer.ShowLabels;
-            txtFontName.Text = string.IsNullOrWhiteSpace(layer.LabelFontName)
-                ? "Segoe UI"
-                : layer.LabelFontName;
-            numFontSize.Value = (decimal)Math.Max(4, Math.Min(72, layer.LabelFontSize));
-            pnlLabelColor.BackColor = ParseColorOrDefault(layer.LabelColor, Color.Black);
-            cboLabelField.Text = layer.LabelField ?? string.Empty;
+            Rectangle workingArea = Screen.FromControl(this).WorkingArea;
+            int x = Math.Min(targetLocation.X, workingArea.Right - form.Width);
+            int y = Math.Min(targetLocation.Y, workingArea.Bottom - form.Height);
+
+            form.StartPosition = FormStartPosition.Manual;
+            form.Location = new Point(
+                Math.Max(workingArea.Left, x),
+                Math.Max(workingArea.Top, y));
         }
 
-        private void ClearLayerProperties()
+        private void SelectLayerNodeById(int layerId)
         {
-            txtLayerName.Text = string.Empty;
-            cboLayerType.SelectedIndex = -1;
-            cboLayerType.Text = string.Empty;
-            pnlBorderColor.BackColor = Color.Black;
-            cboLineStyle.SelectedIndex = -1;
-            cboLineStyle.Text = string.Empty;
-            cboLineWeight.SelectedIndex = -1;
-            cboLineWeight.Text = string.Empty;
-            chkVisible.Checked = false;
-            chkLocked.Checked = false;
-            chkSelectable.Checked = false;
-            chkPrintable.Checked = false;
+            foreach (TreeNode groupNode in treeViewLayers.Nodes)
+            {
+                foreach (TreeNode layerNode in groupNode.Nodes)
+                {
+                    if (layerNode.Tag is LayerTreeNodeState state &&
+                        state.Layer?.Id == layerId)
+                    {
+                        treeViewLayers.SelectedNode = layerNode;
+                        layerNode.EnsureVisible();
+                        return;
+                    }
+                }
+            }
+        }
 
-            pnlFillColor.BackColor = Color.White;
-            cboFillStyle.SelectedIndex = -1;
-            cboFillStyle.Text = string.Empty;
-            trkTransparency.Value = 0;
-            lblTranspValue.Text = "0%";
-            cboHatch.SelectedIndex = -1;
-            cboHatch.Text = string.Empty;
-
-            chkShowLabels.Checked = false;
-            txtFontName.Text = string.Empty;
-            numFontSize.Value = 10;
-            pnlLabelColor.BackColor = Color.Black;
-            cboLabelField.SelectedIndex = -1;
-            cboLabelField.Text = string.Empty;
+        private static CanvasLayer CloneLayer(CanvasLayer source)
+        {
+            return new CanvasLayer
+            {
+                Id = source.Id,
+                Name = source.Name,
+                LayerType = source.LayerType,
+                IsVisible = source.IsVisible,
+                IsLocked = source.IsLocked,
+                IsSelectable = source.IsSelectable,
+                IsPrintable = source.IsPrintable,
+                DisplayOrder = source.DisplayOrder,
+                BorderColor = source.BorderColor,
+                LineWeight = source.LineWeight,
+                LineStyle = source.LineStyle,
+                FillColor = source.FillColor,
+                FillTransparency = source.FillTransparency,
+                FillStyle = source.FillStyle,
+                HatchPattern = source.HatchPattern,
+                ShowLabels = source.ShowLabels,
+                LabelFontName = source.LabelFontName,
+                LabelFontSize = source.LabelFontSize,
+                LabelColor = source.LabelColor,
+                LabelField = source.LabelField,
+                PointSymbol = source.PointSymbol,
+                PointSize = source.PointSize,
+                SourceFile = source.SourceFile,
+                ImportedDate = source.ImportedDate,
+                CreatedDate = source.CreatedDate,
+                LastModifiedDate = source.LastModifiedDate,
+                Description = source.Description
+            };
         }
 
         private void ConfigureCanvasStatusBarLayout()
