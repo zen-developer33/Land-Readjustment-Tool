@@ -6,12 +6,25 @@ using Land_Readjustment_Tool.UI.MapCanvas.Models.Shapes;
 
 namespace Land_Readjustment_Tool.UI.MapCanvas.Rendering
 {
+    /// <summary>
+    /// Renders map-canvas visual layers such as background, adaptive grid,
+    /// axis/origin marker, and interactive zoom window overlays.
+    /// </summary>
     public sealed class MapCanvasRenderer : IDisposable
     {
         private readonly Font _gridFont = new("Arial", 8.0f, FontStyle.Regular);
         private readonly Font _axisFont = new("Arial", 9.0f, FontStyle.Regular);
         private double _lastAdaptiveMinorSize;
 
+        /// <summary>
+        /// Renders the full canvas frame for the current viewport state.
+        /// </summary>
+        /// <param name="graphics">Target graphics surface for drawing.</param>
+        /// <param name="engine">Viewport engine providing world/screen transforms.</param>
+        /// <param name="settings">Rendering options and theme colors.</param>
+        /// <param name="zoomWindowRectangle">
+        /// Optional selection rectangle used by zoom-window interaction.
+        /// </param>
         public void Render(
             Graphics graphics,
             MapCanvasEngine engine,
@@ -37,12 +50,19 @@ namespace Land_Readjustment_Tool.UI.MapCanvas.Rendering
             }
         }
 
+        /// <summary>
+        /// Releases GDI resources used by renderer-owned fonts.
+        /// </summary>
         public void Dispose()
         {
             _gridFont.Dispose();
             _axisFont.Dispose();
         }
 
+        /// <summary>
+        /// Applies high-quality graphics options for anti-aliased rendering.
+        /// </summary>
+        /// <param name="graphics">Graphics context to configure.</param>
         private static void ConfigureGraphics(Graphics graphics)
         {
             graphics.SmoothingMode = SmoothingMode.AntiAlias;
@@ -52,6 +72,13 @@ namespace Land_Readjustment_Tool.UI.MapCanvas.Rendering
             graphics.TextRenderingHint = TextRenderingHint.ClearTypeGridFit;
         }
 
+        /// <summary>
+        /// Draws adaptive major/minor grid lines and optional coordinate labels
+        /// for the current visible world extent.
+        /// </summary>
+        /// <param name="graphics">Target graphics surface.</param>
+        /// <param name="engine">Canvas engine for coordinate transforms.</param>
+        /// <param name="settings">Grid color and visibility settings.</param>
         private void RenderGrid(Graphics graphics, MapCanvasEngine engine, MapCanvasRenderSettings settings)
         {
             double zoomScale = engine.ZoomScale;
@@ -177,6 +204,12 @@ namespace Land_Readjustment_Tool.UI.MapCanvas.Rendering
             }
         }
 
+        /// <summary>
+        /// Draws the temporary zoom-window overlay rectangle.
+        /// </summary>
+        /// <param name="graphics">Target graphics surface.</param>
+        /// <param name="settings">Style settings used for fill/border colors.</param>
+        /// <param name="rectangle">Screen-space zoom-window rectangle.</param>
         private static void RenderZoomWindow(Graphics graphics, MapCanvasRenderSettings settings, Rectangle rectangle)
         {
             if (rectangle.Width < 2 || rectangle.Height < 2)
@@ -190,6 +223,12 @@ namespace Land_Readjustment_Tool.UI.MapCanvas.Rendering
             graphics.DrawRectangle(border, rectangle);
         }
 
+        /// <summary>
+        /// Renders world-origin axis lines and the origin marker/labels according to visibility settings.
+        /// </summary>
+        /// <param name="graphics">Target graphics surface.</param>
+        /// <param name="engine">Canvas engine for coordinate transforms.</param>
+        /// <param name="settings">Axis and marker style/visibility settings.</param>
         private void RenderAxisAndOriginMarker(
             Graphics graphics,
             MapCanvasEngine engine,
@@ -287,21 +326,48 @@ namespace Land_Readjustment_Tool.UI.MapCanvas.Rendering
             }
         }
 
+        /// <summary>
+        /// Checks whether a numeric value is finite and within drawable coordinate limits.
+        /// </summary>
+        /// <param name="value">Coordinate component to validate.</param>
+        /// <returns>
+        /// <see langword="true"/> when the value is finite and inside renderer limits; otherwise <see langword="false"/>.
+        /// </returns>
         private static bool IsValid(double value)
         {
             return !double.IsNaN(value) && !double.IsInfinity(value) && value > -1e6 && value < 1e6;
         }
 
+        /// <summary>
+        /// Checks whether a point is safe for drawing on the graphics surface.
+        /// </summary>
+        /// <param name="point">Point to validate.</param>
+        /// <returns>
+        /// <see langword="true"/> when both X and Y are valid drawable values; otherwise <see langword="false"/>.
+        /// </returns>
         private static bool IsValidPoint(PointD point)
         {
             return IsValid(point.X) && IsValid(point.Y);
         }
 
+        /// <summary>
+        /// Returns whether two points are separated by at least one pixel.
+        /// </summary>
+        /// <param name="a">First point.</param>
+        /// <param name="b">Second point.</param>
+        /// <returns>
+        /// <see langword="true"/> when points are visually distinct for line drawing; otherwise <see langword="false"/>.
+        /// </returns>
         private static bool IsFarEnough(PointD a, PointD b)
         {
             return Math.Abs(a.X - b.X) > 1.0 || Math.Abs(a.Y - b.Y) > 1.0;
         }
 
+        /// <summary>
+        /// Rounds an arbitrary step size to a "nice" grid step using 1-2-5 scaling.
+        /// </summary>
+        /// <param name="value">Raw step value.</param>
+        /// <returns>Nearest normalized step in 1-2-5 sequence.</returns>
         private static double SnapToNiceStep(double value)
         {
             if (value <= 0)
@@ -334,6 +400,11 @@ namespace Land_Readjustment_Tool.UI.MapCanvas.Rendering
             return niceF * pow10;
         }
 
+        /// <summary>
+        /// Gets the next larger "nice" step from a 1-2-5 progression.
+        /// </summary>
+        /// <param name="current">Current normalized step.</param>
+        /// <returns>Next larger normalized step.</returns>
         private static double NextNiceStep(double current)
         {
             double exp = Math.Floor(Math.Log10(current));
@@ -358,6 +429,11 @@ namespace Land_Readjustment_Tool.UI.MapCanvas.Rendering
             return Math.Pow(10, exp + 1);
         }
 
+        /// <summary>
+        /// Gets the next smaller "nice" step from a 1-2-5 progression.
+        /// </summary>
+        /// <param name="current">Current normalized step.</param>
+        /// <returns>Next smaller normalized step.</returns>
         private static double PrevNiceStep(double current)
         {
             double exp = Math.Floor(Math.Log10(current));
@@ -382,12 +458,24 @@ namespace Land_Readjustment_Tool.UI.MapCanvas.Rendering
             return 5 * Math.Pow(10, exp - 1);
         }
 
+        /// <summary>
+        /// Determines whether a grid coordinate belongs to a major grid division.
+        /// </summary>
+        /// <param name="value">Grid coordinate value.</param>
+        /// <param name="majorStep">Major-step interval.</param>
+        /// <returns><see langword="true"/> when the value lies on a major step; otherwise <see langword="false"/>.</returns>
         private static bool IsMajorLine(double value, double majorStep)
         {
             double k = value / majorStep;
             return Math.Abs(k - Math.Round(k)) < 1e-6;
         }
 
+        /// <summary>
+        /// Formats grid labels based on current major-step precision.
+        /// </summary>
+        /// <param name="value">World coordinate value to display.</param>
+        /// <param name="majorStep">Major-step interval used to infer precision.</param>
+        /// <returns>Formatted coordinate string for grid labels.</returns>
         private static string FormatGridLabel(double value, double majorStep)
         {
             double step = Math.Abs(majorStep);
