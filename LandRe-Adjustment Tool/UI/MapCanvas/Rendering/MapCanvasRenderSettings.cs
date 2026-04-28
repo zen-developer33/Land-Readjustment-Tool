@@ -1,4 +1,5 @@
 using System.Drawing;
+using System.Drawing.Drawing2D;
 using Land_Readjustment_Tool.Core.Entities.Project;
 
 namespace Land_Readjustment_Tool.UI.MapCanvas.Rendering
@@ -24,6 +25,10 @@ namespace Land_Readjustment_Tool.UI.MapCanvas.Rendering
         public Color OverlayTextColor { get; set; }
         public Color CoordinateTextColor { get; set; }
         public Color AccentColor { get; set; }
+        public Color ZoomWindowBorderColor { get; set; }
+        public Color ZoomWindowFillColor { get; set; }
+        public float ZoomWindowLineWidth { get; set; } = 1.0f;
+        public DashStyle ZoomWindowLineType { get; set; } = DashStyle.Solid;
 
         public bool ShowGrid { get; set; } = true;
         public bool ShowGridLabels { get; set; } = true;
@@ -78,6 +83,10 @@ namespace Land_Readjustment_Tool.UI.MapCanvas.Rendering
                 OverlayTextColor = Color.FromArgb(42, 55, 66),
                 CoordinateTextColor = Color.FromArgb(21, 104, 139),
                 AccentColor = Color.FromArgb(41, 128, 185),
+                ZoomWindowBorderColor = Color.FromArgb(41, 128, 185),
+                ZoomWindowFillColor = Color.FromArgb(45, 41, 128, 185),
+                ZoomWindowLineWidth = 1.0f,
+                ZoomWindowLineType = DashStyle.Dash,
                 ShowGrid = projectSettings.CanvasGridVisible,
                 ShowGridLabels = true,
                 ShowAxisLines = projectSettings.CanvasAxisMarkerVisible,
@@ -104,6 +113,10 @@ namespace Land_Readjustment_Tool.UI.MapCanvas.Rendering
                 OverlayTextColor = Color.FromArgb(42, 55, 66),
                 CoordinateTextColor = Color.FromArgb(21, 104, 139),
                 AccentColor = Color.FromArgb(41, 128, 185),
+                ZoomWindowBorderColor = Color.FromArgb(41, 128, 185),
+                ZoomWindowFillColor = Color.FromArgb(45, 41, 128, 185),
+                ZoomWindowLineWidth = 1.0f,
+                ZoomWindowLineType = DashStyle.Dash,
                 ShowGrid = true,
                 ShowGridLabels = true,
                 ShowAxisLines = true,
@@ -130,6 +143,10 @@ namespace Land_Readjustment_Tool.UI.MapCanvas.Rendering
                 OverlayTextColor = Color.FromArgb(222, 233, 236),
                 CoordinateTextColor = Color.FromArgb(118, 222, 157),
                 AccentColor = Color.FromArgb(78, 201, 176),
+                ZoomWindowBorderColor = Color.FromArgb(78, 201, 176),
+                ZoomWindowFillColor = Color.FromArgb(45, 78, 201, 176),
+                ZoomWindowLineWidth = 1.0f,
+                ZoomWindowLineType = DashStyle.Dash,
                 ShowGrid = true,
                 ShowGridLabels = true,
                 ShowAxisLines = true,
