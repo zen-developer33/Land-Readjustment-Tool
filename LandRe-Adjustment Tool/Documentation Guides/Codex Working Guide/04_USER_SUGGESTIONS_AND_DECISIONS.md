@@ -192,3 +192,33 @@ The user clarified a project-wide priority:
 - this applies to the full product, not only the map canvas
 - architecture should be chosen for large real-world workloads
 - Codex should think like an experienced .NET backend/spatial software engineer when evaluating designs
+
+## Layer Tree UX Decision
+
+The user requested the layer view to be expanded beyond only raster and kept visually consistent:
+
+- include additional necessary layer groups in the main layer tree, not just raster
+- keep root/group nodes non-checkable and child layer nodes checkable for visibility
+- keep layer view UI simple and clean
+- use the same font family as other UI elements
+- ensure text/background presentation in the layer tree matches the layer-view surface (no mismatched patchy background)
+
+Reference style note from the user:
+
+- use a practical engineering-software-style tree pattern (similar to road-design software)
+- keep expandable grouped hierarchy with checkable leaf layers
+- organize groups for replot domain needs (not road-domain wording), e.g. original data, replot design, review, external, raster
+- keep TreeView visual style close to default Windows style (show node connector lines; avoid custom-painted look)
+- use built-in TreeView checkboxes (`TreeView.CheckBoxes = true`) instead of custom painted/state-image checkbox logic
+
+## Layer Tree UX Decision (Latest Override)
+
+The user later overrode the above checkbox approach and requested a custom owner-draw layer tree:
+
+- use `TreeViewDrawMode.OwnerDrawAll`
+- draw checkboxes manually with `CheckBoxRenderer`
+- do not show checkbox for root/group nodes
+- show checkbox only for real layer nodes
+- draw a small colored symbol rectangle beside each real layer node
+- keep expand/collapse, selection highlight, and node tree hierarchy behavior
+- toggle visibility only when the checkbox hit area is clicked

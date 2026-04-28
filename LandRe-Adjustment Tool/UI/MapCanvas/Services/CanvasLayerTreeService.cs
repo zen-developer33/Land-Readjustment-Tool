@@ -27,6 +27,12 @@ namespace Land_Readjustment_Tool.UI.MapCanvas.Services
                 ct);
         }
 
+        public async Task<IReadOnlyList<CanvasLayer>> GetAllLayersAsync(
+            CancellationToken ct = default)
+        {
+            return await _canvasLayerRepository.GetAllOrderedAsync(ct);
+        }
+
         public async Task<CanvasLayer?> SetVisibilityAsync(
             int layerId,
             bool isVisible,
