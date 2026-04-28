@@ -13,6 +13,10 @@ namespace Land_Readjustment_Tool.Core.Interfaces
         Task<List<CanvasLayer>> GetAllVisibleOrderedAsync(
             CancellationToken ct = default);
 
+        Task<List<CanvasLayer>> GetAllByLayerTypeOrderedAsync(
+            string layerType,
+            CancellationToken ct = default);
+
         Task<CanvasLayer?> GetByNameAsync(
             string name,
             CancellationToken ct = default);

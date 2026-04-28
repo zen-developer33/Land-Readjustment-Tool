@@ -31,8 +31,6 @@ namespace Land_Readjustment_Tool
         /// </summary>
         private void InitializeComponent()
         {
-            TreeNode treeNode1 = new TreeNode("Node1");
-            TreeNode treeNode2 = new TreeNode("Node0", new TreeNode[] { treeNode1 });
             System.ComponentModel.ComponentResourceManager resources = new System.ComponentModel.ComponentResourceManager(typeof(frmMain));
             mainMenuStrip = new MenuStrip();
             fileToolStripMenuItem = new ToolStripMenuItem();
@@ -659,16 +657,10 @@ namespace Land_Readjustment_Tool
             // treeView1
             // 
             treeView1.Anchor = AnchorStyles.Top | AnchorStyles.Bottom | AnchorStyles.Left | AnchorStyles.Right;
-            treeView1.CheckBoxes = true;
+            treeView1.CheckBoxes = false;
             treeView1.Location = new Point(6, 23);
             treeView1.Margin = new Padding(4);
             treeView1.Name = "treeView1";
-            treeNode1.BackColor = Color.Red;
-            treeNode1.Name = "Node1";
-            treeNode1.Text = "Node1";
-            treeNode2.Name = "Node0";
-            treeNode2.Text = "Node0";
-            treeView1.Nodes.AddRange(new TreeNode[] { treeNode2 });
             treeView1.ShowLines = false;
             treeView1.Size = new Size(263, 158);
             treeView1.TabIndex = 0;
@@ -758,7 +750,7 @@ namespace Land_Readjustment_Tool
             cboLayerType.Anchor = AnchorStyles.Top | AnchorStyles.Left | AnchorStyles.Right;
             cboLayerType.DropDownStyle = ComboBoxStyle.DropDownList;
             cboLayerType.Font = new Font("Segoe UI", 9F);
-            cboLayerType.Items.AddRange(new object[] { "BaselineParcel", "ReplottedParcel", "ProposedRoad", "ExistingRoad", "Block", "ProjectBoundary", "Annotation", "Reference" });
+            cboLayerType.Items.AddRange(new object[] { "BaselineParcel", "ReplottedParcel", "ProposedRoad", "ExistingRoad", "Block", "ProjectBoundary", "Annotation", "Reference", "Raster" });
             cboLayerType.Location = new Point(127, 48);
             cboLayerType.Name = "cboLayerType";
             cboLayerType.Size = new Size(124, 28);

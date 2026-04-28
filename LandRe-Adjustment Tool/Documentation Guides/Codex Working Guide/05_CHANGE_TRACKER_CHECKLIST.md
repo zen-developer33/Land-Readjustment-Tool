@@ -27,6 +27,8 @@ It is also the checklist Codex should use to stay aligned before future implemen
 - [x] Added raster import, storage, and rendering architecture guide
 - [x] Expanded raster guide with package choices, DI structure, workflow, and performance rules
 - [x] Added overall performance and scalability architecture guide
+- [x] Recorded raster-first layer-tree decisions and import-orchestrator direction
+- [x] Started main-window raster layer management implementation
 
 ## Files Created in This Pass
 
@@ -59,6 +61,7 @@ Before future implementation prompts, Codex should check:
 - [ ] If replacing an old file, was the old implementation archived first?
 - [ ] Did the user give a new idea that should be stored in documentation immediately?
 - [ ] What verification is appropriate?
+- [ ] If layer management changed, was the tree/group behavior documented?
 
 ## Implementation Quality Checklist
 

@@ -80,6 +80,15 @@ Recommended layer groups:
 - Annotation and Markup
 - Temporary Work
 
+Current implementation-phase decision for the main layer tree:
+
+- first implement only a `Raster` root node
+- the `Raster` root should behave as a grouping node, not a renderable layer
+- the `Raster` root should not show a checkbox
+- imported raster layers should appear one by one as child nodes under `Raster`
+- child raster nodes should be checkable and uncheckable to control rendering
+- keep the architecture open so future vector, annotation, design, and review groups can be added without rewriting the tree again
+
 ## Raster Map Support Direction
 
 The user is now exploring raster map support for:
@@ -107,6 +116,13 @@ Additional direction from discussion:
 - raster layers should appear in the left layer tree/panel
 - for architecture, prefer a top-level raster group in the layer tree with raster items beneath it, rather than an isolated rendering path outside the layer system
 - do not code this immediately; treat it as a deliberate architecture decision first
+
+Import-management direction decided during planning:
+
+- use one orchestration service for raster import workflow
+- keep format-specific readers/handlers behind that orchestrator instead of one giant all-format class
+- examples of specialization include GeoTIFF/TIFF handling, MBTiles handling, and plain-image georeferencing support
+- keep import workflow separate from layer-tree UI wiring so the tree can be ready before raster persistence/rendering is completed
 
 ## Menu and Toolstrip Direction
 

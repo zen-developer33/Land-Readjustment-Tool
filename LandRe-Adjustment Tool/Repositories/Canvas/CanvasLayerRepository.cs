@@ -54,6 +54,35 @@ namespace Land_Readjustment_Tool.Repositories.Canvas
             }
         }
 
+        public async Task<List<CanvasLayer>> GetAllByLayerTypeOrderedAsync(
+            string layerType,
+            CancellationToken ct = default)
+        {
+            try
+            {
+                if (string.IsNullOrWhiteSpace(layerType))
+                {
+                    return [];
+                }
+
+                string normalized = layerType.Trim();
+
+                return await DbSet
+                    .AsNoTracking()
+                    .Where(layer => layer.LayerType == normalized)
+                    .OrderBy(layer => layer.DisplayOrder)
+                    .ThenBy(layer => layer.Name)
+                    .ToListAsync(ct);
+            }
+            catch (Exception ex)
+            {
+                Logger.LogError(
+                    $"GetAllByLayerTypeOrderedAsync failed. LayerType={layerType}",
+                    ex);
+                throw;
+            }
+        }
+
         public async Task<CanvasLayer?> GetByNameAsync(
             string name,
             CancellationToken ct = default)

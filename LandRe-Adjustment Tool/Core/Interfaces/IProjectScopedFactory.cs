@@ -25,5 +25,6 @@ namespace Land_Readjustment_Tool.Core.Interfaces
         CanvasLayerRepository CreateCanvasLayerRepository(ProjectSession session);
         CanvasObjectRepository CreateCanvasObjectRepository(ProjectSession session);
         CanvasFeatureService CreateCanvasFeatureService(ProjectSession session);
+        CanvasLayerTreeService CreateCanvasLayerTreeService(ProjectSession session);
     }
 }

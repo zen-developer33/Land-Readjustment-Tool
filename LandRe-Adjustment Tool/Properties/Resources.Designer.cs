@@ -203,26 +203,6 @@ namespace Land_Readjustment_Tool.Properties {
         /// <summary>
         ///   Looks up a localized resource of type System.Drawing.Bitmap.
         /// </summary>
-        public static System.Drawing.Bitmap ChatGPT_Image_Feb_5__2026__06_17_29_PM {
-            get {
-                object obj = ResourceManager.GetObject("ChatGPT Image Feb 5, 2026, 06_17_29 PM", resourceCulture);
-                return ((System.Drawing.Bitmap)(obj));
-            }
-        }
-        
-        /// <summary>
-        ///   Looks up a localized resource of type System.Drawing.Bitmap.
-        /// </summary>
-        public static System.Drawing.Bitmap ChatGPT_Image_Feb_5__2026__06_17_31_PM {
-            get {
-                object obj = ResourceManager.GetObject("ChatGPT Image Feb 5, 2026, 06_17_31 PM", resourceCulture);
-                return ((System.Drawing.Bitmap)(obj));
-            }
-        }
-        
-        /// <summary>
-        ///   Looks up a localized resource of type System.Drawing.Bitmap.
-        /// </summary>
         public static System.Drawing.Bitmap ChatGPT_Image_Feb_5__2026__06_17_32_PM {
             get {
                 object obj = ResourceManager.GetObject("ChatGPT Image Feb 5, 2026, 06_17_32 PM", resourceCulture);

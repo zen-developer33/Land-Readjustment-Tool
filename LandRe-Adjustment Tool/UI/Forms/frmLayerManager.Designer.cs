@@ -301,7 +301,7 @@
             colLayerType.DisplayStyle = DataGridViewComboBoxDisplayStyle.Nothing;
             colLayerType.FlatStyle = FlatStyle.Flat;
             colLayerType.HeaderText = "Type";
-            colLayerType.Items.AddRange(new object[] { "BaselineParcel", "ReplottedParcel", "ProposedRoad", "ExistingRoad", "Block", "ProjectBoundary", "Annotation", "Reference" });
+            colLayerType.Items.AddRange(new object[] { "BaselineParcel", "ReplottedParcel", "ProposedRoad", "ExistingRoad", "Block", "ProjectBoundary", "Annotation", "Reference", "Raster" });
             colLayerType.MinimumWidth = 6;
             colLayerType.Name = "colLayerType";
             // 
@@ -418,7 +418,7 @@
             cboLayerType.DropDownStyle = ComboBoxStyle.DropDownList;
             cboLayerType.FlatStyle = FlatStyle.Flat;
             cboLayerType.Font = new Font("Segoe UI", 9F);
-            cboLayerType.Items.AddRange(new object[] { "BaselineParcel", "ReplottedParcel", "ProposedRoad", "ExistingRoad", "Block", "ProjectBoundary", "Annotation", "Reference" });
+            cboLayerType.Items.AddRange(new object[] { "BaselineParcel", "ReplottedParcel", "ProposedRoad", "ExistingRoad", "Block", "ProjectBoundary", "Annotation", "Reference", "Raster" });
             cboLayerType.Location = new Point(140, 48);
             cboLayerType.Name = "cboLayerType";
             cboLayerType.Size = new Size(184, 28);

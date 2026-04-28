@@ -68,5 +68,11 @@ namespace Land_Readjustment_Tool.Services.Project
             CanvasObjectRepository objectRepository = CreateCanvasObjectRepository(session);
             return new CanvasFeatureService(objectRepository, layerRepository);
         }
+
+        public CanvasLayerTreeService CreateCanvasLayerTreeService(ProjectSession session)
+        {
+            CanvasLayerRepository layerRepository = CreateCanvasLayerRepository(session);
+            return new CanvasLayerTreeService(layerRepository);
+        }
     }
 }
