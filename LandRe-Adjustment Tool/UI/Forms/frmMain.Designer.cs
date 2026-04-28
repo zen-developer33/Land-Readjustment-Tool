@@ -31,8 +31,8 @@ namespace Land_Readjustment_Tool
         /// </summary>
         private void InitializeComponent()
         {
-            TreeNode treeNode3 = new TreeNode("Node1");
-            TreeNode treeNode4 = new TreeNode("Node0", new TreeNode[] { treeNode3 });
+            TreeNode treeNode1 = new TreeNode("Node1");
+            TreeNode treeNode2 = new TreeNode("Node0", new TreeNode[] { treeNode1 });
             System.ComponentModel.ComponentResourceManager resources = new System.ComponentModel.ComponentResourceManager(typeof(frmMain));
             mainMenuStrip = new MenuStrip();
             fileToolStripMenuItem = new ToolStripMenuItem();
@@ -141,10 +141,8 @@ namespace Land_Readjustment_Tool
             mainSplitContainer = new SplitContainer();
             splitContainer3 = new SplitContainer();
             statusCanvas = new StatusStrip();
-            lblCanvasCoordinates = new ToolStripStatusLabel();
-            lblCanvasZoom = new ToolStripStatusLabel();
-            lblCanvasScale = new ToolStripStatusLabel();
             lblCanvasMode = new ToolStripStatusLabel();
+            lblCanvasCoordinates = new ToolStripStatusLabel();
             mapCanvasControlMain = new MapCanvasControl();
             tsCanvasTools = new ToolStrip();
             tsmExpandCollapseLeftPanel = new ToolStripButton();
@@ -179,6 +177,7 @@ namespace Land_Readjustment_Tool
             toolStripSeparator16 = new ToolStripSeparator();
             toolStripComboBox1 = new ToolStripComboBox();
             tsProjectMenu = new ToolStrip();
+            toolStripProgressBar1 = new ToolStripProgressBar();
             mainMenuStrip.SuspendLayout();
             ((System.ComponentModel.ISupportInitialize)leftSplitContainer).BeginInit();
             leftSplitContainer.Panel1.SuspendLayout();
@@ -665,12 +664,12 @@ namespace Land_Readjustment_Tool
             treeView1.Location = new Point(6, 23);
             treeView1.Margin = new Padding(4);
             treeView1.Name = "treeView1";
-            treeNode3.BackColor = Color.Red;
-            treeNode3.Name = "Node1";
-            treeNode3.Text = "Node1";
-            treeNode4.Name = "Node0";
-            treeNode4.Text = "Node0";
-            treeView1.Nodes.AddRange(new TreeNode[] { treeNode4 });
+            treeNode1.BackColor = Color.Red;
+            treeNode1.Name = "Node1";
+            treeNode1.Text = "Node1";
+            treeNode2.Name = "Node0";
+            treeNode2.Text = "Node0";
+            treeView1.Nodes.AddRange(new TreeNode[] { treeNode2 });
             treeView1.ShowLines = false;
             treeView1.Size = new Size(263, 158);
             treeView1.TabIndex = 0;
@@ -1189,7 +1188,7 @@ namespace Land_Readjustment_Tool
             // 
             statusCanvas.BackColor = SystemColors.HighlightText;
             statusCanvas.ImageScalingSize = new Size(20, 20);
-            statusCanvas.Items.AddRange(new ToolStripItem[] { lblCanvasCoordinates, lblCanvasZoom, lblCanvasScale, lblCanvasMode });
+            statusCanvas.Items.AddRange(new ToolStripItem[] { lblCanvasMode, toolStripProgressBar1, lblCanvasCoordinates });
             statusCanvas.Location = new Point(0, 481);
             statusCanvas.Name = "statusCanvas";
             statusCanvas.Size = new Size(708, 30);
@@ -1197,36 +1196,22 @@ namespace Land_Readjustment_Tool
             statusCanvas.TabIndex = 4;
             statusCanvas.Text = "Map Canvas Status";
             // 
+            // lblCanvasMode
+            // 
+            lblCanvasMode.Name = "lblCanvasMode";
+            lblCanvasMode.Size = new Size(466, 24);
+            lblCanvasMode.Spring = true;
+            lblCanvasMode.Text = "Mode: Ready";
+            lblCanvasMode.TextAlign = ContentAlignment.MiddleLeft;
+            // 
             // lblCanvasCoordinates
             // 
+            lblCanvasCoordinates.Alignment = ToolStripItemAlignment.Right;
             lblCanvasCoordinates.BorderSides = ToolStripStatusLabelBorderSides.Right;
             lblCanvasCoordinates.Name = "lblCanvasCoordinates";
             lblCanvasCoordinates.Size = new Size(86, 24);
             lblCanvasCoordinates.Text = "E: --    N: --";
-            lblCanvasCoordinates.TextAlign = ContentAlignment.MiddleLeft;
-            // 
-            // lblCanvasZoom
-            // 
-            lblCanvasZoom.BorderSides = ToolStripStatusLabelBorderSides.Right;
-            lblCanvasZoom.Name = "lblCanvasZoom";
-            lblCanvasZoom.Size = new Size(72, 24);
-            lblCanvasZoom.Text = "Zoom: --";
-            // 
-            // lblCanvasScale
-            // 
-            lblCanvasScale.BorderSides = ToolStripStatusLabelBorderSides.Right;
-            lblCanvasScale.Name = "lblCanvasScale";
-            lblCanvasScale.Size = new Size(67, 24);
-            lblCanvasScale.Text = "Scale: --";
-            // 
-            // lblCanvasMode
-            // 
-            lblCanvasMode.BorderSides = ToolStripStatusLabelBorderSides.Left;
-            lblCanvasMode.Name = "lblCanvasMode";
-            lblCanvasMode.Size = new Size(429, 24);
-            lblCanvasMode.Spring = true;
-            lblCanvasMode.Text = "Mode: Ready";
-            lblCanvasMode.TextAlign = ContentAlignment.MiddleRight;
+            lblCanvasCoordinates.TextAlign = ContentAlignment.MiddleRight;
             // 
             // mapCanvasControlMain
             // 
@@ -1516,6 +1501,11 @@ namespace Land_Readjustment_Tool
             tsProjectMenu.TabIndex = 4;
             tsProjectMenu.Text = "Project Menu";
             // 
+            // toolStripProgressBar1
+            // 
+            toolStripProgressBar1.Name = "toolStripProgressBar1";
+            toolStripProgressBar1.Size = new Size(100, 22);
+            // 
             // frmMain
             // 
             AutoScaleMode = AutoScaleMode.None;
@@ -1632,8 +1622,6 @@ namespace Land_Readjustment_Tool
         private ToolStripSeparator toolStripSeparator6;
         private ToolStripMenuItem topographicalMapToolStripMenuItem;
         private ToolStripMenuItem ImportParcelOwnerShipRecords;
-        private DrawingCanvasControl drawingCanvasControl1;
-        private DrawingCanvasControl drawingCanvasControl2;
         private SplitContainer leftSplitContainer;
         private GroupBox grpLayer;
         private TreeView treeView1;
@@ -1719,8 +1707,7 @@ namespace Land_Readjustment_Tool
         private MapCanvasControl mapCanvasControlMain;
         private StatusStrip statusCanvas;
         private ToolStripStatusLabel lblCanvasCoordinates;
-        private ToolStripStatusLabel lblCanvasZoom;
-        private ToolStripStatusLabel lblCanvasScale;
         private ToolStripStatusLabel lblCanvasMode;
+        private ToolStripProgressBar toolStripProgressBar1;
     }
 }

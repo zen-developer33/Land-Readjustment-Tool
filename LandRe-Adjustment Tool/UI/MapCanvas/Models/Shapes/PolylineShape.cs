@@ -1,6 +1,5 @@
 using System.Collections.Generic;
 using System.Drawing;
-using Land_Readjustment_Tool.DrawingCanvas.Core;
 using Land_Readjustment_Tool.UI.MapCanvas.Models.Snapping;
 
 namespace Land_Readjustment_Tool.UI.MapCanvas.Models.Shapes

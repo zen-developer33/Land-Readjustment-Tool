@@ -626,7 +626,7 @@ namespace Land_Readjustment_Tool.UI.Forms.Project
             _suppressCanvasThemeEvents = false;
             ApplyThemePreset(CanvasThemeMode.Light);
             UpdateCanvasColorLabels();
-            chkGridVisible.Checked = true;
+            chkGridVisible.Checked = false;
             chkSnapEnabled.Checked = true;
             nudSnapTolerance.Value = ClampToRange(nudSnapTolerance, 8m);
 

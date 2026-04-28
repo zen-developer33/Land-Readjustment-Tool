@@ -54,7 +54,7 @@ namespace Land_Readjustment_Tool.Core.Entities.Project
             = "#2A3A47";
 
         // Show grid lines on canvas
-        public bool CanvasGridVisible { get; set; } = true;
+        public bool CanvasGridVisible { get; set; } = false;
 
         // Enable snap to geometry points
         public bool SnapEnabled { get; set; } = true;

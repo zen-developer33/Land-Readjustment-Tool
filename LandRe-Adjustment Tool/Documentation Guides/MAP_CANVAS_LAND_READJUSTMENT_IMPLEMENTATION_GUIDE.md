@@ -1,5 +1,9 @@
 # Map Canvas and Land Readjustment Implementation Guide
 
+## Related
+
+- See `MAP_CANVAS_FINAL_ARCHITECTURE_VERIFICATION.md` for the verified, entity-aligned final canvas implementation baseline used for current development.
+
 ## Purpose
 
 This document is a practical implementation guide for evolving the current application into a professional land readjustment desktop system with:
@@ -1481,6 +1485,15 @@ Deliverables:
 Success condition:
 
 The canvas displays and edits database-backed map features instead of only in-memory shapes.
+
+Phase 1 status update (April 27, 2026):
+
+- implemented `CanvasLayerRepository` for ordered/visible layer access
+- implemented `CanvasObjectRepository` with GUID-key CRUD and viewport query
+- added explicit tracked-entity detaching in update path to prevent duplicate-key EF tracking collisions
+- added `GeometryShapeMapper` for `IShape <-> CanvasObject.Shape` conversion
+- added `CanvasFeatureService` to orchestrate layer resolution + save/load mapping
+- wired new repositories and service into `IProjectScopedFactory` and `ProjectScopedFactory`
 
 ## Phase 2: Make parcels topology-aware
 

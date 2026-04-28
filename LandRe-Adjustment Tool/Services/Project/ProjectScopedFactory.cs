@@ -1,9 +1,11 @@
 using Land_Readjustment_Tool.Core.Interfaces;
 using Land_Readjustment_Tool.Data;
+using Land_Readjustment_Tool.Repositories.Canvas;
 using Land_Readjustment_Tool.Repositories.Project;
 using Land_Readjustment_Tool.Repositories.Spatial;
 using Land_Readjustment_Tool.Services.Import;
 using Land_Readjustment_Tool.Services.LandData;
+using Land_Readjustment_Tool.UI.MapCanvas.Services;
 
 namespace Land_Readjustment_Tool.Services.Project
 {
@@ -48,6 +50,23 @@ namespace Land_Readjustment_Tool.Services.Project
         public LandRecordsService CreateLandRecordsService(ProjectSession session, string projectFilePath)
         {
             return new LandRecordsService(session, projectFilePath);
+        }
+
+        public CanvasLayerRepository CreateCanvasLayerRepository(ProjectSession session)
+        {
+            return new CanvasLayerRepository(session);
+        }
+
+        public CanvasObjectRepository CreateCanvasObjectRepository(ProjectSession session)
+        {
+            return new CanvasObjectRepository(session);
+        }
+
+        public CanvasFeatureService CreateCanvasFeatureService(ProjectSession session)
+        {
+            CanvasLayerRepository layerRepository = CreateCanvasLayerRepository(session);
+            CanvasObjectRepository objectRepository = CreateCanvasObjectRepository(session);
+            return new CanvasFeatureService(objectRepository, layerRepository);
         }
     }
 }

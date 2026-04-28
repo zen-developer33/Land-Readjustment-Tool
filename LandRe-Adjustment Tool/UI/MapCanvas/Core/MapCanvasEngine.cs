@@ -10,8 +10,8 @@ namespace Land_Readjustment_Tool.UI.MapCanvas.Core
     public sealed class MapCanvasEngine
     {
         public const double MinZoom = 0.0001;
-        public const double MaxZoom = 50000.0;
-        public const double ZoomStep = 1.4;
+        public const double MaxZoom = 100000.0;
+        public const double ZoomStep = 1.2;
         private const double DefaultInitialCenterX = 245426.0206;
         private const double DefaultInitialCenterY = 3121303.7884;
         private const double DefaultInitialViewWidth = 8000.0;
@@ -184,6 +184,13 @@ namespace Land_Readjustment_Tool.UI.MapCanvas.Core
                 worldCenterY - ((_canvasSize.Height - screenCenterY) / _zoomScale));
         }
 
+        /// <summary>
+        /// Pans the current view by a screen-space delta.
+        /// Positive <paramref name="screenDeltaX"/> moves the view right on screen,
+        /// and positive <paramref name="screenDeltaY"/> moves the view down on screen.
+        /// </summary>
+        /// <param name="screenDeltaX">Horizontal pan amount in screen pixels.</param>
+        /// <param name="screenDeltaY">Vertical pan amount in screen pixels.</param>
         public void PanByScreenDelta(double screenDeltaX, double screenDeltaY)
         {
             _viewOriginWorld = new PointD(

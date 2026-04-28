@@ -18,6 +18,8 @@ namespace Land_Readjustment_Tool.UI.CustomControls
 
         private bool _panToolActive;
         private bool _isPanning;
+        private bool _isZooming;
+        private string? _zoomDirection;
         private bool _zoomWindowActive;
         private bool _isSelectingZoomWindow;
         private Point _lastPanPoint;
@@ -25,6 +27,7 @@ namespace Land_Readjustment_Tool.UI.CustomControls
         private Point _zoomWindowStart;
         private Point _zoomWindowCurrent;
         private PointD? _currentMouseWorld;
+        private System.Windows.Forms.Timer? _zoomingStatusTimer;
 
         public MapCanvasControl()
         {
@@ -35,6 +38,19 @@ namespace Land_Readjustment_Tool.UI.CustomControls
             _renderSettings = MapCanvasRenderSettings.CreateLightDefaults();
             WireInteractionEvents();
             UpdateStatusBar();
+        }
+
+        /// <summary>
+        /// Initializes the canvas with project settings.
+        /// Call this after the control is created to apply project-specific canvas colors and grid settings.
+        /// </summary>
+        public void InitializeWithProjectSettings(Land_Readjustment_Tool.Core.Entities.Project.ProjectSettings projectSettings)
+        {
+            if (projectSettings != null)
+            {
+                _renderSettings = MapCanvasRenderSettings.CreateFromProjectSettings(projectSettings);
+                ApplyRenderSettings(_renderSettings);
+            }
         }
 
         /// <summary>
@@ -180,10 +196,29 @@ namespace Land_Readjustment_Tool.UI.CustomControls
 
         private void canvasSurface_MouseWheel(object? sender, MouseEventArgs e)
         {
+            _isZooming = true;
             double zoomFactor = e.Delta > 0 ? MapCanvasEngine.ZoomStep : 1.0 / MapCanvasEngine.ZoomStep;
+            _zoomDirection = e.Delta > 0 ? "In" : "Out";
+            UpdateStatusBar();
+            
             _engine.ZoomAtPoint(e.Location, zoomFactor);
             _currentMouseWorld = _engine.ScreenToWorld(e.Location);
             RequestRender();
+            
+            // Reset the zooming timer to keep status visible for 300ms
+            _zoomingStatusTimer?.Stop();
+            _zoomingStatusTimer = new System.Windows.Forms.Timer();
+            _zoomingStatusTimer.Interval = 100;
+            _zoomingStatusTimer.Tick += (_, _) =>
+            {
+                _isZooming = false;
+                _zoomDirection = null;
+                _zoomingStatusTimer.Stop();
+                _zoomingStatusTimer.Dispose();
+                _zoomingStatusTimer = null;
+                UpdateStatusBar();
+            };
+            _zoomingStatusTimer.Start();
         }
 
         private void canvasSurface_MouseDown(object? sender, MouseEventArgs e)
@@ -213,6 +248,7 @@ namespace Land_Readjustment_Tool.UI.CustomControls
 
         private void canvasSurface_MouseMove(object? sender, MouseEventArgs e)
         {
+            
             if (_isSelectingZoomWindow)
             {
                 _currentMouseWorld = _engine.ScreenToWorld(e.Location);
@@ -271,7 +307,7 @@ namespace Land_Readjustment_Tool.UI.CustomControls
         {
             if (!_isPanning && !_isSelectingZoomWindow)
             {
-                _currentMouseWorld = null;
+   
                 RequestRender();
             }
         }
@@ -321,9 +357,7 @@ namespace Land_Readjustment_Tool.UI.CustomControls
 
         private void UpdateStatusBar()
         {
-            string coordinatesText = _currentMouseWorld.HasValue
-                ? $"E: {_currentMouseWorld.Value.X:F4}    N: {_currentMouseWorld.Value.Y:F4}"
-                : "E: --    N: --";
+            string coordinatesText = _currentMouseWorld.HasValue? $"E: {_currentMouseWorld.Value.X:F4}    N: {_currentMouseWorld.Value.Y:F4}" : "E: --    N: --"; 
 
             string modeText = GetModeText();
 
@@ -332,6 +366,11 @@ namespace Land_Readjustment_Tool.UI.CustomControls
 
         private string GetModeText()
         {
+            if (_isZooming && _zoomDirection != null)
+            {
+                return $"Mode: Zooming {_zoomDirection}";
+            }
+
             if (_isSelectingZoomWindow || _zoomWindowActive)
             {
                 return "Mode: Zoom Window";

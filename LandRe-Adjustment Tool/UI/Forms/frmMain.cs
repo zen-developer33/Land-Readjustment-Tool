@@ -36,7 +36,7 @@ namespace Land_Readjustment_Tool
         private readonly string _appTitle = "RePlot";
         private readonly string? _startupFilePath;
         //Canvas Control for drawing
-        private DrawingCanvasControl? _drawingCanvas;
+        private MapCanvasControl? _workspaceCanvas;
         private frmReplotWorkspace? _replotWorkspaceForm;
         private frmAreaConverter? _areaConverterForm;
 
@@ -68,8 +68,7 @@ namespace Land_Readjustment_Tool
             ConfigureSmoothSplitterLayout();
             mapCanvasControlMain.StatusChanged += MapCanvasControlMain_StatusChanged;
             ConfigureCanvasStatusBarLayout();
-            lblCanvasZoom.Visible = false;
-            lblCanvasScale.Visible = false;
+
 
             UpdateWindowTitle();
             DisableProjectMenuItems();
@@ -166,7 +165,7 @@ namespace Land_Readjustment_Tool
             if (_replotWorkspaceForm == null || _replotWorkspaceForm.IsDisposed)
             {
                 _replotWorkspaceForm = null;
-                _drawingCanvas = null;
+                _workspaceCanvas = null;
                 return;
             }
 
@@ -174,13 +173,13 @@ namespace Land_Readjustment_Tool
             _replotWorkspaceForm.Close();
             _replotWorkspaceForm.Dispose();
             _replotWorkspaceForm = null;
-            _drawingCanvas = null;
+            _workspaceCanvas = null;
         }
 
         private void ReplotWorkspaceForm_FormClosed(object? sender, FormClosedEventArgs e)
         {
             _replotWorkspaceForm = null;
-            _drawingCanvas = null;
+            _workspaceCanvas = null;
         }
 
         private void UpdateWindowTitle()
@@ -581,13 +580,13 @@ namespace Land_Readjustment_Tool
                     MapCanvasSettingsService.FromProjectSettings(settings));
                 mapCanvasControlMain.ApplySnapEnabled(settings.SnapEnabled);
 
-                if (_drawingCanvas != null && !_drawingCanvas.IsDisposed)
+                if (_workspaceCanvas != null && !_workspaceCanvas.IsDisposed)
                 {
-                    _drawingCanvas.ApplyBackgroundColor(bgColor);
-                    _drawingCanvas.ApplyGridColor(gridColor);
-                    _drawingCanvas.ApplyGridVisible(
+                    _workspaceCanvas.ApplyBackgroundColor(bgColor);
+                    _workspaceCanvas.ApplyGridColor(gridColor);
+                    _workspaceCanvas.ApplyGridVisible(
                         settings.CanvasGridVisible);
-                    _drawingCanvas.ApplySnapEnabled(
+                    _workspaceCanvas.ApplySnapEnabled(
                         settings.SnapEnabled);
                 }
             }
@@ -1056,7 +1055,7 @@ namespace Land_Readjustment_Tool
                 _replotWorkspaceForm.Activate();
             }
 
-            _drawingCanvas = _replotWorkspaceForm.CanvasControl;
+            _workspaceCanvas = _replotWorkspaceForm.CanvasControl;
             _ = ApplySettingsAsync();
         }
 

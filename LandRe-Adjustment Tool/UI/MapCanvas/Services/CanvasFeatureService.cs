@@ -1,0 +1,126 @@
+using Land_Readjustment_Tool.Core.Entities.Canvas;
+using Land_Readjustment_Tool.Core.Interfaces;
+using Land_Readjustment_Tool.UI.MapCanvas.Models.Shapes;
+
+namespace Land_Readjustment_Tool.UI.MapCanvas.Services
+{
+    /// <summary>
+    /// Orchestrates load/save of persisted canvas objects and maps them to runtime shapes.
+    /// </summary>
+    public sealed class CanvasFeatureService
+    {
+        private readonly ICanvasObjectRepository _canvasObjectRepository;
+        private readonly ICanvasLayerRepository _canvasLayerRepository;
+
+        public CanvasFeatureService(
+            ICanvasObjectRepository canvasObjectRepository,
+            ICanvasLayerRepository canvasLayerRepository)
+        {
+            _canvasObjectRepository = canvasObjectRepository;
+            _canvasLayerRepository = canvasLayerRepository;
+        }
+
+        public async Task<IReadOnlyList<CanvasFeature>> GetAllVisibleAsync(
+            CancellationToken ct = default)
+        {
+            List<CanvasObject> objects = await _canvasObjectRepository.GetAllVisibleAsync(ct);
+            return objects.Select(MapFeature).ToList();
+        }
+
+        public async Task<IReadOnlyList<CanvasFeature>> QueryVisibleByViewportAsync(
+            RectangleD viewportWorldBounds,
+            CancellationToken ct = default)
+        {
+            List<CanvasObject> objects = await _canvasObjectRepository.QueryByViewportAsync(
+                viewportWorldBounds,
+                ct);
+
+            return objects.Select(MapFeature).ToList();
+        }
+
+        public async Task<CanvasFeature> SaveShapeAsync(
+            IShape shape,
+            string layerName,
+            CancellationToken ct = default)
+        {
+            ArgumentNullException.ThrowIfNull(shape);
+
+            CanvasLayer layer = await EnsureLayerAsync(layerName, ct);
+            CanvasObject? existing = await _canvasObjectRepository.GetByIdAsync(shape.Id, ct);
+            CanvasObject entity = GeometryShapeMapper.ToCanvasObject(shape, layer.Id, existing);
+
+            if (existing == null)
+            {
+                await _canvasObjectRepository.AddAsync(entity, ct);
+            }
+            else
+            {
+                await _canvasObjectRepository.UpdateAsync(entity, ct);
+            }
+
+            entity.CanvasLayer = layer;
+            IShape mappedShape = GeometryShapeMapper.ToShape(entity);
+            mappedShape.LayerName = layer.Name;
+            return new CanvasFeature(entity, mappedShape, layer);
+        }
+
+        public async Task DeleteShapeAsync(
+            Guid shapeId,
+            CancellationToken ct = default)
+        {
+            await _canvasObjectRepository.DeleteAsync(shapeId, ct);
+        }
+
+        private async Task<CanvasLayer> EnsureLayerAsync(
+            string layerName,
+            CancellationToken ct)
+        {
+            string normalizedName = string.IsNullOrWhiteSpace(layerName)
+                ? "Default"
+                : layerName.Trim();
+
+            CanvasLayer? existingLayer = await _canvasLayerRepository.GetByNameAsync(
+                normalizedName,
+                ct);
+
+            if (existingLayer != null)
+            {
+                return existingLayer;
+            }
+
+            List<CanvasLayer> layers = await _canvasLayerRepository.GetAllOrderedAsync(ct);
+            int nextDisplayOrder = layers.Count == 0
+                ? 0
+                : layers.Max(layer => layer.DisplayOrder) + 1;
+
+            CanvasLayer newLayer = new()
+            {
+                Name = normalizedName,
+                LayerType = "Reference",
+                IsVisible = true,
+                IsLocked = false,
+                IsSelectable = true,
+                IsPrintable = true,
+                DisplayOrder = nextDisplayOrder,
+                BorderColor = "#000000",
+                FillColor = "#FFFFFF",
+                FillTransparency = 100,
+                LineWeight = 1.0,
+                LineStyle = "Solid",
+                LabelColor = "#000000",
+                FillStyle = "Solid",
+                PointSymbol = "Circle",
+                PointSize = 5.0
+            };
+
+            return await _canvasLayerRepository.AddAsync(newLayer, ct);
+        }
+
+        private static CanvasFeature MapFeature(CanvasObject canvasObject)
+        {
+            IShape shape = GeometryShapeMapper.ToShape(canvasObject);
+            shape.LayerName = canvasObject.CanvasLayer?.Name ?? shape.LayerName;
+            return new CanvasFeature(canvasObject, shape, canvasObject.CanvasLayer);
+        }
+    }
+}
