@@ -15,6 +15,7 @@ namespace Land_Readjustment_Tool.UI.MapCanvas.Services
             string projectFolderPath,
             string layerName,
             string targetSrsDefinition,
+            string? sourceSrsDefinitionOverride = null,
             IProgress<RasterImportProgress>? progress = null)
         {
             progress?.Report(new RasterImportProgress(5, "Checking raster file"));
@@ -55,7 +56,9 @@ namespace Land_Readjustment_Tool.UI.MapCanvas.Services
             RasterImportMetadata sourceMetadata =
                 ReadMetadata(sourcePath, sourceDataset);
 
-            string sourceProjection = sourceMetadata.ProjectionWkt;
+            string sourceProjection = string.IsNullOrWhiteSpace(sourceMetadata.ProjectionWkt)
+                ? sourceSrsDefinitionOverride ?? string.Empty
+                : sourceMetadata.ProjectionWkt;
             RasterImportMode importMode;
 
             string rasterFolder = Path.Combine(projectFolderPath, RasterFolderName);
@@ -63,6 +66,10 @@ namespace Land_Readjustment_Tool.UI.MapCanvas.Services
 
             string outputFileName = $"{SanitizeFileName(layerName)}.tif";
             string outputPath = GetUniquePath(Path.Combine(rasterFolder, outputFileName));
+
+            bool usesDefinedSourceProjection =
+                string.IsNullOrWhiteSpace(sourceMetadata.ProjectionWkt) &&
+                !string.IsNullOrWhiteSpace(sourceSrsDefinitionOverride);
 
             if (sourceMetadata.HasGeoreferencing &&
                 !string.IsNullOrWhiteSpace(sourceProjection))
@@ -74,7 +81,9 @@ namespace Land_Readjustment_Tool.UI.MapCanvas.Services
                     outputPath,
                     sourceProjection,
                     targetSrsDefinition);
-                importMode = RasterImportMode.ProjectedToProjectCrs;
+                importMode = usesDefinedSourceProjection
+                    ? RasterImportMode.SourceCrsDefinedProjectedToProjectCrs
+                    : RasterImportMode.ProjectedToProjectCrs;
             }
             else
             {
@@ -99,6 +108,30 @@ namespace Land_Readjustment_Tool.UI.MapCanvas.Services
                 sourceDataset.RasterXSize,
                 sourceDataset.RasterYSize,
                 sourceMetadata);
+        }
+
+        /// <summary>
+        /// Reads source raster metadata without importing it into the project.
+        /// </summary>
+        public RasterImportMetadata ReadSourceMetadata(string sourcePath)
+        {
+            if (string.IsNullOrWhiteSpace(sourcePath) || !File.Exists(sourcePath))
+                throw new FileNotFoundException("Raster file was not found.", sourcePath);
+
+            GdalConfiguration.ConfigureGdal();
+            if (!GdalConfiguration.Usable)
+                throw new InvalidOperationException(
+                    "GDAL is not configured correctly. Raster metadata cannot be read.");
+
+            using Dataset sourceDataset = Gdal.Open(sourcePath, Access.GA_ReadOnly)
+                ?? throw new InvalidOperationException(
+                    "GDAL could not open the selected raster.");
+
+            if (sourceDataset.RasterCount <= 0)
+                throw new InvalidOperationException(
+                    "The selected file does not contain raster bands.");
+
+            return ReadMetadata(sourcePath, sourceDataset);
         }
 
         /// <summary>
@@ -383,6 +416,7 @@ namespace Land_Readjustment_Tool.UI.MapCanvas.Services
     internal enum RasterImportMode
     {
         ProjectedToProjectCrs,
+        SourceCrsDefinedProjectedToProjectCrs,
         UnknownCrsCopiedWithoutProjection,
         UnreferencedCopiedToLocalCoordinates
     }
@@ -648,6 +682,8 @@ namespace Land_Readjustment_Tool.UI.MapCanvas.Services
             {
                 RasterImportMode.ProjectedToProjectCrs =>
                     "Raster CRS was found; raster was warped to the project CRS.",
+                RasterImportMode.SourceCrsDefinedProjectedToProjectCrs =>
+                    "Raster CRS was not stored; source CRS was defined during import and warped to the project CRS.",
                 RasterImportMode.UnknownCrsCopiedWithoutProjection =>
                     "Raster has map coordinates but no CRS; copied without projection because the source CRS is unknown.",
                 RasterImportMode.UnreferencedCopiedToLocalCoordinates =>
@@ -662,6 +698,8 @@ namespace Land_Readjustment_Tool.UI.MapCanvas.Services
             {
                 RasterImportMode.ProjectedToProjectCrs =>
                     "Project CRS coordinates.",
+                RasterImportMode.SourceCrsDefinedProjectedToProjectCrs =>
+                    "Project CRS coordinates using the source CRS defined during import.",
                 RasterImportMode.UnknownCrsCopiedWithoutProjection =>
                     "Original stored raster coordinates; alignment depends on the user later defining the correct CRS.",
                 RasterImportMode.UnreferencedCopiedToLocalCoordinates =>

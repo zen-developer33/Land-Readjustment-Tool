@@ -93,6 +93,14 @@ namespace Land_Readjustment_Tool.Data
                 .ToTable(t => t.HasCheckConstraint(
                     "CK_ProjectSettings_SingleRow", "Id = 1"));
 
+            modelBuilder.Entity<CanvasLayer>()
+                .Property(layer => layer.IsLocked)
+                .HasDefaultValue(false);
+
+            modelBuilder.Entity<CanvasObject>()
+                .Property(canvasObject => canvasObject.IsLocked)
+                .HasDefaultValue(false);
+
             // ── UNIQUE INDEXES ───────────────────────
 
             modelBuilder.Entity<CoordinateSystem>()

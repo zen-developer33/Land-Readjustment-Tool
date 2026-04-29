@@ -37,6 +37,8 @@ namespace Land_Readjustment_Tool.Services.Canvas
             string newName,
             CancellationToken ct = default)
         {
+            await EnsureLayerEditableAsync(session, layer, "renamed", ct);
+
             if (string.IsNullOrWhiteSpace(newName) ||
                 string.Equals(layer.Name, newName, StringComparison.Ordinal))
             {
@@ -97,6 +99,8 @@ namespace Land_Readjustment_Tool.Services.Canvas
             CanvasLayer layer,
             CancellationToken ct = default)
         {
+            await EnsureLayerEditableAsync(session, layer, "edited", ct);
+
             CanvasLayer updatedLayer = CloneLayer(layer);
             updatedLayer.LastModifiedDate = DateTime.Now;
 
@@ -112,6 +116,8 @@ namespace Land_Readjustment_Tool.Services.Canvas
             CanvasLayer layer,
             CancellationToken ct = default)
         {
+            await EnsureLayerEditableAsync(session, layer, "deleted", ct);
+
             if (session == null || layer.Id <= 0)
             {
                 return;
@@ -136,6 +142,32 @@ namespace Land_Readjustment_Tool.Services.Canvas
 
             var repository = _projectScopedFactory.CreateCanvasLayerRepository(session);
             await repository.UpdateAsync(layer, ct);
+        }
+
+        /// <summary>
+        /// Stops destructive or editing commands for locked layers while still allowing lock toggles.
+        /// </summary>
+        private async Task EnsureLayerEditableAsync(
+            ProjectSession? session,
+            CanvasLayer layer,
+            string action,
+            CancellationToken ct)
+        {
+            if (session != null && layer.Id > 0)
+            {
+                var repository = _projectScopedFactory.CreateCanvasLayerRepository(session);
+                CanvasLayer? currentLayer = await repository.GetByIDAsync(layer.Id, ct);
+
+                if (currentLayer?.IsLocked == true)
+                    throw new InvalidOperationException(
+                        $"Layer '{currentLayer.Name}' is locked and cannot be {action}.");
+
+                return;
+            }
+
+            if (layer.IsLocked)
+                throw new InvalidOperationException(
+                    $"Layer '{layer.Name}' is locked and cannot be {action}.");
         }
 
         /// <summary>

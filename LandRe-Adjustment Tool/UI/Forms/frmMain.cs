@@ -8,6 +8,7 @@ using Land_Readjustment_Tool.Properties;
 using Land_Readjustment_Tool.Services;
 using Land_Readjustment_Tool.Services.Canvas;
 using Land_Readjustment_Tool.Services.Project;
+using Land_Readjustment_Tool.Services.Raster;
 using Land_Readjustment_Tool.UI.CustomControls;
 using Land_Readjustment_Tool.UI.Forms;
 using Land_Readjustment_Tool.UI.Forms.Project;
@@ -32,6 +33,7 @@ namespace Land_Readjustment_Tool
         private readonly CanvasLayerCommandService _layerCommandService;
         private readonly CanvasLayerBoundsService _layerBoundsService;
         private readonly RasterLayerProjectionService _rasterLayerProjectionService;
+        private readonly IRasterLayerImportService _rasterLayerImportService;
         private readonly ProjectOpenService _projectOpenService;
         private readonly ProjectSaveAsService _projectSaveAsService;
         #endregion
@@ -158,6 +160,14 @@ namespace Land_Readjustment_Tool
                 projectScopedFactory,
                 new CanvasLayerCommandService(projectScopedFactory),
                 new CanvasLayerBoundsService(projectScopedFactory),
+                new RasterLayerProjectionService(
+                    projectScopedFactory,
+                    new ProjectRasterCrsResolver(projectScopedFactory),
+                    new GdalRasterDatasetImporter()),
+                new RasterLayerImportService(
+                    projectScopedFactory,
+                    new ProjectRasterCrsResolver(projectScopedFactory),
+                    new GdalRasterDatasetImporter()),
                 new ProjectOpenService(sessionFactory, projectScopedFactory),
                 new ProjectSaveAsService(backupService, sessionFactory),
                 startupFilePath)
@@ -171,6 +181,8 @@ namespace Land_Readjustment_Tool
             IProjectScopedFactory projectScopedFactory,
             CanvasLayerCommandService layerCommandService,
             CanvasLayerBoundsService layerBoundsService,
+            RasterLayerProjectionService rasterLayerProjectionService,
+            IRasterLayerImportService rasterLayerImportService,
             ProjectOpenService projectOpenService,
             ProjectSaveAsService projectSaveAsService,
             string? startupFilePath = null)
@@ -181,7 +193,8 @@ namespace Land_Readjustment_Tool
             _projectScopedFactory = projectScopedFactory ?? throw new ArgumentNullException(nameof(projectScopedFactory));
             _layerCommandService = layerCommandService ?? throw new ArgumentNullException(nameof(layerCommandService));
             _layerBoundsService = layerBoundsService ?? throw new ArgumentNullException(nameof(layerBoundsService));
-            _rasterLayerProjectionService = new RasterLayerProjectionService(_projectScopedFactory);
+            _rasterLayerProjectionService = rasterLayerProjectionService ?? throw new ArgumentNullException(nameof(rasterLayerProjectionService));
+            _rasterLayerImportService = rasterLayerImportService ?? throw new ArgumentNullException(nameof(rasterLayerImportService));
             _projectOpenService = projectOpenService ?? throw new ArgumentNullException(nameof(projectOpenService));
             _projectSaveAsService = projectSaveAsService ?? throw new ArgumentNullException(nameof(projectSaveAsService));
 
@@ -1117,8 +1130,9 @@ namespace Land_Readjustment_Tool
             {
                 Title = "Import Raster Image",
                 Filter =
-                    "Georeferenced rasters (*.tif;*.tiff;*.vrt;*.img;*.jpg;*.jpeg;*.png;*.bmp)|*.tif;*.tiff;*.vrt;*.img;*.jpg;*.jpeg;*.png;*.bmp|" +
+                    "Raster files (*.tif;*.tiff;*.vrt;*.img;*.jpg;*.jpeg;*.png;*.bmp;*.mbtiles)|*.tif;*.tiff;*.vrt;*.img;*.jpg;*.jpeg;*.png;*.bmp;*.mbtiles|" +
                     "GeoTIFF (*.tif;*.tiff)|*.tif;*.tiff|" +
+                    "MBTiles (*.mbtiles)|*.mbtiles|" +
                     "All files (*.*)|*.*",
                 Multiselect = false,
                 RestoreDirectory = true
@@ -1130,158 +1144,62 @@ namespace Land_Readjustment_Tool
             try
             {
                 UseWaitCursor = true;
+                SetOperationProgress(2, "Reading raster details");
+
+                RasterLayerImportPreview importPreview =
+                    await _rasterLayerImportService.PrepareImportAsync(
+                        AppServices.Context.Session,
+                        dialog.FileName);
+
+                UseWaitCursor = false;
+
+                using frmRasterImportReview reviewForm =
+                    new(importPreview);
+
+                if (reviewForm.ShowDialog(this) != DialogResult.OK)
+                    return;
+
+                UseWaitCursor = true;
                 SetOperationProgress(2, "Starting raster import");
 
-                var session = AppServices.Context.Session;
-                var settingsRepository =
-                    _projectScopedFactory.CreateProjectSettingsRepository(session);
-                var coordinateSystemRepository =
-                    _projectScopedFactory.CreateCoordinateSystemRepository(session);
-                var datumTransformationRepository =
-                    _projectScopedFactory.CreateDatumTransformationRepository(session);
-                var layerRepository =
-                    _projectScopedFactory.CreateCanvasLayerRepository(session);
-
-                SetOperationProgress(8, "Loading project CRS settings");
-
-                var settings = await settingsRepository.GetProjectSettingsAsync();
-                if (settings?.CoordinateSystemId == null)
-                {
-                    MessageBox.Show(
-                        "Please configure the project coordinate system before importing raster data.",
-                        "Raster Import",
-                        MessageBoxButtons.OK,
-                        MessageBoxIcon.Warning);
-                    OpenProjectSettings();
-                    return;
-                }
-
-                var projectCoordinateSystem =
-                    await coordinateSystemRepository.GetWithParametersAsync(
-                        settings.CoordinateSystemId.Value);
-
-                if (projectCoordinateSystem == null)
-                    throw new InvalidOperationException(
-                        "The configured project coordinate system could not be loaded.");
-
-                SetOperationProgress(14, "Preparing datum transformation");
-
-                Land_Readjustment_Tool.Core.Entities.Spatial.DatumTransformation?
-                    datumTransformation = null;
-
-                if (settings.DatumTransformationId.HasValue)
-                {
-                    datumTransformation =
-                        await datumTransformationRepository.GetByIDAsync(
-                            settings.DatumTransformationId.Value);
-                }
-
-                string targetSrsDefinition =
-                    ProjectCrsWktBuilder.BuildTargetSrsDefinition(
-                        projectCoordinateSystem,
-                        datumTransformation);
-
-                SetOperationProgress(18, "Checking existing map layers");
-
-                List<CanvasLayer> existingLayers =
-                    await layerRepository.GetAllOrderedAsync();
-
-                string layerName = BuildUniqueLayerName(
-                    Path.GetFileNameWithoutExtension(dialog.FileName),
-                        existingLayers);
-
-                RasterImportService importService = new();
-                Progress<RasterImportProgress> progress = new(
+                Progress<RasterImportProgressInfo> progress = new(
                     update => SetOperationProgress(update.Percent, update.Status));
 
-                RasterImportResult importResult = await Task.Run(() =>
-                    importService.ImportToProjectCrs(
-                        dialog.FileName,
-                        AppServices.Context.ProjectFolderPath,
-                        layerName,
-                        targetSrsDefinition,
-                        progress));
+                RasterLayerImportResult importResult =
+                    await _rasterLayerImportService.ImportAsync(
+                        new RasterLayerImportRequest(
+                            AppServices.Context.Session,
+                            AppServices.Context.ProjectFolderPath,
+                            dialog.FileName,
+                            reviewForm.LayerName,
+                            reviewForm.SourceSrsDefinitionOverride),
+                        progress);
 
-                SetOperationProgress(90, "Creating raster map layer");
-
-                int nextDisplayOrder = existingLayers.Count == 0
-                    ? 0
-                    : existingLayers.Max(layer => layer.DisplayOrder) + 1;
-
-                CanvasLayer rasterLayer = new()
-                {
-                    Name = layerName,
-                    LayerType = CanvasLayerTreeService.RasterLayerType,
-                    IsVisible = true,
-                    IsLocked = false,
-                    IsSelectable = true,
-                    IsPrintable = true,
-                    DisplayOrder = nextDisplayOrder,
-                    BorderColor = "#4B8BBE",
-                    LineWeight = 1.0,
-                    LineStyle = "Solid",
-                    FillTransparency = 0,
-                    FillStyle = "None",
-                    LabelColor = "#000000",
-                    PointSymbol = "Circle",
-                    PointSize = 5.0,
-                    SourceFile = importResult.RelativePath,
-                    ImportedDate = DateTime.Now,
-                    Description = importResult.SourceMetadata.ToLayerDescription(
-                        layerName,
-                        importResult.RelativePath,
-                        projectCoordinateSystem.Code,
-                        importResult.ImportMode)
-                };
-
-                CanvasLayer savedLayer = await layerRepository.AddAsync(rasterLayer);
-
-                SetOperationProgress(94, "Saving raster layer");
+                SetOperationProgress(94, "Refreshing raster layer list");
 
                 AppServices.Context.MarkAsModified();
                 UpdateWindowTitle();
 
-                SetOperationProgress(97, "Refreshing map canvas");
-
                 await RefreshLayerTreeAsync();
-                SelectLayerNodeById(savedLayer.Id);
+                SelectLayerNodeById(importResult.Layer.Id);
                 mapCanvasControlMain.ZoomExtents();
 
-                SetOperationProgress(100, "Raster added to map canvas");
-
-                string importDetails = importResult.SourceMetadata.ToDisplayText(
-                    layerName,
-                    importResult.RelativePath,
-                    projectCoordinateSystem.Code,
-                    importResult.ImportMode);
-
-                AppServices.Context.Session.Logger.LogInfo(
-                    $"Raster import metadata:{Environment.NewLine}{importDetails}");
-
-                string importHeading = importResult.ImportMode switch
-                {
-                    RasterImportMode.ProjectedToProjectCrs =>
-                        $"Imported '{layerName}' successfully.",
-                    RasterImportMode.UnknownCrsCopiedWithoutProjection =>
-                        $"Imported '{layerName}', but the raster CRS is unknown.",
-                    RasterImportMode.UnreferencedCopiedToLocalCoordinates =>
-                        $"Imported '{layerName}' for temporary display only.",
-                    _ => $"Imported '{layerName}'."
-                };
-
-                string? importWarning = GetRasterImportWarning(importResult.ImportMode);
+                string? importWarning = importResult.Warning;
                 MessageBoxIcon importIcon =
-                    importResult.ImportMode == RasterImportMode.ProjectedToProjectCrs
+                    importResult.Dataset.ImportMode ==
+                    RasterDatasetImportMode.ProjectedToProjectCrs ||
+                    importResult.Dataset.ImportMode ==
+                    RasterDatasetImportMode.SourceCrsDefinedProjectedToProjectCrs
                         ? MessageBoxIcon.Information
                         : MessageBoxIcon.Warning;
                 string messageBody = importWarning == null
-                    ? importDetails
+                    ? importResult.Details
                     : $"{importWarning}{Environment.NewLine}{Environment.NewLine}" +
                       "The raster was still imported so you can inspect it, but it will not align correctly until it is georeferenced or assigned the correct CRS." +
-                      $"{Environment.NewLine}{Environment.NewLine}{importDetails}";
+                      $"{Environment.NewLine}{Environment.NewLine}{importResult.Details}";
 
                 MessageBox.Show(
-                    $"{importHeading}{Environment.NewLine}{Environment.NewLine}" +
+                    $"{importResult.Heading}{Environment.NewLine}{Environment.NewLine}" +
                     messageBody,
                     importWarning == null
                         ? "Raster Import Details"
@@ -1289,13 +1207,21 @@ namespace Land_Readjustment_Tool
                     MessageBoxButtons.OK,
                     importIcon);
             }
+            catch (InvalidOperationException ex)
+                when (ex.Message.Contains(
+                    "project coordinate system",
+                    StringComparison.OrdinalIgnoreCase))
+            {
+                MessageBox.Show(
+                    ex.Message,
+                    "Raster Import",
+                    MessageBoxButtons.OK,
+                    MessageBoxIcon.Warning);
+                OpenProjectSettings();
+            }
             catch (Exception ex)
             {
-                string exceptionDetails = FormatExceptionDetails(ex);
-                System.Diagnostics.Debug.WriteLine(exceptionDetails);
-                AppServices.Context.Session.Logger.LogError(
-                    $"Raster import failed.{Environment.NewLine}{exceptionDetails}",
-                    ex);
+                LogProjectError("Raster import failed.", ex);
 
                 MessageBox.Show(
                     $"Failed to import raster: {GetMostUsefulExceptionMessage(ex)}",
@@ -2267,6 +2193,13 @@ namespace Land_Readjustment_Tool
                 return;
             }
 
+            CanvasLayer? layer = GetLayerFromNode(node);
+            if (layer?.IsLocked == true)
+            {
+                ShowLayerLockedMessage(layer, "renamed");
+                return;
+            }
+
             treeViewLayers.SelectedNode = node;
             _renamingLayerNode = node;
             _layerRenameTextBox.Bounds = GetLayerRenameTextBoxRect(node!);
@@ -2353,9 +2286,26 @@ namespace Land_Readjustment_Tool
                     return;
                 }
 
-                UpdateLayerNode(node, updatedLayer);
+                UpdateLayerNode(node, updatedLayer, updateRasterStack: false);
                 MarkProjectModifiedIfOpen();
-                await RefreshMapCanvasAsync("Refreshing map canvas");
+                if (IsRasterLayer(updatedLayer))
+                {
+                    bool visibilityUpdated =
+                        mapCanvasControlMain.SetRasterLayerVisibility(
+                            updatedLayer.Id,
+                            updatedLayer.IsVisible);
+
+                    if (!visibilityUpdated)
+                        UpdateRasterCanvasLayersFromTree();
+                }
+                else
+                {
+                    mapCanvasControlMain.RequestRender();
+                }
+
+                SetCanvasCommandStatus(updatedLayer.IsVisible
+                    ? $"Layer shown: {updatedLayer.Name}"
+                    : $"Layer hidden: {updatedLayer.Name}");
                 SelectLayerNodeById(updatedLayer.Id);
             }
             catch (Exception ex)
@@ -2374,6 +2324,12 @@ namespace Land_Readjustment_Tool
                 !nodeState.IsLayerNode ||
                 nodeState.Layer == null)
             {
+                return;
+            }
+
+            if (nodeState.Layer.IsLocked)
+            {
+                ShowLayerLockedMessage(nodeState.Layer, "renamed");
                 return;
             }
 
@@ -2408,7 +2364,7 @@ namespace Land_Readjustment_Tool
         private async Task ToggleLayerLockAsync(TreeNode? node)
         {
             CanvasLayer? layer = GetLayerFromNode(node);
-            if (layer == null || IsRasterLayer(layer))
+            if (layer == null)
             {
                 return;
             }
@@ -2425,9 +2381,11 @@ namespace Land_Readjustment_Tool
                     return;
                 }
 
-                UpdateLayerNode(node!, updatedLayer);
+                UpdateLayerNode(node!, updatedLayer, updateRasterStack: false);
                 MarkProjectModifiedIfOpen();
-                await RefreshMapCanvasAsync("Refreshing map canvas");
+                SetCanvasCommandStatus(updatedLayer.IsLocked
+                    ? $"Layer locked: {updatedLayer.Name}"
+                    : $"Layer unlocked: {updatedLayer.Name}");
                 SelectLayerNodeById(updatedLayer.Id);
             }
             catch (Exception ex)
@@ -2445,6 +2403,12 @@ namespace Land_Readjustment_Tool
             CanvasLayer? layer = GetLayerFromNode(node);
             if (layer == null)
             {
+                return;
+            }
+
+            if (layer.IsLocked)
+            {
+                ShowLayerLockedMessage(layer, "deleted");
                 return;
             }
 
@@ -2529,7 +2493,10 @@ namespace Land_Readjustment_Tool
             }
         }
 
-        private void UpdateLayerNode(TreeNode node, CanvasLayer layer)
+        private void UpdateLayerNode(
+            TreeNode node,
+            CanvasLayer layer,
+            bool updateRasterStack = true)
         {
             if (node.Tag is LayerTreeNodeState nodeState)
             {
@@ -2539,7 +2506,9 @@ namespace Land_Readjustment_Tool
             node.Text = layer.Name;
             treeViewLayers.Invalidate();
             UpdateActiveLayerComboFromTree(layer.Id);
-            UpdateRasterCanvasLayersFromTree();
+
+            if (updateRasterStack)
+                UpdateRasterCanvasLayersFromTree();
         }
 
         /// <summary>
@@ -2554,6 +2523,19 @@ namespace Land_Readjustment_Tool
 
             AppServices.Context.MarkAsModified();
             UpdateWindowTitle();
+        }
+
+        /// <summary>
+        /// Explains why a protected layer cannot be changed.
+        /// </summary>
+        private void ShowLayerLockedMessage(CanvasLayer layer, string action)
+        {
+            MessageBox.Show(
+                $"Layer '{layer.Name}' is locked and cannot be {action}.\n\nUnlock the layer first if you want to change it.",
+                "Layer Locked",
+                MessageBoxButtons.OK,
+                MessageBoxIcon.Information);
+            SetCanvasCommandStatus($"Layer locked: {layer.Name}");
         }
 
         /// <summary>
@@ -2582,7 +2564,6 @@ namespace Land_Readjustment_Tool
                 HideOperationProgress();
             }
         }
-
         private async Task RefreshLayerTreeAsync()
         {
             if (!AppServices.HasContext || _layerTreeService == null)
@@ -2821,6 +2802,12 @@ namespace Land_Readjustment_Tool
             CanvasLayer editableLayer =
                 _layerCommandService.CreateEditableCopy(nodeState.Layer);
 
+            if (nodeState.Layer.IsLocked)
+            {
+                ShowLayerLockedMessage(nodeState.Layer, "edited");
+                return;
+            }
+
             using var frm = new frmLayerPropertyManager(editableLayer);
             PositionLayerPropertyManager(frm);
 
@@ -2834,9 +2821,28 @@ namespace Land_Readjustment_Tool
                         AppServices.HasContext ? AppServices.Context.Session : null,
                         editableLayer);
 
-                UpdateLayerNode(node, updatedLayer);
+                bool isRaster = IsRasterLayer(updatedLayer);
+                UpdateLayerNode(node, updatedLayer, updateRasterStack: !isRaster);
                 MarkProjectModifiedIfOpen();
-                await RefreshMapCanvasAsync("Refreshing map canvas");
+
+                if (isRaster)
+                {
+                    if (!mapCanvasControlMain.SetRasterLayerRenderState(
+                        updatedLayer.Id,
+                        updatedLayer.IsVisible,
+                        updatedLayer.FillTransparency))
+                    {
+                        UpdateRasterCanvasLayersFromTree();
+                    }
+
+                    SetCanvasCommandStatus($"Raster layer updated: {updatedLayer.Name}");
+                }
+                else
+                {
+                    mapCanvasControlMain.RequestRender();
+                    SetCanvasCommandStatus($"Layer properties updated: {updatedLayer.Name}");
+                }
+
                 SelectLayerNodeById(updatedLayer.Id);
             }
             catch (Exception ex)
@@ -2912,31 +2918,6 @@ namespace Land_Readjustment_Tool
                 projectFolderPath);
         }
 
-        private static string BuildUniqueLayerName(
-            string? desiredName,
-            IEnumerable<CanvasLayer> existingLayers)
-        {
-            string baseName = string.IsNullOrWhiteSpace(desiredName)
-                ? "Raster"
-                : desiredName.Trim();
-
-            HashSet<string> existingNames = existingLayers
-                .Select(layer => layer.Name)
-                .ToHashSet(StringComparer.OrdinalIgnoreCase);
-
-            if (!existingNames.Contains(baseName))
-                return baseName;
-
-            for (int counter = 1; counter < 10000; counter++)
-            {
-                string candidate = $"{baseName}_{counter}";
-                if (!existingNames.Contains(candidate))
-                    return candidate;
-            }
-
-            return $"{baseName}_{DateTime.Now:yyyyMMddHHmmss}";
-        }
-
         private static string GetMostUsefulExceptionMessage(Exception exception)
         {
             Exception current = exception;
@@ -2945,18 +2926,6 @@ namespace Land_Readjustment_Tool
                 current = current.InnerException;
 
             return current.Message;
-        }
-
-        private static string? GetRasterImportWarning(RasterImportMode importMode)
-        {
-            return importMode switch
-            {
-                RasterImportMode.UnknownCrsCopiedWithoutProjection =>
-                    "Warning: this raster has map coordinates, but no coordinate reference system was found.",
-                RasterImportMode.UnreferencedCopiedToLocalCoordinates =>
-                    "Warning: this raster is not georeferenced. The map placement is temporary image coordinates only, so the map will not be spatially correct.",
-                _ => null
-            };
         }
 
         private static string FormatExceptionDetails(Exception exception)

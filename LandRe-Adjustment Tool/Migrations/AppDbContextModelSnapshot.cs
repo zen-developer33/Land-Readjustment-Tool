@@ -54,7 +54,9 @@ namespace Land_Readjustment_Tool.Migrations
                         .HasColumnType("TEXT");
 
                     b.Property<bool>("IsLocked")
-                        .HasColumnType("INTEGER");
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("INTEGER")
+                        .HasDefaultValue(false);
 
                     b.Property<bool>("IsPrintable")
                         .HasColumnType("INTEGER");
@@ -142,7 +144,9 @@ namespace Land_Readjustment_Tool.Migrations
                         .HasColumnType("INTEGER");
 
                     b.Property<bool>("IsLocked")
-                        .HasColumnType("INTEGER");
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("INTEGER")
+                        .HasDefaultValue(false);
 
                     b.Property<bool>("IsVisible")
                         .HasColumnType("INTEGER");

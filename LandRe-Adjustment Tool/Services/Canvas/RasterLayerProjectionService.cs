@@ -1,7 +1,7 @@
 using Land_Readjustment_Tool.Core.Entities.Canvas;
-using Land_Readjustment_Tool.Core.Entities.Spatial;
 using Land_Readjustment_Tool.Core.Interfaces;
 using Land_Readjustment_Tool.Data;
+using Land_Readjustment_Tool.Services.Raster;
 using Land_Readjustment_Tool.UI.MapCanvas.Services;
 
 namespace Land_Readjustment_Tool.Services.Canvas
@@ -12,14 +12,23 @@ namespace Land_Readjustment_Tool.Services.Canvas
     public sealed class RasterLayerProjectionService
     {
         private readonly IProjectScopedFactory _projectScopedFactory;
+        private readonly IProjectRasterCrsResolver _crsResolver;
+        private readonly IRasterDatasetImporter _datasetImporter;
 
         /// <summary>
         /// Creates a raster projection updater using project-scoped repositories.
         /// </summary>
-        public RasterLayerProjectionService(IProjectScopedFactory projectScopedFactory)
+        public RasterLayerProjectionService(
+            IProjectScopedFactory projectScopedFactory,
+            IProjectRasterCrsResolver crsResolver,
+            IRasterDatasetImporter datasetImporter)
         {
             _projectScopedFactory = projectScopedFactory
                 ?? throw new ArgumentNullException(nameof(projectScopedFactory));
+            _crsResolver = crsResolver
+                ?? throw new ArgumentNullException(nameof(crsResolver));
+            _datasetImporter = datasetImporter
+                ?? throw new ArgumentNullException(nameof(datasetImporter));
         }
 
         /// <summary>
@@ -39,48 +48,17 @@ namespace Land_Readjustment_Tool.Services.Canvas
                     "Project folder was not found.");
             }
 
-            var settingsRepository =
-                _projectScopedFactory.CreateProjectSettingsRepository(session);
-            var coordinateSystemRepository =
-                _projectScopedFactory.CreateCoordinateSystemRepository(session);
-            var datumTransformationRepository =
-                _projectScopedFactory.CreateDatumTransformationRepository(session);
             var layerRepository =
                 _projectScopedFactory.CreateCanvasLayerRepository(session);
 
-            var settings = await settingsRepository.GetProjectSettingsAsync(ct);
-            if (settings?.CoordinateSystemId == null)
-                return RasterLayerProjectionUpdateResult.Empty;
-
-            CoordinateSystem? projectCoordinateSystem =
-                await coordinateSystemRepository.GetWithParametersAsync(
-                    settings.CoordinateSystemId.Value,
-                    ct);
-
-            if (projectCoordinateSystem == null)
-                throw new InvalidOperationException(
-                    "The configured project coordinate system could not be loaded.");
-
-            DatumTransformation? datumTransformation = null;
-            if (settings.DatumTransformationId.HasValue)
-            {
-                datumTransformation =
-                    await datumTransformationRepository.GetByIDAsync(
-                        settings.DatumTransformationId.Value,
-                        ct);
-            }
-
-            string targetSrsDefinition =
-                ProjectCrsWktBuilder.BuildTargetSrsDefinition(
-                    projectCoordinateSystem,
-                    datumTransformation);
+            ProjectRasterCrsContext crsContext =
+                await _crsResolver.ResolveAsync(session, ct);
 
             List<CanvasLayer> rasterLayers =
                 await layerRepository.GetAllByLayerTypeOrderedAsync(
                     CanvasLayerTreeService.RasterLayerType,
                     ct);
 
-            RasterImportService importService = new();
             int updatedCount = 0;
             int skippedCount = 0;
             int failedCount = 0;
@@ -102,9 +80,9 @@ namespace Land_Readjustment_Tool.Services.Canvas
                 try
                 {
                     bool reprojected = await Task.Run(
-                        () => importService.TryReprojectProjectRasterToProjectCrs(
+                        () => _datasetImporter.TryReprojectProjectRasterToProjectCrs(
                             rasterPath,
-                            targetSrsDefinition,
+                            crsContext.TargetSrsDefinition,
                             out _),
                         ct);
 
@@ -116,7 +94,7 @@ namespace Land_Readjustment_Tool.Services.Canvas
 
                     layer.Description = AppendRefreshNote(
                         layer.Description,
-                        projectCoordinateSystem.Code);
+                        crsContext.CoordinateSystem.Code);
                     layer.LastModifiedDate = DateTime.Now;
                     await layerRepository.UpdateAsync(layer, ct);
                     updatedCount++;

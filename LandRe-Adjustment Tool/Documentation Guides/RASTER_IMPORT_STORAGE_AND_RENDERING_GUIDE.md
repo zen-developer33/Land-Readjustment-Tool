@@ -758,3 +758,24 @@ The beginner-friendly mental model is:
 source file -> metadata -> optional georeferencing -> tile cache -> visible tile query -> draw on canvas
 
 That is the right long-term shape for a professional GIS-like land readjustment application.
+
+---
+
+## 13. Current Implementation Scope
+
+The current implementation phase is raster-only.
+
+Do now:
+
+- import GDAL-readable raster sources such as GeoTIFF, TIFF, VRT, IMG, JPG, PNG, BMP, and MBTiles
+- keep the import workflow behind services, interfaces, dependency injection, logging, and error handling
+- show a minimal raster review form after file selection
+- show source metadata, project CRS, and source CRS definition before import
+- default missing source CRS to WGS 1984 (`EPSG:4326`)
+- transform georeferenced rasters into the project CRS when a source CRS is available or defined
+
+Do later:
+
+- AutoCAD, DXF, DWG, and vector external-layer projection workflows
+- full control-point georeferencing for plain images with no map coordinates
+- internal raster tile pyramid caching and visible-tile database rendering

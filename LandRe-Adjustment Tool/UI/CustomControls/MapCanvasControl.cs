@@ -230,7 +230,6 @@ namespace Land_Readjustment_Tool.UI.CustomControls
             if (rasterLayers != null)
             {
                 foreach (CanvasLayer rasterLayer in rasterLayers
-                    .Where(layer => layer.IsVisible)
                     .OrderBy(layer => layer.DisplayOrder)
                     .ThenBy(layer => layer.Name))
                 {
@@ -253,6 +252,43 @@ namespace Land_Readjustment_Tool.UI.CustomControls
             _renderer.UpdateRasterLayers(_rasterRenderLayers);
             RefreshRasterCacheForCurrentView();
             RequestRender();
+        }
+
+        /// <summary>
+        /// Updates one raster layer visibility without rebuilding the full canvas layer stack.
+        /// </summary>
+        public bool SetRasterLayerVisibility(int layerId, bool isVisible)
+        {
+            RasterRenderLayer? rasterLayer = _rasterRenderLayers
+                .FirstOrDefault(layer => layer.LayerId == layerId);
+
+            if (rasterLayer == null)
+                return false;
+
+            rasterLayer.IsVisible = isVisible;
+            _rasterDeferredRenderer.Invalidate();
+            RequestRender();
+            return true;
+        }
+
+        /// <summary>
+        /// Updates one raster layer's lightweight render state without rebuilding raster datasets.
+        /// </summary>
+        public bool SetRasterLayerRenderState(
+            int layerId,
+            bool isVisible,
+            int transparency)
+        {
+            RasterRenderLayer? rasterLayer = _rasterRenderLayers
+                .FirstOrDefault(layer => layer.LayerId == layerId);
+
+            if (rasterLayer == null)
+                return false;
+
+            rasterLayer.UpdateRenderState(isVisible, transparency);
+            _rasterDeferredRenderer.Invalidate();
+            RequestRender();
+            return true;
         }
 
         /// <summary>

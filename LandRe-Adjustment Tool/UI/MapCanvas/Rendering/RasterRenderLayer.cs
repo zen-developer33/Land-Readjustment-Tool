@@ -40,6 +40,7 @@ namespace Land_Readjustment_Tool.UI.MapCanvas.Rendering
             SourceWidth = dataset.RasterXSize;
             SourceHeight = dataset.RasterYSize;
             Transparency = Math.Clamp(transparency, 0, 100);
+            IsVisible = true;
         }
 
         public int LayerId { get; }
@@ -48,7 +49,8 @@ namespace Land_Readjustment_Tool.UI.MapCanvas.Rendering
         public int SourceWidth { get; }
         public int SourceHeight { get; }
         public RectangleD WorldBounds { get; }
-        public int Transparency { get; }
+        public int Transparency { get; private set; }
+        public bool IsVisible { get; set; }
 
         public static RasterRenderLayer FromCanvasLayer(
             CanvasLayer layer,
@@ -98,7 +100,10 @@ namespace Land_Readjustment_Tool.UI.MapCanvas.Rendering
                     bounds,
                     transform,
                     inverseTransform,
-                    layer.FillTransparency);
+                    layer.FillTransparency)
+                {
+                    IsVisible = layer.IsVisible
+                };
             }
             catch
             {
@@ -113,6 +118,9 @@ namespace Land_Readjustment_Tool.UI.MapCanvas.Rendering
             RectangleD visibleWorldBounds,
             bool interactive)
         {
+            if (!IsVisible)
+                return false;
+
             if (!TryGetIntersection(WorldBounds, visibleWorldBounds, out RectangleD visibleRasterWorldBounds))
                 return false;
 
@@ -148,7 +156,7 @@ namespace Land_Readjustment_Tool.UI.MapCanvas.Rendering
                     ? PixelOffsetMode.HighSpeed
                     : PixelOffsetMode.Half;
                 graphics.CompositingMode = CompositingMode.SourceOver;
-                graphics.DrawImage(bitmap, destination);
+                DrawBitmap(graphics, bitmap, destination);
             }
             finally
             {
@@ -156,6 +164,15 @@ namespace Land_Readjustment_Tool.UI.MapCanvas.Rendering
             }
 
             return true;
+        }
+
+        /// <summary>
+        /// Updates lightweight raster render flags without rebuilding the GDAL dataset or bitmap cache.
+        /// </summary>
+        public void UpdateRenderState(bool isVisible, int transparency)
+        {
+            IsVisible = isVisible;
+            Transparency = Math.Clamp(transparency, 0, 100);
         }
 
         public void InvalidateCache()
@@ -237,7 +254,46 @@ namespace Land_Readjustment_Tool.UI.MapCanvas.Rendering
                 blue = red;
             }
 
-            return CreateArgbBitmap(red, green, blue, alpha, targetSize.Width, targetSize.Height, Transparency);
+            return CreateArgbBitmap(red, green, blue, alpha, targetSize.Width, targetSize.Height);
+        }
+
+        private void DrawBitmap(
+            Graphics graphics,
+            Bitmap bitmap,
+            RectangleF destination)
+        {
+            double opacityFactor = (100 - Math.Clamp(Transparency, 0, 100)) / 100d;
+
+            if (opacityFactor >= 1d)
+            {
+                graphics.DrawImage(bitmap, destination);
+                return;
+            }
+
+            using ImageAttributes imageAttributes = new();
+            ColorMatrix opacityMatrix = new(
+                [
+                    [1f, 0f, 0f, 0f, 0f],
+                    [0f, 1f, 0f, 0f, 0f],
+                    [0f, 0f, 1f, 0f, 0f],
+                    [0f, 0f, 0f, (float)opacityFactor, 0f],
+                    [0f, 0f, 0f, 0f, 1f]
+                ]);
+            imageAttributes.SetColorMatrix(
+                opacityMatrix,
+                ColorMatrixFlag.Default,
+                ColorAdjustType.Bitmap);
+
+            Rectangle destinationRectangle = Rectangle.Round(destination);
+            graphics.DrawImage(
+                bitmap,
+                destinationRectangle,
+                0,
+                0,
+                bitmap.Width,
+                bitmap.Height,
+                GraphicsUnit.Pixel,
+                imageAttributes);
         }
 
         private bool TryCreateReadWindow(
@@ -413,11 +469,9 @@ namespace Land_Readjustment_Tool.UI.MapCanvas.Rendering
             byte[] blue,
             byte[] alpha,
             int width,
-            int height,
-            int transparency)
+            int height)
         {
             Bitmap bitmap = new(width, height, PixelFormat.Format32bppArgb);
-            double opacityFactor = (100 - Math.Clamp(transparency, 0, 100)) / 100d;
             BitmapData data = bitmap.LockBits(
                 new Rectangle(0, 0, width, height),
                 ImageLockMode.WriteOnly,
@@ -441,7 +495,7 @@ namespace Land_Readjustment_Tool.UI.MapCanvas.Rendering
                         pixels[pixelIndex] = blue[sourceIndex];
                         pixels[pixelIndex + 1] = green[sourceIndex];
                         pixels[pixelIndex + 2] = red[sourceIndex];
-                        pixels[pixelIndex + 3] = (byte)Math.Round(alpha[sourceIndex] * opacityFactor);
+                        pixels[pixelIndex + 3] = alpha[sourceIndex];
                     }
                 }
 
