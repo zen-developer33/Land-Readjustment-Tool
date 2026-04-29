@@ -8,13 +8,9 @@ namespace Land_Readjustment_Tool.Services.Project
     /// Backup naming:
     ///   MyProject.lpp.bak   ← most recent
     ///   MyProject.lpp.bak2  ← one before
-    ///   MyProject.lpp.bak3
-    ///   MyProject.lpp.bak4
-    ///   MyProject.lpp.bak5  ← oldest
+    ///   MyProject.lpp.bak3  ← oldest
     ///
     /// On every save:
-    ///   .bak4 → .bak5  (oldest dropped)
-    ///   .bak3 → .bak4
     ///   .bak2 → .bak3
     ///   .bak  → .bak2
     ///   current .lpp → .bak
@@ -31,6 +27,14 @@ namespace Land_Readjustment_Tool.Services.Project
         public void CreateBackup(string projectFilePath)
         {
             if (!File.Exists(projectFilePath)) return;
+
+            if (!ProjectDatabaseValidator.IsValidProjectDatabase(
+                projectFilePath,
+                out string validationReason))
+            {
+                throw new InvalidOperationException(
+                    $"Cannot create backup because the project database is invalid: {validationReason}");
+            }
 
             RotateBackups(projectFilePath);
         }
@@ -73,6 +77,14 @@ namespace Land_Readjustment_Tool.Services.Project
                 throw new FileNotFoundException(
                     "Backup file not found.",
                     backupFilePath);
+
+            if (!ProjectDatabaseValidator.IsValidProjectDatabase(
+                backupFilePath,
+                out string validationReason))
+            {
+                throw new InvalidOperationException(
+                    $"The selected backup is not a valid RePlot project database: {validationReason}");
+            }
 
             File.Copy(backupFilePath,
                 projectFilePath, overwrite: true);
@@ -122,10 +134,10 @@ namespace Land_Readjustment_Tool.Services.Project
         /// </summary>
         public bool RollbackToLatest(string projectFilePath)
         {
-            string latestBackup = GetBackupPath(
-                projectFilePath, 1);
+            string? latestBackup =
+                ProjectDatabaseValidator.FindLatestValidBackup(projectFilePath);
 
-            if (!File.Exists(latestBackup))
+            if (latestBackup == null)
                 return false; // No backup exists yet
 
             // Restore the .lpp from the last good backup.

@@ -86,8 +86,8 @@ namespace Land_Readjustment_Tool.UI.Forms
             _progressBar = new ParcelProgressBar
             {
                 BackColor = Color.Transparent,
-                Location = new Point(242, 326),
-                Size = new Size(476, 56)
+                Location = new Point(270, 326),
+                Size = new Size(420, 15)
             };
 
             _canvas.Controls.Add(accentBar);
@@ -216,9 +216,16 @@ namespace Land_Readjustment_Tool.UI.Forms
             }
 
             RectangleF outerBounds = new(0.5f, 0.5f, Width - 1f, Height - 1f);
-            RectangleF trackBounds = new(20f, 14f, Width - 40f, Height - 28f);
+            float trackInsetX = MathF.Min(18f, MathF.Max(12f, Width * 0.04f));
+            float trackInsetY = MathF.Min(8f, MathF.Max(4f, Height * 0.22f));
+            RectangleF trackBounds = new(
+                trackInsetX,
+                trackInsetY,
+                Width - (trackInsetX * 2f),
+                Height - (trackInsetY * 2f));
 
-            using GraphicsPath shellPath = CreateRoundedRectangle(outerBounds, 20f);
+            float shellRadius = MathF.Min(18f, outerBounds.Height / 2f);
+            using GraphicsPath shellPath = CreateRoundedRectangle(outerBounds, shellRadius);
             using SolidBrush shellBrush = new(Color.FromArgb(122, 248, 244, 236));
             using Pen shellBorder = new(Color.FromArgb(155, 125, 144, 138), 1.4f);
             using GraphicsPath trackPath = CreateRoundedRectangle(trackBounds, trackBounds.Height / 2f);
@@ -230,10 +237,11 @@ namespace Land_Readjustment_Tool.UI.Forms
             e.Graphics.FillPath(trackBrush, trackPath);
             e.Graphics.DrawPath(trackBorder, trackPath);
 
-            float segmentGap = 10f;
+            float segmentGap = MathF.Min(10f, MathF.Max(5f, trackBounds.Width * 0.02f));
             float segmentWidth = (trackBounds.Width - (segmentGap * (SegmentColors.Length - 1))) / SegmentColors.Length;
-            float segmentHeight = trackBounds.Height - 6f;
-            float segmentY = trackBounds.Y + 3f;
+            float segmentInsetY = MathF.Max(1.5f, trackBounds.Height * 0.14f);
+            float segmentHeight = trackBounds.Height - (segmentInsetY * 2f);
+            float segmentY = trackBounds.Y + segmentInsetY;
 
             for (int i = 0; i < SegmentColors.Length; i++)
             {
@@ -249,7 +257,8 @@ namespace Land_Readjustment_Tool.UI.Forms
 
         private void DrawSegment(Graphics graphics, RectangleF segmentBounds, int segmentIndex, Color activeColor)
         {
-            using GraphicsPath segmentPath = CreateRoundedRectangle(segmentBounds, 10f);
+            float segmentRadius = MathF.Min(10f, segmentBounds.Height / 2f);
+            using GraphicsPath segmentPath = CreateRoundedRectangle(segmentBounds, segmentRadius);
             using LinearGradientBrush baseBrush = new(
                 segmentBounds,
                 Color.FromArgb(34, activeColor),

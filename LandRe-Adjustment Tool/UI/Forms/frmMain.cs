@@ -12,6 +12,8 @@ using Land_Readjustment_Tool.Services.Project;
 using Land_Readjustment_Tool.UI.CustomControls;
 using Land_Readjustment_Tool.UI.Forms;
 using Land_Readjustment_Tool.UI.Forms.Project;
+using Land_Readjustment_Tool.UI.MapCanvas.Models.Shapes;
+using Land_Readjustment_Tool.UI.MapCanvas.Rendering;
 using Land_Readjustment_Tool.UI.MapCanvas.Services;
 using Microsoft.Data.Sqlite;
 using Microsoft.EntityFrameworkCore;
@@ -54,6 +56,17 @@ namespace Land_Readjustment_Tool
         private const int LayerNodeCheckBoxGap = 6;
         private const int LayerNodeColorBoxSize = 18;
         private const int LayerNodeColorBoxGap = 4;
+        private readonly ContextMenuStrip _layerContextMenu = new();
+        private readonly ToolStripMenuItem _mnuZoomToLayer = new("Zoom To Layer");
+        private readonly ToolStripMenuItem _mnuRenameLayer = new("Rename");
+        private readonly ToolStripMenuItem _mnuDeleteLayer = new("Delete");
+        private readonly ToolStripMenuItem _mnuToggleLayerVisibility = new("Show/Hide");
+        private readonly ToolStripMenuItem _mnuToggleLayerLock = new("Lock/Unlock");
+        private readonly ToolStripMenuItem _mnuLayerProperties = new("Layer Properties");
+        private readonly TextBox _layerRenameTextBox = new();
+        private TreeNode? _contextLayerNode;
+        private TreeNode? _renamingLayerNode;
+        private bool _isCompletingLayerRename;
 
         private sealed class LayerTreeNodeState
         {
@@ -259,7 +272,12 @@ namespace Land_Readjustment_Tool
         private void frmMain_FormClosing(object? sender, FormClosingEventArgs e)
         {
             if (!HandleUnsavedChangesOnClose())
+            {
                 e.Cancel = true;
+                return;
+            }
+
+            DisposeCurrentProjectSession();
         }
 
         // Returns true if safe to close
@@ -312,6 +330,25 @@ namespace Land_Readjustment_Tool
 
             // Cancel — do not close
             return false;
+        }
+
+        private void DisposeCurrentProjectSession()
+        {
+            if (!AppServices.HasContext)
+            {
+                return;
+            }
+
+            try
+            {
+                AppServices.Context.StateChanged -= UpdateWindowTitle;
+                AppServices.Context.Session.Dispose();
+            }
+            finally
+            {
+                AppServices.ClearContext();
+                SqliteConnection.ClearAllPools();
+            }
         }
 
 
@@ -644,12 +681,7 @@ namespace Land_Readjustment_Tool
             // dispose session if user clicked No
             if (!HandleUnsavedChangesOnClose()) return;
 
-            if (AppServices.HasContext)
-            {
-                AppServices.Context.StateChanged
-                    -= UpdateWindowTitle;
-                AppServices.ClearContext();
-            }
+            DisposeCurrentProjectSession();
 
             UnloadProjectWorkspace();
             DisableProjectMenuItems();
@@ -790,8 +822,7 @@ namespace Land_Readjustment_Tool
                     await SaveCurrentProjectAsync(showMessage: false);
                     return;
                 }
-                else if (destFile.StartsWith(currentFileName,
-                    StringComparison.OrdinalIgnoreCase))
+                if (IsSameOrChildPath(destFolder, currentFolder))
                 {
                     MessageBox.Show(
                         "Cannot save inside the current project folder.\n\n" +
@@ -801,7 +832,24 @@ namespace Land_Readjustment_Tool
                         MessageBoxIcon.Warning);
                     continue;
                 }
-                else break;
+
+                if (Directory.Exists(destFolder))
+                {
+                    DialogResult replaceResult = MessageBox.Show(
+                        "A project folder with this name already exists.\n\n" +
+                        "Replace that folder with the saved copy?",
+                        "Replace Existing Project Folder",
+                        MessageBoxButtons.YesNo,
+                        MessageBoxIcon.Warning,
+                        MessageBoxDefaultButton.Button2);
+
+                    if (replaceResult != DialogResult.Yes)
+                    {
+                        continue;
+                    }
+                }
+
+                break;
             }
             // ── STEP 3 — Same parent directory → save normally ───
             // If user is browsing the same parent folder
@@ -846,9 +894,16 @@ namespace Land_Readjustment_Tool
                         overwrite: true);
                 }
 
+                if (!ProjectDatabaseValidator.IsValidProjectDatabase(
+                    destFile,
+                    out string validationReason))
+                {
+                    throw new InvalidOperationException(
+                        $"The copied project database is invalid: {validationReason}");
+                }
+
                 // 4e — Close current session
-                AppServices.Context.Session.Dispose();
-                AppServices.ClearContext();
+                DisposeCurrentProjectSession();
 
                 // 4f — Open new session at new location
                 var session = _sessionFactory.CreateSession(destFile);
@@ -913,6 +968,12 @@ namespace Land_Readjustment_Tool
             string fullSource = Path.GetFullPath(source);
             string fullDest = Path.GetFullPath(dest);
 
+            if (IsSameOrChildPath(fullDest, fullSource))
+            {
+                throw new InvalidOperationException(
+                    "Cannot copy a project folder into itself.");
+            }
+
             Directory.CreateDirectory(fullDest);
 
             // Copy directory structure first (includes empty folders)
@@ -931,9 +992,7 @@ namespace Land_Readjustment_Tool
             {
                 string fullFile = Path.GetFullPath(file);
 
-                // Skip backup files
-                if (fullFile.EndsWith(".bak",
-                    StringComparison.OrdinalIgnoreCase))
+                if (ProjectDatabaseValidator.ShouldSkipProjectFolderCopyFile(fullFile))
                     continue;
 
                 string relativePath = Path.GetRelativePath(
@@ -947,19 +1006,24 @@ namespace Land_Readjustment_Tool
                 File.Copy(fullFile, destFile, overwrite: true);
             }
         }
-        /// <summary>
-        /// Copies all files from source to dest.
-        /// Skips .bak files — new project starts
-        /// with clean backup history.
-        /// </summary>
 
-        /// <summary>
-        /// Copies all files from source to dest.
-        /// Skips .bak files — new project starts
-        /// with clean backup history.
-        /// Also skips files inside dest to prevent
-        /// infinite copy if dest is inside source.
-        /// </summary>
+        private static bool IsSameOrChildPath(string candidatePath, string parentPath)
+        {
+            string candidate = EnsureTrailingDirectorySeparator(
+                Path.GetFullPath(candidatePath));
+            string parent = EnsureTrailingDirectorySeparator(
+                Path.GetFullPath(parentPath));
+
+            return candidate.StartsWith(parent, StringComparison.OrdinalIgnoreCase);
+        }
+
+        private static string EnsureTrailingDirectorySeparator(string path)
+        {
+            return path.EndsWith(Path.DirectorySeparatorChar) ||
+                   path.EndsWith(Path.AltDirectorySeparatorChar)
+                ? path
+                : $"{path}{Path.DirectorySeparatorChar}";
+        }
 
         /// <summary>
         /// Updates ProjectName in the copied database
@@ -1272,21 +1336,6 @@ namespace Land_Readjustment_Tool
 
         private async void tsmOpenProject_Click(object sender, EventArgs e)
         {
-            if (AppServices.HasContext && AppServices.Context.HasUnsavedChanges)
-            {
-                {
-                    var result = MessageBox.Show(
-                        "Do you want to save current project before opening another one?",
-                        "Save Current Project",
-                        MessageBoxButtons.YesNo,
-                        MessageBoxIcon.Question);
-                    if (result == DialogResult.Yes)
-                    {
-                        await SaveCurrentProjectAsync(showMessage: false);
-                    }
-                }
-            }
-
             using OpenFileDialog ofd = new()
             {
                 Filter =
@@ -1308,8 +1357,6 @@ namespace Land_Readjustment_Tool
                     MessageBoxIcon.Warning);
                 return;
             }
-            await CloseCurrentProjectAsync();
-
             await OpenProjectInternalAsync(projectFilePath, checkUnsavedChanges: true);
         }
 
@@ -1323,11 +1370,16 @@ namespace Land_Readjustment_Tool
                 !HandleUnsavedChangesOnClose())
                 return;
 
+            if (!EnsureProjectFileCanBeOpened(projectFilePath))
+            {
+                return;
+            }
+
             ProjectSession? session = null;
             try
             {
-                if (AppServices.HasContext)
-                    AppServices.Context.StateChanged -= UpdateWindowTitle;
+                DisposeCurrentProjectSession();
+                UnloadProjectWorkspace();
 
                 session = _sessionFactory.CreateSession(projectFilePath);
 
@@ -1360,11 +1412,52 @@ namespace Land_Readjustment_Tool
             {
                 session?.Dispose();
                 MessageBox.Show(
-                    $"Failed to open project: {ex.Message}",
+                    $"Failed to open project: {GetMostUsefulExceptionMessage(ex)}",
                     "Error",
                     MessageBoxButtons.OK,
                     MessageBoxIcon.Error);
             }
+        }
+
+        private bool EnsureProjectFileCanBeOpened(string projectFilePath)
+        {
+            if (ProjectDatabaseValidator.IsValidProjectDatabase(
+                projectFilePath,
+                out string invalidReason))
+            {
+                return true;
+            }
+
+            string? validBackup =
+                ProjectDatabaseValidator.FindLatestValidBackup(projectFilePath);
+
+            if (validBackup != null)
+            {
+                DialogResult restoreResult = MessageBox.Show(
+                    "The selected project file is not a valid RePlot database.\n\n" +
+                    $"Reason: {invalidReason}\n\n" +
+                    "A valid backup was found. Restore the latest valid backup and open it?",
+                    "Project File Recovery",
+                    MessageBoxButtons.YesNo,
+                    MessageBoxIcon.Warning,
+                    MessageBoxDefaultButton.Button1);
+
+                if (restoreResult == DialogResult.Yes)
+                {
+                    File.Copy(validBackup, projectFilePath, overwrite: true);
+                    return true;
+                }
+            }
+
+            MessageBox.Show(
+                "The selected file cannot be opened as a RePlot project.\n\n" +
+                $"Reason: {invalidReason}\n\n" +
+                "Please choose the main .lpp file from the project folder, not a backup, WAL/SHM sidecar, shortcut, or exported data file.",
+                "Invalid Project File",
+                MessageBoxButtons.OK,
+                MessageBoxIcon.Error);
+
+            return false;
         }
 
         private async Task<bool> SaveCurrentProjectAsync(bool showMessage)
@@ -1508,8 +1601,7 @@ namespace Land_Readjustment_Tool
             try
             {
                 // Close current session before restore
-                AppServices.Context.Session.Dispose();
-                AppServices.ClearContext();
+                DisposeCurrentProjectSession();
 
                 // Restore selected backup
                 _backupService.RestoreFromBackup(
@@ -1859,6 +1951,7 @@ namespace Land_Readjustment_Tool
         {
             treeViewLayers.CheckBoxes = false;
             treeViewLayers.DrawMode = TreeViewDrawMode.OwnerDrawText;
+            treeViewLayers.LabelEdit = false;
 
             treeViewLayers.HideSelection = false;
             treeViewLayers.ShowLines = true;
@@ -1878,7 +1971,47 @@ namespace Land_Readjustment_Tool
             treeViewLayers.KeyDown += treeView1_KeyDown;
             treeViewLayers.AfterSelect += treeView1_AfterSelect;
 
+            ConfigureLayerContextMenu();
+            ConfigureLayerRenameTextBox();
+
             ResetLayerTree();
+        }
+
+        private void ConfigureLayerRenameTextBox()
+        {
+            _layerRenameTextBox.BorderStyle = BorderStyle.FixedSingle;
+            _layerRenameTextBox.Font = treeViewLayers.Font;
+            _layerRenameTextBox.Visible = false;
+            _layerRenameTextBox.Margin = Padding.Empty;
+            _layerRenameTextBox.KeyDown += LayerRenameTextBox_KeyDown;
+            _layerRenameTextBox.Leave += LayerRenameTextBox_Leave;
+            treeViewLayers.Controls.Add(_layerRenameTextBox);
+        }
+
+        private void ConfigureLayerContextMenu()
+        {
+            _layerContextMenu.Items.Clear();
+            _layerContextMenu.Items.AddRange(
+            [
+                _mnuZoomToLayer,
+                new ToolStripSeparator(),
+                _mnuRenameLayer,
+                _mnuDeleteLayer,
+                new ToolStripSeparator(),
+                _mnuToggleLayerVisibility,
+                _mnuToggleLayerLock,
+                new ToolStripSeparator(),
+                _mnuLayerProperties
+            ]);
+
+            _layerContextMenu.Opening += LayerContextMenu_Opening;
+            _mnuZoomToLayer.Click += async (_, _) => await ZoomToLayerAsync(_contextLayerNode);
+            _mnuRenameLayer.Click += (_, _) => BeginLayerRename(_contextLayerNode);
+            _mnuDeleteLayer.Click += async (_, _) => await DeleteLayerAsync(_contextLayerNode);
+            _mnuToggleLayerVisibility.Click += async (_, _) => await ToggleLayerNodeVisibilityAsync(_contextLayerNode);
+            _mnuToggleLayerLock.Click += async (_, _) => await ToggleLayerLockAsync(_contextLayerNode);
+            _mnuLayerProperties.Click += async (_, _) => await OpenLayerPropertyManagerAsync(_contextLayerNode);
+            treeViewLayers.ContextMenuStrip = _layerContextMenu;
         }
 
         private void ConfigureLayerPropertiesPanel()
@@ -1936,6 +2069,11 @@ namespace Land_Readjustment_Tool
 
                 x = chkRect.Right + LayerNodeCheckBoxGap;
 
+                if (e.Node == _renamingLayerNode)
+                {
+                    return;
+                }
+
                 Color layerColor = ParseColorOrDefault(
                     layer.BorderColor,
                     Color.Black);
@@ -1955,11 +2093,7 @@ namespace Land_Readjustment_Tool
                 g,
                 e.Node.Text,
                 treeViewLayers.Font,
-                new Rectangle(
-                    x,
-                    e.Bounds.Y,
-                    treeViewLayers.ClientSize.Width - x,
-                    e.Bounds.Height),
+                GetLayerNodeTextRect(e.Node, x),
                 textColor,
                 TextFormatFlags.Left |
                 TextFormatFlags.VerticalCenter |
@@ -2000,6 +2134,14 @@ namespace Land_Readjustment_Tool
 
             treeViewLayers.SelectedNode = e.Node;
 
+            if (e.Button == MouseButtons.Right)
+            {
+                _contextLayerNode = IsLayerNode(e.Node)
+                    ? e.Node
+                    : null;
+                return;
+            }
+
             if (e.Node.Tag is not LayerTreeNodeState state ||
                 !state.IsLayerNode)
                 return;
@@ -2014,7 +2156,12 @@ namespace Land_Readjustment_Tool
             }
 
             if (colorRect.Contains(e.Location))
-                await OpenLayerPropertyManagerAsync(e.Node);
+            {
+                if (!IsRasterLayer(state.Layer))
+                {
+                    await OpenLayerPropertyManagerAsync(e.Node);
+                }
+            }
         }
 
         private async void treeViewLayers_NodeMouseDoubleClick(
@@ -2033,7 +2180,7 @@ namespace Land_Readjustment_Tool
             if (GetLayerNodeCheckBoxRect(e.Node).Contains(e.Location))
                 return;
 
-            await OpenLayerPropertyManagerAsync(e.Node);
+            BeginLayerRename(e.Node);
         }
 
         private async void treeView1_KeyDown(object? sender, KeyEventArgs e)
@@ -2054,9 +2201,112 @@ namespace Land_Readjustment_Tool
         {
         }
 
-        private async Task ToggleLayerNodeVisibilityAsync(TreeNode node)
+        private void LayerContextMenu_Opening(object? sender, System.ComponentModel.CancelEventArgs e)
+        {
+            Point clientPoint = treeViewLayers.PointToClient(Cursor.Position);
+            TreeNode? node = treeViewLayers.GetNodeAt(clientPoint);
+            _contextLayerNode = IsLayerNode(node) ? node : treeViewLayers.SelectedNode;
+
+            if (!IsLayerNode(_contextLayerNode))
+            {
+                e.Cancel = true;
+                return;
+            }
+
+            treeViewLayers.SelectedNode = _contextLayerNode;
+
+            CanvasLayer layer = GetLayerFromNode(_contextLayerNode)!;
+            bool isRaster = IsRasterLayer(layer);
+
+            _mnuToggleLayerVisibility.Text = layer.IsVisible
+                ? "Hide"
+                : "Show";
+            _mnuToggleLayerLock.Text = layer.IsLocked
+                ? "Unlock"
+                : "Lock";
+
+            _mnuZoomToLayer.Enabled = true;
+            _mnuRenameLayer.Enabled = true;
+            _mnuDeleteLayer.Enabled = true;
+            _mnuToggleLayerVisibility.Enabled = true;
+            _mnuToggleLayerLock.Enabled = !isRaster;
+            _mnuLayerProperties.Enabled = !isRaster;
+        }
+
+        private void BeginLayerRename(TreeNode? node)
+        {
+            if (!IsLayerNode(node))
+            {
+                return;
+            }
+
+            treeViewLayers.SelectedNode = node;
+            _renamingLayerNode = node;
+            _layerRenameTextBox.Bounds = GetLayerRenameTextBoxRect(node!);
+            _layerRenameTextBox.Text = node!.Text;
+            _layerRenameTextBox.Visible = true;
+            _layerRenameTextBox.BringToFront();
+            _layerRenameTextBox.Focus();
+            _layerRenameTextBox.SelectAll();
+            treeViewLayers.Invalidate();
+        }
+
+        private async void LayerRenameTextBox_KeyDown(object? sender, KeyEventArgs e)
+        {
+            if (e.KeyCode == Keys.Enter)
+            {
+                e.SuppressKeyPress = true;
+                await CompleteLayerRenameAsync(commit: true);
+                return;
+            }
+
+            if (e.KeyCode == Keys.Escape)
+            {
+                e.SuppressKeyPress = true;
+                await CompleteLayerRenameAsync(commit: false);
+            }
+        }
+
+        private async void LayerRenameTextBox_Leave(object? sender, EventArgs e)
+        {
+            await CompleteLayerRenameAsync(commit: true);
+        }
+
+        private async Task CompleteLayerRenameAsync(bool commit)
+        {
+            if (_isCompletingLayerRename ||
+                !_layerRenameTextBox.Visible ||
+                _renamingLayerNode == null)
+            {
+                return;
+            }
+
+            _isCompletingLayerRename = true;
+            TreeNode node = _renamingLayerNode;
+            string newName = _layerRenameTextBox.Text.Trim();
+
+            try
+            {
+                _layerRenameTextBox.Visible = false;
+                _renamingLayerNode = null;
+                treeViewLayers.Focus();
+                treeViewLayers.Invalidate();
+
+                if (commit && !string.IsNullOrWhiteSpace(newName))
+                {
+                    await RenameLayerAsync(node, newName);
+                }
+            }
+            finally
+            {
+                _isCompletingLayerRename = false;
+            }
+        }
+
+        private async Task ToggleLayerNodeVisibilityAsync(TreeNode? node)
         {
             if (_layerTreeService == null ||
+                node == null ||
                 node.Tag is not LayerTreeNodeState nodeState ||
                 !nodeState.IsLayerNode ||
                 nodeState.Layer == null)
@@ -2086,6 +2336,288 @@ namespace Land_Readjustment_Tool
                 UpdateWindowTitle();
             }
 
+            mapCanvasControlMain.RequestRender();
+        }
+
+        private async Task RenameLayerAsync(TreeNode node, string newName)
+        {
+            if (node.Tag is not LayerTreeNodeState nodeState ||
+                !nodeState.IsLayerNode ||
+                nodeState.Layer == null ||
+                string.Equals(
+                    nodeState.Layer.Name,
+                    newName,
+                    StringComparison.Ordinal))
+            {
+                return;
+            }
+
+            CanvasLayer renamedLayer = CloneLayer(nodeState.Layer);
+            renamedLayer.Name = newName;
+            renamedLayer.LastModifiedDate = DateTime.Now;
+
+            if (!AppServices.HasContext)
+            {
+                nodeState.Layer = renamedLayer;
+                node.Text = renamedLayer.Name;
+                treeViewLayers.Invalidate();
+                UpdateRasterCanvasLayersFromTree();
+                return;
+            }
+
+            try
+            {
+                var repository = _projectScopedFactory.CreateCanvasLayerRepository(
+                    AppServices.Context.Session);
+
+                await repository.UpdateAsync(renamedLayer);
+
+                nodeState.Layer = renamedLayer;
+                node.Text = renamedLayer.Name;
+
+                AppServices.Context.MarkAsModified();
+                UpdateWindowTitle();
+                await RefreshLayerTreeAsync();
+                SelectLayerNodeById(renamedLayer.Id);
+            }
+            catch (Exception ex)
+            {
+                MessageBox.Show(
+                    $"Failed to rename the layer: {ex.Message}",
+                    "Rename Layer",
+                    MessageBoxButtons.OK,
+                    MessageBoxIcon.Error);
+            }
+        }
+
+        private async Task ToggleLayerLockAsync(TreeNode? node)
+        {
+            CanvasLayer? layer = GetLayerFromNode(node);
+            if (layer == null || IsRasterLayer(layer))
+            {
+                return;
+            }
+
+            CanvasLayer updatedLayer = CloneLayer(layer);
+            updatedLayer.IsLocked = !updatedLayer.IsLocked;
+            updatedLayer.LastModifiedDate = DateTime.Now;
+
+            if (!AppServices.HasContext)
+            {
+                UpdateLayerNode(node!, updatedLayer);
+                return;
+            }
+
+            try
+            {
+                var repository = _projectScopedFactory.CreateCanvasLayerRepository(
+                    AppServices.Context.Session);
+
+                await repository.UpdateAsync(updatedLayer);
+                UpdateLayerNode(node!, updatedLayer);
+                AppServices.Context.MarkAsModified();
+                UpdateWindowTitle();
+            }
+            catch (Exception ex)
+            {
+                MessageBox.Show(
+                    $"Failed to update layer lock state: {ex.Message}",
+                    "Layer Lock",
+                    MessageBoxButtons.OK,
+                    MessageBoxIcon.Error);
+            }
+        }
+
+        private async Task DeleteLayerAsync(TreeNode? node)
+        {
+            CanvasLayer? layer = GetLayerFromNode(node);
+            if (layer == null)
+            {
+                return;
+            }
+
+            DialogResult result = MessageBox.Show(
+                $"Delete layer '{layer.Name}'?\n\nThis will remove the layer and its objects from the project.",
+                "Delete Layer",
+                MessageBoxButtons.YesNo,
+                MessageBoxIcon.Warning,
+                MessageBoxDefaultButton.Button2);
+
+            if (result != DialogResult.Yes)
+            {
+                return;
+            }
+
+            if (!AppServices.HasContext || layer.Id <= 0)
+            {
+                node!.Remove();
+                ClearLayerProperties();
+                UpdateRasterCanvasLayersFromTree();
+                mapCanvasControlMain.RequestRender();
+                return;
+            }
+
+            try
+            {
+                var repository = _projectScopedFactory.CreateCanvasLayerRepository(
+                    AppServices.Context.Session);
+
+                await repository.DeleteAsync(layer.Id);
+                AppServices.Context.MarkAsModified();
+                UpdateWindowTitle();
+                await RefreshLayerTreeAsync();
+                ClearLayerProperties();
+                mapCanvasControlMain.RequestRender();
+            }
+            catch (Exception ex)
+            {
+                MessageBox.Show(
+                    $"Failed to delete the layer: {ex.Message}",
+                    "Delete Layer",
+                    MessageBoxButtons.OK,
+                    MessageBoxIcon.Error);
+            }
+        }
+
+        private async Task ZoomToLayerAsync(TreeNode? node)
+        {
+            CanvasLayer? layer = GetLayerFromNode(node);
+            if (layer == null)
+            {
+                return;
+            }
+
+            try
+            {
+                RectangleD? bounds = await GetLayerWorldBoundsAsync(layer);
+                if (!bounds.HasValue)
+                {
+                    MessageBox.Show(
+                        $"Layer '{layer.Name}' does not have drawable bounds yet.",
+                        "Zoom To Layer",
+                        MessageBoxButtons.OK,
+                        MessageBoxIcon.Information);
+                    return;
+                }
+
+                mapCanvasControlMain.SetPanToolActive(false);
+                mnuPan.Checked = false;
+                mapCanvasControlMain.ZoomToWorldBounds(bounds.Value);
+            }
+            catch (Exception ex)
+            {
+                MessageBox.Show(
+                    $"Failed to zoom to the layer: {ex.Message}",
+                    "Zoom To Layer",
+                    MessageBoxButtons.OK,
+                    MessageBoxIcon.Error);
+            }
+        }
+
+        private async Task<RectangleD?> GetLayerWorldBoundsAsync(CanvasLayer layer)
+        {
+            if (IsRasterLayer(layer))
+            {
+                return GetRasterLayerWorldBounds(layer);
+            }
+
+            if (!AppServices.HasContext)
+            {
+                return null;
+            }
+
+            var objectRepository = _projectScopedFactory.CreateCanvasObjectRepository(
+                AppServices.Context.Session);
+
+            List<CanvasObject> objects = await objectRepository.GetByLayerIdAsync(layer.Id);
+            return GetCanvasObjectWorldBounds(objects);
+        }
+
+        private RectangleD? GetRasterLayerWorldBounds(CanvasLayer layer)
+        {
+            if (string.IsNullOrWhiteSpace(layer.SourceFile))
+            {
+                return null;
+            }
+
+            string? projectFolderPath = AppServices.HasContext
+                ? AppServices.Context.ProjectFolderPath
+                : null;
+
+            using RasterRenderLayer rasterLayer =
+                RasterRenderLayer.FromCanvasLayer(layer, projectFolderPath);
+            return rasterLayer.WorldBounds;
+        }
+
+        private static RectangleD? GetCanvasObjectWorldBounds(
+            IEnumerable<CanvasObject> objects)
+        {
+            bool hasBounds = false;
+            double minX = 0;
+            double maxX = 0;
+            double minY = 0;
+            double maxY = 0;
+
+            foreach (CanvasObject canvasObject in objects)
+            {
+                NetTopologySuite.Geometries.Envelope? envelope =
+                    canvasObject.Shape?.EnvelopeInternal;
+
+                if (envelope == null || envelope.IsNull)
+                {
+                    continue;
+                }
+
+                if (!hasBounds)
+                {
+                    minX = envelope.MinX;
+                    maxX = envelope.MaxX;
+                    minY = envelope.MinY;
+                    maxY = envelope.MaxY;
+                    hasBounds = true;
+                    continue;
+                }
+
+                minX = Math.Min(minX, envelope.MinX);
+                maxX = Math.Max(maxX, envelope.MaxX);
+                minY = Math.Min(minY, envelope.MinY);
+                maxY = Math.Max(maxY, envelope.MaxY);
+            }
+
+            if (!hasBounds)
+            {
+                return null;
+            }
+
+            double width = maxX - minX;
+            double height = maxY - minY;
+            const double minimumLayerExtent = 1.0;
+
+            if (width <= 0)
+            {
+                minX -= minimumLayerExtent / 2.0;
+                width = minimumLayerExtent;
+            }
+
+            if (height <= 0)
+            {
+                minY -= minimumLayerExtent / 2.0;
+                height = minimumLayerExtent;
+            }
+
+            return new RectangleD(minX, minY, width, height);
+        }
+
+        private void UpdateLayerNode(TreeNode node, CanvasLayer layer)
+        {
+            if (node.Tag is LayerTreeNodeState nodeState)
+            {
+                nodeState.Layer = layer;
+            }
+
+            node.Text = layer.Name;
+            treeViewLayers.Invalidate();
+            UpdateRasterCanvasLayersFromTree();
             mapCanvasControlMain.RequestRender();
         }
 
@@ -2196,6 +2728,30 @@ namespace Land_Readjustment_Tool
         {
         }
 
+        private static bool IsLayerNode(TreeNode? node)
+        {
+            return node?.Tag is LayerTreeNodeState state &&
+                   state.IsLayerNode &&
+                   state.Layer != null;
+        }
+
+        private static CanvasLayer? GetLayerFromNode(TreeNode? node)
+        {
+            return node?.Tag is LayerTreeNodeState state &&
+                   state.IsLayerNode
+                ? state.Layer
+                : null;
+        }
+
+        private static bool IsRasterLayer(CanvasLayer? layer)
+        {
+            return layer != null &&
+                   string.Equals(
+                       layer.LayerType,
+                       CanvasLayerTreeService.RasterLayerType,
+                       StringComparison.OrdinalIgnoreCase);
+        }
+
         private Rectangle GetLayerNodeCheckBoxRect(TreeNode node)
         {
             return new Rectangle(
@@ -2216,11 +2772,36 @@ namespace Land_Readjustment_Tool
                 LayerNodeColorBoxSize);
         }
 
-        private async Task OpenLayerPropertyManagerAsync(TreeNode node)
+        private Rectangle GetLayerNodeTextRect(TreeNode node, int textStartX)
         {
-            if (node.Tag is not LayerTreeNodeState nodeState ||
+            return new Rectangle(
+                textStartX,
+                node.Bounds.Y,
+                Math.Max(1, treeViewLayers.ClientSize.Width - textStartX - 4),
+                node.Bounds.Height);
+        }
+
+        private Rectangle GetLayerRenameTextBoxRect(TreeNode node)
+        {
+            Rectangle checkBoxRect = GetLayerNodeCheckBoxRect(node);
+            int x = checkBoxRect.Right + LayerNodeCheckBoxGap;
+            int width = Math.Max(80, treeViewLayers.ClientSize.Width - x - 4);
+
+            int height = Math.Min(
+                treeViewLayers.ItemHeight - 2,
+                _layerRenameTextBox.PreferredHeight);
+            int y = node.Bounds.Y + Math.Max(0, (treeViewLayers.ItemHeight - height) / 2);
+
+            return new Rectangle(x, y, width, height);
+        }
+
+        private async Task OpenLayerPropertyManagerAsync(TreeNode? node)
+        {
+            if (node == null ||
+                node.Tag is not LayerTreeNodeState nodeState ||
                 !nodeState.IsLayerNode ||
-                nodeState.Layer == null)
+                nodeState.Layer == null ||
+                IsRasterLayer(nodeState.Layer))
             {
                 return;
             }

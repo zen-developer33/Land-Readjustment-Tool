@@ -6,6 +6,7 @@ using Land_Readjustment_Tool.Core.Entities.Layout;
 using Land_Readjustment_Tool.Core.Entities.Project;
 using Land_Readjustment_Tool.Core.Entities.Replotting;
 using Land_Readjustment_Tool.Core.Entities.Spatial;
+using Microsoft.Data.Sqlite;
 using Microsoft.EntityFrameworkCore;
 
 namespace Land_Readjustment_Tool.Data
@@ -67,8 +68,13 @@ namespace Land_Readjustment_Tool.Data
         protected override void OnConfiguring(
             DbContextOptionsBuilder optionsBuilder)
         {
+            SqliteConnectionStringBuilder builder = new()
+            {
+                DataSource = _dbPath
+            };
+
             optionsBuilder.UseSqlite(
-                $"Data Source={_dbPath}",
+                builder.ToString(),
                 x => x.UseNetTopologySuite());
         }
 

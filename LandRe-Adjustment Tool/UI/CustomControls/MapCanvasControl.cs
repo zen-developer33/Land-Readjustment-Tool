@@ -177,6 +177,20 @@ namespace Land_Readjustment_Tool.UI.CustomControls
             RequestRender();
         }
 
+        public void ZoomToWorldBounds(RectangleD worldBounds)
+        {
+            if (IsCanvasInteractionLocked ||
+                worldBounds.Width <= 0 ||
+                worldBounds.Height <= 0)
+            {
+                return;
+            }
+
+            _engine.ZoomToExtents(worldBounds);
+            RefreshRasterCacheForCurrentView();
+            RequestRender();
+        }
+
         public void SetPanToolActive(bool active)
         {
             if (IsCanvasInteractionLocked)
