@@ -27,7 +27,8 @@ namespace Land_Readjustment_Tool.UI.MapCanvas.Rendering
             Dataset dataset,
             RectangleD worldBounds,
             double[] geoTransform,
-            double[] inverseGeoTransform)
+            double[] inverseGeoTransform,
+            int transparency)
         {
             LayerId = layerId;
             Name = name;
@@ -38,6 +39,7 @@ namespace Land_Readjustment_Tool.UI.MapCanvas.Rendering
             _inverseGeoTransform = [.. inverseGeoTransform];
             SourceWidth = dataset.RasterXSize;
             SourceHeight = dataset.RasterYSize;
+            Transparency = Math.Clamp(transparency, 0, 100);
         }
 
         public int LayerId { get; }
@@ -46,6 +48,7 @@ namespace Land_Readjustment_Tool.UI.MapCanvas.Rendering
         public int SourceWidth { get; }
         public int SourceHeight { get; }
         public RectangleD WorldBounds { get; }
+        public int Transparency { get; }
 
         public static RasterRenderLayer FromCanvasLayer(
             CanvasLayer layer,
@@ -94,7 +97,8 @@ namespace Land_Readjustment_Tool.UI.MapCanvas.Rendering
                     dataset,
                     bounds,
                     transform,
-                    inverseTransform);
+                    inverseTransform,
+                    layer.FillTransparency);
             }
             catch
             {
@@ -233,7 +237,7 @@ namespace Land_Readjustment_Tool.UI.MapCanvas.Rendering
                 blue = red;
             }
 
-            return CreateArgbBitmap(red, green, blue, alpha, targetSize.Width, targetSize.Height);
+            return CreateArgbBitmap(red, green, blue, alpha, targetSize.Width, targetSize.Height, Transparency);
         }
 
         private bool TryCreateReadWindow(
@@ -409,9 +413,11 @@ namespace Land_Readjustment_Tool.UI.MapCanvas.Rendering
             byte[] blue,
             byte[] alpha,
             int width,
-            int height)
+            int height,
+            int transparency)
         {
             Bitmap bitmap = new(width, height, PixelFormat.Format32bppArgb);
+            double opacityFactor = (100 - Math.Clamp(transparency, 0, 100)) / 100d;
             BitmapData data = bitmap.LockBits(
                 new Rectangle(0, 0, width, height),
                 ImageLockMode.WriteOnly,
@@ -435,7 +441,7 @@ namespace Land_Readjustment_Tool.UI.MapCanvas.Rendering
                         pixels[pixelIndex] = blue[sourceIndex];
                         pixels[pixelIndex + 1] = green[sourceIndex];
                         pixels[pixelIndex + 2] = red[sourceIndex];
-                        pixels[pixelIndex + 3] = alpha[sourceIndex];
+                        pixels[pixelIndex + 3] = (byte)Math.Round(alpha[sourceIndex] * opacityFactor);
                     }
                 }
 

@@ -66,7 +66,6 @@
             projectInfoBindingSource = new BindingSource(components);
             groupBox4 = new GroupBox();
             txtProjectNotes = new TextBox();
-            btnSave = new Button();
             groupBox1.SuspendLayout();
             groupBox2.SuspendLayout();
             groupBox3.SuspendLayout();
@@ -303,14 +302,6 @@
             resources.ApplyResources(txtProjectNotes, "txtProjectNotes");
             txtProjectNotes.Name = "txtProjectNotes";
             // 
-            // btnSave
-            // 
-            resources.ApplyResources(btnSave, "btnSave");
-            btnSave.DialogResult = DialogResult.Yes;
-            btnSave.Name = "btnSave";
-            btnSave.UseVisualStyleBackColor = true;
-
-            // 
             // frm_ProjectDetails
             // 
             AcceptButton = btnOK;
@@ -321,7 +312,6 @@
             Controls.Add(groupBox2);
             Controls.Add(groupBox3);
             Controls.Add(groupBox1);
-            Controls.Add(btnSave);
             DataBindings.Add(new Binding("DataContext", projectInfoBindingSource, "ProjectName", true));
             FormBorderStyle = FormBorderStyle.FixedDialog;
             MaximizeBox = false;
@@ -379,6 +369,5 @@
         private DateTimePicker dtpApprovalDate;
         private DateTimePicker dtpProjectEndDate;
         private DateTimePicker dtpProjectStartDate;
-        private Button btnSave;
     }
 }

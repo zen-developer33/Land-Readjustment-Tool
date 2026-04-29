@@ -2164,10 +2164,7 @@ namespace Land_Readjustment_Tool
 
             if (colorRect.Contains(e.Location))
             {
-                if (!IsRasterLayer(state.Layer))
-                {
-                    await OpenLayerPropertyManagerAsync(e.Node);
-                }
+                await OpenLayerPropertyManagerAsync(e.Node);
             }
         }
 
@@ -2247,7 +2244,6 @@ namespace Land_Readjustment_Tool
             treeViewLayers.SelectedNode = _contextLayerNode;
 
             CanvasLayer layer = GetLayerFromNode(_contextLayerNode)!;
-            bool isRaster = IsRasterLayer(layer);
 
             _mnuToggleLayerVisibility.Text = layer.IsVisible
                 ? "Hide"
@@ -2260,8 +2256,8 @@ namespace Land_Readjustment_Tool
             _mnuRenameLayer.Enabled = true;
             _mnuDeleteLayer.Enabled = true;
             _mnuToggleLayerVisibility.Enabled = true;
-            _mnuToggleLayerLock.Enabled = !isRaster;
-            _mnuLayerProperties.Enabled = !isRaster;
+            _mnuToggleLayerLock.Enabled = true;
+            _mnuLayerProperties.Enabled = true;
         }
 
         private void BeginLayerRename(TreeNode? node)
@@ -2817,8 +2813,7 @@ namespace Land_Readjustment_Tool
             if (node == null ||
                 node.Tag is not LayerTreeNodeState nodeState ||
                 !nodeState.IsLayerNode ||
-                nodeState.Layer == null ||
-                IsRasterLayer(nodeState.Layer))
+                nodeState.Layer == null)
             {
                 return;
             }

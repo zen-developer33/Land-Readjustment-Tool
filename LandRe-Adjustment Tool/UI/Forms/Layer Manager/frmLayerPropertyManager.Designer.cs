@@ -28,7 +28,7 @@ namespace Land_Readjustment_Tool.UI.Forms
         private Label _lblFillColor = null!;
         private Label _lblHatch = null!;
         private Label _lblTransparency = null!;
-        private Label _lblTransparencyValue = null!;
+        private TextBox _txtTransparencyValue = null!;
         private Label _lblLabels = null!;
         private Label _lblFont = null!;
         private Label _lblFontSize = null!;
@@ -99,7 +99,7 @@ namespace Land_Readjustment_Tool.UI.Forms
             _lblTransparency = new Label();
             _transparencyLayout = new TableLayoutPanel();
             _trkTransparency = new TrackBar();
-            _lblTransparencyValue = new Label();
+            _txtTransparencyValue = new TextBox();
             _tabLabel = new TabPage();
             _labelLayout = new TableLayoutPanel();
             _lblLabels = new Label();
@@ -487,7 +487,7 @@ namespace Land_Readjustment_Tool.UI.Forms
             _transparencyLayout.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 100F));
             _transparencyLayout.ColumnStyles.Add(new ColumnStyle(SizeType.Absolute, 48F));
             _transparencyLayout.Controls.Add(_trkTransparency, 0, 0);
-            _transparencyLayout.Controls.Add(_lblTransparencyValue, 1, 0);
+            _transparencyLayout.Controls.Add(_txtTransparencyValue, 1, 0);
             _transparencyLayout.Dock = DockStyle.Fill;
             _transparencyLayout.Location = new Point(110, 114);
             _transparencyLayout.Margin = new Padding(0);
@@ -508,14 +508,17 @@ namespace Land_Readjustment_Tool.UI.Forms
             _trkTransparency.TickFrequency = 10;
             _trkTransparency.ValueChanged += trkTransparency_ValueChanged;
             // 
-            // _lblTransparencyValue
+            // _txtTransparencyValue
             // 
-            _lblTransparencyValue.Location = new Point(164, 0);
-            _lblTransparencyValue.Name = "_lblTransparencyValue";
-            _lblTransparencyValue.Size = new Size(30, 43);
-            _lblTransparencyValue.TabIndex = 1;
-            _lblTransparencyValue.Text = "0%";
-            _lblTransparencyValue.TextAlign = ContentAlignment.MiddleRight;
+            _txtTransparencyValue.Location = new Point(164, 8);
+            _txtTransparencyValue.Margin = new Padding(3, 8, 0, 0);
+            _txtTransparencyValue.Name = "_txtTransparencyValue";
+            _txtTransparencyValue.Size = new Size(42, 27);
+            _txtTransparencyValue.TabIndex = 1;
+            _txtTransparencyValue.Text = "0";
+            _txtTransparencyValue.TextAlign = HorizontalAlignment.Right;
+            _txtTransparencyValue.Leave += txtTransparencyValue_Leave;
+            _txtTransparencyValue.KeyDown += txtTransparencyValue_KeyDown;
             // 
             // _tabLabel
             // 

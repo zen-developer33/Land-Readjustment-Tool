@@ -146,7 +146,7 @@ namespace Land_Readjustment_Tool.UI.Forms.Project
             grpCRS.Margin = new Padding(3, 2, 3, 2);
             grpCRS.Name = "grpCRS";
             grpCRS.Padding = new Padding(3, 2, 3, 2);
-            grpCRS.Size = new Size(469, 83);
+            grpCRS.Size = new Size(469, 90);
             grpCRS.TabIndex = 0;
             grpCRS.TabStop = false;
             grpCRS.Text = "Coordinate Reference System";
@@ -187,7 +187,7 @@ namespace Land_Readjustment_Tool.UI.Forms.Project
             lblCrsInfo.ForeColor = SystemColors.GrayText;
             lblCrsInfo.Location = new Point(10, 58);
             lblCrsInfo.Name = "lblCrsInfo";
-            lblCrsInfo.Size = new Size(416, 22);
+            lblCrsInfo.Size = new Size(416, 30);
             lblCrsInfo.TabIndex = 2;
             // 
             // grpDatumTransformation
@@ -197,11 +197,11 @@ namespace Land_Readjustment_Tool.UI.Forms.Project
             grpDatumTransformation.Controls.Add(btnManageDatum);
             grpDatumTransformation.Controls.Add(lblDatumNote);
             grpDatumTransformation.Font = new Font("Segoe UI", 9F, FontStyle.Bold);
-            grpDatumTransformation.Location = new Point(7, 94);
+            grpDatumTransformation.Location = new Point(7, 107);
             grpDatumTransformation.Margin = new Padding(3, 2, 3, 2);
             grpDatumTransformation.Name = "grpDatumTransformation";
             grpDatumTransformation.Padding = new Padding(3, 2, 3, 2);
-            grpDatumTransformation.Size = new Size(469, 89);
+            grpDatumTransformation.Size = new Size(469, 98);
             grpDatumTransformation.TabIndex = 1;
             grpDatumTransformation.TabStop = false;
             grpDatumTransformation.Text = "Datum Transformation (MUTM zones only)";
@@ -239,7 +239,7 @@ namespace Land_Readjustment_Tool.UI.Forms.Project
             // 
             lblDatumNote.Font = new Font("Segoe UI", 8.5F, FontStyle.Italic);
             lblDatumNote.ForeColor = SystemColors.GrayText;
-            lblDatumNote.Location = new Point(10, 62);
+            lblDatumNote.Location = new Point(10, 69);
             lblDatumNote.Name = "lblDatumNote";
             lblDatumNote.Size = new Size(416, 21);
             lblDatumNote.TabIndex = 4;
@@ -252,7 +252,7 @@ namespace Land_Readjustment_Tool.UI.Forms.Project
             tabArea.Margin = new Padding(3, 2, 3, 2);
             tabArea.Name = "tabArea";
             tabArea.Padding = new Padding(7, 6, 7, 6);
-            tabArea.Size = new Size(485, 304);
+            tabArea.Size = new Size(485, 294);
             tabArea.TabIndex = 1;
             tabArea.Text = "Area Units";
             tabArea.UseVisualStyleBackColor = true;
@@ -267,7 +267,7 @@ namespace Land_Readjustment_Tool.UI.Forms.Project
             grpAreaUnit.Margin = new Padding(3, 2, 3, 2);
             grpAreaUnit.Name = "grpAreaUnit";
             grpAreaUnit.Padding = new Padding(3, 2, 3, 2);
-            grpAreaUnit.Size = new Size(469, 82);
+            grpAreaUnit.Size = new Size(469, 93);
             grpAreaUnit.TabIndex = 0;
             grpAreaUnit.TabStop = false;
             grpAreaUnit.Text = "Traditional Area Display Unit";
@@ -286,7 +286,7 @@ namespace Land_Readjustment_Tool.UI.Forms.Project
             cmbTraditionalUnit.DropDownStyle = ComboBoxStyle.DropDownList;
             cmbTraditionalUnit.Font = new Font("Segoe UI", 9F);
             cmbTraditionalUnit.Items.AddRange(new object[] { "RAPD — Ropani-Aana-Paisa-Daam (Hilly)", "BKD  — Bigha-Kattha-Dhur (Terai)" });
-            cmbTraditionalUnit.Location = new Point(10, 34);
+            cmbTraditionalUnit.Location = new Point(10, 39);
             cmbTraditionalUnit.Margin = new Padding(3, 2, 3, 2);
             cmbTraditionalUnit.Name = "cmbTraditionalUnit";
             cmbTraditionalUnit.Size = new Size(316, 23);
@@ -296,7 +296,7 @@ namespace Land_Readjustment_Tool.UI.Forms.Project
             // 
             lblAreaNote.Font = new Font("Segoe UI", 8.5F, FontStyle.Italic);
             lblAreaNote.ForeColor = SystemColors.GrayText;
-            lblAreaNote.Location = new Point(10, 58);
+            lblAreaNote.Location = new Point(10, 65);
             lblAreaNote.Name = "lblAreaNote";
             lblAreaNote.Size = new Size(416, 22);
             lblAreaNote.TabIndex = 1;
@@ -310,7 +310,7 @@ namespace Land_Readjustment_Tool.UI.Forms.Project
             tabMapCanvas.Margin = new Padding(3, 2, 3, 2);
             tabMapCanvas.Name = "tabMapCanvas";
             tabMapCanvas.Padding = new Padding(7, 6, 7, 6);
-            tabMapCanvas.Size = new Size(485, 304);
+            tabMapCanvas.Size = new Size(485, 294);
             tabMapCanvas.TabIndex = 2;
             tabMapCanvas.Text = "Map Canvas";
             tabMapCanvas.UseVisualStyleBackColor = true;
@@ -324,7 +324,7 @@ namespace Land_Readjustment_Tool.UI.Forms.Project
             grpOther.Controls.Add(chkSnapEnabled);
             grpOther.Controls.Add(lblSnapUnit);
             grpOther.Font = new Font("Segoe UI", 9F, FontStyle.Bold, GraphicsUnit.Point, 0);
-            grpOther.Location = new Point(7, 131);
+            grpOther.Location = new Point(7, 142);
             grpOther.Margin = new Padding(3, 2, 3, 2);
             grpOther.Name = "grpOther";
             grpOther.Padding = new Padding(3, 2, 3, 2);
@@ -412,7 +412,7 @@ namespace Land_Readjustment_Tool.UI.Forms.Project
             grpCanvasTheme.Margin = new Padding(3, 2, 3, 2);
             grpCanvasTheme.Name = "grpCanvasTheme";
             grpCanvasTheme.Padding = new Padding(3, 2, 3, 2);
-            grpCanvasTheme.Size = new Size(469, 121);
+            grpCanvasTheme.Size = new Size(469, 132);
             grpCanvasTheme.TabIndex = 0;
             grpCanvasTheme.TabStop = false;
             grpCanvasTheme.Text = "Canvas Theme";
@@ -453,18 +453,18 @@ namespace Land_Readjustment_Tool.UI.Forms.Project
             pnlBgColor.BackColor = Color.FromArgb(30, 41, 51);
             pnlBgColor.BorderStyle = BorderStyle.FixedSingle;
             pnlBgColor.Cursor = Cursors.Hand;
-            pnlBgColor.Location = new Point(10, 58);
+            pnlBgColor.Location = new Point(21, 61);
             pnlBgColor.Margin = new Padding(3, 2, 3, 2);
             pnlBgColor.Name = "pnlBgColor";
-            pnlBgColor.Size = new Size(42, 18);
+            pnlBgColor.Size = new Size(30, 20);
             pnlBgColor.TabIndex = 2;
             // 
             // btnPickColor
             // 
-            btnPickColor.Location = new Point(58, 57);
+            btnPickColor.Location = new Point(54, 57);
             btnPickColor.Margin = new Padding(3, 2, 3, 2);
             btnPickColor.Name = "btnPickColor";
-            btnPickColor.Size = new Size(70, 20);
+            btnPickColor.Size = new Size(70, 27);
             btnPickColor.TabIndex = 1;
             btnPickColor.Text = "Choose...";
             btnPickColor.Click += btnPickColor_Click;
@@ -482,7 +482,7 @@ namespace Land_Readjustment_Tool.UI.Forms.Project
             // lblGridColor
             // 
             lblGridColor.Font = new Font("Segoe UI", 9F);
-            lblGridColor.Location = new Point(9, 80);
+            lblGridColor.Location = new Point(9, 86);
             lblGridColor.Name = "lblGridColor";
             lblGridColor.Size = new Size(114, 15);
             lblGridColor.TabIndex = 4;
@@ -493,18 +493,18 @@ namespace Land_Readjustment_Tool.UI.Forms.Project
             pnlGridColor.BackColor = Color.FromArgb(74, 85, 98);
             pnlGridColor.BorderStyle = BorderStyle.FixedSingle;
             pnlGridColor.Cursor = Cursors.Hand;
-            pnlGridColor.Location = new Point(9, 96);
+            pnlGridColor.Location = new Point(21, 105);
             pnlGridColor.Margin = new Padding(3, 2, 3, 2);
             pnlGridColor.Name = "pnlGridColor";
-            pnlGridColor.Size = new Size(42, 18);
+            pnlGridColor.Size = new Size(30, 20);
             pnlGridColor.TabIndex = 5;
             // 
             // btnPickGridColor
             // 
-            btnPickGridColor.Location = new Point(56, 95);
+            btnPickGridColor.Location = new Point(54, 101);
             btnPickGridColor.Margin = new Padding(3, 2, 3, 2);
             btnPickGridColor.Name = "btnPickGridColor";
-            btnPickGridColor.Size = new Size(70, 20);
+            btnPickGridColor.Size = new Size(70, 27);
             btnPickGridColor.TabIndex = 2;
             btnPickGridColor.Text = "Choose...";
             btnPickGridColor.Click += btnPickGridColor_Click;
@@ -514,7 +514,7 @@ namespace Land_Readjustment_Tool.UI.Forms.Project
             lblGridColorHex.AutoSize = true;
             lblGridColorHex.Font = new Font("Consolas", 9F);
             lblGridColorHex.ForeColor = SystemColors.GrayText;
-            lblGridColorHex.Location = new Point(131, 99);
+            lblGridColorHex.Location = new Point(131, 105);
             lblGridColorHex.Name = "lblGridColorHex";
             lblGridColorHex.Size = new Size(0, 14);
             lblGridColorHex.TabIndex = 6;
@@ -527,7 +527,7 @@ namespace Land_Readjustment_Tool.UI.Forms.Project
             tabParcel.Margin = new Padding(3, 2, 3, 2);
             tabParcel.Name = "tabParcel";
             tabParcel.Padding = new Padding(7, 6, 7, 6);
-            tabParcel.Size = new Size(485, 304);
+            tabParcel.Size = new Size(485, 294);
             tabParcel.TabIndex = 3;
             tabParcel.Text = "Parcels";
             tabParcel.UseVisualStyleBackColor = true;
@@ -663,7 +663,7 @@ namespace Land_Readjustment_Tool.UI.Forms.Project
             tabDocument.Margin = new Padding(3, 2, 3, 2);
             tabDocument.Name = "tabDocument";
             tabDocument.Padding = new Padding(7, 6, 7, 6);
-            tabDocument.Size = new Size(485, 304);
+            tabDocument.Size = new Size(485, 294);
             tabDocument.TabIndex = 4;
             tabDocument.Text = "Documents";
             tabDocument.UseVisualStyleBackColor = true;
@@ -731,7 +731,7 @@ namespace Land_Readjustment_Tool.UI.Forms.Project
             tabPrint.Margin = new Padding(3, 2, 3, 2);
             tabPrint.Name = "tabPrint";
             tabPrint.Padding = new Padding(7, 6, 7, 6);
-            tabPrint.Size = new Size(485, 304);
+            tabPrint.Size = new Size(485, 294);
             tabPrint.TabIndex = 5;
             tabPrint.Text = "Print";
             tabPrint.UseVisualStyleBackColor = true;
