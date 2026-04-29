@@ -106,8 +106,8 @@ namespace Land_Readjustment_Tool.UI.Forms
             }
 
             lblProjectionHint.Text = _preview.Metadata.HasProjection
-                ? "Detected source CRS will be projected/transformed to the target CRS from Project Settings."
-                : "Missing source CRS defaults to WGS 1984. Output is projected/transformed to the target CRS above.";
+                ? "Detected source CRS will be transformed to the target CRS."
+                : "Missing source CRS defaults to WGS 1984 and will be transformed to the target CRS.";
         }
 
         /// <summary>
