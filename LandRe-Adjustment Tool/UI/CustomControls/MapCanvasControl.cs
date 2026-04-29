@@ -2,6 +2,7 @@ using System.Drawing;
 using System.Drawing.Drawing2D;
 using System.Drawing.Text;
 using System.Windows.Forms;
+using Land_Readjustment_Tool.Core.Entities.Canvas;
 using Land_Readjustment_Tool.UI.MapCanvas.Core;
 using Land_Readjustment_Tool.UI.MapCanvas.Models.Shapes;
 using Land_Readjustment_Tool.UI.MapCanvas.Rendering;
@@ -12,6 +13,7 @@ namespace Land_Readjustment_Tool.UI.CustomControls
     {
         private readonly MapCanvasEngine _engine;
         private readonly MapCanvasRenderer _renderer;
+        private readonly List<RasterRenderLayer> _rasterRenderLayers = [];
         private MapCanvasRenderSettings _renderSettings;
 
         public event Action<string, string>? StatusChanged;
@@ -166,6 +168,38 @@ namespace Land_Readjustment_Tool.UI.CustomControls
 
         public bool IsPanToolActive => _panToolActive;
 
+        public void SetRasterLayers(
+            IEnumerable<CanvasLayer>? rasterLayers,
+            string? projectFolderPath)
+        {
+            DisposeRasterRenderLayers();
+
+            if (rasterLayers != null)
+            {
+                foreach (CanvasLayer rasterLayer in rasterLayers
+                    .Where(layer => layer.IsVisible)
+                    .OrderBy(layer => layer.DisplayOrder)
+                    .ThenBy(layer => layer.Name))
+                {
+                    try
+                    {
+                        _rasterRenderLayers.Add(
+                            RasterRenderLayer.FromCanvasLayer(
+                                rasterLayer,
+                                projectFolderPath));
+                    }
+                    catch (Exception ex)
+                    {
+                        System.Diagnostics.Debug.WriteLine(
+                            $"Raster layer skipped: {rasterLayer.Name}. {ex.Message}");
+                    }
+                }
+            }
+
+            UpdateRasterWorldBounds();
+            RequestRender();
+        }
+
         private void canvasSurface_Resize(object? sender, EventArgs e)
         {
             if (_engine == null)
@@ -191,6 +225,7 @@ namespace Land_Readjustment_Tool.UI.CustomControls
                 g,
                 _engine,
                 _renderSettings,
+                _rasterRenderLayers,
                 GetZoomWindowRectangle());
         }
 
@@ -382,6 +417,35 @@ namespace Land_Readjustment_Tool.UI.CustomControls
             }
 
             return "Mode: Ready";
+        }
+
+        private void UpdateRasterWorldBounds()
+        {
+            if (_rasterRenderLayers.Count == 0)
+            {
+                _engine.SetWorldBounds(MapCanvasEngine.DefaultWorldBounds);
+                return;
+            }
+
+            double minX = _rasterRenderLayers.Min(layer =>
+                Math.Min(layer.WorldBounds.Left, layer.WorldBounds.Right));
+            double maxX = _rasterRenderLayers.Max(layer =>
+                Math.Max(layer.WorldBounds.Left, layer.WorldBounds.Right));
+            double minY = _rasterRenderLayers.Min(layer =>
+                Math.Min(layer.WorldBounds.Top, layer.WorldBounds.Bottom));
+            double maxY = _rasterRenderLayers.Max(layer =>
+                Math.Max(layer.WorldBounds.Top, layer.WorldBounds.Bottom));
+
+            _engine.SetWorldBounds(
+                new RectangleD(minX, minY, maxX - minX, maxY - minY));
+        }
+
+        private void DisposeRasterRenderLayers()
+        {
+            foreach (RasterRenderLayer rasterLayer in _rasterRenderLayers)
+                rasterLayer.Dispose();
+
+            _rasterRenderLayers.Clear();
         }
     }
 }

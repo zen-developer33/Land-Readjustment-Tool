@@ -14,6 +14,7 @@ namespace Land_Readjustment_Tool.UI.CustomControls
 
             if (disposing)
             {
+                DisposeRasterRenderLayers();
                 _renderer?.Dispose();
             }
 

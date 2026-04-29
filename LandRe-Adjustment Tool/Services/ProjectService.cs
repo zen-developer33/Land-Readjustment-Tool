@@ -130,9 +130,7 @@ namespace Land_Readjustment_Tool.Services
             // Step 6 — WAL checkpoint
             // Flush WAL into main .lpp file so the session
             // context that frmMain opens can read the data
-            await context.Database
-                .ExecuteSqlRawAsync(
-                    "PRAGMA wal_checkpoint(TRUNCATE);");
+            await ProjectWalCheckpoint.ExecuteAsync(projectFilePath);
 
             // NOTE:
             // Initial .bak is created by frmMain.CommitNewProjectAsync

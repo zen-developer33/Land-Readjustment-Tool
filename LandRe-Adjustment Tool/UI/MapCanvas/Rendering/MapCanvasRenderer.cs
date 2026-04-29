@@ -4,6 +4,7 @@ using System.Drawing.Text;
 using Land_Readjustment_Tool.UI.MapCanvas.Core;
 using Land_Readjustment_Tool.UI.MapCanvas.Models.Shapes;
 
+
 namespace Land_Readjustment_Tool.UI.MapCanvas.Rendering
 {
     /// <summary>
@@ -29,10 +30,16 @@ namespace Land_Readjustment_Tool.UI.MapCanvas.Rendering
             Graphics graphics,
             MapCanvasEngine engine,
             MapCanvasRenderSettings settings,
+            IReadOnlyList<RasterRenderLayer> rasterLayers,
             Rectangle? zoomWindowRectangle)
         {
             ConfigureGraphics(graphics);
             graphics.Clear(settings.BackgroundColor);
+
+            // Basemap/raster content must be drawn before map overlays.
+            // Grid, axis markers, and interaction UI are intentionally drawn last.
+            RenderRasterLayers(graphics, engine, rasterLayers);
+            ConfigureGraphics(graphics);
 
             if (settings.ShowGrid)
             {
@@ -47,6 +54,22 @@ namespace Land_Readjustment_Tool.UI.MapCanvas.Rendering
             if (zoomWindowRectangle.HasValue)
             {
                 RenderZoomWindow(graphics, settings, zoomWindowRectangle.Value);
+            }
+        }
+
+        private static void RenderRasterLayers(
+            Graphics graphics,
+            MapCanvasEngine engine,
+            IReadOnlyList<RasterRenderLayer> rasterLayers)
+        {
+            if (rasterLayers.Count == 0)
+                return;
+
+            RectangleD visibleBounds = engine.GetVisibleWorldBounds();
+
+            foreach (RasterRenderLayer layer in rasterLayers)
+            {
+                layer.RenderVisible(graphics, engine, visibleBounds);
             }
         }
 

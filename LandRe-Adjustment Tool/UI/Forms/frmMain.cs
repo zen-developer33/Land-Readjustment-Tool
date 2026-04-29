@@ -114,6 +114,7 @@ namespace Land_Readjustment_Tool
             mnuZoomOut.Click += mnuZoomOut_Click!;
             mnuZoomExtent.Click += mnuZoomExtent_Click!;
             mnuZoomWindow.Click += mnuZoomWindow_Click!;
+            geotiffToolStripMenuItem.Click += geotiffToolStripMenuItem_Click!;
 
         }
 
@@ -282,14 +283,12 @@ namespace Land_Readjustment_Tool
             if (result == DialogResult.No)
             {
                 string filePath = AppServices.Context.ProjectFilePath;
-                var dbContext = AppServices.Context.Session.GetDbContext();
 
                 // Step 1 — Checkpoint BEFORE closing the connection.
                 //   TRUNCATE empties the WAL file in-place while we still
                 //   hold the connection, so there is no file-lock conflict.
                 //   An empty WAL cannot be replayed on next open.
-                dbContext.Database
-                    .ExecuteSqlRaw("PRAGMA wal_checkpoint(TRUNCATE);");
+                ProjectWalCheckpoint.Execute(filePath);
 
                 // Step 2 — Dispose session and clear the connection pool.
                 //   ClearAllPools() forces Microsoft.Data.Sqlite to close
@@ -482,14 +481,12 @@ namespace Land_Readjustment_Tool
             try
             {
                 string filePath = AppServices.Context.ProjectFilePath;
-                var dbContext = AppServices.Context.Session.GetDbContext();
 
                 // Repositories write immediately — no pending changes to flush.
                 // Save = WAL checkpoint + backup rotation.
 
                 // 1. WAL checkpoint — merge WAL journal into the .lpp file
-                dbContext.Database
-                    .ExecuteSqlRaw("PRAGMA wal_checkpoint(TRUNCATE);");
+                ProjectWalCheckpoint.Execute(filePath);
 
                 // 2. Rotate backups
                 _backupService.CreateBackup(filePath);
@@ -500,6 +497,8 @@ namespace Land_Readjustment_Tool
             }
             catch (Exception ex)
             {
+                LogProjectError("Project save failed.", ex);
+
                 MessageBox.Show(
                     $"Save failed: {ex.Message}",
                     "Error",
@@ -541,11 +540,9 @@ namespace Land_Readjustment_Tool
             if (AppServices.HasContext)
             {
                 var filePath = AppServices.Context.ProjectFilePath;
-                var dbContext = AppServices.Context.Session.GetDbContext();
 
                 // WAL checkpoint — flush all writes into the .lpp file
-                await dbContext.Database
-                    .ExecuteSqlRawAsync("PRAGMA wal_checkpoint(TRUNCATE);");
+                await ProjectWalCheckpoint.ExecuteAsync(filePath);
 
                 // Create .lpp.bak — this IS the initial saved state
                 _backupService.CreateBackup(filePath);
@@ -826,10 +823,7 @@ namespace Land_Readjustment_Tool
                 // SQLite WAL mode keeps pending writes in a
                 // separate -wal file. Checkpoint merges them
                 // into the main database file before we copy.
-                await AppServices.Context.Session
-                    .GetDbContext()
-                    .Database
-                    .ExecuteSqlRawAsync("PRAGMA wal_checkpoint(TRUNCATE);");
+                await ProjectWalCheckpoint.ExecuteAsync(currentFilePath);
 
                 // 4b — Delete destination if already exists
                 if (Directory.Exists(destFolder))
@@ -875,10 +869,7 @@ namespace Land_Readjustment_Tool
                 }
 
                 // 4h — WAL checkpoint on new file
-                await session.GetDbContext()
-                    .Database
-                    .ExecuteSqlRawAsync(
-                        "PRAGMA wal_checkpoint(TRUNCATE);");
+                await ProjectWalCheckpoint.ExecuteAsync(destFile);
 
                 // 4i — Create fresh backup in new location
                 // No old backups copied — clean history
@@ -897,6 +888,8 @@ namespace Land_Readjustment_Tool
             }
             catch (Exception ex)
             {
+                LogProjectError("Save As failed.", ex);
+
                 MessageBox.Show(
                     $"Save As failed:\n{ex.Message}",
                     "Error",
@@ -1048,6 +1041,195 @@ namespace Land_Readjustment_Tool
                 landRecordsService,
                 AppServices.Context.ProjectFilePath);
             frm.ShowDialog(this);
+        }
+
+        private async void geotiffToolStripMenuItem_Click(object? sender, EventArgs e)
+        {
+            if (!AppServices.HasContext)
+            {
+                MessageBox.Show(
+                    "Please open or create a project first.",
+                    "No Project Open",
+                    MessageBoxButtons.OK,
+                    MessageBoxIcon.Warning);
+                return;
+            }
+
+            using OpenFileDialog dialog = new()
+            {
+                Title = "Import Raster Image",
+                Filter =
+                    "Georeferenced rasters (*.tif;*.tiff;*.vrt;*.img;*.jpg;*.jpeg;*.png;*.bmp)|*.tif;*.tiff;*.vrt;*.img;*.jpg;*.jpeg;*.png;*.bmp|" +
+                    "GeoTIFF (*.tif;*.tiff)|*.tif;*.tiff|" +
+                    "All files (*.*)|*.*",
+                Multiselect = false,
+                RestoreDirectory = true
+            };
+
+            if (dialog.ShowDialog(this) != DialogResult.OK)
+                return;
+
+            try
+            {
+                UseWaitCursor = true;
+
+                var session = AppServices.Context.Session;
+                var settingsRepository =
+                    _projectScopedFactory.CreateProjectSettingsRepository(session);
+                var coordinateSystemRepository =
+                    _projectScopedFactory.CreateCoordinateSystemRepository(session);
+                var datumTransformationRepository =
+                    _projectScopedFactory.CreateDatumTransformationRepository(session);
+                var layerRepository =
+                    _projectScopedFactory.CreateCanvasLayerRepository(session);
+
+                var settings = await settingsRepository.GetProjectSettingsAsync();
+                if (settings?.CoordinateSystemId == null)
+                {
+                    MessageBox.Show(
+                        "Please configure the project coordinate system before importing raster data.",
+                        "Raster Import",
+                        MessageBoxButtons.OK,
+                        MessageBoxIcon.Warning);
+                    OpenProjectSettings();
+                    return;
+                }
+
+                var projectCoordinateSystem =
+                    await coordinateSystemRepository.GetWithParametersAsync(
+                        settings.CoordinateSystemId.Value);
+
+                if (projectCoordinateSystem == null)
+                    throw new InvalidOperationException(
+                        "The configured project coordinate system could not be loaded.");
+
+                Land_Readjustment_Tool.Core.Entities.Spatial.DatumTransformation?
+                    datumTransformation = null;
+
+                if (settings.DatumTransformationId.HasValue)
+                {
+                    datumTransformation =
+                        await datumTransformationRepository.GetByIDAsync(
+                            settings.DatumTransformationId.Value);
+                }
+
+                string targetSrsDefinition =
+                    ProjectCrsWktBuilder.BuildTargetSrsDefinition(
+                        projectCoordinateSystem,
+                        datumTransformation);
+
+                List<CanvasLayer> existingLayers =
+                    await layerRepository.GetAllOrderedAsync();
+
+                string layerName = BuildUniqueLayerName(
+                    Path.GetFileNameWithoutExtension(dialog.FileName),
+                    existingLayers);
+
+                RasterImportService importService = new();
+                RasterImportResult importResult = await Task.Run(() =>
+                    importService.ImportToProjectCrs(
+                        dialog.FileName,
+                        AppServices.Context.ProjectFolderPath,
+                        layerName,
+                        targetSrsDefinition));
+
+                int nextDisplayOrder = existingLayers.Count == 0
+                    ? 0
+                    : existingLayers.Max(layer => layer.DisplayOrder) + 1;
+
+                CanvasLayer rasterLayer = new()
+                {
+                    Name = layerName,
+                    LayerType = CanvasLayerTreeService.RasterLayerType,
+                    IsVisible = true,
+                    IsLocked = false,
+                    IsSelectable = true,
+                    IsPrintable = true,
+                    DisplayOrder = nextDisplayOrder,
+                    BorderColor = "#4B8BBE",
+                    LineWeight = 1.0,
+                    LineStyle = "Solid",
+                    FillTransparency = 0,
+                    FillStyle = "None",
+                    LabelColor = "#000000",
+                    PointSymbol = "Circle",
+                    PointSize = 5.0,
+                    SourceFile = importResult.RelativePath,
+                    ImportedDate = DateTime.Now,
+                    Description = importResult.SourceMetadata.ToLayerDescription(
+                        layerName,
+                        importResult.RelativePath,
+                        projectCoordinateSystem.Code,
+                        importResult.ImportMode)
+                };
+
+                CanvasLayer savedLayer = await layerRepository.AddAsync(rasterLayer);
+
+                AppServices.Context.MarkAsModified();
+                UpdateWindowTitle();
+
+                await RefreshLayerTreeAsync();
+                SelectLayerNodeById(savedLayer.Id);
+                mapCanvasControlMain.ZoomExtents();
+
+                string importDetails = importResult.SourceMetadata.ToDisplayText(
+                    layerName,
+                    importResult.RelativePath,
+                    projectCoordinateSystem.Code,
+                    importResult.ImportMode);
+
+                AppServices.Context.Session.Logger.LogInfo(
+                    $"Raster import metadata:{Environment.NewLine}{importDetails}");
+
+                string importHeading = importResult.ImportMode switch
+                {
+                    RasterImportMode.ProjectedToProjectCrs =>
+                        $"Imported '{layerName}' successfully.",
+                    RasterImportMode.UnknownCrsCopiedWithoutProjection =>
+                        $"Imported '{layerName}', but the raster CRS is unknown.",
+                    RasterImportMode.UnreferencedCopiedToLocalCoordinates =>
+                        $"Imported '{layerName}' for temporary display only.",
+                    _ => $"Imported '{layerName}'."
+                };
+
+                string? importWarning = GetRasterImportWarning(importResult.ImportMode);
+                MessageBoxIcon importIcon =
+                    importResult.ImportMode == RasterImportMode.ProjectedToProjectCrs
+                        ? MessageBoxIcon.Information
+                        : MessageBoxIcon.Warning;
+                string messageBody = importWarning == null
+                    ? importDetails
+                    : $"{importWarning}{Environment.NewLine}{Environment.NewLine}" +
+                      "The raster was still imported so you can inspect it, but it will not align correctly until it is georeferenced or assigned the correct CRS." +
+                      $"{Environment.NewLine}{Environment.NewLine}{importDetails}";
+
+                MessageBox.Show(
+                    $"{importHeading}{Environment.NewLine}{Environment.NewLine}" +
+                    messageBody,
+                    importWarning == null
+                        ? "Raster Import Details"
+                        : "Raster Georeferencing Warning",
+                    MessageBoxButtons.OK,
+                    importIcon);
+            }
+            catch (Exception ex)
+            {
+                string exceptionDetails = FormatExceptionDetails(ex);
+                System.Diagnostics.Debug.WriteLine(exceptionDetails);
+                AppServices.Context.Session.Logger.LogError(
+                    $"Raster import failed.{Environment.NewLine}{exceptionDetails}",
+                    ex);
+
+                MessageBox.Show(
+                    $"Failed to import raster: {GetMostUsefulExceptionMessage(ex)}",
+                    "Raster Import",
+                    MessageBoxButtons.OK,
+                    MessageBoxIcon.Error);
+            }
+            finally
+            {
+                UseWaitCursor = false;
+            }
         }
 
         private void startReplotWorkspaceToolStripMenuItem_Click(object sender, EventArgs e)
@@ -1203,14 +1385,13 @@ namespace Land_Readjustment_Tool
             try
             {
                 string filePath = AppServices.Context.ProjectFilePath;
-                var dbContext = AppServices.Context.Session.GetDbContext();
 
                 // Repositories write to the DB immediately on every edit,
                 // so there are no pending EF Core changes to flush here.
                 // Save = WAL checkpoint (merge WAL → .lpp) + rotate backups.
 
                 // 1. WAL checkpoint — merge WAL journal into the .lpp file
-                await dbContext.Database.ExecuteSqlRawAsync("PRAGMA wal_checkpoint(TRUNCATE);");
+                await ProjectWalCheckpoint.ExecuteAsync(filePath);
 
                 // 2. Rotate backups — .bak = state just before this save
                 _backupService.CreateBackup(filePath);
@@ -1229,6 +1410,8 @@ namespace Land_Readjustment_Tool
             }
             catch (Exception ex)
             {
+                LogProjectError("Project save failed.", ex);
+
                 MessageBox.Show(
                     $"Save failed:\n{ex.Message}",
                     "Error",
@@ -1895,6 +2078,7 @@ namespace Land_Readjustment_Tool
             node.Text = updatedLayer.Name;
 
             treeViewLayers.Invalidate();
+            UpdateRasterCanvasLayersFromTree();
 
             if (AppServices.HasContext)
             {
@@ -1964,6 +2148,8 @@ namespace Land_Readjustment_Tool
                 treeViewLayers.EndUpdate();
                 _suppressLayerTreeEvents = false;
             }
+
+            UpdateRasterCanvasLayersFromTree();
         }
 
         private void ResetLayerTree()
@@ -1998,6 +2184,8 @@ namespace Land_Readjustment_Tool
                 treeViewLayers.EndUpdate();
                 _suppressLayerTreeEvents = false;
             }
+
+            UpdateRasterCanvasLayersFromTree();
         }
 
         private void PopulateLayerProperties(CanvasLayer layer)
@@ -2050,6 +2238,7 @@ namespace Land_Readjustment_Tool
                 nodeState.Layer = editableLayer;
                 node.Text = editableLayer.Name;
                 treeViewLayers.Invalidate();
+                UpdateRasterCanvasLayersFromTree();
                 mapCanvasControlMain.RequestRender();
                 return;
             }
@@ -2112,6 +2301,117 @@ namespace Land_Readjustment_Tool
                         return;
                     }
                 }
+            }
+        }
+
+        private void UpdateRasterCanvasLayersFromTree()
+        {
+            string? projectFolderPath = AppServices.HasContext
+                ? AppServices.Context.ProjectFolderPath
+                : null;
+
+            List<CanvasLayer> rasterLayers = [];
+
+            foreach (TreeNode groupNode in treeViewLayers.Nodes)
+            {
+                foreach (TreeNode layerNode in groupNode.Nodes)
+                {
+                    if (layerNode.Tag is LayerTreeNodeState state &&
+                        state.Layer != null &&
+                        string.Equals(
+                            state.Layer.LayerType,
+                            CanvasLayerTreeService.RasterLayerType,
+                            StringComparison.OrdinalIgnoreCase))
+                    {
+                        rasterLayers.Add(state.Layer);
+                    }
+                }
+            }
+
+            mapCanvasControlMain.SetRasterLayers(
+                rasterLayers,
+                projectFolderPath);
+        }
+
+        private static string BuildUniqueLayerName(
+            string? desiredName,
+            IEnumerable<CanvasLayer> existingLayers)
+        {
+            string baseName = string.IsNullOrWhiteSpace(desiredName)
+                ? "Raster"
+                : desiredName.Trim();
+
+            HashSet<string> existingNames = existingLayers
+                .Select(layer => layer.Name)
+                .ToHashSet(StringComparer.OrdinalIgnoreCase);
+
+            if (!existingNames.Contains(baseName))
+                return baseName;
+
+            for (int counter = 1; counter < 10000; counter++)
+            {
+                string candidate = $"{baseName}_{counter}";
+                if (!existingNames.Contains(candidate))
+                    return candidate;
+            }
+
+            return $"{baseName}_{DateTime.Now:yyyyMMddHHmmss}";
+        }
+
+        private static string GetMostUsefulExceptionMessage(Exception exception)
+        {
+            Exception current = exception;
+
+            while (current.InnerException != null)
+                current = current.InnerException;
+
+            return current.Message;
+        }
+
+        private static string? GetRasterImportWarning(RasterImportMode importMode)
+        {
+            return importMode switch
+            {
+                RasterImportMode.UnknownCrsCopiedWithoutProjection =>
+                    "Warning: this raster has map coordinates, but no coordinate reference system was found.",
+                RasterImportMode.UnreferencedCopiedToLocalCoordinates =>
+                    "Warning: this raster is not georeferenced. The map placement is temporary image coordinates only, so the map will not be spatially correct.",
+                _ => null
+            };
+        }
+
+        private static string FormatExceptionDetails(Exception exception)
+        {
+            List<string> lines =
+            [
+                $"Exception: {exception.GetType().FullName}",
+                $"Message: {exception.Message}"
+            ];
+
+            Exception? current = exception.InnerException;
+            int depth = 1;
+
+            while (current != null)
+            {
+                lines.Add(
+                    $"Inner {depth}: {current.GetType().FullName}: {current.Message}");
+                current = current.InnerException;
+                depth++;
+            }
+
+            lines.Add($"StackTrace: {exception.StackTrace}");
+            return string.Join(Environment.NewLine, lines);
+        }
+
+        private static void LogProjectError(string message, Exception exception)
+        {
+            System.Diagnostics.Debug.WriteLine(FormatExceptionDetails(exception));
+
+            if (AppServices.HasContext)
+            {
+                AppServices.Context.Session.Logger.LogError(
+                    $"{message}{Environment.NewLine}{FormatExceptionDetails(exception)}",
+                    exception);
             }
         }
 

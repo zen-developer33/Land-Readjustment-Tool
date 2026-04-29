@@ -25,6 +25,7 @@ namespace Land_Readjustment_Tool
                 //SetProcessDPIAware();
             Application.SetHighDpiMode(HighDpiMode.SystemAware);
             Encoding.RegisterProvider(CodePagesEncodingProvider.Instance);
+            SQLitePCL.Batteries_V2.Init();
             Application.EnableVisualStyles();           
             Application.SetCompatibleTextRenderingDefault(false);
             ShowSplashScreen();
