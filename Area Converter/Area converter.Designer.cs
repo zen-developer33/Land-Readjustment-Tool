@@ -204,7 +204,7 @@ namespace Land_Readjustment_Tool
             grpQuickConvert.Margin = new Padding(2);
             grpQuickConvert.Name = "grpQuickConvert";
             grpQuickConvert.Padding = new Padding(2);
-            grpQuickConvert.Size = new Size(211, 330);
+            grpQuickConvert.Size = new Size(224, 330);
             grpQuickConvert.TabIndex = 30;
             grpQuickConvert.TabStop = false;
             grpQuickConvert.Text = "Quick Convert";
@@ -212,10 +212,10 @@ namespace Land_Readjustment_Tool
             // btnCopyToClipboard
             // 
             btnCopyToClipboard.Anchor = AnchorStyles.Top | AnchorStyles.Right;
-            btnCopyToClipboard.Location = new Point(21, 297);
+            btnCopyToClipboard.Location = new Point(17, 297);
             btnCopyToClipboard.Margin = new Padding(2);
             btnCopyToClipboard.Name = "btnCopyToClipboard";
-            btnCopyToClipboard.Size = new Size(108, 28);
+            btnCopyToClipboard.Size = new Size(131, 28);
             btnCopyToClipboard.TabIndex = 18;
             btnCopyToClipboard.Text = "Copy to Clipboard";
             btnCopyToClipboard.UseVisualStyleBackColor = true;
@@ -238,7 +238,7 @@ namespace Land_Readjustment_Tool
             txtBkd.Location = new Point(96, 265);
             txtBkd.Margin = new Padding(2);
             txtBkd.Name = "txtBkd";
-            txtBkd.Size = new Size(111, 23);
+            txtBkd.Size = new Size(124, 23);
             txtBkd.TabIndex = 40;
             txtBkd.TextAlign = HorizontalAlignment.Right;
             // 
@@ -259,7 +259,7 @@ namespace Land_Readjustment_Tool
             btnResetQuickConvert.Location = new Point(139, 297);
             btnResetQuickConvert.Margin = new Padding(2);
             btnResetQuickConvert.Name = "btnResetQuickConvert";
-            btnResetQuickConvert.Size = new Size(68, 28);
+            btnResetQuickConvert.Size = new Size(81, 28);
             btnResetQuickConvert.TabIndex = 41;
             btnResetQuickConvert.Text = "Reset";
             btnResetQuickConvert.UseVisualStyleBackColor = true;
@@ -271,7 +271,7 @@ namespace Land_Readjustment_Tool
             txtDhur.Location = new Point(96, 241);
             txtDhur.Margin = new Padding(2);
             txtDhur.Name = "txtDhur";
-            txtDhur.Size = new Size(111, 23);
+            txtDhur.Size = new Size(124, 23);
             txtDhur.TabIndex = 39;
             txtDhur.TextAlign = HorizontalAlignment.Right;
             // 
@@ -293,7 +293,7 @@ namespace Land_Readjustment_Tool
             txtKattha.Location = new Point(96, 217);
             txtKattha.Margin = new Padding(2);
             txtKattha.Name = "txtKattha";
-            txtKattha.Size = new Size(111, 23);
+            txtKattha.Size = new Size(124, 23);
             txtKattha.TabIndex = 38;
             txtKattha.TextAlign = HorizontalAlignment.Right;
             // 
@@ -315,7 +315,7 @@ namespace Land_Readjustment_Tool
             txtBigha.Location = new Point(96, 193);
             txtBigha.Margin = new Padding(2);
             txtBigha.Name = "txtBigha";
-            txtBigha.Size = new Size(111, 23);
+            txtBigha.Size = new Size(124, 23);
             txtBigha.TabIndex = 37;
             txtBigha.TextAlign = HorizontalAlignment.Right;
             txtBigha.TextChanged += txtBigha_TextChanged;
@@ -338,7 +338,7 @@ namespace Land_Readjustment_Tool
             txtRapd.Location = new Point(96, 169);
             txtRapd.Margin = new Padding(2);
             txtRapd.Name = "txtRapd";
-            txtRapd.Size = new Size(111, 23);
+            txtRapd.Size = new Size(124, 23);
             txtRapd.TabIndex = 36;
             txtRapd.TextAlign = HorizontalAlignment.Right;
             // 
@@ -360,7 +360,7 @@ namespace Land_Readjustment_Tool
             txtDam.Location = new Point(96, 145);
             txtDam.Margin = new Padding(2);
             txtDam.Name = "txtDam";
-            txtDam.Size = new Size(111, 23);
+            txtDam.Size = new Size(124, 23);
             txtDam.TabIndex = 35;
             txtDam.TextAlign = HorizontalAlignment.Right;
             // 
@@ -382,7 +382,7 @@ namespace Land_Readjustment_Tool
             txtPaisa.Location = new Point(96, 121);
             txtPaisa.Margin = new Padding(2);
             txtPaisa.Name = "txtPaisa";
-            txtPaisa.Size = new Size(111, 23);
+            txtPaisa.Size = new Size(124, 23);
             txtPaisa.TabIndex = 34;
             txtPaisa.TextAlign = HorizontalAlignment.Right;
             txtPaisa.TextChanged += txtPaisa_TextChanged;
@@ -405,7 +405,7 @@ namespace Land_Readjustment_Tool
             txtAana.Location = new Point(96, 97);
             txtAana.Margin = new Padding(2);
             txtAana.Name = "txtAana";
-            txtAana.Size = new Size(111, 23);
+            txtAana.Size = new Size(124, 23);
             txtAana.TabIndex = 33;
             txtAana.TextAlign = HorizontalAlignment.Right;
             // 
@@ -427,7 +427,7 @@ namespace Land_Readjustment_Tool
             txtRopani.Location = new Point(96, 73);
             txtRopani.Margin = new Padding(2);
             txtRopani.Name = "txtRopani";
-            txtRopani.Size = new Size(111, 23);
+            txtRopani.Size = new Size(124, 23);
             txtRopani.TabIndex = 32;
             txtRopani.TextAlign = HorizontalAlignment.Right;
             // 
@@ -449,7 +449,7 @@ namespace Land_Readjustment_Tool
             txtSqft.Location = new Point(96, 49);
             txtSqft.Margin = new Padding(2);
             txtSqft.Name = "txtSqft";
-            txtSqft.Size = new Size(111, 23);
+            txtSqft.Size = new Size(124, 23);
             txtSqft.TabIndex = 31;
             txtSqft.TextAlign = HorizontalAlignment.Right;
             // 
@@ -471,7 +471,7 @@ namespace Land_Readjustment_Tool
             txtSqm.Location = new Point(96, 25);
             txtSqm.Margin = new Padding(2);
             txtSqm.Name = "txtSqm";
-            txtSqm.Size = new Size(111, 23);
+            txtSqm.Size = new Size(124, 23);
             txtSqm.TabIndex = 30;
             txtSqm.TextAlign = HorizontalAlignment.Right;
             txtSqm.TextChanged += txtSqm_TextChanged;
@@ -1622,7 +1622,7 @@ namespace Land_Readjustment_Tool
             AutoScaleDimensions = new SizeF(96F, 96F);
             AutoScaleMode = AutoScaleMode.Dpi;
             BackColor = Color.White;
-            ClientSize = new Size(555, 411);
+            ClientSize = new Size(568, 411);
             Controls.Add(ThemedGroupBox1);
             Controls.Add(grpFromRAPD);
             Controls.Add(btnExit);
