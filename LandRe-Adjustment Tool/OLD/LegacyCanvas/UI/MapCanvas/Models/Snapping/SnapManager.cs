@@ -1,9 +1,10 @@
 ﻿using System.Collections.Generic;
 using System.Linq;
-using Land_Readjustment_Tool.UI.MapCanvas.Core;
+using Land_Readjustment_Tool.OLD.LegacyCanvas.UI.MapCanvas.Core;
 using Land_Readjustment_Tool.UI.MapCanvas.Models.Shapes;
+using Land_Readjustment_Tool.UI.MapCanvas.Models.Snapping;
 
-namespace Land_Readjustment_Tool.UI.MapCanvas.Models.Snapping
+namespace Land_Readjustment_Tool.OLD.LegacyCanvas.UI.MapCanvas.Models.Snapping
 {
     /// <summary>
     /// Owns ALL snap-related logic. The form knows nothing about how

@@ -31,6 +31,8 @@ namespace Land_Readjustment_Tool.UI.MapCanvas.Rendering
             MapCanvasEngine engine,
             MapCanvasRenderSettings settings,
             IReadOnlyList<RasterRenderLayer> rasterLayers,
+            RasterRenderFrame? rasterFrame,
+            bool interactiveRaster,
             Rectangle? zoomWindowRectangle)
         {
             ConfigureGraphics(graphics);
@@ -38,7 +40,19 @@ namespace Land_Readjustment_Tool.UI.MapCanvas.Rendering
 
             // Basemap/raster content must be drawn before map overlays.
             // Grid, axis markers, and interaction UI are intentionally drawn last.
-            RenderRasterLayers(graphics, engine, rasterLayers);
+            if (rasterFrame.HasValue)
+            {
+                DrawRasterFrame(graphics, rasterFrame.Value);
+            }
+            else
+            {
+                RenderRasterLayers(
+                    graphics,
+                    engine,
+                    rasterLayers,
+                    interactiveRaster);
+            }
+
             ConfigureGraphics(graphics);
 
             if (settings.ShowGrid)
@@ -60,7 +74,8 @@ namespace Land_Readjustment_Tool.UI.MapCanvas.Rendering
         private static void RenderRasterLayers(
             Graphics graphics,
             MapCanvasEngine engine,
-            IReadOnlyList<RasterRenderLayer> rasterLayers)
+            IReadOnlyList<RasterRenderLayer> rasterLayers,
+            bool interactive)
         {
             if (rasterLayers.Count == 0)
                 return;
@@ -69,7 +84,32 @@ namespace Land_Readjustment_Tool.UI.MapCanvas.Rendering
 
             foreach (RasterRenderLayer layer in rasterLayers)
             {
-                layer.RenderVisible(graphics, engine, visibleBounds);
+                layer.RenderVisible(
+                    graphics,
+                    engine,
+                    visibleBounds,
+                    interactive);
+            }
+        }
+
+        private static void DrawRasterFrame(
+            Graphics graphics,
+            RasterRenderFrame rasterFrame)
+        {
+            GraphicsState state = graphics.Save();
+            try
+            {
+                graphics.SmoothingMode = SmoothingMode.None;
+                graphics.InterpolationMode = InterpolationMode.NearestNeighbor;
+                graphics.PixelOffsetMode = PixelOffsetMode.HighSpeed;
+                graphics.CompositingQuality = CompositingQuality.HighSpeed;
+                graphics.DrawImage(
+                    rasterFrame.Bitmap,
+                    rasterFrame.Destination);
+            }
+            finally
+            {
+                graphics.Restore(state);
             }
         }
 
@@ -521,4 +561,8 @@ namespace Land_Readjustment_Tool.UI.MapCanvas.Rendering
             return $"{value:F3}";
         }
     }
+
+    public readonly record struct RasterRenderFrame(
+        Bitmap Bitmap,
+        RectangleF Destination);
 }

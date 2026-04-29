@@ -2,10 +2,10 @@
 using System.Drawing;
 using System.Drawing.Drawing2D;
 using System.Collections.Generic;
-using Land_Readjustment_Tool.UI.MapCanvas.Core;
 using Land_Readjustment_Tool.UI.MapCanvas.Models.Shapes;
+using Land_Readjustment_Tool.OLD.LegacyCanvas.UI.MapCanvas.Core;
 
-namespace Land_Readjustment_Tool.UI.MapCanvas.Rendering
+namespace Land_Readjustment_Tool.OLD.LegacyCanvas.UI.MapCanvas.Rendering
 {
     /// <summary>
     /// Deferred renderer responsible ONLY for the shapes layer.

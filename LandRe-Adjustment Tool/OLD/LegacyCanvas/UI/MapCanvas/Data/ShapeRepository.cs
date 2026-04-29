@@ -1,7 +1,7 @@
 using System.Drawing;
 using Land_Readjustment_Tool.UI.MapCanvas.Models.Shapes;
 
-namespace Land_Readjustment_Tool.UI.MapCanvas.Data
+namespace Land_Readjustment_Tool.OLD.LegacyCanvas.UI.MapCanvas.Data
 {
     /// <summary>
     /// Repository for persisting shapes to database.

@@ -2,11 +2,12 @@
 using netDxf.Entities;
 using netDxf;
 using System.ComponentModel;
-using Land_Readjustment_Tool.UI.MapCanvas.Core;
-using Land_Readjustment_Tool.UI.MapCanvas.Rendering;
-using Land_Readjustment_Tool.UI.MapCanvas.Core.Commands;
 using Land_Readjustment_Tool.UI.MapCanvas.Models.Shapes;
 using Land_Readjustment_Tool.UI.MapCanvas.Models.Snapping;
+using Land_Readjustment_Tool.OLD.LegacyCanvas.UI.MapCanvas.Core;
+using Land_Readjustment_Tool.OLD.LegacyCanvas.UI.MapCanvas.Rendering;
+using Land_Readjustment_Tool.OLD.LegacyCanvas.UI.MapCanvas.Core.Commands;
+using Land_Readjustment_Tool.OLD.LegacyCanvas.UI.MapCanvas.Models.Snapping;
 
 namespace Land_Readjustment_Tool.UI.CustomControls
 {

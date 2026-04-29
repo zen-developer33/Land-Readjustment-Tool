@@ -4,7 +4,7 @@ using System.Collections.Generic;
 using System.Linq;
 using Land_Readjustment_Tool.UI.MapCanvas.Models.Shapes;
 
-namespace Land_Readjustment_Tool.UI.MapCanvas.Core
+namespace Land_Readjustment_Tool.OLD.LegacyCanvas.UI.MapCanvas.Core
 {
     /// <summary>
     /// OPTIMIZED ShapeManager with bulk loading support.

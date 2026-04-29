@@ -9,7 +9,7 @@ namespace Land_Readjustment_Tool.UI.MapCanvas.Core
     /// </summary>
     public sealed class MapCanvasEngine
     {
-        public const double MinZoom = 0.0001;
+        public const double MinZoom = 0.000001;
         public const double MaxZoom = 100000.0;
         public const double ZoomStep = 1.2;
         private const double DefaultInitialCenterX = 245426.0206;

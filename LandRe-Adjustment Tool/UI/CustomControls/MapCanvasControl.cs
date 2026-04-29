@@ -13,6 +13,7 @@ namespace Land_Readjustment_Tool.UI.CustomControls
     {
         private readonly MapCanvasEngine _engine;
         private readonly MapCanvasRenderer _renderer;
+        private readonly RasterDeferredRenderer _rasterDeferredRenderer = new();
         private readonly List<RasterRenderLayer> _rasterRenderLayers = [];
         private MapCanvasRenderSettings _renderSettings;
 
@@ -25,6 +26,9 @@ namespace Land_Readjustment_Tool.UI.CustomControls
         private bool _zoomWindowActive;
         private bool _isSelectingZoomWindow;
         private Point _lastPanPoint;
+        private PointF _totalPanDelta;
+        private PointF _zoomAnchorScreen;
+        private double _interactiveZoomScale = 1.0;
         private PointD? _panStartWorld;
         private Point _zoomWindowStart;
         private Point _zoomWindowCurrent;
@@ -133,18 +137,21 @@ namespace Land_Readjustment_Tool.UI.CustomControls
         public void ZoomIn()
         {
             _engine.ZoomIn();
+            RefreshRasterCacheForCurrentView();
             RequestRender();
         }
 
         public void ZoomOut()
         {
             _engine.ZoomOut();
+            RefreshRasterCacheForCurrentView();
             RequestRender();
         }
 
         public void ZoomExtents()
         {
             _engine.ZoomToExtents();
+            RefreshRasterCacheForCurrentView();
             RequestRender();
         }
 
@@ -197,6 +204,7 @@ namespace Land_Readjustment_Tool.UI.CustomControls
             }
 
             UpdateRasterWorldBounds();
+            RefreshRasterCacheForCurrentView();
             RequestRender();
         }
 
@@ -208,6 +216,8 @@ namespace Land_Readjustment_Tool.UI.CustomControls
             }
 
             _engine.UpdateCanvasSize(canvasSurface.Size);
+            _rasterDeferredRenderer.Resize(canvasSurface.Size);
+            RefreshRasterCacheForCurrentView();
             RequestRender();
         }
 
@@ -226,32 +236,44 @@ namespace Land_Readjustment_Tool.UI.CustomControls
                 _engine,
                 _renderSettings,
                 _rasterRenderLayers,
+                GetRasterRenderFrame(),
+                IsInteractiveNavigation,
                 GetZoomWindowRectangle());
         }
 
         private void canvasSurface_MouseWheel(object? sender, MouseEventArgs e)
         {
+            if (!_isZooming)
+            {
+                _zoomAnchorScreen = e.Location;
+                _interactiveZoomScale = 1.0;
+            }
+
             _isZooming = true;
             double zoomFactor = e.Delta > 0 ? MapCanvasEngine.ZoomStep : 1.0 / MapCanvasEngine.ZoomStep;
             _zoomDirection = e.Delta > 0 ? "In" : "Out";
+            _interactiveZoomScale *= zoomFactor;
             UpdateStatusBar();
             
             _engine.ZoomAtPoint(e.Location, zoomFactor);
             _currentMouseWorld = _engine.ScreenToWorld(e.Location);
             RequestRender();
             
-            // Reset the zooming timer to keep status visible for 300ms
+            // Reset the zooming timer; redraw the real raster only after wheel input settles.
             _zoomingStatusTimer?.Stop();
             _zoomingStatusTimer = new System.Windows.Forms.Timer();
-            _zoomingStatusTimer.Interval = 100;
+            _zoomingStatusTimer.Interval = 350;
             _zoomingStatusTimer.Tick += (_, _) =>
             {
                 _isZooming = false;
                 _zoomDirection = null;
+                _interactiveZoomScale = 1.0;
                 _zoomingStatusTimer.Stop();
                 _zoomingStatusTimer.Dispose();
                 _zoomingStatusTimer = null;
+                RefreshRasterCacheForCurrentView();
                 UpdateStatusBar();
+                RequestRender();
             };
             _zoomingStatusTimer.Start();
         }
@@ -273,8 +295,13 @@ namespace Land_Readjustment_Tool.UI.CustomControls
             {
                 _isPanning = true;
                 _lastPanPoint = e.Location;
+                _totalPanDelta = PointF.Empty;
                 _panStartWorld = _engine.ScreenToWorld(e.Location);
                 _currentMouseWorld = _panStartWorld;
+                _rasterDeferredRenderer.BeginPan(
+                    canvasSurface.Size,
+                    _rasterRenderLayers,
+                    _engine);
                 canvasSurface.Capture = true;
                 UpdateCanvasCursor();
                 UpdateStatusBar();
@@ -299,6 +326,9 @@ namespace Land_Readjustment_Tool.UI.CustomControls
                 _currentMouseWorld = _panStartWorld;
                 int dx = e.X - _lastPanPoint.X;
                 int dy = e.Y - _lastPanPoint.Y;
+                _totalPanDelta = new PointF(
+                    _totalPanDelta.X + dx,
+                    _totalPanDelta.Y + dy);
                 _engine.PanByScreenDelta(dx, dy);
                 _lastPanPoint = e.Location;
                 RequestRender();
@@ -306,7 +336,7 @@ namespace Land_Readjustment_Tool.UI.CustomControls
             }
 
             _currentMouseWorld = _engine.ScreenToWorld(e.Location);
-            RequestRender();
+            UpdateStatusBar();
         }
 
         private void canvasSurface_MouseUp(object? sender, MouseEventArgs e)
@@ -333,6 +363,8 @@ namespace Land_Readjustment_Tool.UI.CustomControls
                 canvasSurface.Capture = false;
                 _currentMouseWorld = _engine.ScreenToWorld(e.Location);
                 _panStartWorld = null;
+                _totalPanDelta = PointF.Empty;
+                RefreshRasterCacheForCurrentView();
                 UpdateCanvasCursor();
                 RequestRender();
             }
@@ -342,8 +374,7 @@ namespace Land_Readjustment_Tool.UI.CustomControls
         {
             if (!_isPanning && !_isSelectingZoomWindow)
             {
-   
-                RequestRender();
+                UpdateStatusBar();
             }
         }
 
@@ -419,6 +450,46 @@ namespace Land_Readjustment_Tool.UI.CustomControls
             return "Mode: Ready";
         }
 
+        private bool IsInteractiveNavigation =>
+            _isPanning || _isZooming || _isSelectingZoomWindow;
+
+        private RasterRenderFrame? GetRasterRenderFrame()
+        {
+            if (_isPanning &&
+                _rasterDeferredRenderer.TryGetPanFrame(
+                    _totalPanDelta,
+                    out RasterRenderFrame panFrame))
+            {
+                return panFrame;
+            }
+
+            if (_isZooming &&
+                _rasterDeferredRenderer.TryGetZoomFrame(
+                    _zoomAnchorScreen,
+                    _interactiveZoomScale,
+                    out RasterRenderFrame zoomFrame))
+            {
+                return zoomFrame;
+            }
+
+            if (!IsInteractiveNavigation &&
+                _rasterDeferredRenderer.TryGetCacheFrame(
+                    out RasterRenderFrame cacheFrame))
+            {
+                return cacheFrame;
+            }
+
+            return null;
+        }
+
+        private void RefreshRasterCacheForCurrentView()
+        {
+            _rasterDeferredRenderer.RenderNow(
+                canvasSurface.Size,
+                _rasterRenderLayers,
+                _engine);
+        }
+
         private void UpdateRasterWorldBounds()
         {
             if (_rasterRenderLayers.Count == 0)
@@ -446,6 +517,7 @@ namespace Land_Readjustment_Tool.UI.CustomControls
                 rasterLayer.Dispose();
 
             _rasterRenderLayers.Clear();
+            _rasterDeferredRenderer.Invalidate();
         }
     }
 }

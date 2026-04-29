@@ -1,7 +1,7 @@
-using Land_Readjustment_Tool.UI.MapCanvas.Core;
+using Land_Readjustment_Tool.OLD.LegacyCanvas.UI.MapCanvas.Core;
 using Land_Readjustment_Tool.UI.MapCanvas.Models.Shapes;
 
-namespace Land_Readjustment_Tool.UI.MapCanvas.Core.Commands
+namespace Land_Readjustment_Tool.OLD.LegacyCanvas.UI.MapCanvas.Core.Commands
 {
     /// <summary>
     /// Command to add a single shape (for interactive drawing)

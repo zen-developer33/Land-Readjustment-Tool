@@ -1,7 +1,7 @@
 using System.Drawing;
 using Land_Readjustment_Tool.UI.MapCanvas.Models.Shapes;
 
-namespace Land_Readjustment_Tool.UI.MapCanvas.Core
+namespace Land_Readjustment_Tool.OLD.LegacyCanvas.UI.MapCanvas.Core
 {
     /// <summary>
     /// FULLY CORRECTED DrawingEngine with proper coordinate transformations.
