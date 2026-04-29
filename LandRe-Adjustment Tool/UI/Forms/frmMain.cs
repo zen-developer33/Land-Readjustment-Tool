@@ -1149,7 +1149,6 @@ namespace Land_Readjustment_Tool
 
             try
             {
-                UseWaitCursor = true;
                 SetOperationProgress(2, "Reading raster details");
 
                 RasterLayerImportPreview importPreview =
@@ -1157,15 +1156,32 @@ namespace Land_Readjustment_Tool
                         AppServices.Context.Session,
                         dialog.FileName);
 
-                UseWaitCursor = false;
-
                 using frmRasterImportReview reviewForm =
                     new(importPreview);
 
                 if (reviewForm.ShowDialog(this) != DialogResult.OK)
                     return;
 
-                UseWaitCursor = true;
+                CanvasLayer? existingRasterLayer =
+                    await FindExistingRasterLayerAsync(reviewForm.LayerName);
+                if (existingRasterLayer != null)
+                {
+                    DialogResult replaceResult = MessageBox.Show(
+                        this,
+                        $"A raster layer named '{existingRasterLayer.Name}' already exists. Replace it?",
+                        "Raster Import",
+                        MessageBoxButtons.YesNo,
+                        MessageBoxIcon.Question,
+                        MessageBoxDefaultButton.Button2);
+
+                    if (replaceResult != DialogResult.Yes)
+                    {
+                        return;
+                    }
+
+                    await ReplaceRasterLayerAsync(existingRasterLayer);
+                }
+
                 SetOperationProgress(2, "Starting raster import");
 
                 Progress<RasterImportProgressInfo> progress = new(
@@ -1216,9 +1232,92 @@ namespace Land_Readjustment_Tool
             }
             finally
             {
-                UseWaitCursor = false;
                 HideOperationProgress();
             }
+        }
+
+        private async Task<CanvasLayer?> FindExistingRasterLayerAsync(string layerName)
+        {
+            if (!AppServices.HasContext || _layerTreeService == null)
+            {
+                return null;
+            }
+
+            if (string.IsNullOrWhiteSpace(layerName))
+            {
+                return null;
+            }
+
+            IReadOnlyList<CanvasLayer> rasterLayers =
+                await _layerTreeService.GetRasterLayersAsync();
+
+            return rasterLayers.FirstOrDefault(layer =>
+                string.Equals(layer.Name, layerName, StringComparison.OrdinalIgnoreCase));
+        }
+
+        private async Task ReplaceRasterLayerAsync(CanvasLayer existingLayer)
+        {
+            if (!AppServices.HasContext)
+            {
+                return;
+            }
+
+            await _layerCommandService.DeleteAsync(
+                AppServices.Context.Session,
+                existingLayer);
+
+            await DeleteRasterLayerFileAsync(
+                existingLayer,
+                AppServices.Context.ProjectFolderPath);
+        }
+
+        private static async Task DeleteRasterLayerFileAsync(
+            CanvasLayer existingLayer,
+            string? projectFolderPath)
+        {
+            if (string.IsNullOrWhiteSpace(existingLayer.SourceFile))
+            {
+                return;
+            }
+
+            string fullPath = ResolveLayerSourceFilePath(
+                existingLayer.SourceFile,
+                projectFolderPath);
+
+            if (!File.Exists(fullPath))
+            {
+                return;
+            }
+
+            string projectRoot = string.IsNullOrWhiteSpace(projectFolderPath)
+                ? string.Empty
+                : Path.GetFullPath(projectFolderPath);
+            string resolvedPath = Path.GetFullPath(fullPath);
+
+            if (!string.IsNullOrWhiteSpace(projectRoot) &&
+                !resolvedPath.StartsWith(projectRoot, StringComparison.OrdinalIgnoreCase))
+            {
+                return;
+            }
+
+            await Task.Run(() => File.Delete(resolvedPath));
+        }
+
+        private static string ResolveLayerSourceFilePath(
+            string storedPath,
+            string? projectFolderPath)
+        {
+            if (Path.IsPathRooted(storedPath))
+            {
+                return Path.GetFullPath(storedPath);
+            }
+
+            if (string.IsNullOrWhiteSpace(projectFolderPath))
+            {
+                return Path.GetFullPath(storedPath);
+            }
+
+            return Path.GetFullPath(Path.Combine(projectFolderPath, storedPath));
         }
 
         /// <summary>

@@ -404,23 +404,114 @@ namespace Land_Readjustment_Tool.UI.MapCanvas.Rendering
             RasterReadWindow readWindow,
             Size targetSize)
         {
-            byte[] buffer = new byte[targetSize.Width * targetSize.Height];
-            CPLErr result = band.ReadRaster(
-                readWindow.X,
-                readWindow.Y,
-                readWindow.Width,
-                readWindow.Height,
-                buffer,
-                targetSize.Width,
-                targetSize.Height,
-                0,
-                0);
+            Band selectedBand = SelectOverviewBand(
+                band,
+                readWindow,
+                targetSize,
+                out RasterReadWindow overviewWindow,
+                out bool shouldDispose);
 
-            if (result != CPLErr.CE_None)
-                throw new InvalidOperationException(
-                    $"GDAL failed to read raster band. Error: {result}.");
+            byte[] buffer = new byte[targetSize.Width * targetSize.Height];
+            try
+            {
+                CPLErr result = selectedBand.ReadRaster(
+                    overviewWindow.X,
+                    overviewWindow.Y,
+                    overviewWindow.Width,
+                    overviewWindow.Height,
+                    buffer,
+                    targetSize.Width,
+                    targetSize.Height,
+                    0,
+                    0);
+
+                if (result != CPLErr.CE_None)
+                {
+                    throw new InvalidOperationException(
+                        $"GDAL failed to read raster band. Error: {result}.");
+                }
+            }
+            finally
+            {
+                if (shouldDispose)
+                {
+                    selectedBand.Dispose();
+                }
+            }
 
             return buffer;
+        }
+
+        private static Band SelectOverviewBand(
+            Band band,
+            RasterReadWindow readWindow,
+            Size targetSize,
+            out RasterReadWindow overviewWindow,
+            out bool shouldDispose)
+        {
+            overviewWindow = readWindow;
+            shouldDispose = false;
+
+            if (targetSize.Width <= 0 || targetSize.Height <= 0)
+            {
+                return band;
+            }
+
+            int overviewCount = band.GetOverviewCount();
+            if (overviewCount <= 0)
+            {
+                return band;
+            }
+
+            double desiredScale = Math.Max(
+                readWindow.Width / (double)targetSize.Width,
+                readWindow.Height / (double)targetSize.Height);
+
+            if (desiredScale <= 1.0)
+            {
+                return band;
+            }
+
+            Band? bestOverview = null;
+            double bestScale = 1.0;
+
+            for (int index = 0; index < overviewCount; index++)
+            {
+                Band overview = band.GetOverview(index);
+                if (overview == null || overview.XSize <= 0 || overview.YSize <= 0)
+                {
+                    continue;
+                }
+
+                double scale = Math.Max(
+                    band.XSize / (double)overview.XSize,
+                    band.YSize / (double)overview.YSize);
+
+                if (scale <= desiredScale && scale > bestScale)
+                {
+                    bestScale = scale;
+                    bestOverview = overview;
+                }
+            }
+
+            if (bestOverview == null)
+            {
+                return band;
+            }
+
+            int x = (int)Math.Floor(readWindow.X / bestScale);
+            int y = (int)Math.Floor(readWindow.Y / bestScale);
+            int right = (int)Math.Ceiling((readWindow.X + readWindow.Width) / bestScale);
+            int bottom = (int)Math.Ceiling((readWindow.Y + readWindow.Height) / bestScale);
+
+            x = Math.Clamp(x, 0, Math.Max(0, bestOverview.XSize - 1));
+            y = Math.Clamp(y, 0, Math.Max(0, bestOverview.YSize - 1));
+            right = Math.Clamp(right, x + 1, bestOverview.XSize);
+            bottom = Math.Clamp(bottom, y + 1, bestOverview.YSize);
+
+            overviewWindow = new RasterReadWindow(x, y, right - x, bottom - y);
+            shouldDispose = true;
+            return bestOverview;
         }
 
         private static (byte[] Red, byte[] Green, byte[] Blue, byte[] Alpha)
