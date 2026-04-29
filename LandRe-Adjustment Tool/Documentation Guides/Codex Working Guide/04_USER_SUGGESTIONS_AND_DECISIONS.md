@@ -305,6 +305,7 @@ Current raster-only implementation scope:
 - route raster import through services and interfaces instead of placing import logic directly in forms
 - provide a lightweight raster review form after file selection, with preview, layer name, read-only metadata, project CRS, and source CRS definition
 - when imported raster data does not store a source CRS, default the source CRS choice to WGS 1984 (`EPSG:4326`)
+- use a combobox for source CRS selection, with common CRS choices plus custom EPSG and custom WKT options, instead of making the user type the default CRS manually
 - if a raster has no georeferencing at all, import it only as temporary image coordinates until a later georeferencing workflow is added
 - keep visual form layout in `.Designer.cs` files and keep `.cs` files focused on behavior only
 

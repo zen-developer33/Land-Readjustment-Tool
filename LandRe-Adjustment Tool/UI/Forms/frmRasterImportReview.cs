@@ -8,6 +8,12 @@ namespace Land_Readjustment_Tool.UI.Forms
     public partial class frmRasterImportReview : Form
     {
         private const string DefaultMissingSourceCrs = "EPSG:4326";
+        private const string Wgs84Option = "WGS 1984 (EPSG:4326)";
+        private const string WebMercatorOption = "Web Mercator (EPSG:3857)";
+        private const string Utm44NOption = "WGS 1984 / UTM Zone 44N (EPSG:32644)";
+        private const string Utm45NOption = "WGS 1984 / UTM Zone 45N (EPSG:32645)";
+        private const string CustomEpsgOption = "Custom EPSG code";
+        private const string CustomWktOption = "Custom WKT";
         private readonly RasterLayerImportPreview _preview;
 
         /// <summary>
@@ -20,8 +26,7 @@ namespace Land_Readjustment_Tool.UI.Forms
             LoadPreview();
             btnImport.Click += btnImport_Click;
             rdoDetectedCrs.CheckedChanged += ProjectionChoiceChanged;
-            rdoWgs84Crs.CheckedChanged += ProjectionChoiceChanged;
-            rdoCustomCrs.CheckedChanged += ProjectionChoiceChanged;
+            cmbSourceCrs.SelectedIndexChanged += ProjectionChoiceChanged;
         }
 
         /// <summary>
@@ -39,10 +44,7 @@ namespace Land_Readjustment_Tool.UI.Forms
                 if (rdoDetectedCrs.Checked)
                     return null;
 
-                if (rdoWgs84Crs.Checked)
-                    return DefaultMissingSourceCrs;
-
-                return txtCustomCrs.Text.Trim();
+                return GetSelectedSourceCrsDefinition();
             }
         }
 
@@ -65,12 +67,26 @@ namespace Land_Readjustment_Tool.UI.Forms
 
             rdoDetectedCrs.Enabled = metadata.HasProjection;
             rdoDetectedCrs.Checked = metadata.HasProjection;
-            rdoWgs84Crs.Enabled = !metadata.HasProjection;
-            rdoWgs84Crs.Checked = !metadata.HasProjection;
-            rdoCustomCrs.Enabled = !metadata.HasProjection;
-            txtCustomCrs.Text = DefaultMissingSourceCrs;
+            LoadSourceCrsOptions();
+            cmbSourceCrs.Enabled = !metadata.HasProjection;
+            cmbSourceCrs.SelectedItem = Wgs84Option;
+            txtCustomCrs.Text = string.Empty;
             ProjectionChoiceChanged(this, EventArgs.Empty);
             TryLoadImagePreview(metadata.SourcePath);
+        }
+
+        /// <summary>
+        /// Loads common source CRS options for rasters that do not store CRS metadata.
+        /// </summary>
+        private void LoadSourceCrsOptions()
+        {
+            cmbSourceCrs.Items.Clear();
+            cmbSourceCrs.Items.Add(Wgs84Option);
+            cmbSourceCrs.Items.Add(WebMercatorOption);
+            cmbSourceCrs.Items.Add(Utm44NOption);
+            cmbSourceCrs.Items.Add(Utm45NOption);
+            cmbSourceCrs.Items.Add(CustomEpsgOption);
+            cmbSourceCrs.Items.Add(CustomWktOption);
         }
 
         /// <summary>
@@ -78,7 +94,9 @@ namespace Land_Readjustment_Tool.UI.Forms
         /// </summary>
         private void ProjectionChoiceChanged(object? sender, EventArgs e)
         {
-            txtCustomCrs.Enabled = rdoCustomCrs.Checked;
+            bool customInputRequired = IsCustomSourceCrsSelected();
+            txtCustomCrs.Enabled = cmbSourceCrs.Enabled && customInputRequired;
+            txtCustomCrs.Visible = cmbSourceCrs.Enabled && customInputRequired;
 
             if (!_preview.Metadata.HasGeoreferencing)
             {
@@ -89,7 +107,7 @@ namespace Land_Readjustment_Tool.UI.Forms
 
             lblProjectionHint.Text = _preview.Metadata.HasProjection
                 ? "The detected source CRS will be transformed into the project CRS."
-                : "Missing source CRS defaults to WGS 1984 unless you define another source CRS.";
+                : "Missing source CRS defaults to WGS 1984. Choose another CRS only if the source data uses it.";
         }
 
         /// <summary>
@@ -109,17 +127,69 @@ namespace Land_Readjustment_Tool.UI.Forms
                 return;
             }
 
-            if (rdoCustomCrs.Checked &&
+            if (IsCustomSourceCrsSelected() &&
                 string.IsNullOrWhiteSpace(txtCustomCrs.Text))
             {
+                string expectedText = IsCustomEpsgSelected()
+                    ? "Please enter an EPSG code such as 4326 or EPSG:4326."
+                    : "Please paste the source CRS WKT text.";
+
                 MessageBox.Show(
                     this,
-                    "Please enter a source CRS such as EPSG:4326.",
+                    expectedText,
                     "Raster Import",
                     MessageBoxButtons.OK,
                     MessageBoxIcon.Warning);
                 DialogResult = DialogResult.None;
             }
+        }
+
+        /// <summary>
+        /// Gets the CRS definition represented by the selected dropdown option.
+        /// </summary>
+        private string GetSelectedSourceCrsDefinition()
+        {
+            string selectedOption = cmbSourceCrs.SelectedItem?.ToString() ?? Wgs84Option;
+
+            return selectedOption switch
+            {
+                Wgs84Option => DefaultMissingSourceCrs,
+                WebMercatorOption => "EPSG:3857",
+                Utm44NOption => "EPSG:32644",
+                Utm45NOption => "EPSG:32645",
+                CustomEpsgOption => NormalizeEpsgText(txtCustomCrs.Text),
+                CustomWktOption => txtCustomCrs.Text.Trim(),
+                _ => DefaultMissingSourceCrs
+            };
+        }
+
+        /// <summary>
+        /// Determines whether the selected CRS option requires manual text input.
+        /// </summary>
+        private bool IsCustomSourceCrsSelected()
+        {
+            string selectedOption = cmbSourceCrs.SelectedItem?.ToString() ?? string.Empty;
+            return selectedOption == CustomEpsgOption ||
+                   selectedOption == CustomWktOption;
+        }
+
+        /// <summary>
+        /// Determines whether the selected CRS option is the custom EPSG input.
+        /// </summary>
+        private bool IsCustomEpsgSelected()
+        {
+            return cmbSourceCrs.SelectedItem?.ToString() == CustomEpsgOption;
+        }
+
+        /// <summary>
+        /// Normalizes custom EPSG input into the form expected by GDAL.
+        /// </summary>
+        private static string NormalizeEpsgText(string value)
+        {
+            string trimmedValue = value.Trim();
+            return trimmedValue.StartsWith("EPSG:", StringComparison.OrdinalIgnoreCase)
+                ? trimmedValue
+                : $"EPSG:{trimmedValue}";
         }
 
         /// <summary>

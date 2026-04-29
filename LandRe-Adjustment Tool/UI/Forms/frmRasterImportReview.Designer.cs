@@ -27,8 +27,8 @@ namespace Land_Readjustment_Tool.UI.Forms
         private GroupBox grpSourceProjection;
         private TableLayoutPanel projectionLayout;
         private RadioButton rdoDetectedCrs;
-        private RadioButton rdoWgs84Crs;
-        private RadioButton rdoCustomCrs;
+        private Label lblDefineSourceCrs;
+        private ComboBox cmbSourceCrs;
         private TextBox txtCustomCrs;
         private Label lblProjectionHint;
         private FlowLayoutPanel buttonPanel;
@@ -76,8 +76,8 @@ namespace Land_Readjustment_Tool.UI.Forms
             grpSourceProjection = new GroupBox();
             projectionLayout = new TableLayoutPanel();
             rdoDetectedCrs = new RadioButton();
-            rdoWgs84Crs = new RadioButton();
-            rdoCustomCrs = new RadioButton();
+            lblDefineSourceCrs = new Label();
+            cmbSourceCrs = new ComboBox();
             txtCustomCrs = new TextBox();
             lblProjectionHint = new Label();
             buttonPanel = new FlowLayoutPanel();
@@ -262,8 +262,8 @@ namespace Land_Readjustment_Tool.UI.Forms
             projectionLayout.ColumnCount = 1;
             projectionLayout.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 100F));
             projectionLayout.Controls.Add(rdoDetectedCrs, 0, 0);
-            projectionLayout.Controls.Add(rdoWgs84Crs, 0, 1);
-            projectionLayout.Controls.Add(rdoCustomCrs, 0, 2);
+            projectionLayout.Controls.Add(lblDefineSourceCrs, 0, 1);
+            projectionLayout.Controls.Add(cmbSourceCrs, 0, 2);
             projectionLayout.Controls.Add(txtCustomCrs, 0, 3);
             projectionLayout.Controls.Add(lblProjectionHint, 0, 4);
             projectionLayout.Dock = DockStyle.Fill;
@@ -272,8 +272,8 @@ namespace Land_Readjustment_Tool.UI.Forms
             projectionLayout.Padding = new Padding(8, 4, 8, 6);
             projectionLayout.RowCount = 5;
             projectionLayout.RowStyles.Add(new RowStyle(SizeType.Absolute, 24F));
-            projectionLayout.RowStyles.Add(new RowStyle(SizeType.Absolute, 24F));
-            projectionLayout.RowStyles.Add(new RowStyle(SizeType.Absolute, 24F));
+            projectionLayout.RowStyles.Add(new RowStyle(SizeType.Absolute, 22F));
+            projectionLayout.RowStyles.Add(new RowStyle(SizeType.Absolute, 28F));
             projectionLayout.RowStyles.Add(new RowStyle(SizeType.Absolute, 30F));
             projectionLayout.RowStyles.Add(new RowStyle(SizeType.Percent, 100F));
             projectionLayout.Size = new Size(454, 120);
@@ -291,36 +291,33 @@ namespace Land_Readjustment_Tool.UI.Forms
             rdoDetectedCrs.Text = "Use detected raster CRS";
             rdoDetectedCrs.UseVisualStyleBackColor = true;
             // 
-            // rdoWgs84Crs
+            // lblDefineSourceCrs
             // 
-            rdoWgs84Crs.AutoSize = true;
-            rdoWgs84Crs.Dock = DockStyle.Fill;
-            rdoWgs84Crs.Location = new Point(11, 31);
-            rdoWgs84Crs.Name = "rdoWgs84Crs";
-            rdoWgs84Crs.Size = new Size(432, 18);
-            rdoWgs84Crs.TabIndex = 1;
-            rdoWgs84Crs.TabStop = true;
-            rdoWgs84Crs.Text = "Define missing source CRS as WGS 1984 (EPSG:4326)";
-            rdoWgs84Crs.UseVisualStyleBackColor = true;
+            lblDefineSourceCrs.Dock = DockStyle.Fill;
+            lblDefineSourceCrs.ForeColor = Color.DimGray;
+            lblDefineSourceCrs.Location = new Point(11, 28);
+            lblDefineSourceCrs.Name = "lblDefineSourceCrs";
+            lblDefineSourceCrs.Size = new Size(432, 22);
+            lblDefineSourceCrs.TabIndex = 1;
+            lblDefineSourceCrs.Text = "When CRS is missing, define the source CRS";
+            lblDefineSourceCrs.TextAlign = ContentAlignment.MiddleLeft;
             // 
-            // rdoCustomCrs
+            // cmbSourceCrs
             // 
-            rdoCustomCrs.AutoSize = true;
-            rdoCustomCrs.Dock = DockStyle.Fill;
-            rdoCustomCrs.Location = new Point(11, 55);
-            rdoCustomCrs.Name = "rdoCustomCrs";
-            rdoCustomCrs.Size = new Size(432, 18);
-            rdoCustomCrs.TabIndex = 2;
-            rdoCustomCrs.TabStop = true;
-            rdoCustomCrs.Text = "Define source CRS manually";
-            rdoCustomCrs.UseVisualStyleBackColor = true;
+            cmbSourceCrs.Dock = DockStyle.Fill;
+            cmbSourceCrs.DropDownStyle = ComboBoxStyle.DropDownList;
+            cmbSourceCrs.FormattingEnabled = true;
+            cmbSourceCrs.Location = new Point(11, 53);
+            cmbSourceCrs.Name = "cmbSourceCrs";
+            cmbSourceCrs.Size = new Size(432, 23);
+            cmbSourceCrs.TabIndex = 2;
             // 
             // txtCustomCrs
             // 
             txtCustomCrs.Dock = DockStyle.Fill;
-            txtCustomCrs.Location = new Point(11, 79);
+            txtCustomCrs.Location = new Point(11, 81);
             txtCustomCrs.Name = "txtCustomCrs";
-            txtCustomCrs.PlaceholderText = "Example: EPSG:32645 or WKT";
+            txtCustomCrs.PlaceholderText = "Custom EPSG code or WKT text";
             txtCustomCrs.Size = new Size(432, 23);
             txtCustomCrs.TabIndex = 3;
             // 
@@ -328,9 +325,9 @@ namespace Land_Readjustment_Tool.UI.Forms
             // 
             lblProjectionHint.Dock = DockStyle.Fill;
             lblProjectionHint.ForeColor = Color.DimGray;
-            lblProjectionHint.Location = new Point(11, 106);
+            lblProjectionHint.Location = new Point(11, 108);
             lblProjectionHint.Name = "lblProjectionHint";
-            lblProjectionHint.Size = new Size(432, 8);
+            lblProjectionHint.Size = new Size(432, 6);
             lblProjectionHint.TabIndex = 4;
             // 
             // buttonPanel
