@@ -20,25 +20,43 @@ namespace Land_Readjustment_Tool.UI.MapCanvas.Rendering
         private readonly Font _gridFont = new("Arial", 8.0f, FontStyle.Regular);
         private readonly Font _axisFont = new("Arial", 9.0f, FontStyle.Regular);
         private readonly MapCanvasEngine _engine;
+        private readonly MapCanvasRenderOrderService _renderOrderService;
         private double _lastAdaptiveMinorSize;
         private MapCanvasRenderSettings _settings;
         private IReadOnlyList<RasterRenderLayer> _rasterLayers = [];
 
+        /// <summary>
+        /// Creates a renderer for drawing the map canvas using the supplied engine and settings.
+        /// </summary>
+        /// <param name="engine">Viewport engine providing world/screen transforms.</param>
+        /// <param name="settings">Rendering options and theme colors.</param>
+        /// <param name="renderOrderService">Optional service that defines canvas render-pass order.</param>
         public MapCanvasRenderer(
             MapCanvasEngine engine,
-            MapCanvasRenderSettings settings)
+            MapCanvasRenderSettings settings,
+            MapCanvasRenderOrderService? renderOrderService = null)
         {
             _engine = engine ?? throw new ArgumentNullException(nameof(engine));
             _settings = settings?.Clone()
                 ?? throw new ArgumentNullException(nameof(settings));
+            _renderOrderService = renderOrderService
+                ?? new MapCanvasRenderOrderService();
         }
 
+        /// <summary>
+        /// Replaces the renderer settings while keeping the renderer-owned copy isolated.
+        /// </summary>
+        /// <param name="settings">Updated rendering options and theme colors.</param>
         public void UpdateSettings(MapCanvasRenderSettings settings)
         {
             _settings = settings?.Clone()
                 ?? throw new ArgumentNullException(nameof(settings));
         }
 
+        /// <summary>
+        /// Replaces the raster render layers used by future render passes.
+        /// </summary>
+        /// <param name="rasterLayers">Raster layers in drawing order.</param>
         public void UpdateRasterLayers(
             IReadOnlyList<RasterRenderLayer> rasterLayers)
         {
@@ -71,19 +89,52 @@ namespace Land_Readjustment_Tool.UI.MapCanvas.Rendering
             graphics.Clear(_settings.BackgroundColor);
             MapCanvasRenderViewport viewport = CreateViewport(graphics);
 
-            // Basemap/raster content must be drawn before map overlays.
-            // Grid, axis markers, and interaction UI are intentionally drawn last.
-            if (rasterFrame.HasValue)
+            foreach (MapCanvasRenderStage stage in _renderOrderService.GetFrameStages())
             {
-                DrawRasterFrame(graphics, rasterFrame.Value);
-            }
-            else
-            {
-                RenderRasterLayers(graphics, viewport, interactiveRaster);
-            }
+                ConfigureGraphics(graphics);
 
-            ConfigureGraphics(graphics);
+                switch (stage)
+                {
+                    case MapCanvasRenderStage.FixedReference:
+                        RenderFixedReferenceLayers(graphics, viewport);
+                        break;
 
+                    case MapCanvasRenderStage.RasterContent:
+                        RenderRasterContent(
+                            graphics,
+                            viewport,
+                            rasterFrame,
+                            interactiveRaster);
+                        break;
+
+                    case MapCanvasRenderStage.InteractionOverlay:
+                        RenderInteractionOverlay(graphics, zoomWindowRectangle);
+                        break;
+                }
+            }
+        }
+
+        /// <summary>
+        /// Captures the current world and screen bounds used by frame render passes.
+        /// </summary>
+        /// <param name="graphics">Graphics surface whose visible bounds are being rendered.</param>
+        /// <returns>The viewport values for the current frame.</returns>
+        private MapCanvasRenderViewport CreateViewport(Graphics graphics)
+        {
+            return new MapCanvasRenderViewport(
+                _engine.GetVisibleWorldBounds(),
+                graphics.VisibleClipBounds);
+        }
+
+        /// <summary>
+        /// Draws fixed reference visuals that should be placed before map content.
+        /// </summary>
+        /// <param name="graphics">Target graphics surface.</param>
+        /// <param name="viewport">Current world and screen viewport.</param>
+        private void RenderFixedReferenceLayers(
+            Graphics graphics,
+            MapCanvasRenderViewport viewport)
+        {
             if (_settings.ShowGrid)
             {
                 RenderGrid(graphics, viewport);
@@ -93,20 +144,52 @@ namespace Land_Readjustment_Tool.UI.MapCanvas.Rendering
             {
                 RenderAxisAndOriginMarker(graphics, viewport);
             }
+        }
 
+        /// <summary>
+        /// Draws the raster frame cache or visible raster layers for the current viewport.
+        /// </summary>
+        /// <param name="graphics">Target graphics surface.</param>
+        /// <param name="viewport">Current world and screen viewport.</param>
+        /// <param name="rasterFrame">Optional cached raster frame used during interaction.</param>
+        /// <param name="interactiveRaster">Whether raster rendering is happening during navigation.</param>
+        private void RenderRasterContent(
+            Graphics graphics,
+            MapCanvasRenderViewport viewport,
+            RasterRenderFrame? rasterFrame,
+            bool interactiveRaster)
+        {
+            if (rasterFrame.HasValue)
+            {
+                DrawRasterFrame(graphics, rasterFrame.Value);
+            }
+            else
+            {
+                RenderRasterLayers(graphics, viewport, interactiveRaster);
+            }
+        }
+
+        /// <summary>
+        /// Draws temporary interaction feedback that must stay visible above map content.
+        /// </summary>
+        /// <param name="graphics">Target graphics surface.</param>
+        /// <param name="zoomWindowRectangle">Optional screen-space zoom-window rectangle.</param>
+        private void RenderInteractionOverlay(
+            Graphics graphics,
+            Rectangle? zoomWindowRectangle)
+        {
             if (zoomWindowRectangle.HasValue)
             {
                 RenderZoomWindow(graphics, zoomWindowRectangle.Value);
             }
         }
 
-        private MapCanvasRenderViewport CreateViewport(Graphics graphics)
-        {
-            return new MapCanvasRenderViewport(
-                _engine.GetVisibleWorldBounds(),
-                graphics.VisibleClipBounds);
-        }
-
+        /// <summary>
+        /// Draws all visible raster layer tiles that intersect the current viewport.
+        /// </summary>
+        /// <param name="graphics">Target graphics surface.</param>
+        /// <param name="viewport">Current world and screen viewport.</param>
+        /// <param name="interactive">Whether raster rendering is happening during navigation.</param>
         private void RenderRasterLayers(
             Graphics graphics,
             MapCanvasRenderViewport viewport,
@@ -125,6 +208,11 @@ namespace Land_Readjustment_Tool.UI.MapCanvas.Rendering
             }
         }
 
+        /// <summary>
+        /// Draws a cached raster frame using fast image settings during interactive navigation.
+        /// </summary>
+        /// <param name="graphics">Target graphics surface.</param>
+        /// <param name="rasterFrame">Cached raster bitmap and its screen destination.</param>
         private static void DrawRasterFrame(
             Graphics graphics,
             RasterRenderFrame rasterFrame)

@@ -1445,7 +1445,7 @@ namespace Land_Readjustment_Tool.Migrations
                         new
                         {
                             Id = 1,
-                            ApplicableCrsCodes = "MUTM81,MUTM82,MUTM83",
+                            ApplicableCrsCodes = "MUTM81,MUTM84,MUTM87",
                             Code = "NAGARKOT_TM",
                             CreatedDate = new DateTime(1, 1, 1, 0, 0, 0, 0, DateTimeKind.Unspecified),
                             DeltaX = 296.20699999999999,

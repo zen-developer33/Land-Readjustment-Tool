@@ -3,6 +3,7 @@
 using Land_Readjustment_Tool.Forms;
 using Land_Readjustment_Tool.Data;
 using Land_Readjustment_Tool.Services;
+using Land_Readjustment_Tool.Services.Canvas;
 using Land_Readjustment_Tool.Services.Project;
 using Land_Readjustment_Tool.UI.Forms;
 using Microsoft.Extensions.DependencyInjection;
@@ -106,6 +107,10 @@ namespace Land_Readjustment_Tool
             services.AddSingleton<ProjectBackupService>();
             services.AddSingleton<ProjectSessionFactory>();
             services.AddSingleton<IProjectScopedFactory, ProjectScopedFactory>();
+            services.AddSingleton<CanvasLayerCommandService>();
+            services.AddSingleton<CanvasLayerBoundsService>();
+            services.AddSingleton<ProjectOpenService>();
+            services.AddSingleton<ProjectSaveAsService>();
             services.AddTransient<ProjectService>();
 
             // Forms

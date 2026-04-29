@@ -86,6 +86,76 @@ namespace Land_Readjustment_Tool.UI.MapCanvas.Services
                 sourceMetadata);
         }
 
+        /// <summary>
+        /// Reprojects an existing project raster file to the supplied project CRS definition.
+        /// </summary>
+        public bool TryReprojectProjectRasterToProjectCrs(
+            string rasterPath,
+            string targetSrsDefinition,
+            out string skipReason)
+        {
+            skipReason = string.Empty;
+
+            if (string.IsNullOrWhiteSpace(rasterPath) || !File.Exists(rasterPath))
+                throw new FileNotFoundException("Raster file was not found.", rasterPath);
+
+            if (string.IsNullOrWhiteSpace(targetSrsDefinition))
+                throw new InvalidOperationException(
+                    "Project coordinate reference system is not configured.");
+
+            GdalConfiguration.ConfigureGdal();
+            if (!GdalConfiguration.Usable)
+                throw new InvalidOperationException(
+                    "GDAL is not configured correctly. Raster reprojection cannot continue.");
+
+            string directory = Path.GetDirectoryName(rasterPath)
+                ?? throw new InvalidOperationException("Invalid raster path.");
+            string tempPath = Path.Combine(
+                directory,
+                $"{Path.GetFileNameWithoutExtension(rasterPath)}.reprojecting.{Guid.NewGuid():N}.tif");
+
+            try
+            {
+                using (Dataset sourceDataset = Gdal.Open(rasterPath, Access.GA_ReadOnly)
+                    ?? throw new InvalidOperationException(
+                        "GDAL could not open the project raster."))
+                {
+                    if (sourceDataset.RasterCount <= 0)
+                        throw new InvalidOperationException(
+                            "The project raster does not contain raster bands.");
+
+                    RasterImportMetadata sourceMetadata =
+                        ReadMetadata(rasterPath, sourceDataset);
+
+                    if (!sourceMetadata.HasGeoreferencing)
+                    {
+                        skipReason = "Raster has no georeferencing.";
+                        return false;
+                    }
+
+                    if (string.IsNullOrWhiteSpace(sourceMetadata.ProjectionWkt))
+                    {
+                        skipReason = "Raster has no stored CRS.";
+                        return false;
+                    }
+
+                    WarpToProjectCrs(
+                        sourceDataset,
+                        tempPath,
+                        sourceMetadata.ProjectionWkt,
+                        targetSrsDefinition);
+                }
+
+                File.Copy(tempPath, rasterPath, overwrite: true);
+                return true;
+            }
+            finally
+            {
+                if (File.Exists(tempPath))
+                    File.Delete(tempPath);
+            }
+        }
+
         private static void WarpToProjectCrs(
             Dataset sourceDataset,
             string outputPath,

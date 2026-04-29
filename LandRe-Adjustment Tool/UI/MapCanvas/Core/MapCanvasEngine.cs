@@ -16,6 +16,7 @@ namespace Land_Readjustment_Tool.UI.MapCanvas.Core
         private const double DefaultInitialCenterY = 3121303.7884;
         private const double DefaultInitialViewWidth = 8000.0;
         private const double DefaultInitialViewHeight = 6000.0;
+        private const double GlobalProjectedExtent = 20037508.342789244;
 
         private Size _canvasSize;
         private double _zoomScale = 1.0;
@@ -33,6 +34,11 @@ namespace Land_Readjustment_Tool.UI.MapCanvas.Core
         }
 
         public static RectangleD DefaultWorldBounds => new(240000, 3060000, 300000, 120000);
+        public static RectangleD GlobalWorldBounds => new(
+            -GlobalProjectedExtent,
+            -GlobalProjectedExtent,
+            GlobalProjectedExtent * 2.0,
+            GlobalProjectedExtent * 2.0);
 
         public Size CanvasSize => _canvasSize;
 
@@ -212,6 +218,12 @@ namespace Land_Readjustment_Tool.UI.MapCanvas.Core
         {
             double zoomX = _canvasSize.Width / WorldBounds.Width;
             double zoomY = _canvasSize.Height / WorldBounds.Height;
+            double worldZoomX = _canvasSize.Width / GlobalWorldBounds.Width;
+            double worldZoomY = _canvasSize.Height / GlobalWorldBounds.Height;
+
+            zoomX = Math.Min(zoomX, worldZoomX);
+            zoomY = Math.Min(zoomY, worldZoomY);
+
             return Math.Min(zoomX, zoomY) * 0.9;
         }
 

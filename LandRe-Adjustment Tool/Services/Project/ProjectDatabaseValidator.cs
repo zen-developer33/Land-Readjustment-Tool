@@ -13,6 +13,12 @@ namespace Land_Readjustment_Tool.Services.Project
         private static readonly byte[] SQLiteHeader =
             Encoding.ASCII.GetBytes("SQLite format 3\0");
 
+        /// <summary>
+        /// Checks whether a project file is a readable RePlot SQLite database.
+        /// </summary>
+        /// <param name="projectFilePath">Full path to the selected project file.</param>
+        /// <param name="reason">Human-readable reason when validation fails.</param>
+        /// <returns><see langword="true"/> when the file can be opened as a RePlot project.</returns>
         public static bool IsValidProjectDatabase(
             string projectFilePath,
             out string reason)
@@ -31,21 +37,21 @@ namespace Land_Readjustment_Tool.Services.Project
                 return false;
             }
 
-            FileInfo fileInfo = new(projectFilePath);
-            if (fileInfo.Length < SQLiteHeader.Length)
-            {
-                reason = "The selected file is empty or incomplete.";
-                return false;
-            }
-
-            if (!HasSQLiteHeader(projectFilePath))
-            {
-                reason = "The selected file is not a SQLite/RePlot project database.";
-                return false;
-            }
-
             try
             {
+                FileInfo fileInfo = new(projectFilePath);
+                if (fileInfo.Length < SQLiteHeader.Length)
+                {
+                    reason = "The selected file is empty or incomplete.";
+                    return false;
+                }
+
+                if (!HasSQLiteHeader(projectFilePath))
+                {
+                    reason = "The selected file is not a SQLite/RePlot project database.";
+                    return false;
+                }
+
                 using SqliteConnection connection = new(BuildReadOnlyConnectionString(projectFilePath));
                 connection.Open();
 
@@ -73,6 +79,16 @@ namespace Land_Readjustment_Tool.Services.Project
                     return false;
                 }
             }
+            catch (IOException ex)
+            {
+                reason = BuildFileAccessFailureReason(ex);
+                return false;
+            }
+            catch (UnauthorizedAccessException ex)
+            {
+                reason = BuildFileAccessFailureReason(ex);
+                return false;
+            }
             catch (Exception ex)
             {
                 reason = ex.Message;
@@ -82,6 +98,11 @@ namespace Land_Readjustment_Tool.Services.Project
             return true;
         }
 
+        /// <summary>
+        /// Finds the newest valid backup beside a project file.
+        /// </summary>
+        /// <param name="projectFilePath">Full path to the main project file.</param>
+        /// <returns>The backup path when a valid backup exists; otherwise <see langword="null"/>.</returns>
         public static string? FindLatestValidBackup(string projectFilePath)
         {
             for (int backupNumber = 1; backupNumber <= 3; backupNumber++)
@@ -99,6 +120,11 @@ namespace Land_Readjustment_Tool.Services.Project
             return null;
         }
 
+        /// <summary>
+        /// Checks whether a file should be skipped when copying a project folder.
+        /// </summary>
+        /// <param name="filePath">Full path of a project-folder file.</param>
+        /// <returns><see langword="true"/> when the file is a SQLite sidecar or backup file.</returns>
         public static bool ShouldSkipProjectFolderCopyFile(string filePath)
         {
             string fileName = Path.GetFileName(filePath);
@@ -108,17 +134,45 @@ namespace Land_Readjustment_Tool.Services.Project
                    fileName.Contains(".lpp.bak", StringComparison.OrdinalIgnoreCase);
         }
 
+        /// <summary>
+        /// Reads the SQLite file signature without taking an exclusive file handle.
+        /// </summary>
+        /// <param name="projectFilePath">Full path to the selected project file.</param>
+        /// <returns><see langword="true"/> when the expected SQLite signature is present.</returns>
         private static bool HasSQLiteHeader(string projectFilePath)
         {
             Span<byte> header = stackalloc byte[SQLiteHeader.Length];
 
-            using FileStream stream = File.OpenRead(projectFilePath);
+            using FileStream stream = new(
+                projectFilePath,
+                FileMode.Open,
+                FileAccess.Read,
+                FileShare.ReadWrite | FileShare.Delete,
+                SQLiteHeader.Length,
+                FileOptions.SequentialScan);
             int bytesRead = stream.Read(header);
 
             return bytesRead == SQLiteHeader.Length &&
                    header.SequenceEqual(SQLiteHeader);
         }
 
+        /// <summary>
+        /// Creates a clear validation message for file access failures.
+        /// </summary>
+        /// <param name="ex">The file access exception raised while validating the project file.</param>
+        /// <returns>A user-facing validation failure reason.</returns>
+        private static string BuildFileAccessFailureReason(Exception ex)
+        {
+            return "The selected project file is currently in use or cannot be accessed. " +
+                   "Close any other window or process using this project, then try again. " +
+                   $"Details: {ex.Message}";
+        }
+
+        /// <summary>
+        /// Builds a read-only SQLite connection string for validation checks.
+        /// </summary>
+        /// <param name="projectFilePath">Full path to the selected project file.</param>
+        /// <returns>A SQLite connection string that does not use connection pooling.</returns>
         private static string BuildReadOnlyConnectionString(string projectFilePath)
         {
             SqliteConnectionStringBuilder builder = new()

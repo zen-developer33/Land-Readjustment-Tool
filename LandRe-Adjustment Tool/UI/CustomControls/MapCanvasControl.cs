@@ -9,7 +9,7 @@ namespace Land_Readjustment_Tool.UI.CustomControls
 {
     public partial class MapCanvasControl : UserControl
     {
-        private const int ZoomSettleIntervalMs = 40;
+        private const int ZoomSettleIntervalMs = 20;
 
         private readonly MapCanvasEngine _engine;
         private readonly MapCanvasRenderer _renderer;
@@ -252,6 +252,16 @@ namespace Land_Readjustment_Tool.UI.CustomControls
             UpdateRasterWorldBounds();
             _renderer.UpdateRasterLayers(_rasterRenderLayers);
             RefreshRasterCacheForCurrentView();
+            RequestRender();
+        }
+
+        /// <summary>
+        /// Releases currently opened raster datasets before project raster files are rewritten.
+        /// </summary>
+        public void ClearRasterLayers()
+        {
+            DisposeRasterRenderLayers();
+            UpdateRasterWorldBounds();
             RequestRender();
         }
 

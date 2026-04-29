@@ -40,6 +40,8 @@ namespace Land_Readjustment_Tool.UI.Forms.Project
         private ProjectSettings? _settings;
         private List<CoordinateSystem> _crsList = [];
         private List<DatumTransformation> _datumList = [];
+        private int? _loadedCoordinateSystemId;
+        private int? _loadedDatumTransformationId;
 
         // Guard flag: prevents cmbCRS_SelectedIndexChanged from firing
         // while we are programmatically rebinding the dropdown.
@@ -49,7 +51,7 @@ namespace Land_Readjustment_Tool.UI.Forms.Project
         private bool _settingsApplied = false;
         private bool _settingsModified = false;
 
-        public event EventHandler? SettingsApplied;
+        public event EventHandler<ProjectSettingsAppliedEventArgs>? SettingsApplied;
         public event EventHandler? SettingsChanged;
 
         public frmProjectSettings(
@@ -107,6 +109,9 @@ namespace Land_Readjustment_Tool.UI.Forms.Project
                     Close();
                     return;
                 }
+
+                _loadedCoordinateSystemId = _settings.CoordinateSystemId;
+                _loadedDatumTransformationId = _settings.DatumTransformationId;
 
                 // Bind dropdowns BEFORE populating the form so that
                 // SelectedValue assignments in PopulateForm succeed.
@@ -440,11 +445,19 @@ namespace Land_Readjustment_Tool.UI.Forms.Project
                 SetFormEnabled(false);
 
                 CollectFormData(_settings);
+                bool projectCrsChanged =
+                    _settings.CoordinateSystemId != _loadedCoordinateSystemId ||
+                    _settings.DatumTransformationId != _loadedDatumTransformationId;
+
                 await _service.SaveAsync(_settings);
 
+                _loadedCoordinateSystemId = _settings.CoordinateSystemId;
+                _loadedDatumTransformationId = _settings.DatumTransformationId;
                 _settingsApplied = true;
                 _settingsModified = false;
-                SettingsApplied?.Invoke(this, EventArgs.Empty);
+                SettingsApplied?.Invoke(
+                    this,
+                    new ProjectSettingsAppliedEventArgs(projectCrsChanged));
                 UpdateApplyButtonState();
                 return true;
             }
@@ -680,6 +693,9 @@ namespace Land_Readjustment_Tool.UI.Forms.Project
         private List<DatumTransformation> FilterDatumForCrs(
             CoordinateSystem crs)
         {
+            if (RequiresDatumTransformation(crs))
+                return _datumList.ToList();
+
             return _datumList
                 .Where(d =>
                     string.IsNullOrWhiteSpace(d.ApplicableCrsCodes) ||
@@ -841,5 +857,24 @@ namespace Land_Readjustment_Tool.UI.Forms.Project
         {
 
         }
+    }
+
+    /// <summary>
+    /// Carries project settings apply details that affect downstream map updates.
+    /// </summary>
+    public sealed class ProjectSettingsAppliedEventArgs : EventArgs
+    {
+        /// <summary>
+        /// Creates event details for an applied project settings change.
+        /// </summary>
+        public ProjectSettingsAppliedEventArgs(bool projectCrsChanged)
+        {
+            ProjectCrsChanged = projectCrsChanged;
+        }
+
+        /// <summary>
+        /// True when the selected CRS or datum transformation changed.
+        /// </summary>
+        public bool ProjectCrsChanged { get; }
     }
 }

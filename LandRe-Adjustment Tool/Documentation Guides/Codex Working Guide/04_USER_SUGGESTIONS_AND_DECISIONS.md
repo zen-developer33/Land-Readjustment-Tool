@@ -256,3 +256,43 @@ Child node visual requirement added:
 - child nodes should show a color swatch box before the label text
 - swatch should be square/near-square with a dark border
 - keep root list as fixed four groups
+
+## Standing Coding Architecture Preference
+
+The user clarified that future coding work should always protect clean architecture and readability.
+
+Standing rule for Codex:
+
+- do not put business workflows, database operations, layer operations, or file-copy/open/save logic directly inside WinForms forms
+- forms should mostly handle UI coordination only: events, dialogs, selected controls, positioning, and refresh calls
+- encapsulate workflow logic in small readable services
+- use abstraction and dependency injection where it keeps code cleaner
+- avoid over-engineering; choose the smallest service or helper that clearly separates responsibilities
+- keep behavior exactly the same when refactoring unless the user asks for behavior changes
+- keep code minimal and understandable; do not clutter files with complex patterns for simple workflows
+- add XML summary comments for every new class and method Codex creates
+- prefer readable names and straightforward control flow over clever code
+- after implementing, build the project and report whether errors remain
+
+## Map Canvas Rendering Order Preference
+
+The user clarified that map-canvas render order must be intentionally managed and should not be hidden as scattered drawing calls inside forms or large renderer methods.
+
+Standing rule for canvas rendering:
+
+- clear the canvas background first
+- render fixed reference visuals first, including grid lines, axis lines, and origin markers
+- render raster/map content after the fixed reference visuals
+- render temporary interaction feedback last, such as zoom-window rectangles, so the user can always see active UI feedback
+- manage render-pass order through a small dedicated rendering-order service or pipeline
+- keep forms out of rendering-order decisions; forms should only request redraws or pass UI state
+
+## CRS and Raster Projection Direction
+
+The user clarified that project CRS and datum settings must drive raster rendering:
+
+- all MUTM coordinate systems should expose the full list of available datum transformations
+- changing project CRS or datum should update already imported raster layers to the new transformation where possible
+- imported raster and vector layers should eventually pass through a dedicated projection service
+- layers without CRS or georeferencing should have a simple define-projection workflow after import
+- map canvas zooming should allow backing out far enough to view a whole-world extent when needed

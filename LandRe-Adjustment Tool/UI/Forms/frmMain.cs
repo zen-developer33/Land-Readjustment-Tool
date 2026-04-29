@@ -5,22 +5,17 @@ using Land_Readjustment_Tool.Data;
 using Land_Readjustment_Tool.Forms;
 using Land_Readjustment_Tool.Forms.LandOwnersRecord_Managerment;
 using Land_Readjustment_Tool.Properties;
-using Land_Readjustment_Tool.Repositories.Project;
-using Land_Readjustment_Tool.Repositories.Spatial;
 using Land_Readjustment_Tool.Services;
+using Land_Readjustment_Tool.Services.Canvas;
 using Land_Readjustment_Tool.Services.Project;
 using Land_Readjustment_Tool.UI.CustomControls;
 using Land_Readjustment_Tool.UI.Forms;
 using Land_Readjustment_Tool.UI.Forms.Project;
 using Land_Readjustment_Tool.UI.MapCanvas.Models.Shapes;
-using Land_Readjustment_Tool.UI.MapCanvas.Rendering;
 using Land_Readjustment_Tool.UI.MapCanvas.Services;
 using Microsoft.Data.Sqlite;
-using Microsoft.EntityFrameworkCore;
-using Microsoft.VisualBasic.ApplicationServices;
 using System.Drawing;
 using System.Reflection;
-using System.Reflection.Metadata;
 using VisualStyles = System.Windows.Forms.VisualStyles;
 
 namespace Land_Readjustment_Tool
@@ -34,6 +29,11 @@ namespace Land_Readjustment_Tool
         private readonly ProjectSessionFactory _sessionFactory;
         private readonly ProjectService _projectService;
         private readonly IProjectScopedFactory _projectScopedFactory;
+        private readonly CanvasLayerCommandService _layerCommandService;
+        private readonly CanvasLayerBoundsService _layerBoundsService;
+        private readonly RasterLayerProjectionService _rasterLayerProjectionService;
+        private readonly ProjectOpenService _projectOpenService;
+        private readonly ProjectSaveAsService _projectSaveAsService;
         #endregion
 
         //App Title shown in window Title bar
@@ -85,17 +85,48 @@ namespace Land_Readjustment_Tool
         {
         }
 
+        /// <summary>
+        /// Builds dependent services for the non-DI constructor without duplicating wiring.
+        /// </summary>
+        private frmMain(
+            ProjectBackupService backupService,
+            ProjectSessionFactory sessionFactory,
+            ProjectService projectService,
+            IProjectScopedFactory projectScopedFactory,
+            string? startupFilePath)
+            : this(
+                backupService,
+                sessionFactory,
+                projectService,
+                projectScopedFactory,
+                new CanvasLayerCommandService(projectScopedFactory),
+                new CanvasLayerBoundsService(projectScopedFactory),
+                new ProjectOpenService(sessionFactory, projectScopedFactory),
+                new ProjectSaveAsService(backupService, sessionFactory),
+                startupFilePath)
+        {
+        }
+
         public frmMain(
             ProjectBackupService backupService,
             ProjectSessionFactory sessionFactory,
             ProjectService projectService,
             IProjectScopedFactory projectScopedFactory,
+            CanvasLayerCommandService layerCommandService,
+            CanvasLayerBoundsService layerBoundsService,
+            ProjectOpenService projectOpenService,
+            ProjectSaveAsService projectSaveAsService,
             string? startupFilePath = null)
         {
             _backupService = backupService ?? throw new ArgumentNullException(nameof(backupService));
             _sessionFactory = sessionFactory ?? throw new ArgumentNullException(nameof(sessionFactory));
             _projectService = projectService ?? throw new ArgumentNullException(nameof(projectService));
             _projectScopedFactory = projectScopedFactory ?? throw new ArgumentNullException(nameof(projectScopedFactory));
+            _layerCommandService = layerCommandService ?? throw new ArgumentNullException(nameof(layerCommandService));
+            _layerBoundsService = layerBoundsService ?? throw new ArgumentNullException(nameof(layerBoundsService));
+            _rasterLayerProjectionService = new RasterLayerProjectionService(_projectScopedFactory);
+            _projectOpenService = projectOpenService ?? throw new ArgumentNullException(nameof(projectOpenService));
+            _projectSaveAsService = projectSaveAsService ?? throw new ArgumentNullException(nameof(projectSaveAsService));
 
             InitializeComponent();
             _startupFilePath = startupFilePath;
@@ -602,21 +633,21 @@ namespace Land_Readjustment_Tool
             using var frm = new frmProjectSettings(service, crsRepo, datumRepo);
             var appliedWhileOpen = false;
 
-            frm.SettingsApplied += (_, _) =>
+            frm.SettingsApplied += async (_, args) =>
             {
                 appliedWhileOpen = true;
                 AppServices.Context.MarkAsModified();
-                _ = ApplySettingsAsync();
+                await ApplySettingsAsync(args.ProjectCrsChanged);
             };
 
             if (frm.ShowDialog() == DialogResult.OK && !appliedWhileOpen)
             {
                 AppServices.Context.MarkAsModified();
-                await ApplySettingsAsync();
+                await ApplySettingsAsync(updateRasterProjection: false);
             }
         }
 
-        private async Task ApplySettingsAsync()
+        private async Task ApplySettingsAsync(bool updateRasterProjection = false)
         {
             if (!AppServices.HasContext) return;
 
@@ -647,6 +678,9 @@ namespace Land_Readjustment_Tool
                     _workspaceCanvas.ApplySnapEnabled(
                         settings.SnapEnabled);
                 }
+
+                if (updateRasterProjection)
+                    await ReprojectRasterLayersForCurrentProjectAsync();
             }
             catch (Exception ex)
             {
@@ -777,21 +811,11 @@ namespace Land_Readjustment_Tool
         {
             if (!AppServices.HasContext) return;
 
-            var currentFilePath = AppServices.Context.ProjectFilePath; //C:\Projects\MyProject\Myproject.lpp
-            var currentFileName = Path.GetFileNameWithoutExtension(currentFilePath); // MyProject
-            var currentFolder = Path.GetFullPath(
-                                        Path.GetDirectoryName(currentFilePath)!);
-            // currentFolder = C:\Projects\MyProject\
+            string currentFilePath = AppServices.Context.ProjectFilePath;
+            string currentFolder = Path.GetFullPath(
+                Path.GetDirectoryName(currentFilePath)!);
+            ProjectSaveAsTarget target;
 
-            // ── STEP 1 — Open SaveFileDialog ─────────
-
-            string pickedFilePath = string.Empty;
-
-            string pickedFolder = string.Empty;
-            string pickedFileName = string.Empty;
-            string destFolder = string.Empty;
-            string destFile = string.Empty;
-            string destFileName = string.Empty;
             while (true)
             {
                 using var sfd = new SaveFileDialog
@@ -803,26 +827,18 @@ namespace Land_Readjustment_Tool
                 };
                 if (sfd.ShowDialog() != DialogResult.OK) return;
 
-                pickedFilePath = sfd.FileName; //C:\Projects\MyProject2.lpp
-                                               // pickedFilePath = wherever user chose
+                target = _projectSaveAsService.CreateTarget(sfd.FileName);
 
-                pickedFolder = Path.GetFullPath(
-                                            Path.GetDirectoryName(pickedFilePath)!); //C:\Projects\
-                pickedFileName = Path.GetFileNameWithoutExtension(pickedFilePath); // MyProject2
-                destFolder = Path.Combine(pickedFolder, pickedFileName); //C:\Projects\MyProject2
-                destFile = Path.Combine(destFolder, Path.GetFileName(pickedFilePath)); //C:\Projects\MyProject2\MyProject2.lpp
-                                                                                       // pickedFolder = folder user browsed to
-                destFileName = Path.GetFileNameWithoutExtension(destFile); // MyProject
-                // ── STEP 2 — Block saving inside current project folder ──
-                // currentFolder = C:\Projects\MyProject\
-                // If user picked something inside it → block
-                if (string.Equals(destFile, currentFilePath,
+                if (string.Equals(target.ProjectFilePath, currentFilePath,
                     StringComparison.OrdinalIgnoreCase))
                 {
                     await SaveCurrentProjectAsync(showMessage: false);
                     return;
                 }
-                if (IsSameOrChildPath(destFolder, currentFolder))
+
+                if (_projectSaveAsService.IsInsideCurrentProject(
+                    target.ProjectFolderPath,
+                    currentFolder))
                 {
                     MessageBox.Show(
                         "Cannot save inside the current project folder.\n\n" +
@@ -833,7 +849,7 @@ namespace Land_Readjustment_Tool
                     continue;
                 }
 
-                if (Directory.Exists(destFolder))
+                if (Directory.Exists(target.ProjectFolderPath))
                 {
                     DialogResult replaceResult = MessageBox.Show(
                         "A project folder with this name already exists.\n\n" +
@@ -851,92 +867,28 @@ namespace Land_Readjustment_Tool
 
                 break;
             }
-            // ── STEP 3 — Same parent directory → save normally ───
-            // If user is browsing the same parent folder
-            // where current project folder lives → just save
-            // Example:
-            // currentFolder = C:\Projects\MyProject\
-            // parent        = C:\Projects\
-            // pickedFolder  = C:\Projects\  → save normally
-
-
-            // ── STEP 4 — Different folder → Save As ──────────────
 
             try
             {
                 Cursor = Cursors.WaitCursor;
 
+                ProjectContext newContext =
+                    await _projectSaveAsService.SaveAsAsync(
+                        currentFilePath,
+                        target);
 
-                // 4a.1 — Checkpoint WAL into main .lpp file
-                // SQLite WAL mode keeps pending writes in a
-                // separate -wal file. Checkpoint merges them
-                // into the main database file before we copy.
-                await ProjectWalCheckpoint.ExecuteAsync(currentFilePath);
-
-                // 4b — Delete destination if already exists
-                if (Directory.Exists(destFolder))
-                    Directory.Delete(destFolder, recursive: true);
-
-                // 4c — Copy entire project folder to new location
-                CopyProjectFolder(currentFolder, destFolder);
-
-                // 4d — Rename copied .lpp file inside new folder
-                //      to match new project name
-                string copiedFile = Path.Combine(
-                    destFolder,
-                    Path.GetFileName(currentFilePath));
-
-                if (File.Exists(copiedFile) &&
-                    !string.Equals(copiedFile, destFile,
-                        StringComparison.OrdinalIgnoreCase))
-                {
-                    File.Move(copiedFile, destFile,
-                        overwrite: true);
-                }
-
-                if (!ProjectDatabaseValidator.IsValidProjectDatabase(
-                    destFile,
-                    out string validationReason))
-                {
-                    throw new InvalidOperationException(
-                        $"The copied project database is invalid: {validationReason}");
-                }
-
-                // 4e — Close current session
                 DisposeCurrentProjectSession();
+                AppServices.SetContext(newContext);
+                newContext.StateChanged += UpdateWindowTitle;
+                _layerTreeService = _projectScopedFactory.CreateCanvasLayerTreeService(
+                    newContext.Session);
 
-                // 4f — Open new session at new location
-                var session = _sessionFactory.CreateSession(destFile);
-                var context = new ProjectContext(
-                    session, destFile);
-
-                AppServices.SetContext(context);
-                context.StateChanged += UpdateWindowTitle;
-
-                // 4g — Update ProjectName in new database
-                var info = await session.GetDbContext()
-                    .ProjectInfo.FirstOrDefaultAsync();
-                if (info != null)
-                {
-                    info.ProjectName = destFileName;
-                    await session.GetDbContext().SaveChangesAsync();
-                    context.SetInfo(info);
-                }
-
-                // 4h — WAL checkpoint on new file
-                await ProjectWalCheckpoint.ExecuteAsync(destFile);
-
-                // 4i — Create fresh backup in new location
-                // No old backups copied — clean history
-                _backupService.CreateBackup(destFile);
-
-                // 4j — Update UI
                 EnableProjectMenuItems();
                 UpdateWindowTitle();
-                context.MarkAsSaved();
+                await RefreshLayerTreeAsync();
 
                 MessageBox.Show(
-                    $"Project saved as:\n{destFile}",
+                    $"Project saved as:\n{target.ProjectFilePath}",
                     "Save As Complete",
                     MessageBoxButtons.OK,
                     MessageBoxIcon.Information);
@@ -958,98 +910,35 @@ namespace Land_Readjustment_Tool
         }
 
         /// <summary>
-        /// Copies all files from source to dest.
-        /// Skips .bak files — new project starts
-        /// with clean backup history.
+        /// Reprojects persisted raster layers after the active project CRS or datum changes.
         /// </summary>
-        private static void CopyProjectFolder(
-            string source, string dest)
+        private async Task ReprojectRasterLayersForCurrentProjectAsync()
         {
-            string fullSource = Path.GetFullPath(source);
-            string fullDest = Path.GetFullPath(dest);
+            if (!AppServices.HasContext)
+                return;
 
-            if (IsSameOrChildPath(fullDest, fullSource))
+            mapCanvasControlMain.ClearRasterLayers();
+
+            RasterLayerProjectionUpdateResult result =
+                await _rasterLayerProjectionService
+                    .ReprojectRasterLayersToProjectCrsAsync(
+                        AppServices.Context.Session,
+                        AppServices.Context.ProjectFolderPath);
+
+            await RefreshLayerTreeAsync();
+            mapCanvasControlMain.RequestRender();
+
+            if (result.FailedCount > 0)
             {
-                throw new InvalidOperationException(
-                    "Cannot copy a project folder into itself.");
-            }
-
-            Directory.CreateDirectory(fullDest);
-
-            // Copy directory structure first (includes empty folders)
-            foreach (string dir in Directory.GetDirectories(
-                fullSource, "*", SearchOption.AllDirectories))
-            {
-                string relativeDir = Path.GetRelativePath(
-                    fullSource, dir);
-                string destDir = Path.Combine(fullDest, relativeDir);
-                Directory.CreateDirectory(destDir);
-            }
-
-            foreach (string file in Directory.GetFiles(
-                fullSource, "*",
-                SearchOption.AllDirectories))
-            {
-                string fullFile = Path.GetFullPath(file);
-
-                if (ProjectDatabaseValidator.ShouldSkipProjectFolderCopyFile(fullFile))
-                    continue;
-
-                string relativePath = Path.GetRelativePath(
-                    fullSource, fullFile);
-                string destFile = Path.Combine(
-                    fullDest, relativePath);
-
-                Directory.CreateDirectory(
-                    Path.GetDirectoryName(destFile)!);
-
-                File.Copy(fullFile, destFile, overwrite: true);
+                MessageBox.Show(
+                    $"{result.FailedCount} raster layer(s) could not be updated to the new project CRS. " +
+                    "The details were written to the project log.",
+                    "Raster CRS Update",
+                    MessageBoxButtons.OK,
+                    MessageBoxIcon.Warning);
             }
         }
 
-        private static bool IsSameOrChildPath(string candidatePath, string parentPath)
-        {
-            string candidate = EnsureTrailingDirectorySeparator(
-                Path.GetFullPath(candidatePath));
-            string parent = EnsureTrailingDirectorySeparator(
-                Path.GetFullPath(parentPath));
-
-            return candidate.StartsWith(parent, StringComparison.OrdinalIgnoreCase);
-        }
-
-        private static string EnsureTrailingDirectorySeparator(string path)
-        {
-            return path.EndsWith(Path.DirectorySeparatorChar) ||
-                   path.EndsWith(Path.AltDirectorySeparatorChar)
-                ? path
-                : $"{path}{Path.DirectorySeparatorChar}";
-        }
-
-        /// <summary>
-        /// Updates ProjectName in the copied database
-        /// to match the new file name chosen by user.
-        /// </summary>
-        private static async Task UpdateProjectNameAsync(
-            ProjectSession session, string newName)
-        {
-            try
-            {
-                var info = await session
-                    .GetDbContext()
-                    .ProjectInfo
-                    .FirstOrDefaultAsync();
-
-                if (info == null) return;
-
-                info.ProjectName = newName;
-                await session.GetDbContext().SaveChangesAsync();
-            }
-            catch (Exception ex)
-            {
-                System.Diagnostics.Debug.WriteLine(
-                    $"UpdateProjectNameAsync failed: {ex.Message}");
-            }
-        }
         private void projectSettingToolStripMenuItem_Click(object sender, EventArgs e)
         {
             if (!AppServices.HasContext) return;
@@ -1370,33 +1259,19 @@ namespace Land_Readjustment_Tool
                 !HandleUnsavedChangesOnClose())
                 return;
 
-            if (!EnsureProjectFileCanBeOpened(projectFilePath))
-            {
-                return;
-            }
-
-            ProjectSession? session = null;
             try
             {
+                if (!EnsureProjectFileCanBeOpened(projectFilePath))
+                {
+                    return;
+                }
+
                 DisposeCurrentProjectSession();
                 UnloadProjectWorkspace();
 
-                session = _sessionFactory.CreateSession(projectFilePath);
+                ProjectContext context =
+                    await _projectOpenService.OpenAsync(projectFilePath);
 
-                // Ensure database schema is up to date
-                await session.GetDbContext().Database.MigrateAsync();
-
-                var context = new ProjectContext(
-                    session, projectFilePath);
-
-                var service = _projectScopedFactory.CreateProjectInfoService(session);
-
-                var info = await service.GetAsync();
-                if (info == null)
-                    throw new InvalidOperationException(
-                        "Project file is invalid or missing project information.");
-
-                context.SetInfo(info);
                 RecentProjectsManager.AddRecentProject(projectFilePath); //ADDS TO THE RECENTLY OPENED PROJECTS IN SETTINGS
                 BuildRecentProjectsMenu(); // Refresh menu to show the newly added recent project immediately
                 context.StateChanged += UpdateWindowTitle;
@@ -1410,7 +1285,6 @@ namespace Land_Readjustment_Tool
             }
             catch (Exception ex)
             {
-                session?.Dispose();
                 MessageBox.Show(
                     $"Failed to open project: {GetMostUsefulExceptionMessage(ex)}",
                     "Error",
@@ -1421,21 +1295,19 @@ namespace Land_Readjustment_Tool
 
         private bool EnsureProjectFileCanBeOpened(string projectFilePath)
         {
-            if (ProjectDatabaseValidator.IsValidProjectDatabase(
-                projectFilePath,
-                out string invalidReason))
+            ProjectOpenCheck openCheck =
+                _projectOpenService.CheckProjectFile(projectFilePath);
+
+            if (openCheck.CanOpen)
             {
                 return true;
             }
 
-            string? validBackup =
-                ProjectDatabaseValidator.FindLatestValidBackup(projectFilePath);
-
-            if (validBackup != null)
+            if (openCheck.ValidBackupPath != null)
             {
                 DialogResult restoreResult = MessageBox.Show(
                     "The selected project file is not a valid RePlot database.\n\n" +
-                    $"Reason: {invalidReason}\n\n" +
+                    $"Reason: {openCheck.Reason}\n\n" +
                     "A valid backup was found. Restore the latest valid backup and open it?",
                     "Project File Recovery",
                     MessageBoxButtons.YesNo,
@@ -1444,14 +1316,16 @@ namespace Land_Readjustment_Tool
 
                 if (restoreResult == DialogResult.Yes)
                 {
-                    File.Copy(validBackup, projectFilePath, overwrite: true);
+                    _projectOpenService.RestoreBackup(
+                        openCheck.ValidBackupPath,
+                        projectFilePath);
                     return true;
                 }
             }
 
             MessageBox.Show(
                 "The selected file cannot be opened as a RePlot project.\n\n" +
-                $"Reason: {invalidReason}\n\n" +
+                $"Reason: {openCheck.Reason}\n\n" +
                 "Please choose the main .lpp file from the project folder, not a backup, WAL/SHM sidecar, shortcut, or exported data file.",
                 "Invalid Project File",
                 MessageBoxButtons.OK,
@@ -2305,8 +2179,7 @@ namespace Land_Readjustment_Tool
 
         private async Task ToggleLayerNodeVisibilityAsync(TreeNode? node)
         {
-            if (_layerTreeService == null ||
-                node == null ||
+            if (node == null ||
                 node.Tag is not LayerTreeNodeState nodeState ||
                 !nodeState.IsLayerNode ||
                 nodeState.Layer == null)
@@ -2314,69 +2187,56 @@ namespace Land_Readjustment_Tool
                 return;
             }
 
-            bool newVisibility = !nodeState.Layer.IsVisible;
-
-            CanvasLayer? updatedLayer =
-                await _layerTreeService.SetVisibilityAsync(
-                    nodeState.Layer.Id,
-                    newVisibility);
-
-            if (updatedLayer == null)
-                return;
-
-            nodeState.Layer = updatedLayer;
-            node.Text = updatedLayer.Name;
-
-            treeViewLayers.Invalidate();
-            UpdateRasterCanvasLayersFromTree();
-
-            if (AppServices.HasContext)
+            try
             {
-                AppServices.Context.MarkAsModified();
-                UpdateWindowTitle();
-            }
+                CanvasLayer? updatedLayer =
+                    await _layerCommandService.SetVisibilityAsync(
+                        AppServices.HasContext ? AppServices.Context.Session : null,
+                        nodeState.Layer,
+                        !nodeState.Layer.IsVisible);
 
-            mapCanvasControlMain.RequestRender();
+                if (updatedLayer == null)
+                {
+                    return;
+                }
+
+                UpdateLayerNode(node, updatedLayer);
+                MarkProjectModifiedIfOpen();
+            }
+            catch (Exception ex)
+            {
+                MessageBox.Show(
+                    $"Failed to update layer visibility: {ex.Message}",
+                    "Layer Visibility",
+                    MessageBoxButtons.OK,
+                    MessageBoxIcon.Error);
+            }
         }
 
         private async Task RenameLayerAsync(TreeNode node, string newName)
         {
             if (node.Tag is not LayerTreeNodeState nodeState ||
                 !nodeState.IsLayerNode ||
-                nodeState.Layer == null ||
-                string.Equals(
-                    nodeState.Layer.Name,
-                    newName,
-                    StringComparison.Ordinal))
+                nodeState.Layer == null)
             {
-                return;
-            }
-
-            CanvasLayer renamedLayer = CloneLayer(nodeState.Layer);
-            renamedLayer.Name = newName;
-            renamedLayer.LastModifiedDate = DateTime.Now;
-
-            if (!AppServices.HasContext)
-            {
-                nodeState.Layer = renamedLayer;
-                node.Text = renamedLayer.Name;
-                treeViewLayers.Invalidate();
-                UpdateRasterCanvasLayersFromTree();
                 return;
             }
 
             try
             {
-                var repository = _projectScopedFactory.CreateCanvasLayerRepository(
-                    AppServices.Context.Session);
+                CanvasLayer? renamedLayer =
+                    await _layerCommandService.RenameAsync(
+                        AppServices.HasContext ? AppServices.Context.Session : null,
+                        nodeState.Layer,
+                        newName);
 
-                await repository.UpdateAsync(renamedLayer);
+                if (renamedLayer == null)
+                {
+                    return;
+                }
 
-                nodeState.Layer = renamedLayer;
-                node.Text = renamedLayer.Name;
-
-                AppServices.Context.MarkAsModified();
-                UpdateWindowTitle();
+                UpdateLayerNode(node, renamedLayer);
+                MarkProjectModifiedIfOpen();
                 await RefreshLayerTreeAsync();
                 SelectLayerNodeById(renamedLayer.Id);
             }
@@ -2398,25 +2258,20 @@ namespace Land_Readjustment_Tool
                 return;
             }
 
-            CanvasLayer updatedLayer = CloneLayer(layer);
-            updatedLayer.IsLocked = !updatedLayer.IsLocked;
-            updatedLayer.LastModifiedDate = DateTime.Now;
-
-            if (!AppServices.HasContext)
-            {
-                UpdateLayerNode(node!, updatedLayer);
-                return;
-            }
-
             try
             {
-                var repository = _projectScopedFactory.CreateCanvasLayerRepository(
-                    AppServices.Context.Session);
+                CanvasLayer? updatedLayer =
+                    await _layerCommandService.ToggleLockAsync(
+                        AppServices.HasContext ? AppServices.Context.Session : null,
+                        layer);
 
-                await repository.UpdateAsync(updatedLayer);
+                if (updatedLayer == null)
+                {
+                    return;
+                }
+
                 UpdateLayerNode(node!, updatedLayer);
-                AppServices.Context.MarkAsModified();
-                UpdateWindowTitle();
+                MarkProjectModifiedIfOpen();
             }
             catch (Exception ex)
             {
@@ -2459,12 +2314,10 @@ namespace Land_Readjustment_Tool
 
             try
             {
-                var repository = _projectScopedFactory.CreateCanvasLayerRepository(
-                    AppServices.Context.Session);
-
-                await repository.DeleteAsync(layer.Id);
-                AppServices.Context.MarkAsModified();
-                UpdateWindowTitle();
+                await _layerCommandService.DeleteAsync(
+                    AppServices.HasContext ? AppServices.Context.Session : null,
+                    layer);
+                MarkProjectModifiedIfOpen();
                 await RefreshLayerTreeAsync();
                 ClearLayerProperties();
                 mapCanvasControlMain.RequestRender();
@@ -2489,7 +2342,14 @@ namespace Land_Readjustment_Tool
 
             try
             {
-                RectangleD? bounds = await GetLayerWorldBoundsAsync(layer);
+                RectangleD? bounds =
+                    await _layerBoundsService.GetWorldBoundsAsync(
+                        AppServices.HasContext ? AppServices.Context.Session : null,
+                        layer,
+                        AppServices.HasContext
+                            ? AppServices.Context.ProjectFolderPath
+                            : null);
+
                 if (!bounds.HasValue)
                 {
                     MessageBox.Show(
@@ -2510,102 +2370,8 @@ namespace Land_Readjustment_Tool
                     $"Failed to zoom to the layer: {ex.Message}",
                     "Zoom To Layer",
                     MessageBoxButtons.OK,
-                    MessageBoxIcon.Error);
+                MessageBoxIcon.Error);
             }
-        }
-
-        private async Task<RectangleD?> GetLayerWorldBoundsAsync(CanvasLayer layer)
-        {
-            if (IsRasterLayer(layer))
-            {
-                return GetRasterLayerWorldBounds(layer);
-            }
-
-            if (!AppServices.HasContext)
-            {
-                return null;
-            }
-
-            var objectRepository = _projectScopedFactory.CreateCanvasObjectRepository(
-                AppServices.Context.Session);
-
-            List<CanvasObject> objects = await objectRepository.GetByLayerIdAsync(layer.Id);
-            return GetCanvasObjectWorldBounds(objects);
-        }
-
-        private RectangleD? GetRasterLayerWorldBounds(CanvasLayer layer)
-        {
-            if (string.IsNullOrWhiteSpace(layer.SourceFile))
-            {
-                return null;
-            }
-
-            string? projectFolderPath = AppServices.HasContext
-                ? AppServices.Context.ProjectFolderPath
-                : null;
-
-            using RasterRenderLayer rasterLayer =
-                RasterRenderLayer.FromCanvasLayer(layer, projectFolderPath);
-            return rasterLayer.WorldBounds;
-        }
-
-        private static RectangleD? GetCanvasObjectWorldBounds(
-            IEnumerable<CanvasObject> objects)
-        {
-            bool hasBounds = false;
-            double minX = 0;
-            double maxX = 0;
-            double minY = 0;
-            double maxY = 0;
-
-            foreach (CanvasObject canvasObject in objects)
-            {
-                NetTopologySuite.Geometries.Envelope? envelope =
-                    canvasObject.Shape?.EnvelopeInternal;
-
-                if (envelope == null || envelope.IsNull)
-                {
-                    continue;
-                }
-
-                if (!hasBounds)
-                {
-                    minX = envelope.MinX;
-                    maxX = envelope.MaxX;
-                    minY = envelope.MinY;
-                    maxY = envelope.MaxY;
-                    hasBounds = true;
-                    continue;
-                }
-
-                minX = Math.Min(minX, envelope.MinX);
-                maxX = Math.Max(maxX, envelope.MaxX);
-                minY = Math.Min(minY, envelope.MinY);
-                maxY = Math.Max(maxY, envelope.MaxY);
-            }
-
-            if (!hasBounds)
-            {
-                return null;
-            }
-
-            double width = maxX - minX;
-            double height = maxY - minY;
-            const double minimumLayerExtent = 1.0;
-
-            if (width <= 0)
-            {
-                minX -= minimumLayerExtent / 2.0;
-                width = minimumLayerExtent;
-            }
-
-            if (height <= 0)
-            {
-                minY -= minimumLayerExtent / 2.0;
-                height = minimumLayerExtent;
-            }
-
-            return new RectangleD(minX, minY, width, height);
         }
 
         private void UpdateLayerNode(TreeNode node, CanvasLayer layer)
@@ -2619,6 +2385,20 @@ namespace Land_Readjustment_Tool
             treeViewLayers.Invalidate();
             UpdateRasterCanvasLayersFromTree();
             mapCanvasControlMain.RequestRender();
+        }
+
+        /// <summary>
+        /// Marks the active project modified after a successful layer command.
+        /// </summary>
+        private void MarkProjectModifiedIfOpen()
+        {
+            if (!AppServices.HasContext)
+            {
+                return;
+            }
+
+            AppServices.Context.MarkAsModified();
+            UpdateWindowTitle();
         }
 
         private async Task RefreshLayerTreeAsync()
@@ -2745,11 +2525,7 @@ namespace Land_Readjustment_Tool
 
         private static bool IsRasterLayer(CanvasLayer? layer)
         {
-            return layer != null &&
-                   string.Equals(
-                       layer.LayerType,
-                       CanvasLayerTreeService.RasterLayerType,
-                       StringComparison.OrdinalIgnoreCase);
+            return CanvasLayerBoundsService.IsRasterLayer(layer);
         }
 
         private Rectangle GetLayerNodeCheckBoxRect(TreeNode node)
@@ -2806,7 +2582,8 @@ namespace Land_Readjustment_Tool
                 return;
             }
 
-            CanvasLayer editableLayer = CloneLayer(nodeState.Layer);
+            CanvasLayer editableLayer =
+                _layerCommandService.CreateEditableCopy(nodeState.Layer);
 
             using var frm = new frmLayerPropertyManager(editableLayer);
             PositionLayerPropertyManager(frm);
@@ -2814,31 +2591,17 @@ namespace Land_Readjustment_Tool
             if (frm.ShowDialog(this) != DialogResult.OK)
                 return;
 
-            if (!AppServices.HasContext)
-            {
-                nodeState.Layer = editableLayer;
-                node.Text = editableLayer.Name;
-                treeViewLayers.Invalidate();
-                UpdateRasterCanvasLayersFromTree();
-                mapCanvasControlMain.RequestRender();
-                return;
-            }
-
             try
             {
-                var repository = _projectScopedFactory.CreateCanvasLayerRepository(
-                    AppServices.Context.Session);
+                CanvasLayer updatedLayer =
+                    await _layerCommandService.UpdatePropertiesAsync(
+                        AppServices.HasContext ? AppServices.Context.Session : null,
+                        editableLayer);
 
-                editableLayer.LastModifiedDate = DateTime.Now;
-                await repository.UpdateAsync(editableLayer);
-
-                nodeState.Layer = editableLayer;
-
-                AppServices.Context.MarkAsModified();
-                UpdateWindowTitle();
-
+                UpdateLayerNode(node, updatedLayer);
+                MarkProjectModifiedIfOpen();
                 await RefreshLayerTreeAsync();
-                SelectLayerNodeById(editableLayer.Id);
+                SelectLayerNodeById(updatedLayer.Id);
                 mapCanvasControlMain.RequestRender();
             }
             catch (Exception ex)
@@ -2994,40 +2757,6 @@ namespace Land_Readjustment_Tool
                     $"{message}{Environment.NewLine}{FormatExceptionDetails(exception)}",
                     exception);
             }
-        }
-
-        private static CanvasLayer CloneLayer(CanvasLayer source)
-        {
-            return new CanvasLayer
-            {
-                Id = source.Id,
-                Name = source.Name,
-                LayerType = source.LayerType,
-                IsVisible = source.IsVisible,
-                IsLocked = source.IsLocked,
-                IsSelectable = source.IsSelectable,
-                IsPrintable = source.IsPrintable,
-                DisplayOrder = source.DisplayOrder,
-                BorderColor = source.BorderColor,
-                LineWeight = source.LineWeight,
-                LineStyle = source.LineStyle,
-                FillColor = source.FillColor,
-                FillTransparency = source.FillTransparency,
-                FillStyle = source.FillStyle,
-                HatchPattern = source.HatchPattern,
-                ShowLabels = source.ShowLabels,
-                LabelFontName = source.LabelFontName,
-                LabelFontSize = source.LabelFontSize,
-                LabelColor = source.LabelColor,
-                LabelField = source.LabelField,
-                PointSymbol = source.PointSymbol,
-                PointSize = source.PointSize,
-                SourceFile = source.SourceFile,
-                ImportedDate = source.ImportedDate,
-                CreatedDate = source.CreatedDate,
-                LastModifiedDate = source.LastModifiedDate,
-                Description = source.Description
-            };
         }
 
         private void ConfigureCanvasStatusBarLayout()

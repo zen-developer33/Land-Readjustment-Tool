@@ -455,7 +455,7 @@ namespace Land_Readjustment_Tool.Data
                     RotationY = 0,
                     RotationZ = 0,
                     ScalePpm = 0,
-                    ApplicableCrsCodes = "MUTM81,MUTM82,MUTM83",
+                    ApplicableCrsCodes = "MUTM81,MUTM84,MUTM87",
                     Source = "Nagarkot TM",
                     Region = "Nepal",
                     IsSystemDefault = true,
