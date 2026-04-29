@@ -1,6 +1,4 @@
 using System.Drawing;
-using System.Drawing.Drawing2D;
-using System.Drawing.Text;
 using System.Windows.Forms;
 using Land_Readjustment_Tool.Core.Entities.Canvas;
 using Land_Readjustment_Tool.UI.MapCanvas.Core;
@@ -11,6 +9,8 @@ namespace Land_Readjustment_Tool.UI.CustomControls
 {
     public partial class MapCanvasControl : UserControl
     {
+        private const int ZoomSettleIntervalMs = 40;
+
         private readonly MapCanvasEngine _engine;
         private readonly MapCanvasRenderer _renderer;
         private readonly RasterDeferredRenderer _rasterDeferredRenderer = new();
@@ -27,21 +27,24 @@ namespace Land_Readjustment_Tool.UI.CustomControls
         private bool _isSelectingZoomWindow;
         private Point _lastPanPoint;
         private PointF _totalPanDelta;
-        private PointF _zoomAnchorScreen;
-        private double _interactiveZoomScale = 1.0;
         private PointD? _panStartWorld;
         private Point _zoomWindowStart;
         private Point _zoomWindowCurrent;
         private PointD? _currentMouseWorld;
-        private System.Windows.Forms.Timer? _zoomingStatusTimer;
+        private bool _zoomingStatusTimerDisposed;
+        private readonly System.Windows.Forms.Timer _zoomingStatusTimer = new()
+        {
+            Interval = ZoomSettleIntervalMs
+        };
 
         public MapCanvasControl()
         {
             InitializeComponent();
             ConfigureGraphicsPipeline();
             _engine = new MapCanvasEngine(canvasSurface.Size);
-            _renderer = new MapCanvasRenderer();
             _renderSettings = MapCanvasRenderSettings.CreateLightDefaults();
+            _renderer = new MapCanvasRenderer(_engine, _renderSettings);
+            _zoomingStatusTimer.Tick += ZoomingStatusTimer_Tick;
             WireInteractionEvents();
             UpdateStatusBar();
         }
@@ -103,6 +106,7 @@ namespace Land_Readjustment_Tool.UI.CustomControls
         public void ApplyRenderSettings(MapCanvasRenderSettings settings)
         {
             _renderSettings = settings?.Clone() ?? MapCanvasRenderSettings.CreateLightDefaults();
+            _renderer.UpdateSettings(_renderSettings);
             BackColor = _renderSettings.BackgroundColor;
             canvasSurface.BackColor = _renderSettings.BackgroundColor;
             RequestRender();
@@ -111,6 +115,7 @@ namespace Land_Readjustment_Tool.UI.CustomControls
         public void ApplyBackgroundColor(Color color)
         {
             _renderSettings.BackgroundColor = color;
+            _renderer.UpdateSettings(_renderSettings);
             BackColor = color;
             canvasSurface.BackColor = color;
             RequestRender();
@@ -120,12 +125,14 @@ namespace Land_Readjustment_Tool.UI.CustomControls
         {
             _renderSettings.MajorGridColor = Color.FromArgb(150, color.R, color.G, color.B);
             _renderSettings.MinorGridColor = Color.FromArgb(70, color.R, color.G, color.B);
+            _renderer.UpdateSettings(_renderSettings);
             RequestRender();
         }
 
         public void ApplyGridVisible(bool visible)
         {
             _renderSettings.ShowGrid = visible;
+            _renderer.UpdateSettings(_renderSettings);
             RequestRender();
         }
 
@@ -136,6 +143,11 @@ namespace Land_Readjustment_Tool.UI.CustomControls
 
         public void ZoomIn()
         {
+            if (IsCanvasInteractionLocked)
+            {
+                return;
+            }
+
             _engine.ZoomIn();
             RefreshRasterCacheForCurrentView();
             RequestRender();
@@ -143,6 +155,11 @@ namespace Land_Readjustment_Tool.UI.CustomControls
 
         public void ZoomOut()
         {
+            if (IsCanvasInteractionLocked)
+            {
+                return;
+            }
+
             _engine.ZoomOut();
             RefreshRasterCacheForCurrentView();
             RequestRender();
@@ -150,6 +167,11 @@ namespace Land_Readjustment_Tool.UI.CustomControls
 
         public void ZoomExtents()
         {
+            if (IsCanvasInteractionLocked)
+            {
+                return;
+            }
+
             _engine.ZoomToExtents();
             RefreshRasterCacheForCurrentView();
             RequestRender();
@@ -157,6 +179,11 @@ namespace Land_Readjustment_Tool.UI.CustomControls
 
         public void SetPanToolActive(bool active)
         {
+            if (IsCanvasInteractionLocked)
+            {
+                return;
+            }
+
             _panToolActive = active;
             _zoomWindowActive = false;
             _isSelectingZoomWindow = false;
@@ -166,6 +193,11 @@ namespace Land_Readjustment_Tool.UI.CustomControls
 
         public void BeginZoomWindow()
         {
+            if (IsCanvasInteractionLocked)
+            {
+                return;
+            }
+
             _zoomWindowActive = true;
             _panToolActive = false;
             _isPanning = false;
@@ -204,6 +236,7 @@ namespace Land_Readjustment_Tool.UI.CustomControls
             }
 
             UpdateRasterWorldBounds();
+            _renderer.UpdateRasterLayers(_rasterRenderLayers);
             RefreshRasterCacheForCurrentView();
             RequestRender();
         }
@@ -223,19 +256,8 @@ namespace Land_Readjustment_Tool.UI.CustomControls
 
         private void canvasSurface_Paint(object? sender, PaintEventArgs e)
         {
-            Graphics g = e.Graphics;
-
-            g.SmoothingMode = SmoothingMode.AntiAlias;
-            g.InterpolationMode = InterpolationMode.HighQualityBicubic;
-            g.PixelOffsetMode = PixelOffsetMode.HighQuality;
-            g.CompositingQuality = CompositingQuality.HighQuality;
-            g.TextRenderingHint = TextRenderingHint.ClearTypeGridFit;
-
             _renderer.Render(
-                g,
-                _engine,
-                _renderSettings,
-                _rasterRenderLayers,
+                e.Graphics,
                 GetRasterRenderFrame(),
                 IsInteractiveNavigation,
                 GetZoomWindowRectangle());
@@ -245,42 +267,35 @@ namespace Land_Readjustment_Tool.UI.CustomControls
         {
             if (!_isZooming)
             {
-                _zoomAnchorScreen = e.Location;
-                _interactiveZoomScale = 1.0;
+                CancelActiveCanvasGesture();
+                _rasterDeferredRenderer.BeginZoom(
+                    canvasSurface.Size,
+                    _rasterRenderLayers,
+                    _engine);
             }
 
             _isZooming = true;
             double zoomFactor = e.Delta > 0 ? MapCanvasEngine.ZoomStep : 1.0 / MapCanvasEngine.ZoomStep;
             _zoomDirection = e.Delta > 0 ? "In" : "Out";
-            _interactiveZoomScale *= zoomFactor;
             UpdateStatusBar();
             
             _engine.ZoomAtPoint(e.Location, zoomFactor);
             _currentMouseWorld = _engine.ScreenToWorld(e.Location);
             RequestRender();
             
-            // Reset the zooming timer; redraw the real raster only after wheel input settles.
-            _zoomingStatusTimer?.Stop();
-            _zoomingStatusTimer = new System.Windows.Forms.Timer();
-            _zoomingStatusTimer.Interval = 350;
-            _zoomingStatusTimer.Tick += (_, _) =>
-            {
-                _isZooming = false;
-                _zoomDirection = null;
-                _interactiveZoomScale = 1.0;
-                _zoomingStatusTimer.Stop();
-                _zoomingStatusTimer.Dispose();
-                _zoomingStatusTimer = null;
-                RefreshRasterCacheForCurrentView();
-                UpdateStatusBar();
-                RequestRender();
-            };
+            // Redraw the precise raster shortly after the last wheel event.
+            _zoomingStatusTimer.Stop();
             _zoomingStatusTimer.Start();
         }
 
         private void canvasSurface_MouseDown(object? sender, MouseEventArgs e)
         {
             canvasSurface.Focus();
+
+            if (IsCanvasInteractionLocked)
+            {
+                return;
+            }
 
             if (_zoomWindowActive && e.Button == MouseButtons.Left)
             {
@@ -310,6 +325,11 @@ namespace Land_Readjustment_Tool.UI.CustomControls
 
         private void canvasSurface_MouseMove(object? sender, MouseEventArgs e)
         {
+            if (IsCanvasInteractionLocked)
+            {
+                _currentMouseWorld = _engine.ScreenToWorld(e.Location);
+                return;
+            }
             
             if (_isSelectingZoomWindow)
             {
@@ -341,6 +361,11 @@ namespace Land_Readjustment_Tool.UI.CustomControls
 
         private void canvasSurface_MouseUp(object? sender, MouseEventArgs e)
         {
+            if (IsCanvasInteractionLocked)
+            {
+                return;
+            }
+
             if (_isSelectingZoomWindow)
             {
                 Rectangle? rectangle = GetZoomWindowRectangle();
@@ -350,6 +375,7 @@ namespace Land_Readjustment_Tool.UI.CustomControls
                 if (rectangle.HasValue && rectangle.Value.Width > 8 && rectangle.Value.Height > 8)
                 {
                     ZoomToScreenRectangle(rectangle.Value);
+                    RefreshRasterCacheForCurrentView();
                 }
 
                 UpdateCanvasCursor();
@@ -394,6 +420,11 @@ namespace Land_Readjustment_Tool.UI.CustomControls
 
         private void ZoomToScreenRectangle(Rectangle screenRectangle)
         {
+            if (IsCanvasInteractionLocked)
+            {
+                return;
+            }
+
             PointD topLeft = _engine.ScreenToWorld(new Point(screenRectangle.Left, screenRectangle.Top));
             PointD bottomRight = _engine.ScreenToWorld(new Point(screenRectangle.Right, screenRectangle.Bottom));
 
@@ -450,6 +481,8 @@ namespace Land_Readjustment_Tool.UI.CustomControls
             return "Mode: Ready";
         }
 
+        private bool IsCanvasInteractionLocked => _isZooming;
+
         private bool IsInteractiveNavigation =>
             _isPanning || _isZooming || _isSelectingZoomWindow;
 
@@ -465,8 +498,7 @@ namespace Land_Readjustment_Tool.UI.CustomControls
 
             if (_isZooming &&
                 _rasterDeferredRenderer.TryGetZoomFrame(
-                    _zoomAnchorScreen,
-                    _interactiveZoomScale,
+                    _engine,
                     out RasterRenderFrame zoomFrame))
             {
                 return zoomFrame;
@@ -480,6 +512,49 @@ namespace Land_Readjustment_Tool.UI.CustomControls
             }
 
             return null;
+        }
+
+        private void ZoomingStatusTimer_Tick(object? sender, EventArgs e)
+        {
+            _zoomingStatusTimer.Stop();
+            _isZooming = false;
+            _zoomDirection = null;
+            _rasterDeferredRenderer.EndZoom();
+            RefreshRasterCacheForCurrentView();
+            UpdateCanvasCursor();
+            UpdateStatusBar();
+            RequestRender();
+        }
+
+        private void StopAndDisposeZoomingStatusTimer()
+        {
+            if (_zoomingStatusTimerDisposed)
+            {
+                return;
+            }
+
+            _zoomingStatusTimer.Stop();
+            _zoomingStatusTimer.Tick -= ZoomingStatusTimer_Tick;
+            _zoomingStatusTimer.Dispose();
+            _zoomingStatusTimerDisposed = true;
+        }
+
+        private void CancelActiveCanvasGesture()
+        {
+            if (_isPanning)
+            {
+                _isPanning = false;
+                _panStartWorld = null;
+                _totalPanDelta = PointF.Empty;
+                canvasSurface.Capture = false;
+                _rasterDeferredRenderer.Invalidate();
+            }
+
+            if (_isSelectingZoomWindow)
+            {
+                _isSelectingZoomWindow = false;
+                _zoomWindowActive = false;
+            }
         }
 
         private void RefreshRasterCacheForCurrentView()
@@ -517,6 +592,7 @@ namespace Land_Readjustment_Tool.UI.CustomControls
                 rasterLayer.Dispose();
 
             _rasterRenderLayers.Clear();
+            _renderer.UpdateRasterLayers(Array.Empty<RasterRenderLayer>());
             _rasterDeferredRenderer.Invalidate();
         }
     }

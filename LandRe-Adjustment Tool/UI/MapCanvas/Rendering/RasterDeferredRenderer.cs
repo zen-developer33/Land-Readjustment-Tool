@@ -14,6 +14,7 @@ namespace Land_Readjustment_Tool.UI.MapCanvas.Rendering
         private Bitmap? _rasterCache;
         private Bitmap? _panBuffer;
         private Size _canvasSize;
+        private RasterViewSnapshot? _zoomStartView;
         private bool _cacheValid;
 
         public void Invalidate()
@@ -87,6 +88,29 @@ namespace Land_Readjustment_Tool.UI.MapCanvas.Rendering
             graphics.DrawImageUnscaled(_rasterCache, 0, 0);
         }
 
+        public void BeginZoom(
+            Size canvasSize,
+            IReadOnlyList<RasterRenderLayer> rasterLayers,
+            MapCanvasEngine engine)
+        {
+            Resize(canvasSize);
+
+            if (!_cacheValid)
+            {
+                RenderNow(canvasSize, rasterLayers, engine);
+            }
+
+            _zoomStartView = new RasterViewSnapshot(
+                engine.ViewOriginWorld,
+                engine.ZoomScale,
+                _canvasSize);
+        }
+
+        public void EndZoom()
+        {
+            _zoomStartView = null;
+        }
+
         public bool TryGetCacheFrame(out RasterRenderFrame frame)
         {
             if (!_cacheValid || _rasterCache == null)
@@ -124,20 +148,37 @@ namespace Land_Readjustment_Tool.UI.MapCanvas.Rendering
         }
 
         public bool TryGetZoomFrame(
-            PointF anchor,
-            double scale,
+            MapCanvasEngine engine,
             out RasterRenderFrame frame)
         {
-            if (!_cacheValid || _rasterCache == null)
+            if (!_cacheValid ||
+                _rasterCache == null ||
+                !_zoomStartView.HasValue)
             {
                 frame = default;
                 return false;
             }
 
+            RasterViewSnapshot start = _zoomStartView.Value;
+            if (start.ZoomScale <= 0)
+            {
+                frame = default;
+                return false;
+            }
+
+            double scale = engine.ZoomScale / start.ZoomScale;
+            if (double.IsNaN(scale) || double.IsInfinity(scale) || scale <= 0)
+            {
+                frame = default;
+                return false;
+            }
+
+            float left = (float)((start.ViewOriginWorld.X - engine.ViewOriginWorld.X) * engine.ZoomScale);
+            float top = (float)(
+                start.CanvasSize.Height * (1.0 - scale) -
+                ((start.ViewOriginWorld.Y - engine.ViewOriginWorld.Y) * engine.ZoomScale));
             float scaledWidth = (float)(_rasterCache.Width * scale);
             float scaledHeight = (float)(_rasterCache.Height * scale);
-            float left = anchor.X - (float)((anchor.X) * scale);
-            float top = anchor.Y - (float)((anchor.Y) * scale);
 
             frame = new RasterRenderFrame(
                 _rasterCache,
@@ -165,5 +206,10 @@ namespace Land_Readjustment_Tool.UI.MapCanvas.Rendering
                 Math.Max(1, size.Width),
                 Math.Max(1, size.Height));
         }
+
+        private readonly record struct RasterViewSnapshot(
+            PointD ViewOriginWorld,
+            double ZoomScale,
+            Size CanvasSize);
     }
 }

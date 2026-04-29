@@ -13,30 +13,63 @@ namespace Land_Readjustment_Tool.UI.MapCanvas.Rendering
     /// </summary>
     public sealed class MapCanvasRenderer : IDisposable
     {
+        private readonly record struct MapCanvasRenderViewport(
+            RectangleD VisibleWorldBounds,
+            RectangleF VisibleScreenBounds);
+
         private readonly Font _gridFont = new("Arial", 8.0f, FontStyle.Regular);
         private readonly Font _axisFont = new("Arial", 9.0f, FontStyle.Regular);
+        private readonly MapCanvasEngine _engine;
         private double _lastAdaptiveMinorSize;
+        private MapCanvasRenderSettings _settings;
+        private IReadOnlyList<RasterRenderLayer> _rasterLayers = [];
+
+        public MapCanvasRenderer(
+            MapCanvasEngine engine,
+            MapCanvasRenderSettings settings)
+        {
+            _engine = engine ?? throw new ArgumentNullException(nameof(engine));
+            _settings = settings?.Clone()
+                ?? throw new ArgumentNullException(nameof(settings));
+        }
+
+        public void UpdateSettings(MapCanvasRenderSettings settings)
+        {
+            _settings = settings?.Clone()
+                ?? throw new ArgumentNullException(nameof(settings));
+        }
+
+        public void UpdateRasterLayers(
+            IReadOnlyList<RasterRenderLayer> rasterLayers)
+        {
+            _rasterLayers = rasterLayers?.ToArray()
+                ?? throw new ArgumentNullException(nameof(rasterLayers));
+        }
 
         /// <summary>
         /// Renders the full canvas frame for the current viewport state.
         /// </summary>
         /// <param name="graphics">Target graphics surface for drawing.</param>
-        /// <param name="engine">Viewport engine providing world/screen transforms.</param>
-        /// <param name="settings">Rendering options and theme colors.</param>
+        /// <param name="rasterFrame">
+        /// Optional cached raster frame used during interactive navigation.
+        /// </param>
+        /// <param name="interactiveRaster">
+        /// Whether raster rendering is happening during pan/zoom interaction.
+        /// </param>
         /// <param name="zoomWindowRectangle">
         /// Optional selection rectangle used by zoom-window interaction.
         /// </param>
         public void Render(
             Graphics graphics,
-            MapCanvasEngine engine,
-            MapCanvasRenderSettings settings,
-            IReadOnlyList<RasterRenderLayer> rasterLayers,
             RasterRenderFrame? rasterFrame,
             bool interactiveRaster,
             Rectangle? zoomWindowRectangle)
         {
+            ArgumentNullException.ThrowIfNull(graphics);
+
             ConfigureGraphics(graphics);
-            graphics.Clear(settings.BackgroundColor);
+            graphics.Clear(_settings.BackgroundColor);
+            MapCanvasRenderViewport viewport = CreateViewport(graphics);
 
             // Basemap/raster content must be drawn before map overlays.
             // Grid, axis markers, and interaction UI are intentionally drawn last.
@@ -46,48 +79,48 @@ namespace Land_Readjustment_Tool.UI.MapCanvas.Rendering
             }
             else
             {
-                RenderRasterLayers(
-                    graphics,
-                    engine,
-                    rasterLayers,
-                    interactiveRaster);
+                RenderRasterLayers(graphics, viewport, interactiveRaster);
             }
 
             ConfigureGraphics(graphics);
 
-            if (settings.ShowGrid)
+            if (_settings.ShowGrid)
             {
-                RenderGrid(graphics, engine, settings);
+                RenderGrid(graphics, viewport);
             }
 
-            if (settings.ShowAxisLines || settings.ShowOriginMarker)
+            if (_settings.ShowAxisLines || _settings.ShowOriginMarker)
             {
-                RenderAxisAndOriginMarker(graphics, engine, settings);
+                RenderAxisAndOriginMarker(graphics, viewport);
             }
 
             if (zoomWindowRectangle.HasValue)
             {
-                RenderZoomWindow(graphics, settings, zoomWindowRectangle.Value);
+                RenderZoomWindow(graphics, zoomWindowRectangle.Value);
             }
         }
 
-        private static void RenderRasterLayers(
+        private MapCanvasRenderViewport CreateViewport(Graphics graphics)
+        {
+            return new MapCanvasRenderViewport(
+                _engine.GetVisibleWorldBounds(),
+                graphics.VisibleClipBounds);
+        }
+
+        private void RenderRasterLayers(
             Graphics graphics,
-            MapCanvasEngine engine,
-            IReadOnlyList<RasterRenderLayer> rasterLayers,
+            MapCanvasRenderViewport viewport,
             bool interactive)
         {
-            if (rasterLayers.Count == 0)
+            if (_rasterLayers.Count == 0)
                 return;
 
-            RectangleD visibleBounds = engine.GetVisibleWorldBounds();
-
-            foreach (RasterRenderLayer layer in rasterLayers)
+            foreach (RasterRenderLayer layer in _rasterLayers)
             {
                 layer.RenderVisible(
                     graphics,
-                    engine,
-                    visibleBounds,
+                    _engine,
+                    viewport.VisibleWorldBounds,
                     interactive);
             }
         }
@@ -140,21 +173,25 @@ namespace Land_Readjustment_Tool.UI.MapCanvas.Rendering
         /// for the current visible world extent.
         /// </summary>
         /// <param name="graphics">Target graphics surface.</param>
-        /// <param name="engine">Canvas engine for coordinate transforms.</param>
-        /// <param name="settings">Grid color and visibility settings.</param>
-        private void RenderGrid(Graphics graphics, MapCanvasEngine engine, MapCanvasRenderSettings settings)
+        /// <param name="viewport">Current world and screen viewport.</param>
+        private void RenderGrid(
+            Graphics graphics,
+            MapCanvasRenderViewport viewport)
         {
-            double zoomScale = engine.ZoomScale;
+            double zoomScale = _engine.ZoomScale;
             if (zoomScale < 0.001 || zoomScale > 100000)
             {
                 return;
             }
 
-            RectangleD viewport = engine.GetVisibleWorldBounds();
-            double worldLeft = viewport.Left;
-            double worldRight = viewport.Right;
-            double worldBottom = Math.Min(viewport.Top, viewport.Bottom);
-            double worldTop = Math.Max(viewport.Top, viewport.Bottom);
+            double worldLeft = viewport.VisibleWorldBounds.Left;
+            double worldRight = viewport.VisibleWorldBounds.Right;
+            double worldBottom = Math.Min(
+                viewport.VisibleWorldBounds.Top,
+                viewport.VisibleWorldBounds.Bottom);
+            double worldTop = Math.Max(
+                viewport.VisibleWorldBounds.Top,
+                viewport.VisibleWorldBounds.Bottom);
 
             const int majorDivisions = 5;
             const double minMinorPixels = 10.0;
@@ -200,18 +237,22 @@ namespace Land_Readjustment_Tool.UI.MapCanvas.Rendering
             double endX = Math.Ceiling(worldRight / adaptiveMajorSize) * adaptiveMajorSize;
             double startY = Math.Floor(worldBottom / adaptiveMajorSize) * adaptiveMajorSize;
             double endY = Math.Ceiling(worldTop / adaptiveMajorSize) * adaptiveMajorSize;
-            bool showLabels = settings.ShowGridLabels && zoomScale > 0.00001 && zoomScale < 10000 && estimatedVerticalLines < 500;
+            bool showLabels =
+                _settings.ShowGridLabels &&
+                zoomScale > 0.00001 &&
+                zoomScale < 10000 &&
+                estimatedVerticalLines < 500;
 
-            using Pen minorPen = new(settings.MinorGridColor, 0.25f);
-            using Pen majorPen = new(settings.MajorGridColor, 0.25f);
-            using Brush gridTextBrush = new SolidBrush(settings.GridLabelColor);
+            using Pen minorPen = new(_settings.MinorGridColor, 0.25f);
+            using Pen majorPen = new(_settings.MajorGridColor, 0.25f);
+            using Brush gridTextBrush = new SolidBrush(_settings.GridLabelColor);
 
             for (double x = startX; x <= endX; x += adaptiveMinorSize)
             {
                 bool isMajor = IsMajorLine(x, adaptiveMajorSize);
                 Pen pen = isMajor ? majorPen : minorPen;
-                PointD screenStart = engine.WorldToScreen(new PointD(x, worldBottom));
-                PointD screenEnd = engine.WorldToScreen(new PointD(x, worldTop));
+                PointD screenStart = _engine.WorldToScreen(new PointD(x, worldBottom));
+                PointD screenEnd = _engine.WorldToScreen(new PointD(x, worldTop));
 
                 if (IsValidPoint(screenStart) && IsValidPoint(screenEnd))
                 {
@@ -240,8 +281,8 @@ namespace Land_Readjustment_Tool.UI.MapCanvas.Rendering
             {
                 bool isMajor = IsMajorLine(y, adaptiveMajorSize);
                 Pen pen = isMajor ? majorPen : minorPen;
-                PointD screenStart = engine.WorldToScreen(new PointD(worldLeft, y));
-                PointD screenEnd = engine.WorldToScreen(new PointD(worldRight, y));
+                PointD screenStart = _engine.WorldToScreen(new PointD(worldLeft, y));
+                PointD screenEnd = _engine.WorldToScreen(new PointD(worldRight, y));
 
                 if (IsValidPoint(screenStart) && IsValidPoint(screenEnd))
                 {
@@ -271,17 +312,19 @@ namespace Land_Readjustment_Tool.UI.MapCanvas.Rendering
         /// Draws the temporary zoom-window overlay rectangle.
         /// </summary>
         /// <param name="graphics">Target graphics surface.</param>
-        /// <param name="settings">Style settings used for fill/border colors.</param>
         /// <param name="rectangle">Screen-space zoom-window rectangle.</param>
-        private static void RenderZoomWindow(Graphics graphics, MapCanvasRenderSettings settings, Rectangle rectangle)
+        private void RenderZoomWindow(Graphics graphics, Rectangle rectangle)
         {
             if (rectangle.Width < 2 || rectangle.Height < 2)
             {
                 return;
             }
 
-            using Brush fill = new SolidBrush(Color.FromArgb(42, settings.AccentColor));
-            using Pen border = new(settings.AccentColor, 1.4f) { DashStyle = DashStyle.Dash };
+            using Brush fill = new SolidBrush(_settings.ZoomWindowFillColor);
+            using Pen border = new(_settings.ZoomWindowBorderColor, _settings.ZoomWindowLineWidth)
+            {
+                DashStyle = _settings.ZoomWindowLineType
+            };
             graphics.FillRectangle(fill, rectangle);
             graphics.DrawRectangle(border, rectangle);
         }
@@ -290,23 +333,21 @@ namespace Land_Readjustment_Tool.UI.MapCanvas.Rendering
         /// Renders world-origin axis lines and the origin marker/labels according to visibility settings.
         /// </summary>
         /// <param name="graphics">Target graphics surface.</param>
-        /// <param name="engine">Canvas engine for coordinate transforms.</param>
-        /// <param name="settings">Axis and marker style/visibility settings.</param>
         private void RenderAxisAndOriginMarker(
             Graphics graphics,
-            MapCanvasEngine engine,
-            MapCanvasRenderSettings settings)
+            MapCanvasRenderViewport viewport)
         {
-            RectangleD viewport = engine.GetVisibleWorldBounds();
-            RectangleF clientRect = graphics.VisibleClipBounds;
-            PointD originScreen = engine.WorldToScreen(new PointD(0, 0));
-            PointD topScreen = engine.WorldToScreen(new PointD(0, viewport.Bottom));
-            PointD rightScreen = engine.WorldToScreen(new PointD(viewport.Right, 0));
+            RectangleF clientRect = viewport.VisibleScreenBounds;
+            PointD originScreen = _engine.WorldToScreen(new PointD(0, 0));
+            PointD topScreen = _engine.WorldToScreen(
+                new PointD(0, viewport.VisibleWorldBounds.Bottom));
+            PointD rightScreen = _engine.WorldToScreen(
+                new PointD(viewport.VisibleWorldBounds.Right, 0));
 
-            if (settings.ShowAxisLines)
+            if (_settings.ShowAxisLines)
             {
-                using Pen xAxisPen = new(settings.AxisXColor, settings.AxisLineWidth);
-                using Pen yAxisPen = new(settings.AxisYColor, settings.AxisLineWidth);
+                using Pen xAxisPen = new(_settings.AxisXColor, _settings.AxisLineWidth);
+                using Pen yAxisPen = new(_settings.AxisYColor, _settings.AxisLineWidth);
 
                 if (IsValidPoint(originScreen) && IsValidPoint(rightScreen) && IsFarEnough(originScreen, rightScreen))
                 {
@@ -329,7 +370,7 @@ namespace Land_Readjustment_Tool.UI.MapCanvas.Rendering
                 }
             }
 
-            if (!settings.ShowOriginMarker)
+            if (!_settings.ShowOriginMarker)
             {
                 return;
             }
@@ -339,12 +380,12 @@ namespace Land_Readjustment_Tool.UI.MapCanvas.Rendering
                                     originScreen.Y >= clientRect.Top &&
                                     originScreen.Y <= clientRect.Bottom;
 
-            float markerLength = settings.AxisMarkerLengthPx;
-            float markerSquareSize = settings.AxisMarkerSquareSizePx;
+            float markerLength = _settings.AxisMarkerLengthPx;
+            float markerSquareSize = _settings.AxisMarkerSquareSizePx;
 
-            using Pen markerPen = new(settings.AxisMarkerColor, settings.AxisMarkerLineWidth);
-            using Brush markerBrush = new SolidBrush(settings.AxisMarkerColor);
-            using Brush markerTextBrush = new SolidBrush(settings.AxisLabelColor);
+            using Pen markerPen = new(_settings.AxisMarkerColor, _settings.AxisMarkerLineWidth);
+            using Brush markerBrush = new SolidBrush(_settings.AxisMarkerColor);
+            using Brush markerTextBrush = new SolidBrush(_settings.AxisLabelColor);
 
             if (!originInViewport)
             {
@@ -361,7 +402,7 @@ namespace Land_Readjustment_Tool.UI.MapCanvas.Rendering
                     markerSquareSize,
                     markerSquareSize);
 
-                if (settings.ShowAxisLabels)
+                if (_settings.ShowAxisLabels)
                 {
                     graphics.DrawString("X", _axisFont, markerTextBrush, x + markerLength + 4.0f, y - 10.0f);
                     graphics.DrawString("Y", _axisFont, markerTextBrush, x - 14.0f, y - markerLength - 12.0f);
@@ -382,7 +423,7 @@ namespace Land_Readjustment_Tool.UI.MapCanvas.Rendering
                 markerSquareSize,
                 markerSquareSize);
 
-            if (settings.ShowAxisLabels)
+            if (_settings.ShowAxisLabels)
             {
                 graphics.DrawString("X", _axisFont, markerTextBrush, ox + markerLength + 4.0f, oy - 10.0f);
                 graphics.DrawString("Y", _axisFont, markerTextBrush, ox - 14.0f, oy - markerLength - 12.0f);
