@@ -11,6 +11,11 @@ namespace Land_Readjustment_Tool.Services.Raster
         RasterDatasetMetadata ReadMetadata(string sourcePath);
 
         /// <summary>
+        /// Creates a low-resolution bitmap preview of the source raster.
+        /// </summary>
+        Bitmap? CreatePreviewImage(string sourcePath, int maxPreviewPixels);
+
+        /// <summary>
         /// Imports a source raster into the project raster folder and normalizes it to the project CRS when possible.
         /// </summary>
         RasterDatasetImportOutput ImportToProjectCrs(
@@ -19,6 +24,7 @@ namespace Land_Readjustment_Tool.Services.Raster
             string layerName,
             string targetSrsDefinition,
             string? sourceSrsDefinitionOverride = null,
+            RasterSourceExtent? sourceExtent = null,
             IProgress<RasterImportProgressInfo>? progress = null);
 
         /// <summary>

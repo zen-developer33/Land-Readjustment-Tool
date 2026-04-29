@@ -32,6 +32,15 @@ namespace Land_Readjustment_Tool.Services.Raster
         }
 
         /// <inheritdoc />
+        public async Task<ProjectRasterCrsContext> ResolveProjectCrsAsync(
+            ProjectSession session,
+            CancellationToken ct = default)
+        {
+            ArgumentNullException.ThrowIfNull(session);
+            return await _crsResolver.ResolveAsync(session, ct);
+        }
+
+        /// <inheritdoc />
         public async Task<RasterLayerImportPreview> PrepareImportAsync(
             ProjectSession session,
             string sourcePath,
@@ -56,6 +65,10 @@ namespace Land_Readjustment_Tool.Services.Raster
                 () => _datasetImporter.ReadMetadata(sourcePath),
                 ct);
 
+            Bitmap? previewImage = await Task.Run(
+                () => _datasetImporter.CreatePreviewImage(sourcePath, 384),
+                ct);
+
             string layerName = BuildUniqueLayerName(
                 Path.GetFileNameWithoutExtension(sourcePath),
                 existingLayers);
@@ -63,7 +76,8 @@ namespace Land_Readjustment_Tool.Services.Raster
             return new RasterLayerImportPreview(
                 layerName,
                 metadata,
-                crsContext);
+                crsContext,
+                previewImage);
         }
 
         /// <inheritdoc />
@@ -102,6 +116,7 @@ namespace Land_Readjustment_Tool.Services.Raster
                         layerName,
                         crsContext.TargetSrsDefinition,
                         request.SourceSrsDefinitionOverride,
+                        request.SourceExtent,
                         progress),
                     ct);
 

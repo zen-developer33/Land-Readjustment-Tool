@@ -72,7 +72,7 @@ namespace Land_Readjustment_Tool.UI.Forms
             cmbSourceCrs.SelectedItem = Wgs84Option;
             txtCustomCrs.Text = string.Empty;
             ProjectionChoiceChanged(this, EventArgs.Empty);
-            TryLoadImagePreview(metadata.SourcePath);
+            LoadRasterPreview();
         }
 
         /// <summary>
@@ -106,8 +106,8 @@ namespace Land_Readjustment_Tool.UI.Forms
             }
 
             lblProjectionHint.Text = _preview.Metadata.HasProjection
-                ? "The detected source CRS will be transformed into the project CRS."
-                : "Missing source CRS defaults to WGS 1984. Choose another CRS only if the source data uses it.";
+                ? "Detected source CRS will be projected/transformed to the target CRS from Project Settings."
+                : "Missing source CRS defaults to WGS 1984. Output is projected/transformed to the target CRS above.";
         }
 
         /// <summary>
@@ -193,22 +193,25 @@ namespace Land_Readjustment_Tool.UI.Forms
         }
 
         /// <summary>
-        /// Shows a simple preview for image formats that System.Drawing can decode directly.
+        /// Shows the low-quality GDAL-rendered raster preview.
         /// </summary>
-        private void TryLoadImagePreview(string sourcePath)
+        private void LoadRasterPreview()
         {
-            try
-            {
-                using FileStream stream = File.OpenRead(sourcePath);
-                using Image image = Image.FromStream(stream);
-                picPreview.Image = new Bitmap(image);
-                lblPreviewFallback.Visible = false;
-            }
-            catch
+            if (_preview.PreviewImage == null)
             {
                 picPreview.Visible = false;
                 lblPreviewFallback.Visible = true;
+                return;
             }
+
+            picPreview.Image = new Bitmap(_preview.PreviewImage);
+            picPreview.Visible = true;
+            lblPreviewFallback.Visible = false;
+        }
+
+        private void mainLayout_Paint(object sender, PaintEventArgs e)
+        {
+
         }
     }
 }

@@ -770,7 +770,7 @@ Do now:
 - import GDAL-readable raster sources such as GeoTIFF, TIFF, VRT, IMG, JPG, PNG, BMP, and MBTiles
 - keep the import workflow behind services, interfaces, dependency injection, logging, and error handling
 - show a minimal raster review form after file selection
-- show source metadata, project CRS, and source CRS definition before import
+- show a square low-quality raster preview, source metadata, source CRS definition, and read-only target CRS before import
 - default missing source CRS to WGS 1984 (`EPSG:4326`)
 - transform georeferenced rasters into the project CRS when a source CRS is available or defined
 

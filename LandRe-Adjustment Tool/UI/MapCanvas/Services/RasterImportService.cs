@@ -1,6 +1,7 @@
 using OSGeo.GDAL;
 using OSGeo.OSR;
 using ProjNet;
+using System.Drawing;
 using System.Globalization;
 using System.Text;
 
@@ -16,6 +17,7 @@ namespace Land_Readjustment_Tool.UI.MapCanvas.Services
             string layerName,
             string targetSrsDefinition,
             string? sourceSrsDefinitionOverride = null,
+            RasterImportSourceExtent? sourceExtent = null,
             IProgress<RasterImportProgress>? progress = null)
         {
             progress?.Report(new RasterImportProgress(5, "Checking raster file"));
@@ -80,7 +82,8 @@ namespace Land_Readjustment_Tool.UI.MapCanvas.Services
                     sourceDataset,
                     outputPath,
                     sourceProjection,
-                    targetSrsDefinition);
+                    targetSrsDefinition,
+                    sourceExtent);
                 importMode = usesDefinedSourceProjection
                     ? RasterImportMode.SourceCrsDefinedProjectedToProjectCrs
                     : RasterImportMode.ProjectedToProjectCrs;
@@ -132,6 +135,61 @@ namespace Land_Readjustment_Tool.UI.MapCanvas.Services
                     "The selected file does not contain raster bands.");
 
             return ReadMetadata(sourcePath, sourceDataset);
+        }
+
+        /// <summary>
+        /// Creates a low-resolution raster preview bitmap without importing the file.
+        /// </summary>
+        public Bitmap? CreatePreviewImage(string sourcePath, int maxPreviewPixels)
+        {
+            try
+            {
+                if (string.IsNullOrWhiteSpace(sourcePath) || !File.Exists(sourcePath))
+                    return null;
+
+                GdalConfiguration.ConfigureGdal();
+                if (!GdalConfiguration.Usable)
+                    return null;
+
+                using Dataset dataset = Gdal.Open(sourcePath, Access.GA_ReadOnly);
+                if (dataset == null || dataset.RasterCount <= 0)
+                    return null;
+
+                Size previewSize = CalculatePreviewSize(
+                    dataset.RasterXSize,
+                    dataset.RasterYSize,
+                    Math.Max(64, maxPreviewPixels));
+
+                if (previewSize.Width <= 0 || previewSize.Height <= 0)
+                    return null;
+
+                byte[] red = ReadPreviewBand(dataset, 1, previewSize);
+                byte[] green = dataset.RasterCount >= 3
+                    ? ReadPreviewBand(dataset, 2, previewSize)
+                    : red;
+                byte[] blue = dataset.RasterCount >= 3
+                    ? ReadPreviewBand(dataset, 3, previewSize)
+                    : red;
+
+                Bitmap preview = new(previewSize.Width, previewSize.Height);
+                for (int y = 0; y < previewSize.Height; y++)
+                {
+                    for (int x = 0; x < previewSize.Width; x++)
+                    {
+                        int index = y * previewSize.Width + x;
+                        preview.SetPixel(
+                            x,
+                            y,
+                            Color.FromArgb(red[index], green[index], blue[index]));
+                    }
+                }
+
+                return preview;
+            }
+            catch
+            {
+                return null;
+            }
         }
 
         /// <summary>
@@ -208,9 +266,10 @@ namespace Land_Readjustment_Tool.UI.MapCanvas.Services
             Dataset sourceDataset,
             string outputPath,
             string sourceProjection,
-            string targetSrsDefinition)
+            string targetSrsDefinition,
+            RasterImportSourceExtent? sourceExtent = null)
         {
-            string[] warpArgs =
+            List<string> warpArgs =
             [
                 "-overwrite",
                 "-of",
@@ -232,7 +291,21 @@ namespace Land_Readjustment_Tool.UI.MapCanvas.Services
                 targetSrsDefinition
             ];
 
-            using GDALWarpAppOptions warpOptions = new(warpArgs);
+            if (sourceExtent != null)
+            {
+                warpArgs.AddRange(
+                [
+                    "-te_srs",
+                    sourceExtent.SrsDefinition,
+                    "-te",
+                    FormatDouble(sourceExtent.MinX),
+                    FormatDouble(sourceExtent.MinY),
+                    FormatDouble(sourceExtent.MaxX),
+                    FormatDouble(sourceExtent.MaxY)
+                ]);
+            }
+
+            using GDALWarpAppOptions warpOptions = new([.. warpArgs]);
             using Dataset outputDataset = Gdal.Warp(
                 outputPath,
                 [sourceDataset],
@@ -243,6 +316,60 @@ namespace Land_Readjustment_Tool.UI.MapCanvas.Services
                     "GDAL could not transform the raster to the project CRS.");
 
             outputDataset.FlushCache();
+        }
+
+        /// <summary>
+        /// Formats GDAL command values with invariant decimal separators.
+        /// </summary>
+        private static string FormatDouble(double value)
+        {
+            return value.ToString("0.########", CultureInfo.InvariantCulture);
+        }
+
+        /// <summary>
+        /// Calculates a preview size that fits inside a square while preserving raster aspect ratio.
+        /// </summary>
+        private static Size CalculatePreviewSize(
+            int sourceWidth,
+            int sourceHeight,
+            int maxPreviewPixels)
+        {
+            if (sourceWidth <= 0 || sourceHeight <= 0)
+                return Size.Empty;
+
+            double scale = Math.Min(
+                maxPreviewPixels / (double)sourceWidth,
+                maxPreviewPixels / (double)sourceHeight);
+
+            scale = Math.Min(1.0, scale);
+
+            return new Size(
+                Math.Max(1, (int)Math.Round(sourceWidth * scale)),
+                Math.Max(1, (int)Math.Round(sourceHeight * scale)));
+        }
+
+        /// <summary>
+        /// Reads one raster band into preview-sized byte pixels.
+        /// </summary>
+        private static byte[] ReadPreviewBand(
+            Dataset dataset,
+            int bandIndex,
+            Size previewSize)
+        {
+            byte[] buffer = new byte[previewSize.Width * previewSize.Height];
+            using Band band = dataset.GetRasterBand(bandIndex);
+            band.ReadRaster(
+                0,
+                0,
+                dataset.RasterXSize,
+                dataset.RasterYSize,
+                buffer,
+                previewSize.Width,
+                previewSize.Height,
+                0,
+                0);
+
+            return buffer;
         }
 
         private static void CopyToProjectRaster(
@@ -412,6 +539,13 @@ namespace Land_Readjustment_Tool.UI.MapCanvas.Services
     internal sealed record RasterImportProgress(
         int Percent,
         string Status);
+
+    internal sealed record RasterImportSourceExtent(
+        string SrsDefinition,
+        double MinX,
+        double MinY,
+        double MaxX,
+        double MaxY);
 
     internal enum RasterImportMode
     {

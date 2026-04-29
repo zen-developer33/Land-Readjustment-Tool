@@ -237,7 +237,7 @@ namespace Land_Readjustment_Tool
             mnuZoomOut.Click += mnuZoomOut_Click!;
             mnuZoomExtent.Click += mnuZoomExtent_Click!;
             mnuZoomWindow.Click += mnuZoomWindow_Click!;
-            geotiffToolStripMenuItem.Click += geotiffToolStripMenuItem_Click!;
+            baseMapsToolStripMenuItem.Click += importRasterToolStripMenuItem_Click!;
 
         }
 
@@ -1114,7 +1114,17 @@ namespace Land_Readjustment_Tool
             frm.ShowDialog(this);
         }
 
-        private async void geotiffToolStripMenuItem_Click(object? sender, EventArgs e)
+        private async void importRasterToolStripMenuItem_Click(object? sender, EventArgs e)
+        {
+            await ImportRasterFileAsync(
+                "Import Raster",
+                GetGeneralRasterImportFilter());
+        }
+
+        /// <summary>
+        /// Imports a local raster file through metadata preview, source CRS definition, and project CRS projection.
+        /// </summary>
+        private async Task ImportRasterFileAsync(string dialogTitle, string dialogFilter)
         {
             if (!AppServices.HasContext)
             {
@@ -1128,12 +1138,8 @@ namespace Land_Readjustment_Tool
 
             using OpenFileDialog dialog = new()
             {
-                Title = "Import Raster Image",
-                Filter =
-                    "Raster files (*.tif;*.tiff;*.vrt;*.img;*.jpg;*.jpeg;*.png;*.bmp;*.mbtiles)|*.tif;*.tiff;*.vrt;*.img;*.jpg;*.jpeg;*.png;*.bmp;*.mbtiles|" +
-                    "GeoTIFF (*.tif;*.tiff)|*.tif;*.tiff|" +
-                    "MBTiles (*.mbtiles)|*.mbtiles|" +
-                    "All files (*.*)|*.*",
+                Title = dialogTitle,
+                Filter = dialogFilter,
                 Multiselect = false,
                 RestoreDirectory = true
             };
@@ -1234,6 +1240,20 @@ namespace Land_Readjustment_Tool
                 UseWaitCursor = false;
                 HideOperationProgress();
             }
+        }
+
+        /// <summary>
+        /// Builds the shared file filter for local GDAL-readable raster imports.
+        /// </summary>
+        private static string GetGeneralRasterImportFilter()
+        {
+            return
+                "Raster files (*.tif;*.tiff;*.vrt;*.img;*.jpg;*.jpeg;*.png;*.bmp;*.mbtiles;*.jp2;*.grd;*.asc;*.xyz;*.dem;*.hgt)|*.tif;*.tiff;*.vrt;*.img;*.jpg;*.jpeg;*.png;*.bmp;*.mbtiles;*.jp2;*.grd;*.asc;*.xyz;*.dem;*.hgt|" +
+                "GeoTIFF / TIFF (*.tif;*.tiff)|*.tif;*.tiff|" +
+                "MBTiles (*.mbtiles)|*.mbtiles|" +
+                "Image rasters (*.jpg;*.jpeg;*.png;*.bmp)|*.jpg;*.jpeg;*.png;*.bmp|" +
+                "Elevation rasters (*.dem;*.hgt;*.asc;*.xyz;*.grd)|*.dem;*.hgt;*.asc;*.xyz;*.grd|" +
+                "All files (*.*)|*.*";
         }
 
         private void startReplotWorkspaceToolStripMenuItem_Click(object sender, EventArgs e)

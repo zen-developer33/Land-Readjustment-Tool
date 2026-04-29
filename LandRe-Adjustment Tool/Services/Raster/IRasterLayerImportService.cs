@@ -6,6 +6,13 @@ namespace Land_Readjustment_Tool.Services.Raster
     public interface IRasterLayerImportService
     {
         /// <summary>
+        /// Resolves the current project CRS details used as the raster import target.
+        /// </summary>
+        Task<ProjectRasterCrsContext> ResolveProjectCrsAsync(
+            ProjectSession session,
+            CancellationToken ct = default);
+
+        /// <summary>
         /// Reads raster metadata and project CRS details before the user confirms import.
         /// </summary>
         Task<RasterLayerImportPreview> PrepareImportAsync(

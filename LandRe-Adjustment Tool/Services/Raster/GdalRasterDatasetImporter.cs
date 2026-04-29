@@ -15,12 +15,20 @@ namespace Land_Readjustment_Tool.Services.Raster
         }
 
         /// <inheritdoc />
+        public Bitmap? CreatePreviewImage(string sourcePath, int maxPreviewPixels)
+        {
+            RasterImportService importService = new();
+            return importService.CreatePreviewImage(sourcePath, maxPreviewPixels);
+        }
+
+        /// <inheritdoc />
         public RasterDatasetImportOutput ImportToProjectCrs(
             string sourcePath,
             string projectFolderPath,
             string layerName,
             string targetSrsDefinition,
             string? sourceSrsDefinitionOverride = null,
+            RasterSourceExtent? sourceExtent = null,
             IProgress<RasterImportProgressInfo>? progress = null)
         {
             RasterImportService importService = new();
@@ -37,6 +45,7 @@ namespace Land_Readjustment_Tool.Services.Raster
                     layerName,
                     targetSrsDefinition,
                     sourceSrsDefinitionOverride,
+                    MapExtent(sourceExtent),
                     innerProgress);
 
             return new RasterDatasetImportOutput(
@@ -59,6 +68,22 @@ namespace Land_Readjustment_Tool.Services.Raster
                 rasterPath,
                 targetSrsDefinition,
                 out skipReason);
+        }
+
+        /// <summary>
+        /// Converts a public source extent into the low-level GDAL import source window.
+        /// </summary>
+        private static RasterImportSourceExtent? MapExtent(
+            RasterSourceExtent? sourceExtent)
+        {
+            return sourceExtent == null
+                ? null
+                : new RasterImportSourceExtent(
+                    sourceExtent.SrsDefinition,
+                    sourceExtent.MinX,
+                    sourceExtent.MinY,
+                    sourceExtent.MaxX,
+                    sourceExtent.MaxY);
         }
 
         /// <summary>

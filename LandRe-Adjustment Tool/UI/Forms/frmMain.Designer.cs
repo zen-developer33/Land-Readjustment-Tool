@@ -65,10 +65,6 @@ namespace Land_Readjustment_Tool
             ImportProjectBoundaryDXFDWGToolStripMenuItem = new ToolStripMenuItem();
             toolStripSeparator6 = new ToolStripSeparator();
             baseMapsToolStripMenuItem = new ToolStripMenuItem();
-            geotiffToolStripMenuItem = new ToolStripMenuItem();
-            mBTilesToolStripMenuItem = new ToolStripMenuItem();
-            xYZToolStripMenuItem = new ToolStripMenuItem();
-            topographicalMapToolStripMenuItem = new ToolStripMenuItem();
             importToolStripMenuItem = new ToolStripMenuItem();
             viewEditRecordToolStripMenuItem = new ToolStripMenuItem();
             landOwnerDataToolStripMenuItem = new ToolStripMenuItem();
@@ -370,7 +366,7 @@ namespace Land_Readjustment_Tool
             // 
             // importDataToolStripMenuItem1
             // 
-            importDataToolStripMenuItem1.DropDownItems.AddRange(new ToolStripItem[] { ImportParcelOwnerShipRecords, toolStripSeparator5, importCadastralDataDXFDWGShapefileToolStripMenuItem, ImportProjectBoundaryDXFDWGToolStripMenuItem, toolStripSeparator6, baseMapsToolStripMenuItem, topographicalMapToolStripMenuItem });
+            importDataToolStripMenuItem1.DropDownItems.AddRange(new ToolStripItem[] { ImportParcelOwnerShipRecords, toolStripSeparator5, importCadastralDataDXFDWGShapefileToolStripMenuItem, ImportProjectBoundaryDXFDWGToolStripMenuItem, toolStripSeparator6, baseMapsToolStripMenuItem });
             importDataToolStripMenuItem1.Name = "importDataToolStripMenuItem1";
             importDataToolStripMenuItem1.Size = new Size(116, 22);
             importDataToolStripMenuItem1.Text = "Import";
@@ -407,34 +403,9 @@ namespace Land_Readjustment_Tool
             // 
             // baseMapsToolStripMenuItem
             // 
-            baseMapsToolStripMenuItem.DropDownItems.AddRange(new ToolStripItem[] { geotiffToolStripMenuItem, mBTilesToolStripMenuItem, xYZToolStripMenuItem });
             baseMapsToolStripMenuItem.Name = "baseMapsToolStripMenuItem";
-            baseMapsToolStripMenuItem.Size = new Size(275, 22);
-            baseMapsToolStripMenuItem.Text = "Raster Base Map";
-            // 
-            // geotiffToolStripMenuItem
-            // 
-            geotiffToolStripMenuItem.Name = "geotiffToolStripMenuItem";
-            geotiffToolStripMenuItem.Size = new Size(118, 22);
-            geotiffToolStripMenuItem.Text = "GeoTIFF";
-            // 
-            // mBTilesToolStripMenuItem
-            // 
-            mBTilesToolStripMenuItem.Name = "mBTilesToolStripMenuItem";
-            mBTilesToolStripMenuItem.Size = new Size(118, 22);
-            mBTilesToolStripMenuItem.Text = "MBTiles";
-            // 
-            // xYZToolStripMenuItem
-            // 
-            xYZToolStripMenuItem.Name = "xYZToolStripMenuItem";
-            xYZToolStripMenuItem.Size = new Size(118, 22);
-            xYZToolStripMenuItem.Text = "XYZTiles";
-            // 
-            // topographicalMapToolStripMenuItem
-            // 
-            topographicalMapToolStripMenuItem.Name = "topographicalMapToolStripMenuItem";
-            topographicalMapToolStripMenuItem.Size = new Size(275, 22);
-            topographicalMapToolStripMenuItem.Text = "Topographical Map  (DXF/DWG)";
+            baseMapsToolStripMenuItem.Size = new Size(332, 22);
+            baseMapsToolStripMenuItem.Text = "Import Raster (GeoTIFF, MBTiles, TIFF, PNG...)";
             // 
             // importToolStripMenuItem
             // 
@@ -1617,11 +1588,7 @@ namespace Land_Readjustment_Tool
         private ToolStripMenuItem baseMapsToolStripMenuItem;
         private ToolStripMenuItem ImportProjectBoundaryDXFDWGToolStripMenuItem;
         private ToolStripSeparator toolStripSeparator5;
-        private ToolStripMenuItem geotiffToolStripMenuItem;
-        private ToolStripMenuItem mBTilesToolStripMenuItem;
-        private ToolStripMenuItem xYZToolStripMenuItem;
         private ToolStripSeparator toolStripSeparator6;
-        private ToolStripMenuItem topographicalMapToolStripMenuItem;
         private ToolStripMenuItem ImportParcelOwnerShipRecords;
         private SplitContainer leftSplitContainer;
         private GroupBox grpLayer;

@@ -12,7 +12,39 @@ namespace Land_Readjustment_Tool.Services.Raster
         string ProjectFolderPath,
         string SourcePath,
         string? LayerName = null,
-        string? SourceSrsDefinitionOverride = null);
+        string? SourceSrsDefinitionOverride = null,
+        RasterSourceExtent? SourceExtent = null);
+
+    /// <summary>
+    /// User settings for importing a web XYZ tile source through GDAL's WMS/TMS driver.
+    /// </summary>
+    public sealed record XyzTileSourceImportRequest(
+        string LayerName,
+        string UrlTemplate,
+        double MinLongitude,
+        double MinLatitude,
+        double MaxLongitude,
+        double MaxLatitude,
+        int ZoomLevel,
+        string ImageExtension);
+
+    /// <summary>
+    /// Optional source coordinate window used to crop very large or remote raster sources during import.
+    /// </summary>
+    public sealed record RasterSourceExtent(
+        string SrsDefinition,
+        double MinX,
+        double MinY,
+        double MaxX,
+        double MaxY);
+
+    /// <summary>
+    /// Local GDAL source definition created for a web XYZ tile source.
+    /// </summary>
+    public sealed record XyzTileSourceDefinition(
+        string DefinitionPath,
+        RasterSourceExtent SourceExtent,
+        int TileCount);
 
     /// <summary>
     /// Contains metadata and project CRS details used by the raster import review form.
@@ -20,7 +52,8 @@ namespace Land_Readjustment_Tool.Services.Raster
     public sealed record RasterLayerImportPreview(
         string SuggestedLayerName,
         RasterDatasetMetadata Metadata,
-        ProjectRasterCrsContext ProjectCrs);
+        ProjectRasterCrsContext ProjectCrs,
+        Bitmap? PreviewImage);
 
     /// <summary>
     /// Reports user-visible raster import progress.
