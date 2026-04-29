@@ -22,32 +22,32 @@ namespace Land_Readjustment_Tool.UI.Forms
         {
             label1 = new Label();
             previewPanel = new Panel();
-            lblPreviewFallback = new Label();
             picPreview = new PictureBox();
+            lblPreviewFallback = new Label();
             buttonPanel = new FlowLayoutPanel();
-            btnCancel = new Button();
             btnImport = new Button();
+            btnCancel = new Button();
             grpSourceProjection = new GroupBox();
             projectionLayout = new TableLayoutPanel();
-            lblProjectionHint = new Label();
-            txtCustomCrs = new TextBox();
-            cmbSourceCrs = new ComboBox();
-            lblDefineSourceCrs = new Label();
             rdoDetectedCrs = new RadioButton();
+            lblDefineSourceCrs = new Label();
+            cmbSourceCrs = new ComboBox();
+            txtCustomCrs = new TextBox();
+            lblProjectionHint = new Label();
             grpRasterDetails = new GroupBox();
             detailsLayout = new TableLayoutPanel();
-            lblProjectCrsValue = new Label();
-            lblProjectCrsCaption = new Label();
-            lblRasterCrsValue = new Label();
-            lblRasterCrsCaption = new Label();
-            lblGeoValue = new Label();
-            lblGeoCaption = new Label();
-            lblDriverValue = new Label();
-            lblDriverCaption = new Label();
-            lblSizeValue = new Label();
-            lblSizeCaption = new Label();
-            lblSourceValue = new Label();
             lblSourceCaption = new Label();
+            lblSourceValue = new Label();
+            lblSizeCaption = new Label();
+            lblSizeValue = new Label();
+            lblDriverCaption = new Label();
+            lblDriverValue = new Label();
+            lblGeoCaption = new Label();
+            lblGeoValue = new Label();
+            lblRasterCrsCaption = new Label();
+            lblRasterCrsValue = new Label();
+            lblProjectCrsCaption = new Label();
+            lblProjectCrsValue = new Label();
             txtLayerName = new TextBox();
             lblLayerName = new Label();
             lblTitle = new Label();
@@ -85,6 +85,17 @@ namespace Land_Readjustment_Tool.UI.Forms
             previewPanel.Size = new Size(272, 247);
             previewPanel.TabIndex = 0;
             // 
+            // picPreview
+            // 
+            picPreview.BackColor = Color.WhiteSmoke;
+            picPreview.Dock = DockStyle.Fill;
+            picPreview.Location = new Point(0, 0);
+            picPreview.Name = "picPreview";
+            picPreview.Size = new Size(270, 245);
+            picPreview.SizeMode = PictureBoxSizeMode.Zoom;
+            picPreview.TabIndex = 0;
+            picPreview.TabStop = false;
+            // 
             // lblPreviewFallback
             // 
             lblPreviewFallback.Dock = DockStyle.Fill;
@@ -96,17 +107,6 @@ namespace Land_Readjustment_Tool.UI.Forms
             lblPreviewFallback.TabIndex = 1;
             lblPreviewFallback.Text = "Low-quality raster preview";
             lblPreviewFallback.TextAlign = ContentAlignment.MiddleCenter;
-            // 
-            // picPreview
-            // 
-            picPreview.BackColor = Color.WhiteSmoke;
-            picPreview.Dock = DockStyle.Fill;
-            picPreview.Location = new Point(0, 0);
-            picPreview.Name = "picPreview";
-            picPreview.Size = new Size(270, 245);
-            picPreview.SizeMode = PictureBoxSizeMode.Zoom;
-            picPreview.TabIndex = 0;
-            picPreview.TabStop = false;
             // 
             // buttonPanel
             // 
@@ -120,16 +120,6 @@ namespace Land_Readjustment_Tool.UI.Forms
             buttonPanel.Size = new Size(419, 55);
             buttonPanel.TabIndex = 6;
             // 
-            // btnCancel
-            // 
-            btnCancel.DialogResult = DialogResult.Cancel;
-            btnCancel.Location = new Point(260, 3);
-            btnCancel.Name = "btnCancel";
-            btnCancel.Size = new Size(75, 28);
-            btnCancel.TabIndex = 1;
-            btnCancel.Text = "Cancel";
-            btnCancel.UseVisualStyleBackColor = true;
-            // 
             // btnImport
             // 
             btnImport.DialogResult = DialogResult.OK;
@@ -139,6 +129,16 @@ namespace Land_Readjustment_Tool.UI.Forms
             btnImport.TabIndex = 0;
             btnImport.Text = "Import";
             btnImport.UseVisualStyleBackColor = true;
+            // 
+            // btnCancel
+            // 
+            btnCancel.DialogResult = DialogResult.Cancel;
+            btnCancel.Location = new Point(260, 3);
+            btnCancel.Name = "btnCancel";
+            btnCancel.Size = new Size(75, 28);
+            btnCancel.TabIndex = 1;
+            btnCancel.Text = "Cancel";
+            btnCancel.UseVisualStyleBackColor = true;
             // 
             // grpSourceProjection
             // 
@@ -175,36 +175,18 @@ namespace Land_Readjustment_Tool.UI.Forms
             projectionLayout.Size = new Size(413, 217);
             projectionLayout.TabIndex = 0;
             // 
-            // lblProjectionHint
+            // rdoDetectedCrs
             // 
-            lblProjectionHint.Dock = DockStyle.Fill;
-            lblProjectionHint.ForeColor = Color.DimGray;
-            lblProjectionHint.Location = new Point(11, 168);
-            lblProjectionHint.Name = "lblProjectionHint";
-            lblProjectionHint.Size = new Size(391, 43);
-            lblProjectionHint.TabIndex = 4;
-            // 
-            // txtCustomCrs
-            // 
-            txtCustomCrs.Dock = DockStyle.Fill;
-            txtCustomCrs.Font = new Font("Segoe UI", 9F);
-            txtCustomCrs.Location = new Point(11, 81);
-            txtCustomCrs.Multiline = true;
-            txtCustomCrs.Name = "txtCustomCrs";
-            txtCustomCrs.PlaceholderText = "Custom EPSG code or WKT text";
-            txtCustomCrs.Size = new Size(391, 84);
-            txtCustomCrs.TabIndex = 3;
-            // 
-            // cmbSourceCrs
-            // 
-            cmbSourceCrs.Dock = DockStyle.Fill;
-            cmbSourceCrs.DropDownStyle = ComboBoxStyle.DropDownList;
-            cmbSourceCrs.Font = new Font("Segoe UI", 9F);
-            cmbSourceCrs.FormattingEnabled = true;
-            cmbSourceCrs.Location = new Point(11, 53);
-            cmbSourceCrs.Name = "cmbSourceCrs";
-            cmbSourceCrs.Size = new Size(391, 23);
-            cmbSourceCrs.TabIndex = 2;
+            rdoDetectedCrs.AutoSize = true;
+            rdoDetectedCrs.Dock = DockStyle.Fill;
+            rdoDetectedCrs.Font = new Font("Segoe UI", 9F);
+            rdoDetectedCrs.Location = new Point(11, 7);
+            rdoDetectedCrs.Name = "rdoDetectedCrs";
+            rdoDetectedCrs.Size = new Size(391, 18);
+            rdoDetectedCrs.TabIndex = 0;
+            rdoDetectedCrs.TabStop = true;
+            rdoDetectedCrs.Text = "Use detected raster CRS";
+            rdoDetectedCrs.UseVisualStyleBackColor = true;
             // 
             // lblDefineSourceCrs
             // 
@@ -218,18 +200,36 @@ namespace Land_Readjustment_Tool.UI.Forms
             lblDefineSourceCrs.Text = "Define the source CRS of not already defined:";
             lblDefineSourceCrs.TextAlign = ContentAlignment.MiddleLeft;
             // 
-            // rdoDetectedCrs
+            // cmbSourceCrs
             // 
-            rdoDetectedCrs.AutoSize = true;
-            rdoDetectedCrs.Dock = DockStyle.Fill;
-            rdoDetectedCrs.Font = new Font("Segoe UI", 9F);
-            rdoDetectedCrs.Location = new Point(11, 7);
-            rdoDetectedCrs.Name = "rdoDetectedCrs";
-            rdoDetectedCrs.Size = new Size(391, 18);
-            rdoDetectedCrs.TabIndex = 0;
-            rdoDetectedCrs.TabStop = true;
-            rdoDetectedCrs.Text = "Use detected raster CRS";
-            rdoDetectedCrs.UseVisualStyleBackColor = true;
+            cmbSourceCrs.Dock = DockStyle.Fill;
+            cmbSourceCrs.DropDownStyle = ComboBoxStyle.DropDownList;
+            cmbSourceCrs.Font = new Font("Segoe UI", 9F);
+            cmbSourceCrs.FormattingEnabled = true;
+            cmbSourceCrs.Location = new Point(11, 53);
+            cmbSourceCrs.Name = "cmbSourceCrs";
+            cmbSourceCrs.Size = new Size(391, 23);
+            cmbSourceCrs.TabIndex = 2;
+            // 
+            // txtCustomCrs
+            // 
+            txtCustomCrs.Dock = DockStyle.Fill;
+            txtCustomCrs.Font = new Font("Segoe UI", 9F);
+            txtCustomCrs.Location = new Point(11, 81);
+            txtCustomCrs.Multiline = true;
+            txtCustomCrs.Name = "txtCustomCrs";
+            txtCustomCrs.PlaceholderText = "Custom EPSG code or WKT text";
+            txtCustomCrs.Size = new Size(391, 84);
+            txtCustomCrs.TabIndex = 3;
+            // 
+            // lblProjectionHint
+            // 
+            lblProjectionHint.Dock = DockStyle.Fill;
+            lblProjectionHint.ForeColor = Color.DimGray;
+            lblProjectionHint.Location = new Point(11, 168);
+            lblProjectionHint.Name = "lblProjectionHint";
+            lblProjectionHint.Size = new Size(391, 43);
+            lblProjectionHint.TabIndex = 4;
             // 
             // grpRasterDetails
             // 
@@ -275,75 +275,12 @@ namespace Land_Readjustment_Tool.UI.Forms
             detailsLayout.Size = new Size(413, 150);
             detailsLayout.TabIndex = 0;
             // 
-            // lblProjectCrsValue
+            // lblSourceCaption
             // 
-            lblProjectCrsValue.Location = new Point(130, 119);
-            lblProjectCrsValue.Name = "lblProjectCrsValue";
-            lblProjectCrsValue.Size = new Size(100, 21);
-            lblProjectCrsValue.TabIndex = 11;
-            // 
-            // lblProjectCrsCaption
-            // 
-            lblProjectCrsCaption.Location = new Point(9, 119);
-            lblProjectCrsCaption.Name = "lblProjectCrsCaption";
-            lblProjectCrsCaption.Size = new Size(100, 21);
-            lblProjectCrsCaption.TabIndex = 10;
-            // 
-            // lblRasterCrsValue
-            // 
-            lblRasterCrsValue.Location = new Point(130, 96);
-            lblRasterCrsValue.Name = "lblRasterCrsValue";
-            lblRasterCrsValue.Size = new Size(100, 19);
-            lblRasterCrsValue.TabIndex = 9;
-            // 
-            // lblRasterCrsCaption
-            // 
-            lblRasterCrsCaption.Location = new Point(9, 96);
-            lblRasterCrsCaption.Name = "lblRasterCrsCaption";
-            lblRasterCrsCaption.Size = new Size(100, 19);
-            lblRasterCrsCaption.TabIndex = 8;
-            // 
-            // lblGeoValue
-            // 
-            lblGeoValue.Location = new Point(130, 73);
-            lblGeoValue.Name = "lblGeoValue";
-            lblGeoValue.Size = new Size(100, 19);
-            lblGeoValue.TabIndex = 7;
-            // 
-            // lblGeoCaption
-            // 
-            lblGeoCaption.Location = new Point(9, 73);
-            lblGeoCaption.Name = "lblGeoCaption";
-            lblGeoCaption.Size = new Size(100, 19);
-            lblGeoCaption.TabIndex = 6;
-            // 
-            // lblDriverValue
-            // 
-            lblDriverValue.Location = new Point(130, 50);
-            lblDriverValue.Name = "lblDriverValue";
-            lblDriverValue.Size = new Size(100, 19);
-            lblDriverValue.TabIndex = 5;
-            // 
-            // lblDriverCaption
-            // 
-            lblDriverCaption.Location = new Point(9, 50);
-            lblDriverCaption.Name = "lblDriverCaption";
-            lblDriverCaption.Size = new Size(100, 19);
-            lblDriverCaption.TabIndex = 4;
-            // 
-            // lblSizeValue
-            // 
-            lblSizeValue.Location = new Point(130, 27);
-            lblSizeValue.Name = "lblSizeValue";
-            lblSizeValue.Size = new Size(100, 19);
-            lblSizeValue.TabIndex = 3;
-            // 
-            // lblSizeCaption
-            // 
-            lblSizeCaption.Location = new Point(9, 27);
-            lblSizeCaption.Name = "lblSizeCaption";
-            lblSizeCaption.Size = new Size(100, 19);
-            lblSizeCaption.TabIndex = 2;
+            lblSourceCaption.Location = new Point(9, 4);
+            lblSourceCaption.Name = "lblSourceCaption";
+            lblSourceCaption.Size = new Size(100, 19);
+            lblSourceCaption.TabIndex = 0;
             // 
             // lblSourceValue
             // 
@@ -352,12 +289,75 @@ namespace Land_Readjustment_Tool.UI.Forms
             lblSourceValue.Size = new Size(100, 19);
             lblSourceValue.TabIndex = 1;
             // 
-            // lblSourceCaption
+            // lblSizeCaption
             // 
-            lblSourceCaption.Location = new Point(9, 4);
-            lblSourceCaption.Name = "lblSourceCaption";
-            lblSourceCaption.Size = new Size(100, 19);
-            lblSourceCaption.TabIndex = 0;
+            lblSizeCaption.Location = new Point(9, 27);
+            lblSizeCaption.Name = "lblSizeCaption";
+            lblSizeCaption.Size = new Size(100, 19);
+            lblSizeCaption.TabIndex = 2;
+            // 
+            // lblSizeValue
+            // 
+            lblSizeValue.Location = new Point(130, 27);
+            lblSizeValue.Name = "lblSizeValue";
+            lblSizeValue.Size = new Size(100, 19);
+            lblSizeValue.TabIndex = 3;
+            // 
+            // lblDriverCaption
+            // 
+            lblDriverCaption.Location = new Point(9, 50);
+            lblDriverCaption.Name = "lblDriverCaption";
+            lblDriverCaption.Size = new Size(100, 19);
+            lblDriverCaption.TabIndex = 4;
+            // 
+            // lblDriverValue
+            // 
+            lblDriverValue.Location = new Point(130, 50);
+            lblDriverValue.Name = "lblDriverValue";
+            lblDriverValue.Size = new Size(100, 19);
+            lblDriverValue.TabIndex = 5;
+            // 
+            // lblGeoCaption
+            // 
+            lblGeoCaption.Location = new Point(9, 73);
+            lblGeoCaption.Name = "lblGeoCaption";
+            lblGeoCaption.Size = new Size(100, 19);
+            lblGeoCaption.TabIndex = 6;
+            // 
+            // lblGeoValue
+            // 
+            lblGeoValue.Location = new Point(130, 73);
+            lblGeoValue.Name = "lblGeoValue";
+            lblGeoValue.Size = new Size(100, 19);
+            lblGeoValue.TabIndex = 7;
+            // 
+            // lblRasterCrsCaption
+            // 
+            lblRasterCrsCaption.Location = new Point(9, 96);
+            lblRasterCrsCaption.Name = "lblRasterCrsCaption";
+            lblRasterCrsCaption.Size = new Size(100, 19);
+            lblRasterCrsCaption.TabIndex = 8;
+            // 
+            // lblRasterCrsValue
+            // 
+            lblRasterCrsValue.Location = new Point(130, 96);
+            lblRasterCrsValue.Name = "lblRasterCrsValue";
+            lblRasterCrsValue.Size = new Size(100, 19);
+            lblRasterCrsValue.TabIndex = 9;
+            // 
+            // lblProjectCrsCaption
+            // 
+            lblProjectCrsCaption.Location = new Point(9, 119);
+            lblProjectCrsCaption.Name = "lblProjectCrsCaption";
+            lblProjectCrsCaption.Size = new Size(100, 21);
+            lblProjectCrsCaption.TabIndex = 10;
+            // 
+            // lblProjectCrsValue
+            // 
+            lblProjectCrsValue.Location = new Point(130, 119);
+            lblProjectCrsValue.Name = "lblProjectCrsValue";
+            lblProjectCrsValue.Size = new Size(100, 21);
+            lblProjectCrsValue.TabIndex = 11;
             // 
             // txtLayerName
             // 
