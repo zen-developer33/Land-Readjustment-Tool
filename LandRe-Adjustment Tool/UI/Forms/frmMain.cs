@@ -1190,28 +1190,7 @@ namespace Land_Readjustment_Tool
                 SelectLayerNodeById(importResult.Layer.Id);
                 mapCanvasControlMain.ZoomExtents();
 
-                string? importWarning = importResult.Warning;
-                MessageBoxIcon importIcon =
-                    importResult.Dataset.ImportMode ==
-                    RasterDatasetImportMode.ProjectedToProjectCrs ||
-                    importResult.Dataset.ImportMode ==
-                    RasterDatasetImportMode.SourceCrsDefinedProjectedToProjectCrs
-                        ? MessageBoxIcon.Information
-                        : MessageBoxIcon.Warning;
-                string messageBody = importWarning == null
-                    ? importResult.Details
-                    : $"{importWarning}{Environment.NewLine}{Environment.NewLine}" +
-                      "The raster was still imported so you can inspect it, but it will not align correctly until it is georeferenced or assigned the correct CRS." +
-                      $"{Environment.NewLine}{Environment.NewLine}{importResult.Details}";
-
-                MessageBox.Show(
-                    $"{importResult.Heading}{Environment.NewLine}{Environment.NewLine}" +
-                    messageBody,
-                    importWarning == null
-                        ? "Raster Import Details"
-                        : "Raster Georeferencing Warning",
-                    MessageBoxButtons.OK,
-                    importIcon);
+                SetCanvasCommandStatus(importResult.Heading);
             }
             catch (InvalidOperationException ex)
                 when (ex.Message.Contains(

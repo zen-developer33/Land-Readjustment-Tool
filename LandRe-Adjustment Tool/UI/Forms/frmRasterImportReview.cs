@@ -14,6 +14,8 @@ namespace Land_Readjustment_Tool.UI.Forms
         private const string Utm45NOption = "WGS 1984 / UTM Zone 45N (EPSG:32645)";
         private const string CustomEpsgOption = "Custom EPSG code";
         private const string CustomWktOption = "Custom WKT";
+        private const string CustomEpsgPlaceholder = "Example: EPSG:4326 or 4326";
+        private const string CustomWktPlaceholder = "Example: GEOGCS[\"WGS 84\",DATUM[\"WGS_1984\",...]]";
         private readonly RasterLayerImportPreview _preview;
 
         /// <summary>
@@ -26,6 +28,7 @@ namespace Land_Readjustment_Tool.UI.Forms
             LoadPreview();
             btnImport.Click += btnImport_Click;
             rdoDetectedCrs.CheckedChanged += ProjectionChoiceChanged;
+            rdoDefineSourceCrs.CheckedChanged += ProjectionChoiceChanged;
             cmbSourceCrs.SelectedIndexChanged += ProjectionChoiceChanged;
         }
 
@@ -41,7 +44,7 @@ namespace Land_Readjustment_Tool.UI.Forms
         {
             get
             {
-                if (rdoDetectedCrs.Checked)
+                if (!rdoDefineSourceCrs.Checked)
                     return null;
 
                 return GetSelectedSourceCrsDefinition();
@@ -67,10 +70,10 @@ namespace Land_Readjustment_Tool.UI.Forms
 
             rdoDetectedCrs.Enabled = metadata.HasProjection;
             rdoDetectedCrs.Checked = metadata.HasProjection;
+            rdoDefineSourceCrs.Checked = !metadata.HasProjection;
             LoadSourceCrsOptions();
-            cmbSourceCrs.Enabled = !metadata.HasProjection;
             cmbSourceCrs.SelectedItem = Wgs84Option;
-            txtCustomCrs.Text = string.Empty;
+            txtCustomCrs.Visible = true;
             ProjectionChoiceChanged(this, EventArgs.Empty);
             LoadRasterPreview();
         }
@@ -94,9 +97,28 @@ namespace Land_Readjustment_Tool.UI.Forms
         /// </summary>
         private void ProjectionChoiceChanged(object? sender, EventArgs e)
         {
+            bool defineSourceCrs = rdoDefineSourceCrs.Checked;
             bool customInputRequired = IsCustomSourceCrsSelected();
-            txtCustomCrs.Enabled = cmbSourceCrs.Enabled && customInputRequired;
-            txtCustomCrs.Visible = cmbSourceCrs.Enabled && customInputRequired;
+            lblDefineSourceCrs.Enabled = defineSourceCrs;
+            cmbSourceCrs.Enabled = defineSourceCrs;
+            txtCustomCrs.Enabled = defineSourceCrs;
+            txtCustomCrs.ReadOnly = !defineSourceCrs || !customInputRequired;
+
+            if (!customInputRequired)
+            {
+                txtCustomCrs.PlaceholderText = "Selected CRS definition";
+                txtCustomCrs.Text = GetSelectedSourceCrsDefinition();
+            }
+            else if (!defineSourceCrs)
+            {
+                txtCustomCrs.PlaceholderText = GetCustomCrsPlaceholderText();
+                txtCustomCrs.Text = string.Empty;
+            }
+            else
+            {
+                txtCustomCrs.PlaceholderText = GetCustomCrsPlaceholderText();
+                txtCustomCrs.Text = string.Empty;
+            }
 
             if (!_preview.Metadata.HasGeoreferencing)
             {
@@ -106,7 +128,7 @@ namespace Land_Readjustment_Tool.UI.Forms
             }
 
             lblProjectionHint.Text = _preview.Metadata.HasProjection
-                ? "Detected source CRS will be transformed to the target CRS."
+                ? "Use the detected CRS, or define a different source CRS if needed."
                 : "Missing source CRS defaults to WGS 1984 and will be transformed to the target CRS.";
         }
 
@@ -127,7 +149,8 @@ namespace Land_Readjustment_Tool.UI.Forms
                 return;
             }
 
-            if (IsCustomSourceCrsSelected() &&
+            if (rdoDefineSourceCrs.Checked &&
+                IsCustomSourceCrsSelected() &&
                 string.IsNullOrWhiteSpace(txtCustomCrs.Text))
             {
                 string expectedText = IsCustomEpsgSelected()
@@ -179,6 +202,16 @@ namespace Land_Readjustment_Tool.UI.Forms
         private bool IsCustomEpsgSelected()
         {
             return cmbSourceCrs.SelectedItem?.ToString() == CustomEpsgOption;
+        }
+
+        /// <summary>
+        /// Returns example text for the active custom CRS input mode.
+        /// </summary>
+        private string GetCustomCrsPlaceholderText()
+        {
+            return IsCustomEpsgSelected()
+                ? CustomEpsgPlaceholder
+                : CustomWktPlaceholder;
         }
 
         /// <summary>

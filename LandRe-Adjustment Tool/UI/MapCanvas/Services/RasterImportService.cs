@@ -58,8 +58,8 @@ namespace Land_Readjustment_Tool.UI.MapCanvas.Services
             RasterImportMetadata sourceMetadata =
                 ReadMetadata(sourcePath, sourceDataset);
 
-            string sourceProjection = string.IsNullOrWhiteSpace(sourceMetadata.ProjectionWkt)
-                ? sourceSrsDefinitionOverride ?? string.Empty
+            string sourceProjection = !string.IsNullOrWhiteSpace(sourceSrsDefinitionOverride)
+                ? sourceSrsDefinitionOverride
                 : sourceMetadata.ProjectionWkt;
             RasterImportMode importMode;
 
@@ -70,7 +70,6 @@ namespace Land_Readjustment_Tool.UI.MapCanvas.Services
             string outputPath = GetUniquePath(Path.Combine(rasterFolder, outputFileName));
 
             bool usesDefinedSourceProjection =
-                string.IsNullOrWhiteSpace(sourceMetadata.ProjectionWkt) &&
                 !string.IsNullOrWhiteSpace(sourceSrsDefinitionOverride);
 
             if (sourceMetadata.HasGeoreferencing &&
