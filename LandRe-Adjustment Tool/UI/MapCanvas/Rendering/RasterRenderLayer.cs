@@ -13,12 +13,16 @@ namespace Land_Readjustment_Tool.UI.MapCanvas.Rendering
         private const int MaxCachePixels = 12_000_000;
         private const int MaxInteractiveCachePixels = 1_500_000;
         private const int InteractiveTileSize = 256;
+        private const int RasterTileSize = 256;
+        private const int MaxCachedTiles = 384;
 
         private readonly Dataset _dataset;
         private readonly double[] _geoTransform;
         private readonly double[] _inverseGeoTransform;
-        private Bitmap? _visibleBitmapCache;
-        private RasterViewCacheKey? _visibleBitmapCacheKey;
+        private readonly RasterBandSelection _bandSelection;
+        private readonly Dictionary<RasterTileCacheKey, Bitmap> _tileCache = [];
+        private readonly LinkedList<RasterTileCacheKey> _tileLru = [];
+        private readonly Dictionary<RasterTileCacheKey, LinkedListNode<RasterTileCacheKey>> _tileLruNodes = [];
 
         private RasterRenderLayer(
             int layerId,
@@ -41,6 +45,7 @@ namespace Land_Readjustment_Tool.UI.MapCanvas.Rendering
             SourceHeight = dataset.RasterYSize;
             Transparency = Math.Clamp(transparency, 0, 100);
             IsVisible = true;
+            _bandSelection = ResolveBandSelection(dataset);
         }
 
         public int LayerId { get; }
@@ -136,15 +141,7 @@ namespace Land_Readjustment_Tool.UI.MapCanvas.Rendering
                 return false;
 
             Size targetSize = GetTargetBitmapSize(destination, interactive);
-            RasterViewCacheKey cacheKey = new(
-                readWindow.X,
-                readWindow.Y,
-                readWindow.Width,
-                readWindow.Height,
-                targetSize.Width,
-                targetSize.Height);
-
-            Bitmap bitmap = GetOrCreateVisibleBitmap(readWindow, targetSize, cacheKey);
+            RasterReadContext readContext = CreateReadContext(readWindow, targetSize);
 
             GraphicsState state = graphics.Save();
             try
@@ -156,14 +153,13 @@ namespace Land_Readjustment_Tool.UI.MapCanvas.Rendering
                     ? PixelOffsetMode.HighSpeed
                     : PixelOffsetMode.Half;
                 graphics.CompositingMode = CompositingMode.SourceOver;
-                DrawBitmap(graphics, bitmap, destination);
+
+                return DrawVisibleTiles(graphics, engine, readContext);
             }
             finally
             {
                 graphics.Restore(state);
             }
-
-            return true;
         }
 
         /// <summary>
@@ -177,9 +173,7 @@ namespace Land_Readjustment_Tool.UI.MapCanvas.Rendering
 
         public void InvalidateCache()
         {
-            _visibleBitmapCache?.Dispose();
-            _visibleBitmapCache = null;
-            _visibleBitmapCacheKey = null;
+            ClearTileCache();
         }
 
         public void Dispose()
@@ -188,73 +182,412 @@ namespace Land_Readjustment_Tool.UI.MapCanvas.Rendering
             _dataset.Dispose();
         }
 
-        private Bitmap GetOrCreateVisibleBitmap(
-            RasterReadWindow readWindow,
-            Size targetSize,
-            RasterViewCacheKey cacheKey)
+        private bool DrawVisibleTiles(
+            Graphics graphics,
+            MapCanvasEngine engine,
+            RasterReadContext context)
         {
-            if (_visibleBitmapCache != null &&
-                _visibleBitmapCacheKey == cacheKey)
+            bool drawnAny = false;
+            RasterReadWindow overviewWindow = context.OverviewWindow;
+
+            int startTileX = SnapDown(overviewWindow.X, RasterTileSize);
+            int startTileY = SnapDown(overviewWindow.Y, RasterTileSize);
+            int endX = overviewWindow.X + overviewWindow.Width;
+            int endY = overviewWindow.Y + overviewWindow.Height;
+
+            for (int tileY = startTileY; tileY < endY; tileY += RasterTileSize)
             {
-                return _visibleBitmapCache;
+                for (int tileX = startTileX; tileX < endX; tileX += RasterTileSize)
+                {
+                    int width = Math.Min(RasterTileSize, endX - tileX);
+                    int height = Math.Min(RasterTileSize, endY - tileY);
+
+                    RasterReadWindow tileWindow = new(tileX, tileY, width, height);
+                    Bitmap tileBitmap = GetOrCreateTileBitmap(context, tileWindow);
+
+                    int baseX = (int)Math.Floor(tileWindow.X * context.Decimation);
+                    int baseY = (int)Math.Floor(tileWindow.Y * context.Decimation);
+                    int baseRight = (int)Math.Ceiling((tileWindow.X + tileWindow.Width) * context.Decimation);
+                    int baseBottom = (int)Math.Ceiling((tileWindow.Y + tileWindow.Height) * context.Decimation);
+
+                    baseX = Math.Clamp(baseX, 0, SourceWidth - 1);
+                    baseY = Math.Clamp(baseY, 0, SourceHeight - 1);
+                    baseRight = Math.Clamp(baseRight, baseX + 1, SourceWidth);
+                    baseBottom = Math.Clamp(baseBottom, baseY + 1, SourceHeight);
+
+                    RasterReadWindow baseTileWindow = new(
+                        baseX,
+                        baseY,
+                        Math.Max(1, baseRight - baseX),
+                        Math.Max(1, baseBottom - baseY));
+
+                    RectangleD worldBounds = GetWorldBounds(baseTileWindow);
+                    RectangleF destination = WorldBoundsToScreenRectangle(engine, worldBounds);
+
+                    if (destination.Width < 0.5f || destination.Height < 0.5f)
+                    {
+                        continue;
+                    }
+
+                    RectangleF alignedDestination = AlignDestinationToPixelGrid(destination);
+                    DrawBitmap(graphics, tileBitmap, alignedDestination);
+                    drawnAny = true;
+                }
             }
 
-            _visibleBitmapCache?.Dispose();
-            _visibleBitmapCache = CreateBitmap(readWindow, targetSize);
-            _visibleBitmapCacheKey = cacheKey;
-            return _visibleBitmapCache;
+            return drawnAny;
         }
 
-        private Bitmap CreateBitmap(
+        private RasterReadContext CreateReadContext(
             RasterReadWindow readWindow,
             Size targetSize)
         {
-            byte[] red;
-            byte[] green;
-            byte[] blue;
-            byte[] alpha = Enumerable.Repeat(
-                (byte)255,
-                targetSize.Width * targetSize.Height).ToArray();
+            using Band referenceBand = _dataset.GetRasterBand(_bandSelection.ReferenceBand);
+            int overviewIndex = SelectOverviewIndex(referenceBand, readWindow, targetSize, out double decimation);
 
-            int? paletteBandIndex = FindBand(ColorInterp.GCI_PaletteIndex);
-            if (paletteBandIndex.HasValue)
+            int selectedWidth = referenceBand.XSize;
+            int selectedHeight = referenceBand.YSize;
+            if (overviewIndex >= 0)
             {
-                using Band paletteBand = _dataset.GetRasterBand(paletteBandIndex.Value);
-                (red, green, blue, alpha) = ReadPaletteBand(
-                    paletteBand,
-                    readWindow,
-                    targetSize);
+                using Band overviewBand = referenceBand.GetOverview(overviewIndex);
+                selectedWidth = overviewBand.XSize;
+                selectedHeight = overviewBand.YSize;
             }
-            else if (_dataset.RasterCount >= 3)
+
+            int x = (int)Math.Floor(readWindow.X / decimation);
+            int y = (int)Math.Floor(readWindow.Y / decimation);
+            int right = (int)Math.Ceiling((readWindow.X + readWindow.Width) / decimation);
+            int bottom = (int)Math.Ceiling((readWindow.Y + readWindow.Height) / decimation);
+
+            x = Math.Clamp(x, 0, Math.Max(0, selectedWidth - 1));
+            y = Math.Clamp(y, 0, Math.Max(0, selectedHeight - 1));
+            right = Math.Clamp(right, x + 1, selectedWidth);
+            bottom = Math.Clamp(bottom, y + 1, selectedHeight);
+
+            return new RasterReadContext(
+                overviewIndex,
+                decimation,
+                new RasterReadWindow(x, y, right - x, bottom - y));
+        }
+
+        private static int SelectOverviewIndex(
+            Band band,
+            RasterReadWindow readWindow,
+            Size targetSize,
+            out double decimation)
+        {
+            decimation = 1.0;
+
+            if (targetSize.Width <= 0 || targetSize.Height <= 0)
             {
-                int redBand = FindBand(ColorInterp.GCI_RedBand) ?? 1;
-                int greenBand = FindBand(ColorInterp.GCI_GreenBand) ?? 2;
-                int blueBand = FindBand(ColorInterp.GCI_BlueBand) ?? 3;
+                return -1;
+            }
 
-                using Band redRasterBand = _dataset.GetRasterBand(redBand);
-                using Band greenRasterBand = _dataset.GetRasterBand(greenBand);
-                using Band blueRasterBand = _dataset.GetRasterBand(blueBand);
+            int overviewCount = band.GetOverviewCount();
+            if (overviewCount <= 0)
+            {
+                return -1;
+            }
 
-                red = ReadByteBand(redRasterBand, readWindow, targetSize);
-                green = ReadByteBand(greenRasterBand, readWindow, targetSize);
-                blue = ReadByteBand(blueRasterBand, readWindow, targetSize);
+            double desiredScale = Math.Max(
+                readWindow.Width / (double)targetSize.Width,
+                readWindow.Height / (double)targetSize.Height);
 
-                int? alphaBand = FindBand(ColorInterp.GCI_AlphaBand);
-                if (alphaBand.HasValue)
+            if (desiredScale <= 1.0)
+            {
+                return -1;
+            }
+
+            int bestIndex = -1;
+            double bestScale = 1.0;
+
+            for (int index = 0; index < overviewCount; index++)
+            {
+                using Band overview = band.GetOverview(index);
+                if (overview == null || overview.XSize <= 0 || overview.YSize <= 0)
                 {
-                    using Band alphaRasterBand = _dataset.GetRasterBand(alphaBand.Value);
-                    alpha = ReadByteBand(alphaRasterBand, readWindow, targetSize);
+                    continue;
+                }
+
+                double scale = Math.Max(
+                    band.XSize / (double)overview.XSize,
+                    band.YSize / (double)overview.YSize);
+
+                if (scale <= desiredScale && scale > bestScale)
+                {
+                    bestScale = scale;
+                    bestIndex = index;
                 }
             }
-            else
+
+            decimation = bestScale;
+            return bestIndex;
+        }
+
+        private Bitmap GetOrCreateTileBitmap(
+            RasterReadContext context,
+            RasterReadWindow tileWindow)
+        {
+            RasterTileCacheKey cacheKey = new(
+                context.OverviewIndex,
+                tileWindow.X,
+                tileWindow.Y,
+                tileWindow.Width,
+                tileWindow.Height);
+
+            if (_tileCache.TryGetValue(cacheKey, out Bitmap? cachedBitmap))
             {
-                using Band grayRasterBand = _dataset.GetRasterBand(1);
-                red = ReadByteBand(grayRasterBand, readWindow, targetSize);
-                green = red;
-                blue = red;
+                TouchTile(cacheKey);
+                return cachedBitmap;
             }
 
-            return CreateArgbBitmap(red, green, blue, alpha, targetSize.Width, targetSize.Height);
+            Bitmap bitmap = CreateTileBitmap(context.OverviewIndex, tileWindow);
+            _tileCache[cacheKey] = bitmap;
+            LinkedListNode<RasterTileCacheKey> node = _tileLru.AddLast(cacheKey);
+            _tileLruNodes[cacheKey] = node;
+            TrimTileCache();
+            return bitmap;
+        }
+
+        private Bitmap CreateTileBitmap(
+            int overviewIndex,
+            RasterReadWindow tileWindow)
+        {
+            int pixelCount = tileWindow.Width * tileWindow.Height;
+            byte[] alpha = new byte[pixelCount];
+            Array.Fill(alpha, (byte)255);
+
+            if (_bandSelection.Mode == RasterBandMode.Palette)
+            {
+                using Band paletteBand = _dataset.GetRasterBand(_bandSelection.PaletteBand);
+                byte[] indexes = ReadBandWindow(paletteBand, overviewIndex, tileWindow);
+                return CreatePaletteBitmap(paletteBand, overviewIndex, indexes, alpha, tileWindow.Width, tileWindow.Height);
+            }
+
+            if (_bandSelection.Mode == RasterBandMode.Rgb)
+            {
+                using Band redBand = _dataset.GetRasterBand(_bandSelection.RedBand);
+                using Band greenBand = _dataset.GetRasterBand(_bandSelection.GreenBand);
+                using Band blueBand = _dataset.GetRasterBand(_bandSelection.BlueBand);
+
+                byte[] red = ReadBandWindow(redBand, overviewIndex, tileWindow);
+                byte[] green = ReadBandWindow(greenBand, overviewIndex, tileWindow);
+                byte[] blue = ReadBandWindow(blueBand, overviewIndex, tileWindow);
+
+                if (_bandSelection.AlphaBand.HasValue)
+                {
+                    using Band alphaBand = _dataset.GetRasterBand(_bandSelection.AlphaBand.Value);
+                    alpha = ReadBandWindow(alphaBand, overviewIndex, tileWindow);
+                }
+
+                return CreateArgbBitmap(red, green, blue, alpha, tileWindow.Width, tileWindow.Height);
+            }
+
+            using Band grayBand = _dataset.GetRasterBand(_bandSelection.GrayBand);
+            byte[] gray = ReadBandWindow(grayBand, overviewIndex, tileWindow);
+            return CreateArgbBitmap(gray, gray, gray, alpha, tileWindow.Width, tileWindow.Height);
+        }
+
+        private static byte[] ReadBandWindow(
+            Band baseBand,
+            int overviewIndex,
+            RasterReadWindow readWindow)
+        {
+            Band selectedBand = baseBand;
+            bool disposeSelectedBand = false;
+            try
+            {
+                if (overviewIndex >= 0)
+                {
+                    selectedBand = baseBand.GetOverview(overviewIndex);
+                    disposeSelectedBand = true;
+                }
+
+                byte[] buffer = new byte[readWindow.Width * readWindow.Height];
+                CPLErr result = selectedBand.ReadRaster(
+                    readWindow.X,
+                    readWindow.Y,
+                    readWindow.Width,
+                    readWindow.Height,
+                    buffer,
+                    readWindow.Width,
+                    readWindow.Height,
+                    0,
+                    0);
+
+                if (result != CPLErr.CE_None)
+                {
+                    throw new InvalidOperationException(
+                        $"GDAL failed to read raster band. Error: {result}.");
+                }
+
+                return buffer;
+            }
+            finally
+            {
+                if (disposeSelectedBand)
+                {
+                    selectedBand.Dispose();
+                }
+            }
+        }
+
+        private static Bitmap CreatePaletteBitmap(
+            Band paletteBand,
+            int overviewIndex,
+            byte[] indexes,
+            byte[] alpha,
+            int width,
+            int height)
+        {
+            ColorTable? colorTable = null;
+            Band selectedBand = paletteBand;
+            bool disposeSelectedBand = false;
+
+            try
+            {
+                if (overviewIndex >= 0)
+                {
+                    selectedBand = paletteBand.GetOverview(overviewIndex);
+                    disposeSelectedBand = true;
+                }
+
+                colorTable = selectedBand.GetRasterColorTable() ?? paletteBand.GetRasterColorTable();
+            }
+            finally
+            {
+                if (disposeSelectedBand)
+                {
+                    selectedBand.Dispose();
+                }
+            }
+
+            byte[] red = new byte[indexes.Length];
+            byte[] green = new byte[indexes.Length];
+            byte[] blue = new byte[indexes.Length];
+
+            for (int i = 0; i < indexes.Length; i++)
+            {
+                ColorEntry entry = new();
+                if (colorTable != null && colorTable.GetColorEntryAsRGB(indexes[i], entry) != 0)
+                {
+                    red[i] = ClampByte(entry.c1);
+                    green[i] = ClampByte(entry.c2);
+                    blue[i] = ClampByte(entry.c3);
+                    alpha[i] = ClampByte(entry.c4);
+                }
+                else
+                {
+                    red[i] = indexes[i];
+                    green[i] = indexes[i];
+                    blue[i] = indexes[i];
+                }
+            }
+
+            return CreateArgbBitmap(red, green, blue, alpha, width, height);
+        }
+
+        private static RasterBandSelection ResolveBandSelection(Dataset dataset)
+        {
+            int? paletteBand = null;
+            int? redBand = null;
+            int? greenBand = null;
+            int? blueBand = null;
+            int? alphaBand = null;
+
+            for (int bandIndex = 1; bandIndex <= dataset.RasterCount; bandIndex++)
+            {
+                using Band band = dataset.GetRasterBand(bandIndex);
+                ColorInterp interp = band.GetRasterColorInterpretation();
+
+                if (interp == ColorInterp.GCI_PaletteIndex)
+                    paletteBand ??= bandIndex;
+                else if (interp == ColorInterp.GCI_RedBand)
+                    redBand ??= bandIndex;
+                else if (interp == ColorInterp.GCI_GreenBand)
+                    greenBand ??= bandIndex;
+                else if (interp == ColorInterp.GCI_BlueBand)
+                    blueBand ??= bandIndex;
+                else if (interp == ColorInterp.GCI_AlphaBand)
+                    alphaBand ??= bandIndex;
+            }
+
+            if (paletteBand.HasValue)
+            {
+                return new RasterBandSelection(
+                    RasterBandMode.Palette,
+                    paletteBand.Value,
+                    paletteBand.Value,
+                    0,
+                    0,
+                    0,
+                    null,
+                    0);
+            }
+
+            if (dataset.RasterCount >= 3)
+            {
+                int resolvedRed = redBand ?? 1;
+                int resolvedGreen = greenBand ?? 2;
+                int resolvedBlue = blueBand ?? 3;
+                return new RasterBandSelection(
+                    RasterBandMode.Rgb,
+                    resolvedRed,
+                    0,
+                    resolvedRed,
+                    resolvedGreen,
+                    resolvedBlue,
+                    alphaBand,
+                    0);
+            }
+
+            return new RasterBandSelection(
+                RasterBandMode.Gray,
+                1,
+                0,
+                0,
+                0,
+                0,
+                null,
+                1);
+        }
+
+        private void TouchTile(RasterTileCacheKey key)
+        {
+            if (!_tileLruNodes.TryGetValue(key, out LinkedListNode<RasterTileCacheKey>? node))
+            {
+                return;
+            }
+
+            _tileLru.Remove(node);
+            _tileLru.AddLast(node);
+        }
+
+        private void TrimTileCache()
+        {
+            while (_tileCache.Count > MaxCachedTiles && _tileLru.First != null)
+            {
+                RasterTileCacheKey key = _tileLru.First.Value;
+                _tileLru.RemoveFirst();
+                _tileLruNodes.Remove(key);
+
+                if (_tileCache.Remove(key, out Bitmap? bitmap))
+                {
+                    bitmap.Dispose();
+                }
+            }
+        }
+
+        private void ClearTileCache()
+        {
+            foreach (Bitmap bitmap in _tileCache.Values)
+            {
+                bitmap.Dispose();
+            }
+
+            _tileCache.Clear();
+            _tileLru.Clear();
+            _tileLruNodes.Clear();
         }
 
         private void DrawBitmap(
@@ -385,173 +718,6 @@ namespace Land_Readjustment_Tool.UI.MapCanvas.Rendering
                 _inverseGeoTransform[3] +
                 _inverseGeoTransform[4] * deltaX +
                 _inverseGeoTransform[5] * deltaY);
-        }
-
-        private int? FindBand(ColorInterp colorInterp)
-        {
-            for (int bandIndex = 1; bandIndex <= _dataset.RasterCount; bandIndex++)
-            {
-                using Band band = _dataset.GetRasterBand(bandIndex);
-                if (band.GetRasterColorInterpretation() == colorInterp)
-                    return bandIndex;
-            }
-
-            return null;
-        }
-
-        private static byte[] ReadByteBand(
-            Band band,
-            RasterReadWindow readWindow,
-            Size targetSize)
-        {
-            Band selectedBand = SelectOverviewBand(
-                band,
-                readWindow,
-                targetSize,
-                out RasterReadWindow overviewWindow,
-                out bool shouldDispose);
-
-            byte[] buffer = new byte[targetSize.Width * targetSize.Height];
-            try
-            {
-                CPLErr result = selectedBand.ReadRaster(
-                    overviewWindow.X,
-                    overviewWindow.Y,
-                    overviewWindow.Width,
-                    overviewWindow.Height,
-                    buffer,
-                    targetSize.Width,
-                    targetSize.Height,
-                    0,
-                    0);
-
-                if (result != CPLErr.CE_None)
-                {
-                    throw new InvalidOperationException(
-                        $"GDAL failed to read raster band. Error: {result}.");
-                }
-            }
-            finally
-            {
-                if (shouldDispose)
-                {
-                    selectedBand.Dispose();
-                }
-            }
-
-            return buffer;
-        }
-
-        private static Band SelectOverviewBand(
-            Band band,
-            RasterReadWindow readWindow,
-            Size targetSize,
-            out RasterReadWindow overviewWindow,
-            out bool shouldDispose)
-        {
-            overviewWindow = readWindow;
-            shouldDispose = false;
-
-            if (targetSize.Width <= 0 || targetSize.Height <= 0)
-            {
-                return band;
-            }
-
-            int overviewCount = band.GetOverviewCount();
-            if (overviewCount <= 0)
-            {
-                return band;
-            }
-
-            double desiredScale = Math.Max(
-                readWindow.Width / (double)targetSize.Width,
-                readWindow.Height / (double)targetSize.Height);
-
-            if (desiredScale <= 1.0)
-            {
-                return band;
-            }
-
-            Band? bestOverview = null;
-            double bestScale = 1.0;
-
-            for (int index = 0; index < overviewCount; index++)
-            {
-                Band overview = band.GetOverview(index);
-                if (overview == null || overview.XSize <= 0 || overview.YSize <= 0)
-                {
-                    continue;
-                }
-
-                double scale = Math.Max(
-                    band.XSize / (double)overview.XSize,
-                    band.YSize / (double)overview.YSize);
-
-                if (scale <= desiredScale && scale > bestScale)
-                {
-                    bestScale = scale;
-                    bestOverview = overview;
-                }
-            }
-
-            if (bestOverview == null)
-            {
-                return band;
-            }
-
-            int x = (int)Math.Floor(readWindow.X / bestScale);
-            int y = (int)Math.Floor(readWindow.Y / bestScale);
-            int right = (int)Math.Ceiling((readWindow.X + readWindow.Width) / bestScale);
-            int bottom = (int)Math.Ceiling((readWindow.Y + readWindow.Height) / bestScale);
-
-            x = Math.Clamp(x, 0, Math.Max(0, bestOverview.XSize - 1));
-            y = Math.Clamp(y, 0, Math.Max(0, bestOverview.YSize - 1));
-            right = Math.Clamp(right, x + 1, bestOverview.XSize);
-            bottom = Math.Clamp(bottom, y + 1, bestOverview.YSize);
-
-            overviewWindow = new RasterReadWindow(x, y, right - x, bottom - y);
-            shouldDispose = true;
-            return bestOverview;
-        }
-
-        private static (byte[] Red, byte[] Green, byte[] Blue, byte[] Alpha)
-            ReadPaletteBand(
-                Band band,
-                RasterReadWindow readWindow,
-                Size targetSize)
-        {
-            byte[] indexes = ReadByteBand(
-                band,
-                readWindow,
-                targetSize);
-
-            byte[] red = new byte[indexes.Length];
-            byte[] green = new byte[indexes.Length];
-            byte[] blue = new byte[indexes.Length];
-            byte[] alpha = new byte[indexes.Length];
-            ColorTable colorTable = band.GetRasterColorTable();
-
-            for (int i = 0; i < indexes.Length; i++)
-            {
-                ColorEntry entry = new();
-                if (colorTable != null &&
-                    colorTable.GetColorEntryAsRGB(indexes[i], entry) != 0)
-                {
-                    red[i] = ClampByte(entry.c1);
-                    green[i] = ClampByte(entry.c2);
-                    blue[i] = ClampByte(entry.c3);
-                    alpha[i] = ClampByte(entry.c4);
-                }
-                else
-                {
-                    red[i] = indexes[i];
-                    green[i] = indexes[i];
-                    blue[i] = indexes[i];
-                    alpha[i] = 255;
-                }
-            }
-
-            return (red, green, blue, alpha);
         }
 
         private static Bitmap CreateArgbBitmap(
@@ -700,6 +866,16 @@ namespace Land_Readjustment_Tool.UI.MapCanvas.Rendering
                 (float)Math.Max(topLeft.Y, bottomRight.Y));
         }
 
+        private static RectangleF AlignDestinationToPixelGrid(RectangleF destination)
+        {
+            float left = (float)Math.Floor(destination.Left);
+            float top = (float)Math.Floor(destination.Top);
+            float right = (float)Math.Ceiling(destination.Right);
+            float bottom = (float)Math.Ceiling(destination.Bottom);
+
+            return RectangleF.FromLTRB(left - 0.5f, top - 0.5f, right + 0.5f, bottom + 0.5f);
+        }
+
         private static Size GetTargetBitmapSize(RectangleF destination, bool interactive)
         {
             int width = Math.Max(1, (int)Math.Ceiling(destination.Width));
@@ -741,18 +917,39 @@ namespace Land_Readjustment_Tool.UI.MapCanvas.Rendering
             return (byte)Math.Max(byte.MinValue, Math.Min(byte.MaxValue, value));
         }
 
+        private readonly record struct RasterReadContext(
+            int OverviewIndex,
+            double Decimation,
+            RasterReadWindow OverviewWindow);
+
+        private readonly record struct RasterTileCacheKey(
+            int OverviewIndex,
+            int SourceX,
+            int SourceY,
+            int SourceWidth,
+            int SourceHeight);
+
+        private readonly record struct RasterBandSelection(
+            RasterBandMode Mode,
+            int ReferenceBand,
+            int PaletteBand,
+            int RedBand,
+            int GreenBand,
+            int BlueBand,
+            int? AlphaBand,
+            int GrayBand);
+
+        private enum RasterBandMode
+        {
+            Palette,
+            Rgb,
+            Gray
+        }
+
         private readonly record struct RasterReadWindow(
             int X,
             int Y,
             int Width,
             int Height);
-
-        private readonly record struct RasterViewCacheKey(
-            int SourceX,
-            int SourceY,
-            int SourceWidth,
-            int SourceHeight,
-            int TargetWidth,
-            int TargetHeight);
     }
 }

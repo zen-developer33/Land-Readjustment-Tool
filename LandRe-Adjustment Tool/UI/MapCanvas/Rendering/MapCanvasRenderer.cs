@@ -163,6 +163,10 @@ namespace Land_Readjustment_Tool.UI.MapCanvas.Rendering
             {
                 DrawRasterFrame(graphics, rasterFrame.Value);
             }
+            else if (interactiveRaster)
+            {
+                return;
+            }
             else
             {
                 RenderRasterLayers(graphics, viewport, interactiveRaster);
