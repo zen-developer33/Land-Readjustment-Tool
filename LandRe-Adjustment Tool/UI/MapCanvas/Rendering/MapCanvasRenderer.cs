@@ -23,7 +23,7 @@ namespace Land_Readjustment_Tool.UI.MapCanvas.Rendering
         private readonly MapCanvasRenderOrderService _renderOrderService;
         private double _lastAdaptiveMinorSize;
         private MapCanvasRenderSettings _settings;
-        private IReadOnlyList<RasterRenderLayer> _rasterLayers = [];
+        private IReadOnlyList<IRasterRenderLayer> _rasterLayers = [];
 
         /// <summary>
         /// Creates a renderer for drawing the map canvas using the supplied engine and settings.
@@ -58,7 +58,7 @@ namespace Land_Readjustment_Tool.UI.MapCanvas.Rendering
         /// </summary>
         /// <param name="rasterLayers">Raster layers in drawing order.</param>
         public void UpdateRasterLayers(
-            IReadOnlyList<RasterRenderLayer> rasterLayers)
+            IReadOnlyList<IRasterRenderLayer> rasterLayers)
         {
             _rasterLayers = rasterLayers?.ToArray()
                 ?? throw new ArgumentNullException(nameof(rasterLayers));
@@ -161,7 +161,15 @@ namespace Land_Readjustment_Tool.UI.MapCanvas.Rendering
         {
             if (rasterFrame.HasValue)
             {
-                DrawRasterFrame(graphics, rasterFrame.Value);
+                RasterRenderFrame frame = rasterFrame.Value;
+                try
+                {
+                    DrawRasterFrame(graphics, frame);
+                }
+                finally
+                {
+                    frame.Dispose();
+                }
             }
             else if (interactiveRaster)
             {
@@ -202,7 +210,7 @@ namespace Land_Readjustment_Tool.UI.MapCanvas.Rendering
             if (_rasterLayers.Count == 0)
                 return;
 
-            foreach (RasterRenderLayer layer in _rasterLayers)
+            foreach (IRasterRenderLayer layer in _rasterLayers)
             {
                 layer.RenderVisible(
                     graphics,
@@ -221,22 +229,142 @@ namespace Land_Readjustment_Tool.UI.MapCanvas.Rendering
             Graphics graphics,
             RasterRenderFrame rasterFrame)
         {
-            GraphicsState state = graphics.Save();
-            try
+            lock (rasterFrame.SyncRoot)
             {
-                graphics.SmoothingMode = SmoothingMode.None;
-                graphics.InterpolationMode = InterpolationMode.NearestNeighbor;
-                graphics.PixelOffsetMode = PixelOffsetMode.HighSpeed;
-                graphics.CompositingQuality = CompositingQuality.HighSpeed;
-                graphics.DrawImage(
+                if (!TryCreateClippedRasterDraw(
                     rasterFrame.Bitmap,
-                    rasterFrame.Destination);
-            }
-            finally
-            {
-                graphics.Restore(state);
+                    rasterFrame.Destination,
+                    graphics.VisibleClipBounds,
+                    out RectangleF destination,
+                    out RectangleF source))
+                {
+                    return;
+                }
+
+                GraphicsState state = graphics.Save();
+                try
+                {
+                    graphics.SmoothingMode = SmoothingMode.None;
+                    graphics.InterpolationMode = InterpolationMode.NearestNeighbor;
+                    graphics.PixelOffsetMode = PixelOffsetMode.HighSpeed;
+                    graphics.CompositingQuality = CompositingQuality.HighSpeed;
+                    graphics.DrawImage(
+                        rasterFrame.Bitmap,
+                        [
+                            new PointF(destination.Left, destination.Top),
+                            new PointF(destination.Right, destination.Top),
+                            new PointF(destination.Left, destination.Bottom)
+                        ],
+                        source,
+                        GraphicsUnit.Pixel);
+                }
+                catch (ArgumentException ex)
+                {
+                    System.Diagnostics.Debug.WriteLine(
+                        $"Skipped invalid raster cache frame: {ex.Message}");
+                }
+                finally
+                {
+                    graphics.Restore(state);
+                }
             }
         }
+
+        private static bool TryCreateClippedRasterDraw(
+            Bitmap bitmap,
+            RectangleF destination,
+            RectangleF clipBounds,
+            out RectangleF clippedDestination,
+            out RectangleF source)
+        {
+            clippedDestination = default;
+            source = default;
+
+            if (!IsDrawableBitmap(bitmap) ||
+                !IsValidRectangle(destination))
+            {
+                return false;
+            }
+
+            destination = NormalizeRectangle(destination);
+            if (destination.Width <= 0 || destination.Height <= 0)
+            {
+                return false;
+            }
+
+            RectangleF clip = IsValidRectangle(clipBounds)
+                ? NormalizeRectangle(clipBounds)
+                : destination;
+
+            float left = Math.Max(destination.Left, clip.Left);
+            float top = Math.Max(destination.Top, clip.Top);
+            float right = Math.Min(destination.Right, clip.Right);
+            float bottom = Math.Min(destination.Bottom, clip.Bottom);
+
+            if (right <= left || bottom <= top)
+            {
+                return false;
+            }
+
+            float sourceScaleX = bitmap.Width / destination.Width;
+            float sourceScaleY = bitmap.Height / destination.Height;
+            float sourceLeft = Math.Clamp((left - destination.Left) * sourceScaleX, 0, bitmap.Width);
+            float sourceTop = Math.Clamp((top - destination.Top) * sourceScaleY, 0, bitmap.Height);
+            float sourceRight = Math.Clamp((right - destination.Left) * sourceScaleX, 0, bitmap.Width);
+            float sourceBottom = Math.Clamp((bottom - destination.Top) * sourceScaleY, 0, bitmap.Height);
+
+            if (sourceRight <= sourceLeft || sourceBottom <= sourceTop)
+            {
+                return false;
+            }
+
+            clippedDestination = RectangleF.FromLTRB(
+                destination.Left + sourceLeft / sourceScaleX,
+                destination.Top + sourceTop / sourceScaleY,
+                destination.Left + sourceRight / sourceScaleX,
+                destination.Top + sourceBottom / sourceScaleY);
+            source = RectangleF.FromLTRB(
+                sourceLeft,
+                sourceTop,
+                sourceRight,
+                sourceBottom);
+            return IsValidRectangle(clippedDestination) &&
+                   IsValidRectangle(source);
+        }
+
+        private static bool IsDrawableBitmap(Bitmap bitmap)
+        {
+            try
+            {
+                return bitmap.Width > 0 && bitmap.Height > 0;
+            }
+            catch (ArgumentException)
+            {
+                return false;
+            }
+        }
+
+        private static RectangleF NormalizeRectangle(RectangleF rectangle)
+        {
+            return RectangleF.FromLTRB(
+                Math.Min(rectangle.Left, rectangle.Right),
+                Math.Min(rectangle.Top, rectangle.Bottom),
+                Math.Max(rectangle.Left, rectangle.Right),
+                Math.Max(rectangle.Top, rectangle.Bottom));
+        }
+
+        private static bool IsValidRectangle(RectangleF rectangle)
+        {
+            return IsFinite(rectangle.Left) &&
+                   IsFinite(rectangle.Top) &&
+                   IsFinite(rectangle.Right) &&
+                   IsFinite(rectangle.Bottom) &&
+                   rectangle.Width > 0 &&
+                   rectangle.Height > 0;
+        }
+
+        private static bool IsFinite(float value) =>
+            !float.IsNaN(value) && !float.IsInfinity(value);
 
         /// <summary>
         /// Releases GDI resources used by renderer-owned fonts.
@@ -697,5 +825,13 @@ namespace Land_Readjustment_Tool.UI.MapCanvas.Rendering
 
     public readonly record struct RasterRenderFrame(
         Bitmap Bitmap,
-        RectangleF Destination);
+        RectangleF Destination,
+        object SyncRoot,
+        Action? Release) : IDisposable
+    {
+        public void Dispose()
+        {
+            Release?.Invoke();
+        }
+    }
 }

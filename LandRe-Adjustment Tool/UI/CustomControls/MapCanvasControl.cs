@@ -1,4 +1,5 @@
 using System.Drawing;
+using System.Threading;
 using System.Windows.Forms;
 using Land_Readjustment_Tool.Core.Entities.Canvas;
 using Land_Readjustment_Tool.UI.MapCanvas.Core;
@@ -14,7 +15,7 @@ namespace Land_Readjustment_Tool.UI.CustomControls
         private readonly MapCanvasEngine _engine;
         private readonly MapCanvasRenderer _renderer;
         private readonly RasterDeferredRenderer _rasterDeferredRenderer = new();
-        private readonly List<RasterRenderLayer> _rasterRenderLayers = [];
+        private readonly List<IRasterRenderLayer> _rasterRenderLayers = [];
         private MapCanvasRenderSettings _renderSettings;
 
         public event Action<string, string>? StatusChanged;
@@ -32,6 +33,9 @@ namespace Land_Readjustment_Tool.UI.CustomControls
         private Point _zoomWindowCurrent;
         private PointD? _currentMouseWorld;
         private bool _zoomingStatusTimerDisposed;
+        private CancellationTokenSource? _rasterRenderCancellation;
+        private int _rasterRenderGeneration;
+        private bool _rasterCacheRefreshPending;
         private readonly System.Windows.Forms.Timer _zoomingStatusTimer = new()
         {
             Interval = ZoomSettleIntervalMs
@@ -149,7 +153,7 @@ namespace Land_Readjustment_Tool.UI.CustomControls
             }
 
             _engine.ZoomIn();
-            RefreshRasterCacheForCurrentView();
+            RefreshRasterCacheForCurrentViewAsync();
             RequestRender();
         }
 
@@ -161,7 +165,7 @@ namespace Land_Readjustment_Tool.UI.CustomControls
             }
 
             _engine.ZoomOut();
-            RefreshRasterCacheForCurrentView();
+            RefreshRasterCacheForCurrentViewAsync();
             RequestRender();
         }
 
@@ -173,7 +177,7 @@ namespace Land_Readjustment_Tool.UI.CustomControls
             }
 
             _engine.ZoomToExtents();
-            RefreshRasterCacheForCurrentView();
+            RefreshRasterCacheForCurrentViewAsync();
             RequestRender();
         }
 
@@ -187,7 +191,7 @@ namespace Land_Readjustment_Tool.UI.CustomControls
             }
 
             _engine.ZoomToExtents(worldBounds);
-            RefreshRasterCacheForCurrentView();
+            RefreshRasterCacheForCurrentViewAsync();
             RequestRender();
         }
 
@@ -236,7 +240,7 @@ namespace Land_Readjustment_Tool.UI.CustomControls
                     try
                     {
                         _rasterRenderLayers.Add(
-                            RasterRenderLayer.FromCanvasLayer(
+                            RasterRenderLayerFactory.FromCanvasLayer(
                                 rasterLayer,
                                 projectFolderPath));
                     }
@@ -250,7 +254,7 @@ namespace Land_Readjustment_Tool.UI.CustomControls
 
             UpdateRasterWorldBounds();
             _renderer.UpdateRasterLayers(_rasterRenderLayers);
-            RefreshRasterCacheForCurrentView();
+            RefreshRasterCacheForCurrentViewAsync();
             RequestRender();
         }
 
@@ -259,14 +263,15 @@ namespace Land_Readjustment_Tool.UI.CustomControls
         /// </summary>
         public bool SetRasterLayerVisibility(int layerId, bool isVisible)
         {
-            RasterRenderLayer? rasterLayer = _rasterRenderLayers
+            IRasterRenderLayer? rasterLayer = _rasterRenderLayers
                 .FirstOrDefault(layer => layer.LayerId == layerId);
 
             if (rasterLayer == null)
                 return false;
 
-            rasterLayer.IsVisible = isVisible;
+            rasterLayer.UpdateRenderState(isVisible, rasterLayer.Transparency);
             _rasterDeferredRenderer.Invalidate();
+            RefreshRasterCacheForCurrentViewAsync();
             RequestRender();
             return true;
         }
@@ -279,7 +284,7 @@ namespace Land_Readjustment_Tool.UI.CustomControls
             bool isVisible,
             int transparency)
         {
-            RasterRenderLayer? rasterLayer = _rasterRenderLayers
+            IRasterRenderLayer? rasterLayer = _rasterRenderLayers
                 .FirstOrDefault(layer => layer.LayerId == layerId);
 
             if (rasterLayer == null)
@@ -287,6 +292,7 @@ namespace Land_Readjustment_Tool.UI.CustomControls
 
             rasterLayer.UpdateRenderState(isVisible, transparency);
             _rasterDeferredRenderer.Invalidate();
+            RefreshRasterCacheForCurrentViewAsync();
             RequestRender();
             return true;
         }
@@ -310,7 +316,7 @@ namespace Land_Readjustment_Tool.UI.CustomControls
 
             _engine.UpdateCanvasSize(canvasSurface.Size);
             _rasterDeferredRenderer.Resize(canvasSurface.Size);
-            RefreshRasterCacheForCurrentView();
+            RefreshRasterCacheForCurrentViewAsync();
             RequestRender();
         }
 
@@ -319,7 +325,7 @@ namespace Land_Readjustment_Tool.UI.CustomControls
             _renderer.Render(
                 e.Graphics,
                 GetRasterRenderFrame(),
-                IsInteractiveNavigation,
+                ShouldDeferDirectRasterRendering,
                 GetZoomWindowRectangle());
         }
 
@@ -435,7 +441,7 @@ namespace Land_Readjustment_Tool.UI.CustomControls
                 if (rectangle.HasValue && rectangle.Value.Width > 8 && rectangle.Value.Height > 8)
                 {
                     ZoomToScreenRectangle(rectangle.Value);
-                    RefreshRasterCacheForCurrentView();
+                    RefreshRasterCacheForCurrentViewAsync();
                 }
 
                 UpdateCanvasCursor();
@@ -450,7 +456,7 @@ namespace Land_Readjustment_Tool.UI.CustomControls
                 _currentMouseWorld = _engine.ScreenToWorld(e.Location);
                 _panStartWorld = null;
                 _totalPanDelta = PointF.Empty;
-                RefreshRasterCacheForCurrentView();
+                RefreshRasterCacheForCurrentViewImmediately();
                 UpdateCanvasCursor();
                 RequestRender();
             }
@@ -546,6 +552,9 @@ namespace Land_Readjustment_Tool.UI.CustomControls
         private bool IsInteractiveNavigation =>
             _isPanning || _isZooming || _isSelectingZoomWindow;
 
+        private bool ShouldDeferDirectRasterRendering =>
+            IsInteractiveNavigation || _rasterCacheRefreshPending;
+
         private RasterRenderFrame? GetRasterRenderFrame()
         {
             if (_isPanning &&
@@ -564,7 +573,15 @@ namespace Land_Readjustment_Tool.UI.CustomControls
                 return zoomFrame;
             }
 
-            if (!IsInteractiveNavigation &&
+            if (_rasterCacheRefreshPending &&
+                _rasterDeferredRenderer.TryGetZoomFrame(
+                    _engine,
+                    out RasterRenderFrame pendingZoomFrame))
+            {
+                return pendingZoomFrame;
+            }
+
+            if (!ShouldDeferDirectRasterRendering &&
                 _rasterDeferredRenderer.TryGetCacheFrame(
                     out RasterRenderFrame cacheFrame))
             {
@@ -579,8 +596,7 @@ namespace Land_Readjustment_Tool.UI.CustomControls
             _zoomingStatusTimer.Stop();
             _isZooming = false;
             _zoomDirection = null;
-            _rasterDeferredRenderer.EndZoom();
-            RefreshRasterCacheForCurrentView();
+            RefreshRasterCacheForCurrentViewAsync(endZoomWhenComplete: true);
             UpdateCanvasCursor();
             UpdateStatusBar();
             RequestRender();
@@ -597,6 +613,15 @@ namespace Land_Readjustment_Tool.UI.CustomControls
             _zoomingStatusTimer.Tick -= ZoomingStatusTimer_Tick;
             _zoomingStatusTimer.Dispose();
             _zoomingStatusTimerDisposed = true;
+        }
+
+        private void CancelPendingRasterRender()
+        {
+            CancellationTokenSource? previousCancellation = _rasterRenderCancellation;
+            _rasterRenderCancellation = null;
+            previousCancellation?.Cancel();
+            previousCancellation?.Dispose();
+            _rasterCacheRefreshPending = false;
         }
 
         private void CancelActiveCanvasGesture()
@@ -617,12 +642,111 @@ namespace Land_Readjustment_Tool.UI.CustomControls
             }
         }
 
-        private void RefreshRasterCacheForCurrentView()
+        private void RefreshRasterCacheForCurrentViewImmediately()
         {
-            _rasterDeferredRenderer.RenderNow(
-                canvasSurface.Size,
-                _rasterRenderLayers,
-                _engine);
+            if (IsDisposed || Disposing)
+            {
+                return;
+            }
+
+            CancelPendingRasterRender();
+            _rasterRenderGeneration++;
+
+            try
+            {
+                _rasterDeferredRenderer.RenderNow(
+                    canvasSurface.Size,
+                    _rasterRenderLayers,
+                    _engine);
+            }
+            catch (OperationCanceledException)
+            {
+                // A stale background raster render was canceled before the immediate pan refresh.
+            }
+            catch (ObjectDisposedException)
+            {
+                // The canvas or a raster dataset was disposed while a stale render was ending.
+            }
+            catch (Exception ex)
+            {
+                System.Diagnostics.Debug.WriteLine(
+                    $"Immediate raster cache refresh failed: {ex.Message}");
+            }
+            finally
+            {
+                _rasterCacheRefreshPending = false;
+            }
+        }
+
+        private async void RefreshRasterCacheForCurrentViewAsync(bool endZoomWhenComplete = false)
+        {
+            if (IsDisposed || Disposing)
+            {
+                return;
+            }
+
+            CancelPendingRasterRender();
+
+            CancellationTokenSource cancellation = new();
+            CancellationToken token = cancellation.Token;
+            _rasterRenderCancellation = cancellation;
+            int generation = ++_rasterRenderGeneration;
+            _rasterCacheRefreshPending = true;
+
+            try
+            {
+                await _rasterDeferredRenderer.RenderAsync(
+                    canvasSurface.Size,
+                    _rasterRenderLayers,
+                    _engine,
+                    token);
+
+                if (token.IsCancellationRequested ||
+                    generation != _rasterRenderGeneration ||
+                    IsDisposed ||
+                    Disposing)
+                {
+                    return;
+                }
+
+                if (endZoomWhenComplete)
+                {
+                    _rasterDeferredRenderer.EndZoom();
+                }
+
+                if (IsHandleCreated)
+                {
+                    BeginInvoke((MethodInvoker)RequestRender);
+                }
+            }
+            catch (OperationCanceledException)
+            {
+                // Expected during fast pan/zoom sequences.
+            }
+            catch (ObjectDisposedException)
+            {
+                // The canvas or a raster dataset was disposed while a stale render was ending.
+            }
+            catch (Exception ex)
+            {
+                System.Diagnostics.Debug.WriteLine(
+                    $"Raster cache refresh failed: {ex.Message}");
+            }
+            finally
+            {
+                if (ReferenceEquals(_rasterRenderCancellation, cancellation))
+                {
+                    if (endZoomWhenComplete)
+                    {
+                        _rasterDeferredRenderer.EndZoom();
+                    }
+
+                    _rasterRenderCancellation = null;
+                    _rasterCacheRefreshPending = false;
+                }
+
+                cancellation.Dispose();
+            }
         }
 
         private void UpdateRasterWorldBounds()
@@ -648,11 +772,13 @@ namespace Land_Readjustment_Tool.UI.CustomControls
 
         private void DisposeRasterRenderLayers()
         {
-            foreach (RasterRenderLayer rasterLayer in _rasterRenderLayers)
+            CancelPendingRasterRender();
+
+            foreach (IRasterRenderLayer rasterLayer in _rasterRenderLayers)
                 rasterLayer.Dispose();
 
             _rasterRenderLayers.Clear();
-            _renderer.UpdateRasterLayers(Array.Empty<RasterRenderLayer>());
+            _renderer.UpdateRasterLayers(Array.Empty<IRasterRenderLayer>());
             _rasterDeferredRenderer.Invalidate();
         }
     }

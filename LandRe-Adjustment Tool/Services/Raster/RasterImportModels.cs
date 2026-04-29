@@ -89,7 +89,8 @@ namespace Land_Readjustment_Tool.Services.Raster
         ProjectedToProjectCrs,
         SourceCrsDefinedProjectedToProjectCrs,
         UnknownCrsCopiedWithoutProjection,
-        UnreferencedCopiedToLocalCoordinates
+        UnreferencedCopiedToLocalCoordinates,
+        MbTilesDirectTileSource
     }
 
     /// <summary>

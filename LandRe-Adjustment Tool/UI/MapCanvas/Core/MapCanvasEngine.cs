@@ -22,6 +22,18 @@ namespace Land_Readjustment_Tool.UI.MapCanvas.Core
         private double _zoomScale = 1.0;
         private PointD _viewOriginWorld = new(0.0, 0.0);
 
+        private MapCanvasEngine(
+            Size canvasSize,
+            double zoomScale,
+            PointD viewOriginWorld,
+            RectangleD worldBounds)
+        {
+            _canvasSize = ClampSize(canvasSize);
+            _zoomScale = zoomScale;
+            _viewOriginWorld = viewOriginWorld;
+            WorldBounds = worldBounds;
+        }
+
         public MapCanvasEngine(Size canvasSize)
         {
             _canvasSize = ClampSize(canvasSize);
@@ -47,6 +59,15 @@ namespace Land_Readjustment_Tool.UI.MapCanvas.Core
         public PointD ViewOriginWorld => _viewOriginWorld;
 
         public RectangleD WorldBounds { get; private set; } = DefaultWorldBounds;
+
+        public MapCanvasEngine CreateSnapshot()
+        {
+            return new MapCanvasEngine(
+                _canvasSize,
+                _zoomScale,
+                _viewOriginWorld,
+                WorldBounds);
+        }
 
         public void UpdateCanvasSize(Size canvasSize)
         {

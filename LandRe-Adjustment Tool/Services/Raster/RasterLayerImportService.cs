@@ -245,6 +245,8 @@ namespace Land_Readjustment_Tool.Services.Raster
                     $"Imported '{layerName}', but the raster CRS is unknown.",
                 RasterDatasetImportMode.UnreferencedCopiedToLocalCoordinates =>
                     $"Imported '{layerName}' for temporary display only.",
+                RasterDatasetImportMode.MbTilesDirectTileSource =>
+                    $"Imported '{layerName}' as a direct MBTiles tile layer.",
                 _ => $"Imported '{layerName}'."
             };
         }
@@ -385,6 +387,8 @@ namespace Land_Readjustment_Tool.Services.Raster
                     "Raster has map coordinates but no CRS; copied without projection because the source CRS is unknown.",
                 RasterDatasetImportMode.UnreferencedCopiedToLocalCoordinates =>
                     "Raster has no map coordinates; copied without projection for temporary display only.",
+                RasterDatasetImportMode.MbTilesDirectTileSource =>
+                    "MBTiles tile package was preserved and will be rendered directly from its tile pyramid.",
                 _ => "Unknown"
             };
         }
@@ -404,6 +408,8 @@ namespace Land_Readjustment_Tool.Services.Raster
                     "Original stored raster coordinates; alignment depends on the user later defining the correct CRS.",
                 RasterDatasetImportMode.UnreferencedCopiedToLocalCoordinates =>
                     "Local image coordinates from pixel size only; not georeferenced and not spatially aligned.",
+                RasterDatasetImportMode.MbTilesDirectTileSource =>
+                    "Direct MBTiles tile rendering with tile footprints transformed to the project CRS.",
                 _ => "Unknown"
             };
         }

@@ -1,14 +1,19 @@
 using System.Drawing.Drawing2D;
 using System.Drawing.Imaging;
 using System.Runtime.InteropServices;
+using System.Security.Cryptography;
+using System.Text;
+using System.Threading;
 using Land_Readjustment_Tool.Core.Entities.Canvas;
 using Land_Readjustment_Tool.UI.MapCanvas.Core;
 using Land_Readjustment_Tool.UI.MapCanvas.Models.Shapes;
+using NetTopologySuite.Index.Strtree;
+using NetTopologySuite.Geometries;
 using OSGeo.GDAL;
 
 namespace Land_Readjustment_Tool.UI.MapCanvas.Rendering
 {
-    public sealed class RasterRenderLayer : IDisposable
+    public sealed class RasterRenderLayer : IRasterRenderLayer
     {
         private const int MaxCachePixels = 12_000_000;
         private const int MaxInteractiveCachePixels = 1_500_000;
@@ -20,9 +25,14 @@ namespace Land_Readjustment_Tool.UI.MapCanvas.Rendering
         private readonly double[] _geoTransform;
         private readonly double[] _inverseGeoTransform;
         private readonly RasterBandSelection _bandSelection;
+        private readonly RasterTileDiskCache _tileDiskCache;
         private readonly Dictionary<RasterTileCacheKey, Bitmap> _tileCache = [];
         private readonly LinkedList<RasterTileCacheKey> _tileLru = [];
         private readonly Dictionary<RasterTileCacheKey, LinkedListNode<RasterTileCacheKey>> _tileLruNodes = [];
+        private readonly Dictionary<int, RasterTileIndex> _tileIndexes = [];
+        private readonly Dictionary<int, RasterOverviewInfo> _overviewInfos = [];
+        private readonly object _renderSync = new();
+        private ImageAttributes? _opacityImageAttributes;
 
         private RasterRenderLayer(
             int layerId,
@@ -46,6 +56,11 @@ namespace Land_Readjustment_Tool.UI.MapCanvas.Rendering
             Transparency = Math.Clamp(transparency, 0, 100);
             IsVisible = true;
             _bandSelection = ResolveBandSelection(dataset);
+            _tileDiskCache = RasterTileDiskCache.Create(
+                filePath,
+                SourceWidth,
+                SourceHeight);
+            UpdateOpacityAttributes();
         }
 
         public int LayerId { get; }
@@ -55,7 +70,7 @@ namespace Land_Readjustment_Tool.UI.MapCanvas.Rendering
         public int SourceHeight { get; }
         public RectangleD WorldBounds { get; }
         public int Transparency { get; private set; }
-        public bool IsVisible { get; set; }
+        public bool IsVisible { get; private set; }
 
         public static RasterRenderLayer FromCanvasLayer(
             CanvasLayer layer,
@@ -121,44 +136,55 @@ namespace Land_Readjustment_Tool.UI.MapCanvas.Rendering
             Graphics graphics,
             MapCanvasEngine engine,
             RectangleD visibleWorldBounds,
-            bool interactive)
+            bool interactive,
+            CancellationToken cancellationToken = default)
         {
-            if (!IsVisible)
-                return false;
-
-            if (!TryGetIntersection(WorldBounds, visibleWorldBounds, out RectangleD visibleRasterWorldBounds))
-                return false;
-
-            if (!TryCreateReadWindow(visibleRasterWorldBounds, interactive, out RasterReadWindow readWindow))
-                return false;
-
-            RectangleD readWindowWorldBounds = GetWorldBounds(readWindow);
-            RectangleF destination = WorldBoundsToScreenRectangle(
-                engine,
-                readWindowWorldBounds);
-
-            if (destination.Width < 1.0f || destination.Height < 1.0f)
-                return false;
-
-            Size targetSize = GetTargetBitmapSize(destination, interactive);
-            RasterReadContext readContext = CreateReadContext(readWindow, targetSize);
-
-            GraphicsState state = graphics.Save();
-            try
+            lock (_renderSync)
             {
-                graphics.InterpolationMode = interactive
-                    ? InterpolationMode.NearestNeighbor
-                    : InterpolationMode.HighQualityBilinear;
-                graphics.PixelOffsetMode = interactive
-                    ? PixelOffsetMode.HighSpeed
-                    : PixelOffsetMode.Half;
-                graphics.CompositingMode = CompositingMode.SourceOver;
+                cancellationToken.ThrowIfCancellationRequested();
 
-                return DrawVisibleTiles(graphics, engine, readContext);
-            }
-            finally
-            {
-                graphics.Restore(state);
+                if (!IsVisible)
+                    return false;
+
+                if (!TryGetIntersection(WorldBounds, visibleWorldBounds, out RectangleD visibleRasterWorldBounds))
+                    return false;
+
+                if (!TryCreateReadWindow(visibleRasterWorldBounds, interactive, out RasterReadWindow readWindow))
+                    return false;
+
+                RectangleD readWindowWorldBounds = GetWorldBounds(readWindow);
+                RectangleF destination = WorldBoundsToScreenRectangle(
+                    engine,
+                    readWindowWorldBounds);
+
+                if (destination.Width < 1.0f || destination.Height < 1.0f)
+                    return false;
+
+                Size targetSize = GetTargetBitmapSize(destination, interactive);
+                RasterReadContext readContext = CreateReadContext(readWindow, targetSize);
+
+                GraphicsState state = graphics.Save();
+                try
+                {
+                    graphics.SmoothingMode = SmoothingMode.None;
+                    graphics.InterpolationMode = ResolveInterpolationMode(
+                        interactive,
+                        readContext);
+                    graphics.PixelOffsetMode = PixelOffsetMode.HighSpeed;
+                    graphics.CompositingQuality = CompositingQuality.HighSpeed;
+                    graphics.CompositingMode = CompositingMode.SourceOver;
+
+                    return DrawVisibleTiles(
+                        graphics,
+                        engine,
+                        readContext,
+                        visibleRasterWorldBounds,
+                        cancellationToken);
+                }
+                finally
+                {
+                    graphics.Restore(state);
+                }
             }
         }
 
@@ -167,75 +193,157 @@ namespace Land_Readjustment_Tool.UI.MapCanvas.Rendering
         /// </summary>
         public void UpdateRenderState(bool isVisible, int transparency)
         {
-            IsVisible = isVisible;
-            Transparency = Math.Clamp(transparency, 0, 100);
+            lock (_renderSync)
+            {
+                IsVisible = isVisible;
+                Transparency = Math.Clamp(transparency, 0, 100);
+                UpdateOpacityAttributes();
+            }
         }
 
         public void InvalidateCache()
         {
-            ClearTileCache();
+            lock (_renderSync)
+            {
+                ClearTileCache();
+            }
         }
 
         public void Dispose()
         {
-            InvalidateCache();
-            _dataset.Dispose();
+            lock (_renderSync)
+            {
+                ClearTileCache();
+                _opacityImageAttributes?.Dispose();
+                _opacityImageAttributes = null;
+                _dataset.Dispose();
+            }
         }
 
         private bool DrawVisibleTiles(
             Graphics graphics,
             MapCanvasEngine engine,
-            RasterReadContext context)
+            RasterReadContext context,
+            RectangleD visibleWorldBounds,
+            CancellationToken cancellationToken)
         {
             bool drawnAny = false;
-            RasterReadWindow overviewWindow = context.OverviewWindow;
+            Envelope envelope = CreateEnvelope(visibleWorldBounds);
+            RasterTileIndex tileIndex = GetOrCreateTileIndex(context);
 
-            int startTileX = SnapDown(overviewWindow.X, RasterTileSize);
-            int startTileY = SnapDown(overviewWindow.Y, RasterTileSize);
-            int endX = overviewWindow.X + overviewWindow.Width;
-            int endY = overviewWindow.Y + overviewWindow.Height;
-
-            for (int tileY = startTileY; tileY < endY; tileY += RasterTileSize)
+            foreach (RasterTileDescriptor tile in QueryVisibleTilesByPriority(
+                tileIndex,
+                envelope,
+                visibleWorldBounds))
             {
-                for (int tileX = startTileX; tileX < endX; tileX += RasterTileSize)
+                cancellationToken.ThrowIfCancellationRequested();
+
+                if (!Intersects(context.OverviewWindow, tile.TileWindow))
                 {
-                    int width = Math.Min(RasterTileSize, endX - tileX);
-                    int height = Math.Min(RasterTileSize, endY - tileY);
-
-                    RasterReadWindow tileWindow = new(tileX, tileY, width, height);
-                    Bitmap tileBitmap = GetOrCreateTileBitmap(context, tileWindow);
-
-                    int baseX = (int)Math.Floor(tileWindow.X * context.Decimation);
-                    int baseY = (int)Math.Floor(tileWindow.Y * context.Decimation);
-                    int baseRight = (int)Math.Ceiling((tileWindow.X + tileWindow.Width) * context.Decimation);
-                    int baseBottom = (int)Math.Ceiling((tileWindow.Y + tileWindow.Height) * context.Decimation);
-
-                    baseX = Math.Clamp(baseX, 0, SourceWidth - 1);
-                    baseY = Math.Clamp(baseY, 0, SourceHeight - 1);
-                    baseRight = Math.Clamp(baseRight, baseX + 1, SourceWidth);
-                    baseBottom = Math.Clamp(baseBottom, baseY + 1, SourceHeight);
-
-                    RasterReadWindow baseTileWindow = new(
-                        baseX,
-                        baseY,
-                        Math.Max(1, baseRight - baseX),
-                        Math.Max(1, baseBottom - baseY));
-
-                    RectangleD worldBounds = GetWorldBounds(baseTileWindow);
-                    RectangleF destination = WorldBoundsToScreenRectangle(engine, worldBounds);
-
-                    if (destination.Width < 0.5f || destination.Height < 0.5f)
-                    {
-                        continue;
-                    }
-
-                    RectangleF alignedDestination = AlignDestinationToPixelGrid(destination);
-                    DrawBitmap(graphics, tileBitmap, alignedDestination);
-                    drawnAny = true;
+                    continue;
                 }
+
+                Bitmap tileBitmap = GetOrCreateTileBitmap(context, tile.TileWindow);
+                RectangleF destination = WorldBoundsToScreenRectangle(engine, tile.WorldBounds);
+
+                if (destination.Width < 0.5f || destination.Height < 0.5f)
+                {
+                    continue;
+                }
+
+                RectangleF alignedDestination = AlignDestinationToPixelGrid(destination);
+                DrawBitmap(graphics, tileBitmap, alignedDestination);
+                drawnAny = true;
             }
 
             return drawnAny;
+        }
+
+        private static IEnumerable<RasterTileDescriptor> QueryVisibleTilesByPriority(
+            RasterTileIndex tileIndex,
+            Envelope visibleEnvelope,
+            RectangleD visibleWorldBounds)
+        {
+            double centerX = visibleWorldBounds.X + visibleWorldBounds.Width / 2d;
+            double centerY = visibleWorldBounds.Y + visibleWorldBounds.Height / 2d;
+
+            return tileIndex.SpatialIndex
+                .Query(visibleEnvelope)
+                .OrderBy(tile =>
+                {
+                    double tileCenterX = tile.WorldBounds.X + tile.WorldBounds.Width / 2d;
+                    double tileCenterY = tile.WorldBounds.Y + tile.WorldBounds.Height / 2d;
+                    double dx = tileCenterX - centerX;
+                    double dy = tileCenterY - centerY;
+                    return dx * dx + dy * dy;
+                });
+        }
+
+        private RasterTileIndex GetOrCreateTileIndex(RasterReadContext context)
+        {
+            if (_tileIndexes.TryGetValue(context.OverviewIndex, out RasterTileIndex? cachedIndex))
+            {
+                return cachedIndex;
+            }
+
+            RasterOverviewInfo overviewInfo = GetOverviewInfo(context.OverviewIndex);
+            STRtree<RasterTileDescriptor> spatialIndex = new();
+
+            for (int tileY = 0; tileY < overviewInfo.Height; tileY += RasterTileSize)
+            {
+                for (int tileX = 0; tileX < overviewInfo.Width; tileX += RasterTileSize)
+                {
+                    int width = Math.Min(RasterTileSize, overviewInfo.Width - tileX);
+                    int height = Math.Min(RasterTileSize, overviewInfo.Height - tileY);
+                    RasterReadWindow tileWindow = new(tileX, tileY, width, height);
+                    RasterReadWindow baseTileWindow = ToBaseReadWindow(tileWindow, overviewInfo.Decimation);
+                    RectangleD worldBounds = GetWorldBounds(baseTileWindow);
+                    RasterTileDescriptor descriptor = new(
+                        new RasterTileCacheKey(
+                            context.OverviewIndex,
+                            tileWindow.X,
+                            tileWindow.Y,
+                            tileWindow.Width,
+                            tileWindow.Height),
+                        tileWindow,
+                        baseTileWindow,
+                        worldBounds);
+
+                    spatialIndex.Insert(CreateEnvelope(worldBounds), descriptor);
+                }
+            }
+
+            spatialIndex.Build();
+            RasterTileIndex tileIndex = new(spatialIndex);
+            _tileIndexes[context.OverviewIndex] = tileIndex;
+            return tileIndex;
+        }
+
+        private RasterOverviewInfo GetOverviewInfo(int overviewIndex)
+        {
+            if (_overviewInfos.TryGetValue(overviewIndex, out RasterOverviewInfo cachedInfo))
+            {
+                return cachedInfo;
+            }
+
+            using Band referenceBand = _dataset.GetRasterBand(_bandSelection.ReferenceBand);
+            int width = referenceBand.XSize;
+            int height = referenceBand.YSize;
+            double decimation = 1.0;
+
+            if (overviewIndex >= 0)
+            {
+                using Band overviewBand = referenceBand.GetOverview(overviewIndex);
+                width = overviewBand.XSize;
+                height = overviewBand.YSize;
+                decimation = Math.Max(
+                    referenceBand.XSize / (double)Math.Max(1, width),
+                    referenceBand.YSize / (double)Math.Max(1, height));
+            }
+
+            RasterOverviewInfo info = new(width, height, decimation);
+            _overviewInfos[overviewIndex] = info;
+            return info;
         }
 
         private RasterReadContext CreateReadContext(
@@ -341,10 +449,20 @@ namespace Land_Readjustment_Tool.UI.MapCanvas.Rendering
                 return cachedBitmap;
             }
 
+            if (_tileDiskCache.TryRead(cacheKey, out Bitmap? diskBitmap))
+            {
+                _tileCache[cacheKey] = diskBitmap;
+                LinkedListNode<RasterTileCacheKey> diskNode = _tileLru.AddLast(cacheKey);
+                _tileLruNodes[cacheKey] = diskNode;
+                TrimTileCache();
+                return diskBitmap;
+            }
+
             Bitmap bitmap = CreateTileBitmap(context.OverviewIndex, tileWindow);
             _tileCache[cacheKey] = bitmap;
             LinkedListNode<RasterTileCacheKey> node = _tileLru.AddLast(cacheKey);
             _tileLruNodes[cacheKey] = node;
+            _tileDiskCache.TryWrite(cacheKey, bitmap);
             TrimTileCache();
             return bitmap;
         }
@@ -590,20 +708,18 @@ namespace Land_Readjustment_Tool.UI.MapCanvas.Rendering
             _tileLruNodes.Clear();
         }
 
-        private void DrawBitmap(
-            Graphics graphics,
-            Bitmap bitmap,
-            RectangleF destination)
+        private void UpdateOpacityAttributes()
         {
-            double opacityFactor = (100 - Math.Clamp(Transparency, 0, 100)) / 100d;
+            _opacityImageAttributes?.Dispose();
+            _opacityImageAttributes = null;
 
+            double opacityFactor = (100 - Transparency) / 100d;
             if (opacityFactor >= 1d)
             {
-                graphics.DrawImage(bitmap, destination);
                 return;
             }
 
-            using ImageAttributes imageAttributes = new();
+            ImageAttributes imageAttributes = new();
             ColorMatrix opacityMatrix = new(
                 [
                     [1f, 0f, 0f, 0f, 0f],
@@ -617,6 +733,20 @@ namespace Land_Readjustment_Tool.UI.MapCanvas.Rendering
                 ColorMatrixFlag.Default,
                 ColorAdjustType.Bitmap);
 
+            _opacityImageAttributes = imageAttributes;
+        }
+
+        private void DrawBitmap(
+            Graphics graphics,
+            Bitmap bitmap,
+            RectangleF destination)
+        {
+            if (_opacityImageAttributes == null)
+            {
+                graphics.DrawImage(bitmap, destination);
+                return;
+            }
+
             Rectangle destinationRectangle = Rectangle.Round(destination);
             graphics.DrawImage(
                 bitmap,
@@ -626,7 +756,7 @@ namespace Land_Readjustment_Tool.UI.MapCanvas.Rendering
                 bitmap.Width,
                 bitmap.Height,
                 GraphicsUnit.Pixel,
-                imageAttributes);
+                _opacityImageAttributes);
         }
 
         private bool TryCreateReadWindow(
@@ -706,6 +836,27 @@ namespace Land_Readjustment_Tool.UI.MapCanvas.Rendering
             return new RectangleD(minX, minY, maxX - minX, maxY - minY);
         }
 
+        private RasterReadWindow ToBaseReadWindow(
+            RasterReadWindow overviewWindow,
+            double decimation)
+        {
+            int baseX = (int)Math.Floor(overviewWindow.X * decimation);
+            int baseY = (int)Math.Floor(overviewWindow.Y * decimation);
+            int baseRight = (int)Math.Ceiling((overviewWindow.X + overviewWindow.Width) * decimation);
+            int baseBottom = (int)Math.Ceiling((overviewWindow.Y + overviewWindow.Height) * decimation);
+
+            baseX = Math.Clamp(baseX, 0, SourceWidth - 1);
+            baseY = Math.Clamp(baseY, 0, SourceHeight - 1);
+            baseRight = Math.Clamp(baseRight, baseX + 1, SourceWidth);
+            baseBottom = Math.Clamp(baseBottom, baseY + 1, SourceHeight);
+
+            return new RasterReadWindow(
+                baseX,
+                baseY,
+                Math.Max(1, baseRight - baseX),
+                Math.Max(1, baseBottom - baseY));
+        }
+
         private PointD WorldToPixel(PointD worldPoint)
         {
             double deltaX = worldPoint.X - _geoTransform[0];
@@ -728,11 +879,11 @@ namespace Land_Readjustment_Tool.UI.MapCanvas.Rendering
             int width,
             int height)
         {
-            Bitmap bitmap = new(width, height, PixelFormat.Format32bppArgb);
+            Bitmap bitmap = new(width, height, PixelFormat.Format32bppPArgb);
             BitmapData data = bitmap.LockBits(
                 new Rectangle(0, 0, width, height),
                 ImageLockMode.WriteOnly,
-                PixelFormat.Format32bppArgb);
+                PixelFormat.Format32bppPArgb);
 
             try
             {
@@ -749,10 +900,11 @@ namespace Land_Readjustment_Tool.UI.MapCanvas.Rendering
                         int sourceIndex = sourceOffset + x;
                         int pixelIndex = rowOffset + x * 4;
 
-                        pixels[pixelIndex] = blue[sourceIndex];
-                        pixels[pixelIndex + 1] = green[sourceIndex];
-                        pixels[pixelIndex + 2] = red[sourceIndex];
-                        pixels[pixelIndex + 3] = alpha[sourceIndex];
+                        byte alphaValue = alpha[sourceIndex];
+                        pixels[pixelIndex] = Premultiply(blue[sourceIndex], alphaValue);
+                        pixels[pixelIndex + 1] = Premultiply(green[sourceIndex], alphaValue);
+                        pixels[pixelIndex + 2] = Premultiply(red[sourceIndex], alphaValue);
+                        pixels[pixelIndex + 3] = alphaValue;
                     }
                 }
 
@@ -876,6 +1028,32 @@ namespace Land_Readjustment_Tool.UI.MapCanvas.Rendering
             return RectangleF.FromLTRB(left - 0.5f, top - 0.5f, right + 0.5f, bottom + 0.5f);
         }
 
+        private static bool Intersects(
+            RasterReadWindow first,
+            RasterReadWindow second)
+        {
+            return first.X < second.X + second.Width &&
+                   first.X + first.Width > second.X &&
+                   first.Y < second.Y + second.Height &&
+                   first.Y + first.Height > second.Y;
+        }
+
+        private static Envelope CreateEnvelope(RectangleD bounds)
+        {
+            return new Envelope(
+                MinX(bounds),
+                MaxX(bounds),
+                MinY(bounds),
+                MaxY(bounds));
+        }
+
+        private static InterpolationMode ResolveInterpolationMode(
+            bool interactive,
+            RasterReadContext context)
+        {
+            return InterpolationMode.NearestNeighbor;
+        }
+
         private static Size GetTargetBitmapSize(RectangleF destination, bool interactive)
         {
             int width = Math.Max(1, (int)Math.Ceiling(destination.Width));
@@ -917,10 +1095,151 @@ namespace Land_Readjustment_Tool.UI.MapCanvas.Rendering
             return (byte)Math.Max(byte.MinValue, Math.Min(byte.MaxValue, value));
         }
 
+        private static byte Premultiply(byte color, byte alpha)
+        {
+            return alpha == byte.MaxValue
+                ? color
+                : (byte)((color * alpha + 127) / 255);
+        }
+
+        private sealed class RasterTileDiskCache
+        {
+            private const string CacheRootFolderName = "RePlotRasterTileCache";
+            private readonly string _cacheFolder;
+
+            private RasterTileDiskCache(string cacheFolder)
+            {
+                _cacheFolder = cacheFolder;
+                Directory.CreateDirectory(_cacheFolder);
+            }
+
+            public static RasterTileDiskCache Create(
+                string filePath,
+                int sourceWidth,
+                int sourceHeight)
+            {
+                string fullPath = Path.GetFullPath(filePath);
+                DateTime lastWrite = File.Exists(fullPath)
+                    ? File.GetLastWriteTimeUtc(fullPath)
+                    : DateTime.MinValue;
+                string signature = string.Join(
+                    "|",
+                    fullPath,
+                    lastWrite.Ticks,
+                    sourceWidth,
+                    sourceHeight);
+                string hash = Convert.ToHexString(
+                    SHA256.HashData(Encoding.UTF8.GetBytes(signature)));
+                string cacheFolder = Path.Combine(
+                    Path.GetTempPath(),
+                    CacheRootFolderName,
+                    hash);
+                return new RasterTileDiskCache(cacheFolder);
+            }
+
+            public bool TryRead(
+                RasterTileCacheKey key,
+                out Bitmap bitmap)
+            {
+                string path = GetTilePath(key);
+                if (!File.Exists(path))
+                {
+                    bitmap = null!;
+                    return false;
+                }
+
+                try
+                {
+                    using Image image = Image.FromFile(path);
+                    Bitmap converted = new(
+                        image.Width,
+                        image.Height,
+                        PixelFormat.Format32bppPArgb);
+                    using Graphics graphics = Graphics.FromImage(converted);
+                    graphics.CompositingMode = CompositingMode.SourceCopy;
+                    graphics.DrawImageUnscaled(image, 0, 0);
+                    bitmap = converted;
+                    return true;
+                }
+                catch
+                {
+                    TryDelete(path);
+                    bitmap = null!;
+                    return false;
+                }
+            }
+
+            public void TryWrite(
+                RasterTileCacheKey key,
+                Bitmap bitmap)
+            {
+                string path = GetTilePath(key);
+                string tempPath = $"{path}.{Guid.NewGuid():N}.tmp";
+
+                try
+                {
+                    Directory.CreateDirectory(_cacheFolder);
+                    bitmap.Save(tempPath, ImageFormat.Png);
+
+                    if (File.Exists(path))
+                    {
+                        File.Delete(path);
+                    }
+
+                    File.Move(tempPath, path);
+                }
+                catch
+                {
+                    TryDelete(tempPath);
+                }
+            }
+
+            private string GetTilePath(RasterTileCacheKey key)
+            {
+                string fileName = string.Join(
+                    "_",
+                    key.OverviewIndex,
+                    key.SourceX,
+                    key.SourceY,
+                    key.SourceWidth,
+                    key.SourceHeight) + ".png";
+                return Path.Combine(_cacheFolder, fileName);
+            }
+
+            private static void TryDelete(string path)
+            {
+                try
+                {
+                    if (File.Exists(path))
+                    {
+                        File.Delete(path);
+                    }
+                }
+                catch
+                {
+                    // Cache cleanup is best-effort only.
+                }
+            }
+        }
+
         private readonly record struct RasterReadContext(
             int OverviewIndex,
             double Decimation,
             RasterReadWindow OverviewWindow);
+
+        private sealed record RasterTileIndex(
+            STRtree<RasterTileDescriptor> SpatialIndex);
+
+        private readonly record struct RasterTileDescriptor(
+            RasterTileCacheKey CacheKey,
+            RasterReadWindow TileWindow,
+            RasterReadWindow BaseWindow,
+            RectangleD WorldBounds);
+
+        private readonly record struct RasterOverviewInfo(
+            int Width,
+            int Height,
+            double Decimation);
 
         private readonly record struct RasterTileCacheKey(
             int OverviewIndex,

@@ -4,12 +4,14 @@ using ProjNet;
 using System.Drawing;
 using System.Globalization;
 using System.Text;
+using Microsoft.Data.Sqlite;
 
 namespace Land_Readjustment_Tool.UI.MapCanvas.Services
 {
     internal sealed class RasterImportService
     {
         private const string RasterFolderName = "RasterLayers";
+        private static readonly int[] RasterOverviewLevels = [2, 4, 8, 16, 32, 64, 128, 256];
 
         public RasterImportResult ImportToProjectCrs(
             string sourcePath,
@@ -57,6 +59,7 @@ namespace Land_Readjustment_Tool.UI.MapCanvas.Services
 
             RasterImportMetadata sourceMetadata =
                 ReadMetadata(sourcePath, sourceDataset);
+            bool sourceIsMbTiles = IsMbTilesSource(sourcePath, sourceMetadata);
 
             string sourceProjection = !string.IsNullOrWhiteSpace(sourceSrsDefinitionOverride)
                 ? sourceSrsDefinitionOverride
@@ -65,6 +68,37 @@ namespace Land_Readjustment_Tool.UI.MapCanvas.Services
 
             string rasterFolder = Path.Combine(projectFolderPath, RasterFolderName);
             Directory.CreateDirectory(rasterFolder);
+
+            if (sourceIsMbTiles &&
+                sourceExtent == null &&
+                string.IsNullOrWhiteSpace(sourceSrsDefinitionOverride))
+            {
+                progress?.Report(new RasterImportProgress(45, "Copying MBTiles tile package"));
+
+                string mbTilesOutputName = $"{SanitizeFileName(layerName)}.mbtiles";
+                string mbTilesOutputPath = GetUniquePath(Path.Combine(rasterFolder, mbTilesOutputName));
+                File.Copy(sourcePath, mbTilesOutputPath);
+                OptimizeMbTilesForRendering(mbTilesOutputPath);
+                MbTilesLayerMetadataStore.Write(
+                    mbTilesOutputPath,
+                    MbTilesLayerMetadata.Create(
+                        "EPSG:3857",
+                        targetSrsDefinition,
+                        sourcePath));
+
+                progress?.Report(new RasterImportProgress(88, "Finalizing MBTiles layer"));
+
+                string mbTilesRelativePath = Path.Combine(
+                    RasterFolderName,
+                    Path.GetFileName(mbTilesOutputPath));
+                return new RasterImportResult(
+                    mbTilesOutputPath,
+                    mbTilesRelativePath,
+                    RasterImportMode.MbTilesDirectTileSource,
+                    sourceDataset.RasterXSize,
+                    sourceDataset.RasterYSize,
+                    sourceMetadata);
+            }
 
             string outputFileName = $"{SanitizeFileName(layerName)}.tif";
             string outputPath = GetUniquePath(Path.Combine(rasterFolder, outputFileName));
@@ -82,7 +116,8 @@ namespace Land_Readjustment_Tool.UI.MapCanvas.Services
                     outputPath,
                     sourceProjection,
                     targetSrsDefinition,
-                    sourceExtent);
+                    sourceExtent,
+                    preferNearestNeighbor: sourceIsMbTiles);
                 importMode = usesDefinedSourceProjection
                     ? RasterImportMode.SourceCrsDefinedProjectedToProjectCrs
                     : RasterImportMode.ProjectedToProjectCrs;
@@ -266,7 +301,8 @@ namespace Land_Readjustment_Tool.UI.MapCanvas.Services
             string outputPath,
             string sourceProjection,
             string targetSrsDefinition,
-            RasterImportSourceExtent? sourceExtent = null)
+            RasterImportSourceExtent? sourceExtent = null,
+            bool preferNearestNeighbor = false)
         {
             List<string> warpArgs =
             [
@@ -274,14 +310,20 @@ namespace Land_Readjustment_Tool.UI.MapCanvas.Services
                 "-of",
                 "GTiff",
                 "-r",
-                "bilinear",
+                "near",
                 "-multi",
                 "-wo",
                 "NUM_THREADS=ALL_CPUS",
                 "-co",
                 "TILED=YES",
                 "-co",
+                "BLOCKXSIZE=256",
+                "-co",
+                "BLOCKYSIZE=256",
+                "-co",
                 "COMPRESS=LZW",
+                "-co",
+                "NUM_THREADS=ALL_CPUS",
                 "-co",
                 "BIGTIFF=IF_SAFER",
                 "-s_srs",
@@ -314,6 +356,7 @@ namespace Land_Readjustment_Tool.UI.MapCanvas.Services
                 ?? throw new InvalidOperationException(
                     "GDAL could not transform the raster to the project CRS.");
 
+            BuildRasterOverviews(outputDataset, "NEAREST");
             outputDataset.FlushCache();
         }
 
@@ -383,7 +426,10 @@ namespace Land_Readjustment_Tool.UI.MapCanvas.Services
             string[] copyOptions =
             [
                 "TILED=YES",
+                "BLOCKXSIZE=256",
+                "BLOCKYSIZE=256",
                 "COMPRESS=LZW",
+                "NUM_THREADS=ALL_CPUS",
                 "BIGTIFF=IF_SAFER"
             ];
 
@@ -412,7 +458,38 @@ namespace Land_Readjustment_Tool.UI.MapCanvas.Services
                 outputDataset.SetGeoTransform(localImageTransform);
             }
 
+            BuildRasterOverviews(outputDataset, "NEAREST");
             outputDataset.FlushCache();
+        }
+
+        private static void BuildRasterOverviews(
+            Dataset dataset,
+            string resampling)
+        {
+            int maxDimension = Math.Max(dataset.RasterXSize, dataset.RasterYSize);
+            int[] overviewLevels = RasterOverviewLevels
+                .Where(level => maxDimension / level >= 128)
+                .ToArray();
+
+            if (overviewLevels.Length == 0)
+            {
+                return;
+            }
+
+            try
+            {
+                int result = dataset.BuildOverviews(resampling, overviewLevels);
+                if (result != 0)
+                {
+                    System.Diagnostics.Debug.WriteLine(
+                        $"GDAL overview build returned code {result}.");
+                }
+            }
+            catch (Exception ex)
+            {
+                System.Diagnostics.Debug.WriteLine(
+                    $"Raster overview build skipped: {ex.Message}");
+            }
         }
 
         private static RasterImportMetadata ReadMetadata(
@@ -491,6 +568,59 @@ namespace Land_Readjustment_Tool.UI.MapCanvas.Services
                        !double.IsNaN(value) && !double.IsInfinity(value));
         }
 
+        private static bool IsMbTilesSource(
+            string sourcePath,
+            RasterImportMetadata metadata)
+        {
+            return string.Equals(
+                       Path.GetExtension(sourcePath),
+                       ".mbtiles",
+                       StringComparison.OrdinalIgnoreCase) ||
+                   string.Equals(
+                       metadata.DriverShortName,
+                       "MBTiles",
+                       StringComparison.OrdinalIgnoreCase);
+        }
+
+        private static void OptimizeMbTilesForRendering(string mbTilesPath)
+        {
+            try
+            {
+                SqliteConnectionStringBuilder builder = new()
+                {
+                    DataSource = mbTilesPath,
+                    Mode = SqliteOpenMode.ReadWrite,
+                    Cache = SqliteCacheMode.Shared,
+                    Pooling = false
+                };
+
+                using SqliteConnection connection = new(builder.ToString());
+                connection.Open();
+
+                ExecuteSql(connection, "PRAGMA temp_store=MEMORY");
+                ExecuteSql(connection, "PRAGMA cache_size=-65536");
+                ExecuteSql(
+                    connection,
+                    "CREATE INDEX IF NOT EXISTS idx_replot_tiles_zxy ON tiles(zoom_level, tile_column, tile_row)");
+                ExecuteSql(connection, "ANALYZE");
+                ExecuteSql(connection, "PRAGMA optimize");
+            }
+            catch (Exception ex)
+            {
+                System.Diagnostics.Debug.WriteLine(
+                    $"MBTiles optimization skipped for '{mbTilesPath}': {ex.Message}");
+            }
+        }
+
+        private static void ExecuteSql(
+            SqliteConnection connection,
+            string commandText)
+        {
+            using SqliteCommand command = connection.CreateCommand();
+            command.CommandText = commandText;
+            command.ExecuteNonQuery();
+        }
+
         private static string GetUniquePath(string desiredPath)
         {
             if (!File.Exists(desiredPath))
@@ -551,7 +681,8 @@ namespace Land_Readjustment_Tool.UI.MapCanvas.Services
         ProjectedToProjectCrs,
         SourceCrsDefinedProjectedToProjectCrs,
         UnknownCrsCopiedWithoutProjection,
-        UnreferencedCopiedToLocalCoordinates
+        UnreferencedCopiedToLocalCoordinates,
+        MbTilesDirectTileSource
     }
 
     internal sealed record RasterBandMetadata(
@@ -821,6 +952,8 @@ namespace Land_Readjustment_Tool.UI.MapCanvas.Services
                     "Raster has map coordinates but no CRS; copied without projection because the source CRS is unknown.",
                 RasterImportMode.UnreferencedCopiedToLocalCoordinates =>
                     "Raster has no map coordinates; copied without projection for temporary display only.",
+                RasterImportMode.MbTilesDirectTileSource =>
+                    "MBTiles tile package was preserved for direct tile rendering in the project CRS.",
                 _ => "Unknown"
             };
         }
@@ -837,6 +970,8 @@ namespace Land_Readjustment_Tool.UI.MapCanvas.Services
                     "Original stored raster coordinates; alignment depends on the user later defining the correct CRS.",
                 RasterImportMode.UnreferencedCopiedToLocalCoordinates =>
                     "Local image coordinates from pixel size only; not georeferenced and not spatially aligned.",
+                RasterImportMode.MbTilesDirectTileSource =>
+                    "Direct MBTiles tile rendering with tile footprints transformed to the project CRS.",
                 _ => "Unknown"
             };
         }
