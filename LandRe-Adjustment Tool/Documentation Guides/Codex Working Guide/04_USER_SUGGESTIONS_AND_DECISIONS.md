@@ -296,3 +296,12 @@ The user clarified that project CRS and datum settings must drive raster renderi
 - imported raster and vector layers should eventually pass through a dedicated projection service
 - layers without CRS or georeferencing should have a simple define-projection workflow after import
 - map canvas zooming should allow backing out far enough to view a whole-world extent when needed
+
+## Canvas Status Bar Direction
+
+The user clarified that the map canvas status bar should become a general project and canvas operation surface:
+
+- show canvas command status separately from mouse coordinates
+- include an active layer selector so the current working layer is always visible
+- use the progress bar for imports and other long-running project or canvas operations
+- show operation status text beside the progress bar so users know what stage is running

@@ -1,4 +1,4 @@
-﻿
+
 using Land_Readjustment_Tool.Core.Interfaces;
 using Land_Readjustment_Tool.Core.Entities.Canvas;
 using Land_Readjustment_Tool.Data;
@@ -51,6 +51,46 @@ namespace Land_Readjustment_Tool
             Spring = true,
             Text = string.Empty
         };
+        private readonly ToolStripStatusLabel _canvasCommandStatus = new()
+        {
+            Name = "lblCanvasCommandStatus",
+            AutoSize = false,
+            Width = 170,
+            Text = "Canvas: Ready",
+            TextAlign = ContentAlignment.MiddleLeft
+        };
+        private readonly ToolStripStatusLabel _activeLayerLabel = new()
+        {
+            Name = "lblActiveLayer",
+            Text = "Active Layer:",
+            Visible = false
+        };
+        private readonly ToolStripComboBox _activeLayerCombo = new()
+        {
+            Name = "cmbActiveLayer",
+            DropDownStyle = ComboBoxStyle.DropDownList,
+            AutoSize = false,
+            Width = 190,
+            Visible = false
+        };
+        private readonly ToolStripStatusLabel _operationProgressStatus = new()
+        {
+            Name = "lblOperationProgressStatus",
+            AutoSize = false,
+            Width = 210,
+            Text = string.Empty,
+            TextAlign = ContentAlignment.MiddleRight,
+            Visible = false
+        };
+        private readonly StatusProgressBar _operationProgressBar = new()
+        {
+            Minimum = 0,
+            Maximum = 100,
+            Value = 0,
+            Size = new Size(150, 16)
+        };
+        private readonly ToolStripControlHost _operationProgressHost;
+        private bool _suppressActiveLayerEvents;
         private const string LayerGroupNodeNamePrefix = "LayerGroup_";
         private const int LayerNodeCheckBoxSize = 14;
         private const int LayerNodeCheckBoxGap = 6;
@@ -72,6 +112,23 @@ namespace Land_Readjustment_Tool
         {
             public bool IsLayerNode { get; init; }
             public CanvasLayer? Layer { get; set; }
+        }
+
+        private sealed class ActiveLayerStatusItem
+        {
+            public ActiveLayerStatusItem(int layerId, string name)
+            {
+                LayerId = layerId;
+                Name = name;
+            }
+
+            public int LayerId { get; }
+            public string Name { get; }
+
+            public override string ToString()
+            {
+                return Name;
+            }
         }
 
         // Keeps designer/local fallback working without DI container.
@@ -129,6 +186,15 @@ namespace Land_Readjustment_Tool
             _projectSaveAsService = projectSaveAsService ?? throw new ArgumentNullException(nameof(projectSaveAsService));
 
             InitializeComponent();
+            _operationProgressHost = new ToolStripControlHost(_operationProgressBar)
+            {
+                Name = "hostOperationProgress",
+                AutoSize = false,
+                Size = new Size(154, 22),
+                Margin = new Padding(4, 2, 8, 2),
+                Visible = false
+            };
+            _activeLayerCombo.SelectedIndexChanged += ActiveLayerCombo_SelectedIndexChanged;
             _startupFilePath = startupFilePath;
             ConfigureSmoothSplitterLayout();
             mapCanvasControlMain.StatusChanged += MapCanvasControlMain_StatusChanged;
@@ -297,7 +363,7 @@ namespace Land_Readjustment_Tool
             return Cursors.Hand;
         }
 
-        // ── FORM CLOSING ─────────────────────────────
+        // -- FORM CLOSING -----------------------------
 
         // Handles form closing event
         private void frmMain_FormClosing(object? sender, FormClosingEventArgs e)
@@ -462,7 +528,7 @@ namespace Land_Readjustment_Tool
             toolStripComboBox1.Enabled = false;
         }
 
-        // ── NEW PROJECT ──────────────────────────────
+        // -- NEW PROJECT ------------------------------
 
         private async void tsmNewProject_Click(object sender, EventArgs e)
         {
@@ -500,9 +566,13 @@ namespace Land_Readjustment_Tool
 
             try
             {
+                SetOperationProgress(5, "Creating project workspace");
+
                 // Create folder structure
                 Directory.CreateDirectory(projectFolder);
                 ProjectFolderCreator.CreateFolders(projectFolder);
+
+                SetOperationProgress(25, "Opening project database");
 
                 // Create session and context
                 var session = _sessionFactory.CreateSession(projectFilePath);
@@ -513,6 +583,8 @@ namespace Land_Readjustment_Tool
 
                 // Subscribe to state changes
                 context.StateChanged += UpdateWindowTitle;
+
+                SetOperationProgress(45, "Saving project details");
 
                 // Create project in database
                 var info = await _projectService.CreateNewProjectAsync(projectFilePath, projectFileName);
@@ -527,12 +599,15 @@ namespace Land_Readjustment_Tool
                 // Open project details form
                 OpenProjectDetails();
                 PromptProjectSettings();
+                SetOperationProgress(65, "Preparing map canvas");
+
                 InitializeProjectWorkspace();
-                await ApplySettingsAsync();
-                await RefreshLayerTreeAsync();
+                await ApplySettingsAsync(showRefreshProgress: false);
+                await RefreshMapCanvasAsync("Opening project canvas", 75);
             }
             catch (Exception ex)
             {
+                HideOperationProgress();
                 AppServices.ClearContext();
                 MessageBox.Show(
                     $"Failed to create project: {ex.Message}",
@@ -581,7 +656,7 @@ namespace Land_Readjustment_Tool
                 "Would you like to configure " +
                 "project settings now?\n\n" +
                 "You can always change settings later " +
-                "from Project → Project Settings.",
+                "from Project > Project Settings.",
                 "Project Settings",
                 MessageBoxButtons.YesNo,
                 MessageBoxIcon.Question,
@@ -647,18 +722,26 @@ namespace Land_Readjustment_Tool
             }
         }
 
-        private async Task ApplySettingsAsync(bool updateRasterProjection = false)
+        private async Task ApplySettingsAsync(
+            bool updateRasterProjection = false,
+            bool showRefreshProgress = true)
         {
             if (!AppServices.HasContext) return;
 
             try
             {
+                if (showRefreshProgress)
+                    SetOperationProgress(8, "Loading project settings");
+
                 var repo = _projectScopedFactory.CreateProjectSettingsRepository(
                     AppServices.Context.Session);
                 var settings = await repo
                     .GetProjectSettingsAsync();
 
                 if (settings == null) return;
+
+                if (showRefreshProgress)
+                    SetOperationProgress(35, "Applying canvas settings");
 
                 var bgColor = ParseColorOrDefault(
                     settings.CanvasBackgroundColor, Color.White);
@@ -671,6 +754,9 @@ namespace Land_Readjustment_Tool
 
                 if (_workspaceCanvas != null && !_workspaceCanvas.IsDisposed)
                 {
+                    if (showRefreshProgress)
+                        SetOperationProgress(55, "Updating workspace canvas");
+
                     _workspaceCanvas.ApplyBackgroundColor(bgColor);
                     _workspaceCanvas.ApplyGridColor(gridColor);
                     _workspaceCanvas.ApplyGridVisible(
@@ -680,12 +766,31 @@ namespace Land_Readjustment_Tool
                 }
 
                 if (updateRasterProjection)
+                {
+                    if (showRefreshProgress)
+                        SetOperationProgress(72, "Updating raster projection");
+
                     await ReprojectRasterLayersForCurrentProjectAsync();
+                }
+
+                if (showRefreshProgress)
+                {
+                    SetOperationProgress(90, "Rendering map canvas");
+                    mapCanvasControlMain.RequestRender();
+                    SetCanvasCommandStatus("Canvas: Refreshed");
+                    SetOperationProgress(100, "Canvas refreshed");
+                    await Task.Delay(250);
+                }
             }
             catch (Exception ex)
             {
                 System.Diagnostics.Debug.WriteLine(
                     $"ApplyCanvasSettings failed: {ex.Message}");
+            }
+            finally
+            {
+                if (showRefreshProgress)
+                    HideOperationProgress();
             }
         }
 
@@ -705,7 +810,7 @@ namespace Land_Readjustment_Tool
                 return fallback;
             }
         }
-        // ── CLOSE PROJECT ────────────────────────────
+        // -- CLOSE PROJECT ----------------------------
 
         private async Task CloseCurrentProjectAsync()
         {
@@ -724,7 +829,7 @@ namespace Land_Readjustment_Tool
 
 
 
-        // ── PROJECT DETAILS ──────────────────────────
+        // -- PROJECT DETAILS --------------------------
 
         private void tsmProjectInformation_Click(object sender, EventArgs e)
         {
@@ -747,7 +852,7 @@ namespace Land_Readjustment_Tool
             UpdateWindowTitle();
         }
 
-        // ── EXIT ─────────────────────────────────────
+        // -- EXIT -------------------------------------
 
         private void ExitToolStripMenuItem_Click_1(object sender, EventArgs e)
         {
@@ -764,13 +869,13 @@ namespace Land_Readjustment_Tool
             Close();
         }
 
-        // ── STUB HANDLERS ────────────────────────────
+        // -- STUB HANDLERS ----------------------------
         // Implemented later one by one
         private void tsmSave_Click(object sender, EventArgs e)
         {
             _ = SaveCurrentProjectAsync(showMessage: false);
         }
-        // ── SAVE AS ──────────────────────────────────
+        // -- SAVE AS ----------------------------------
         // Saves current project to a new location.
         // Copies entire project folder to destination.
         // Switches session to new location.
@@ -885,7 +990,7 @@ namespace Land_Readjustment_Tool
 
                 EnableProjectMenuItems();
                 UpdateWindowTitle();
-                await RefreshLayerTreeAsync();
+                await RefreshMapCanvasAsync("Refreshing saved project canvas");
 
                 MessageBox.Show(
                     $"Project saved as:\n{target.ProjectFilePath}",
@@ -1025,6 +1130,7 @@ namespace Land_Readjustment_Tool
             try
             {
                 UseWaitCursor = true;
+                SetOperationProgress(2, "Starting raster import");
 
                 var session = AppServices.Context.Session;
                 var settingsRepository =
@@ -1035,6 +1141,8 @@ namespace Land_Readjustment_Tool
                     _projectScopedFactory.CreateDatumTransformationRepository(session);
                 var layerRepository =
                     _projectScopedFactory.CreateCanvasLayerRepository(session);
+
+                SetOperationProgress(8, "Loading project CRS settings");
 
                 var settings = await settingsRepository.GetProjectSettingsAsync();
                 if (settings?.CoordinateSystemId == null)
@@ -1056,6 +1164,8 @@ namespace Land_Readjustment_Tool
                     throw new InvalidOperationException(
                         "The configured project coordinate system could not be loaded.");
 
+                SetOperationProgress(14, "Preparing datum transformation");
+
                 Land_Readjustment_Tool.Core.Entities.Spatial.DatumTransformation?
                     datumTransformation = null;
 
@@ -1071,20 +1181,28 @@ namespace Land_Readjustment_Tool
                         projectCoordinateSystem,
                         datumTransformation);
 
+                SetOperationProgress(18, "Checking existing map layers");
+
                 List<CanvasLayer> existingLayers =
                     await layerRepository.GetAllOrderedAsync();
 
                 string layerName = BuildUniqueLayerName(
                     Path.GetFileNameWithoutExtension(dialog.FileName),
-                    existingLayers);
+                        existingLayers);
 
                 RasterImportService importService = new();
+                Progress<RasterImportProgress> progress = new(
+                    update => SetOperationProgress(update.Percent, update.Status));
+
                 RasterImportResult importResult = await Task.Run(() =>
                     importService.ImportToProjectCrs(
                         dialog.FileName,
                         AppServices.Context.ProjectFolderPath,
                         layerName,
-                        targetSrsDefinition));
+                        targetSrsDefinition,
+                        progress));
+
+                SetOperationProgress(90, "Creating raster map layer");
 
                 int nextDisplayOrder = existingLayers.Count == 0
                     ? 0
@@ -1118,12 +1236,18 @@ namespace Land_Readjustment_Tool
 
                 CanvasLayer savedLayer = await layerRepository.AddAsync(rasterLayer);
 
+                SetOperationProgress(94, "Saving raster layer");
+
                 AppServices.Context.MarkAsModified();
                 UpdateWindowTitle();
+
+                SetOperationProgress(97, "Refreshing map canvas");
 
                 await RefreshLayerTreeAsync();
                 SelectLayerNodeById(savedLayer.Id);
                 mapCanvasControlMain.ZoomExtents();
+
+                SetOperationProgress(100, "Raster added to map canvas");
 
                 string importDetails = importResult.SourceMetadata.ToDisplayText(
                     layerName,
@@ -1182,6 +1306,7 @@ namespace Land_Readjustment_Tool
             finally
             {
                 UseWaitCursor = false;
+                HideOperationProgress();
             }
         }
 
@@ -1261,17 +1386,23 @@ namespace Land_Readjustment_Tool
 
             try
             {
+                SetOperationProgress(5, "Opening project");
+
                 if (!EnsureProjectFileCanBeOpened(projectFilePath))
                 {
+                    HideOperationProgress();
                     return;
                 }
 
+                SetOperationProgress(15, "Closing current workspace");
                 DisposeCurrentProjectSession();
                 UnloadProjectWorkspace();
 
+                SetOperationProgress(35, "Loading project database");
                 ProjectContext context =
                     await _projectOpenService.OpenAsync(projectFilePath);
 
+                SetOperationProgress(55, "Preparing project workspace");
                 RecentProjectsManager.AddRecentProject(projectFilePath); //ADDS TO THE RECENTLY OPENED PROJECTS IN SETTINGS
                 BuildRecentProjectsMenu(); // Refresh menu to show the newly added recent project immediately
                 context.StateChanged += UpdateWindowTitle;
@@ -1279,12 +1410,14 @@ namespace Land_Readjustment_Tool
 
                 EnableProjectMenuItems();
                 UpdateWindowTitle();
+                SetOperationProgress(70, "Preparing map canvas");
                 InitializeProjectWorkspace();
-                await ApplySettingsAsync();
-                await RefreshLayerTreeAsync();
+                await ApplySettingsAsync(showRefreshProgress: false);
+                await RefreshMapCanvasAsync("Opening project canvas", 75);
             }
             catch (Exception ex)
             {
+                HideOperationProgress();
                 MessageBox.Show(
                     $"Failed to open project: {GetMostUsefulExceptionMessage(ex)}",
                     "Error",
@@ -1355,7 +1488,7 @@ namespace Land_Readjustment_Tool
 
                 // Repositories write to the DB immediately on every edit,
                 // so there are no pending EF Core changes to flush here.
-                // Save = WAL checkpoint (merge WAL → .lpp) + rotate backups.
+                // Save = WAL checkpoint (merge WAL ? .lpp) + rotate backups.
 
                 // 1. WAL checkpoint — merge WAL journal into the .lpp file
                 await ProjectWalCheckpoint.ExecuteAsync(filePath);
@@ -1519,9 +1652,9 @@ namespace Land_Readjustment_Tool
         ///   2. Check if the same project is already open — skip if so
         ///   3. Pass to OpenProjectInternalAsync(checkUnsavedChanges: true)
         ///      which internally calls HandleUnsavedChangesOnClose()
-        ///      → Yes   = SaveCurrentProjectAsync then open new
-        ///      → No    = ChangeTracker.Clear() then open new
-        ///      → Cancel = abort, stay on current project
+        ///      ? Yes   = SaveCurrentProjectAsync then open new
+        ///      ? No    = ChangeTracker.Clear() then open new
+        ///      ? Cancel = abort, stay on current project
         /// </summary>
         private async void RecentProjectItem_Click(
             object? sender, EventArgs e)
@@ -1529,7 +1662,7 @@ namespace Land_Readjustment_Tool
             if (sender is not ToolStripMenuItem item) return;
             if (item.Tag is not string path) return;
 
-            // ── Step 1: File still exists on disk? ───────────────────
+            // -- Step 1: File still exists on disk? -------------------
             if (!File.Exists(path))
             {
                 MessageBox.Show(
@@ -1545,7 +1678,7 @@ namespace Land_Readjustment_Tool
                 return;
             }
 
-            // ── Step 2: Is this project already open? ────────────────
+            // -- Step 2: Is this project already open? ----------------
             // No point closing and reopening the same file
             if (AppServices.HasContext &&
                 string.Equals(
@@ -1558,7 +1691,7 @@ namespace Land_Readjustment_Tool
                 return;
             }
 
-            // ── Step 3: Confirm switching to selected recent project ─
+            // -- Step 3: Confirm switching to selected recent project -
             if (AppServices.HasContext)
             {
                 var confirm = MessageBox.Show(
@@ -1572,7 +1705,7 @@ namespace Land_Readjustment_Tool
                     return;
             }
 
-            // ── Step 4: Delegate to OpenProjectInternalAsync ─
+            // -- Step 4: Delegate to OpenProjectInternalAsync -
             // checkUnsavedChanges: true means it will internally call
             // HandleUnsavedChangesOnClose() before doing anything.
             // That gives the user Yes / No / Cancel for unsaved changes.
@@ -1581,7 +1714,7 @@ namespace Land_Readjustment_Tool
                 path,
                 checkUnsavedChanges: true);
         }
-        // ── RECENT PROJECTS MENU ─────────────────────────────────────────
+        // -- RECENT PROJECTS MENU -----------------------------------------
 
         /// <summary>
         /// Call this every time the File menu opens,
@@ -1677,7 +1810,7 @@ namespace Land_Readjustment_Tool
                 if (img != null) tsmExpandCollapseLeftPanel.Image = img;
             }
         }
-        // ── PROJECT FOLDER CREATOR ───────────────────
+        // -- PROJECT FOLDER CREATOR -------------------
 
         // Creates standard folder structure
         // for a new project
@@ -2073,6 +2206,30 @@ namespace Land_Readjustment_Tool
 
         private void treeView1_AfterSelect(object? sender, TreeViewEventArgs e)
         {
+            CanvasLayer? layer = GetLayerFromNode(e.Node);
+            if (layer == null)
+            {
+                SetCanvasCommandStatus(
+                    e.Node == null
+                        ? "Canvas: Ready"
+                        : $"Canvas Group: {e.Node.Text}");
+                return;
+            }
+
+            UpdateActiveLayerComboFromTree(layer.Id);
+            SetCanvasCommandStatus($"Active Layer: {layer.Name}");
+        }
+
+        private void ActiveLayerCombo_SelectedIndexChanged(object? sender, EventArgs e)
+        {
+            if (_suppressActiveLayerEvents ||
+                _activeLayerCombo.SelectedItem is not ActiveLayerStatusItem item)
+            {
+                return;
+            }
+
+            SelectLayerNodeById(item.LayerId);
+            SetCanvasCommandStatus($"Active Layer: {item.Name}");
         }
 
         private void LayerContextMenu_Opening(object? sender, System.ComponentModel.CancelEventArgs e)
@@ -2202,6 +2359,8 @@ namespace Land_Readjustment_Tool
 
                 UpdateLayerNode(node, updatedLayer);
                 MarkProjectModifiedIfOpen();
+                await RefreshMapCanvasAsync("Refreshing map canvas");
+                SelectLayerNodeById(updatedLayer.Id);
             }
             catch (Exception ex)
             {
@@ -2237,7 +2396,7 @@ namespace Land_Readjustment_Tool
 
                 UpdateLayerNode(node, renamedLayer);
                 MarkProjectModifiedIfOpen();
-                await RefreshLayerTreeAsync();
+                await RefreshMapCanvasAsync("Refreshing layer list");
                 SelectLayerNodeById(renamedLayer.Id);
             }
             catch (Exception ex)
@@ -2272,6 +2431,8 @@ namespace Land_Readjustment_Tool
 
                 UpdateLayerNode(node!, updatedLayer);
                 MarkProjectModifiedIfOpen();
+                await RefreshMapCanvasAsync("Refreshing map canvas");
+                SelectLayerNodeById(updatedLayer.Id);
             }
             catch (Exception ex)
             {
@@ -2307,8 +2468,7 @@ namespace Land_Readjustment_Tool
             {
                 node!.Remove();
                 ClearLayerProperties();
-                UpdateRasterCanvasLayersFromTree();
-                mapCanvasControlMain.RequestRender();
+                await RefreshMapCanvasAsync("Refreshing map canvas");
                 return;
             }
 
@@ -2318,9 +2478,8 @@ namespace Land_Readjustment_Tool
                     AppServices.HasContext ? AppServices.Context.Session : null,
                     layer);
                 MarkProjectModifiedIfOpen();
-                await RefreshLayerTreeAsync();
+                await RefreshMapCanvasAsync("Refreshing map canvas");
                 ClearLayerProperties();
-                mapCanvasControlMain.RequestRender();
             }
             catch (Exception ex)
             {
@@ -2383,8 +2542,8 @@ namespace Land_Readjustment_Tool
 
             node.Text = layer.Name;
             treeViewLayers.Invalidate();
+            UpdateActiveLayerComboFromTree(layer.Id);
             UpdateRasterCanvasLayersFromTree();
-            mapCanvasControlMain.RequestRender();
         }
 
         /// <summary>
@@ -2399,6 +2558,33 @@ namespace Land_Readjustment_Tool
 
             AppServices.Context.MarkAsModified();
             UpdateWindowTitle();
+        }
+
+        /// <summary>
+        /// Refreshes the layer tree and requests a map render while reporting shared canvas progress.
+        /// </summary>
+        private async Task RefreshMapCanvasAsync(string status, int startPercent = 20)
+        {
+            try
+            {
+                int layerPercent = Math.Clamp(startPercent + 25, 0, 95);
+                int renderPercent = Math.Clamp(startPercent + 55, 0, 98);
+
+                SetOperationProgress(startPercent, status);
+                SetOperationProgress(layerPercent, "Loading map layers");
+                await RefreshLayerTreeAsync();
+
+                SetOperationProgress(renderPercent, "Rendering map canvas");
+                mapCanvasControlMain.RequestRender();
+                SetCanvasCommandStatus("Canvas: Refreshed");
+
+                SetOperationProgress(100, "Canvas refreshed");
+                await Task.Delay(250);
+            }
+            finally
+            {
+                HideOperationProgress();
+            }
         }
 
         private async Task RefreshLayerTreeAsync()
@@ -2462,6 +2648,7 @@ namespace Land_Readjustment_Tool
             }
 
             UpdateRasterCanvasLayersFromTree();
+            UpdateActiveLayerComboFromTree();
         }
 
         private void ResetLayerTree()
@@ -2498,6 +2685,7 @@ namespace Land_Readjustment_Tool
             }
 
             UpdateRasterCanvasLayersFromTree();
+            UpdateActiveLayerComboFromTree();
         }
 
         private void PopulateLayerProperties(CanvasLayer layer)
@@ -2506,6 +2694,59 @@ namespace Land_Readjustment_Tool
 
         private void ClearLayerProperties()
         {
+        }
+
+        private void SetCanvasCommandStatus(string status)
+        {
+            _canvasCommandStatus.Text = string.IsNullOrWhiteSpace(status)
+                ? "Canvas: Ready"
+                : status;
+        }
+
+        private void UpdateActiveLayerComboFromTree(int? preferredLayerId = null)
+        {
+            int? selectedLayerId =
+                preferredLayerId ??
+                (_activeLayerCombo.SelectedItem as ActiveLayerStatusItem)?.LayerId ??
+                GetLayerFromNode(treeViewLayers.SelectedNode)?.Id;
+
+            List<ActiveLayerStatusItem> layerItems = [];
+            foreach (TreeNode groupNode in treeViewLayers.Nodes)
+            {
+                foreach (TreeNode layerNode in groupNode.Nodes)
+                {
+                    CanvasLayer? layer = GetLayerFromNode(layerNode);
+                    if (layer != null)
+                    {
+                        layerItems.Add(new ActiveLayerStatusItem(layer.Id, layer.Name));
+                    }
+                }
+            }
+
+            _suppressActiveLayerEvents = true;
+            try
+            {
+                _activeLayerCombo.Items.Clear();
+                foreach (ActiveLayerStatusItem item in layerItems)
+                    _activeLayerCombo.Items.Add(item);
+
+                bool hasLayers = layerItems.Count > 0;
+                _activeLayerLabel.Visible = hasLayers;
+                _activeLayerCombo.Visible = hasLayers;
+
+                if (!hasLayers)
+                    return;
+
+                ActiveLayerStatusItem selectedItem =
+                    layerItems.FirstOrDefault(item => item.LayerId == selectedLayerId) ??
+                    layerItems[0];
+
+                _activeLayerCombo.SelectedItem = selectedItem;
+            }
+            finally
+            {
+                _suppressActiveLayerEvents = false;
+            }
         }
 
         private static bool IsLayerNode(TreeNode? node)
@@ -2600,9 +2841,8 @@ namespace Land_Readjustment_Tool
 
                 UpdateLayerNode(node, updatedLayer);
                 MarkProjectModifiedIfOpen();
-                await RefreshLayerTreeAsync();
+                await RefreshMapCanvasAsync("Refreshing map canvas");
                 SelectLayerNodeById(updatedLayer.Id);
-                mapCanvasControlMain.RequestRender();
             }
             catch (Exception ex)
             {
@@ -2759,6 +2999,45 @@ namespace Land_Readjustment_Tool
             }
         }
 
+        /// <summary>
+        /// Shows operation progress in the map canvas status bar.
+        /// </summary>
+        private void SetOperationProgress(int percent, string status)
+        {
+            if (InvokeRequired)
+            {
+                BeginInvoke(new Action(() => SetOperationProgress(percent, status)));
+                return;
+            }
+
+            int clampedPercent = Math.Clamp(percent, 0, 100);
+            _operationProgressStatus.Text = status;
+            _operationProgressStatus.Visible = true;
+            _operationProgressBar.Value = clampedPercent;
+            _operationProgressBar.Invalidate();
+            _operationProgressHost.Visible = true;
+            statusCanvas.Refresh();
+        }
+
+        /// <summary>
+        /// Hides operation progress after a project or canvas operation finishes, fails, or is cancelled.
+        /// </summary>
+        private void HideOperationProgress()
+        {
+            if (InvokeRequired)
+            {
+                BeginInvoke(new Action(HideOperationProgress));
+                return;
+            }
+
+            _operationProgressStatus.Text = string.Empty;
+            _operationProgressStatus.Visible = false;
+            _operationProgressBar.Value = 0;
+            _operationProgressBar.Invalidate();
+            _operationProgressHost.Visible = false;
+            statusCanvas.Refresh();
+        }
+
         private void ConfigureCanvasStatusBarLayout()
         {
             // Force a stable, readable layout regardless of designer changes:
@@ -2780,6 +3059,13 @@ namespace Land_Readjustment_Tool
                 lblCanvasMode.BorderSides = ToolStripStatusLabelBorderSides.None;
                 lblCanvasMode.BorderStyle = Border3DStyle.Flat;
 
+                _canvasCommandStatus.ForeColor = SystemColors.ControlText;
+                _canvasCommandStatus.BorderSides = ToolStripStatusLabelBorderSides.Left;
+                _canvasCommandStatus.BorderStyle = Border3DStyle.Flat;
+
+                _activeLayerLabel.ForeColor = SystemColors.ControlText;
+                _activeLayerCombo.DropDownWidth = 260;
+
                 lblCanvasCoordinates.Alignment = ToolStripItemAlignment.Right;
                 lblCanvasCoordinates.Spring = false;
                 lblCanvasCoordinates.AutoSize = true;
@@ -2789,10 +3075,20 @@ namespace Land_Readjustment_Tool
                 lblCanvasCoordinates.BorderStyle = Border3DStyle.RaisedOuter;
                 lblCanvasCoordinates.Margin = new Padding(0, 3, 6, 2);
 
+                _operationProgressStatus.ForeColor = SystemColors.ControlText;
+                _operationProgressStatus.BorderSides = ToolStripStatusLabelBorderSides.Left;
+                _operationProgressStatus.BorderStyle = Border3DStyle.Flat;
+                _operationProgressHost.Visible = false;
+
                 // Rebuild order deterministically.
                 statusCanvas.Items.Clear();
                 statusCanvas.Items.Add(lblCanvasMode);
+                statusCanvas.Items.Add(_canvasCommandStatus);
                 statusCanvas.Items.Add(_statusSpacer);
+                statusCanvas.Items.Add(_activeLayerLabel);
+                statusCanvas.Items.Add(_activeLayerCombo);
+                statusCanvas.Items.Add(_operationProgressStatus);
+                statusCanvas.Items.Add(_operationProgressHost);
                 statusCanvas.Items.Add(lblCanvasCoordinates);
             }
             finally
@@ -2805,6 +3101,63 @@ namespace Land_Readjustment_Tool
         {
             lblCanvasCoordinates.Text = coordinates;
             lblCanvasMode.Text = mode;
+            SetCanvasCommandStatus(
+                mode.Replace("Mode:", "Canvas:", StringComparison.OrdinalIgnoreCase));
+        }
+
+        /// <summary>
+        /// Small status-strip progress bar that paints the current percentage inside the bar.
+        /// </summary>
+        private sealed class StatusProgressBar : ProgressBar
+        {
+            public StatusProgressBar()
+            {
+                SetStyle(
+                    ControlStyles.UserPaint |
+                    ControlStyles.AllPaintingInWmPaint |
+                    ControlStyles.OptimizedDoubleBuffer,
+                    true);
+            }
+
+            protected override void OnPaint(PaintEventArgs e)
+            {
+                Rectangle bounds = ClientRectangle;
+                e.Graphics.Clear(SystemColors.Control);
+
+                Rectangle track = new(
+                    bounds.X,
+                    bounds.Y,
+                    Math.Max(1, bounds.Width - 1),
+                    Math.Max(1, bounds.Height - 1));
+
+                using Pen borderPen = new(SystemColors.ControlDark);
+                e.Graphics.DrawRectangle(borderPen, track);
+
+                double range = Math.Max(1, Maximum - Minimum);
+                double progress = Math.Clamp((Value - Minimum) / range, 0.0, 1.0);
+                Rectangle fill = new(
+                    bounds.X + 1,
+                    bounds.Y + 1,
+                    Math.Max(0, (int)Math.Round((bounds.Width - 2) * progress)),
+                    Math.Max(0, bounds.Height - 2));
+
+                if (fill.Width > 0)
+                {
+                    using Brush fillBrush = new SolidBrush(Color.FromArgb(72, 136, 201));
+                    e.Graphics.FillRectangle(fillBrush, fill);
+                }
+
+                TextRenderer.DrawText(
+                    e.Graphics,
+                    $"{Value}%",
+                    Font,
+                    bounds,
+                    SystemColors.ControlText,
+                    TextFormatFlags.HorizontalCenter |
+                    TextFormatFlags.VerticalCenter |
+                    TextFormatFlags.SingleLine);
+            }
+
         }
     }
 }

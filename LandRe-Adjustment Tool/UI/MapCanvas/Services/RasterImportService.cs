@@ -14,8 +14,11 @@ namespace Land_Readjustment_Tool.UI.MapCanvas.Services
             string sourcePath,
             string projectFolderPath,
             string layerName,
-            string targetSrsDefinition)
+            string targetSrsDefinition,
+            IProgress<RasterImportProgress>? progress = null)
         {
+            progress?.Report(new RasterImportProgress(5, "Checking raster file"));
+
             if (string.IsNullOrWhiteSpace(sourcePath) || !File.Exists(sourcePath))
                 throw new FileNotFoundException("Raster file was not found.", sourcePath);
 
@@ -30,10 +33,14 @@ namespace Land_Readjustment_Tool.UI.MapCanvas.Services
                 throw new InvalidOperationException(
                     "Project coordinate reference system is not configured.");
 
+            progress?.Report(new RasterImportProgress(12, "Preparing raster engine"));
+
             GdalConfiguration.ConfigureGdal();
             if (!GdalConfiguration.Usable)
                 throw new InvalidOperationException(
                     "GDAL is not configured correctly. Raster import cannot continue.");
+
+            progress?.Report(new RasterImportProgress(20, "Opening raster dataset"));
 
             using Dataset sourceDataset = Gdal.Open(sourcePath, Access.GA_ReadOnly)
                 ?? throw new InvalidOperationException(
@@ -42,6 +49,8 @@ namespace Land_Readjustment_Tool.UI.MapCanvas.Services
             if (sourceDataset.RasterCount <= 0)
                 throw new InvalidOperationException(
                     "The selected file does not contain raster bands.");
+
+            progress?.Report(new RasterImportProgress(32, "Reading raster metadata"));
 
             RasterImportMetadata sourceMetadata =
                 ReadMetadata(sourcePath, sourceDataset);
@@ -58,6 +67,8 @@ namespace Land_Readjustment_Tool.UI.MapCanvas.Services
             if (sourceMetadata.HasGeoreferencing &&
                 !string.IsNullOrWhiteSpace(sourceProjection))
             {
+                progress?.Report(new RasterImportProgress(45, "Transforming raster to project CRS"));
+
                 WarpToProjectCrs(
                     sourceDataset,
                     outputPath,
@@ -67,6 +78,8 @@ namespace Land_Readjustment_Tool.UI.MapCanvas.Services
             }
             else
             {
+                progress?.Report(new RasterImportProgress(45, "Copying raster into project"));
+
                 CopyToProjectRaster(
                     sourceDataset,
                     outputPath,
@@ -75,6 +88,8 @@ namespace Land_Readjustment_Tool.UI.MapCanvas.Services
                     ? RasterImportMode.UnknownCrsCopiedWithoutProjection
                     : RasterImportMode.UnreferencedCopiedToLocalCoordinates;
             }
+
+            progress?.Report(new RasterImportProgress(88, "Finalizing raster layer"));
 
             string relativePath = Path.Combine(RasterFolderName, Path.GetFileName(outputPath));
             return new RasterImportResult(
@@ -360,6 +375,10 @@ namespace Land_Readjustment_Tool.UI.MapCanvas.Services
         int SourceWidth,
         int SourceHeight,
         RasterImportMetadata SourceMetadata);
+
+    internal sealed record RasterImportProgress(
+        int Percent,
+        string Status);
 
     internal enum RasterImportMode
     {
