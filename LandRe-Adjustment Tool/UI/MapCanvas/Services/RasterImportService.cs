@@ -27,6 +27,12 @@ namespace Land_Readjustment_Tool.UI.MapCanvas.Services
             if (string.IsNullOrWhiteSpace(sourcePath) || !File.Exists(sourcePath))
                 throw new FileNotFoundException("Raster file was not found.", sourcePath);
 
+            if (IsNetworkServiceDescriptor(sourcePath))
+                throw new NotSupportedException(
+                    $"'{Path.GetFileName(sourcePath)}' is a GDAL network-service descriptor " +
+                    $"(WMS/WMTS/TMS XML). Live tile service files cannot be imported as " +
+                    $"raster layers. Add them as an XYZ/WMS layer instead.");
+
             if (string.IsNullOrWhiteSpace(projectFolderPath) ||
                 !Directory.Exists(projectFolderPath))
             {
@@ -47,105 +53,123 @@ namespace Land_Readjustment_Tool.UI.MapCanvas.Services
 
             progress?.Report(new RasterImportProgress(20, "Opening raster dataset"));
 
-            using Dataset sourceDataset = Gdal.Open(sourcePath, Access.GA_ReadOnly)
-                ?? throw new InvalidOperationException(
-                    "GDAL could not open the selected raster.");
-
-            if (sourceDataset.RasterCount <= 0)
-                throw new InvalidOperationException(
-                    "The selected file does not contain raster bands.");
-
-            progress?.Report(new RasterImportProgress(32, "Reading raster metadata"));
-
-            RasterImportMetadata sourceMetadata =
-                ReadMetadata(sourcePath, sourceDataset);
-            bool sourceIsMbTiles = IsMbTilesSource(sourcePath, sourceMetadata);
-
-            string sourceProjection = !string.IsNullOrWhiteSpace(sourceSrsDefinitionOverride)
-                ? sourceSrsDefinitionOverride
-                : sourceMetadata.ProjectionWkt;
-            RasterImportMode importMode;
-
-            string rasterFolder = Path.Combine(projectFolderPath, RasterFolderName);
-            Directory.CreateDirectory(rasterFolder);
-
-            if (sourceIsMbTiles &&
-                sourceExtent == null &&
-                string.IsNullOrWhiteSpace(sourceSrsDefinitionOverride) &&
-                CanUseDirectMbTiles(sourcePath, sourceMetadata))
+            Dataset sourceDataset;
+            try
             {
-                progress?.Report(new RasterImportProgress(45, "Copying MBTiles tile package"));
+                sourceDataset = Gdal.Open(sourcePath, Access.GA_ReadOnly)
+                    ?? throw new InvalidOperationException(
+                        $"GDAL could not open '{Path.GetFileName(sourcePath)}'. " +
+                        "The file format is not supported for raster import.");
+            }
+            catch (ApplicationException ex)
+                when (ex.Message.Contains("not recognized as being in a supported file format",
+                    StringComparison.OrdinalIgnoreCase))
+            {
+                throw new NotSupportedException(
+                    $"'{Path.GetFileName(sourcePath)}' is not a supported raster format. " +
+                    "Supported formats include GeoTIFF, PNG, JPEG, and MBTiles. " +
+                    "If this is a WMS/WMTS/TMS XML descriptor, add it as a tile service layer instead.",
+                    ex);
+            }
 
-                string mbTilesOutputName = $"{SanitizeFileName(layerName)}.mbtiles";
-                string mbTilesOutputPath = GetUniquePath(Path.Combine(rasterFolder, mbTilesOutputName));
-                File.Copy(sourcePath, mbTilesOutputPath);
-                OptimizeMbTilesForRendering(mbTilesOutputPath);
-                MbTilesLayerMetadataStore.Write(
-                    mbTilesOutputPath,
-                    MbTilesLayerMetadata.Create(
-                        "EPSG:3857",
+            using (sourceDataset)
+            {
+                if (sourceDataset.RasterCount <= 0)
+                    throw new InvalidOperationException(
+                        "The selected file does not contain raster bands.");
+
+                progress?.Report(new RasterImportProgress(32, "Reading raster metadata"));
+
+                RasterImportMetadata sourceMetadata =
+                    ReadMetadata(sourcePath, sourceDataset);
+                bool sourceIsMbTiles = IsMbTilesSource(sourcePath, sourceMetadata);
+
+                string sourceProjection = !string.IsNullOrWhiteSpace(sourceSrsDefinitionOverride)
+                    ? sourceSrsDefinitionOverride
+                    : sourceMetadata.ProjectionWkt;
+                RasterImportMode importMode;
+
+                string rasterFolder = Path.Combine(projectFolderPath, RasterFolderName);
+                Directory.CreateDirectory(rasterFolder);
+
+                if (sourceIsMbTiles &&
+                    sourceExtent == null &&
+                    string.IsNullOrWhiteSpace(sourceSrsDefinitionOverride) &&
+                    CanUseDirectMbTiles(sourcePath, sourceMetadata))
+                {
+                    progress?.Report(new RasterImportProgress(45, "Copying MBTiles tile package"));
+
+                    string mbTilesOutputName = $"{SanitizeFileName(layerName)}.mbtiles";
+                    string mbTilesOutputPath = GetUniquePath(Path.Combine(rasterFolder, mbTilesOutputName));
+                    File.Copy(sourcePath, mbTilesOutputPath);
+                    OptimizeMbTilesForRendering(mbTilesOutputPath);
+                    MbTilesLayerMetadataStore.Write(
+                        mbTilesOutputPath,
+                        MbTilesLayerMetadata.Create(
+                            "EPSG:3857",
+                            targetSrsDefinition,
+                            sourcePath));
+
+                    progress?.Report(new RasterImportProgress(88, "Finalizing MBTiles layer"));
+
+                    string mbTilesRelativePath = Path.Combine(
+                        RasterFolderName,
+                        Path.GetFileName(mbTilesOutputPath));
+                    return new RasterImportResult(
+                        mbTilesOutputPath,
+                        mbTilesRelativePath,
+                        RasterImportMode.MbTilesDirectTileSource,
+                        sourceDataset.RasterXSize,
+                        sourceDataset.RasterYSize,
+                        sourceMetadata);
+                }
+
+                string outputFileName = $"{SanitizeFileName(layerName)}.tif";
+                string outputPath = GetUniquePath(Path.Combine(rasterFolder, outputFileName));
+
+                bool usesDefinedSourceProjection =
+                    !string.IsNullOrWhiteSpace(sourceSrsDefinitionOverride);
+
+                if (sourceMetadata.HasGeoreferencing &&
+                    !string.IsNullOrWhiteSpace(sourceProjection))
+                {
+                    progress?.Report(new RasterImportProgress(45, "Transforming raster to project CRS"));
+
+                    WarpToProjectCrs(
+                        sourceDataset,
+                        outputPath,
+                        sourceProjection,
                         targetSrsDefinition,
-                        sourcePath));
+                        sourceExtent,
+                        preferNearestNeighbor: sourceIsMbTiles);
+                    importMode = usesDefinedSourceProjection
+                        ? RasterImportMode.SourceCrsDefinedProjectedToProjectCrs
+                        : RasterImportMode.ProjectedToProjectCrs;
+                }
+                else
+                {
+                    progress?.Report(new RasterImportProgress(45, "Copying raster into project"));
 
-                progress?.Report(new RasterImportProgress(88, "Finalizing MBTiles layer"));
+                    CopyToProjectRaster(
+                        sourceDataset,
+                        outputPath,
+                        sourceMetadata);
+                    importMode = sourceMetadata.HasGeoreferencing
+                        ? RasterImportMode.UnknownCrsCopiedWithoutProjection
+                        : RasterImportMode.UnreferencedCopiedToLocalCoordinates;
+                }
 
-                string mbTilesRelativePath = Path.Combine(
-                    RasterFolderName,
-                    Path.GetFileName(mbTilesOutputPath));
+                progress?.Report(new RasterImportProgress(88, "Finalizing raster layer"));
+
+                string relativePath = Path.Combine(RasterFolderName, Path.GetFileName(outputPath));
                 return new RasterImportResult(
-                    mbTilesOutputPath,
-                    mbTilesRelativePath,
-                    RasterImportMode.MbTilesDirectTileSource,
+                    outputPath,
+                    relativePath,
+                    importMode,
                     sourceDataset.RasterXSize,
                     sourceDataset.RasterYSize,
                     sourceMetadata);
             }
-
-            string outputFileName = $"{SanitizeFileName(layerName)}.tif";
-            string outputPath = GetUniquePath(Path.Combine(rasterFolder, outputFileName));
-
-            bool usesDefinedSourceProjection =
-                !string.IsNullOrWhiteSpace(sourceSrsDefinitionOverride);
-
-            if (sourceMetadata.HasGeoreferencing &&
-                !string.IsNullOrWhiteSpace(sourceProjection))
-            {
-                progress?.Report(new RasterImportProgress(45, "Transforming raster to project CRS"));
-
-                WarpToProjectCrs(
-                    sourceDataset,
-                    outputPath,
-                    sourceProjection,
-                    targetSrsDefinition,
-                    sourceExtent,
-                    preferNearestNeighbor: sourceIsMbTiles);
-                importMode = usesDefinedSourceProjection
-                    ? RasterImportMode.SourceCrsDefinedProjectedToProjectCrs
-                    : RasterImportMode.ProjectedToProjectCrs;
-            }
-            else
-            {
-                progress?.Report(new RasterImportProgress(45, "Copying raster into project"));
-
-                CopyToProjectRaster(
-                    sourceDataset,
-                    outputPath,
-                    sourceMetadata);
-                importMode = sourceMetadata.HasGeoreferencing
-                    ? RasterImportMode.UnknownCrsCopiedWithoutProjection
-                    : RasterImportMode.UnreferencedCopiedToLocalCoordinates;
-            }
-
-            progress?.Report(new RasterImportProgress(88, "Finalizing raster layer"));
-
-            string relativePath = Path.Combine(RasterFolderName, Path.GetFileName(outputPath));
-            return new RasterImportResult(
-                outputPath,
-                relativePath,
-                importMode,
-                sourceDataset.RasterXSize,
-                sourceDataset.RasterYSize,
-                sourceMetadata);
         }
 
         /// <summary>
@@ -155,6 +179,11 @@ namespace Land_Readjustment_Tool.UI.MapCanvas.Services
         {
             if (string.IsNullOrWhiteSpace(sourcePath) || !File.Exists(sourcePath))
                 throw new FileNotFoundException("Raster file was not found.", sourcePath);
+
+            if (IsNetworkServiceDescriptor(sourcePath))
+                throw new NotSupportedException(
+                    $"'{Path.GetFileName(sourcePath)}' is a GDAL network-service descriptor " +
+                    "and does not contain raster metadata that can be read as a file.");
 
             GdalConfiguration.ConfigureGdal();
             if (!GdalConfiguration.Usable)
@@ -180,6 +209,9 @@ namespace Land_Readjustment_Tool.UI.MapCanvas.Services
             try
             {
                 if (string.IsNullOrWhiteSpace(sourcePath) || !File.Exists(sourcePath))
+                    return null;
+
+                if (IsNetworkServiceDescriptor(sourcePath))
                     return null;
 
                 GdalConfiguration.ConfigureGdal();
@@ -608,6 +640,23 @@ namespace Land_Readjustment_Tool.UI.MapCanvas.Services
                 Path.GetExtension(sourcePath),
                 ".mbtiles",
                 StringComparison.OrdinalIgnoreCase);
+        }
+
+        /// <summary>
+        /// Returns true when the file is a GDAL network-service XML descriptor
+        /// (WMS, WMTS, TMS) that cannot be imported as a project raster file.
+        /// </summary>
+        private static bool IsNetworkServiceDescriptor(string sourcePath)
+        {
+            string ext = Path.GetExtension(sourcePath);
+
+            if (string.Equals(ext, ".xml", StringComparison.OrdinalIgnoreCase))
+                return true;
+
+            string fileName = Path.GetFileName(sourcePath);
+            return fileName.Contains(".gdal-wms", StringComparison.OrdinalIgnoreCase) ||
+                   fileName.Contains(".gdal-wmts", StringComparison.OrdinalIgnoreCase) ||
+                   fileName.Contains(".gdal-tms", StringComparison.OrdinalIgnoreCase);
         }
 
         private static bool CanUseDirectMbTiles(
