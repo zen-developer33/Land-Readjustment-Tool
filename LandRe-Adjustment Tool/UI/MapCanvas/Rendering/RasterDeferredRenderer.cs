@@ -63,11 +63,14 @@ namespace Land_Readjustment_Tool.UI.MapCanvas.Rendering
             bool swapped = false;
             try
             {
-                cancellationToken.ThrowIfCancellationRequested();
+                if (cancellationToken.IsCancellationRequested)
+                    return;
 
                 lock (_sync)
                 {
-                    cancellationToken.ThrowIfCancellationRequested();
+                    if (cancellationToken.IsCancellationRequested)
+                        return;
+
                     if (_disposed)
                     {
                         return;
@@ -107,8 +110,7 @@ namespace Land_Readjustment_Tool.UI.MapCanvas.Rendering
                     sizeSnapshot,
                     layerSnapshot,
                     engineSnapshot,
-                    cancellationToken),
-                cancellationToken);
+                    cancellationToken));
         }
 
         public void BeginPan(
@@ -303,7 +305,12 @@ namespace Land_Readjustment_Tool.UI.MapCanvas.Rendering
 
                     foreach (IRasterRenderLayer rasterLayer in rasterLayers)
                     {
-                        cancellationToken.ThrowIfCancellationRequested();
+                        if (cancellationToken.IsCancellationRequested)
+                        {
+                            bitmap.Dispose();
+                            return null;
+                        }
+
                         rasterLayer.RenderVisible(
                             graphics,
                             engine,
@@ -313,8 +320,18 @@ namespace Land_Readjustment_Tool.UI.MapCanvas.Rendering
                     }
                 }
 
-                cancellationToken.ThrowIfCancellationRequested();
+                if (cancellationToken.IsCancellationRequested)
+                {
+                    bitmap.Dispose();
+                    return null;
+                }
+
                 return bitmap;
+            }
+            catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
+            {
+                bitmap.Dispose();
+                return null;
             }
             catch
             {
