@@ -103,11 +103,20 @@ namespace Land_Readjustment_Tool.UI.MapCanvas.Rendering
             Size sizeSnapshot = ClampSize(canvasSize);
 
             return Task.Run(
-                () => RenderNow(
-                    sizeSnapshot,
-                    layerSnapshot,
-                    engineSnapshot,
-                    cancellationToken),
+                () =>
+                {
+                    try
+                    {
+                        RenderNow(
+                            sizeSnapshot,
+                            layerSnapshot,
+                            engineSnapshot,
+                            cancellationToken);
+                    }
+                    catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
+                    {
+                    }
+                },
                 cancellationToken);
         }
 
