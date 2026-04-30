@@ -242,12 +242,9 @@ namespace Land_Readjustment_Tool.UI.Forms
             lblPreviewFallback.Visible = false;
         }
 
-        private void mainLayout_Paint(object? sender, PaintEventArgs e)
+        private void mainLayout_Paint(object sender, PaintEventArgs e)
         {
+
         }
-
-
-
-
     }
 }
