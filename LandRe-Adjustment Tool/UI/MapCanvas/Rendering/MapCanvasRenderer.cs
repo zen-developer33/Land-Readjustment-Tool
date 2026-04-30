@@ -1,5 +1,6 @@
 using System.Drawing;
 using System.Drawing.Drawing2D;
+using System.Runtime.InteropServices;
 using System.Drawing.Text;
 using Land_Readjustment_Tool.UI.MapCanvas.Core;
 using Land_Readjustment_Tool.UI.MapCanvas.Models.Shapes;
@@ -262,6 +263,11 @@ namespace Land_Readjustment_Tool.UI.MapCanvas.Rendering
                 {
                     System.Diagnostics.Debug.WriteLine(
                         $"Skipped invalid raster cache frame: {ex.Message}");
+                }
+                catch (ExternalException ex)
+                {
+                    System.Diagnostics.Debug.WriteLine(
+                        $"Skipped GDI raster cache frame draw: {ex.Message}");
                 }
                 finally
                 {

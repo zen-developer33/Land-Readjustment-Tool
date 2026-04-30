@@ -13,8 +13,10 @@ namespace Land_Readjustment_Tool.UI.MapCanvas.Rendering
     internal sealed class MbTilesRenderLayer : IRasterRenderLayer
     {
         private const int TilePixelSize = 256;
-        private const int MaxCachedTiles = 768;
+        private const int MaxCachedTiles = 1024;
         private const int MaxTilesPerFrame = 512;
+        private const int MaxSupportedZoom = 30;
+        private const int ReprojectedTileMeshSubdivisions = 2;
         private const double WebMercatorExtent = 20037508.342789244;
         private const double WebMercatorWorldSize = WebMercatorExtent * 2.0;
         private const double InitialResolution = WebMercatorWorldSize / TilePixelSize;
@@ -34,6 +36,8 @@ namespace Land_Readjustment_Tool.UI.MapCanvas.Rendering
         private readonly CoordinateTransformation _webMercatorToProject;
         private readonly CoordinateTransformation _projectToWebMercator;
         private readonly CoordinateTransformation _wgs84ToProject;
+        private readonly MbTilesTileRowScheme _tileRowScheme;
+        private readonly bool _projectIsWebMercator;
         private ImageAttributes? _opacityImageAttributes;
 
         private MbTilesRenderLayer(
@@ -47,7 +51,9 @@ namespace Land_Readjustment_Tool.UI.MapCanvas.Rendering
             SpatialReference projectSrs,
             CoordinateTransformation webMercatorToProject,
             CoordinateTransformation projectToWebMercator,
-            CoordinateTransformation wgs84ToProject)
+            CoordinateTransformation wgs84ToProject,
+            MbTilesTileRowScheme tileRowScheme,
+            bool projectIsWebMercator)
         {
             LayerId = layer.Id;
             Name = layer.Name;
@@ -64,6 +70,8 @@ namespace Land_Readjustment_Tool.UI.MapCanvas.Rendering
             _webMercatorToProject = webMercatorToProject;
             _projectToWebMercator = projectToWebMercator;
             _wgs84ToProject = wgs84ToProject;
+            _tileRowScheme = tileRowScheme;
+            _projectIsWebMercator = projectIsWebMercator;
             UpdateOpacityAttributes();
         }
 
@@ -103,6 +111,8 @@ namespace Land_Readjustment_Tool.UI.MapCanvas.Rendering
             try
             {
                 Dictionary<string, string> mbTilesMetadata = ReadMetadata(connection);
+                ValidateRasterTileFormat(filePath, mbTilesMetadata);
+                MbTilesTileRowScheme tileRowScheme = ResolveTileRowScheme(mbTilesMetadata);
                 IReadOnlyList<MbTilesZoomInfo> zoomInfos = ReadZoomInfos(connection);
                 if (zoomInfos.Count == 0)
                 {
@@ -116,13 +126,21 @@ namespace Land_Readjustment_Tool.UI.MapCanvas.Rendering
                     metadata.TargetSrsDefinition);
                 SpatialReference wgs84Srs = CreateSpatialReference("EPSG:4326");
 
+                if (!IsWebMercatorSpatialReference(webMercatorSrs))
+                {
+                    throw new NotSupportedException(
+                        "Direct MBTiles rendering only supports Web Mercator tile pyramids.");
+                }
+
                 CoordinateTransformation webMercatorToProject = new(webMercatorSrs, projectSrs);
                 CoordinateTransformation projectToWebMercator = new(projectSrs, webMercatorSrs);
                 CoordinateTransformation wgs84ToProject = new(wgs84Srs, projectSrs);
+                bool projectIsWebMercator = IsWebMercatorSpatialReference(projectSrs);
 
                 RectangleD worldBounds = ResolveWorldBounds(
                     mbTilesMetadata,
                     zoomInfos,
+                    tileRowScheme,
                     webMercatorToProject,
                     wgs84ToProject);
 
@@ -137,7 +155,9 @@ namespace Land_Readjustment_Tool.UI.MapCanvas.Rendering
                     projectSrs,
                     webMercatorToProject,
                     projectToWebMercator,
-                    wgs84ToProject);
+                    wgs84ToProject,
+                    tileRowScheme,
+                    projectIsWebMercator);
             }
             catch
             {
@@ -200,6 +220,7 @@ namespace Land_Readjustment_Tool.UI.MapCanvas.Rendering
                         graphics,
                         engine,
                         visibleWorldBounds,
+                        interactive,
                         tileRange,
                         cancellationToken);
                 }
@@ -250,6 +271,7 @@ namespace Land_Readjustment_Tool.UI.MapCanvas.Rendering
             Graphics graphics,
             MapCanvasEngine engine,
             RectangleD visibleWorldBounds,
+            bool interactive,
             MbTilesTileRange tileRange,
             CancellationToken cancellationToken)
         {
@@ -258,16 +280,8 @@ namespace Land_Readjustment_Tool.UI.MapCanvas.Rendering
                 MinX(visibleWorldBounds) + Math.Abs(visibleWorldBounds.Width) / 2.0,
                 MinY(visibleWorldBounds) + Math.Abs(visibleWorldBounds.Height) / 2.0);
 
-            foreach (MbTilesTileDescriptor descriptor in EnumerateTiles(tileRange)
-                .OrderBy(tile =>
-                {
-                    RectangleD bounds = GetProjectTileBounds(tile.Key);
-                    double centerX = MinX(bounds) + Math.Abs(bounds.Width) / 2.0;
-                    double centerY = MinY(bounds) + Math.Abs(bounds.Height) / 2.0;
-                    double dx = centerX - visibleCenter.X;
-                    double dy = centerY - visibleCenter.Y;
-                    return dx * dx + dy * dy;
-                }))
+            List<MbTilesVisibleTile> visibleTiles = [];
+            foreach (MbTilesTileDescriptor descriptor in EnumerateTiles(tileRange))
             {
                 cancellationToken.ThrowIfCancellationRequested();
 
@@ -277,23 +291,38 @@ namespace Land_Readjustment_Tool.UI.MapCanvas.Rendering
                     continue;
                 }
 
-                Bitmap? bitmap = GetOrCreateTileBitmap(descriptor.Key);
+                double centerX = MinX(projectBounds) + Math.Abs(projectBounds.Width) / 2.0;
+                double centerY = MinY(projectBounds) + Math.Abs(projectBounds.Height) / 2.0;
+                double dx = centerX - visibleCenter.X;
+                double dy = centerY - visibleCenter.Y;
+                visibleTiles.Add(new MbTilesVisibleTile(
+                    descriptor.Key,
+                    projectBounds,
+                    dx * dx + dy * dy));
+            }
+
+            using SqliteCommand tileCommand = CreateTileDataCommand();
+            foreach (MbTilesVisibleTile visibleTile in visibleTiles
+                .OrderBy(tile => tile.Priority))
+            {
+                cancellationToken.ThrowIfCancellationRequested();
+
+                Bitmap? bitmap = GetOrCreateTileBitmap(
+                    visibleTile.Key,
+                    tileCommand);
                 if (bitmap == null)
                 {
                     continue;
                 }
 
-                RectangleF destination = WorldBoundsToScreenRectangle(engine, projectBounds);
-                if (!IsValidDestination(destination))
-                {
-                    continue;
-                }
-
-                DrawBitmap(
+                drawnAny |= DrawTileBitmap(
                     graphics,
+                    engine,
                     bitmap,
-                    AlignDestinationToPixelGrid(destination));
-                drawnAny = true;
+                    visibleTile.Key,
+                    visibleTile.ProjectBounds,
+                    visibleWorldBounds,
+                    interactive);
             }
 
             return drawnAny;
@@ -370,6 +399,11 @@ namespace Land_Readjustment_Tool.UI.MapCanvas.Rendering
         {
             tileRange = default;
 
+            if (zoom < 0 || zoom > MaxSupportedZoom)
+            {
+                return false;
+            }
+
             long matrixSize = 1L << zoom;
             if (matrixSize <= 0)
             {
@@ -438,7 +472,86 @@ namespace Land_Readjustment_Tool.UI.MapCanvas.Rendering
             return projectBounds;
         }
 
-        private Bitmap? GetOrCreateTileBitmap(MbTilesTileKey key)
+        private bool DrawTileBitmap(
+            Graphics graphics,
+            MapCanvasEngine engine,
+            Bitmap bitmap,
+            MbTilesTileKey key,
+            RectangleD projectBounds,
+            RectangleD visibleWorldBounds,
+            bool interactive)
+        {
+            if (_projectIsWebMercator)
+            {
+                RectangleF destination = WorldBoundsToScreenRectangle(engine, projectBounds);
+                if (!IsValidDestination(destination))
+                {
+                    return false;
+                }
+
+                DrawBitmapRegion(
+                    graphics,
+                    bitmap,
+                    AlignDestinationToPixelGrid(destination),
+                    new RectangleF(0, 0, bitmap.Width, bitmap.Height));
+                return true;
+            }
+
+            int subdivisions = interactive ? 1 : ReprojectedTileMeshSubdivisions;
+            RectangleD webMercatorBounds = GetWebMercatorTileBounds(key);
+            bool drawnAny = false;
+
+            for (int row = 0; row < subdivisions; row++)
+            {
+                for (int column = 0; column < subdivisions; column++)
+                {
+                    RectangleF source = GetTileSourceRectangle(
+                        bitmap,
+                        column,
+                        row,
+                        subdivisions);
+                    if (!IsValidSource(source))
+                    {
+                        continue;
+                    }
+
+                    RectangleD subTileWebMercatorBounds = GetSubTileWebMercatorBounds(
+                        webMercatorBounds,
+                        column,
+                        row,
+                        subdivisions);
+                    if (!TryTransformBounds(
+                            _webMercatorToProject,
+                            subTileWebMercatorBounds,
+                            out RectangleD subTileProjectBounds) ||
+                        !TryIntersects(subTileProjectBounds, visibleWorldBounds))
+                    {
+                        continue;
+                    }
+
+                    RectangleF destination = WorldBoundsToScreenRectangle(
+                        engine,
+                        subTileProjectBounds);
+                    if (!IsValidDestination(destination))
+                    {
+                        continue;
+                    }
+
+                    DrawBitmapRegion(
+                        graphics,
+                        bitmap,
+                        AlignDestinationToPixelGrid(destination),
+                        source);
+                    drawnAny = true;
+                }
+            }
+
+            return drawnAny;
+        }
+
+        private Bitmap? GetOrCreateTileBitmap(
+            MbTilesTileKey key,
+            SqliteCommand tileDataCommand)
         {
             if (_tileCache.TryGetValue(key, out Bitmap? cachedBitmap))
             {
@@ -446,7 +559,7 @@ namespace Land_Readjustment_Tool.UI.MapCanvas.Rendering
                 return cachedBitmap;
             }
 
-            byte[]? tileData = ReadTileData(key);
+            byte[]? tileData = ReadTileData(key, tileDataCommand);
             if (tileData == null || tileData.Length == 0)
             {
                 return null;
@@ -465,11 +578,9 @@ namespace Land_Readjustment_Tool.UI.MapCanvas.Rendering
             return bitmap;
         }
 
-        private byte[]? ReadTileData(MbTilesTileKey key)
+        private SqliteCommand CreateTileDataCommand()
         {
-            int tmsRow = ToTmsTileRow(key.Zoom, key.Y);
-
-            using SqliteCommand command = _connection.CreateCommand();
+            SqliteCommand command = _connection.CreateCommand();
             command.CommandText = """
                 SELECT tile_data
                 FROM tiles
@@ -478,9 +589,21 @@ namespace Land_Readjustment_Tool.UI.MapCanvas.Rendering
                   AND tile_row = $row
                 LIMIT 1
                 """;
-            command.Parameters.AddWithValue("$zoom", key.Zoom);
-            command.Parameters.AddWithValue("$column", key.X);
-            command.Parameters.AddWithValue("$row", tmsRow);
+            command.Parameters.Add("$zoom", SqliteType.Integer);
+            command.Parameters.Add("$column", SqliteType.Integer);
+            command.Parameters.Add("$row", SqliteType.Integer);
+            command.Prepare();
+            return command;
+        }
+
+        private byte[]? ReadTileData(
+            MbTilesTileKey key,
+            SqliteCommand command)
+        {
+            int storageRow = ToStorageTileRow(key.Zoom, key.Y);
+            command.Parameters["$zoom"].Value = key.Zoom;
+            command.Parameters["$column"].Value = key.X;
+            command.Parameters["$row"].Value = storageRow;
 
             object? value = command.ExecuteScalar();
             return value as byte[];
@@ -576,12 +699,44 @@ namespace Land_Readjustment_Tool.UI.MapCanvas.Rendering
             return metadata;
         }
 
+        private static void ValidateRasterTileFormat(
+            string filePath,
+            IReadOnlyDictionary<string, string> metadata)
+        {
+            if (!metadata.TryGetValue("format", out string? formatText) ||
+                string.IsNullOrWhiteSpace(formatText))
+            {
+                return;
+            }
+
+            string format = formatText.Trim().TrimStart('.').ToLowerInvariant();
+            if (format is "png" or "jpg" or "jpeg")
+            {
+                return;
+            }
+
+            throw new NotSupportedException(
+                $"MBTiles file '{filePath}' stores '{formatText}' tiles. The direct renderer supports PNG/JPEG raster tiles.");
+        }
+
+        private static MbTilesTileRowScheme ResolveTileRowScheme(
+            IReadOnlyDictionary<string, string> metadata)
+        {
+            return metadata.TryGetValue("scheme", out string? scheme) &&
+                   string.Equals(
+                       scheme,
+                       "xyz",
+                       StringComparison.OrdinalIgnoreCase)
+                ? MbTilesTileRowScheme.Xyz
+                : MbTilesTileRowScheme.Tms;
+        }
+
         private static IReadOnlyList<MbTilesZoomInfo> ReadZoomInfos(
             SqliteConnection connection)
         {
             List<MbTilesZoomInfo> zoomInfos = [];
             using SqliteCommand command = connection.CreateCommand();
-            command.CommandText = """
+            command.CommandText = $"""
                 SELECT zoom_level,
                        MIN(tile_column),
                        MAX(tile_column),
@@ -589,6 +744,8 @@ namespace Land_Readjustment_Tool.UI.MapCanvas.Rendering
                        MAX(tile_row),
                        COUNT(1)
                 FROM tiles
+                WHERE zoom_level >= 0
+                  AND zoom_level <= {MaxSupportedZoom}
                 GROUP BY zoom_level
                 ORDER BY zoom_level
                 """;
@@ -612,6 +769,7 @@ namespace Land_Readjustment_Tool.UI.MapCanvas.Rendering
         private static RectangleD ResolveWorldBounds(
             IReadOnlyDictionary<string, string> metadata,
             IReadOnlyList<MbTilesZoomInfo> zoomInfos,
+            MbTilesTileRowScheme tileRowScheme,
             CoordinateTransformation webMercatorToProject,
             CoordinateTransformation wgs84ToProject)
         {
@@ -623,7 +781,9 @@ namespace Land_Readjustment_Tool.UI.MapCanvas.Rendering
             }
 
             MbTilesZoomInfo highestZoom = zoomInfos[^1];
-            RectangleD webMercatorBounds = GetWebMercatorTileCoverageBounds(highestZoom);
+            RectangleD webMercatorBounds = GetWebMercatorTileCoverageBounds(
+                highestZoom,
+                tileRowScheme);
 
             return TryTransformBounds(
                 webMercatorToProject,
@@ -650,6 +810,11 @@ namespace Land_Readjustment_Tool.UI.MapCanvas.Rendering
                 return false;
             }
 
+            minLon = Math.Clamp(minLon, -180.0, 180.0);
+            maxLon = Math.Clamp(maxLon, -180.0, 180.0);
+            minLat = Math.Clamp(minLat, -85.05112878, 85.05112878);
+            maxLat = Math.Clamp(maxLat, -85.05112878, 85.05112878);
+
             if (maxLon <= minLon || maxLat <= minLat)
             {
                 return false;
@@ -660,13 +825,18 @@ namespace Land_Readjustment_Tool.UI.MapCanvas.Rendering
         }
 
         private static RectangleD GetWebMercatorTileCoverageBounds(
-            MbTilesZoomInfo zoomInfo)
+            MbTilesZoomInfo zoomInfo,
+            MbTilesTileRowScheme tileRowScheme)
         {
             long matrixSize = 1L << zoomInfo.Zoom;
             int minX = zoomInfo.MinColumn;
             int maxX = zoomInfo.MaxColumn;
-            int minY = (int)(matrixSize - 1 - zoomInfo.MaxRow);
-            int maxY = (int)(matrixSize - 1 - zoomInfo.MinRow);
+            int minY = tileRowScheme == MbTilesTileRowScheme.Xyz
+                ? zoomInfo.MinRow
+                : (int)(matrixSize - 1 - zoomInfo.MaxRow);
+            int maxY = tileRowScheme == MbTilesTileRowScheme.Xyz
+                ? zoomInfo.MaxRow
+                : (int)(matrixSize - 1 - zoomInfo.MinRow);
             double tileWorldSize = WebMercatorWorldSize / matrixSize;
 
             double left = -WebMercatorExtent + minX * tileWorldSize;
@@ -789,6 +959,38 @@ namespace Land_Readjustment_Tool.UI.MapCanvas.Rendering
             return spatialReference;
         }
 
+        private static bool IsWebMercatorSpatialReference(
+            SpatialReference spatialReference)
+        {
+            try
+            {
+                spatialReference.AutoIdentifyEPSG();
+                string? authorityCode =
+                    spatialReference.GetAuthorityCode(null) ??
+                    spatialReference.GetAuthorityCode("PROJCS");
+                if (authorityCode is "3857" or "900913" or "3785")
+                {
+                    return true;
+                }
+
+                string? projectedName = spatialReference.GetAttrValue("PROJCS", 0);
+                return projectedName != null &&
+                       (projectedName.Contains(
+                            "Pseudo-Mercator",
+                            StringComparison.OrdinalIgnoreCase) ||
+                        projectedName.Contains(
+                            "Web Mercator",
+                            StringComparison.OrdinalIgnoreCase) ||
+                        projectedName.Contains(
+                            "Popular Visualisation",
+                            StringComparison.OrdinalIgnoreCase));
+            }
+            catch
+            {
+                return false;
+            }
+        }
+
         private static bool TryClipWebMercatorBounds(
             RectangleD bounds,
             out RectangleD clippedBounds)
@@ -808,14 +1010,23 @@ namespace Land_Readjustment_Tool.UI.MapCanvas.Rendering
             return true;
         }
 
-        private void DrawBitmap(
+        private void DrawBitmapRegion(
             Graphics graphics,
             Bitmap bitmap,
-            RectangleF destination)
+            RectangleF destination,
+            RectangleF source)
         {
             if (_opacityImageAttributes == null)
             {
-                graphics.DrawImage(bitmap, destination);
+                graphics.DrawImage(
+                    bitmap,
+                    [
+                        new PointF(destination.Left, destination.Top),
+                        new PointF(destination.Right, destination.Top),
+                        new PointF(destination.Left, destination.Bottom)
+                    ],
+                    source,
+                    GraphicsUnit.Pixel);
                 return;
             }
 
@@ -823,12 +1034,42 @@ namespace Land_Readjustment_Tool.UI.MapCanvas.Rendering
             graphics.DrawImage(
                 bitmap,
                 destinationRectangle,
-                0,
-                0,
-                bitmap.Width,
-                bitmap.Height,
+                source.X,
+                source.Y,
+                source.Width,
+                source.Height,
                 GraphicsUnit.Pixel,
                 _opacityImageAttributes);
+        }
+
+        private static RectangleF GetTileSourceRectangle(
+            Bitmap bitmap,
+            int column,
+            int row,
+            int subdivisions)
+        {
+            float left = column * bitmap.Width / (float)subdivisions;
+            float top = row * bitmap.Height / (float)subdivisions;
+            float right = (column + 1) * bitmap.Width / (float)subdivisions;
+            float bottom = (row + 1) * bitmap.Height / (float)subdivisions;
+
+            return RectangleF.FromLTRB(left, top, right, bottom);
+        }
+
+        private static RectangleD GetSubTileWebMercatorBounds(
+            RectangleD tileBounds,
+            int column,
+            int row,
+            int subdivisions)
+        {
+            double tileWidth = Math.Abs(tileBounds.Width);
+            double tileHeight = Math.Abs(tileBounds.Height);
+            double left = MinX(tileBounds) + column * tileWidth / subdivisions;
+            double right = MinX(tileBounds) + (column + 1) * tileWidth / subdivisions;
+            double top = MaxY(tileBounds) - row * tileHeight / subdivisions;
+            double bottom = MaxY(tileBounds) - (row + 1) * tileHeight / subdivisions;
+
+            return new RectangleD(left, bottom, right - left, top - bottom);
         }
 
         private void UpdateOpacityAttributes()
@@ -952,6 +1193,16 @@ namespace Land_Readjustment_Tool.UI.MapCanvas.Rendering
                    destination.Height >= 0.5f;
         }
 
+        private static bool IsValidSource(RectangleF source)
+        {
+            return IsFinite(source.Left) &&
+                   IsFinite(source.Top) &&
+                   IsFinite(source.Width) &&
+                   IsFinite(source.Height) &&
+                   source.Width >= 0.5f &&
+                   source.Height >= 0.5f;
+        }
+
         private static bool TryIntersects(
             RectangleD first,
             RectangleD second)
@@ -977,8 +1228,13 @@ namespace Land_Readjustment_Tool.UI.MapCanvas.Rendering
             return value;
         }
 
-        private static int ToTmsTileRow(int zoom, int xyzY)
+        private int ToStorageTileRow(int zoom, int xyzY)
         {
+            if (_tileRowScheme == MbTilesTileRowScheme.Xyz)
+            {
+                return xyzY;
+            }
+
             long matrixSize = 1L << zoom;
             return (int)(matrixSize - 1 - xyzY);
         }
@@ -1006,6 +1262,11 @@ namespace Land_Readjustment_Tool.UI.MapCanvas.Rendering
         private readonly record struct MbTilesTileDescriptor(
             MbTilesTileKey Key);
 
+        private readonly record struct MbTilesVisibleTile(
+            MbTilesTileKey Key,
+            RectangleD ProjectBounds,
+            double Priority);
+
         private readonly record struct MbTilesTileRange(
             int Zoom,
             int MinX,
@@ -1024,5 +1285,11 @@ namespace Land_Readjustment_Tool.UI.MapCanvas.Rendering
             int MinRow,
             int MaxRow,
             long TileCount);
+
+        private enum MbTilesTileRowScheme
+        {
+            Tms,
+            Xyz
+        }
     }
 }

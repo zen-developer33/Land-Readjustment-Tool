@@ -1,5 +1,6 @@
 using System.Drawing.Drawing2D;
 using System.Drawing.Imaging;
+using System.Collections.Concurrent;
 using System.Runtime.InteropServices;
 using System.Security.Cryptography;
 using System.Text;
@@ -462,7 +463,7 @@ namespace Land_Readjustment_Tool.UI.MapCanvas.Rendering
             _tileCache[cacheKey] = bitmap;
             LinkedListNode<RasterTileCacheKey> node = _tileLru.AddLast(cacheKey);
             _tileLruNodes[cacheKey] = node;
-            _tileDiskCache.TryWrite(cacheKey, bitmap);
+            _tileDiskCache.QueueWrite(cacheKey, bitmap);
             TrimTileCache();
             return bitmap;
         }
@@ -479,6 +480,7 @@ namespace Land_Readjustment_Tool.UI.MapCanvas.Rendering
             {
                 using Band paletteBand = _dataset.GetRasterBand(_bandSelection.PaletteBand);
                 byte[] indexes = ReadBandWindow(paletteBand, overviewIndex, tileWindow);
+                ApplySingleBandNoData(indexes, alpha, TryGetNoDataValue(paletteBand));
                 return CreatePaletteBitmap(paletteBand, overviewIndex, indexes, alpha, tileWindow.Width, tileWindow.Height);
             }
 
@@ -498,11 +500,20 @@ namespace Land_Readjustment_Tool.UI.MapCanvas.Rendering
                     alpha = ReadBandWindow(alphaBand, overviewIndex, tileWindow);
                 }
 
+                ApplyRgbNoData(
+                    red,
+                    green,
+                    blue,
+                    alpha,
+                    TryGetNoDataValue(redBand),
+                    TryGetNoDataValue(greenBand),
+                    TryGetNoDataValue(blueBand));
                 return CreateArgbBitmap(red, green, blue, alpha, tileWindow.Width, tileWindow.Height);
             }
 
             using Band grayBand = _dataset.GetRasterBand(_bandSelection.GrayBand);
             byte[] gray = ReadBandWindow(grayBand, overviewIndex, tileWindow);
+            ApplySingleBandNoData(gray, alpha, TryGetNoDataValue(grayBand));
             return CreateArgbBitmap(gray, gray, gray, alpha, tileWindow.Width, tileWindow.Height);
         }
 
@@ -918,6 +929,73 @@ namespace Land_Readjustment_Tool.UI.MapCanvas.Rendering
             return bitmap;
         }
 
+        private static double? TryGetNoDataValue(Band band)
+        {
+            band.GetNoDataValue(out double noDataValue, out int hasNoData);
+            return hasNoData != 0 &&
+                   noDataValue >= byte.MinValue &&
+                   noDataValue <= byte.MaxValue &&
+                   !double.IsNaN(noDataValue) &&
+                   !double.IsInfinity(noDataValue)
+                ? noDataValue
+                : null;
+        }
+
+        private static void ApplySingleBandNoData(
+            byte[] values,
+            byte[] alpha,
+            double? noDataValue)
+        {
+            if (!noDataValue.HasValue)
+            {
+                return;
+            }
+
+            byte noData = ClampNoDataByte(noDataValue.Value);
+            for (int i = 0; i < values.Length; i++)
+            {
+                if (values[i] == noData)
+                {
+                    alpha[i] = 0;
+                }
+            }
+        }
+
+        private static void ApplyRgbNoData(
+            byte[] red,
+            byte[] green,
+            byte[] blue,
+            byte[] alpha,
+            double? redNoData,
+            double? greenNoData,
+            double? blueNoData)
+        {
+            bool hasRedNoData = redNoData.HasValue;
+            bool hasGreenNoData = greenNoData.HasValue;
+            bool hasBlueNoData = blueNoData.HasValue;
+            if (!hasRedNoData && !hasGreenNoData && !hasBlueNoData)
+            {
+                return;
+            }
+
+            byte redNoDataByte = hasRedNoData ? ClampNoDataByte(redNoData!.Value) : byte.MinValue;
+            byte greenNoDataByte = hasGreenNoData ? ClampNoDataByte(greenNoData!.Value) : byte.MinValue;
+            byte blueNoDataByte = hasBlueNoData ? ClampNoDataByte(blueNoData!.Value) : byte.MinValue;
+
+            for (int i = 0; i < red.Length; i++)
+            {
+                bool isNoData =
+                    (!hasRedNoData || red[i] == redNoDataByte) &&
+                    (!hasGreenNoData || green[i] == greenNoDataByte) &&
+                    (!hasBlueNoData || blue[i] == blueNoDataByte);
+
+                if (isNoData)
+                {
+                    alpha[i] = 0;
+                }
+            }
+        }
+
         private static string ResolveLayerFilePath(
             string storedPath,
             string? projectFolderPath)
@@ -1095,6 +1173,14 @@ namespace Land_Readjustment_Tool.UI.MapCanvas.Rendering
             return (byte)Math.Max(byte.MinValue, Math.Min(byte.MaxValue, value));
         }
 
+        private static byte ClampNoDataByte(double value)
+        {
+            return (byte)Math.Clamp(
+                (int)Math.Round(value, MidpointRounding.AwayFromZero),
+                byte.MinValue,
+                byte.MaxValue);
+        }
+
         private static byte Premultiply(byte color, byte alpha)
         {
             return alpha == byte.MaxValue
@@ -1105,7 +1191,9 @@ namespace Land_Readjustment_Tool.UI.MapCanvas.Rendering
         private sealed class RasterTileDiskCache
         {
             private const string CacheRootFolderName = "RePlotRasterTileCache";
+            private const string CacheFormatVersion = "raster-tile-cache-v2";
             private readonly string _cacheFolder;
+            private readonly ConcurrentDictionary<RasterTileCacheKey, byte> _pendingWrites = [];
 
             private RasterTileDiskCache(string cacheFolder)
             {
@@ -1122,10 +1210,15 @@ namespace Land_Readjustment_Tool.UI.MapCanvas.Rendering
                 DateTime lastWrite = File.Exists(fullPath)
                     ? File.GetLastWriteTimeUtc(fullPath)
                     : DateTime.MinValue;
+                long fileLength = File.Exists(fullPath)
+                    ? new FileInfo(fullPath).Length
+                    : 0L;
                 string signature = string.Join(
                     "|",
+                    CacheFormatVersion,
                     fullPath,
                     lastWrite.Ticks,
+                    fileLength,
                     sourceWidth,
                     sourceHeight);
                 string hash = Convert.ToHexString(
@@ -1169,7 +1262,45 @@ namespace Land_Readjustment_Tool.UI.MapCanvas.Rendering
                 }
             }
 
-            public void TryWrite(
+            public void QueueWrite(
+                RasterTileCacheKey key,
+                Bitmap bitmap)
+            {
+                string path = GetTilePath(key);
+                if (File.Exists(path) ||
+                    !_pendingWrites.TryAdd(key, 0))
+                {
+                    return;
+                }
+
+                Bitmap bitmapCopy;
+                try
+                {
+                    bitmapCopy = bitmap.Clone(
+                        new Rectangle(0, 0, bitmap.Width, bitmap.Height),
+                        PixelFormat.Format32bppPArgb);
+                }
+                catch
+                {
+                    _pendingWrites.TryRemove(key, out _);
+                    return;
+                }
+
+                _ = Task.Run(() =>
+                {
+                    try
+                    {
+                        TryWrite(key, bitmapCopy);
+                    }
+                    finally
+                    {
+                        bitmapCopy.Dispose();
+                        _pendingWrites.TryRemove(key, out _);
+                    }
+                });
+            }
+
+            private void TryWrite(
                 RasterTileCacheKey key,
                 Bitmap bitmap)
             {

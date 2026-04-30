@@ -17,6 +17,7 @@ namespace Land_Readjustment_Tool.UI.MapCanvas.Rendering
         private Size _canvasSize;
         private RasterViewSnapshot? _zoomStartView;
         private bool _cacheValid;
+        private bool _panBufferValid;
         private readonly object _sync = new();
         private readonly List<Bitmap> _retiredBitmaps = [];
         private int _activeFrameLeases;
@@ -30,6 +31,8 @@ namespace Land_Readjustment_Tool.UI.MapCanvas.Rendering
                     return;
 
                 _cacheValid = false;
+                _panBufferValid = false;
+                _zoomStartView = null;
             }
         }
 
@@ -75,6 +78,8 @@ namespace Land_Readjustment_Tool.UI.MapCanvas.Rendering
                     _rasterCache = renderedBitmap;
                     swapped = true;
                     _cacheValid = true;
+                    _panBufferValid = false;
+                    _zoomStartView = null;
                     RetireBitmap(previousCache);
                 }
             }
@@ -121,13 +126,16 @@ namespace Land_Readjustment_Tool.UI.MapCanvas.Rendering
                 if (_disposed)
                     return;
 
-                if (_panBuffer == null || _rasterCache == null)
+                _panBufferValid = false;
+
+                if (!_cacheValid || _panBuffer == null || _rasterCache == null)
                     return;
 
                 using Graphics graphics = Graphics.FromImage(_panBuffer);
                 graphics.Clear(Color.Transparent);
                 graphics.CompositingMode = CompositingMode.SourceCopy;
                 graphics.DrawImageUnscaled(_rasterCache, 0, 0);
+                _panBufferValid = true;
             }
         }
 
@@ -143,10 +151,12 @@ namespace Land_Readjustment_Tool.UI.MapCanvas.Rendering
                 if (_disposed)
                     return;
 
-                _zoomStartView = new RasterViewSnapshot(
-                    engine.ViewOriginWorld,
-                    engine.ZoomScale,
-                    _canvasSize);
+                _zoomStartView = _cacheValid && _rasterCache != null
+                    ? new RasterViewSnapshot(
+                        engine.ViewOriginWorld,
+                        engine.ZoomScale,
+                        _canvasSize)
+                    : null;
             }
         }
 
@@ -186,7 +196,7 @@ namespace Land_Readjustment_Tool.UI.MapCanvas.Rendering
         {
             lock (_sync)
             {
-                if (_disposed || _panBuffer == null)
+                if (_disposed || !_panBufferValid || _panBuffer == null)
                 {
                     frame = default;
                     return false;
@@ -263,6 +273,7 @@ namespace Land_Readjustment_Tool.UI.MapCanvas.Rendering
                 _rasterCache = null;
                 _panBuffer = null;
                 _cacheValid = false;
+                _panBufferValid = false;
                 _zoomStartView = null;
                 DisposeRetiredBitmapsIfSafe();
             }
@@ -326,6 +337,8 @@ namespace Land_Readjustment_Tool.UI.MapCanvas.Rendering
             _rasterCache = new Bitmap(_canvasSize.Width, _canvasSize.Height, PixelFormat.Format32bppPArgb);
             _panBuffer = new Bitmap(_canvasSize.Width, _canvasSize.Height, PixelFormat.Format32bppPArgb);
             _cacheValid = false;
+            _panBufferValid = false;
+            _zoomStartView = null;
         }
 
         private RasterRenderFrame CreateFrameLease(

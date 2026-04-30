@@ -71,7 +71,8 @@ namespace Land_Readjustment_Tool.UI.MapCanvas.Services
 
             if (sourceIsMbTiles &&
                 sourceExtent == null &&
-                string.IsNullOrWhiteSpace(sourceSrsDefinitionOverride))
+                string.IsNullOrWhiteSpace(sourceSrsDefinitionOverride) &&
+                CanUseDirectMbTiles(sourcePath, sourceMetadata))
             {
                 progress?.Report(new RasterImportProgress(45, "Copying MBTiles tile package"));
 
@@ -242,6 +243,28 @@ namespace Land_Readjustment_Tool.UI.MapCanvas.Services
             if (string.IsNullOrWhiteSpace(targetSrsDefinition))
                 throw new InvalidOperationException(
                     "Project coordinate reference system is not configured.");
+
+            if (IsMbTilesPath(rasterPath))
+            {
+                MbTilesLayerMetadata existingMetadata =
+                    MbTilesLayerMetadataStore.TryRead(rasterPath) ??
+                    MbTilesLayerMetadata.Create(
+                        "EPSG:3857",
+                        targetSrsDefinition,
+                        rasterPath);
+
+                MbTilesLayerMetadataStore.Write(
+                    rasterPath,
+                    MbTilesLayerMetadata.Create(
+                        string.IsNullOrWhiteSpace(existingMetadata.SourceSrsDefinition)
+                            ? "EPSG:3857"
+                            : existingMetadata.SourceSrsDefinition,
+                        targetSrsDefinition,
+                        existingMetadata.OriginalSourcePath ?? rasterPath));
+
+                skipReason = "MBTiles tile source metadata refreshed for the project CRS.";
+                return true;
+            }
 
             GdalConfiguration.ConfigureGdal();
             if (!GdalConfiguration.Usable)
@@ -572,14 +595,110 @@ namespace Land_Readjustment_Tool.UI.MapCanvas.Services
             string sourcePath,
             RasterImportMetadata metadata)
         {
-            return string.Equals(
-                       Path.GetExtension(sourcePath),
-                       ".mbtiles",
-                       StringComparison.OrdinalIgnoreCase) ||
+            return IsMbTilesPath(sourcePath) ||
                    string.Equals(
                        metadata.DriverShortName,
                        "MBTiles",
                        StringComparison.OrdinalIgnoreCase);
+        }
+
+        private static bool IsMbTilesPath(string sourcePath)
+        {
+            return string.Equals(
+                Path.GetExtension(sourcePath),
+                ".mbtiles",
+                StringComparison.OrdinalIgnoreCase);
+        }
+
+        private static bool CanUseDirectMbTiles(
+            string sourcePath,
+            RasterImportMetadata metadata)
+        {
+            return IsWebMercatorOrUnspecified(metadata) &&
+                   IsSupportedDirectMbTilesFormat(sourcePath);
+        }
+
+        private static bool IsWebMercatorOrUnspecified(
+            RasterImportMetadata metadata)
+        {
+            if (string.IsNullOrWhiteSpace(metadata.ProjectionWkt))
+            {
+                return true;
+            }
+
+            string authority = metadata.CrsInfo.Authority;
+            if (authority.Equals("EPSG:3857", StringComparison.OrdinalIgnoreCase) ||
+                authority.Equals("EPSG:900913", StringComparison.OrdinalIgnoreCase) ||
+                authority.Equals("EPSG:3785", StringComparison.OrdinalIgnoreCase))
+            {
+                return true;
+            }
+
+            return metadata.CrsInfo.Name.Contains(
+                       "Pseudo-Mercator",
+                       StringComparison.OrdinalIgnoreCase) ||
+                   metadata.CrsInfo.Name.Contains(
+                       "Web Mercator",
+                       StringComparison.OrdinalIgnoreCase) ||
+                   metadata.ProjectionWkt.Contains(
+                       "Pseudo-Mercator",
+                       StringComparison.OrdinalIgnoreCase) ||
+                   metadata.ProjectionWkt.Contains(
+                       "Web Mercator",
+                       StringComparison.OrdinalIgnoreCase);
+        }
+
+        private static bool IsSupportedDirectMbTilesFormat(string sourcePath)
+        {
+            try
+            {
+                Dictionary<string, string> metadata = ReadMbTilesMetadata(sourcePath);
+                if (!metadata.TryGetValue("format", out string? formatText) ||
+                    string.IsNullOrWhiteSpace(formatText))
+                {
+                    return true;
+                }
+
+                string format = formatText.Trim().TrimStart('.').ToLowerInvariant();
+                return format is "png" or "jpg" or "jpeg";
+            }
+            catch
+            {
+                return false;
+            }
+        }
+
+        private static Dictionary<string, string> ReadMbTilesMetadata(string mbTilesPath)
+        {
+            Dictionary<string, string> metadata = new(StringComparer.OrdinalIgnoreCase);
+            SqliteConnectionStringBuilder builder = new()
+            {
+                DataSource = mbTilesPath,
+                Mode = SqliteOpenMode.ReadOnly,
+                Cache = SqliteCacheMode.Shared,
+                Pooling = false
+            };
+
+            using SqliteConnection connection = new(builder.ToString());
+            connection.Open();
+            try
+            {
+                using SqliteCommand command = connection.CreateCommand();
+                command.CommandText = "SELECT name, value FROM metadata";
+                using SqliteDataReader reader = command.ExecuteReader();
+                while (reader.Read())
+                {
+                    string name = reader.GetString(0);
+                    string value = reader.IsDBNull(1) ? string.Empty : reader.GetString(1);
+                    metadata[name] = value;
+                }
+            }
+            catch
+            {
+                // MBTiles metadata is optional. Absence should not force GDAL fallback.
+            }
+
+            return metadata;
         }
 
         private static void OptimizeMbTilesForRendering(string mbTilesPath)
@@ -597,13 +716,19 @@ namespace Land_Readjustment_Tool.UI.MapCanvas.Services
                 using SqliteConnection connection = new(builder.ToString());
                 connection.Open();
 
-                ExecuteSql(connection, "PRAGMA temp_store=MEMORY");
-                ExecuteSql(connection, "PRAGMA cache_size=-65536");
-                ExecuteSql(
+                TryExecuteSql(connection, "PRAGMA temp_store=MEMORY");
+                TryExecuteSql(connection, "PRAGMA cache_size=-65536");
+                TryExecuteSql(
                     connection,
                     "CREATE INDEX IF NOT EXISTS idx_replot_tiles_zxy ON tiles(zoom_level, tile_column, tile_row)");
-                ExecuteSql(connection, "ANALYZE");
-                ExecuteSql(connection, "PRAGMA optimize");
+                TryExecuteSql(
+                    connection,
+                    "CREATE INDEX IF NOT EXISTS idx_replot_map_zxy ON map(zoom_level, tile_column, tile_row)");
+                TryExecuteSql(
+                    connection,
+                    "CREATE INDEX IF NOT EXISTS idx_replot_images_tile_id ON images(tile_id)");
+                TryExecuteSql(connection, "ANALYZE");
+                TryExecuteSql(connection, "PRAGMA optimize");
             }
             catch (Exception ex)
             {
@@ -619,6 +744,21 @@ namespace Land_Readjustment_Tool.UI.MapCanvas.Services
             using SqliteCommand command = connection.CreateCommand();
             command.CommandText = commandText;
             command.ExecuteNonQuery();
+        }
+
+        private static void TryExecuteSql(
+            SqliteConnection connection,
+            string commandText)
+        {
+            try
+            {
+                ExecuteSql(connection, commandText);
+            }
+            catch (Exception ex)
+            {
+                System.Diagnostics.Debug.WriteLine(
+                    $"Optional MBTiles SQL skipped: {commandText}. {ex.Message}");
+            }
         }
 
         private static string GetUniquePath(string desiredPath)
