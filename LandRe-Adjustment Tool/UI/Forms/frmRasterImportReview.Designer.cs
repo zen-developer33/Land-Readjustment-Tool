@@ -45,30 +45,30 @@ namespace Land_Readjustment_Tool.UI.Forms
             lblLayerName = new Label();
             lblTitle = new Label();
             mainLayout = new TableLayoutPanel();
-            grpSourceProjection = new GroupBox();
             projectionLayout = new TableLayoutPanel();
-            rdoDetectedCrs = new RadioButton();
-            rdoDefineSourceCrs = new RadioButton();
-            lblDefineSourceCrs = new Label();
-            cmbSourceCrs = new ComboBox();
-            txtCustomCrs = new TextBox();
             lblProjectionHint = new Label();
+            txtCustomCrs = new TextBox();
+            cmbSourceCrs = new ComboBox();
+            lblDefineSourceCrs = new Label();
+            rdoDefineSourceCrs = new RadioButton();
+            rdoDetectedCrs = new RadioButton();
+            grpSourceProjection = new GroupBox();
             previewPanel.SuspendLayout();
             ((System.ComponentModel.ISupportInitialize)picPreview).BeginInit();
             buttonPanel.SuspendLayout();
             grpRasterDetails.SuspendLayout();
             detailsLayout.SuspendLayout();
             mainLayout.SuspendLayout();
-            grpSourceProjection.SuspendLayout();
             projectionLayout.SuspendLayout();
+            grpSourceProjection.SuspendLayout();
             SuspendLayout();
             // 
             // label1
             // 
             label1.Font = new Font("Segoe UI", 9F, FontStyle.Bold, GraphicsUnit.Point, 0);
-            label1.Location = new Point(17, 56);
+            label1.Location = new Point(15, 42);
             label1.Name = "label1";
-            label1.Size = new Size(114, 32);
+            label1.Size = new Size(100, 24);
             label1.TabIndex = 7;
             label1.Text = "Raster Preview";
             label1.TextAlign = ContentAlignment.BottomLeft;
@@ -80,11 +80,10 @@ namespace Land_Readjustment_Tool.UI.Forms
             previewPanel.BorderStyle = BorderStyle.FixedSingle;
             previewPanel.Controls.Add(picPreview);
             previewPanel.Controls.Add(lblPreviewFallback);
-            previewPanel.Location = new Point(17, 92);
-            previewPanel.Margin = new Padding(3, 4, 3, 4);
+            previewPanel.Location = new Point(15, 69);
             previewPanel.Name = "previewPanel";
             mainLayout.SetRowSpan(previewPanel, 3);
-            previewPanel.Size = new Size(312, 329);
+            previewPanel.Size = new Size(272, 247);
             previewPanel.TabIndex = 0;
             // 
             // picPreview
@@ -92,9 +91,8 @@ namespace Land_Readjustment_Tool.UI.Forms
             picPreview.BackColor = Color.WhiteSmoke;
             picPreview.Dock = DockStyle.Fill;
             picPreview.Location = new Point(0, 0);
-            picPreview.Margin = new Padding(3, 4, 3, 4);
             picPreview.Name = "picPreview";
-            picPreview.Size = new Size(310, 327);
+            picPreview.Size = new Size(270, 245);
             picPreview.SizeMode = PictureBoxSizeMode.Zoom;
             picPreview.TabIndex = 0;
             picPreview.TabStop = false;
@@ -105,8 +103,8 @@ namespace Land_Readjustment_Tool.UI.Forms
             lblPreviewFallback.ForeColor = Color.DimGray;
             lblPreviewFallback.Location = new Point(0, 0);
             lblPreviewFallback.Name = "lblPreviewFallback";
-            lblPreviewFallback.Padding = new Padding(14, 16, 14, 16);
-            lblPreviewFallback.Size = new Size(310, 327);
+            lblPreviewFallback.Padding = new Padding(12);
+            lblPreviewFallback.Size = new Size(270, 245);
             lblPreviewFallback.TabIndex = 1;
             lblPreviewFallback.Text = "Low-quality raster preview";
             lblPreviewFallback.TextAlign = ContentAlignment.MiddleCenter;
@@ -117,19 +115,17 @@ namespace Land_Readjustment_Tool.UI.Forms
             buttonPanel.Controls.Add(btnImport);
             buttonPanel.Controls.Add(btnCancel);
             buttonPanel.FlowDirection = FlowDirection.RightToLeft;
-            buttonPanel.Location = new Point(335, 568);
-            buttonPanel.Margin = new Padding(3, 4, 3, 4);
+            buttonPanel.Location = new Point(293, 426);
             buttonPanel.Name = "buttonPanel";
-            buttonPanel.Size = new Size(478, 45);
+            buttonPanel.Size = new Size(419, 34);
             buttonPanel.TabIndex = 6;
             // 
             // btnImport
             // 
             btnImport.DialogResult = DialogResult.OK;
-            btnImport.Location = new Point(389, 4);
-            btnImport.Margin = new Padding(3, 4, 3, 4);
+            btnImport.Location = new Point(341, 3);
             btnImport.Name = "btnImport";
-            btnImport.Size = new Size(86, 37);
+            btnImport.Size = new Size(75, 28);
             btnImport.TabIndex = 0;
             btnImport.Text = "Import";
             btnImport.UseVisualStyleBackColor = true;
@@ -137,10 +133,9 @@ namespace Land_Readjustment_Tool.UI.Forms
             // btnCancel
             // 
             btnCancel.DialogResult = DialogResult.Cancel;
-            btnCancel.Location = new Point(297, 4);
-            btnCancel.Margin = new Padding(3, 4, 3, 4);
+            btnCancel.Location = new Point(260, 3);
             btnCancel.Name = "btnCancel";
-            btnCancel.Size = new Size(86, 37);
+            btnCancel.Size = new Size(75, 28);
             btnCancel.TabIndex = 1;
             btnCancel.Text = "Cancel";
             btnCancel.UseVisualStyleBackColor = true;
@@ -151,11 +146,9 @@ namespace Land_Readjustment_Tool.UI.Forms
             grpRasterDetails.Controls.Add(detailsLayout);
             grpRasterDetails.Dock = DockStyle.Fill;
             grpRasterDetails.Font = new Font("Segoe UI", 9F, FontStyle.Bold, GraphicsUnit.Point, 0);
-            grpRasterDetails.Location = new Point(335, 92);
-            grpRasterDetails.Margin = new Padding(3, 4, 3, 4);
+            grpRasterDetails.Location = new Point(293, 69);
             grpRasterDetails.Name = "grpRasterDetails";
-            grpRasterDetails.Padding = new Padding(3, 4, 3, 4);
-            grpRasterDetails.Size = new Size(478, 229);
+            grpRasterDetails.Size = new Size(419, 172);
             grpRasterDetails.TabIndex = 4;
             grpRasterDetails.TabStop = false;
             grpRasterDetails.Text = "Raster details";
@@ -163,7 +156,7 @@ namespace Land_Readjustment_Tool.UI.Forms
             // detailsLayout
             // 
             detailsLayout.ColumnCount = 2;
-            detailsLayout.ColumnStyles.Add(new ColumnStyle(SizeType.Absolute, 138F));
+            detailsLayout.ColumnStyles.Add(new ColumnStyle(SizeType.Absolute, 121F));
             detailsLayout.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 100F));
             detailsLayout.Controls.Add(lblSourceCaption, 0, 0);
             detailsLayout.Controls.Add(lblSourceValue, 1, 0);
@@ -179,10 +172,9 @@ namespace Land_Readjustment_Tool.UI.Forms
             detailsLayout.Controls.Add(lblProjectCrsValue, 1, 5);
             detailsLayout.Dock = DockStyle.Fill;
             detailsLayout.Font = new Font("Segoe UI", 9F, FontStyle.Regular, GraphicsUnit.Point, 0);
-            detailsLayout.Location = new Point(3, 24);
-            detailsLayout.Margin = new Padding(3, 4, 3, 4);
+            detailsLayout.Location = new Point(3, 19);
             detailsLayout.Name = "detailsLayout";
-            detailsLayout.Padding = new Padding(9, 8, 9, 11);
+            detailsLayout.Padding = new Padding(8, 6, 8, 8);
             detailsLayout.RowCount = 6;
             detailsLayout.RowStyles.Add(new RowStyle(SizeType.Percent, 16.666666F));
             detailsLayout.RowStyles.Add(new RowStyle(SizeType.Percent, 16.666666F));
@@ -190,7 +182,7 @@ namespace Land_Readjustment_Tool.UI.Forms
             detailsLayout.RowStyles.Add(new RowStyle(SizeType.Percent, 16.666666F));
             detailsLayout.RowStyles.Add(new RowStyle(SizeType.Percent, 16.666666F));
             detailsLayout.RowStyles.Add(new RowStyle(SizeType.Percent, 16.666666F));
-            detailsLayout.Size = new Size(472, 201);
+            detailsLayout.Size = new Size(413, 150);
             detailsLayout.TabIndex = 0;
             // 
             // lblSourceCaption
@@ -198,10 +190,10 @@ namespace Land_Readjustment_Tool.UI.Forms
             lblSourceCaption.Dock = DockStyle.Fill;
             lblSourceCaption.Font = new Font("Segoe UI", 9F, FontStyle.Regular, GraphicsUnit.Point, 0);
             lblSourceCaption.ForeColor = Color.Black;
-            lblSourceCaption.Location = new Point(12, 8);
-            lblSourceCaption.Margin = new Padding(3, 0, 9, 0);
+            lblSourceCaption.Location = new Point(11, 6);
+            lblSourceCaption.Margin = new Padding(3, 0, 8, 0);
             lblSourceCaption.Name = "lblSourceCaption";
-            lblSourceCaption.Size = new Size(126, 30);
+            lblSourceCaption.Size = new Size(100, 19);
             lblSourceCaption.TabIndex = 0;
             lblSourceCaption.Text = "Source:";
             lblSourceCaption.TextAlign = ContentAlignment.MiddleLeft;
@@ -210,9 +202,9 @@ namespace Land_Readjustment_Tool.UI.Forms
             // 
             lblSourceValue.AutoEllipsis = true;
             lblSourceValue.Dock = DockStyle.Fill;
-            lblSourceValue.Location = new Point(150, 8);
+            lblSourceValue.Location = new Point(132, 6);
             lblSourceValue.Name = "lblSourceValue";
-            lblSourceValue.Size = new Size(310, 30);
+            lblSourceValue.Size = new Size(100, 19);
             lblSourceValue.TabIndex = 1;
             lblSourceValue.TextAlign = ContentAlignment.MiddleLeft;
             lblSourceValue.UseMnemonic = false;
@@ -222,10 +214,10 @@ namespace Land_Readjustment_Tool.UI.Forms
             lblSizeCaption.Dock = DockStyle.Fill;
             lblSizeCaption.Font = new Font("Segoe UI", 9F, FontStyle.Regular, GraphicsUnit.Point, 0);
             lblSizeCaption.ForeColor = Color.Black;
-            lblSizeCaption.Location = new Point(12, 38);
-            lblSizeCaption.Margin = new Padding(3, 0, 9, 0);
+            lblSizeCaption.Location = new Point(11, 28);
+            lblSizeCaption.Margin = new Padding(3, 0, 8, 0);
             lblSizeCaption.Name = "lblSizeCaption";
-            lblSizeCaption.Size = new Size(126, 30);
+            lblSizeCaption.Size = new Size(100, 19);
             lblSizeCaption.TabIndex = 2;
             lblSizeCaption.Text = "Size:";
             lblSizeCaption.TextAlign = ContentAlignment.MiddleLeft;
@@ -234,9 +226,9 @@ namespace Land_Readjustment_Tool.UI.Forms
             // 
             lblSizeValue.AutoEllipsis = true;
             lblSizeValue.Dock = DockStyle.Fill;
-            lblSizeValue.Location = new Point(150, 38);
+            lblSizeValue.Location = new Point(132, 28);
             lblSizeValue.Name = "lblSizeValue";
-            lblSizeValue.Size = new Size(310, 30);
+            lblSizeValue.Size = new Size(100, 19);
             lblSizeValue.TabIndex = 3;
             lblSizeValue.TextAlign = ContentAlignment.MiddleLeft;
             lblSizeValue.UseMnemonic = false;
@@ -246,10 +238,10 @@ namespace Land_Readjustment_Tool.UI.Forms
             lblDriverCaption.Dock = DockStyle.Fill;
             lblDriverCaption.Font = new Font("Segoe UI", 9F, FontStyle.Regular, GraphicsUnit.Point, 0);
             lblDriverCaption.ForeColor = Color.Black;
-            lblDriverCaption.Location = new Point(12, 68);
-            lblDriverCaption.Margin = new Padding(3, 0, 9, 0);
+            lblDriverCaption.Location = new Point(11, 50);
+            lblDriverCaption.Margin = new Padding(3, 0, 8, 0);
             lblDriverCaption.Name = "lblDriverCaption";
-            lblDriverCaption.Size = new Size(126, 30);
+            lblDriverCaption.Size = new Size(100, 19);
             lblDriverCaption.TabIndex = 4;
             lblDriverCaption.Text = "Driver:";
             lblDriverCaption.TextAlign = ContentAlignment.MiddleLeft;
@@ -258,9 +250,9 @@ namespace Land_Readjustment_Tool.UI.Forms
             // 
             lblDriverValue.AutoEllipsis = true;
             lblDriverValue.Dock = DockStyle.Fill;
-            lblDriverValue.Location = new Point(150, 68);
+            lblDriverValue.Location = new Point(132, 50);
             lblDriverValue.Name = "lblDriverValue";
-            lblDriverValue.Size = new Size(310, 30);
+            lblDriverValue.Size = new Size(100, 19);
             lblDriverValue.TabIndex = 5;
             lblDriverValue.TextAlign = ContentAlignment.MiddleLeft;
             lblDriverValue.UseMnemonic = false;
@@ -270,10 +262,10 @@ namespace Land_Readjustment_Tool.UI.Forms
             lblGeoCaption.Dock = DockStyle.Fill;
             lblGeoCaption.Font = new Font("Segoe UI", 9F, FontStyle.Regular, GraphicsUnit.Point, 0);
             lblGeoCaption.ForeColor = Color.Black;
-            lblGeoCaption.Location = new Point(12, 98);
-            lblGeoCaption.Margin = new Padding(3, 0, 9, 0);
+            lblGeoCaption.Location = new Point(11, 72);
+            lblGeoCaption.Margin = new Padding(3, 0, 8, 0);
             lblGeoCaption.Name = "lblGeoCaption";
-            lblGeoCaption.Size = new Size(126, 30);
+            lblGeoCaption.Size = new Size(100, 19);
             lblGeoCaption.TabIndex = 6;
             lblGeoCaption.Text = "Georeferenced:";
             lblGeoCaption.TextAlign = ContentAlignment.MiddleLeft;
@@ -282,9 +274,9 @@ namespace Land_Readjustment_Tool.UI.Forms
             // 
             lblGeoValue.AutoEllipsis = true;
             lblGeoValue.Dock = DockStyle.Fill;
-            lblGeoValue.Location = new Point(150, 98);
+            lblGeoValue.Location = new Point(132, 72);
             lblGeoValue.Name = "lblGeoValue";
-            lblGeoValue.Size = new Size(310, 30);
+            lblGeoValue.Size = new Size(100, 19);
             lblGeoValue.TabIndex = 7;
             lblGeoValue.TextAlign = ContentAlignment.MiddleLeft;
             lblGeoValue.UseMnemonic = false;
@@ -294,10 +286,10 @@ namespace Land_Readjustment_Tool.UI.Forms
             lblRasterCrsCaption.Dock = DockStyle.Fill;
             lblRasterCrsCaption.Font = new Font("Segoe UI", 9F, FontStyle.Regular, GraphicsUnit.Point, 0);
             lblRasterCrsCaption.ForeColor = Color.Black;
-            lblRasterCrsCaption.Location = new Point(12, 128);
-            lblRasterCrsCaption.Margin = new Padding(3, 0, 9, 0);
+            lblRasterCrsCaption.Location = new Point(11, 94);
+            lblRasterCrsCaption.Margin = new Padding(3, 0, 8, 0);
             lblRasterCrsCaption.Name = "lblRasterCrsCaption";
-            lblRasterCrsCaption.Size = new Size(126, 30);
+            lblRasterCrsCaption.Size = new Size(100, 19);
             lblRasterCrsCaption.TabIndex = 8;
             lblRasterCrsCaption.Text = "Raster CRS:";
             lblRasterCrsCaption.TextAlign = ContentAlignment.MiddleLeft;
@@ -306,9 +298,9 @@ namespace Land_Readjustment_Tool.UI.Forms
             // 
             lblRasterCrsValue.AutoEllipsis = true;
             lblRasterCrsValue.Dock = DockStyle.Fill;
-            lblRasterCrsValue.Location = new Point(150, 128);
+            lblRasterCrsValue.Location = new Point(132, 94);
             lblRasterCrsValue.Name = "lblRasterCrsValue";
-            lblRasterCrsValue.Size = new Size(310, 30);
+            lblRasterCrsValue.Size = new Size(100, 19);
             lblRasterCrsValue.TabIndex = 9;
             lblRasterCrsValue.TextAlign = ContentAlignment.MiddleLeft;
             lblRasterCrsValue.UseMnemonic = false;
@@ -318,10 +310,10 @@ namespace Land_Readjustment_Tool.UI.Forms
             lblProjectCrsCaption.Dock = DockStyle.Fill;
             lblProjectCrsCaption.Font = new Font("Segoe UI", 9F, FontStyle.Regular, GraphicsUnit.Point, 0);
             lblProjectCrsCaption.ForeColor = Color.Black;
-            lblProjectCrsCaption.Location = new Point(12, 158);
-            lblProjectCrsCaption.Margin = new Padding(3, 0, 9, 0);
+            lblProjectCrsCaption.Location = new Point(11, 116);
+            lblProjectCrsCaption.Margin = new Padding(3, 0, 8, 0);
             lblProjectCrsCaption.Name = "lblProjectCrsCaption";
-            lblProjectCrsCaption.Size = new Size(126, 32);
+            lblProjectCrsCaption.Size = new Size(100, 21);
             lblProjectCrsCaption.TabIndex = 10;
             lblProjectCrsCaption.Text = "Target CRS:";
             lblProjectCrsCaption.TextAlign = ContentAlignment.MiddleLeft;
@@ -330,9 +322,9 @@ namespace Land_Readjustment_Tool.UI.Forms
             // 
             lblProjectCrsValue.AutoEllipsis = true;
             lblProjectCrsValue.Dock = DockStyle.Fill;
-            lblProjectCrsValue.Location = new Point(150, 158);
+            lblProjectCrsValue.Location = new Point(132, 116);
             lblProjectCrsValue.Name = "lblProjectCrsValue";
-            lblProjectCrsValue.Size = new Size(310, 32);
+            lblProjectCrsValue.Size = new Size(100, 21);
             lblProjectCrsValue.TabIndex = 11;
             lblProjectCrsValue.TextAlign = ContentAlignment.MiddleLeft;
             lblProjectCrsValue.UseMnemonic = false;
@@ -340,20 +332,19 @@ namespace Land_Readjustment_Tool.UI.Forms
             // txtLayerName
             // 
             txtLayerName.Anchor = AnchorStyles.Left | AnchorStyles.Right;
-            txtLayerName.Location = new Point(463, 60);
-            txtLayerName.Margin = new Padding(3, 4, 3, 4);
+            txtLayerName.Location = new Point(405, 45);
             txtLayerName.Multiline = true;
             txtLayerName.Name = "txtLayerName";
-            txtLayerName.Size = new Size(350, 23);
+            txtLayerName.Size = new Size(307, 18);
             txtLayerName.TabIndex = 3;
             // 
             // lblLayerName
             // 
             lblLayerName.AutoSize = true;
             lblLayerName.Dock = DockStyle.Fill;
-            lblLayerName.Location = new Point(335, 56);
+            lblLayerName.Location = new Point(293, 42);
             lblLayerName.Name = "lblLayerName";
-            lblLayerName.Size = new Size(122, 32);
+            lblLayerName.Size = new Size(106, 24);
             lblLayerName.TabIndex = 2;
             lblLayerName.Text = "Layer name";
             lblLayerName.TextAlign = ContentAlignment.MiddleLeft;
@@ -364,9 +355,9 @@ namespace Land_Readjustment_Tool.UI.Forms
             mainLayout.SetColumnSpan(lblTitle, 2);
             lblTitle.Dock = DockStyle.Fill;
             lblTitle.Font = new Font("Segoe UI", 10F, FontStyle.Bold);
-            lblTitle.Location = new Point(335, 16);
+            lblTitle.Location = new Point(293, 12);
             lblTitle.Name = "lblTitle";
-            lblTitle.Size = new Size(478, 40);
+            lblTitle.Size = new Size(419, 30);
             lblTitle.TabIndex = 1;
             lblTitle.Text = "Review Raster Import and Projection";
             lblTitle.TextAlign = ContentAlignment.MiddleLeft;
@@ -374,8 +365,8 @@ namespace Land_Readjustment_Tool.UI.Forms
             // mainLayout
             // 
             mainLayout.ColumnCount = 3;
-            mainLayout.ColumnStyles.Add(new ColumnStyle(SizeType.Absolute, 318F));
-            mainLayout.ColumnStyles.Add(new ColumnStyle(SizeType.Absolute, 128F));
+            mainLayout.ColumnStyles.Add(new ColumnStyle(SizeType.Absolute, 278F));
+            mainLayout.ColumnStyles.Add(new ColumnStyle(SizeType.Absolute, 112F));
             mainLayout.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 100F));
             mainLayout.Controls.Add(lblTitle, 1, 0);
             mainLayout.Controls.Add(lblLayerName, 1, 1);
@@ -387,34 +378,18 @@ namespace Land_Readjustment_Tool.UI.Forms
             mainLayout.Controls.Add(label1, 0, 1);
             mainLayout.Dock = DockStyle.Fill;
             mainLayout.Location = new Point(0, 0);
-            mainLayout.Margin = new Padding(3, 4, 3, 4);
             mainLayout.Name = "mainLayout";
-            mainLayout.Padding = new Padding(14, 16, 14, 16);
+            mainLayout.Padding = new Padding(12);
             mainLayout.RowCount = 4;
-            mainLayout.RowStyles.Add(new RowStyle(SizeType.Absolute, 40F));
-            mainLayout.RowStyles.Add(new RowStyle(SizeType.Absolute, 32F));
-            mainLayout.RowStyles.Add(new RowStyle(SizeType.Absolute, 237F));
+            mainLayout.RowStyles.Add(new RowStyle(SizeType.Absolute, 30F));
+            mainLayout.RowStyles.Add(new RowStyle(SizeType.Absolute, 24F));
+            mainLayout.RowStyles.Add(new RowStyle(SizeType.Absolute, 178F));
             mainLayout.RowStyles.Add(new RowStyle(SizeType.Percent, 100F));
-            mainLayout.RowStyles.Add(new RowStyle(SizeType.Absolute, 53F));
-            mainLayout.RowStyles.Add(new RowStyle(SizeType.Absolute, 27F));
-            mainLayout.Size = new Size(830, 633);
+            mainLayout.RowStyles.Add(new RowStyle(SizeType.Absolute, 40F));
+            mainLayout.RowStyles.Add(new RowStyle(SizeType.Absolute, 20F));
+            mainLayout.Size = new Size(727, 475);
             mainLayout.TabIndex = 0;
             mainLayout.Paint += mainLayout_Paint;
-            // 
-            // grpSourceProjection
-            // 
-            mainLayout.SetColumnSpan(grpSourceProjection, 2);
-            grpSourceProjection.Controls.Add(projectionLayout);
-            grpSourceProjection.Dock = DockStyle.Fill;
-            grpSourceProjection.Font = new Font("Segoe UI", 9F, FontStyle.Bold, GraphicsUnit.Point, 0);
-            grpSourceProjection.Location = new Point(335, 329);
-            grpSourceProjection.Margin = new Padding(3, 4, 3, 4);
-            grpSourceProjection.Name = "grpSourceProjection";
-            grpSourceProjection.Padding = new Padding(3, 4, 3, 4);
-            grpSourceProjection.Size = new Size(478, 231);
-            grpSourceProjection.TabIndex = 5;
-            grpSourceProjection.TabStop = false;
-            grpSourceProjection.Text = "Source CRS and projection";
             // 
             // projectionLayout
             // 
@@ -427,58 +402,37 @@ namespace Land_Readjustment_Tool.UI.Forms
             projectionLayout.Controls.Add(txtCustomCrs, 0, 4);
             projectionLayout.Controls.Add(lblProjectionHint, 0, 5);
             projectionLayout.Dock = DockStyle.Fill;
-            projectionLayout.Location = new Point(3, 24);
-            projectionLayout.Margin = new Padding(3, 4, 3, 4);
+            projectionLayout.Location = new Point(3, 19);
             projectionLayout.Name = "projectionLayout";
-            projectionLayout.Padding = new Padding(9, 5, 9, 8);
+            projectionLayout.Padding = new Padding(8, 4, 8, 6);
             projectionLayout.RowCount = 6;
-            projectionLayout.RowStyles.Add(new RowStyle(SizeType.Absolute, 32F));
-            projectionLayout.RowStyles.Add(new RowStyle(SizeType.Absolute, 32F));
-            projectionLayout.RowStyles.Add(new RowStyle(SizeType.Absolute, 29F));
-            projectionLayout.RowStyles.Add(new RowStyle(SizeType.Absolute, 37F));
-            projectionLayout.RowStyles.Add(new RowStyle(SizeType.Absolute, 91F));
+            projectionLayout.RowStyles.Add(new RowStyle(SizeType.Absolute, 24F));
+            projectionLayout.RowStyles.Add(new RowStyle(SizeType.Absolute, 24F));
+            projectionLayout.RowStyles.Add(new RowStyle(SizeType.Absolute, 22F));
+            projectionLayout.RowStyles.Add(new RowStyle(SizeType.Absolute, 28F));
+            projectionLayout.RowStyles.Add(new RowStyle(SizeType.Absolute, 68F));
             projectionLayout.RowStyles.Add(new RowStyle(SizeType.Percent, 100F));
-            projectionLayout.Size = new Size(472, 203);
+            projectionLayout.Size = new Size(413, 151);
             projectionLayout.TabIndex = 0;
             // 
-            // rdoDetectedCrs
+            // lblProjectionHint
             // 
-            rdoDetectedCrs.AutoSize = true;
-            rdoDetectedCrs.Dock = DockStyle.Fill;
-            rdoDetectedCrs.Font = new Font("Segoe UI", 9F);
-            rdoDetectedCrs.Location = new Point(12, 9);
-            rdoDetectedCrs.Margin = new Padding(3, 4, 3, 4);
-            rdoDetectedCrs.Name = "rdoDetectedCrs";
-            rdoDetectedCrs.Size = new Size(448, 24);
-            rdoDetectedCrs.TabIndex = 0;
-            rdoDetectedCrs.TabStop = true;
-            rdoDetectedCrs.Text = "Use detected raster CRS";
-            rdoDetectedCrs.UseVisualStyleBackColor = true;
+            lblProjectionHint.Dock = DockStyle.Fill;
+            lblProjectionHint.ForeColor = Color.DimGray;
+            lblProjectionHint.Location = new Point(11, 170);
+            lblProjectionHint.Name = "lblProjectionHint";
+            lblProjectionHint.Size = new Size(391, 1);
+            lblProjectionHint.TabIndex = 5;
             // 
-            // rdoDefineSourceCrs
+            // txtCustomCrs
             // 
-            rdoDefineSourceCrs.AutoSize = true;
-            rdoDefineSourceCrs.Dock = DockStyle.Fill;
-            rdoDefineSourceCrs.Font = new Font("Segoe UI", 9F);
-            rdoDefineSourceCrs.Location = new Point(12, 41);
-            rdoDefineSourceCrs.Margin = new Padding(3, 4, 3, 4);
-            rdoDefineSourceCrs.Name = "rdoDefineSourceCrs";
-            rdoDefineSourceCrs.Size = new Size(448, 24);
-            rdoDefineSourceCrs.TabIndex = 1;
-            rdoDefineSourceCrs.Text = "Define source CRS";
-            rdoDefineSourceCrs.UseVisualStyleBackColor = true;
-            // 
-            // lblDefineSourceCrs
-            // 
-            lblDefineSourceCrs.Dock = DockStyle.Fill;
-            lblDefineSourceCrs.Font = new Font("Segoe UI", 9F);
-            lblDefineSourceCrs.ForeColor = Color.DimGray;
-            lblDefineSourceCrs.Location = new Point(12, 69);
-            lblDefineSourceCrs.Name = "lblDefineSourceCrs";
-            lblDefineSourceCrs.Size = new Size(448, 29);
-            lblDefineSourceCrs.TabIndex = 2;
-            lblDefineSourceCrs.Text = "Select the source CRS to transform from:";
-            lblDefineSourceCrs.TextAlign = ContentAlignment.MiddleLeft;
+            txtCustomCrs.Dock = DockStyle.Fill;
+            txtCustomCrs.Font = new Font("Segoe UI", 9F);
+            txtCustomCrs.Location = new Point(11, 105);
+            txtCustomCrs.Name = "txtCustomCrs";
+            txtCustomCrs.PlaceholderText = "Example: EPSG:4326 or 4326";
+            txtCustomCrs.Size = new Size(391, 23);
+            txtCustomCrs.TabIndex = 4;
             // 
             // cmbSourceCrs
             // 
@@ -486,42 +440,70 @@ namespace Land_Readjustment_Tool.UI.Forms
             cmbSourceCrs.DropDownStyle = ComboBoxStyle.DropDownList;
             cmbSourceCrs.Font = new Font("Segoe UI", 9F);
             cmbSourceCrs.FormattingEnabled = true;
-            cmbSourceCrs.Location = new Point(12, 102);
-            cmbSourceCrs.Margin = new Padding(3, 4, 3, 4);
+            cmbSourceCrs.Location = new Point(11, 77);
             cmbSourceCrs.Name = "cmbSourceCrs";
-            cmbSourceCrs.Size = new Size(448, 28);
+            cmbSourceCrs.Size = new Size(391, 23);
             cmbSourceCrs.TabIndex = 3;
             // 
-            // txtCustomCrs
+            // lblDefineSourceCrs
             // 
-            txtCustomCrs.Dock = DockStyle.Fill;
-            txtCustomCrs.Font = new Font("Segoe UI", 9F);
-            txtCustomCrs.Location = new Point(12, 139);
-            txtCustomCrs.Margin = new Padding(3, 4, 3, 4);
-            txtCustomCrs.Name = "txtCustomCrs";
-            txtCustomCrs.PlaceholderText = "Example: EPSG:4326 or 4326";
-            txtCustomCrs.Size = new Size(448, 27);
-            txtCustomCrs.TabIndex = 4;
+            lblDefineSourceCrs.Dock = DockStyle.Fill;
+            lblDefineSourceCrs.Font = new Font("Segoe UI", 9F);
+            lblDefineSourceCrs.ForeColor = Color.DimGray;
+            lblDefineSourceCrs.Location = new Point(11, 52);
+            lblDefineSourceCrs.Name = "lblDefineSourceCrs";
+            lblDefineSourceCrs.Size = new Size(391, 22);
+            lblDefineSourceCrs.TabIndex = 2;
+            lblDefineSourceCrs.Text = "Select the source CRS to transform from:";
+            lblDefineSourceCrs.TextAlign = ContentAlignment.MiddleLeft;
             // 
-            // lblProjectionHint
+            // rdoDefineSourceCrs
             // 
-            lblProjectionHint.Dock = DockStyle.Fill;
-            lblProjectionHint.ForeColor = Color.DimGray;
-            lblProjectionHint.Location = new Point(12, 226);
-            lblProjectionHint.Name = "lblProjectionHint";
-            lblProjectionHint.Size = new Size(448, 1);
-            lblProjectionHint.TabIndex = 5;
+            rdoDefineSourceCrs.AutoSize = true;
+            rdoDefineSourceCrs.Dock = DockStyle.Fill;
+            rdoDefineSourceCrs.Font = new Font("Segoe UI", 9F);
+            rdoDefineSourceCrs.Location = new Point(11, 31);
+            rdoDefineSourceCrs.Name = "rdoDefineSourceCrs";
+            rdoDefineSourceCrs.Size = new Size(391, 18);
+            rdoDefineSourceCrs.TabIndex = 1;
+            rdoDefineSourceCrs.Text = "Define source CRS";
+            rdoDefineSourceCrs.UseVisualStyleBackColor = true;
+            // 
+            // rdoDetectedCrs
+            // 
+            rdoDetectedCrs.AutoSize = true;
+            rdoDetectedCrs.Dock = DockStyle.Fill;
+            rdoDetectedCrs.Font = new Font("Segoe UI", 9F);
+            rdoDetectedCrs.Location = new Point(11, 7);
+            rdoDetectedCrs.Name = "rdoDetectedCrs";
+            rdoDetectedCrs.Size = new Size(391, 18);
+            rdoDetectedCrs.TabIndex = 0;
+            rdoDetectedCrs.TabStop = true;
+            rdoDetectedCrs.Text = "Use detected raster CRS";
+            rdoDetectedCrs.UseVisualStyleBackColor = true;
+            // 
+            // grpSourceProjection
+            // 
+            mainLayout.SetColumnSpan(grpSourceProjection, 2);
+            grpSourceProjection.Controls.Add(projectionLayout);
+            grpSourceProjection.Dock = DockStyle.Fill;
+            grpSourceProjection.Font = new Font("Segoe UI", 9F, FontStyle.Bold, GraphicsUnit.Point, 0);
+            grpSourceProjection.Location = new Point(293, 247);
+            grpSourceProjection.Name = "grpSourceProjection";
+            grpSourceProjection.Size = new Size(419, 173);
+            grpSourceProjection.TabIndex = 5;
+            grpSourceProjection.TabStop = false;
+            grpSourceProjection.Text = "Source CRS and projection";
             // 
             // frmRasterImportReview
             // 
             AcceptButton = btnImport;
-            AutoScaleDimensions = new SizeF(8F, 20F);
+            AutoScaleDimensions = new SizeF(7F, 15F);
             AutoScaleMode = AutoScaleMode.Font;
             CancelButton = btnCancel;
-            ClientSize = new Size(830, 633);
+            ClientSize = new Size(727, 475);
             Controls.Add(mainLayout);
             FormBorderStyle = FormBorderStyle.FixedDialog;
-            Margin = new Padding(3, 4, 3, 4);
             MaximizeBox = false;
             MinimizeBox = false;
             Name = "frmRasterImportReview";
@@ -536,9 +518,9 @@ namespace Land_Readjustment_Tool.UI.Forms
             detailsLayout.ResumeLayout(false);
             mainLayout.ResumeLayout(false);
             mainLayout.PerformLayout();
-            grpSourceProjection.ResumeLayout(false);
             projectionLayout.ResumeLayout(false);
             projectionLayout.PerformLayout();
+            grpSourceProjection.ResumeLayout(false);
             ResumeLayout(false);
         }
 
