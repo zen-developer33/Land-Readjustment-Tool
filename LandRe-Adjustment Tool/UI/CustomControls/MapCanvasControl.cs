@@ -10,7 +10,7 @@ namespace Land_Readjustment_Tool.UI.CustomControls
 {
     public partial class MapCanvasControl : UserControl
     {
-        private const int ZoomSettleIntervalMs = 20;
+        private const int ZoomSettleIntervalMs = 200;
 
         private readonly MapCanvasEngine _engine;
         private readonly MapCanvasRenderer _renderer;
@@ -581,8 +581,7 @@ namespace Land_Readjustment_Tool.UI.CustomControls
                 return pendingZoomFrame;
             }
 
-            if (!ShouldDeferDirectRasterRendering &&
-                _rasterDeferredRenderer.TryGetCacheFrame(
+            if (_rasterDeferredRenderer.TryGetCacheFrame(
                     out RasterRenderFrame cacheFrame))
             {
                 return cacheFrame;
@@ -594,10 +593,7 @@ namespace Land_Readjustment_Tool.UI.CustomControls
         private void ZoomingStatusTimer_Tick(object? sender, EventArgs e)
         {
             _zoomingStatusTimer.Stop();
-            _isZooming = false;
-            _zoomDirection = null;
             RefreshRasterCacheForCurrentViewAsync(endZoomWhenComplete: true);
-            UpdateCanvasCursor();
             UpdateStatusBar();
             RequestRender();
         }
@@ -739,10 +735,19 @@ namespace Land_Readjustment_Tool.UI.CustomControls
                     if (endZoomWhenComplete)
                     {
                         _rasterDeferredRenderer.EndZoom();
+                        _isZooming = false;
+                        _zoomDirection = null;
                     }
 
                     _rasterRenderCancellation = null;
                     _rasterCacheRefreshPending = false;
+
+                    if (endZoomWhenComplete && !IsDisposed && !Disposing)
+                    {
+                        UpdateCanvasCursor();
+                        UpdateStatusBar();
+                        RequestRender();
+                    }
                 }
 
                 cancellation.Dispose();
