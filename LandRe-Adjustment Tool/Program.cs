@@ -9,6 +9,7 @@ using Land_Readjustment_Tool.Services.Raster;
 using Land_Readjustment_Tool.UI.Forms;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Win32;
+using System.Runtime.InteropServices;
 using System.Text;
 using Land_Readjustment_Tool.Core.Interfaces;
 
@@ -27,6 +28,7 @@ namespace Land_Readjustment_Tool
                 //SetProcessDPIAware();
             Application.SetHighDpiMode(HighDpiMode.SystemAware);
             Encoding.RegisterProvider(CodePagesEncodingProvider.Instance);
+            ConfigureNativeLibrarySearchPath();
             SQLitePCL.Batteries_V2.Init();
             Application.EnableVisualStyles();           
             Application.SetCompatibleTextRenderingDefault(false);
@@ -57,6 +59,45 @@ namespace Land_Readjustment_Tool
 
         //[System.Runtime.InteropServices.DllImport("user32.dll")]
         //private static extern bool SetProcessDPIAware();
+
+        private static void ConfigureNativeLibrarySearchPath()
+        {
+            string baseDirectory = AppContext.BaseDirectory;
+            string runtimeFolder = RuntimeInformation.ProcessArchitecture switch
+            {
+                Architecture.X86 => "win-x86",
+                Architecture.Arm => "win-arm",
+                Architecture.Arm64 => "win-arm64",
+                _ => "win-x64"
+            };
+
+            PrependPathIfExists(Path.Combine(
+                baseDirectory,
+                "runtimes",
+                runtimeFolder,
+                "native"));
+        }
+
+        private static void PrependPathIfExists(string directory)
+        {
+            if (!Directory.Exists(directory))
+                return;
+
+            string path = Environment.GetEnvironmentVariable("PATH") ?? string.Empty;
+            string[] entries = path.Split(
+                Path.PathSeparator,
+                StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries);
+
+            if (entries.Any(entry => string.Equals(
+                    entry,
+                    directory,
+                    StringComparison.OrdinalIgnoreCase)))
+                return;
+
+            Environment.SetEnvironmentVariable(
+                "PATH",
+                directory + Path.PathSeparator + path);
+        }
 
 
 
@@ -113,6 +154,7 @@ namespace Land_Readjustment_Tool
             services.AddSingleton<IProjectRasterCrsResolver, ProjectRasterCrsResolver>();
             services.AddSingleton<IRasterDatasetImporter, GdalRasterDatasetImporter>();
             services.AddSingleton<IRasterLayerImportService, RasterLayerImportService>();
+            services.AddSingleton<IXyzTileSourceService, XyzTileSourceService>();
             services.AddSingleton<RasterLayerProjectionService>();
             services.AddSingleton<ProjectOpenService>();
             services.AddSingleton<ProjectSaveAsService>();

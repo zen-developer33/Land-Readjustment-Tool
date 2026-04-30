@@ -34,6 +34,7 @@ namespace Land_Readjustment_Tool
         private readonly CanvasLayerBoundsService _layerBoundsService;
         private readonly RasterLayerProjectionService _rasterLayerProjectionService;
         private readonly IRasterLayerImportService _rasterLayerImportService;
+        private readonly IXyzTileSourceService _xyzTileSourceService;
         private readonly ProjectOpenService _projectOpenService;
         private readonly ProjectSaveAsService _projectSaveAsService;
         #endregion
@@ -94,6 +95,7 @@ namespace Land_Readjustment_Tool
         private readonly ToolStripControlHost _operationProgressHost;
         private bool _suppressActiveLayerEvents;
         private const string LayerGroupNodeNamePrefix = "LayerGroup_";
+        private const string RasterLayerGroupKey = "RasterLayer";
         private const int LayerNodeCheckBoxSize = 14;
         private const int LayerNodeCheckBoxGap = 6;
         private const int LayerNodeColorBoxSize = 18;
@@ -105,6 +107,9 @@ namespace Land_Readjustment_Tool
         private readonly ToolStripMenuItem _mnuToggleLayerVisibility = new("Show/Hide");
         private readonly ToolStripMenuItem _mnuToggleLayerLock = new("Lock/Unlock");
         private readonly ToolStripMenuItem _mnuLayerProperties = new("Layer Properties");
+        private readonly ToolStripMenuItem _mnuAddRasterMap = new("Add Raster Map...");
+        private readonly ToolStripMenuItem _mnuAddXyzTiles = new("Add XYZ Tiles...");
+        private readonly ToolStripMenuItem _mnuImportXyzTiles = new("Import XYZ Tiles...");
         private readonly TextBox _layerRenameTextBox = new();
         private TreeNode? _contextLayerNode;
         private TreeNode? _renamingLayerNode;
@@ -168,6 +173,7 @@ namespace Land_Readjustment_Tool
                     projectScopedFactory,
                     new ProjectRasterCrsResolver(projectScopedFactory),
                     new GdalRasterDatasetImporter()),
+                new XyzTileSourceService(),
                 new ProjectOpenService(sessionFactory, projectScopedFactory),
                 new ProjectSaveAsService(backupService, sessionFactory),
                 startupFilePath)
@@ -183,6 +189,7 @@ namespace Land_Readjustment_Tool
             CanvasLayerBoundsService layerBoundsService,
             RasterLayerProjectionService rasterLayerProjectionService,
             IRasterLayerImportService rasterLayerImportService,
+            IXyzTileSourceService xyzTileSourceService,
             ProjectOpenService projectOpenService,
             ProjectSaveAsService projectSaveAsService,
             string? startupFilePath = null)
@@ -195,6 +202,7 @@ namespace Land_Readjustment_Tool
             _layerBoundsService = layerBoundsService ?? throw new ArgumentNullException(nameof(layerBoundsService));
             _rasterLayerProjectionService = rasterLayerProjectionService ?? throw new ArgumentNullException(nameof(rasterLayerProjectionService));
             _rasterLayerImportService = rasterLayerImportService ?? throw new ArgumentNullException(nameof(rasterLayerImportService));
+            _xyzTileSourceService = xyzTileSourceService ?? throw new ArgumentNullException(nameof(xyzTileSourceService));
             _projectOpenService = projectOpenService ?? throw new ArgumentNullException(nameof(projectOpenService));
             _projectSaveAsService = projectSaveAsService ?? throw new ArgumentNullException(nameof(projectSaveAsService));
 
@@ -238,6 +246,8 @@ namespace Land_Readjustment_Tool
             mnuZoomExtent.Click += mnuZoomExtent_Click!;
             mnuZoomWindow.Click += mnuZoomWindow_Click!;
             baseMapsToolStripMenuItem.Click += importRasterToolStripMenuItem_Click!;
+            _mnuImportXyzTiles.Click += importXyzTilesToolStripMenuItem_Click!;
+            importDataToolStripMenuItem1.DropDownItems.Add(_mnuImportXyzTiles);
 
         }
 
@@ -1121,6 +1131,11 @@ namespace Land_Readjustment_Tool
                 GetGeneralRasterImportFilter());
         }
 
+        private async void importXyzTilesToolStripMenuItem_Click(object? sender, EventArgs e)
+        {
+            await ImportXyzTilesAsync();
+        }
+
         /// <summary>
         /// Imports a local raster file through metadata preview, source CRS definition, and project CRS projection.
         /// </summary>
@@ -1227,6 +1242,112 @@ namespace Land_Readjustment_Tool
                 MessageBox.Show(
                     $"Failed to import raster: {GetMostUsefulExceptionMessage(ex)}",
                     "Raster Import",
+                    MessageBoxButtons.OK,
+                    MessageBoxIcon.Error);
+            }
+            finally
+            {
+                HideOperationProgress();
+            }
+        }
+
+        /// <summary>
+        /// Imports an online XYZ tile source as a project raster layer.
+        /// </summary>
+        private async Task ImportXyzTilesAsync()
+        {
+            if (!AppServices.HasContext)
+            {
+                MessageBox.Show(
+                    "Please open or create a project first.",
+                    "No Project Open",
+                    MessageBoxButtons.OK,
+                    MessageBoxIcon.Warning);
+                return;
+            }
+
+            using frmXyzTileImportOptions optionsForm =
+                new(AppServices.Context.ProjectFolderPath);
+
+            if (optionsForm.ShowDialog(this) != DialogResult.OK)
+                return;
+
+            XyzTileSourceImportRequest request = optionsForm.ImportRequest;
+
+            try
+            {
+                CanvasLayer? existingRasterLayer =
+                    await FindExistingRasterLayerAsync(request.LayerName);
+                if (existingRasterLayer != null)
+                {
+                    DialogResult replaceResult = MessageBox.Show(
+                        this,
+                        $"A raster layer named '{existingRasterLayer.Name}' already exists. Replace it?",
+                        "XYZ Tile Import",
+                        MessageBoxButtons.YesNo,
+                        MessageBoxIcon.Question,
+                        MessageBoxDefaultButton.Button2);
+
+                    if (replaceResult != DialogResult.Yes)
+                    {
+                        return;
+                    }
+
+                    await ReplaceRasterLayerAsync(existingRasterLayer);
+                }
+
+                SetOperationProgress(2, "Preparing XYZ tile source");
+
+                XyzTileSourceDefinition sourceDefinition =
+                    _xyzTileSourceService.CreateSourceDefinition(
+                        AppServices.Context.ProjectFolderPath,
+                        request);
+
+                Progress<RasterImportProgressInfo> progress = new(
+                    update => SetOperationProgress(update.Percent, update.Status));
+
+                RasterLayerImportResult importResult =
+                    await _rasterLayerImportService.ImportAsync(
+                        new RasterLayerImportRequest(
+                            AppServices.Context.Session,
+                            AppServices.Context.ProjectFolderPath,
+                            sourceDefinition.DefinitionPath,
+                            request.LayerName,
+                            sourceDefinition.SourceExtent.SrsDefinition,
+                            sourceDefinition.SourceExtent),
+                        progress);
+
+                SetOperationProgress(94, "Refreshing raster layer list");
+
+                AppServices.Context.MarkAsModified();
+                UpdateWindowTitle();
+
+                await RefreshLayerTreeAsync();
+                SelectLayerNodeById(importResult.Layer.Id);
+                mapCanvasControlMain.ZoomExtents();
+
+                SetCanvasCommandStatus(
+                    $"Imported XYZ tiles: {importResult.Layer.Name}");
+            }
+            catch (InvalidOperationException ex)
+                when (ex.Message.Contains(
+                    "project coordinate system",
+                    StringComparison.OrdinalIgnoreCase))
+            {
+                MessageBox.Show(
+                    ex.Message,
+                    "XYZ Tile Import",
+                    MessageBoxButtons.OK,
+                    MessageBoxIcon.Warning);
+                OpenProjectSettings();
+            }
+            catch (Exception ex)
+            {
+                LogProjectError("XYZ tile import failed.", ex);
+
+                MessageBox.Show(
+                    $"Failed to import XYZ tiles: {GetMostUsefulExceptionMessage(ex)}",
+                    "XYZ Tile Import",
                     MessageBoxButtons.OK,
                     MessageBoxIcon.Error);
             }
@@ -2022,20 +2143,11 @@ namespace Land_Readjustment_Tool
         private void ConfigureLayerContextMenu()
         {
             _layerContextMenu.Items.Clear();
-            _layerContextMenu.Items.AddRange(
-            [
-                _mnuZoomToLayer,
-                new ToolStripSeparator(),
-                _mnuRenameLayer,
-                _mnuDeleteLayer,
-                new ToolStripSeparator(),
-                _mnuToggleLayerVisibility,
-                _mnuToggleLayerLock,
-                new ToolStripSeparator(),
-                _mnuLayerProperties
-            ]);
-
             _layerContextMenu.Opening += LayerContextMenu_Opening;
+            _mnuAddRasterMap.Click += async (_, _) => await ImportRasterFileAsync(
+                "Add Raster Map",
+                GetGeneralRasterImportFilter());
+            _mnuAddXyzTiles.Click += async (_, _) => await ImportXyzTilesAsync();
             _mnuZoomToLayer.Click += async (_, _) => await ZoomToLayerAsync(_contextLayerNode);
             _mnuRenameLayer.Click += (_, _) => BeginLayerRename(_contextLayerNode);
             _mnuDeleteLayer.Click += async (_, _) => await DeleteLayerAsync(_contextLayerNode);
@@ -2257,7 +2369,17 @@ namespace Land_Readjustment_Tool
         {
             Point clientPoint = treeViewLayers.PointToClient(Cursor.Position);
             TreeNode? node = treeViewLayers.GetNodeAt(clientPoint);
-            _contextLayerNode = IsLayerNode(node) ? node : treeViewLayers.SelectedNode;
+            TreeNode? targetNode = node ?? treeViewLayers.SelectedNode;
+
+            if (IsRasterLayerGroupNode(targetNode))
+            {
+                _contextLayerNode = null;
+                treeViewLayers.SelectedNode = targetNode;
+                ConfigureRasterGroupContextMenuItems();
+                return;
+            }
+
+            _contextLayerNode = IsLayerNode(targetNode) ? targetNode : null;
 
             if (!IsLayerNode(_contextLayerNode))
             {
@@ -2266,6 +2388,7 @@ namespace Land_Readjustment_Tool
             }
 
             treeViewLayers.SelectedNode = _contextLayerNode;
+            ConfigureLayerContextMenuItems();
 
             CanvasLayer layer = GetLayerFromNode(_contextLayerNode)!;
 
@@ -2282,6 +2405,33 @@ namespace Land_Readjustment_Tool
             _mnuToggleLayerVisibility.Enabled = true;
             _mnuToggleLayerLock.Enabled = true;
             _mnuLayerProperties.Enabled = true;
+        }
+
+        private void ConfigureRasterGroupContextMenuItems()
+        {
+            _layerContextMenu.Items.Clear();
+            _layerContextMenu.Items.AddRange(
+            [
+                _mnuAddRasterMap,
+                _mnuAddXyzTiles
+            ]);
+        }
+
+        private void ConfigureLayerContextMenuItems()
+        {
+            _layerContextMenu.Items.Clear();
+            _layerContextMenu.Items.AddRange(
+            [
+                _mnuZoomToLayer,
+                new ToolStripSeparator(),
+                _mnuRenameLayer,
+                _mnuDeleteLayer,
+                new ToolStripSeparator(),
+                _mnuToggleLayerVisibility,
+                _mnuToggleLayerLock,
+                new ToolStripSeparator(),
+                _mnuLayerProperties
+            ]);
         }
 
         private void BeginLayerRename(TreeNode? node)
@@ -2829,6 +2979,14 @@ namespace Land_Readjustment_Tool
             return node?.Tag is LayerTreeNodeState state &&
                    state.IsLayerNode &&
                    state.Layer != null;
+        }
+
+        private static bool IsRasterLayerGroupNode(TreeNode? node)
+        {
+            return string.Equals(
+                node?.Name,
+                $"{LayerGroupNodeNamePrefix}{RasterLayerGroupKey}",
+                StringComparison.OrdinalIgnoreCase);
         }
 
         private static CanvasLayer? GetLayerFromNode(TreeNode? node)

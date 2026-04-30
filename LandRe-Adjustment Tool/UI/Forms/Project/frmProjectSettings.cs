@@ -90,15 +90,9 @@ namespace Land_Readjustment_Tool.UI.Forms.Project
                 SetFormEnabled(false);
 
 
-                var settingsTask = _service.GetAsync();
-                var crsTask = _crsRepo.GetAllActiveAsync();
-                var datumTask = _datumRepo.GetAllActiveAsync();
-
-                await Task.WhenAll(settingsTask, crsTask, datumTask);  ///It defines a task that is completed only when all the tasks in the argument is completed.
-
-                _settings = settingsTask.Result;
-                _crsList = crsTask.Result;
-                _datumList = datumTask.Result;
+                _settings = await _service.GetAsync();
+                _crsList = await _crsRepo.GetAllActiveAsync();
+                _datumList = await _datumRepo.GetAllActiveAsync();
 
                 if (_settings == null)
                 {
