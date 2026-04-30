@@ -10,7 +10,7 @@ namespace Land_Readjustment_Tool.UI.CustomControls
 {
     public partial class MapCanvasControl : UserControl
     {
-        private const int ZoomSettleIntervalMs = 20;
+        private const int ZoomSettleIntervalMs = 100;
 
         private readonly MapCanvasEngine _engine;
         private readonly MapCanvasRenderer _renderer;
