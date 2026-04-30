@@ -171,9 +171,9 @@ namespace Land_Readjustment_Tool.UI.MapCanvas.Rendering
                     graphics.InterpolationMode = ResolveInterpolationMode(
                         interactive,
                         readContext);
-                    graphics.PixelOffsetMode = PixelOffsetMode.HighSpeed;
+                    graphics.PixelOffsetMode = PixelOffsetMode.HighQuality;
                     graphics.CompositingQuality = CompositingQuality.HighSpeed;
-                    graphics.CompositingMode = CompositingMode.SourceOver;
+                    graphics.CompositingMode = CompositingMode.SourceCopy;
 
                     return DrawVisibleTiles(
                         graphics,
@@ -743,6 +743,7 @@ namespace Land_Readjustment_Tool.UI.MapCanvas.Rendering
                 opacityMatrix,
                 ColorMatrixFlag.Default,
                 ColorAdjustType.Bitmap);
+            imageAttributes.SetWrapMode(WrapMode.TileFlipXY);
 
             _opacityImageAttributes = imageAttributes;
         }
@@ -754,11 +755,22 @@ namespace Land_Readjustment_Tool.UI.MapCanvas.Rendering
         {
             if (_opacityImageAttributes == null)
             {
-                graphics.DrawImage(bitmap, destination);
+                using ImageAttributes imageAttributes = new();
+                imageAttributes.SetWrapMode(WrapMode.TileFlipXY);
+                graphics.DrawImage(
+                    bitmap,
+                    CreateIntegerDestinationRectangle(destination),
+                    0,
+                    0,
+                    bitmap.Width,
+                    bitmap.Height,
+                    GraphicsUnit.Pixel,
+                    imageAttributes);
                 return;
             }
 
-            Rectangle destinationRectangle = Rectangle.Round(destination);
+            Rectangle destinationRectangle =
+                CreateIntegerDestinationRectangle(destination);
             graphics.DrawImage(
                 bitmap,
                 destinationRectangle,
@@ -1103,7 +1115,18 @@ namespace Land_Readjustment_Tool.UI.MapCanvas.Rendering
             float right = (float)Math.Ceiling(destination.Right);
             float bottom = (float)Math.Ceiling(destination.Bottom);
 
-            return RectangleF.FromLTRB(left - 0.5f, top - 0.5f, right + 0.5f, bottom + 0.5f);
+            return RectangleF.FromLTRB(left, top, right, bottom);
+        }
+
+        private static Rectangle CreateIntegerDestinationRectangle(
+            RectangleF destination)
+        {
+            int left = (int)Math.Floor(destination.Left);
+            int top = (int)Math.Floor(destination.Top);
+            int right = (int)Math.Ceiling(destination.Right);
+            int bottom = (int)Math.Ceiling(destination.Bottom);
+
+            return Rectangle.FromLTRB(left, top, right, bottom);
         }
 
         private static bool Intersects(

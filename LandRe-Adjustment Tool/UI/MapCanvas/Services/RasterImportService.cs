@@ -27,11 +27,17 @@ namespace Land_Readjustment_Tool.UI.MapCanvas.Services
             if (string.IsNullOrWhiteSpace(sourcePath) || !File.Exists(sourcePath))
                 throw new FileNotFoundException("Raster file was not found.", sourcePath);
 
-            if (IsNetworkServiceDescriptor(sourcePath))
+            bool isNetworkServiceDescriptor = IsNetworkServiceDescriptor(sourcePath);
+            if (isNetworkServiceDescriptor &&
+                !CanImportNetworkServiceDescriptor(
+                    sourceSrsDefinitionOverride,
+                    sourceExtent))
+            {
                 throw new NotSupportedException(
                     $"'{Path.GetFileName(sourcePath)}' is a GDAL network-service descriptor " +
                     $"(WMS/WMTS/TMS XML). Live tile service files cannot be imported as " +
                     $"raster layers. Add them as an XYZ/WMS layer instead.");
+            }
 
             if (string.IsNullOrWhiteSpace(projectFolderPath) ||
                 !Directory.Exists(projectFolderPath))
@@ -50,6 +56,7 @@ namespace Land_Readjustment_Tool.UI.MapCanvas.Services
             if (!GdalConfiguration.Usable)
                 throw new InvalidOperationException(
                     "GDAL is not configured correctly. Raster import cannot continue.");
+            ApplyGdalNetworkOptions();
 
             progress?.Report(new RasterImportProgress(20, "Opening raster dataset"));
 
@@ -657,6 +664,23 @@ namespace Land_Readjustment_Tool.UI.MapCanvas.Services
             return fileName.Contains(".gdal-wms", StringComparison.OrdinalIgnoreCase) ||
                    fileName.Contains(".gdal-wmts", StringComparison.OrdinalIgnoreCase) ||
                    fileName.Contains(".gdal-tms", StringComparison.OrdinalIgnoreCase);
+        }
+
+        private static bool CanImportNetworkServiceDescriptor(
+            string? sourceSrsDefinitionOverride,
+            RasterImportSourceExtent? sourceExtent)
+        {
+            return !string.IsNullOrWhiteSpace(sourceSrsDefinitionOverride) &&
+                   sourceExtent != null;
+        }
+
+        private static void ApplyGdalNetworkOptions()
+        {
+            Gdal.SetConfigOption("GDAL_HTTP_UNSAFESSL", "YES");
+            Gdal.SetConfigOption("GDAL_DISABLE_READDIR_ON_OPEN", "EMPTY_DIR");
+            Gdal.SetConfigOption("CPL_VSIL_CURL_CACHE_SIZE", "128000000");
+            Gdal.SetConfigOption("GDAL_HTTP_MAX_RETRY", "3");
+            Gdal.SetConfigOption("GDAL_HTTP_RETRY_DELAY", "1");
         }
 
         private static bool CanUseDirectMbTiles(

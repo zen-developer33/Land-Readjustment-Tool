@@ -11,15 +11,15 @@ namespace Land_Readjustment_Tool.UI.MapCanvas.Services
         {
             ArgumentNullException.ThrowIfNull(coordinateSystem);
 
+            if (coordinateSystem.EpsgCode.HasValue)
+                return $"EPSG:{coordinateSystem.EpsgCode.Value}";
+
             GdalConfiguration.ConfigureGdal();
             if (!GdalConfiguration.Usable)
             {
                 throw new InvalidOperationException(
                     "GDAL/OSR native libraries are not configured correctly. Raster CRS transformation cannot continue.");
             }
-
-            if (coordinateSystem.EpsgCode.HasValue)
-                return $"EPSG:{coordinateSystem.EpsgCode.Value}";
 
             ProjectionParameters parameters = coordinateSystem.ProjectionParameters
                 ?? throw new InvalidOperationException(

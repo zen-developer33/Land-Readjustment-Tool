@@ -247,7 +247,7 @@ namespace Land_Readjustment_Tool.UI.MapCanvas.Rendering
                 {
                     graphics.SmoothingMode = SmoothingMode.None;
                     graphics.InterpolationMode = InterpolationMode.NearestNeighbor;
-                    graphics.PixelOffsetMode = PixelOffsetMode.HighSpeed;
+                    graphics.PixelOffsetMode = PixelOffsetMode.HighQuality;
                     graphics.CompositingQuality = CompositingQuality.HighSpeed;
                     graphics.DrawImage(
                         rasterFrame.Bitmap,
