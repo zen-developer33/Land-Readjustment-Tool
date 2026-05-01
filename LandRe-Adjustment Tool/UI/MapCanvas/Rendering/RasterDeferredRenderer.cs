@@ -16,6 +16,7 @@ namespace Land_Readjustment_Tool.UI.MapCanvas.Rendering
         private Bitmap? _panBuffer;
         private Size _canvasSize;
         private RasterViewSnapshot? _zoomStartView;
+        private Dictionary<int, Bitmap> _layerCaches = [];
         private bool _cacheValid;
         private bool _panBufferValid;
         private readonly object _sync = new();
@@ -33,6 +34,7 @@ namespace Land_Readjustment_Tool.UI.MapCanvas.Rendering
                 _cacheValid = false;
                 _panBufferValid = false;
                 _zoomStartView = null;
+                RetireLayerCachesCore();
             }
         }
 
@@ -51,13 +53,13 @@ namespace Land_Readjustment_Tool.UI.MapCanvas.Rendering
             MapCanvasEngine engine,
             CancellationToken cancellationToken = default)
         {
-            Bitmap? renderedBitmap = RenderBitmap(
+            RasterRenderResult? renderResult = RenderBitmap(
                 canvasSize,
                 rasterLayers,
                 engine,
                 cancellationToken);
 
-            if (renderedBitmap == null)
+            if (renderResult == null)
                 return;
 
             bool swapped = false;
@@ -78,19 +80,82 @@ namespace Land_Readjustment_Tool.UI.MapCanvas.Rendering
 
                     ResizeCore(ClampSize(canvasSize));
                     Bitmap? previousCache = _rasterCache;
-                    _rasterCache = renderedBitmap;
+                    Dictionary<int, Bitmap> previousLayerCaches = _layerCaches;
+                    _rasterCache = renderResult.CompositeBitmap;
+                    _layerCaches = renderResult.LayerCaches;
                     swapped = true;
                     _cacheValid = true;
                     _panBufferValid = false;
                     _zoomStartView = null;
                     RetireBitmap(previousCache);
+                    RetireLayerCaches(previousLayerCaches);
                 }
             }
             finally
             {
                 if (!swapped)
                 {
-                    renderedBitmap.Dispose();
+                    renderResult.Dispose();
+                }
+            }
+        }
+
+        public bool TryRecomposeFromLayerCaches(
+            IReadOnlyList<IRasterRenderLayer> rasterLayers)
+        {
+            ArgumentNullException.ThrowIfNull(rasterLayers);
+
+            lock (_sync)
+            {
+                if (_disposed || _canvasSize.Width <= 0 || _canvasSize.Height <= 0)
+                {
+                    return false;
+                }
+
+                bool hasVisibleLayer = rasterLayers.Any(layer => layer.IsVisible);
+                if (hasVisibleLayer &&
+                    rasterLayers.Any(layer =>
+                        layer.IsVisible && !_layerCaches.ContainsKey(layer.LayerId)))
+                {
+                    return false;
+                }
+
+                Bitmap recomposed = new(
+                    _canvasSize.Width,
+                    _canvasSize.Height,
+                    PixelFormat.Format32bppPArgb);
+
+                try
+                {
+                    using Graphics graphics = Graphics.FromImage(recomposed);
+                    graphics.Clear(Color.Transparent);
+                    ConfigureRasterQuality(graphics);
+
+                    foreach (IRasterRenderLayer rasterLayer in rasterLayers)
+                    {
+                        if (!rasterLayer.IsVisible ||
+                            !_layerCaches.TryGetValue(
+                                rasterLayer.LayerId,
+                                out Bitmap? layerBitmap))
+                        {
+                            continue;
+                        }
+
+                        graphics.DrawImageUnscaled(layerBitmap, 0, 0);
+                    }
+
+                    Bitmap? previousCache = _rasterCache;
+                    _rasterCache = recomposed;
+                    _cacheValid = true;
+                    _panBufferValid = false;
+                    _zoomStartView = null;
+                    RetireBitmap(previousCache);
+                    return true;
+                }
+                catch
+                {
+                    recomposed.Dispose();
+                    throw;
                 }
             }
         }
@@ -277,65 +342,111 @@ namespace Land_Readjustment_Tool.UI.MapCanvas.Rendering
                 _cacheValid = false;
                 _panBufferValid = false;
                 _zoomStartView = null;
+                RetireLayerCachesCore();
                 DisposeRetiredBitmapsIfSafe();
             }
         }
 
-        private Bitmap? RenderBitmap(
+        private RasterRenderResult? RenderBitmap(
             Size canvasSize,
             IReadOnlyList<IRasterRenderLayer> rasterLayers,
             MapCanvasEngine engine,
             CancellationToken cancellationToken)
         {
             Size clampedSize = ClampSize(canvasSize);
-            Bitmap bitmap = new(
+            Bitmap compositeBitmap = new(
                 clampedSize.Width,
                 clampedSize.Height,
                 PixelFormat.Format32bppPArgb);
+            Dictionary<int, Bitmap> layerCaches = [];
 
             try
             {
-                using Graphics graphics = Graphics.FromImage(bitmap);
+                using Graphics graphics = Graphics.FromImage(compositeBitmap);
                 graphics.Clear(Color.Transparent);
+                ConfigureRasterQuality(graphics);
 
                 if (rasterLayers.Count > 0)
                 {
-                    ConfigureRasterQuality(graphics);
                     RectangleD visibleBounds = engine.GetVisibleWorldBounds();
 
                     foreach (IRasterRenderLayer rasterLayer in rasterLayers)
                     {
                         if (cancellationToken.IsCancellationRequested)
                         {
-                            bitmap.Dispose();
+                            compositeBitmap.Dispose();
+                            DisposeLayerCaches(layerCaches);
                             return null;
                         }
 
-                        rasterLayer.RenderVisible(
-                            graphics,
-                            engine,
-                            visibleBounds,
-                            interactive: false,
-                            cancellationToken);
+                        if (!rasterLayer.IsVisible)
+                        {
+                            continue;
+                        }
+
+                        Bitmap layerBitmap = new(
+                            clampedSize.Width,
+                            clampedSize.Height,
+                            PixelFormat.Format32bppPArgb);
+
+                        bool layerRendered = false;
+                        try
+                        {
+                            using Graphics layerGraphics =
+                                Graphics.FromImage(layerBitmap);
+                            layerGraphics.Clear(Color.Transparent);
+                            ConfigureRasterQuality(layerGraphics);
+
+                            layerRendered = rasterLayer.RenderVisible(
+                                layerGraphics,
+                                engine,
+                                visibleBounds,
+                                interactive: false,
+                                cancellationToken);
+
+                            if (cancellationToken.IsCancellationRequested)
+                            {
+                                compositeBitmap.Dispose();
+                                layerBitmap.Dispose();
+                                DisposeLayerCaches(layerCaches);
+                                return null;
+                            }
+
+                            if (layerRendered)
+                            {
+                                graphics.DrawImageUnscaled(layerBitmap, 0, 0);
+                                layerCaches[rasterLayer.LayerId] = layerBitmap;
+                            }
+                        }
+                        finally
+                        {
+                            if (!layerRendered)
+                            {
+                                layerBitmap.Dispose();
+                            }
+                        }
                     }
                 }
 
                 if (cancellationToken.IsCancellationRequested)
                 {
-                    bitmap.Dispose();
+                    compositeBitmap.Dispose();
+                    DisposeLayerCaches(layerCaches);
                     return null;
                 }
 
-                return bitmap;
+                return new RasterRenderResult(compositeBitmap, layerCaches);
             }
             catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
             {
-                bitmap.Dispose();
+                compositeBitmap.Dispose();
+                DisposeLayerCaches(layerCaches);
                 return null;
             }
             catch
             {
-                bitmap.Dispose();
+                compositeBitmap.Dispose();
+                DisposeLayerCaches(layerCaches);
                 throw;
             }
         }
@@ -356,6 +467,7 @@ namespace Land_Readjustment_Tool.UI.MapCanvas.Rendering
             _cacheValid = false;
             _panBufferValid = false;
             _zoomStartView = null;
+            RetireLayerCachesCore();
         }
 
         private RasterRenderFrame CreateFrameLease(
@@ -399,6 +511,33 @@ namespace Land_Readjustment_Tool.UI.MapCanvas.Rendering
             bitmap.Dispose();
         }
 
+        private void RetireLayerCachesCore()
+        {
+            Dictionary<int, Bitmap> previousLayerCaches = _layerCaches;
+            _layerCaches = [];
+            RetireLayerCaches(previousLayerCaches);
+        }
+
+        private void RetireLayerCaches(Dictionary<int, Bitmap> layerCaches)
+        {
+            foreach (Bitmap bitmap in layerCaches.Values)
+            {
+                RetireBitmap(bitmap);
+            }
+
+            layerCaches.Clear();
+        }
+
+        private static void DisposeLayerCaches(Dictionary<int, Bitmap> layerCaches)
+        {
+            foreach (Bitmap bitmap in layerCaches.Values)
+            {
+                bitmap.Dispose();
+            }
+
+            layerCaches.Clear();
+        }
+
         private void DisposeRetiredBitmapsIfSafe()
         {
             if (_activeFrameLeases > 0)
@@ -433,7 +572,7 @@ namespace Land_Readjustment_Tool.UI.MapCanvas.Rendering
             graphics.InterpolationMode = InterpolationMode.NearestNeighbor;
             graphics.PixelOffsetMode = PixelOffsetMode.HighQuality;
             graphics.CompositingQuality = CompositingQuality.HighSpeed;
-            graphics.CompositingMode = CompositingMode.SourceCopy;
+            graphics.CompositingMode = CompositingMode.SourceOver;
         }
 
         private static Size ClampSize(Size size)
@@ -447,5 +586,20 @@ namespace Land_Readjustment_Tool.UI.MapCanvas.Rendering
             PointD ViewOriginWorld,
             double ZoomScale,
             Size CanvasSize);
+
+        private sealed class RasterRenderResult(
+            Bitmap compositeBitmap,
+            Dictionary<int, Bitmap> layerCaches) : IDisposable
+        {
+            public Bitmap CompositeBitmap { get; } = compositeBitmap;
+
+            public Dictionary<int, Bitmap> LayerCaches { get; } = layerCaches;
+
+            public void Dispose()
+            {
+                CompositeBitmap.Dispose();
+                DisposeLayerCaches(LayerCaches);
+            }
+        }
     }
 }

@@ -86,7 +86,12 @@
 ### 2D Drawing Canvas (MOST CRITICAL)
 - [ ] `DrawingCanvasControl` — only a shell exists, NO implementation
 - [ ] Hardware-accelerated rendering (GDI+ or SkiaSharp)
-- [ ] Pan and zoom with no flicker
+- [ ] Pan and 
+- [ ] 
+- [ ] 
+- [ ] 
+- [ ] 
+- [ ] with no flicker
 - [ ] Coordinate system (world ↔ screen transformation)
 - [ ] Layer rendering pipeline
 - [ ] Parcel polygon display

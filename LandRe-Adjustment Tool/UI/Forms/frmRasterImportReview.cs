@@ -1,4 +1,5 @@
 using Land_Readjustment_Tool.Services.Raster;
+using OSGeo.OSR;
 
 namespace Land_Readjustment_Tool.UI.Forms
 {
@@ -17,6 +18,7 @@ namespace Land_Readjustment_Tool.UI.Forms
         private const string CustomEpsgPlaceholder = "Example: EPSG:4326 or 4326";
         private const string CustomWktPlaceholder = "Example: GEOGCS[\"WGS 84\",DATUM[\"WGS_1984\",...]]";
         private readonly RasterLayerImportPreview _preview;
+        private string _projectCrsOption = "Project CRS";
 
         /// <summary>
         /// Creates the raster import review form.
@@ -67,10 +69,13 @@ namespace Land_Readjustment_Tool.UI.Forms
                 : "Not stored in raster";
             lblProjectCrsValue.Text =
                 $"{_preview.ProjectCrs.CoordinateSystem.Code} - {_preview.ProjectCrs.CoordinateSystem.Name}";
+            _projectCrsOption =
+                $"Project CRS ({_preview.ProjectCrs.CoordinateSystem.Code} - {_preview.ProjectCrs.CoordinateSystem.Name})";
 
             rdoDetectedCrs.Enabled = metadata.HasProjection;
             rdoDetectedCrs.Checked = metadata.HasProjection;
             rdoDefineSourceCrs.Checked = !metadata.HasProjection;
+            rdoDefineSourceCrs.Enabled = !metadata.HasProjection;
             LoadSourceCrsOptions();
             cmbSourceCrs.SelectedItem = Wgs84Option;
             txtCustomCrs.Visible = true;
@@ -85,6 +90,7 @@ namespace Land_Readjustment_Tool.UI.Forms
         {
             cmbSourceCrs.Items.Clear();
             cmbSourceCrs.Items.Add(Wgs84Option);
+            cmbSourceCrs.Items.Add(_projectCrsOption);
             cmbSourceCrs.Items.Add(WebMercatorOption);
             cmbSourceCrs.Items.Add(Utm44NOption);
             cmbSourceCrs.Items.Add(Utm45NOption);
@@ -101,7 +107,7 @@ namespace Land_Readjustment_Tool.UI.Forms
             bool customInputRequired = IsCustomSourceCrsSelected();
             lblDefineSourceCrs.Enabled = defineSourceCrs;
             cmbSourceCrs.Enabled = defineSourceCrs;
-            txtCustomCrs.Enabled = defineSourceCrs;
+            txtCustomCrs.Enabled = defineSourceCrs && customInputRequired;
             txtCustomCrs.ReadOnly = !defineSourceCrs || !customInputRequired;
 
             if (!customInputRequired)
@@ -109,7 +115,7 @@ namespace Land_Readjustment_Tool.UI.Forms
                 txtCustomCrs.PlaceholderText = "Selected CRS definition";
                 txtCustomCrs.Text = GetSelectedSourceCrsDefinition();
             }
-            else if (!defineSourceCrs)
+            else if (!defineSourceCrs || IsPresetSourceCrsDefinition(txtCustomCrs.Text))
             {
                 txtCustomCrs.PlaceholderText = GetCustomCrsPlaceholderText();
                 txtCustomCrs.Text = string.Empty;
@@ -117,18 +123,17 @@ namespace Land_Readjustment_Tool.UI.Forms
             else
             {
                 txtCustomCrs.PlaceholderText = GetCustomCrsPlaceholderText();
-                txtCustomCrs.Text = string.Empty;
             }
 
             if (!_preview.Metadata.HasGeoreferencing)
             {
                 lblProjectionHint.Text =
-                    "No map coordinates were found; CRS is kept for reference until georeferencing is added.";
+                    "No map coordinates were found. The selected CRS will be assigned to the copied raster without reprojection.";
                 return;
             }
 
             lblProjectionHint.Text = _preview.Metadata.HasProjection
-                ? "Use the detected CRS, or define a different source CRS if needed."
+                ? "This raster already stores a CRS. The stored raster CRS will be used."
                 : "Missing source CRS defaults to WGS 1984 and will be transformed to the target CRS.";
         }
 
@@ -164,6 +169,21 @@ namespace Land_Readjustment_Tool.UI.Forms
                     MessageBoxButtons.OK,
                     MessageBoxIcon.Warning);
                 DialogResult = DialogResult.None;
+                return;
+            }
+
+            if (rdoDefineSourceCrs.Checked &&
+                !TryValidateSourceCrs(
+                    GetSelectedSourceCrsDefinition(),
+                    out string validationError))
+            {
+                MessageBox.Show(
+                    this,
+                    validationError,
+                    "Raster Import",
+                    MessageBoxButtons.OK,
+                    MessageBoxIcon.Warning);
+                DialogResult = DialogResult.None;
             }
         }
 
@@ -177,6 +197,8 @@ namespace Land_Readjustment_Tool.UI.Forms
             return selectedOption switch
             {
                 Wgs84Option => DefaultMissingSourceCrs,
+                string value when value == _projectCrsOption =>
+                    _preview.ProjectCrs.TargetSrsDefinition,
                 WebMercatorOption => "EPSG:3857",
                 Utm44NOption => "EPSG:32644",
                 Utm45NOption => "EPSG:32645",
@@ -223,6 +245,52 @@ namespace Land_Readjustment_Tool.UI.Forms
             return trimmedValue.StartsWith("EPSG:", StringComparison.OrdinalIgnoreCase)
                 ? trimmedValue
                 : $"EPSG:{trimmedValue}";
+        }
+
+        private bool IsPresetSourceCrsDefinition(string value)
+        {
+            string text = value.Trim();
+            return string.Equals(text, DefaultMissingSourceCrs, StringComparison.OrdinalIgnoreCase) ||
+                   string.Equals(text, _preview.ProjectCrs.TargetSrsDefinition, StringComparison.OrdinalIgnoreCase) ||
+                   string.Equals(text, "EPSG:3857", StringComparison.OrdinalIgnoreCase) ||
+                   string.Equals(text, "EPSG:32644", StringComparison.OrdinalIgnoreCase) ||
+                   string.Equals(text, "EPSG:32645", StringComparison.OrdinalIgnoreCase);
+        }
+
+        private static bool TryValidateSourceCrs(
+            string sourceCrsDefinition,
+            out string validationError)
+        {
+            validationError = string.Empty;
+
+            if (string.IsNullOrWhiteSpace(sourceCrsDefinition))
+            {
+                validationError = "Please select or enter a source CRS.";
+                return false;
+            }
+
+            try
+            {
+                using SpatialReference spatialReference = new(string.Empty);
+                int result = sourceCrsDefinition.StartsWith(
+                    "EPSG:",
+                    StringComparison.OrdinalIgnoreCase)
+                    ? spatialReference.SetFromUserInput(sourceCrsDefinition)
+                    : spatialReference.ImportFromWkt(ref sourceCrsDefinition);
+
+                if (result != 0)
+                {
+                    validationError = "The selected source CRS could not be read. Use EPSG:4326, 4326, or valid WKT text.";
+                    return false;
+                }
+
+                return true;
+            }
+            catch (Exception ex)
+            {
+                validationError = $"The selected source CRS is invalid. {ex.Message}";
+                return false;
+            }
         }
 
         /// <summary>

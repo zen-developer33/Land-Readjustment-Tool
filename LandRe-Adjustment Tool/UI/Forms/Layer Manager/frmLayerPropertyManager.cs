@@ -282,5 +282,10 @@ namespace Land_Readjustment_Tool.UI.Forms
                 return fallback;
             }
         }
+
+        private void frmLayerPropertyManager_Load(object sender, EventArgs e)
+        {
+
+        }
     }
 }

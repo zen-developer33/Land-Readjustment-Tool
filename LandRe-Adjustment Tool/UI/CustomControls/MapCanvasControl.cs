@@ -10,7 +10,7 @@ namespace Land_Readjustment_Tool.UI.CustomControls
 {
     public partial class MapCanvasControl : UserControl
     {
-        private const int ZoomSettleIntervalMs = 200;
+        private const int ZoomSettleIntervalMs = 100;
 
         private readonly MapCanvasEngine _engine;
         private readonly MapCanvasRenderer _renderer;
@@ -195,6 +195,57 @@ namespace Land_Readjustment_Tool.UI.CustomControls
             RequestRender();
         }
 
+        public MapCanvasViewportState GetViewportState()
+        {
+            RectangleD visibleBounds = _engine.GetVisibleWorldBounds();
+            return new MapCanvasViewportState(
+                visibleBounds.X + visibleBounds.Width / 2.0,
+                visibleBounds.Y + visibleBounds.Height / 2.0,
+                _engine.ZoomScale,
+                visibleBounds.Width,
+                visibleBounds.Height);
+        }
+
+        public bool TryApplyViewportState(MapCanvasViewportState? viewportState)
+        {
+            if (viewportState == null ||
+                !double.IsFinite(viewportState.CenterX) ||
+                !double.IsFinite(viewportState.CenterY) ||
+                !double.IsFinite(viewportState.ZoomScale) ||
+                viewportState.ZoomScale <= 0)
+            {
+                return false;
+            }
+
+            _engine.SetViewport(
+                new PointD(viewportState.CenterX, viewportState.CenterY),
+                viewportState.ZoomScale);
+            RefreshRasterCacheForCurrentViewAsync();
+            RequestRender();
+            return true;
+        }
+
+        public bool ZoomToRasterLayer(int layerId)
+        {
+            if (IsCanvasInteractionLocked)
+            {
+                return false;
+            }
+
+            IRasterRenderLayer? rasterLayer = _rasterRenderLayers
+                .FirstOrDefault(layer => layer.LayerId == layerId);
+            if (rasterLayer == null ||
+                !TryNormalizeWorldBounds(rasterLayer.WorldBounds, out RectangleD bounds))
+            {
+                return false;
+            }
+
+            _engine.ZoomToExtents(bounds);
+            RefreshRasterCacheForCurrentViewAsync();
+            RequestRender();
+            return true;
+        }
+
         public void SetPanToolActive(bool active)
         {
             if (IsCanvasInteractionLocked)
@@ -269,9 +320,16 @@ namespace Land_Readjustment_Tool.UI.CustomControls
             if (rasterLayer == null)
                 return false;
 
+            CancelPendingRasterRender();
+            _rasterRenderGeneration++;
             rasterLayer.UpdateRenderState(isVisible, rasterLayer.Transparency);
-            _rasterDeferredRenderer.Invalidate();
-            RefreshRasterCacheForCurrentViewAsync();
+            if (!_rasterDeferredRenderer.TryRecomposeFromLayerCaches(
+                    _rasterRenderLayers))
+            {
+                _rasterDeferredRenderer.Invalidate();
+                RefreshRasterCacheForCurrentViewAsync();
+            }
+
             RequestRender();
             return true;
         }
@@ -290,7 +348,20 @@ namespace Land_Readjustment_Tool.UI.CustomControls
             if (rasterLayer == null)
                 return false;
 
+            bool needsLayerRerender =
+                isVisible && rasterLayer.Transparency != transparency;
+
+            CancelPendingRasterRender();
+            _rasterRenderGeneration++;
             rasterLayer.UpdateRenderState(isVisible, transparency);
+            if (!needsLayerRerender &&
+                _rasterDeferredRenderer.TryRecomposeFromLayerCaches(
+                    _rasterRenderLayers))
+            {
+                RequestRender();
+                return true;
+            }
+
             _rasterDeferredRenderer.Invalidate();
             RefreshRasterCacheForCurrentViewAsync();
             RequestRender();
@@ -774,6 +845,34 @@ namespace Land_Readjustment_Tool.UI.CustomControls
             _engine.SetWorldBounds(
                 new RectangleD(minX, minY, maxX - minX, maxY - minY));
         }
+
+        private static bool TryNormalizeWorldBounds(
+            RectangleD source,
+            out RectangleD normalized)
+        {
+            normalized = default;
+
+            double left = Math.Min(source.Left, source.Right);
+            double right = Math.Max(source.Left, source.Right);
+            double bottom = Math.Min(source.Top, source.Bottom);
+            double top = Math.Max(source.Top, source.Bottom);
+
+            if (!IsFinite(left) ||
+                !IsFinite(right) ||
+                !IsFinite(bottom) ||
+                !IsFinite(top) ||
+                right <= left ||
+                top <= bottom)
+            {
+                return false;
+            }
+
+            normalized = new RectangleD(left, bottom, right - left, top - bottom);
+            return true;
+        }
+
+        private static bool IsFinite(double value) =>
+            !double.IsNaN(value) && !double.IsInfinity(value);
 
         private void DisposeRasterRenderLayers()
         {

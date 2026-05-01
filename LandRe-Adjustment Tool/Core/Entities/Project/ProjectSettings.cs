@@ -66,6 +66,29 @@ namespace Land_Readjustment_Tool.Core.Entities.Project
         // Snap detection radius in pixels
         public double SnapTolerancePx { get; set; } = 8.0;
 
+        // Last saved main canvas viewport. Null means use default project view.
+        public double? CanvasViewportCenterX { get; set; }
+        public double? CanvasViewportCenterY { get; set; }
+        public double? CanvasViewportZoomScale { get; set; }
+        public double? CanvasViewportVisibleWidth { get; set; }
+        public double? CanvasViewportVisibleHeight { get; set; }
+
+        // Last XYZ tile import form values.
+        public string? LastXyzLayerName { get; set; }
+        public string? LastXyzTileSourceUrlTemplate { get; set; }
+        public double? LastXyzMinLongitude { get; set; }
+        public double? LastXyzMinLatitude { get; set; }
+        public double? LastXyzMaxLongitude { get; set; }
+        public double? LastXyzMaxLatitude { get; set; }
+        public int? LastXyzZoomLevel { get; set; }
+        public string? LastXyzImageExtension { get; set; }
+
+        // Exact bounds from the last successful XYZ tile download.
+        public double? LastXyzDownloadMinLongitude { get; set; }
+        public double? LastXyzDownloadMinLatitude { get; set; }
+        public double? LastXyzDownloadMaxLongitude { get; set; }
+        public double? LastXyzDownloadMaxLatitude { get; set; }
+
         // ── PARCEL NUMBERING ────────────────────────
         // Format for replotted parcel numbers
         [Required]

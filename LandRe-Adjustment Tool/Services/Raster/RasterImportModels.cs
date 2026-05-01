@@ -29,6 +29,23 @@ namespace Land_Readjustment_Tool.Services.Raster
         string ImageExtension);
 
     /// <summary>
+    /// Project-scoped memory for the XYZ tile import form and the last downloaded map bounds.
+    /// </summary>
+    public sealed record XyzTileImportOptionsState(
+        string? LayerName,
+        string? UrlTemplate,
+        double? MinLongitude,
+        double? MinLatitude,
+        double? MaxLongitude,
+        double? MaxLatitude,
+        int? ZoomLevel,
+        string? ImageExtension,
+        double? LastDownloadMinLongitude,
+        double? LastDownloadMinLatitude,
+        double? LastDownloadMaxLongitude,
+        double? LastDownloadMaxLatitude);
+
+    /// <summary>
     /// Optional source coordinate window used to crop very large or remote raster sources during import.
     /// </summary>
     public sealed record RasterSourceExtent(
@@ -41,10 +58,10 @@ namespace Land_Readjustment_Tool.Services.Raster
     /// <summary>
     /// Local GDAL source definition created for a web XYZ tile source.
     /// </summary>
-    public sealed record XyzTileSourceDefinition(
-        string DefinitionPath,
-        RasterSourceExtent SourceExtent,
-        int TileCount);
+public sealed record XyzTileSourceDefinition(
+    string DefinitionPath,
+    RasterSourceExtent SourceExtent,
+    long TileCount);
 
     /// <summary>
     /// Contains metadata and project CRS details used by the raster import review form.
@@ -90,6 +107,7 @@ namespace Land_Readjustment_Tool.Services.Raster
         SourceCrsDefinedProjectedToProjectCrs,
         UnknownCrsCopiedWithoutProjection,
         UnreferencedCopiedToLocalCoordinates,
+        SourceCrsAssignedWithoutGeoreferencing,
         MbTilesDirectTileSource
     }
 

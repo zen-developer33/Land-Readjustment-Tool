@@ -6,119 +6,24 @@ namespace Land_Readjustment_Tool.UI.Forms
     /// <summary>
     /// Lets users manage reusable XYZ tile source templates for the project.
     /// </summary>
-    public sealed class frmXyzTileSourceManager : Form
+    public sealed partial class frmXyzTileSourceManager : Form
     {
         private readonly string _projectFolderPath;
         private readonly BindingList<XyzTileSourceRow> _sources = [];
-        private readonly DataGridView dgvSources = new();
-        private readonly Button btnAdd = new();
-        private readonly Button btnDelete = new();
-        private readonly Button btnSave = new();
-        private readonly Button btnClose = new();
+
+        public frmXyzTileSourceManager()
+            : this(string.Empty)
+        {
+        }
 
         public frmXyzTileSourceManager(string projectFolderPath)
         {
             _projectFolderPath = projectFolderPath;
-            Text = "XYZ Tile Sources";
-            StartPosition = FormStartPosition.CenterParent;
-            MinimizeBox = false;
-            ShowInTaskbar = false;
-            ClientSize = new Size(820, 450);
-
-            ConfigureGrid();
-            ConfigureButtons();
-            BuildLayout();
-            LoadSources();
-        }
-
-        private void ConfigureGrid()
-        {
-            dgvSources.Dock = DockStyle.Fill;
-            dgvSources.AutoGenerateColumns = false;
-            dgvSources.AllowUserToAddRows = false;
-            dgvSources.AllowUserToDeleteRows = false;
-            dgvSources.SelectionMode = DataGridViewSelectionMode.FullRowSelect;
-            dgvSources.MultiSelect = false;
-            dgvSources.RowHeadersVisible = false;
+            InitializeComponent();
             dgvSources.DataSource = _sources;
 
-            dgvSources.Columns.Add(new DataGridViewTextBoxColumn
-            {
-                HeaderText = "Name",
-                DataPropertyName = nameof(XyzTileSourceRow.Name),
-                Width = 180
-            });
-
-            dgvSources.Columns.Add(new DataGridViewTextBoxColumn
-            {
-                HeaderText = "URL",
-                DataPropertyName = nameof(XyzTileSourceRow.UrlTemplate),
-                AutoSizeMode = DataGridViewAutoSizeColumnMode.Fill
-            });
-
-            dgvSources.Columns.Add(new DataGridViewTextBoxColumn
-            {
-                HeaderText = "Minimum Zoom",
-                DataPropertyName = nameof(XyzTileSourceRow.MinZoom),
-                Width = 95
-            });
-
-            dgvSources.Columns.Add(new DataGridViewTextBoxColumn
-            {
-                HeaderText = "Max Zoom",
-                DataPropertyName = nameof(XyzTileSourceRow.MaxZoom),
-                Width = 90
-            });
-
-            dgvSources.Columns.Add(new DataGridViewComboBoxColumn
-            {
-                HeaderText = "Image",
-                DataPropertyName = nameof(XyzTileSourceRow.ImageExtension),
-                DataSource = new[] { "png", "jpg", "jpeg" },
-                Width = 75
-            });
-        }
-
-        private void ConfigureButtons()
-        {
-            btnAdd.Text = "Add";
-            btnAdd.Click += btnAdd_Click;
-
-            btnDelete.Text = "Delete";
-            btnDelete.Click += btnDelete_Click;
-
-            btnSave.Text = "Save";
-            btnSave.Click += btnSave_Click;
-
-            btnClose.Text = "Close";
-            btnClose.DialogResult = DialogResult.Cancel;
-        }
-
-        private void BuildLayout()
-        {
-            TableLayoutPanel layout = new()
-            {
-                Dock = DockStyle.Fill,
-                Padding = new Padding(10),
-                RowCount = 2
-            };
-            layout.RowStyles.Add(new RowStyle(SizeType.Percent, 100));
-            layout.RowStyles.Add(new RowStyle(SizeType.Absolute, 44));
-
-            layout.Controls.Add(dgvSources, 0, 0);
-
-            FlowLayoutPanel buttons = new()
-            {
-                Dock = DockStyle.Fill,
-                FlowDirection = FlowDirection.LeftToRight
-            };
-            buttons.Controls.Add(btnAdd);
-            buttons.Controls.Add(btnDelete);
-            buttons.Controls.Add(btnSave);
-            buttons.Controls.Add(btnClose);
-
-            layout.Controls.Add(buttons, 0, 1);
-            Controls.Add(layout);
+            if (!IsDesignMode())
+                LoadSources();
         }
 
         private void LoadSources()
@@ -202,10 +107,10 @@ namespace Land_Readjustment_Tool.UI.Forms
                     return false;
                 }
 
-                if (row.MinZoom < 0 || row.MaxZoom > 22 || row.MinZoom > row.MaxZoom)
+                if (row.MinZoom < 0 || row.MaxZoom > 25 || row.MinZoom > row.MaxZoom)
                 {
                     ShowValidationMessage(
-                        $"Tile source '{name}' has an invalid zoom range. Use 0 to 22.");
+                        $"Tile source '{name}' has an invalid zoom range. Use 0 to 25.");
                     return false;
                 }
 
@@ -240,6 +145,13 @@ namespace Land_Readjustment_Tool.UI.Forms
         {
             return urlTemplate.Contains($"{{{token}}}", StringComparison.OrdinalIgnoreCase) ||
                    urlTemplate.Contains($"${{{token}}}", StringComparison.OrdinalIgnoreCase);
+        }
+
+        private bool IsDesignMode()
+        {
+            return LicenseManager.UsageMode == LicenseUsageMode.Designtime ||
+                   DesignMode ||
+                   string.IsNullOrWhiteSpace(_projectFolderPath);
         }
 
         private sealed class XyzTileSourceRow

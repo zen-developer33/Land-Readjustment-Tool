@@ -983,6 +983,21 @@ namespace Land_Readjustment_Tool.Migrations
                     b.Property<bool>("CanvasGridVisible")
                         .HasColumnType("INTEGER");
 
+                    b.Property<double?>("CanvasViewportCenterX")
+                        .HasColumnType("REAL");
+
+                    b.Property<double?>("CanvasViewportCenterY")
+                        .HasColumnType("REAL");
+
+                    b.Property<double?>("CanvasViewportVisibleHeight")
+                        .HasColumnType("REAL");
+
+                    b.Property<double?>("CanvasViewportVisibleWidth")
+                        .HasColumnType("REAL");
+
+                    b.Property<double?>("CanvasViewportZoomScale")
+                        .HasColumnType("REAL");
+
                     b.Property<int?>("CoordinateSystemId")
                         .HasColumnType("INTEGER");
 
@@ -1009,6 +1024,42 @@ namespace Land_Readjustment_Tool.Migrations
 
                     b.Property<DateTime>("LastModifiedDate")
                         .HasColumnType("TEXT");
+
+                    b.Property<double?>("LastXyzDownloadMaxLatitude")
+                        .HasColumnType("REAL");
+
+                    b.Property<double?>("LastXyzDownloadMaxLongitude")
+                        .HasColumnType("REAL");
+
+                    b.Property<double?>("LastXyzDownloadMinLatitude")
+                        .HasColumnType("REAL");
+
+                    b.Property<double?>("LastXyzDownloadMinLongitude")
+                        .HasColumnType("REAL");
+
+                    b.Property<string>("LastXyzImageExtension")
+                        .HasColumnType("TEXT");
+
+                    b.Property<string>("LastXyzLayerName")
+                        .HasColumnType("TEXT");
+
+                    b.Property<double?>("LastXyzMaxLatitude")
+                        .HasColumnType("REAL");
+
+                    b.Property<double?>("LastXyzMaxLongitude")
+                        .HasColumnType("REAL");
+
+                    b.Property<double?>("LastXyzMinLatitude")
+                        .HasColumnType("REAL");
+
+                    b.Property<double?>("LastXyzMinLongitude")
+                        .HasColumnType("REAL");
+
+                    b.Property<string>("LastXyzTileSourceUrlTemplate")
+                        .HasColumnType("TEXT");
+
+                    b.Property<int?>("LastXyzZoomLevel")
+                        .HasColumnType("INTEGER");
 
                     b.Property<double>("MinPlotAreaSqm")
                         .HasColumnType("REAL");

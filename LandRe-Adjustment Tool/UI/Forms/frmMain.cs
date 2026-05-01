@@ -1,6 +1,7 @@
 
 using Land_Readjustment_Tool.Core.Interfaces;
 using Land_Readjustment_Tool.Core.Entities.Canvas;
+using Land_Readjustment_Tool.Core.Entities.Project;
 using Land_Readjustment_Tool.Data;
 using Land_Readjustment_Tool.Forms;
 using Land_Readjustment_Tool.Forms.LandOwnersRecord_Managerment;
@@ -12,6 +13,7 @@ using Land_Readjustment_Tool.Services.Raster;
 using Land_Readjustment_Tool.UI.CustomControls;
 using Land_Readjustment_Tool.UI.Forms;
 using Land_Readjustment_Tool.UI.Forms.Project;
+using Land_Readjustment_Tool.UI.MapCanvas.Core;
 using Land_Readjustment_Tool.UI.MapCanvas.Models.Shapes;
 using Land_Readjustment_Tool.UI.MapCanvas.Services;
 using Microsoft.Data.Sqlite;
@@ -34,6 +36,7 @@ namespace Land_Readjustment_Tool
         private readonly CanvasLayerBoundsService _layerBoundsService;
         private readonly RasterLayerProjectionService _rasterLayerProjectionService;
         private readonly IRasterLayerImportService _rasterLayerImportService;
+        private readonly RasterImportFileManagementService _rasterImportFileManagementService;
         private readonly IXyzTileSourceService _xyzTileSourceService;
         private readonly ProjectOpenService _projectOpenService;
         private readonly ProjectSaveAsService _projectSaveAsService;
@@ -54,18 +57,10 @@ namespace Land_Readjustment_Tool
             Spring = true,
             Text = string.Empty
         };
-        private readonly ToolStripStatusLabel _canvasCommandStatus = new()
-        {
-            Name = "lblCanvasCommandStatus",
-            AutoSize = false,
-            Width = 170,
-            Text = "Canvas: Ready",
-            TextAlign = ContentAlignment.MiddleLeft
-        };
         private readonly ToolStripStatusLabel _activeLayerLabel = new()
         {
             Name = "lblActiveLayer",
-            Text = "Active Layer:",
+            Text = "Layer:",
             Visible = false
         };
         private readonly ToolStripComboBox _activeLayerCombo = new()
@@ -93,6 +88,7 @@ namespace Land_Readjustment_Tool
             Size = new Size(150, 16)
         };
         private readonly ToolStripControlHost _operationProgressHost;
+        private frmOperationProgress? _operationProgressForm;
         private bool _suppressActiveLayerEvents;
         private const string LayerGroupNodeNamePrefix = "LayerGroup_";
         private const string RasterLayerGroupKey = "RasterLayer";
@@ -104,8 +100,8 @@ namespace Land_Readjustment_Tool
         private readonly ToolStripMenuItem _mnuZoomToLayer = new("Zoom To Layer");
         private readonly ToolStripMenuItem _mnuRenameLayer = new("Rename");
         private readonly ToolStripMenuItem _mnuDeleteLayer = new("Delete");
-        private readonly ToolStripMenuItem _mnuToggleLayerVisibility = new("Show/Hide");
-        private readonly ToolStripMenuItem _mnuToggleLayerLock = new("Lock/Unlock");
+        private readonly ToolStripMenuItem _mnuToggleLayerVisibility = new("Hidden");
+        private readonly ToolStripMenuItem _mnuToggleLayerLock = new("Locked");
         private readonly ToolStripMenuItem _mnuLayerProperties = new("Layer Properties");
         private readonly ToolStripMenuItem _mnuAddRasterMap = new("Add Raster Map...");
         private readonly ToolStripMenuItem _mnuAddXyzTiles = new("Add XYZ Tiles...");
@@ -114,6 +110,7 @@ namespace Land_Readjustment_Tool
         private TreeNode? _contextLayerNode;
         private TreeNode? _renamingLayerNode;
         private bool _isCompletingLayerRename;
+        private frmXyzTileImportOptions? _xyzTileImportOptionsForm;
 
         private sealed class LayerTreeNodeState
         {
@@ -173,6 +170,7 @@ namespace Land_Readjustment_Tool
                     projectScopedFactory,
                     new ProjectRasterCrsResolver(projectScopedFactory),
                     new GdalRasterDatasetImporter()),
+                new RasterImportFileManagementService(projectScopedFactory),
                 new XyzTileSourceService(),
                 new ProjectOpenService(sessionFactory, projectScopedFactory),
                 new ProjectSaveAsService(backupService, sessionFactory),
@@ -189,6 +187,7 @@ namespace Land_Readjustment_Tool
             CanvasLayerBoundsService layerBoundsService,
             RasterLayerProjectionService rasterLayerProjectionService,
             IRasterLayerImportService rasterLayerImportService,
+            RasterImportFileManagementService rasterImportFileManagementService,
             IXyzTileSourceService xyzTileSourceService,
             ProjectOpenService projectOpenService,
             ProjectSaveAsService projectSaveAsService,
@@ -202,6 +201,7 @@ namespace Land_Readjustment_Tool
             _layerBoundsService = layerBoundsService ?? throw new ArgumentNullException(nameof(layerBoundsService));
             _rasterLayerProjectionService = rasterLayerProjectionService ?? throw new ArgumentNullException(nameof(rasterLayerProjectionService));
             _rasterLayerImportService = rasterLayerImportService ?? throw new ArgumentNullException(nameof(rasterLayerImportService));
+            _rasterImportFileManagementService = rasterImportFileManagementService ?? throw new ArgumentNullException(nameof(rasterImportFileManagementService));
             _xyzTileSourceService = xyzTileSourceService ?? throw new ArgumentNullException(nameof(xyzTileSourceService));
             _projectOpenService = projectOpenService ?? throw new ArgumentNullException(nameof(projectOpenService));
             _projectSaveAsService = projectSaveAsService ?? throw new ArgumentNullException(nameof(projectSaveAsService));
@@ -222,7 +222,7 @@ namespace Land_Readjustment_Tool
             ConfigureCanvasStatusBarLayout();
             ConfigureLayerTree();
             ConfigureLayerPropertiesPanel();
-            MapCanvasControlMain_StatusChanged("E: --    N: --", "Mode: Ready");
+            MapCanvasControlMain_StatusChanged("E: --    N: --", "Ready");
 
 
             UpdateWindowTitle();
@@ -420,7 +420,9 @@ namespace Land_Readjustment_Tool
 
             if (result == DialogResult.No)
             {
-                string filePath = AppServices.Context.ProjectFilePath;
+                ProjectContext context = AppServices.Context;
+                string filePath = context.ProjectFilePath;
+                ReleaseProjectRenderingResources();
 
                 // Step 1 — Checkpoint BEFORE closing the connection.
                 //   TRUNCATE empties the WAL file in-place while we still
@@ -432,8 +434,7 @@ namespace Land_Readjustment_Tool
                 //   ClearAllPools() forces Microsoft.Data.Sqlite to close
                 //   every pooled connection immediately, releasing the OS
                 //   file handles on .lpp, .lpp-wal and .lpp-shm.
-                AppServices.Context.Session.Dispose();
-                AppServices.ClearContext();
+                context.Session.Dispose();
                 SqliteConnection.ClearAllPools();
 
                 // Step 3 — Restore .lpp from the last backup.
@@ -444,6 +445,10 @@ namespace Land_Readjustment_Tool
                         "Restore Failed",
                         MessageBoxButtons.OK,
                         MessageBoxIcon.Warning);
+                else
+                    _rasterImportFileManagementService.CleanupUnsavedImports(context);
+
+                AppServices.ClearContext();
 
                 return true;
             }
@@ -461,6 +466,9 @@ namespace Land_Readjustment_Tool
 
             try
             {
+                // Release renderer-owned SQLite/GDAL handles before closing
+                // the project DB session and clearing pooled SQLite connections.
+                ReleaseProjectRenderingResources();
                 AppServices.Context.StateChanged -= UpdateWindowTitle;
                 AppServices.Context.Session.Dispose();
             }
@@ -468,6 +476,20 @@ namespace Land_Readjustment_Tool
             {
                 AppServices.ClearContext();
                 SqliteConnection.ClearAllPools();
+            }
+        }
+
+        private void ReleaseProjectRenderingResources()
+        {
+            try
+            {
+                mapCanvasControlMain.ClearRasterLayers();
+            }
+            catch (Exception ex)
+            {
+                LogProjectError(
+                    "Failed to release raster rendering resources while closing project.",
+                    ex);
             }
         }
 
@@ -575,7 +597,8 @@ namespace Land_Readjustment_Tool
             {
                 Filter =
                     "Land Pooling Project File (*.lpp)|*.lpp",
-                Title = "Create New Project"
+                Title = "Create New Project",
+                RestoreDirectory = true
             };
 
             if (sfd.ShowDialog() != DialogResult.OK)
@@ -620,9 +643,11 @@ namespace Land_Readjustment_Tool
                 UpdateWindowTitle();
 
                 // Open project details form
-                OpenProjectDetails();
-                PromptProjectSettings();
-                SetOperationProgress(65, "Preparing map canvas");
+                HideOperationProgress();
+                OpenProjectDetails(info);
+                SetOperationProgress(58, "Configuring project settings");
+                await PromptProjectSettingsAsync();
+                SetOperationProgress(65, "Loading project workspace");
 
                 InitializeProjectWorkspace();
                 await ApplySettingsAsync(showRefreshProgress: false);
@@ -646,19 +671,38 @@ namespace Land_Readjustment_Tool
 
             try
             {
+                SetOperationProgress(8, "Saving project view");
+                PersistProjectUiStateAsync().GetAwaiter().GetResult();
+                SetOperationProgress(18, "Saving project");
+                _rasterImportFileManagementService
+                    .RepairRasterLayerReferencesAsync(AppServices.Context)
+                    .GetAwaiter()
+                    .GetResult();
+                SetOperationProgress(38, "Cleaning project workspace");
+                _rasterImportFileManagementService
+                    .CleanupUnreferencedProjectRastersAsync(AppServices.Context)
+                    .GetAwaiter()
+                    .GetResult();
+
                 string filePath = AppServices.Context.ProjectFilePath;
 
                 // Repositories write immediately — no pending changes to flush.
                 // Save = WAL checkpoint + backup rotation.
 
                 // 1. WAL checkpoint — merge WAL journal into the .lpp file
+                SetOperationProgress(64, "Writing project database");
                 ProjectWalCheckpoint.Execute(filePath);
 
                 // 2. Rotate backups
+                SetOperationProgress(80, "Updating project backup");
                 _backupService.CreateBackup(filePath);
+
+                _rasterImportFileManagementService.CommitPendingDeletes(
+                    AppServices.Context);
 
                 // 3. Mark clean
                 AppServices.Context.MarkAsSaved();
+                SetOperationProgress(100, "Project saved");
                 return true;
             }
             catch (Exception ex)
@@ -672,8 +716,12 @@ namespace Land_Readjustment_Tool
                     MessageBoxIcon.Error);
                 return false;
             }
+            finally
+            {
+                HideOperationProgress();
+            }
         }
-        private async void PromptProjectSettings()
+        private async Task PromptProjectSettingsAsync()
         {
             var result = MessageBox.Show(
                 "Would you like to configure " +
@@ -693,11 +741,13 @@ namespace Land_Readjustment_Tool
 
             // Mark as configured regardless of choice —
             // prevents this prompt from showing again on next open.
+            SetOperationProgress(60, "Saving project settings");
             var repo = _projectScopedFactory.CreateProjectSettingsRepository(
                 AppServices.Context.Session);
             await repo.MarkAsConfiguredAsync();
 
-            await ApplySettingsAsync();
+            SetOperationProgress(62, "Applying workspace settings");
+            await ApplySettingsAsync(showRefreshProgress: false);
 
             // Create the very first project backup.
             // This happens AFTER project info + settings are saved,
@@ -708,7 +758,9 @@ namespace Land_Readjustment_Tool
                 var filePath = AppServices.Context.ProjectFilePath;
 
                 // WAL checkpoint — flush all writes into the .lpp file
+                SetOperationProgress(68, "Writing initial project file");
                 await ProjectWalCheckpoint.ExecuteAsync(filePath);
+                SetOperationProgress(72, "Creating initial backup");
 
                 // Create .lpp.bak — this IS the initial saved state
                 _backupService.CreateBackup(filePath);
@@ -843,9 +895,8 @@ namespace Land_Readjustment_Tool
             // dispose session if user clicked No
             if (!HandleUnsavedChangesOnClose()) return;
 
-            DisposeCurrentProjectSession();
-
             UnloadProjectWorkspace();
+            DisposeCurrentProjectSession();
             DisableProjectMenuItems();
             UpdateWindowTitle();
         }
@@ -862,12 +913,12 @@ namespace Land_Readjustment_Tool
 
         // Opens project details form
         // Wires service via DI
-        private void OpenProjectDetails()
+        private void OpenProjectDetails(ProjectInfo? initialProjectInfo = null)
         {
             var context = AppServices.Context;
             var service = _projectScopedFactory.CreateProjectInfoService(context.Session);
 
-            using var frm = new frm_ProjectDetails(service);
+            using var frm = new frm_ProjectDetails(service, initialProjectInfo);
             if (frm.ShowDialog() == DialogResult.OK)
                 AppServices.Context.MarkAsModified();
 
@@ -951,7 +1002,8 @@ namespace Land_Readjustment_Tool
                     InitialDirectory = Path.GetDirectoryName(currentFolder),
                     Filter = "Land Pooling Project File (*.lpp)|*.lpp",
                     Title = "Save Project As",
-                    FileName = Path.GetFileNameWithoutExtension(currentFilePath)
+                    FileName = Path.GetFileNameWithoutExtension(currentFilePath),
+                    RestoreDirectory = true
                 };
                 if (sfd.ShowDialog() != DialogResult.OK) return;
 
@@ -1000,11 +1052,22 @@ namespace Land_Readjustment_Tool
             {
                 Cursor = Cursors.WaitCursor;
 
+                SetOperationProgress(8, "Saving project view");
+                await PersistProjectUiStateAsync();
+                SetOperationProgress(16, "Preparing Save As");
+                await _rasterImportFileManagementService
+                    .RepairRasterLayerReferencesAsync(AppServices.Context);
+                SetOperationProgress(28, "Cleaning project workspace");
+                await _rasterImportFileManagementService
+                    .CleanupUnreferencedProjectRastersAsync(AppServices.Context);
+
+                SetOperationProgress(44, "Copying project files");
                 ProjectContext newContext =
                     await _projectSaveAsService.SaveAsAsync(
                         currentFilePath,
                         target);
 
+                SetOperationProgress(72, "Opening saved project");
                 DisposeCurrentProjectSession();
                 AppServices.SetContext(newContext);
                 newContext.StateChanged += UpdateWindowTitle;
@@ -1013,7 +1076,9 @@ namespace Land_Readjustment_Tool
 
                 EnableProjectMenuItems();
                 UpdateWindowTitle();
+                SetOperationProgress(86, "Refreshing saved project canvas");
                 await RefreshMapCanvasAsync("Refreshing saved project canvas");
+                await RestoreCanvasViewportStateAsync();
 
                 MessageBox.Show(
                     $"Project saved as:\n{target.ProjectFilePath}",
@@ -1034,6 +1099,7 @@ namespace Land_Readjustment_Tool
             finally
             {
                 Cursor = Cursors.Default;
+                HideOperationProgress();
             }
         }
 
@@ -1133,7 +1199,7 @@ namespace Land_Readjustment_Tool
 
         private async void importXyzTilesToolStripMenuItem_Click(object? sender, EventArgs e)
         {
-            await ImportXyzTilesAsync();
+            await ShowXyzTileImportOptionsFormAsync();
         }
 
         /// <summary>
@@ -1214,12 +1280,18 @@ namespace Land_Readjustment_Tool
 
                 SetOperationProgress(94, "Refreshing raster layer list");
 
+                _rasterImportFileManagementService.RegisterImportedRaster(
+                    AppServices.Context,
+                    importResult);
                 AppServices.Context.MarkAsModified();
                 UpdateWindowTitle();
 
                 await RefreshLayerTreeAsync();
                 SelectLayerNodeById(importResult.Layer.Id);
-                mapCanvasControlMain.ZoomExtents();
+                if (!await TryZoomToLayerAsync(importResult.Layer, showErrorDialog: false))
+                {
+                    mapCanvasControlMain.ZoomExtents();
+                }
 
                 SetCanvasCommandStatus(importResult.Heading);
             }
@@ -1251,10 +1323,7 @@ namespace Land_Readjustment_Tool
             }
         }
 
-        /// <summary>
-        /// Imports an online XYZ tile source as a project raster layer.
-        /// </summary>
-        private async Task ImportXyzTilesAsync()
+        private async Task ShowXyzTileImportOptionsFormAsync()
         {
             if (!AppServices.HasContext)
             {
@@ -1266,13 +1335,55 @@ namespace Land_Readjustment_Tool
                 return;
             }
 
-            using frmXyzTileImportOptions optionsForm =
-                new(AppServices.Context.ProjectFolderPath);
+            if (_xyzTileImportOptionsForm != null &&
+                !_xyzTileImportOptionsForm.IsDisposed)
+            {
+                if (_xyzTileImportOptionsForm.WindowState ==
+                    FormWindowState.Minimized)
+                {
+                    _xyzTileImportOptionsForm.WindowState =
+                        FormWindowState.Normal;
+                }
 
-            if (optionsForm.ShowDialog(this) != DialogResult.OK)
+                _xyzTileImportOptionsForm.BringToFront();
+                _xyzTileImportOptionsForm.Focus();
                 return;
+            }
 
-            XyzTileSourceImportRequest request = optionsForm.ImportRequest;
+            _xyzTileImportOptionsForm =
+                new frmXyzTileImportOptions(
+                    AppServices.Context.ProjectFolderPath,
+                    await LoadXyzTileOptionsStateAsync());
+            _xyzTileImportOptionsForm.ImportRequested +=
+                async (_, args) => await ImportXyzTilesRequestAsync(args.Request);
+            _xyzTileImportOptionsForm.OptionsStateChanged +=
+                async (_, args) =>
+                    await TryPersistXyzTileOptionsStateAsync(args.State);
+            _xyzTileImportOptionsForm.FormClosed += (_, _) =>
+            {
+                _xyzTileImportOptionsForm = null;
+            };
+            _xyzTileImportOptionsForm.Show(this);
+        }
+
+        /// <summary>
+        /// Imports an online XYZ tile source as a project raster layer.
+        /// </summary>
+        private async Task ImportXyzTilesRequestAsync(
+            XyzTileSourceImportRequest request)
+        {
+            if (!AppServices.HasContext)
+            {
+                MessageBox.Show(
+                    "Please open or create a project first.",
+                    "No Project Open",
+                    MessageBoxButtons.OK,
+                    MessageBoxIcon.Warning);
+                return;
+            }
+
+            _xyzTileImportOptionsForm?.BeginImportExecution(
+                "Importing downloaded XYZ tiles...");
 
             try
             {
@@ -1290,6 +1401,8 @@ namespace Land_Readjustment_Tool
 
                     if (replaceResult != DialogResult.Yes)
                     {
+                        _xyzTileImportOptionsForm?.CompleteImportExecution(
+                            "Import canceled. Layer replacement was not approved.");
                         return;
                     }
 
@@ -1319,21 +1432,38 @@ namespace Land_Readjustment_Tool
 
                 SetOperationProgress(94, "Refreshing raster layer list");
 
+                if (_xyzTileImportOptionsForm != null &&
+                    !_xyzTileImportOptionsForm.IsDisposed)
+                {
+                    await PersistXyzTileOptionsStateAsync(
+                        _xyzTileImportOptionsForm.GetCurrentOptionsState());
+                }
+
+                _rasterImportFileManagementService.RegisterImportedRaster(
+                    AppServices.Context,
+                    importResult);
                 AppServices.Context.MarkAsModified();
                 UpdateWindowTitle();
 
                 await RefreshLayerTreeAsync();
                 SelectLayerNodeById(importResult.Layer.Id);
-                mapCanvasControlMain.ZoomExtents();
+                if (!await TryZoomToLayerAsync(importResult.Layer, showErrorDialog: false))
+                {
+                    mapCanvasControlMain.ZoomExtents();
+                }
 
                 SetCanvasCommandStatus(
                     $"Imported XYZ tiles: {importResult.Layer.Name}");
+                _xyzTileImportOptionsForm?.CompleteImportExecution(
+                    $"Import complete: {importResult.Layer.Name}");
             }
             catch (InvalidOperationException ex)
                 when (ex.Message.Contains(
                     "project coordinate system",
                     StringComparison.OrdinalIgnoreCase))
             {
+                _xyzTileImportOptionsForm?.FailImportExecution(
+                    "Import failed: project coordinate system is not configured.");
                 MessageBox.Show(
                     ex.Message,
                     "XYZ Tile Import",
@@ -1343,6 +1473,8 @@ namespace Land_Readjustment_Tool
             }
             catch (Exception ex)
             {
+                _xyzTileImportOptionsForm?.FailImportExecution(
+                    $"Import failed: {GetMostUsefulExceptionMessage(ex)}");
                 LogProjectError("XYZ tile import failed.", ex);
 
                 MessageBox.Show(
@@ -1387,58 +1519,11 @@ namespace Land_Readjustment_Tool
                 AppServices.Context.Session,
                 existingLayer);
 
-            await DeleteRasterLayerFileAsync(
-                existingLayer,
-                AppServices.Context.ProjectFolderPath);
-        }
-
-        private static async Task DeleteRasterLayerFileAsync(
-            CanvasLayer existingLayer,
-            string? projectFolderPath)
-        {
-            if (string.IsNullOrWhiteSpace(existingLayer.SourceFile))
-            {
-                return;
-            }
-
-            string fullPath = ResolveLayerSourceFilePath(
-                existingLayer.SourceFile,
-                projectFolderPath);
-
-            if (!File.Exists(fullPath))
-            {
-                return;
-            }
-
-            string projectRoot = string.IsNullOrWhiteSpace(projectFolderPath)
-                ? string.Empty
-                : Path.GetFullPath(projectFolderPath);
-            string resolvedPath = Path.GetFullPath(fullPath);
-
-            if (!string.IsNullOrWhiteSpace(projectRoot) &&
-                !resolvedPath.StartsWith(projectRoot, StringComparison.OrdinalIgnoreCase))
-            {
-                return;
-            }
-
-            await Task.Run(() => File.Delete(resolvedPath));
-        }
-
-        private static string ResolveLayerSourceFilePath(
-            string storedPath,
-            string? projectFolderPath)
-        {
-            if (Path.IsPathRooted(storedPath))
-            {
-                return Path.GetFullPath(storedPath);
-            }
-
-            if (string.IsNullOrWhiteSpace(projectFolderPath))
-            {
-                return Path.GetFullPath(storedPath);
-            }
-
-            return Path.GetFullPath(Path.Combine(projectFolderPath, storedPath));
+            _rasterImportFileManagementService.HandleLayerDeleted(
+                AppServices.Context,
+                existingLayer);
+            AppServices.Context.MarkAsModified();
+            UpdateWindowTitle();
         }
 
         /// <summary>
@@ -1499,7 +1584,8 @@ namespace Land_Readjustment_Tool
             {
                 Filter =
                     "Land Pooling Project File (*.lpp)|*.lpp",
-                Title = "Open Project"
+                Title = "Open Project",
+                RestoreDirectory = true
             };
 
             if (ofd.ShowDialog() != DialogResult.OK)
@@ -1540,8 +1626,8 @@ namespace Land_Readjustment_Tool
                 }
 
                 SetOperationProgress(15, "Closing current workspace");
-                DisposeCurrentProjectSession();
                 UnloadProjectWorkspace();
+                DisposeCurrentProjectSession();
 
                 SetOperationProgress(35, "Loading project database");
                 ProjectContext context =
@@ -1557,12 +1643,20 @@ namespace Land_Readjustment_Tool
                 UpdateWindowTitle();
                 SetOperationProgress(70, "Preparing map canvas");
                 InitializeProjectWorkspace();
+                await _rasterImportFileManagementService
+                    .RepairRasterLayerReferencesAsync(context);
+                await _rasterImportFileManagementService
+                    .CleanupUnreferencedProjectRastersAsync(context);
                 await ApplySettingsAsync(showRefreshProgress: false);
                 await RefreshMapCanvasAsync("Opening project canvas", 75);
+                await RestoreCanvasViewportStateAsync();
             }
             catch (Exception ex)
             {
                 HideOperationProgress();
+                LogProjectError(
+                    $"Project open failed. Path={projectFilePath}",
+                    ex);
                 MessageBox.Show(
                     $"Failed to open project: {GetMostUsefulExceptionMessage(ex)}",
                     "Error",
@@ -1616,19 +1710,17 @@ namespace Land_Readjustment_Tool
         {
             if (!AppServices.HasContext) return true;
 
-            if (!AppServices.Context.HasUnsavedChanges)
-            {
-                if (showMessage)
-                    MessageBox.Show(
-                        "No changes to save.",
-                        "Save",
-                        MessageBoxButtons.OK,
-                        MessageBoxIcon.Information);
-                return true;
-            }
-
             try
             {
+                SetOperationProgress(8, "Saving project view");
+                await PersistProjectUiStateAsync();
+                SetOperationProgress(18, "Saving project");
+                await _rasterImportFileManagementService
+                    .RepairRasterLayerReferencesAsync(AppServices.Context);
+                SetOperationProgress(38, "Cleaning project workspace");
+                await _rasterImportFileManagementService
+                    .CleanupUnreferencedProjectRastersAsync(AppServices.Context);
+
                 string filePath = AppServices.Context.ProjectFilePath;
 
                 // Repositories write to the DB immediately on every edit,
@@ -1636,13 +1728,19 @@ namespace Land_Readjustment_Tool
                 // Save = WAL checkpoint (merge WAL ? .lpp) + rotate backups.
 
                 // 1. WAL checkpoint — merge WAL journal into the .lpp file
+                SetOperationProgress(64, "Writing project database");
                 await ProjectWalCheckpoint.ExecuteAsync(filePath);
 
                 // 2. Rotate backups — .bak = state just before this save
+                SetOperationProgress(80, "Updating project backup");
                 _backupService.CreateBackup(filePath);
+
+                _rasterImportFileManagementService.CommitPendingDeletes(
+                    AppServices.Context);
 
                 // 3. Mark clean
                 AppServices.Context.MarkAsSaved();
+                SetOperationProgress(100, "Project saved");
 
                 if (showMessage)
                     MessageBox.Show(
@@ -1663,6 +1761,10 @@ namespace Land_Readjustment_Tool
                     MessageBoxButtons.OK,
                     MessageBoxIcon.Error);
                 return false;
+            }
+            finally
+            {
+                HideOperationProgress();
             }
         }
 
@@ -2144,10 +2246,13 @@ namespace Land_Readjustment_Tool
         {
             _layerContextMenu.Items.Clear();
             _layerContextMenu.Opening += LayerContextMenu_Opening;
+            _mnuToggleLayerVisibility.CheckOnClick = false;
+            _mnuToggleLayerLock.CheckOnClick = false;
             _mnuAddRasterMap.Click += async (_, _) => await ImportRasterFileAsync(
                 "Add Raster Map",
                 GetGeneralRasterImportFilter());
-            _mnuAddXyzTiles.Click += async (_, _) => await ImportXyzTilesAsync();
+            _mnuAddXyzTiles.Click += async (_, _) =>
+                await ShowXyzTileImportOptionsFormAsync();
             _mnuZoomToLayer.Click += async (_, _) => await ZoomToLayerAsync(_contextLayerNode);
             _mnuRenameLayer.Click += (_, _) => BeginLayerRename(_contextLayerNode);
             _mnuDeleteLayer.Click += async (_, _) => await DeleteLayerAsync(_contextLayerNode);
@@ -2200,6 +2305,14 @@ namespace Land_Readjustment_Tool
             if (isLayer)
             {
                 CanvasLayer layer = activeLayer!;
+                bool isLockedLayer = layer.IsLocked;
+
+                if (isLockedLayer)
+                {
+                    textColor = selected
+                        ? Color.FromArgb(224, 224, 224)
+                        : BlendColor(treeViewLayers.ForeColor, treeViewLayers.BackColor, 0.48f);
+                }
 
                 Rectangle chkRect = GetLayerNodeCheckBoxRect(e.Node);
 
@@ -2220,6 +2333,10 @@ namespace Land_Readjustment_Tool
                 Color layerColor = ParseColorOrDefault(
                     layer.BorderColor,
                     Color.Black);
+                if (isLockedLayer)
+                {
+                    layerColor = BlendColor(layerColor, treeViewLayers.BackColor, 0.45f);
+                }
 
                 Rectangle colorRect = GetLayerNodeColorRect(e.Node);
 
@@ -2350,7 +2467,7 @@ namespace Land_Readjustment_Tool
             }
 
             UpdateActiveLayerComboFromTree(layer.Id);
-            SetCanvasCommandStatus($"Active Layer: {layer.Name}");
+            SetCanvasCommandStatus("Layer selected");
         }
 
         private void ActiveLayerCombo_SelectedIndexChanged(object? sender, EventArgs e)
@@ -2362,7 +2479,7 @@ namespace Land_Readjustment_Tool
             }
 
             SelectLayerNodeById(item.LayerId);
-            SetCanvasCommandStatus($"Active Layer: {item.Name}");
+            SetCanvasCommandStatus("Layer selected");
         }
 
         private void LayerContextMenu_Opening(object? sender, System.ComponentModel.CancelEventArgs e)
@@ -2392,12 +2509,10 @@ namespace Land_Readjustment_Tool
 
             CanvasLayer layer = GetLayerFromNode(_contextLayerNode)!;
 
-            _mnuToggleLayerVisibility.Text = layer.IsVisible
-                ? "Hide"
-                : "Show";
-            _mnuToggleLayerLock.Text = layer.IsLocked
-                ? "Unlock"
-                : "Lock";
+            _mnuToggleLayerVisibility.Text = "Hidden";
+            _mnuToggleLayerLock.Text = "Locked";
+            _mnuToggleLayerVisibility.Checked = !layer.IsVisible;
+            _mnuToggleLayerLock.Checked = layer.IsLocked;
 
             _mnuZoomToLayer.Enabled = true;
             _mnuRenameLayer.Enabled = true;
@@ -2405,6 +2520,18 @@ namespace Land_Readjustment_Tool
             _mnuToggleLayerVisibility.Enabled = true;
             _mnuToggleLayerLock.Enabled = true;
             _mnuLayerProperties.Enabled = true;
+        }
+
+        private static Color BlendColor(Color source, Color target, float targetWeight)
+        {
+            float clampedWeight = Math.Clamp(targetWeight, 0f, 1f);
+            float sourceWeight = 1f - clampedWeight;
+
+            int red = (int)Math.Round((source.R * sourceWeight) + (target.R * clampedWeight));
+            int green = (int)Math.Round((source.G * sourceWeight) + (target.G * clampedWeight));
+            int blue = (int)Math.Round((source.B * sourceWeight) + (target.B * clampedWeight));
+
+            return Color.FromArgb(red, green, blue);
         }
 
         private void ConfigureRasterGroupContextMenuItems()
@@ -2685,6 +2812,9 @@ namespace Land_Readjustment_Tool
                 await _layerCommandService.DeleteAsync(
                     AppServices.HasContext ? AppServices.Context.Session : null,
                     layer);
+                _rasterImportFileManagementService.HandleLayerDeleted(
+                    AppServices.Context,
+                    layer);
                 MarkProjectModifiedIfOpen();
                 await RefreshMapCanvasAsync("Refreshing map canvas");
                 ClearLayerProperties();
@@ -2707,8 +2837,26 @@ namespace Land_Readjustment_Tool
                 return;
             }
 
+            await TryZoomToLayerAsync(layer, showErrorDialog: true);
+        }
+
+        private async Task<bool> TryZoomToLayerAsync(
+            CanvasLayer layer,
+            bool showErrorDialog)
+        {
             try
             {
+                if (string.Equals(
+                        layer.LayerType,
+                        CanvasLayerTreeService.RasterLayerType,
+                        StringComparison.OrdinalIgnoreCase) &&
+                    mapCanvasControlMain.ZoomToRasterLayer(layer.Id))
+                {
+                    mapCanvasControlMain.SetPanToolActive(false);
+                    mnuPan.Checked = false;
+                    return true;
+                }
+
                 RectangleD? bounds =
                     await _layerBoundsService.GetWorldBoundsAsync(
                         AppServices.HasContext ? AppServices.Context.Session : null,
@@ -2719,25 +2867,45 @@ namespace Land_Readjustment_Tool
 
                 if (!bounds.HasValue)
                 {
-                    MessageBox.Show(
-                        $"Layer '{layer.Name}' does not have drawable bounds yet.",
-                        "Zoom To Layer",
-                        MessageBoxButtons.OK,
-                        MessageBoxIcon.Information);
-                    return;
+                    if (showErrorDialog)
+                    {
+                        MessageBox.Show(
+                            $"Layer '{layer.Name}' does not have drawable bounds yet.",
+                            "Zoom To Layer",
+                            MessageBoxButtons.OK,
+                            MessageBoxIcon.Information);
+                    }
+
+                    return false;
                 }
 
                 mapCanvasControlMain.SetPanToolActive(false);
                 mnuPan.Checked = false;
                 mapCanvasControlMain.ZoomToWorldBounds(bounds.Value);
+                return true;
             }
             catch (Exception ex)
             {
-                MessageBox.Show(
-                    $"Failed to zoom to the layer: {ex.Message}",
-                    "Zoom To Layer",
-                    MessageBoxButtons.OK,
-                MessageBoxIcon.Error);
+                if (showErrorDialog)
+                {
+                    MessageBox.Show(
+                        $"Failed to zoom to the layer: {ex.Message}",
+                        "Zoom To Layer",
+                        MessageBoxButtons.OK,
+                        MessageBoxIcon.Error);
+                }
+                else
+                {
+                    LogProjectError(
+                        $"Automatic zoom-to-layer failed for '{layer.Name}'.",
+                        ex);
+                }
+
+                return false;
+            }
+            finally
+            {
+                HideOperationProgress();
             }
         }
 
@@ -2923,9 +3091,161 @@ namespace Land_Readjustment_Tool
 
         private void SetCanvasCommandStatus(string status)
         {
-            _canvasCommandStatus.Text = string.IsNullOrWhiteSpace(status)
-                ? "Canvas: Ready"
-                : status;
+            string cleanedStatus = string.IsNullOrWhiteSpace(status)
+                ? "Ready"
+                : status
+                    .Replace("Mode:", string.Empty, StringComparison.OrdinalIgnoreCase)
+                    .Replace("Canvas:", string.Empty, StringComparison.OrdinalIgnoreCase)
+                    .Trim();
+
+            lblCanvasMode.Text = $"Status: {cleanedStatus}";
+        }
+
+        private async Task PersistProjectUiStateAsync()
+        {
+            await PersistCanvasViewportStateAsync();
+            await PersistOpenXyzTileOptionsStateAsync();
+        }
+
+        private async Task PersistCanvasViewportStateAsync()
+        {
+            if (!AppServices.HasContext)
+                return;
+
+            ProjectSettings? settings = await LoadProjectSettingsForUiStateAsync();
+            if (settings == null)
+                return;
+
+            MapCanvasViewportState viewportState =
+                mapCanvasControlMain.GetViewportState();
+            settings.CanvasViewportCenterX = viewportState.CenterX;
+            settings.CanvasViewportCenterY = viewportState.CenterY;
+            settings.CanvasViewportZoomScale = viewportState.ZoomScale;
+            settings.CanvasViewportVisibleWidth = viewportState.VisibleWidth;
+            settings.CanvasViewportVisibleHeight = viewportState.VisibleHeight;
+
+            await SaveProjectSettingsForUiStateAsync(settings);
+        }
+
+        private async Task RestoreCanvasViewportStateAsync()
+        {
+            if (!AppServices.HasContext)
+                return;
+
+            ProjectSettings? settings = await LoadProjectSettingsForUiStateAsync();
+            if (settings == null ||
+                !settings.CanvasViewportCenterX.HasValue ||
+                !settings.CanvasViewportCenterY.HasValue ||
+                !settings.CanvasViewportZoomScale.HasValue)
+            {
+                return;
+            }
+
+            mapCanvasControlMain.TryApplyViewportState(
+                new MapCanvasViewportState(
+                    settings.CanvasViewportCenterX.Value,
+                    settings.CanvasViewportCenterY.Value,
+                    settings.CanvasViewportZoomScale.Value,
+                    settings.CanvasViewportVisibleWidth ?? 0,
+                    settings.CanvasViewportVisibleHeight ?? 0));
+        }
+
+        private async Task PersistOpenXyzTileOptionsStateAsync()
+        {
+            if (_xyzTileImportOptionsForm == null ||
+                _xyzTileImportOptionsForm.IsDisposed)
+            {
+                return;
+            }
+
+            await PersistXyzTileOptionsStateAsync(
+                _xyzTileImportOptionsForm.GetCurrentOptionsState());
+        }
+
+        private async Task PersistXyzTileOptionsStateAsync(
+            XyzTileImportOptionsState state)
+        {
+            if (!AppServices.HasContext)
+                return;
+
+            ProjectSettings? settings = await LoadProjectSettingsForUiStateAsync();
+            if (settings == null)
+                return;
+
+            ApplyXyzTileOptionsState(settings, state);
+            await SaveProjectSettingsForUiStateAsync(settings);
+        }
+
+        private async Task TryPersistXyzTileOptionsStateAsync(
+            XyzTileImportOptionsState state)
+        {
+            try
+            {
+                await PersistXyzTileOptionsStateAsync(state);
+            }
+            catch (Exception ex)
+            {
+                LogProjectError(
+                    "Failed to persist XYZ tile import form state.",
+                    ex);
+            }
+        }
+
+        private async Task<XyzTileImportOptionsState?> LoadXyzTileOptionsStateAsync()
+        {
+            if (!AppServices.HasContext)
+                return null;
+
+            ProjectSettings? settings = await LoadProjectSettingsForUiStateAsync();
+            if (settings == null)
+                return null;
+
+            return new XyzTileImportOptionsState(
+                settings.LastXyzLayerName,
+                settings.LastXyzTileSourceUrlTemplate,
+                settings.LastXyzMinLongitude,
+                settings.LastXyzMinLatitude,
+                settings.LastXyzMaxLongitude,
+                settings.LastXyzMaxLatitude,
+                settings.LastXyzZoomLevel,
+                settings.LastXyzImageExtension,
+                settings.LastXyzDownloadMinLongitude,
+                settings.LastXyzDownloadMinLatitude,
+                settings.LastXyzDownloadMaxLongitude,
+                settings.LastXyzDownloadMaxLatitude);
+        }
+
+        private static void ApplyXyzTileOptionsState(
+            ProjectSettings settings,
+            XyzTileImportOptionsState state)
+        {
+            settings.LastXyzLayerName = state.LayerName;
+            settings.LastXyzTileSourceUrlTemplate = state.UrlTemplate;
+            settings.LastXyzMinLongitude = state.MinLongitude;
+            settings.LastXyzMinLatitude = state.MinLatitude;
+            settings.LastXyzMaxLongitude = state.MaxLongitude;
+            settings.LastXyzMaxLatitude = state.MaxLatitude;
+            settings.LastXyzZoomLevel = state.ZoomLevel;
+            settings.LastXyzImageExtension = state.ImageExtension;
+            settings.LastXyzDownloadMinLongitude = state.LastDownloadMinLongitude;
+            settings.LastXyzDownloadMinLatitude = state.LastDownloadMinLatitude;
+            settings.LastXyzDownloadMaxLongitude = state.LastDownloadMaxLongitude;
+            settings.LastXyzDownloadMaxLatitude = state.LastDownloadMaxLatitude;
+        }
+
+        private async Task<ProjectSettings?> LoadProjectSettingsForUiStateAsync()
+        {
+            var service = _projectScopedFactory.CreateProjectSettingsService(
+                AppServices.Context.Session);
+            return await service.GetAsync();
+        }
+
+        private async Task SaveProjectSettingsForUiStateAsync(
+            ProjectSettings settings)
+        {
+            var service = _projectScopedFactory.CreateProjectSettingsService(
+                AppServices.Context.Session);
+            await service.SaveAsync(settings);
         }
 
         private void UpdateActiveLayerComboFromTree(int? preferredLayerId = null)
@@ -3236,7 +3556,54 @@ namespace Land_Readjustment_Tool
             _operationProgressBar.Value = clampedPercent;
             _operationProgressBar.Invalidate();
             _operationProgressHost.Visible = true;
+            ShowOperationProgressForm(
+                GetOperationProgressTitle(status),
+                status,
+                clampedPercent);
             statusCanvas.Refresh();
+        }
+
+        private void ShowOperationProgressForm(
+            string title,
+            string status,
+            int percent)
+        {
+            if (IsDisposed || Disposing) return;
+
+            _operationProgressForm ??= new frmOperationProgress();
+
+            if (_operationProgressForm.IsDisposed)
+                _operationProgressForm = new frmOperationProgress();
+
+            _operationProgressForm.UpdateProgress(title, status, percent);
+
+            if (!_operationProgressForm.Visible)
+                _operationProgressForm.Show(this);
+        }
+
+        private static string GetOperationProgressTitle(string status)
+        {
+            if (status.StartsWith("Creating", StringComparison.OrdinalIgnoreCase))
+                return "Creating Project";
+
+            if (status.StartsWith("Opening", StringComparison.OrdinalIgnoreCase) ||
+                status.StartsWith("Loading", StringComparison.OrdinalIgnoreCase))
+                return "Opening Project";
+
+            if (status.StartsWith("Saving", StringComparison.OrdinalIgnoreCase) ||
+                status.StartsWith("Writing", StringComparison.OrdinalIgnoreCase))
+                return "Saving Project";
+
+            if (status.StartsWith("Configuring", StringComparison.OrdinalIgnoreCase) ||
+                status.StartsWith("Applying", StringComparison.OrdinalIgnoreCase) ||
+                status.StartsWith("Preparing", StringComparison.OrdinalIgnoreCase))
+                return "Setting Up Workspace";
+
+            if (status.Contains("raster", StringComparison.OrdinalIgnoreCase) ||
+                status.Contains("XYZ", StringComparison.OrdinalIgnoreCase))
+                return "Importing Map Data";
+
+            return "Project Operation";
         }
 
         /// <summary>
@@ -3255,13 +3622,15 @@ namespace Land_Readjustment_Tool
             _operationProgressBar.Value = 0;
             _operationProgressBar.Invalidate();
             _operationProgressHost.Visible = false;
+            _operationProgressForm?.Close();
+            _operationProgressForm = null;
             statusCanvas.Refresh();
         }
 
         private void ConfigureCanvasStatusBarLayout()
         {
             // Force a stable, readable layout regardless of designer changes:
-            // mode on left, coordinates pinned on right.
+            // one status field on the left, coordinates pinned on the right.
             statusCanvas.SuspendLayout();
             try
             {
@@ -3273,22 +3642,21 @@ namespace Land_Readjustment_Tool
 
                 lblCanvasMode.Alignment = ToolStripItemAlignment.Left;
                 lblCanvasMode.Spring = false;
-                lblCanvasMode.AutoSize = true;
+                lblCanvasMode.AutoSize = false;
+                lblCanvasMode.Width = 220;
+                lblCanvasMode.Text = "Status: Ready";
                 lblCanvasMode.TextAlign = System.Drawing.ContentAlignment.MiddleLeft;
                 lblCanvasMode.ForeColor = SystemColors.ControlText;
-                lblCanvasMode.BorderSides = ToolStripStatusLabelBorderSides.None;
+                lblCanvasMode.BorderSides = ToolStripStatusLabelBorderSides.Right;
                 lblCanvasMode.BorderStyle = Border3DStyle.Flat;
-
-                _canvasCommandStatus.ForeColor = SystemColors.ControlText;
-                _canvasCommandStatus.BorderSides = ToolStripStatusLabelBorderSides.Left;
-                _canvasCommandStatus.BorderStyle = Border3DStyle.Flat;
 
                 _activeLayerLabel.ForeColor = SystemColors.ControlText;
                 _activeLayerCombo.DropDownWidth = 260;
 
                 lblCanvasCoordinates.Alignment = ToolStripItemAlignment.Right;
                 lblCanvasCoordinates.Spring = false;
-                lblCanvasCoordinates.AutoSize = true;
+                lblCanvasCoordinates.AutoSize = false;
+                lblCanvasCoordinates.Width = 270;
                 lblCanvasCoordinates.TextAlign = System.Drawing.ContentAlignment.MiddleRight;
                 lblCanvasCoordinates.ForeColor = SystemColors.ControlText;
                 lblCanvasCoordinates.BorderSides = ToolStripStatusLabelBorderSides.Left;
@@ -3303,7 +3671,6 @@ namespace Land_Readjustment_Tool
                 // Rebuild order deterministically.
                 statusCanvas.Items.Clear();
                 statusCanvas.Items.Add(lblCanvasMode);
-                statusCanvas.Items.Add(_canvasCommandStatus);
                 statusCanvas.Items.Add(_statusSpacer);
                 statusCanvas.Items.Add(_activeLayerLabel);
                 statusCanvas.Items.Add(_activeLayerCombo);
@@ -3320,9 +3687,7 @@ namespace Land_Readjustment_Tool
         private void MapCanvasControlMain_StatusChanged(string coordinates, string mode)
         {
             lblCanvasCoordinates.Text = coordinates;
-            lblCanvasMode.Text = mode;
-            SetCanvasCommandStatus(
-                mode.Replace("Mode:", "Canvas:", StringComparison.OrdinalIgnoreCase));
+            SetCanvasCommandStatus(mode);
         }
 
         /// <summary>

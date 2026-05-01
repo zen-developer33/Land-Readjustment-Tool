@@ -71,9 +71,37 @@ namespace Land_Readjustment_Tool.Services.Canvas
                 return null;
             }
 
-            using RasterRenderLayer rasterLayer =
-                RasterRenderLayer.FromCanvasLayer(layer, projectFolderPath);
-            return rasterLayer.WorldBounds;
+            using IRasterRenderLayer rasterLayer =
+                RasterRenderLayerFactory.FromCanvasLayer(layer, projectFolderPath);
+
+            RectangleD bounds = rasterLayer.WorldBounds;
+            if (!IsFinite(bounds.Left) ||
+                !IsFinite(bounds.Top) ||
+                !IsFinite(bounds.Width) ||
+                !IsFinite(bounds.Height))
+            {
+                return null;
+            }
+
+            double minX = Math.Min(bounds.Left, bounds.Right);
+            double minY = Math.Min(bounds.Top, bounds.Bottom);
+            double width = Math.Abs(bounds.Width);
+            double height = Math.Abs(bounds.Height);
+
+            const double minimumExtent = 1.0;
+            if (width <= 0)
+            {
+                minX -= minimumExtent / 2.0;
+                width = minimumExtent;
+            }
+
+            if (height <= 0)
+            {
+                minY -= minimumExtent / 2.0;
+                height = minimumExtent;
+            }
+
+            return new RectangleD(minX, minY, width, height);
         }
 
         /// <summary>
@@ -136,5 +164,8 @@ namespace Land_Readjustment_Tool.Services.Canvas
 
             return new RectangleD(minX, minY, width, height);
         }
+
+        private static bool IsFinite(double value) =>
+            !double.IsNaN(value) && !double.IsInfinity(value);
     }
 }

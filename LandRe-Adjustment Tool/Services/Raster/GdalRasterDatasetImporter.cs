@@ -101,6 +101,8 @@ namespace Land_Readjustment_Tool.Services.Raster
                     RasterDatasetImportMode.UnknownCrsCopiedWithoutProjection,
                 RasterImportMode.UnreferencedCopiedToLocalCoordinates =>
                     RasterDatasetImportMode.UnreferencedCopiedToLocalCoordinates,
+                RasterImportMode.SourceCrsAssignedWithoutGeoreferencing =>
+                    RasterDatasetImportMode.SourceCrsAssignedWithoutGeoreferencing,
                 RasterImportMode.MbTilesDirectTileSource =>
                     RasterDatasetImportMode.MbTilesDirectTileSource,
                 _ => RasterDatasetImportMode.UnreferencedCopiedToLocalCoordinates

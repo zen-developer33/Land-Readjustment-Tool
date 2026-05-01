@@ -89,8 +89,13 @@ namespace Land_Readjustment_Tool.Services.Raster
             ArgumentNullException.ThrowIfNull(request);
             ArgumentNullException.ThrowIfNull(request.Session);
 
+            RasterDatasetImportOutput? datasetOutput = null;
+
             try
             {
+                request.Session.Logger.LogInfo(
+                    $"Raster import started. Source={request.SourcePath}, ProjectFolder={request.ProjectFolderPath}");
+
                 progress?.Report(new RasterImportProgressInfo(4, "Loading project CRS settings"));
 
                 ProjectRasterCrsContext crsContext =
@@ -109,7 +114,7 @@ namespace Land_Readjustment_Tool.Services.Raster
                         existingLayers)
                     : request.LayerName.Trim();
 
-                RasterDatasetImportOutput datasetOutput = await Task.Run(
+                datasetOutput = await Task.Run(
                     () => _datasetImporter.ImportToProjectCrs(
                         request.SourcePath,
                         request.ProjectFolderPath,
@@ -119,6 +124,9 @@ namespace Land_Readjustment_Tool.Services.Raster
                         request.SourceExtent,
                         progress),
                     ct);
+
+                request.Session.Logger.LogInfo(
+                    $"Raster import output created. Path={datasetOutput.AbsolutePath}, RelativePath={datasetOutput.RelativePath}, Mode={datasetOutput.ImportMode}");
 
                 progress?.Report(new RasterImportProgressInfo(90, "Creating raster map layer"));
 
@@ -153,10 +161,38 @@ namespace Land_Readjustment_Tool.Services.Raster
             }
             catch (Exception ex)
             {
+                if (datasetOutput != null)
+                {
+                    DeleteFailedImportOutput(
+                        datasetOutput.AbsolutePath,
+                        request.Session);
+                }
+
                 request.Session.Logger.LogError(
                     $"Raster import failed. Source={request.SourcePath}",
                     ex);
                 throw;
+            }
+        }
+
+        private static void DeleteFailedImportOutput(
+            string outputPath,
+            ProjectSession session)
+        {
+            try
+            {
+                if (!File.Exists(outputPath))
+                    return;
+
+                File.Delete(outputPath);
+                session.Logger.LogInfo(
+                    $"Deleted raster output from failed import. Path={outputPath}");
+            }
+            catch (Exception cleanupException)
+            {
+                session.Logger.LogError(
+                    $"Failed to delete raster output after import failure. Path={outputPath}",
+                    cleanupException);
             }
         }
 
@@ -178,7 +214,7 @@ namespace Land_Readjustment_Tool.Services.Raster
                 Name = layerName,
                 LayerType = CanvasLayerTreeService.RasterLayerType,
                 IsVisible = true,
-                IsLocked = false,
+                IsLocked = true,
                 IsSelectable = true,
                 IsPrintable = true,
                 DisplayOrder = nextDisplayOrder,
@@ -245,6 +281,8 @@ namespace Land_Readjustment_Tool.Services.Raster
                     $"Imported '{layerName}', but the raster CRS is unknown.",
                 RasterDatasetImportMode.UnreferencedCopiedToLocalCoordinates =>
                     $"Imported '{layerName}' for temporary display only.",
+                RasterDatasetImportMode.SourceCrsAssignedWithoutGeoreferencing =>
+                    $"Imported '{layerName}' with the assigned source CRS.",
                 RasterDatasetImportMode.MbTilesDirectTileSource =>
                     $"Imported '{layerName}' as a direct MBTiles tile layer.",
                 _ => $"Imported '{layerName}'."
@@ -262,6 +300,8 @@ namespace Land_Readjustment_Tool.Services.Raster
                     "Warning: this raster has map coordinates, but no coordinate reference system was found.",
                 RasterDatasetImportMode.UnreferencedCopiedToLocalCoordinates =>
                     "Warning: this raster is not georeferenced. The map placement is temporary image coordinates only, so the map will not be spatially correct.",
+                RasterDatasetImportMode.SourceCrsAssignedWithoutGeoreferencing =>
+                    "Warning: a CRS was assigned, but this raster has no georeferencing. It still needs map control points or a real geotransform to align spatially.",
                 _ => null
             };
         }
@@ -288,7 +328,9 @@ namespace Land_Readjustment_Tool.Services.Raster
                     $"GeoTransform: {string.Join(", ", metadata.GeoTransform.Select(FormatDouble))}");
             }
             else if (datasetOutput.ImportMode ==
-                     RasterDatasetImportMode.UnreferencedCopiedToLocalCoordinates)
+                     RasterDatasetImportMode.UnreferencedCopiedToLocalCoordinates ||
+                     datasetOutput.ImportMode ==
+                     RasterDatasetImportMode.SourceCrsAssignedWithoutGeoreferencing)
             {
                 builder.AppendLine(
                     $"Temporary display extent: X 0 to {metadata.Width}, Y 0 to {metadata.Height} image units.");
@@ -325,7 +367,9 @@ namespace Land_Readjustment_Tool.Services.Raster
                     $"  Rotation: {FormatDouble(metadata.GeoTransform[2])}, {FormatDouble(metadata.GeoTransform[4])}");
             }
             else if (datasetOutput.ImportMode ==
-                     RasterDatasetImportMode.UnreferencedCopiedToLocalCoordinates)
+                     RasterDatasetImportMode.UnreferencedCopiedToLocalCoordinates ||
+                     datasetOutput.ImportMode ==
+                     RasterDatasetImportMode.SourceCrsAssignedWithoutGeoreferencing)
             {
                 builder.AppendLine();
                 builder.AppendLine("Temporary display extent");
@@ -387,6 +431,8 @@ namespace Land_Readjustment_Tool.Services.Raster
                     "Raster has map coordinates but no CRS; copied without projection because the source CRS is unknown.",
                 RasterDatasetImportMode.UnreferencedCopiedToLocalCoordinates =>
                     "Raster has no map coordinates; copied without projection for temporary display only.",
+                RasterDatasetImportMode.SourceCrsAssignedWithoutGeoreferencing =>
+                    "Raster has no map coordinates; source CRS was assigned to the copied raster without reprojection.",
                 RasterDatasetImportMode.MbTilesDirectTileSource =>
                     "MBTiles tile package was preserved and will be rendered directly from its tile pyramid.",
                 _ => "Unknown"
@@ -408,6 +454,8 @@ namespace Land_Readjustment_Tool.Services.Raster
                     "Original stored raster coordinates; alignment depends on the user later defining the correct CRS.",
                 RasterDatasetImportMode.UnreferencedCopiedToLocalCoordinates =>
                     "Local image coordinates from pixel size only; not georeferenced and not spatially aligned.",
+                RasterDatasetImportMode.SourceCrsAssignedWithoutGeoreferencing =>
+                    "Local image coordinates with assigned CRS metadata; not georeferenced and not spatially aligned.",
                 RasterDatasetImportMode.MbTilesDirectTileSource =>
                     "Direct MBTiles tile rendering with tile footprints transformed to the project CRS.",
                 _ => "Unknown"

@@ -74,6 +74,18 @@
 
   <ItemGroup>
     <Compile Update="UI\Forms\frmMain.cs" />
+    <Compile Update="UI\Forms\frmXyzTileImportOptions.cs">
+      <SubType>Form</SubType>
+    </Compile>
+    <Compile Update="UI\Forms\frmXyzTileImportOptions.Designer.cs">
+      <DependentUpon>frmXyzTileImportOptions.cs</DependentUpon>
+    </Compile>
+    <Compile Update="UI\Forms\frmXyzTileSourceManager.cs">
+      <SubType>Form</SubType>
+    </Compile>
+    <Compile Update="UI\Forms\frmXyzTileSourceManager.Designer.cs">
+      <DependentUpon>frmXyzTileSourceManager.cs</DependentUpon>
+    </Compile>
 <Compile Update="UI\MapCanvas\CanvasPanel.cs">
       <SubType>Component</SubType>
     </Compile>
@@ -90,6 +102,12 @@
   </ItemGroup>
 
   <ItemGroup>
+    <EmbeddedResource Update="UI\Forms\frmXyzTileImportOptions.resx">
+      <DependentUpon>frmXyzTileImportOptions.cs</DependentUpon>
+    </EmbeddedResource>
+    <EmbeddedResource Update="UI\Forms\frmXyzTileSourceManager.resx">
+      <DependentUpon>frmXyzTileSourceManager.cs</DependentUpon>
+    </EmbeddedResource>
     <EmbeddedResource Update="Properties\Resources.resx">
       <Generator>PublicResXFileCodeGenerator</Generator>
       <LastGenOutput>Resources.Designer.cs</LastGenOutput>

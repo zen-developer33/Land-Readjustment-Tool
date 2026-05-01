@@ -121,6 +121,23 @@ namespace Land_Readjustment_Tool.UI.MapCanvas.Core
             return new RectangleD(left, bottom, right - left, top - bottom);
         }
 
+        public void SetViewport(PointD centerWorld, double zoomScale)
+        {
+            if (!double.IsFinite(centerWorld.X) ||
+                !double.IsFinite(centerWorld.Y) ||
+                !double.IsFinite(zoomScale) ||
+                zoomScale <= 0)
+            {
+                return;
+            }
+
+            _zoomScale = Math.Clamp(zoomScale, GetMinZoomForWorldBounds(), MaxZoom);
+
+            _viewOriginWorld = new PointD(
+                centerWorld.X - (_canvasSize.Width / 2.0) / _zoomScale,
+                centerWorld.Y - (_canvasSize.Height / 2.0) / _zoomScale);
+        }
+
         public void ZoomIn()
         {
             ZoomAtCenter(ZoomStep);

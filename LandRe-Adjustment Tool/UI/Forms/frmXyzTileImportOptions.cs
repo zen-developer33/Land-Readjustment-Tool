@@ -1,3 +1,4 @@
+using System.ComponentModel;
 using Land_Readjustment_Tool.Services.Raster;
 
 namespace Land_Readjustment_Tool.UI.Forms
@@ -5,42 +6,48 @@ namespace Land_Readjustment_Tool.UI.Forms
     /// <summary>
     /// Collects the settings needed to import an online XYZ tile source.
     /// </summary>
-    public sealed class frmXyzTileImportOptions : Form
+    public sealed partial class frmXyzTileImportOptions : Form
     {
-        private readonly string _projectFolderPath;
-        private readonly ComboBox cmbTileSource = new();
-        private readonly Button btnManageSources = new();
-        private readonly TextBox txtLayerName = new();
-        private readonly TextBox txtUrlTemplate = new();
-        private readonly NumericUpDown numMinLongitude;
-        private readonly NumericUpDown numMinLatitude;
-        private readonly NumericUpDown numMaxLongitude;
-        private readonly NumericUpDown numMaxLatitude;
-        private readonly NumericUpDown numZoomLevel = new();
-        private readonly Button btnImport = new();
-        private readonly Button btnCancel = new();
-        private List<XyzTileSourceCatalogItem> _tileSources = [];
+        private const decimal NepalDefaultMinLongitude = 80.058622m;
+        private const decimal NepalDefaultMinLatitude = 26.347000m;
+        private const decimal NepalDefaultMaxLongitude = 88.201525m;
+        private const decimal NepalDefaultMaxLatitude = 30.447020m;
 
-        public frmXyzTileImportOptions(string projectFolderPath)
+        private readonly string _projectFolderPath;
+        private readonly XyzTileImportOptionsState? _initialState;
+        private readonly XyzTilePreDownloadService _tilePreDownloadService = new();
+        private List<XyzTileSourceCatalogItem> _tileSources = [];
+        private XyzTileSourceImportRequest? _downloadedRequest;
+        private XyzTileSourceImportRequest? _lastSuccessfulDownloadRequest;
+        private CancellationTokenSource? _downloadCancellation;
+        private bool _isImportInProgress;
+
+        public frmXyzTileImportOptions()
+            : this(string.Empty)
+        {
+        }
+
+        public frmXyzTileImportOptions(
+            string projectFolderPath,
+            XyzTileImportOptionsState? initialState = null)
         {
             _projectFolderPath = projectFolderPath;
-            Text = "Import XYZ Tiles";
-            StartPosition = FormStartPosition.CenterParent;
-            FormBorderStyle = FormBorderStyle.FixedDialog;
-            MinimizeBox = false;
-            MaximizeBox = false;
-            ShowInTaskbar = false;
-            ClientSize = new Size(620, 430);
+            _initialState = initialState;
+            InitializeComponent();
+            WireRuntimeEvents();
+            ConfigureRuntimeFormBehavior();
+            ApplyNepalDefaultBounds();
 
-            numMinLongitude = CreateCoordinateInput(-180m, 180m, 84.0m);
-            numMaxLongitude = CreateCoordinateInput(-180m, 180m, 85.0m);
-            numMinLatitude = CreateCoordinateInput(-85.05112878m, 85.05112878m, 27.5m);
-            numMaxLatitude = CreateCoordinateInput(-85.05112878m, 85.05112878m, 28.5m);
-
-            ConfigureControls();
-            BuildLayout();
-            LoadTileSources();
+            if (!IsDesignMode())
+            {
+                LoadTileSources();
+                ApplyInitialState();
+            }
         }
+
+        public event EventHandler<XyzTileImportRequestedEventArgs>? ImportRequested;
+
+        public event EventHandler<XyzTileImportOptionsStateChangedEventArgs>? OptionsStateChanged;
 
         public XyzTileSourceImportRequest ImportRequest =>
             new(
@@ -63,192 +70,83 @@ namespace Land_Readjustment_Tool.UI.Forms
                 19,
                 "png");
 
-        private void ConfigureControls()
-        {
-            txtLayerName.Text = "XYZ Basemap";
-            txtLayerName.Anchor = AnchorStyles.Left | AnchorStyles.Right;
-
-            cmbTileSource.DropDownStyle = ComboBoxStyle.DropDownList;
-            cmbTileSource.DisplayMember = nameof(XyzTileSourceCatalogItem.Name);
-            cmbTileSource.SelectedIndexChanged += cmbTileSource_SelectedIndexChanged;
-
-            btnManageSources.Text = "Manage...";
-            btnManageSources.Click += btnManageSources_Click;
-
-            txtUrlTemplate.ReadOnly = true;
-            txtUrlTemplate.Anchor = AnchorStyles.Left | AnchorStyles.Right;
-
-            numZoomLevel.Minimum = 0;
-            numZoomLevel.Maximum = 22;
-            numZoomLevel.Value = 13;
-            numZoomLevel.Anchor = AnchorStyles.Left;
-
-            btnImport.Text = "Import";
-            btnImport.DialogResult = DialogResult.OK;
-            btnImport.Click += btnImport_Click;
-
-            btnCancel.Text = "Cancel";
-            btnCancel.DialogResult = DialogResult.Cancel;
-
-            AcceptButton = btnImport;
-            CancelButton = btnCancel;
-        }
-
-        private void BuildLayout()
-        {
-            TableLayoutPanel layout = new()
-            {
-                Dock = DockStyle.Fill,
-                Padding = new Padding(12),
-                ColumnCount = 2,
-                RowCount = 10
-            };
-
-            layout.ColumnStyles.Add(new ColumnStyle(SizeType.Absolute, 140));
-            layout.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 100));
-
-            for (int row = 0; row < 8; row++)
-                layout.RowStyles.Add(new RowStyle(SizeType.Absolute, 34));
-
-            layout.RowStyles.Add(new RowStyle(SizeType.Percent, 100));
-            layout.RowStyles.Add(new RowStyle(SizeType.Absolute, 42));
-
-            AddRow(layout, 0, "Layer name", txtLayerName);
-            AddTileSourceRow(layout, 1);
-            AddRow(layout, 2, "Source URL", txtUrlTemplate);
-            AddRow(layout, 3, "Min longitude", numMinLongitude);
-            AddRow(layout, 4, "Min latitude", numMinLatitude);
-            AddRow(layout, 5, "Max longitude", numMaxLongitude);
-            AddRow(layout, 6, "Max latitude", numMaxLatitude);
-            AddRow(layout, 7, "Zoom level", numZoomLevel);
-
-            Label hint = new()
-            {
-                Dock = DockStyle.Fill,
-                Text =
-                    "Use a small lon/lat window. The importer limits the request to 4,096 tiles so the project stays responsive. " +
-                    "Manage sources to add service URLs with {z}, {x}, and {y}.",
-                ForeColor = SystemColors.GrayText
-            };
-            layout.Controls.Add(hint, 0, 8);
-            layout.SetColumnSpan(hint, 2);
-
-            FlowLayoutPanel buttons = new()
-            {
-                Dock = DockStyle.Fill,
-                FlowDirection = FlowDirection.RightToLeft
-            };
-            buttons.Controls.Add(btnImport);
-            buttons.Controls.Add(btnCancel);
-            layout.Controls.Add(buttons, 0, 9);
-            layout.SetColumnSpan(buttons, 2);
-
-            Controls.Add(layout);
-        }
-
-        private static void AddRow(
-            TableLayoutPanel layout,
-            int row,
-            string labelText,
-            Control control)
-        {
-            Label label = new()
-            {
-                Text = labelText,
-                Dock = DockStyle.Fill,
-                TextAlign = ContentAlignment.MiddleLeft
-            };
-
-            control.Dock = DockStyle.Fill;
-
-            layout.Controls.Add(label, 0, row);
-            layout.Controls.Add(control, 1, row);
-        }
-
-        private void AddTileSourceRow(TableLayoutPanel layout, int row)
-        {
-            Label label = new()
-            {
-                Text = "Tile source",
-                Dock = DockStyle.Fill,
-                TextAlign = ContentAlignment.MiddleLeft
-            };
-
-            TableLayoutPanel sourceLayout = new()
-            {
-                Dock = DockStyle.Fill,
-                ColumnCount = 2
-            };
-            sourceLayout.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 100));
-            sourceLayout.ColumnStyles.Add(new ColumnStyle(SizeType.Absolute, 105));
-
-            cmbTileSource.Dock = DockStyle.Fill;
-            btnManageSources.Dock = DockStyle.Fill;
-            sourceLayout.Controls.Add(cmbTileSource, 0, 0);
-            sourceLayout.Controls.Add(btnManageSources, 1, 0);
-
-            layout.Controls.Add(label, 0, row);
-            layout.Controls.Add(sourceLayout, 1, row);
-        }
-
-        private static NumericUpDown CreateCoordinateInput(
-            decimal minimum,
-            decimal maximum,
-            decimal value)
-        {
-            return new NumericUpDown
-            {
-                Minimum = minimum,
-                Maximum = maximum,
-                Value = value,
-                DecimalPlaces = 8,
-                Increment = 0.0001m,
-                ThousandsSeparator = false
-            };
-        }
-
         private void btnImport_Click(object? sender, EventArgs e)
         {
-            if (string.IsNullOrWhiteSpace(txtLayerName.Text))
-            {
-                ShowValidationMessage("Please enter a layer name.");
+            if (_isImportInProgress)
                 return;
-            }
 
-            if (_tileSources.Count == 0 || cmbTileSource.SelectedItem == null)
-            {
-                ShowValidationMessage("Please add or select an XYZ tile source.");
+            if (!TryBuildValidatedRequest(out XyzTileSourceImportRequest request))
                 return;
-            }
 
-            XyzTileSourceCatalogItem selectedSource = SelectedTileSource;
-            if (!ContainsTileToken(selectedSource.UrlTemplate, "z") ||
-                !ContainsTileToken(selectedSource.UrlTemplate, "x") ||
-                !ContainsTileToken(selectedSource.UrlTemplate, "y"))
+            if (_downloadedRequest == null ||
+                !AreEquivalentRequests(_downloadedRequest, request))
             {
                 ShowValidationMessage(
-                    "The selected tile source URL must include {z}, {x}, and {y} tokens.");
+                    "Please download tiles for the current settings before importing.");
                 return;
             }
 
-            int zoom = decimal.ToInt32(numZoomLevel.Value);
-            if (zoom < selectedSource.MinZoom || zoom > selectedSource.MaxZoom)
+            ImportRequested?.Invoke(this, new XyzTileImportRequestedEventArgs(request));
+        }
+
+        private async void btnDownloadTiles_Click(object? sender, EventArgs e)
+        {
+            if (_isImportInProgress)
             {
-                ShowValidationMessage(
-                    $"Zoom level must be between {selectedSource.MinZoom} and {selectedSource.MaxZoom} for this source.");
+                ShowValidationMessage("Please wait for the current import to finish.");
                 return;
             }
 
-            if (numMinLongitude.Value >= numMaxLongitude.Value)
-            {
-                ShowValidationMessage("Minimum longitude must be less than maximum longitude.");
+            if (!TryBuildValidatedRequest(out XyzTileSourceImportRequest request))
                 return;
-            }
 
-            if (numMinLatitude.Value >= numMaxLatitude.Value)
-            {
-                ShowValidationMessage("Minimum latitude must be less than maximum latitude.");
+            if (_downloadCancellation != null)
                 return;
+
+            _downloadCancellation = new CancellationTokenSource();
+            SetDownloadUiState(isDownloading: true);
+            lblDownloadStatus.Text = "Starting tile download...";
+            progressTileDownload.Value = 0;
+
+            try
+            {
+                Progress<XyzTileDownloadProgress> progress = new(update =>
+                {
+                    progressTileDownload.Value = Math.Clamp(update.Percent, 0, 100);
+                    lblDownloadStatus.Text = FormatDownloadProgressStatus(update);
+                });
+
+                XyzTileDownloadResult result =
+                    await _tilePreDownloadService.DownloadTilesAsync(
+                        _projectFolderPath,
+                        request,
+                        progress,
+                        _downloadCancellation.Token);
+
+                _downloadedRequest = request;
+                _lastSuccessfulDownloadRequest = request;
+                btnImport.Enabled = true;
+                progressTileDownload.Value = 100;
+                lblDownloadStatus.Text =
+                    "Download complete. Click Import to add to the project.";
+                RaiseOptionsStateChanged();
+            }
+            catch (OperationCanceledException)
+            {
+                lblDownloadStatus.Text = "Tile download canceled.";
+                btnImport.Enabled = false;
+            }
+            catch (Exception ex)
+            {
+                lblDownloadStatus.Text = "Tile download failed.";
+                btnImport.Enabled = false;
+                ShowValidationMessage($"Failed to download tiles: {ex.Message}");
+            }
+            finally
+            {
+                _downloadCancellation.Dispose();
+                _downloadCancellation = null;
+                SetDownloadUiState(isDownloading: false);
             }
         }
 
@@ -285,6 +183,107 @@ namespace Land_Readjustment_Tool.UI.Forms
             }
 
             RefreshSelectedSourceDetails();
+            ResetDownloadState("Download tiles to enable Import.");
+        }
+
+        public XyzTileImportOptionsState GetCurrentOptionsState()
+        {
+            XyzTileSourceImportRequest? lastDownload =
+                _lastSuccessfulDownloadRequest ??
+                CreateDownloadRequestFromInitialState();
+
+            return new XyzTileImportOptionsState(
+                txtLayerName.Text.Trim(),
+                SelectedTileSource.UrlTemplate,
+                decimal.ToDouble(numMinLongitude.Value),
+                decimal.ToDouble(numMinLatitude.Value),
+                decimal.ToDouble(numMaxLongitude.Value),
+                decimal.ToDouble(numMaxLatitude.Value),
+                decimal.ToInt32(numZoomLevel.Value),
+                SelectedTileSource.ImageExtension,
+                lastDownload?.MinLongitude,
+                lastDownload?.MinLatitude,
+                lastDownload?.MaxLongitude,
+                lastDownload?.MaxLatitude);
+        }
+
+        private void ApplyInitialState()
+        {
+            if (_initialState == null)
+                return;
+
+            if (!string.IsNullOrWhiteSpace(_initialState.LayerName))
+                txtLayerName.Text = _initialState.LayerName;
+
+            if (!string.IsNullOrWhiteSpace(_initialState.UrlTemplate))
+                SelectTileSourceByUrl(_initialState.UrlTemplate);
+
+            ApplyBounds(
+                _initialState.MinLongitude,
+                _initialState.MinLatitude,
+                _initialState.MaxLongitude,
+                _initialState.MaxLatitude);
+
+            if (_initialState.ZoomLevel.HasValue)
+            {
+                numZoomLevel.Value = ClampNumericValue(
+                    numZoomLevel,
+                    (decimal)_initialState.ZoomLevel.Value);
+            }
+
+            _lastSuccessfulDownloadRequest =
+                CreateDownloadRequestFromInitialState();
+            ResetDownloadState("Download tiles to enable Import.");
+        }
+
+        private void ApplyBounds(
+            double? minLongitude,
+            double? minLatitude,
+            double? maxLongitude,
+            double? maxLatitude)
+        {
+            ApplyNullableDouble(numMinLongitude, minLongitude);
+            ApplyNullableDouble(numMinLatitude, minLatitude);
+            ApplyNullableDouble(numMaxLongitude, maxLongitude);
+            ApplyNullableDouble(numMaxLatitude, maxLatitude);
+        }
+
+        private void SelectTileSourceByUrl(string urlTemplate)
+        {
+            for (int i = 0; i < cmbTileSource.Items.Count; i++)
+            {
+                if (cmbTileSource.Items[i] is XyzTileSourceCatalogItem item &&
+                    string.Equals(
+                        item.UrlTemplate,
+                        urlTemplate,
+                        StringComparison.OrdinalIgnoreCase))
+                {
+                    cmbTileSource.SelectedIndex = i;
+                    return;
+                }
+            }
+        }
+
+        private XyzTileSourceImportRequest? CreateDownloadRequestFromInitialState()
+        {
+            if (_initialState == null ||
+                !_initialState.LastDownloadMinLongitude.HasValue ||
+                !_initialState.LastDownloadMinLatitude.HasValue ||
+                !_initialState.LastDownloadMaxLongitude.HasValue ||
+                !_initialState.LastDownloadMaxLatitude.HasValue)
+            {
+                return null;
+            }
+
+            return new XyzTileSourceImportRequest(
+                _initialState.LayerName ?? string.Empty,
+                _initialState.UrlTemplate ?? SelectedTileSource.UrlTemplate,
+                _initialState.LastDownloadMinLongitude.Value,
+                _initialState.LastDownloadMinLatitude.Value,
+                _initialState.LastDownloadMaxLongitude.Value,
+                _initialState.LastDownloadMaxLatitude.Value,
+                _initialState.ZoomLevel ?? decimal.ToInt32(numZoomLevel.Value),
+                _initialState.ImageExtension ?? SelectedTileSource.ImageExtension);
         }
 
         private void cmbTileSource_SelectedIndexChanged(object? sender, EventArgs e)
@@ -307,19 +306,351 @@ namespace Land_Readjustment_Tool.UI.Forms
             if (cmbTileSource.SelectedItem is not XyzTileSourceCatalogItem source)
             {
                 txtUrlTemplate.Text = string.Empty;
+                ResetDownloadState("Download tiles to enable Import.");
                 return;
             }
 
-            txtUrlTemplate.Text = source.UrlTemplate;
+            txtUrlTemplate.Text = NormalizeUrlForTextbox(source.UrlTemplate);
             decimal minZoom = source.MinZoom;
             decimal maxZoom = source.MaxZoom;
             decimal targetZoom = Math.Clamp(numZoomLevel.Value, minZoom, maxZoom);
 
             numZoomLevel.Minimum = 0;
-            numZoomLevel.Maximum = 22;
+            numZoomLevel.Maximum = 25;
             numZoomLevel.Value = targetZoom;
             numZoomLevel.Minimum = minZoom;
             numZoomLevel.Maximum = maxZoom;
+
+            ResetDownloadState("Download tiles to enable Import.");
         }
+
+        private bool IsDesignMode()
+        {
+            return LicenseManager.UsageMode == LicenseUsageMode.Designtime ||
+                   DesignMode ||
+                   string.IsNullOrWhiteSpace(_projectFolderPath);
+        }
+
+        private void WireRuntimeEvents()
+        {
+            cmbTileSource.SelectedIndexChanged += cmbTileSource_SelectedIndexChanged;
+            btnManageSources.Click += btnManageSources_Click;
+            btnImport.Click += btnImport_Click;
+            btnDownloadTiles.Click += btnDownloadTiles_Click;
+            btnCancel.Click += btnCancel_Click;
+            FormClosing += frmXyzTileImportOptions_FormClosing;
+
+            txtLayerName.TextChanged += (_, _) => InvalidateDownloadedRequest();
+            numMinLongitude.ValueChanged += (_, _) => InvalidateDownloadedRequest();
+            numMinLatitude.ValueChanged += (_, _) => InvalidateDownloadedRequest();
+            numMaxLongitude.ValueChanged += (_, _) => InvalidateDownloadedRequest();
+            numMaxLatitude.ValueChanged += (_, _) => InvalidateDownloadedRequest();
+            numZoomLevel.ValueChanged += (_, _) => InvalidateDownloadedRequest();
+        }
+
+        private void ConfigureRuntimeFormBehavior()
+        {
+            // Runtime-only behavior so designer loading is never required.
+            btnImport.DialogResult = DialogResult.None;
+            btnCancel.DialogResult = DialogResult.None;
+            AcceptButton = btnImport;
+            CancelButton = btnCancel;
+            MinimizeBox = true;
+            ShowInTaskbar = true;
+        }
+
+        private void ApplyNepalDefaultBounds()
+        {
+            numMinLongitude.Value = ClampNumericValue(
+                numMinLongitude,
+                NepalDefaultMinLongitude);
+            numMinLatitude.Value = ClampNumericValue(
+                numMinLatitude,
+                NepalDefaultMinLatitude);
+            numMaxLongitude.Value = ClampNumericValue(
+                numMaxLongitude,
+                NepalDefaultMaxLongitude);
+            numMaxLatitude.Value = ClampNumericValue(
+                numMaxLatitude,
+                NepalDefaultMaxLatitude);
+        }
+
+        private static decimal ClampNumericValue(
+            NumericUpDown input,
+            decimal value)
+        {
+            return Math.Min(input.Maximum, Math.Max(input.Minimum, value));
+        }
+
+        private static void ApplyNullableDouble(
+            NumericUpDown input,
+            double? value)
+        {
+            if (!value.HasValue || !double.IsFinite(value.Value))
+                return;
+
+            input.Value = ClampNumericValue(input, (decimal)value.Value);
+        }
+
+        private void frmXyzTileImportOptions_Load(object sender, EventArgs e)
+        {
+
+        }
+
+        private bool TryBuildValidatedRequest(out XyzTileSourceImportRequest request)
+        {
+            request = null!;
+
+            if (string.IsNullOrWhiteSpace(txtLayerName.Text))
+            {
+                ShowValidationMessage("Please enter a layer name.");
+                return false;
+            }
+
+            if (_tileSources.Count == 0 || cmbTileSource.SelectedItem == null)
+            {
+                ShowValidationMessage("Please add or select an XYZ tile source.");
+                return false;
+            }
+
+            XyzTileSourceCatalogItem selectedSource = SelectedTileSource;
+            if (!ContainsTileToken(selectedSource.UrlTemplate, "z") ||
+                !ContainsTileToken(selectedSource.UrlTemplate, "x") ||
+                !ContainsTileToken(selectedSource.UrlTemplate, "y"))
+            {
+                ShowValidationMessage(
+                    "The selected tile source URL must include {z}, {x}, and {y} tokens.");
+                return false;
+            }
+
+            int zoom = decimal.ToInt32(numZoomLevel.Value);
+            if (zoom < selectedSource.MinZoom || zoom > selectedSource.MaxZoom)
+            {
+                ShowValidationMessage(
+                    $"Zoom level must be between {selectedSource.MinZoom} and {selectedSource.MaxZoom} for this source.");
+                return false;
+            }
+
+            if (numMinLongitude.Value >= numMaxLongitude.Value)
+            {
+                ShowValidationMessage("Minimum longitude must be less than maximum longitude.");
+                return false;
+            }
+
+            if (numMinLatitude.Value >= numMaxLatitude.Value)
+            {
+                ShowValidationMessage("Minimum latitude must be less than maximum latitude.");
+                return false;
+            }
+
+            request = new XyzTileSourceImportRequest(
+                txtLayerName.Text.Trim(),
+                SelectedTileSource.UrlTemplate,
+                decimal.ToDouble(numMinLongitude.Value),
+                decimal.ToDouble(numMinLatitude.Value),
+                decimal.ToDouble(numMaxLongitude.Value),
+                decimal.ToDouble(numMaxLatitude.Value),
+                decimal.ToInt32(numZoomLevel.Value),
+                SelectedTileSource.ImageExtension);
+            return true;
+        }
+
+        private void InvalidateDownloadedRequest()
+        {
+            // Any settings edit invalidates the current "ready to import" state.
+            btnImport.Enabled = false;
+
+            if (_downloadedRequest == null)
+                return;
+
+            ResetDownloadState("Settings changed. Download tiles again.");
+        }
+
+        private void ResetDownloadState(string statusText)
+        {
+            _downloadedRequest = null;
+            btnImport.Enabled = false;
+            progressTileDownload.Value = 0;
+            lblDownloadStatus.Text = statusText;
+        }
+
+        private void SetDownloadUiState(bool isDownloading)
+        {
+            btnDownloadTiles.Enabled = !isDownloading;
+            btnManageSources.Enabled = !isDownloading;
+            cmbTileSource.Enabled = !isDownloading;
+            txtLayerName.Enabled = !isDownloading;
+            numMinLongitude.Enabled = !isDownloading;
+            numMinLatitude.Enabled = !isDownloading;
+            numMaxLongitude.Enabled = !isDownloading;
+            numMaxLatitude.Enabled = !isDownloading;
+            numZoomLevel.Enabled = !isDownloading;
+            btnCancel.Enabled = true;
+        }
+
+        public void BeginImportExecution(string statusText = "Importing tiles to map...")
+        {
+            if (IsDisposed)
+                return;
+
+            _isImportInProgress = true;
+            btnImport.Enabled = false;
+            btnDownloadTiles.Enabled = false;
+            btnManageSources.Enabled = false;
+            lblDownloadStatus.Text = statusText;
+        }
+
+        public void CompleteImportExecution(string statusText)
+        {
+            if (IsDisposed)
+                return;
+
+            _isImportInProgress = false;
+            btnManageSources.Enabled = true;
+            btnDownloadTiles.Enabled = _downloadCancellation == null;
+            btnImport.Enabled = _downloadedRequest != null;
+            lblDownloadStatus.Text = statusText;
+        }
+
+        public void FailImportExecution(string statusText)
+        {
+            if (IsDisposed)
+                return;
+
+            _isImportInProgress = false;
+            btnManageSources.Enabled = true;
+            btnDownloadTiles.Enabled = _downloadCancellation == null;
+            btnImport.Enabled = _downloadedRequest != null;
+            lblDownloadStatus.Text = statusText;
+        }
+
+        private static bool AreEquivalentRequests(
+            XyzTileSourceImportRequest left,
+            XyzTileSourceImportRequest right)
+        {
+            return string.Equals(left.LayerName, right.LayerName, StringComparison.Ordinal) &&
+                   string.Equals(left.UrlTemplate, right.UrlTemplate, StringComparison.Ordinal) &&
+                   left.MinLongitude.Equals(right.MinLongitude) &&
+                   left.MinLatitude.Equals(right.MinLatitude) &&
+                   left.MaxLongitude.Equals(right.MaxLongitude) &&
+                   left.MaxLatitude.Equals(right.MaxLatitude) &&
+                   left.ZoomLevel == right.ZoomLevel &&
+                   string.Equals(left.ImageExtension, right.ImageExtension, StringComparison.OrdinalIgnoreCase);
+        }
+
+        private static string NormalizeUrlForTextbox(string? url)
+        {
+            if (string.IsNullOrWhiteSpace(url))
+                return string.Empty;
+
+            return url
+                .Replace("\r\n", string.Empty, StringComparison.Ordinal)
+                .Replace("\n", string.Empty, StringComparison.Ordinal)
+                .Replace("\r", string.Empty, StringComparison.Ordinal)
+                .Trim();
+        }
+
+        private static string FormatDownloadProgressStatus(
+            XyzTileDownloadProgress progress)
+        {
+            return
+                $"{progress.Percent}% ({progress.CompletedTiles:N0}/{progress.TotalTiles:N0} tiles) - {progress.Status}";
+        }
+
+        private void btnCancel_Click(object? sender, EventArgs e)
+        {
+            if (_downloadCancellation != null)
+            {
+                PromptToCancelActiveDownload();
+                return;
+            }
+
+            if (_isImportInProgress)
+            {
+                ShowValidationMessage("Import is in progress. Please wait until it completes.");
+                return;
+            }
+
+            Close();
+        }
+
+        private void frmXyzTileImportOptions_FormClosing(object? sender, FormClosingEventArgs e)
+        {
+            if (_downloadCancellation == null)
+            {
+                RaiseOptionsStateChanged();
+                return;
+            }
+
+            DialogResult result = MessageBox.Show(
+                this,
+                "Tile download is in progress. Stop downloading tiles?",
+                "Import XYZ Tiles",
+                MessageBoxButtons.YesNo,
+                MessageBoxIcon.Question,
+                MessageBoxDefaultButton.Button2);
+
+            if (result == DialogResult.Yes)
+            {
+                _downloadCancellation.Cancel();
+            }
+
+            e.Cancel = true;
+        }
+
+        private void RaiseOptionsStateChanged()
+        {
+            OptionsStateChanged?.Invoke(
+                this,
+                new XyzTileImportOptionsStateChangedEventArgs(
+                    GetCurrentOptionsState()));
+        }
+
+        private void PromptToCancelActiveDownload()
+        {
+            DialogResult result = MessageBox.Show(
+                this,
+                "Tile download is in progress. Stop downloading tiles?",
+                "Import XYZ Tiles",
+                MessageBoxButtons.YesNo,
+                MessageBoxIcon.Question,
+                MessageBoxDefaultButton.Button2);
+
+            if (result == DialogResult.Yes)
+            {
+                _downloadCancellation?.Cancel();
+            }
+        }
+
+        private void lblHint_Click(object sender, EventArgs e)
+        {
+
+        }
+
+        private void layout_Paint(object sender, PaintEventArgs e)
+        {
+
+        }
+    }
+
+    public sealed class XyzTileImportRequestedEventArgs : EventArgs
+    {
+        public XyzTileImportRequestedEventArgs(XyzTileSourceImportRequest request)
+        {
+            Request = request ?? throw new ArgumentNullException(nameof(request));
+        }
+
+        public XyzTileSourceImportRequest Request { get; }
+    }
+
+    public sealed class XyzTileImportOptionsStateChangedEventArgs : EventArgs
+    {
+        public XyzTileImportOptionsStateChangedEventArgs(
+            XyzTileImportOptionsState state)
+        {
+            State = state ?? throw new ArgumentNullException(nameof(state));
+        }
+
+        public XyzTileImportOptionsState State { get; }
     }
 }

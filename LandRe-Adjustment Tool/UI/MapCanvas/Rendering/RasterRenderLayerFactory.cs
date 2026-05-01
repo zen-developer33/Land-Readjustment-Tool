@@ -10,6 +10,7 @@ namespace Land_Readjustment_Tool.UI.MapCanvas.Rendering
     internal static class RasterRenderLayerFactory
     {
         private const string WebMercatorSrsDefinition = "EPSG:3857";
+        private const string ProjectRasterFolderName = "RasterLayers";
 
         public static IRasterRenderLayer FromCanvasLayer(
             CanvasLayer layer,
@@ -218,17 +219,51 @@ namespace Land_Readjustment_Tool.UI.MapCanvas.Rendering
             string storedPath,
             string? projectFolderPath)
         {
+            string resolvedPath;
+
             if (Path.IsPathRooted(storedPath))
             {
-                return Path.GetFullPath(storedPath);
+                resolvedPath = Path.GetFullPath(storedPath);
             }
-
-            if (string.IsNullOrWhiteSpace(projectFolderPath))
+            else if (string.IsNullOrWhiteSpace(projectFolderPath))
             {
-                return Path.GetFullPath(storedPath);
+                resolvedPath = Path.GetFullPath(storedPath);
+            }
+            else
+            {
+                resolvedPath = Path.GetFullPath(Path.Combine(projectFolderPath, storedPath));
             }
 
-            return Path.GetFullPath(Path.Combine(projectFolderPath, storedPath));
+            if (File.Exists(resolvedPath) ||
+                string.IsNullOrWhiteSpace(projectFolderPath))
+            {
+                return resolvedPath;
+            }
+
+            string fileName = Path.GetFileName(resolvedPath);
+            if (string.IsNullOrWhiteSpace(fileName))
+            {
+                return resolvedPath;
+            }
+
+            string rasterFolderPath = Path.GetFullPath(
+                Path.Combine(projectFolderPath, ProjectRasterFolderName));
+            if (!Directory.Exists(rasterFolderPath))
+            {
+                return resolvedPath;
+            }
+
+            string? fallbackPath = Directory
+                .EnumerateFiles(rasterFolderPath, "*", SearchOption.TopDirectoryOnly)
+                .FirstOrDefault(path =>
+                    string.Equals(
+                        Path.GetFileName(path),
+                        fileName,
+                        StringComparison.OrdinalIgnoreCase));
+
+            return fallbackPath != null
+                ? Path.GetFullPath(fallbackPath)
+                : resolvedPath;
         }
     }
 }

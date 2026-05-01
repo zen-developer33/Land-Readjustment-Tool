@@ -15,6 +15,8 @@ namespace Land_Readjustment_Tool
     public partial class frm_ProjectDetails : Form
     {
         private readonly IProjectInfoService _service;
+        private readonly Core.Entities.Project.ProjectInfo?
+            _initialProjectInfo;
         private Core.Entities.Project.ProjectInfo?
             _projectInfo;
 
@@ -22,10 +24,13 @@ namespace Land_Readjustment_Tool
         /// Constructor — receives service via DI.
         /// Called from frmMain.OpenProjectDetails().
         /// </summary>
-        public frm_ProjectDetails(IProjectInfoService service)
+        public frm_ProjectDetails(
+            IProjectInfoService service,
+            Core.Entities.Project.ProjectInfo? initialProjectInfo = null)
         {
             InitializeComponent();
             _service = service;
+            _initialProjectInfo = initialProjectInfo;
             SetReadOnlyFields();
             this.Shown += frm_ProjectDetails_Shown!;
         }
@@ -84,7 +89,8 @@ namespace Land_Readjustment_Tool
             {
                 SetFormEnabled(false);
 
-                _projectInfo = await _service.GetAsync();
+                _projectInfo = _initialProjectInfo
+                    ?? await _service.GetAsync();
 
                 if (_projectInfo == null)
                 {

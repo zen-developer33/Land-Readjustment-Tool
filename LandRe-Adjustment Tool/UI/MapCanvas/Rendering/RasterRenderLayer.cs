@@ -173,7 +173,7 @@ namespace Land_Readjustment_Tool.UI.MapCanvas.Rendering
                         readContext);
                     graphics.PixelOffsetMode = PixelOffsetMode.HighQuality;
                     graphics.CompositingQuality = CompositingQuality.HighSpeed;
-                    graphics.CompositingMode = CompositingMode.SourceCopy;
+                    graphics.CompositingMode = CompositingMode.SourceOver;
 
                     return DrawVisibleTiles(
                         graphics,

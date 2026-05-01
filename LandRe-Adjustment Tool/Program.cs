@@ -71,11 +71,20 @@ namespace Land_Readjustment_Tool
                 _ => "win-x64"
             };
 
-            PrependPathIfExists(Path.Combine(
+            string runtimeNativePath = Path.Combine(
                 baseDirectory,
                 "runtimes",
                 runtimeFolder,
-                "native"));
+                "native");
+
+            PrependPathIfExists(runtimeNativePath);
+
+            // GDAL sets restricted DLL search flags later. Registering these paths
+            // up front keeps SQLite/SpatiaLite native modules resolvable even after
+            // the default DLL search order is tightened.
+            TryEnableSafeDllSearchWithUserDirectories();
+            AddNativeDllDirectoryIfExists(runtimeNativePath);
+            AddNativeDllDirectoryIfExists(baseDirectory);
         }
 
         private static void PrependPathIfExists(string directory)
@@ -98,6 +107,40 @@ namespace Land_Readjustment_Tool
                 "PATH",
                 directory + Path.PathSeparator + path);
         }
+
+        private static void TryEnableSafeDllSearchWithUserDirectories()
+        {
+            const uint LOAD_LIBRARY_SEARCH_DEFAULT_DIRS = 0x00001000;
+            try
+            {
+                SetDefaultDllDirectories(LOAD_LIBRARY_SEARCH_DEFAULT_DIRS);
+            }
+            catch
+            {
+                // Best effort only.
+            }
+        }
+
+        private static void AddNativeDllDirectoryIfExists(string directory)
+        {
+            if (!Directory.Exists(directory))
+                return;
+
+            try
+            {
+                AddDllDirectory(directory);
+            }
+            catch
+            {
+                // Best effort only.
+            }
+        }
+
+        [DllImport("kernel32.dll", SetLastError = true)]
+        private static extern bool SetDefaultDllDirectories(uint directoryFlags);
+
+        [DllImport("kernel32.dll", CharSet = CharSet.Unicode, SetLastError = true)]
+        private static extern IntPtr AddDllDirectory(string lpPathName);
 
 
 
@@ -154,6 +197,7 @@ namespace Land_Readjustment_Tool
             services.AddSingleton<IProjectRasterCrsResolver, ProjectRasterCrsResolver>();
             services.AddSingleton<IRasterDatasetImporter, GdalRasterDatasetImporter>();
             services.AddSingleton<IRasterLayerImportService, RasterLayerImportService>();
+            services.AddSingleton<RasterImportFileManagementService>();
             services.AddSingleton<IXyzTileSourceService, XyzTileSourceService>();
             services.AddSingleton<RasterLayerProjectionService>();
             services.AddSingleton<ProjectOpenService>();

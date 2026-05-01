@@ -76,8 +76,11 @@ namespace Land_Readjustment_Tool.Services.Project
                 context.SetInfo(info);
                 return context;
             }
-            catch
+            catch (Exception ex)
             {
+                session?.Logger.LogError(
+                    $"Project open failed. Path={projectFilePath}",
+                    ex);
                 session?.Dispose();
                 throw;
             }

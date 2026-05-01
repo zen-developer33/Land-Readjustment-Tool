@@ -498,9 +498,11 @@ namespace Land_Readjustment_Tool.UI.Forms
             txtCustomCrs.Font = new Font("Segoe UI", 9F);
             txtCustomCrs.Location = new Point(12, 139);
             txtCustomCrs.Margin = new Padding(3, 4, 3, 4);
+            txtCustomCrs.Multiline = true;
             txtCustomCrs.Name = "txtCustomCrs";
             txtCustomCrs.PlaceholderText = "Example: EPSG:4326 or 4326";
-            txtCustomCrs.Size = new Size(449, 27);
+            txtCustomCrs.ScrollBars = ScrollBars.Vertical;
+            txtCustomCrs.Size = new Size(449, 83);
             txtCustomCrs.TabIndex = 4;
             // 
             // lblProjectionHint

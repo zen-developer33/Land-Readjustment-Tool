@@ -1,6 +1,7 @@
 using System.Drawing.Drawing2D;
 using System.Drawing.Imaging;
 using System.Globalization;
+using System.Runtime.InteropServices;
 using Land_Readjustment_Tool.Core.Entities.Canvas;
 using Land_Readjustment_Tool.UI.MapCanvas.Core;
 using Land_Readjustment_Tool.UI.MapCanvas.Models.Shapes;
@@ -17,6 +18,10 @@ namespace Land_Readjustment_Tool.UI.MapCanvas.Rendering
         private const int MaxTilesPerFrame = 512;
         private const int MaxSupportedZoom = 30;
         private const int ReprojectedTileMeshSubdivisions = 2;
+        private const byte TransparentWhiteThreshold = 248;
+        private const byte TransparentWhiteMaxChannelSpread = 12;
+        private const double TransparentWhiteMinimumMaskRatio = 0.01;
+        private const double TransparentWhiteMinimumEdgeRatio = 0.08;
         private const double WebMercatorExtent = 20037508.342789244;
         private const double WebMercatorWorldSize = WebMercatorExtent * 2.0;
         private const double InitialResolution = WebMercatorWorldSize / TilePixelSize;
@@ -214,7 +219,7 @@ namespace Land_Readjustment_Tool.UI.MapCanvas.Rendering
                     graphics.InterpolationMode = InterpolationMode.NearestNeighbor;
                     graphics.PixelOffsetMode = PixelOffsetMode.HighQuality;
                     graphics.CompositingQuality = CompositingQuality.HighSpeed;
-                    graphics.CompositingMode = CompositingMode.SourceCopy;
+                    graphics.CompositingMode = CompositingMode.SourceOver;
 
                     return DrawVisibleTiles(
                         graphics,
@@ -629,12 +634,222 @@ namespace Land_Readjustment_Tool.UI.MapCanvas.Rendering
                 graphics.InterpolationMode = InterpolationMode.NearestNeighbor;
                 graphics.PixelOffsetMode = PixelOffsetMode.HighSpeed;
                 graphics.DrawImageUnscaled(image, 0, 0);
+
+                RemoveOpaqueWhiteNoDataCollar(bitmap);
                 return bitmap;
             }
             catch
             {
                 return null;
             }
+        }
+
+        private static void RemoveOpaqueWhiteNoDataCollar(Bitmap bitmap)
+        {
+            if (bitmap.Width <= 0 || bitmap.Height <= 0)
+            {
+                return;
+            }
+
+            Rectangle bounds = new(0, 0, bitmap.Width, bitmap.Height);
+            BitmapData bitmapData = bitmap.LockBits(
+                bounds,
+                ImageLockMode.ReadWrite,
+                PixelFormat.Format32bppPArgb);
+
+            try
+            {
+                int stride = bitmapData.Stride;
+                int absoluteStride = Math.Abs(stride);
+                int byteCount = absoluteStride * bitmap.Height;
+                byte[] pixels = new byte[byteCount];
+                Marshal.Copy(bitmapData.Scan0, pixels, 0, byteCount);
+
+                bool[] transparentMask = new bool[bitmap.Width * bitmap.Height];
+                Queue<int> queue = new();
+
+                void TrySeed(int x, int y)
+                {
+                    if (x < 0 || x >= bitmap.Width || y < 0 || y >= bitmap.Height)
+                    {
+                        return;
+                    }
+
+                    int pixelIndex = (y * bitmap.Width) + x;
+                    if (transparentMask[pixelIndex])
+                    {
+                        return;
+                    }
+
+                    int offset = GetPixelOffset(
+                        x,
+                        y,
+                        stride,
+                        absoluteStride,
+                        bitmap.Height);
+
+                    if (!IsOpaqueWhiteNoDataPixel(pixels, offset))
+                    {
+                        return;
+                    }
+
+                    transparentMask[pixelIndex] = true;
+                    queue.Enqueue(pixelIndex);
+                }
+
+                for (int x = 0; x < bitmap.Width; x++)
+                {
+                    TrySeed(x, 0);
+                    TrySeed(x, bitmap.Height - 1);
+                }
+
+                for (int y = 1; y < bitmap.Height - 1; y++)
+                {
+                    TrySeed(0, y);
+                    TrySeed(bitmap.Width - 1, y);
+                }
+
+                while (queue.Count > 0)
+                {
+                    int pixelIndex = queue.Dequeue();
+                    int x = pixelIndex % bitmap.Width;
+                    int y = pixelIndex / bitmap.Width;
+
+                    TrySeed(x - 1, y);
+                    TrySeed(x + 1, y);
+                    TrySeed(x, y - 1);
+                    TrySeed(x, y + 1);
+                }
+
+                if (!IsLikelyNoDataCollar(
+                        transparentMask,
+                        bitmap.Width,
+                        bitmap.Height))
+                {
+                    return;
+                }
+
+                bool changed = false;
+                for (int pixelIndex = 0; pixelIndex < transparentMask.Length; pixelIndex++)
+                {
+                    if (!transparentMask[pixelIndex])
+                    {
+                        continue;
+                    }
+
+                    int x = pixelIndex % bitmap.Width;
+                    int y = pixelIndex / bitmap.Width;
+                    int offset = GetPixelOffset(
+                        x,
+                        y,
+                        stride,
+                        absoluteStride,
+                        bitmap.Height);
+
+                    pixels[offset] = 0;
+                    pixels[offset + 1] = 0;
+                    pixels[offset + 2] = 0;
+                    pixels[offset + 3] = 0;
+                    changed = true;
+                }
+
+                if (changed)
+                {
+                    Marshal.Copy(pixels, 0, bitmapData.Scan0, byteCount);
+                }
+            }
+            finally
+            {
+                bitmap.UnlockBits(bitmapData);
+            }
+        }
+
+        private static bool IsOpaqueWhiteNoDataPixel(byte[] pixels, int offset)
+        {
+            byte blue = pixels[offset];
+            byte green = pixels[offset + 1];
+            byte red = pixels[offset + 2];
+            byte alpha = pixels[offset + 3];
+
+            if (alpha == 0 ||
+                red < TransparentWhiteThreshold ||
+                green < TransparentWhiteThreshold ||
+                blue < TransparentWhiteThreshold)
+            {
+                return false;
+            }
+
+            int maxChannel = Math.Max(red, Math.Max(green, blue));
+            int minChannel = Math.Min(red, Math.Min(green, blue));
+            return maxChannel - minChannel <= TransparentWhiteMaxChannelSpread;
+        }
+
+        private static bool IsLikelyNoDataCollar(
+            bool[] transparentMask,
+            int width,
+            int height)
+        {
+            int transparentPixelCount = 0;
+            for (int index = 0; index < transparentMask.Length; index++)
+            {
+                if (transparentMask[index])
+                {
+                    transparentPixelCount++;
+                }
+            }
+
+            double maskRatio = transparentPixelCount / (double)transparentMask.Length;
+            if (maskRatio < TransparentWhiteMinimumMaskRatio)
+            {
+                return false;
+            }
+
+            int edgePixelCount = Math.Max(1, (width * 2) + (height * 2) - 4);
+            int transparentEdgePixelCount = 0;
+
+            for (int x = 0; x < width; x++)
+            {
+                if (transparentMask[x])
+                {
+                    transparentEdgePixelCount++;
+                }
+
+                int bottomIndex = ((height - 1) * width) + x;
+                if (transparentMask[bottomIndex])
+                {
+                    transparentEdgePixelCount++;
+                }
+            }
+
+            for (int y = 1; y < height - 1; y++)
+            {
+                if (transparentMask[y * width])
+                {
+                    transparentEdgePixelCount++;
+                }
+
+                int rightIndex = (y * width) + width - 1;
+                if (transparentMask[rightIndex])
+                {
+                    transparentEdgePixelCount++;
+                }
+            }
+
+            double edgeRatio = transparentEdgePixelCount / (double)edgePixelCount;
+            return edgeRatio >= TransparentWhiteMinimumEdgeRatio;
+        }
+
+        private static int GetPixelOffset(
+            int x,
+            int y,
+            int stride,
+            int absoluteStride,
+            int height)
+        {
+            int rowOffset = stride >= 0
+                ? y * stride
+                : (height - 1 - y) * absoluteStride;
+            return rowOffset + (x * 4);
         }
 
         private static SqliteConnection OpenConnection(string filePath)

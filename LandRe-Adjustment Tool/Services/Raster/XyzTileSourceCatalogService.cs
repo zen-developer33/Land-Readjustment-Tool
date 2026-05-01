@@ -24,10 +24,7 @@ namespace Land_Readjustment_Tool.Services.Raster
                 List<XyzTileSourceCatalogItem>? sources =
                     JsonSerializer.Deserialize<List<XyzTileSourceCatalogItem>>(json);
 
-                return sources?
-                    .Where(IsValidSource)
-                    .OrderBy(source => source.Name)
-                    .ToList() ?? GetDefaultSources();
+                return MergeWithDefaultSources(sources);
             }
             catch
             {
@@ -78,8 +75,40 @@ namespace Land_Readjustment_Tool.Services.Raster
                     "https://tile.openstreetmap.org/{z}/{x}/{y}.png",
                     0,
                     19,
-                    "png")
+                    "png"),
+                new XyzTileSourceCatalogItem(
+                    "Esri World Imagery",
+                    "https://services.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}",
+                    0,
+                    19,
+                    "jpg")
             ];
+        }
+
+        private static List<XyzTileSourceCatalogItem> MergeWithDefaultSources(
+            IEnumerable<XyzTileSourceCatalogItem>? savedSources)
+        {
+            List<XyzTileSourceCatalogItem> mergedSources = (savedSources ?? [])
+                .Where(IsValidSource)
+                .GroupBy(source => source.Name, StringComparer.OrdinalIgnoreCase)
+                .Select(group => group.First())
+                .ToList();
+
+            foreach (XyzTileSourceCatalogItem defaultSource in GetDefaultSources())
+            {
+                bool exists = mergedSources.Any(source =>
+                    string.Equals(
+                        source.Name,
+                        defaultSource.Name,
+                        StringComparison.OrdinalIgnoreCase));
+
+                if (!exists)
+                    mergedSources.Add(defaultSource);
+            }
+
+            return mergedSources
+                .OrderBy(source => source.Name)
+                .ToList();
         }
 
         private static bool IsValidSource(XyzTileSourceCatalogItem source)
@@ -88,7 +117,7 @@ namespace Land_Readjustment_Tool.Services.Raster
                    !string.IsNullOrWhiteSpace(source.UrlTemplate) &&
                    source.MinZoom >= 0 &&
                    source.MaxZoom >= source.MinZoom &&
-                   source.MaxZoom <= 22;
+                   source.MaxZoom <= 25;
         }
     }
 

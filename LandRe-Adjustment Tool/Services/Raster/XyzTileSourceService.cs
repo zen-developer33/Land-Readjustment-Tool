@@ -12,9 +12,13 @@ namespace Land_Readjustment_Tool.Services.Raster
         private const string XyzSourceFolderName = "XyzTileSources";
         private const string XyzCacheFolderName = "XyzTileCache";
         private const int TileSize = 256;
-        private const int MaximumTileRequestCount = 4096;
+        private const long MaximumTileRequestCount = 2_000_000;
         private const double WebMercatorMaximumLatitude = 85.05112878;
         private const double WebMercatorOriginShift = 20037508.342789244;
+        private const string DefaultUserAgent =
+            "RePlot Land Readjustment Tool/1.0 (XYZ raster import)";
+        private static readonly Encoding Utf8NoBom =
+            new UTF8Encoding(encoderShouldEmitUTF8Identifier: false);
 
         /// <inheritdoc />
         public XyzTileSourceDefinition CreateSourceDefinition(
@@ -39,7 +43,7 @@ namespace Land_Readjustment_Tool.Services.Raster
 
             string normalizedUrl = NormalizeUrlTemplate(request.UrlTemplate);
             RasterSourceExtent sourceExtent = BuildSourceExtent(request);
-            int tileCount = CalculateTileCount(request);
+            long tileCount = CalculateTileCount(request);
             string xmlPath = GetUniquePath(
                 Path.Combine(
                     sourceFolder,
@@ -52,7 +56,7 @@ namespace Land_Readjustment_Tool.Services.Raster
                     cacheFolder,
                     request.ZoomLevel,
                     request.ImageExtension),
-                Encoding.UTF8);
+                Utf8NoBom);
 
             return new XyzTileSourceDefinition(
                 xmlPath,
@@ -79,8 +83,8 @@ namespace Land_Readjustment_Tool.Services.Raster
                     "XYZ URL template must include {z}, {x}, and {y} tile variables.");
             }
 
-            if (request.ZoomLevel < 0 || request.ZoomLevel > 22)
-                throw new ArgumentException("Zoom level must be between 0 and 22.");
+            if (request.ZoomLevel < 0 || request.ZoomLevel > 25)
+                throw new ArgumentException("Zoom level must be between 0 and 25.");
 
             if (request.MinLongitude < -180 ||
                 request.MaxLongitude > 180 ||
@@ -98,11 +102,13 @@ namespace Land_Readjustment_Tool.Services.Raster
                     "Latitude bounds must be within Web Mercator limits and minimum must be less than maximum.");
             }
 
-            int tileCount = CalculateTileCount(request);
+            long tileCount = CalculateTileCount(request);
             if (tileCount > MaximumTileRequestCount)
             {
                 throw new ArgumentException(
-                    $"The selected bounds and zoom cover {tileCount:N0} tiles. Reduce the bounds or zoom so the import stays under {MaximumTileRequestCount:N0} tiles.");
+                    $"The selected bounds and zoom cover {tileCount:N0} tiles. " +
+                    $"This is beyond the supported import safety limit of {MaximumTileRequestCount:N0} tiles. " +
+                    "Reduce the bounds or lower the zoom level.");
             }
         }
 
@@ -172,6 +178,7 @@ namespace Land_Readjustment_Tool.Services.Raster
                 "  </Cache>\r\n" +
                 "  <MaxConnections>2</MaxConnections>\r\n" +
                 "  <Timeout>30</Timeout>\r\n" +
+                $"  <UserAgent>{DefaultUserAgent}</UserAgent>\r\n" +
                 "</GDAL_WMS>\r\n";
         }
 
@@ -213,14 +220,16 @@ namespace Land_Readjustment_Tool.Services.Raster
         /// <summary>
         /// Counts the approximate number of tiles covered by the requested lon/lat bounds.
         /// </summary>
-        private static int CalculateTileCount(XyzTileSourceImportRequest request)
+        private static long CalculateTileCount(XyzTileSourceImportRequest request)
         {
             int minTileX = LongitudeToTileX(request.MinLongitude, request.ZoomLevel);
             int maxTileX = LongitudeToTileX(request.MaxLongitude, request.ZoomLevel);
             int minTileY = LatitudeToTileY(request.MaxLatitude, request.ZoomLevel);
             int maxTileY = LatitudeToTileY(request.MinLatitude, request.ZoomLevel);
 
-            return (maxTileX - minTileX + 1) * (maxTileY - minTileY + 1);
+            long width = (long)maxTileX - minTileX + 1L;
+            long height = (long)maxTileY - minTileY + 1L;
+            return width * height;
         }
 
         /// <summary>

@@ -517,8 +517,8 @@ namespace Land_Readjustment_Tool.UI.Forms
             _txtTransparencyValue.TabIndex = 1;
             _txtTransparencyValue.Text = "0";
             _txtTransparencyValue.TextAlign = HorizontalAlignment.Right;
-            _txtTransparencyValue.Leave += txtTransparencyValue_Leave;
             _txtTransparencyValue.KeyDown += txtTransparencyValue_KeyDown;
+            _txtTransparencyValue.Leave += txtTransparencyValue_Leave;
             // 
             // _tabLabel
             // 
@@ -774,6 +774,7 @@ namespace Land_Readjustment_Tool.UI.Forms
             ShowInTaskbar = false;
             StartPosition = FormStartPosition.CenterParent;
             Text = "Layer Properties";
+            Load += frmLayerPropertyManager_Load;
             _tabs.ResumeLayout(false);
             _tabGeneral.ResumeLayout(false);
             _tabGeneral.PerformLayout();

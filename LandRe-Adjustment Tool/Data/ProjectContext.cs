@@ -10,6 +10,11 @@ namespace Land_Readjustment_Tool.Data
     /// </summary>
     public class ProjectContext
     {
+        private readonly HashSet<string> _pendingImportedRasterFiles =
+            new(StringComparer.OrdinalIgnoreCase);
+        private readonly HashSet<string> _pendingDeletedRasterFiles =
+            new(StringComparer.OrdinalIgnoreCase);
+
         // ── PROPERTIES ───────────────────────────────
 
         /// <summary>EF Core session for this project.</summary>
@@ -42,6 +47,12 @@ namespace Land_Readjustment_Tool.Data
 
         /// <summary>True if unsaved changes exist.</summary>
         public bool HasUnsavedChanges { get; private set; }
+
+        public IReadOnlyCollection<string> PendingImportedRasterFiles =>
+            _pendingImportedRasterFiles;
+
+        public IReadOnlyCollection<string> PendingDeletedRasterFiles =>
+            _pendingDeletedRasterFiles;
 
         // ── EVENTS ───────────────────────────────────
 
@@ -93,7 +104,47 @@ namespace Land_Readjustment_Tool.Data
         public void MarkAsSaved()
         {
             HasUnsavedChanges = false;
+            ClearPendingRasterImportChanges();
             StateChanged?.Invoke();
+        }
+
+        public void TrackImportedRasterFile(string path)
+        {
+            if (string.IsNullOrWhiteSpace(path))
+                return;
+
+            _pendingImportedRasterFiles.Add(Path.GetFullPath(path));
+            _pendingDeletedRasterFiles.Remove(Path.GetFullPath(path));
+        }
+
+        public bool UntrackImportedRasterFile(string path)
+        {
+            if (string.IsNullOrWhiteSpace(path))
+                return false;
+
+            return _pendingImportedRasterFiles.Remove(Path.GetFullPath(path));
+        }
+
+        public bool IsPendingImportedRasterFile(string path)
+        {
+            if (string.IsNullOrWhiteSpace(path))
+                return false;
+
+            return _pendingImportedRasterFiles.Contains(Path.GetFullPath(path));
+        }
+
+        public void TrackDeletedRasterFile(string path)
+        {
+            if (string.IsNullOrWhiteSpace(path))
+                return;
+
+            _pendingDeletedRasterFiles.Add(Path.GetFullPath(path));
+        }
+
+        public void ClearPendingRasterImportChanges()
+        {
+            _pendingImportedRasterFiles.Clear();
+            _pendingDeletedRasterFiles.Clear();
         }
 
         /// <summary>
@@ -105,6 +156,7 @@ namespace Land_Readjustment_Tool.Data
             Session.Dispose();
             Info = null;
             HasUnsavedChanges = false;
+            ClearPendingRasterImportChanges();
             StateChanged?.Invoke();
         }
     }

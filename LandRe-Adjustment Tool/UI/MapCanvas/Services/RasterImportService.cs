@@ -12,6 +12,8 @@ namespace Land_Readjustment_Tool.UI.MapCanvas.Services
     {
         private const string RasterFolderName = "RasterLayers";
         private static readonly int[] RasterOverviewLevels = [2, 4, 8, 16, 32, 64, 128, 256];
+        private static readonly Encoding Utf8NoBom =
+            new UTF8Encoding(encoderShouldEmitUTF8Identifier: false);
 
         public RasterImportResult ImportToProjectCrs(
             string sourcePath,
@@ -57,6 +59,8 @@ namespace Land_Readjustment_Tool.UI.MapCanvas.Services
                 throw new InvalidOperationException(
                     "GDAL is not configured correctly. Raster import cannot continue.");
             ApplyGdalNetworkOptions();
+            if (isNetworkServiceDescriptor)
+                NormalizeNetworkServiceDescriptorForGdal(sourcePath);
 
             progress?.Report(new RasterImportProgress(20, "Opening raster dataset"));
 
@@ -72,6 +76,15 @@ namespace Land_Readjustment_Tool.UI.MapCanvas.Services
                 when (ex.Message.Contains("not recognized as being in a supported file format",
                     StringComparison.OrdinalIgnoreCase))
             {
+                if (isNetworkServiceDescriptor)
+                {
+                    throw new NotSupportedException(
+                        $"GDAL could not open the XYZ tile service descriptor " +
+                        $"'{Path.GetFileName(sourcePath)}'. Verify that the GDAL WMS driver " +
+                        "is available and that the tile URL is reachable.",
+                        ex);
+                }
+
                 throw new NotSupportedException(
                     $"'{Path.GetFileName(sourcePath)}' is not a supported raster format. " +
                     "Supported formats include GeoTIFF, PNG, JPEG, and MBTiles. " +
@@ -91,9 +104,10 @@ namespace Land_Readjustment_Tool.UI.MapCanvas.Services
                     ReadMetadata(sourcePath, sourceDataset);
                 bool sourceIsMbTiles = IsMbTilesSource(sourcePath, sourceMetadata);
 
-                string sourceProjection = !string.IsNullOrWhiteSpace(sourceSrsDefinitionOverride)
-                    ? sourceSrsDefinitionOverride
-                    : sourceMetadata.ProjectionWkt;
+                string sourceProjection = ResolveSourceProjection(
+                    sourceMetadata,
+                    sourceSrsDefinitionOverride,
+                    sourceIsMbTiles);
                 RasterImportMode importMode;
 
                 string rasterFolder = Path.Combine(projectFolderPath, RasterFolderName);
@@ -101,7 +115,6 @@ namespace Land_Readjustment_Tool.UI.MapCanvas.Services
 
                 if (sourceIsMbTiles &&
                     sourceExtent == null &&
-                    string.IsNullOrWhiteSpace(sourceSrsDefinitionOverride) &&
                     CanUseDirectMbTiles(sourcePath, sourceMetadata))
                 {
                     progress?.Report(new RasterImportProgress(45, "Copying MBTiles tile package"));
@@ -135,6 +148,7 @@ namespace Land_Readjustment_Tool.UI.MapCanvas.Services
                 string outputPath = GetUniquePath(Path.Combine(rasterFolder, outputFileName));
 
                 bool usesDefinedSourceProjection =
+                    !sourceMetadata.HasProjection &&
                     !string.IsNullOrWhiteSpace(sourceSrsDefinitionOverride);
 
                 if (sourceMetadata.HasGeoreferencing &&
@@ -160,10 +174,13 @@ namespace Land_Readjustment_Tool.UI.MapCanvas.Services
                     CopyToProjectRaster(
                         sourceDataset,
                         outputPath,
-                        sourceMetadata);
+                        sourceMetadata,
+                        sourceProjection);
                     importMode = sourceMetadata.HasGeoreferencing
                         ? RasterImportMode.UnknownCrsCopiedWithoutProjection
-                        : RasterImportMode.UnreferencedCopiedToLocalCoordinates;
+                        : !string.IsNullOrWhiteSpace(sourceProjection)
+                            ? RasterImportMode.SourceCrsAssignedWithoutGeoreferencing
+                            : RasterImportMode.UnreferencedCopiedToLocalCoordinates;
                 }
 
                 progress?.Report(new RasterImportProgress(88, "Finalizing raster layer"));
@@ -479,7 +496,8 @@ namespace Land_Readjustment_Tool.UI.MapCanvas.Services
         private static void CopyToProjectRaster(
             Dataset sourceDataset,
             string outputPath,
-            RasterImportMetadata sourceMetadata)
+            RasterImportMetadata sourceMetadata,
+            string? assignedProjection = null)
         {
             Driver driver = Gdal.GetDriverByName("GTiff")
                 ?? throw new InvalidOperationException(
@@ -520,8 +538,44 @@ namespace Land_Readjustment_Tool.UI.MapCanvas.Services
                 outputDataset.SetGeoTransform(localImageTransform);
             }
 
+            if (!string.IsNullOrWhiteSpace(assignedProjection) &&
+                string.IsNullOrWhiteSpace(outputDataset.GetProjectionRef()))
+            {
+                outputDataset.SetProjection(NormalizeSrsToWkt(assignedProjection));
+            }
+
             BuildRasterOverviews(outputDataset, "NEAREST");
             outputDataset.FlushCache();
+        }
+
+        private static string ResolveSourceProjection(
+            RasterImportMetadata sourceMetadata,
+            string? sourceSrsDefinitionOverride,
+            bool sourceIsMbTiles)
+        {
+            if (!string.IsNullOrWhiteSpace(sourceMetadata.ProjectionWkt))
+                return sourceMetadata.ProjectionWkt;
+
+            if (sourceIsMbTiles)
+                return "EPSG:3857";
+
+            if (!string.IsNullOrWhiteSpace(sourceSrsDefinitionOverride))
+                return sourceSrsDefinitionOverride;
+
+            return "EPSG:4326";
+        }
+
+        private static string NormalizeSrsToWkt(string srsDefinition)
+        {
+            using SpatialReference spatialReference = new(string.Empty);
+            int result = spatialReference.SetFromUserInput(srsDefinition);
+            if (result != 0)
+                return srsDefinition;
+
+            spatialReference.SetAxisMappingStrategy(
+                AxisMappingStrategy.OAMS_TRADITIONAL_GIS_ORDER);
+            spatialReference.ExportToWkt(out string wkt, []);
+            return string.IsNullOrWhiteSpace(wkt) ? srsDefinition : wkt;
         }
 
         private static void BuildRasterOverviews(
@@ -681,6 +735,28 @@ namespace Land_Readjustment_Tool.UI.MapCanvas.Services
             Gdal.SetConfigOption("CPL_VSIL_CURL_CACHE_SIZE", "128000000");
             Gdal.SetConfigOption("GDAL_HTTP_MAX_RETRY", "3");
             Gdal.SetConfigOption("GDAL_HTTP_RETRY_DELAY", "1");
+        }
+
+        private static void NormalizeNetworkServiceDescriptorForGdal(string sourcePath)
+        {
+            byte[] utf8Preamble = Encoding.UTF8.GetPreamble();
+            if (utf8Preamble.Length == 0)
+                return;
+
+            using FileStream input = File.OpenRead(sourcePath);
+            if (input.Length < utf8Preamble.Length)
+                return;
+
+            byte[] header = new byte[utf8Preamble.Length];
+            int bytesRead = input.Read(header, 0, header.Length);
+            if (bytesRead != utf8Preamble.Length ||
+                !header.SequenceEqual(utf8Preamble))
+            {
+                return;
+            }
+
+            string xml = File.ReadAllText(sourcePath, Encoding.UTF8);
+            File.WriteAllText(sourcePath, xml, Utf8NoBom);
         }
 
         private static bool CanUseDirectMbTiles(
@@ -895,6 +971,7 @@ namespace Land_Readjustment_Tool.UI.MapCanvas.Services
         SourceCrsDefinedProjectedToProjectCrs,
         UnknownCrsCopiedWithoutProjection,
         UnreferencedCopiedToLocalCoordinates,
+        SourceCrsAssignedWithoutGeoreferencing,
         MbTilesDirectTileSource
     }
 
