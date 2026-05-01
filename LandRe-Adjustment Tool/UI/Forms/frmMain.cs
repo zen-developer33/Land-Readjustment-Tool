@@ -630,7 +630,7 @@ namespace Land_Readjustment_Tool
                 // Subscribe to state changes
                 context.StateChanged += UpdateWindowTitle;
 
-                SetOperationProgress(45, "Saving project details");
+                SetOperationProgress(45, "Creating new project.....");
 
                 // Create project in database
                 var info = await _projectService.CreateNewProjectAsync(projectFilePath, projectFileName);
@@ -646,7 +646,7 @@ namespace Land_Readjustment_Tool
                 HideOperationProgress();
                 OpenProjectDetails(info);
                 SetOperationProgress(58, "Configuring project settings");
-                await PromptProjectSettingsAsync();
+                await PromptProjectSettingsAsync(showPrompt: false);
                 SetOperationProgress(65, "Loading project workspace");
 
                 InitializeProjectWorkspace();
@@ -721,19 +721,26 @@ namespace Land_Readjustment_Tool
                 HideOperationProgress();
             }
         }
-        private async Task PromptProjectSettingsAsync()
+        private async Task PromptProjectSettingsAsync(bool showPrompt = true)
         {
-            var result = MessageBox.Show(
-                "Would you like to configure " +
-                "project settings now?\n\n" +
-                "You can always change settings later " +
-                "from Project > Project Settings.",
-                "Project Settings",
-                MessageBoxButtons.YesNo,
-                MessageBoxIcon.Question,
-                MessageBoxDefaultButton.Button2);
+            if (showPrompt)
+            {
+                var result = MessageBox.Show(
+                    "Would you like to configure " +
+                    "project settings now?\n\n" +
+                    "You can always change settings later " +
+                    "from Project > Project Settings.",
+                    "Project Settings",
+                    MessageBoxButtons.YesNo,
+                    MessageBoxIcon.Question,
+                    MessageBoxDefaultButton.Button2);
 
-            if (result == DialogResult.Yes)
+                if (result == DialogResult.Yes)
+                {
+                    OpenProjectSettings();
+                }
+            }
+            else
             {
                 OpenProjectSettings();
             }
@@ -790,7 +797,9 @@ namespace Land_Readjustment_Tool
                 await ApplySettingsAsync(args.ProjectCrsChanged);
             };
 
-            if (frm.ShowDialog() == DialogResult.OK && !appliedWhileOpen)
+            frm.StartPosition = FormStartPosition.CenterParent;
+
+            if (frm.ShowDialog(this) == DialogResult.OK && !appliedWhileOpen)
             {
                 AppServices.Context.MarkAsModified();
                 await ApplySettingsAsync(updateRasterProjection: false);
@@ -919,7 +928,9 @@ namespace Land_Readjustment_Tool
             var service = _projectScopedFactory.CreateProjectInfoService(context.Session);
 
             using var frm = new frm_ProjectDetails(service, initialProjectInfo);
-            if (frm.ShowDialog() == DialogResult.OK)
+            frm.StartPosition = FormStartPosition.CenterParent;
+
+            if (frm.ShowDialog(this) == DialogResult.OK)
                 AppServices.Context.MarkAsModified();
 
             // Refresh title after user edits
@@ -3575,10 +3586,27 @@ namespace Land_Readjustment_Tool
             if (_operationProgressForm.IsDisposed)
                 _operationProgressForm = new frmOperationProgress();
 
+            PositionOperationProgressForm(_operationProgressForm);
             _operationProgressForm.UpdateProgress(title, status, percent);
 
             if (!_operationProgressForm.Visible)
                 _operationProgressForm.Show(this);
+        }
+
+        private void PositionOperationProgressForm(Form form)
+        {
+            Rectangle workingArea = Screen.FromControl(this).WorkingArea;
+            int x = Math.Max(
+                workingArea.Left,
+                this.Left + (this.Width - form.Width) / 2);
+            int y = Math.Max(
+                workingArea.Top,
+                this.Top + (this.Height - form.Height) / 2);
+
+            form.StartPosition = FormStartPosition.Manual;
+            form.Location = new Point(
+                Math.Min(x, workingArea.Right - form.Width),
+                Math.Min(y, workingArea.Bottom - form.Height));
         }
 
         private static string GetOperationProgressTitle(string status)
