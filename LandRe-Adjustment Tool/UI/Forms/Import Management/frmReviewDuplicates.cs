@@ -12,7 +12,7 @@ namespace Land_Readjustment_Tool.Forms
     public partial class frmReviewDuplicates : Form
     {
         private readonly List<DuplicateGroup> _duplicateGroups;
-        private readonly BindingList<BaselineLandParceRecord> _allRecords;
+        private readonly BindingList<BaselineLandParcelRecord> _allRecords;
         private readonly OwnerDeduplicationService.DeduplicationResult _deduplicationResult;
         private readonly Dictionary<int, List<OwnerRowData>> _groupOwnerRowsCache = new();
         private readonly Dictionary<int, string> _mapSheetByParcelIndex;
@@ -45,7 +45,7 @@ namespace Land_Readjustment_Tool.Forms
 
         public frmReviewDuplicates(
             OwnerDeduplicationService.DeduplicationResult deduplicationResult,
-            BindingList<BaselineLandParceRecord> allRecords)
+            BindingList<BaselineLandParcelRecord> allRecords)
         {
             InitializeComponent();
 
@@ -66,7 +66,7 @@ namespace Land_Readjustment_Tool.Forms
             dgvDuplicateGroups.ContextMenuStrip = menu;
         }
 
-        private static Dictionary<int, string> BuildMapSheetLookup(IList<BaselineLandParceRecord> records)
+        private static Dictionary<int, string> BuildMapSheetLookup(IList<BaselineLandParcelRecord> records)
         {
             var lookup = new Dictionary<int, string>(records.Count);
             for (int i = 0; i < records.Count; i++)
@@ -657,9 +657,9 @@ namespace Land_Readjustment_Tool.Forms
                 record.Gender = owner.Gender;
                 record.CitizenshipNumber = owner.CitizenshipNumber;
                 record.CitizenshipIssuedDistrict = owner.CitizenshipIssuedDistrict;
-                record.citizenshipIssuedDate = owner.CitizenshipIssuedDate;
+                record.CitizenshipIssuedDate = owner.CitizenshipIssuedDate;
                 record.PermanentAddress = owner.PermanentAddress;
-                record.TempoaryAddress = owner.TemporaryAddress;
+                record.TemporaryAddress = owner.TemporaryAddress;
                 record.ContactNumber = owner.ContactNumber;
                 record.EmailID = owner.EmailID;
             }

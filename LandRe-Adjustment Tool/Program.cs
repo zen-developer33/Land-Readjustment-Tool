@@ -24,13 +24,15 @@ namespace Land_Readjustment_Tool
         [STAThread]
         static void Main(string[] args)
         {
-            //if (Environment.OSVersion.Version.Major >= 6)
-                //SetProcessDPIAware();
             Application.SetHighDpiMode(HighDpiMode.SystemAware);
             Encoding.RegisterProvider(CodePagesEncodingProvider.Instance);
+
+            Application.ThreadException += OnThreadException;
+            AppDomain.CurrentDomain.UnhandledException += OnUnhandledException;
+
             ConfigureNativeLibrarySearchPath();
             SQLitePCL.Batteries_V2.Init();
-            Application.EnableVisualStyles();           
+            Application.EnableVisualStyles();
             Application.SetCompatibleTextRenderingDefault(false);
             ShowSplashScreen();
 
@@ -57,8 +59,35 @@ namespace Land_Readjustment_Tool
             Application.Run(splashForm);
         }
 
-        //[System.Runtime.InteropServices.DllImport("user32.dll")]
-        //private static extern bool SetProcessDPIAware();
+        private static void OnThreadException(object sender, ThreadExceptionEventArgs e)
+        {
+            LogCrash(e.Exception);
+            MessageBox.Show(
+                $"An unexpected error occurred.\n\n{e.Exception.Message}\n\nA crash log has been saved to the application folder.",
+                "RePlot — Error",
+                MessageBoxButtons.OK,
+                MessageBoxIcon.Error);
+        }
+
+        private static void OnUnhandledException(object sender, UnhandledExceptionEventArgs e)
+        {
+            if (e.ExceptionObject is Exception ex)
+                LogCrash(ex);
+        }
+
+        private static void LogCrash(Exception ex)
+        {
+            try
+            {
+                string logPath = Path.Combine(AppContext.BaseDirectory, "crash.log");
+                string entry = $"[{DateTime.Now:yyyy-MM-dd HH:mm:ss}] {ex}\n\n";
+                File.AppendAllText(logPath, entry);
+            }
+            catch
+            {
+                // Logging must never itself crash the app.
+            }
+        }
 
         private static void ConfigureNativeLibrarySearchPath()
         {

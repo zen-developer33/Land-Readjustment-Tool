@@ -28,7 +28,7 @@ namespace Land_Readjustment_Tool.Core.Interfaces
             CancellationToken ct = default);
 
         Task<ImportSession> StageNormalizedRecordsAsync(
-            IReadOnlyList<BaselineLandParceRecord> records,
+            IReadOnlyList<BaselineLandParcelRecord> records,
             string sourceFileName,
             string? sourceFilePath,
             string? sheetName,

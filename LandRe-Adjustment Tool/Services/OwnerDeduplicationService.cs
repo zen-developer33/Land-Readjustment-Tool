@@ -1,3 +1,4 @@
+using Land_Readjustment_Tool.Infrastructure.Constants;
 using Land_Readjustment_Tool.Models;
 using System.Text;
 
@@ -15,20 +16,6 @@ namespace Land_Readjustment_Tool.Services
         private const double HighNameThresholdForCitizenshipRule = 0.80;
         private const double HighNameFatherCombinedThreshold = 0.95;
         private const double MinimumReviewThreshold = 0.75;
-
-        private static readonly string[] AnonymousKeywords =
-        [
-            "anonymous", "unknown", "अज्ञात", "अनाम"
-        ];
-
-        private static readonly string[] InstitutionKeywords =
-        [
-            "नेपाल सरकार", "सरकार", "government", "govt", "sarkar",
-            "ministry", "department", "कार्यालय", "मन्त्रालय", "विभाग",
-            "नगरपालिका", "गाउँपालिका", "गाउपालिका", "गा.पा", "न.पा",
-            "वडा कार्यालय", "सार्वजनिक", "public", "committee", "समिति",
-            "trust", "गुठी", "school", "विद्यालय", "bank", "कम्पनी", "company", "ltd", "pvt"
-        ];
 
         private enum OwnerCategory
         {
@@ -111,7 +98,7 @@ namespace Land_Readjustment_Tool.Services
         }
 
         public static DeduplicationResult ExtractUniqueOwners(
-            List<BaselineLandParceRecord> records,
+            List<BaselineLandParcelRecord> records,
             bool excludeAnonymous = false)
         {
             if (records == null)
@@ -612,7 +599,7 @@ namespace Land_Readjustment_Tool.Services
         }
 
         private static List<UniqueOwner> CreateInitialOwnerList(
-            List<BaselineLandParceRecord> records,
+            List<BaselineLandParcelRecord> records,
             DeduplicationResult result,
             bool excludeAnonymous)
         {
@@ -640,9 +627,9 @@ namespace Land_Readjustment_Tool.Services
                     Gender = NormalizeNullable(record.Gender),
                     CitizenshipNumber = NormalizeNullable(record.CitizenshipNumber),
                     CitizenshipIssuedDistrict = NormalizeNullable(record.CitizenshipIssuedDistrict),
-                    CitizenshipIssuedDate = NormalizeNullable(record.citizenshipIssuedDate),
+                    CitizenshipIssuedDate = NormalizeNullable(record.CitizenshipIssuedDate),
                     PermanentAddress = NormalizeNullable(record.PermanentAddress),
-                    TemporaryAddress = NormalizeNullable(record.TempoaryAddress),
+                    TemporaryAddress = NormalizeNullable(record.TemporaryAddress),
                     ContactNumber = NormalizeNullable(record.ContactNumber),
                     EmailID = NormalizeNullable(record.EmailID),
                     ParcelIndices = new List<int> { i },
@@ -710,14 +697,14 @@ namespace Land_Readjustment_Tool.Services
                 return false;
 
             var normalized = NormalizeString(ownerName);
-            return InstitutionKeywords.Any(k =>
+            return NepalDomainConstants.InstitutionKeywords.Any(k =>
                 normalized.Contains(NormalizeString(k), StringComparison.OrdinalIgnoreCase));
         }
 
         private static bool ContainsAnonymousKeyword(string normalizedName)
         {
             var name = NormalizeString(normalizedName);
-            return AnonymousKeywords.Any(k =>
+            return NepalDomainConstants.AnonymousKeywords.Any(k =>
                 name.Contains(NormalizeString(k), StringComparison.OrdinalIgnoreCase));
         }
 
@@ -790,7 +777,7 @@ namespace Land_Readjustment_Tool.Services
         public static UniqueOwner MergeOwnersList(List<UniqueOwner> owners) => MergeOwners(owners);
 
         public static void ApplyDeduplicationToRecords(
-            List<BaselineLandParceRecord> records,
+            List<BaselineLandParcelRecord> records,
             DeduplicationResult deduplicationResult)
         {
             foreach (var owner in deduplicationResult.UniqueOwners)
@@ -810,9 +797,9 @@ namespace Land_Readjustment_Tool.Services
                         record.Gender = null;
                         record.CitizenshipNumber = null;
                         record.CitizenshipIssuedDistrict = null;
-                        record.citizenshipIssuedDate = null;
+                        record.CitizenshipIssuedDate = null;
                         record.PermanentAddress = null;
-                        record.TempoaryAddress = null;
+                        record.TemporaryAddress = null;
                         record.ContactNumber = null;
                         record.EmailID = null;
                     }
@@ -822,9 +809,9 @@ namespace Land_Readjustment_Tool.Services
                         record.Gender = owner.Gender;
                         record.CitizenshipNumber = owner.CitizenshipNumber;
                         record.CitizenshipIssuedDistrict = owner.CitizenshipIssuedDistrict;
-                        record.citizenshipIssuedDate = owner.CitizenshipIssuedDate;
+                        record.CitizenshipIssuedDate = owner.CitizenshipIssuedDate;
                         record.PermanentAddress = owner.PermanentAddress;
-                        record.TempoaryAddress = owner.TemporaryAddress;
+                        record.TemporaryAddress = owner.TemporaryAddress;
                         record.ContactNumber = owner.ContactNumber;
                         record.EmailID = owner.EmailID;
                     }

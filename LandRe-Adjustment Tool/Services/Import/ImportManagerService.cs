@@ -198,7 +198,7 @@ namespace Land_Readjustment_Tool.Services.Import
         }
 
         public async Task<ImportSession> StageNormalizedRecordsAsync(
-            IReadOnlyList<BaselineLandParceRecord> records,
+            IReadOnlyList<BaselineLandParcelRecord> records,
             string sourceFileName,
             string? sourceFilePath,
             string? sheetName,
@@ -367,9 +367,9 @@ namespace Land_Readjustment_Tool.Services.Import
                 Gender = GetValue("Gender"),
                 CitizenshipNumber = GetValue("CitizenshipNumber"),
                 CitizenshipDistrict = GetValue("CitizenshipIssuedDistrict"),
-                CitizenshipDate = GetValue("citizenshipIssuedDate") ?? GetValue("CitizenshipIssuedDate"),
+                CitizenshipDate = GetValue("CitizenshipIssuedDate") ?? GetValue("CitizenshipIssuedDate"),
                 PermanentAddress = GetValue("PermanentAddress"),
-                TemporaryAddress = GetValue("TempoaryAddress") ?? GetValue("TemporaryAddress"),
+                TemporaryAddress = GetValue("TemporaryAddress") ?? GetValue("TemporaryAddress"),
                 ContactNumber = GetValue("ContactNumber"),
                 Email = GetValue("EmailID") ?? GetValue("Email"),
                 IsTenant = TryParseNullableBool(GetValue("Tenant")),
@@ -461,7 +461,7 @@ namespace Land_Readjustment_Tool.Services.Import
         }
 
         private static ImportedRawRecord MapNormalizedRecord(
-            BaselineLandParceRecord source,
+            BaselineLandParcelRecord source,
             int rowNumber,
             int sessionId)
         {
@@ -486,9 +486,9 @@ namespace Land_Readjustment_Tool.Services.Import
                 Gender = source.Gender,
                 CitizenshipNumber = source.CitizenshipNumber,
                 CitizenshipDistrict = source.CitizenshipIssuedDistrict,
-                CitizenshipDate = source.citizenshipIssuedDate,
+                CitizenshipDate = source.CitizenshipIssuedDate,
                 PermanentAddress = source.PermanentAddress,
-                TemporaryAddress = source.TempoaryAddress,
+                TemporaryAddress = source.TemporaryAddress,
                 ContactNumber = source.ContactNumber,
                 Email = source.EmailID,
                 IsTenant = TryParseNullableBool(source.Tenant),

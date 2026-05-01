@@ -129,14 +129,14 @@
     <value>Segoe UI, 9pt</value>
   </data>
   <data name="txtCreatedDate.Location" type="System.Drawing.Point, System.Drawing">
-    <value>128, 79</value>
+    <value>128, 95</value>
   </data>
   <assembly alias="System.Windows.Forms" name="System.Windows.Forms, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b77a5c561934e089" />
   <data name="txtCreatedDate.Margin" type="System.Windows.Forms.Padding, System.Windows.Forms">
     <value>3, 4, 3, 4</value>
   </data>
   <data name="txtCreatedDate.Size" type="System.Drawing.Size, System.Drawing">
-    <value>353, 23</value>
+    <value>326, 27</value>
   </data>
   <assembly alias="mscorlib" name="mscorlib, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b77a5c561934e089" />
   <data name="txtCreatedDate.TabIndex" type="System.Int32, mscorlib">
@@ -161,10 +161,10 @@
     <value>Segoe UI, 9pt</value>
   </data>
   <data name="label6.Location" type="System.Drawing.Point, System.Drawing">
-    <value>17, 82</value>
+    <value>17, 98</value>
   </data>
   <data name="label6.Size" type="System.Drawing.Size, System.Drawing">
-    <value>78, 15</value>
+    <value>100, 20</value>
   </data>
   <data name="label6.TabIndex" type="System.Int32, mscorlib">
     <value>4</value>
@@ -191,13 +191,13 @@
     <value>Segoe UI, 9pt</value>
   </data>
   <data name="txtProjectPath.Location" type="System.Drawing.Point, System.Drawing">
-    <value>129, 53</value>
+    <value>129, 61</value>
   </data>
   <data name="txtProjectPath.Margin" type="System.Windows.Forms.Padding, System.Windows.Forms">
     <value>3, 4, 3, 4</value>
   </data>
   <data name="txtProjectPath.Size" type="System.Drawing.Size, System.Drawing">
-    <value>352, 23</value>
+    <value>325, 27</value>
   </data>
   <data name="txtProjectPath.TabIndex" type="System.Int32, mscorlib">
     <value>20</value>
@@ -221,10 +221,10 @@
     <value>Segoe UI, 9pt</value>
   </data>
   <data name="label2.Location" type="System.Drawing.Point, System.Drawing">
-    <value>17, 56</value>
+    <value>17, 64</value>
   </data>
   <data name="label2.Size" type="System.Drawing.Size, System.Drawing">
-    <value>71, 15</value>
+    <value>87, 20</value>
   </data>
   <data name="label2.TabIndex" type="System.Int32, mscorlib">
     <value>2</value>
@@ -257,7 +257,7 @@
     <value>3, 4, 3, 4</value>
   </data>
   <data name="txtProjectName.Size" type="System.Drawing.Size, System.Drawing">
-    <value>352, 23</value>
+    <value>325, 27</value>
   </data>
   <data name="txtProjectName.TabIndex" type="System.Int32, mscorlib">
     <value>20</value>
@@ -284,7 +284,7 @@
     <value>17, 30</value>
   </data>
   <data name="label1.Size" type="System.Drawing.Size, System.Drawing">
-    <value>85, 15</value>
+    <value>106, 20</value>
   </data>
   <data name="label1.TabIndex" type="System.Int32, mscorlib">
     <value>0</value>
@@ -317,7 +317,7 @@
     <value>3, 4, 3, 4</value>
   </data>
   <data name="groupBox1.Size" type="System.Drawing.Size, System.Drawing">
-    <value>489, 116</value>
+    <value>462, 145</value>
   </data>
   <data name="groupBox1.TabIndex" type="System.Int32, mscorlib">
     <value>20</value>
@@ -350,10 +350,10 @@
     <value>NoControl</value>
   </data>
   <data name="label13.Location" type="System.Drawing.Point, System.Drawing">
-    <value>17, 136</value>
+    <value>17, 156</value>
   </data>
   <data name="label13.Size" type="System.Drawing.Size, System.Drawing">
-    <value>97, 15</value>
+    <value>123, 20</value>
   </data>
   <data name="label13.TabIndex" type="System.Int32, mscorlib">
     <value>12</value>
@@ -380,7 +380,7 @@
     <value>Segoe UI, 9pt</value>
   </data>
   <data name="txtProjectEndDate.Location" type="System.Drawing.Point, System.Drawing">
-    <value>151, 133</value>
+    <value>181, 153</value>
   </data>
   <data name="txtProjectEndDate.Margin" type="System.Windows.Forms.Padding, System.Windows.Forms">
     <value>3, 4, 3, 4</value>
@@ -389,7 +389,7 @@
     <value>Enter or pick the date </value>
   </data>
   <data name="txtProjectEndDate.Size" type="System.Drawing.Size, System.Drawing">
-    <value>134, 23</value>
+    <value>137, 27</value>
   </data>
   <data name="txtProjectEndDate.TabIndex" type="System.Int32, mscorlib">
     <value>11</value>
@@ -416,10 +416,10 @@
     <value>NoControl</value>
   </data>
   <data name="label12.Location" type="System.Drawing.Point, System.Drawing">
-    <value>17, 110</value>
+    <value>17, 125</value>
   </data>
   <data name="label12.Size" type="System.Drawing.Size, System.Drawing">
-    <value>101, 15</value>
+    <value>129, 20</value>
   </data>
   <data name="label12.TabIndex" type="System.Int32, mscorlib">
     <value>9</value>
@@ -446,7 +446,7 @@
     <value>Segoe UI, 9pt</value>
   </data>
   <data name="txtProjectStartDate.Location" type="System.Drawing.Point, System.Drawing">
-    <value>151, 107</value>
+    <value>181, 122</value>
   </data>
   <data name="txtProjectStartDate.Margin" type="System.Windows.Forms.Padding, System.Windows.Forms">
     <value>3, 4, 3, 4</value>
@@ -455,7 +455,7 @@
     <value>Enter or pick the date </value>
   </data>
   <data name="txtProjectStartDate.Size" type="System.Drawing.Size, System.Drawing">
-    <value>134, 23</value>
+    <value>137, 27</value>
   </data>
   <data name="txtProjectStartDate.TabIndex" type="System.Int32, mscorlib">
     <value>9</value>
@@ -476,10 +476,10 @@
     <value> </value>
   </data>
   <data name="dtpProjectEndDate.Location" type="System.Drawing.Point, System.Drawing">
-    <value>294, 133</value>
+    <value>324, 153</value>
   </data>
   <data name="dtpProjectEndDate.Size" type="System.Drawing.Size, System.Drawing">
-    <value>42, 23</value>
+    <value>56, 27</value>
   </data>
   <data name="dtpProjectEndDate.TabIndex" type="System.Int32, mscorlib">
     <value>12</value>
@@ -500,10 +500,10 @@
     <value> </value>
   </data>
   <data name="dtpProjectStartDate.Location" type="System.Drawing.Point, System.Drawing">
-    <value>294, 107</value>
+    <value>324, 122</value>
   </data>
   <data name="dtpProjectStartDate.Size" type="System.Drawing.Size, System.Drawing">
-    <value>42, 23</value>
+    <value>56, 27</value>
   </data>
   <data name="dtpProjectStartDate.TabIndex" type="System.Int32, mscorlib">
     <value>10</value>
@@ -524,10 +524,10 @@
     <value> </value>
   </data>
   <data name="dtpApprovalDate.Location" type="System.Drawing.Point, System.Drawing">
-    <value>294, 81</value>
+    <value>324, 91</value>
   </data>
   <data name="dtpApprovalDate.Size" type="System.Drawing.Size, System.Drawing">
-    <value>42, 23</value>
+    <value>56, 27</value>
   </data>
   <data name="dtpApprovalDate.TabIndex" type="System.Int32, mscorlib">
     <value>8</value>
@@ -551,10 +551,10 @@
     <value>Segoe UI, 9pt</value>
   </data>
   <data name="label5.Location" type="System.Drawing.Point, System.Drawing">
-    <value>17, 84</value>
+    <value>17, 94</value>
   </data>
   <data name="label5.Size" type="System.Drawing.Size, System.Drawing">
-    <value>85, 15</value>
+    <value>109, 20</value>
   </data>
   <data name="label5.TabIndex" type="System.Int32, mscorlib">
     <value>4</value>
@@ -581,13 +581,13 @@
     <value>Segoe UI, 9pt</value>
   </data>
   <data name="txtConsultingAgency.Location" type="System.Drawing.Point, System.Drawing">
-    <value>151, 55</value>
+    <value>181, 60</value>
   </data>
   <data name="txtConsultingAgency.Margin" type="System.Windows.Forms.Padding, System.Windows.Forms">
     <value>3, 4, 3, 4</value>
   </data>
   <data name="txtConsultingAgency.Size" type="System.Drawing.Size, System.Drawing">
-    <value>330, 23</value>
+    <value>273, 27</value>
   </data>
   <data name="txtConsultingAgency.TabIndex" type="System.Int32, mscorlib">
     <value>6</value>
@@ -611,10 +611,10 @@
     <value>Segoe UI, 9pt</value>
   </data>
   <data name="label3.Location" type="System.Drawing.Point, System.Drawing">
-    <value>17, 58</value>
+    <value>17, 63</value>
   </data>
   <data name="label3.Size" type="System.Drawing.Size, System.Drawing">
-    <value>111, 15</value>
+    <value>135, 20</value>
   </data>
   <data name="label3.TabIndex" type="System.Int32, mscorlib">
     <value>2</value>
@@ -641,13 +641,13 @@
     <value>Segoe UI, 9pt</value>
   </data>
   <data name="txtImplementingAgency.Location" type="System.Drawing.Point, System.Drawing">
-    <value>151, 29</value>
+    <value>181, 29</value>
   </data>
   <data name="txtImplementingAgency.Margin" type="System.Windows.Forms.Padding, System.Windows.Forms">
     <value>3, 4, 3, 4</value>
   </data>
   <data name="txtImplementingAgency.Size" type="System.Drawing.Size, System.Drawing">
-    <value>331, 23</value>
+    <value>274, 27</value>
   </data>
   <data name="txtImplementingAgency.TabIndex" type="System.Int32, mscorlib">
     <value>5</value>
@@ -674,7 +674,7 @@
     <value>17, 32</value>
   </data>
   <data name="label4.Size" type="System.Drawing.Size, System.Drawing">
-    <value>128, 15</value>
+    <value>158, 20</value>
   </data>
   <data name="label4.TabIndex" type="System.Int32, mscorlib">
     <value>0</value>
@@ -701,7 +701,7 @@
     <value>Segoe UI, 9pt</value>
   </data>
   <data name="txtApprovalDate.Location" type="System.Drawing.Point, System.Drawing">
-    <value>151, 81</value>
+    <value>181, 91</value>
   </data>
   <data name="txtApprovalDate.Margin" type="System.Windows.Forms.Padding, System.Windows.Forms">
     <value>3, 4, 3, 4</value>
@@ -710,7 +710,7 @@
     <value>Enter or pick the date </value>
   </data>
   <data name="txtApprovalDate.Size" type="System.Drawing.Size, System.Drawing">
-    <value>134, 23</value>
+    <value>137, 27</value>
   </data>
   <data name="txtApprovalDate.TabIndex" type="System.Int32, mscorlib">
     <value>7</value>
@@ -731,7 +731,7 @@
     <value>Segoe UI, 9pt, style=Bold</value>
   </data>
   <data name="groupBox2.Location" type="System.Drawing.Point, System.Drawing">
-    <value>13, 261</value>
+    <value>13, 308</value>
   </data>
   <data name="groupBox2.Margin" type="System.Windows.Forms.Padding, System.Windows.Forms">
     <value>3, 4, 3, 4</value>
@@ -740,7 +740,7 @@
     <value>3, 4, 3, 4</value>
   </data>
   <data name="groupBox2.Size" type="System.Drawing.Size, System.Drawing">
-    <value>489, 172</value>
+    <value>462, 189</value>
   </data>
   <data name="groupBox2.TabIndex" type="System.Int32, mscorlib">
     <value>22</value>
@@ -767,7 +767,7 @@
     <value>NoControl</value>
   </data>
   <data name="btnOK.Location" type="System.Drawing.Point, System.Drawing">
-    <value>399, 567</value>
+    <value>372, 624</value>
   </data>
   <data name="btnOK.Margin" type="System.Windows.Forms.Padding, System.Windows.Forms">
     <value>3, 4, 3, 4</value>
@@ -800,13 +800,13 @@
     <value>Segoe UI, 9pt</value>
   </data>
   <data name="txtProjectSite.Location" type="System.Drawing.Point, System.Drawing">
-    <value>129, 80</value>
+    <value>129, 92</value>
   </data>
   <data name="txtProjectSite.Margin" type="System.Windows.Forms.Padding, System.Windows.Forms">
     <value>3, 4, 3, 4</value>
   </data>
   <data name="txtProjectSite.Size" type="System.Drawing.Size, System.Drawing">
-    <value>132, 23</value>
+    <value>132, 27</value>
   </data>
   <data name="txtProjectSite.TabIndex" type="System.Int32, mscorlib">
     <value>4</value>
@@ -830,10 +830,10 @@
     <value>Segoe UI, 9pt</value>
   </data>
   <data name="label11.Location" type="System.Drawing.Point, System.Drawing">
-    <value>17, 83</value>
+    <value>17, 95</value>
   </data>
   <data name="label11.Size" type="System.Drawing.Size, System.Drawing">
-    <value>69, 15</value>
+    <value>87, 20</value>
   </data>
   <data name="label11.TabIndex" type="System.Int32, mscorlib">
     <value>24</value>
@@ -860,13 +860,13 @@
     <value>Segoe UI, 9pt</value>
   </data>
   <data name="txtWardNo.Location" type="System.Drawing.Point, System.Drawing">
-    <value>340, 54</value>
+    <value>340, 60</value>
   </data>
   <data name="txtWardNo.Margin" type="System.Windows.Forms.Padding, System.Windows.Forms">
     <value>3, 4, 3, 4</value>
   </data>
   <data name="txtWardNo.Size" type="System.Drawing.Size, System.Drawing">
-    <value>71, 23</value>
+    <value>44, 27</value>
   </data>
   <data name="txtWardNo.TabIndex" type="System.Int32, mscorlib">
     <value>3</value>
@@ -890,10 +890,10 @@
     <value>Segoe UI, 9pt</value>
   </data>
   <data name="label7.Location" type="System.Drawing.Point, System.Drawing">
-    <value>273, 57</value>
+    <value>273, 63</value>
   </data>
   <data name="label7.Size" type="System.Drawing.Size, System.Drawing">
-    <value>57, 15</value>
+    <value>71, 20</value>
   </data>
   <data name="label7.TabIndex" type="System.Int32, mscorlib">
     <value>22</value>
@@ -917,13 +917,13 @@
     <value>Segoe UI, 9pt</value>
   </data>
   <data name="txtMunicipality.Location" type="System.Drawing.Point, System.Drawing">
-    <value>129, 54</value>
+    <value>129, 60</value>
   </data>
   <data name="txtMunicipality.Margin" type="System.Windows.Forms.Padding, System.Windows.Forms">
     <value>3, 4, 3, 4</value>
   </data>
   <data name="txtMunicipality.Size" type="System.Drawing.Size, System.Drawing">
-    <value>132, 23</value>
+    <value>132, 27</value>
   </data>
   <data name="txtMunicipality.TabIndex" type="System.Int32, mscorlib">
     <value>2</value>
@@ -947,10 +947,10 @@
     <value>Segoe UI, 9pt</value>
   </data>
   <data name="label10.Location" type="System.Drawing.Point, System.Drawing">
-    <value>17, 57</value>
+    <value>17, 63</value>
   </data>
   <data name="label10.Size" type="System.Drawing.Size, System.Drawing">
-    <value>76, 15</value>
+    <value>93, 20</value>
   </data>
   <data name="label10.TabIndex" type="System.Int32, mscorlib">
     <value>20</value>
@@ -983,7 +983,7 @@
     <value>3, 4, 3, 4</value>
   </data>
   <data name="txtDistrict.Size" type="System.Drawing.Size, System.Drawing">
-    <value>144, 23</value>
+    <value>117, 27</value>
   </data>
   <data name="txtDistrict.TabIndex" type="System.Int32, mscorlib">
     <value>1</value>
@@ -1010,7 +1010,7 @@
     <value>273, 31</value>
   </data>
   <data name="label9.Size" type="System.Drawing.Size, System.Drawing">
-    <value>47, 15</value>
+    <value>59, 20</value>
   </data>
   <data name="label9.TabIndex" type="System.Int32, mscorlib">
     <value>18</value>
@@ -1040,7 +1040,7 @@
     <value>3, 4, 3, 4</value>
   </data>
   <data name="txtProvince.Size" type="System.Drawing.Size, System.Drawing">
-    <value>132, 23</value>
+    <value>132, 27</value>
   </data>
   <data name="txtProvince.TabIndex" type="System.Int32, mscorlib">
     <value>0</value>
@@ -1067,7 +1067,7 @@
     <value>17, 31</value>
   </data>
   <data name="label8.Size" type="System.Drawing.Size, System.Drawing">
-    <value>56, 15</value>
+    <value>68, 20</value>
   </data>
   <data name="label8.TabIndex" type="System.Int32, mscorlib">
     <value>16</value>
@@ -1091,7 +1091,7 @@
     <value>Segoe UI, 9pt, style=Bold</value>
   </data>
   <data name="groupBox3.Location" type="System.Drawing.Point, System.Drawing">
-    <value>10, 137</value>
+    <value>10, 166</value>
   </data>
   <data name="groupBox3.Margin" type="System.Windows.Forms.Padding, System.Windows.Forms">
     <value>3, 4, 3, 4</value>
@@ -1100,7 +1100,7 @@
     <value>3, 4, 3, 4</value>
   </data>
   <data name="groupBox3.Size" type="System.Drawing.Size, System.Drawing">
-    <value>492, 116</value>
+    <value>465, 134</value>
   </data>
   <data name="groupBox3.TabIndex" type="System.Int32, mscorlib">
     <value>21</value>
@@ -1142,7 +1142,7 @@
     <value>True</value>
   </data>
   <data name="txtProjectNotes.Size" type="System.Drawing.Size, System.Drawing">
-    <value>475, 82</value>
+    <value>448, 75</value>
   </data>
   <data name="txtProjectNotes.TabIndex" type="System.Int32, mscorlib">
     <value>13</value>
@@ -1163,7 +1163,7 @@
     <value>Segoe UI, 9pt, style=Bold</value>
   </data>
   <data name="groupBox4.Location" type="System.Drawing.Point, System.Drawing">
-    <value>13, 441</value>
+    <value>13, 505</value>
   </data>
   <data name="groupBox4.Margin" type="System.Windows.Forms.Padding, System.Windows.Forms">
     <value>3, 4, 3, 4</value>
@@ -1172,7 +1172,7 @@
     <value>3, 4, 3, 4</value>
   </data>
   <data name="groupBox4.Size" type="System.Drawing.Size, System.Drawing">
-    <value>489, 118</value>
+    <value>462, 111</value>
   </data>
   <data name="groupBox4.TabIndex" type="System.Int32, mscorlib">
     <value>23</value>
@@ -1196,7 +1196,7 @@
     <value>True</value>
   </metadata>
   <data name="$this.ClientSize" type="System.Drawing.Size, System.Drawing">
-    <value>514, 607</value>
+    <value>487, 664</value>
   </data>
   <data name="$this.Font" type="System.Drawing.Font, System.Drawing">
     <value>Segoe UI, 9pt</value>

@@ -8,14 +8,14 @@ namespace Land_Readjustment_Tool.Forms
     public partial class frmAddEditRecord : Form
     {
         private bool _ownerFieldsReadOnly = false;
-        private BaselineLandParceRecord _currentRecord = new();
+        private BaselineLandParcelRecord _currentRecord = new();
         private int _recordIndex = -1;
         private readonly Func<string?, string?, int?, bool>? _parcelExists;
         private int? _parcelId;
         private LandRecordsService? _landRecordsService;
-        private List<BaselineLandParceRecord>? _importedRecords;
+        private List<BaselineLandParcelRecord>? _importedRecords;
 
-        public BaselineLandParceRecord Record { get; private set; } = new();
+        public BaselineLandParcelRecord Record { get; private set; } = new();
         public bool IsDeleted { get; private set; } = false;
 
         // Constructor for ADD mode (Import Manager - all fields editable)
@@ -30,7 +30,7 @@ namespace Land_Readjustment_Tool.Forms
         }
 
         // Constructor for EDIT mode (basic - all fields editable, no owner lookup source)
-        public frmAddEditRecord(BaselineLandParceRecord record, int recordIndex, Func<string?, string?, int?, bool>? parcelExists = null)
+        public frmAddEditRecord(BaselineLandParcelRecord record, int recordIndex, Func<string?, string?, int?, bool>? parcelExists = null)
         {
             InitializeComponent();
             _currentRecord = record;
@@ -45,7 +45,7 @@ namespace Land_Readjustment_Tool.Forms
         }
 
         // Constructor for EDIT mode (Import Manager - all fields editable, with imported records for owner lookup)
-        public frmAddEditRecord(BaselineLandParceRecord record, int recordIndex, Func<string?, string?, int?, bool>? parcelExists, List<BaselineLandParceRecord> importedRecords)
+        public frmAddEditRecord(BaselineLandParcelRecord record, int recordIndex, Func<string?, string?, int?, bool>? parcelExists, List<BaselineLandParcelRecord> importedRecords)
         {
             InitializeComponent();
             _currentRecord = record;
@@ -72,7 +72,7 @@ namespace Land_Readjustment_Tool.Forms
         }
 
         // Constructor for EDIT mode (LandParcelRecords - owner fields read-only with lookup)
-        public frmAddEditRecord(BaselineLandParceRecord record, int recordIndex, Func<string?, string?, int?, bool>? parcelExists, bool ownerFieldsReadOnly)
+        public frmAddEditRecord(BaselineLandParcelRecord record, int recordIndex, Func<string?, string?, int?, bool>? parcelExists, bool ownerFieldsReadOnly)
         {
             InitializeComponent();
             _currentRecord = record;
@@ -303,11 +303,11 @@ namespace Land_Readjustment_Tool.Forms
             // Citizenship Information
             txtCitizenshipNumber.Text = _currentRecord.CitizenshipNumber ?? "";
             txtIssueDistrict.Text = _currentRecord.CitizenshipIssuedDistrict ?? "";
-            txtIssueDate.Text = _currentRecord.citizenshipIssuedDate ?? "";
+            txtIssueDate.Text = _currentRecord.CitizenshipIssuedDate ?? "";
 
             // Address & Contact
             txtPermanentAddress.Text = _currentRecord.PermanentAddress ?? "";
-            txtTemporaryAddress.Text = _currentRecord.TempoaryAddress ?? "";
+            txtTemporaryAddress.Text = _currentRecord.TemporaryAddress ?? "";
             txtContactNo.Text = _currentRecord.ContactNumber ?? "";
             txtEmailID.Text = _currentRecord.EmailID ?? "";
 
@@ -329,9 +329,9 @@ namespace Land_Readjustment_Tool.Forms
             txtRemarks.Text = _currentRecord.Remarks ?? "";
         }
 
-        private BaselineLandParceRecord GetRecordFromForm()
+        private BaselineLandParcelRecord GetRecordFromForm()
         {
-            var record = new BaselineLandParceRecord
+            var record = new BaselineLandParcelRecord
             {
                 // Parcel Identification
                 ParcelNo = txtParcelNo.Text.Trim(),
@@ -351,11 +351,11 @@ namespace Land_Readjustment_Tool.Forms
                 // Citizenship Information
                 CitizenshipNumber = txtCitizenshipNumber.Text.Trim(),
                 CitizenshipIssuedDistrict = txtIssueDistrict.Text.Trim(),
-                citizenshipIssuedDate = txtIssueDate.Text.Trim(),
+                CitizenshipIssuedDate = txtIssueDate.Text.Trim(),
 
                 // Address & Contact
                 PermanentAddress = txtPermanentAddress.Text.Trim(),
-                TempoaryAddress = txtTemporaryAddress.Text.Trim(),
+                TemporaryAddress = txtTemporaryAddress.Text.Trim(),
                 ContactNumber = txtContactNo.Text.Trim(),
                 EmailID = txtEmailID.Text.Trim(),
 

@@ -134,7 +134,6 @@ namespace Land_Readjustment_Tool
                 return Name;
             }
         }
-
         // Keeps designer/local fallback working without DI container.
         public frmMain(string? startupFilePath = null)
             : this(
@@ -1277,7 +1276,7 @@ namespace Land_Readjustment_Tool
                 SetOperationProgress(2, "Starting raster import", showProgressForm: false);
 
                 Progress<RasterImportProgressInfo> progress = new(
-                    update => SetOperationProgress(update.Percent, update.Status));
+                    update => SetOperationProgress(update.Percent, update.Status, showProgressForm: false));
 
                 RasterLayerImportResult importResult =
                     await _rasterLayerImportService.ImportAsync(
@@ -1428,7 +1427,7 @@ namespace Land_Readjustment_Tool
                         request);
 
                 Progress<RasterImportProgressInfo> progress = new(
-                    update => SetOperationProgress(update.Percent, update.Status));
+                    update => SetOperationProgress(update.Percent, update.Status, showProgressForm: false));
 
                 RasterLayerImportResult importResult =
                     await _rasterLayerImportService.ImportAsync(

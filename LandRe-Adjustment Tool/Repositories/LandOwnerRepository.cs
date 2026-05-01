@@ -80,7 +80,7 @@ namespace Land_Readjustment_Tool.Repositories
         /// Saves parcels using the parcel-to-owner map from deduplication
         /// </summary>
         public int SaveParcelsWithDeduplication(
-            List<BaselineLandParceRecord> records,
+            List<BaselineLandParcelRecord> records,
             Dictionary<int, int> parcelToOwnerMap)
         {
             int savedCount = 0;
@@ -442,7 +442,7 @@ namespace Land_Readjustment_Tool.Repositories
         /// Extracts unique owners from imported records and saves them
         /// Returns dictionary mapping unique keys to LandOwnerId
         /// </summary>
-        public Dictionary<string, int> ExtractAndSaveUniqueOwners(List<BaselineLandParceRecord> records)
+        public Dictionary<string, int> ExtractAndSaveUniqueOwners(List<BaselineLandParcelRecord> records)
         {
             var ownerMap = new Dictionary<string, int>();
             var uniqueOwners = new Dictionary<string, LandOwner>();
@@ -461,9 +461,9 @@ namespace Land_Readjustment_Tool.Repositories
                         Gender = record.Gender,
                         CitizenshipNumber = record.CitizenshipNumber,
                         CitizenshipIssuedDistrict = record.CitizenshipIssuedDistrict,
-                        CitizenshipIssuedDate = record.citizenshipIssuedDate,
+                        CitizenshipIssuedDate = record.CitizenshipIssuedDate,
                         PermanentAddress = record.PermanentAddress,
-                        TemporaryAddress = record.TempoaryAddress,
+                        TemporaryAddress = record.TemporaryAddress,
                         ContactNumber = record.ContactNumber,
                         EmailID = record.EmailID,
                         CreatedDate = DateTime.Now
@@ -484,7 +484,7 @@ namespace Land_Readjustment_Tool.Repositories
         /// <summary>
         /// Saves parcels with references to their owners
         /// </summary>
-        public int SaveParcels(List<BaselineLandParceRecord> records, Dictionary<string, int> ownerMap)
+        public int SaveParcels(List<BaselineLandParcelRecord> records, Dictionary<string, int> ownerMap)
         {
             int savedCount = 0;
             int skippedCount = 0;
@@ -751,7 +751,7 @@ namespace Land_Readjustment_Tool.Repositories
         /// <summary>
         /// Gets owner key for deduplication
         /// </summary>
-        private string GetOwnerKey(BaselineLandParceRecord record)
+        private string GetOwnerKey(BaselineLandParcelRecord record)
         {
             return $"{record.LandOwnersName?.Trim().ToUpper()}|{record.FatherSpouse?.Trim().ToUpper()}|{record.CitizenshipNumber?.Trim()}";
         }

@@ -6,7 +6,7 @@ namespace Land_Readjustment_Tool.Core.Interfaces
     public interface IImportPersistenceService
     {
         Task<ImportPersistenceResult> PersistImportAsync(
-            IReadOnlyList<BaselineLandParceRecord> records,
+            IReadOnlyList<BaselineLandParcelRecord> records,
             OwnerDeduplicationService.DeduplicationResult? deduplicationResult,
             bool replaceExistingData,
             string sourceFileName,

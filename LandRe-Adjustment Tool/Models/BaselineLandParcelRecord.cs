@@ -5,7 +5,7 @@ namespace Land_Readjustment_Tool.Models
 {
     // Raw / Dirty data model imported from external sources
     [NotMapped]
-    public class BaselineLandParceRecord
+    public class BaselineLandParcelRecord
     {
         /* ===============================
            Parcel Identification
@@ -73,7 +73,7 @@ namespace Land_Readjustment_Tool.Models
 
         [Category("Citizenship")]
         [Description("Citizenship issued date (raw value from source)")]
-        public string? citizenshipIssuedDate { get; set; }
+        public string? CitizenshipIssuedDate { get; set; }
 
         /* ===============================
            Address & Contact
@@ -85,7 +85,7 @@ namespace Land_Readjustment_Tool.Models
 
         [Category("Address")]
         [Description("Temporary address of land owner")]
-        public string? TempoaryAddress { get; set; }
+        public string? TemporaryAddress { get; set; }
 
         [Category("Conatct Information")]
         [Description("Contact number of land owner")]

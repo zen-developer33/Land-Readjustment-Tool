@@ -22,7 +22,7 @@ namespace Land_Readjustment_Tool.Forms
         private DataSet? _excelDataSet;
         private DataTable? _selectedSheet;
         private Dictionary<string, string> _fieldMappings = new();
-        private SortableBindingList<BaselineLandParceRecord> _importedRecords = new();
+        private SortableBindingList<BaselineLandParcelRecord> _importedRecords = new();
         private List<ValidationError> _validationErrors = new();
         private HashSet<int> _deletedRowIndices = new();
         private HashSet<int> _editedRowIndices = new();
@@ -391,7 +391,7 @@ namespace Land_Readjustment_Tool.Forms
             dgvMapping.Columns.Add(sourceColumn);
 
             // Add rows for each model property
-            foreach (var prop in typeof(BaselineLandParceRecord).GetProperties())
+            foreach (var prop in typeof(BaselineLandParcelRecord).GetProperties())
             {
                 int rowIndex = dgvMapping.Rows.Add();
                 dgvMapping.Rows[rowIndex].Cells["TargetField"].Value = prop.Name;
@@ -500,7 +500,7 @@ namespace Land_Readjustment_Tool.Forms
                 { new[] {
                     "issued date", "citizenship date", "issue date", "issueddate",
                     "जारी मिति", "ना.प्र. मिति", "जारी गरेको मिति", "नागरिकता मिति","जारि मिति", "जारी मीति", "जारी मिती"
-                }, "citizenshipIssuedDate" },
+                }, "CitizenshipIssuedDate" },
 
                 // Contact Info
                 { new[] {
@@ -656,13 +656,13 @@ namespace Land_Readjustment_Tool.Forms
         {
             missingFields = new List<string>();
 
-            if (!_fieldMappings.ContainsKey(nameof(BaselineLandParceRecord.ParcelNo)))
+            if (!_fieldMappings.ContainsKey(nameof(BaselineLandParcelRecord.ParcelNo)))
                 missingFields.Add("Parcel No");
 
-            if (!_fieldMappings.ContainsKey(nameof(BaselineLandParceRecord.MapSheetNo)))
+            if (!_fieldMappings.ContainsKey(nameof(BaselineLandParcelRecord.MapSheetNo)))
                 missingFields.Add("Map Sheet No");
 
-            if (!_fieldMappings.ContainsKey(nameof(BaselineLandParceRecord.AreaInSqm)))
+            if (!_fieldMappings.ContainsKey(nameof(BaselineLandParcelRecord.AreaInSqm)))
                 missingFields.Add("Area (sq.m)");
 
             return missingFields.Count == 0;
@@ -749,7 +749,7 @@ namespace Land_Readjustment_Tool.Forms
         {
             dgvRecords.Columns.Clear();
 
-            foreach (var property in typeof(BaselineLandParceRecord).GetProperties())
+            foreach (var property in typeof(BaselineLandParcelRecord).GetProperties())
             {
                 dgvRecords.Columns.Add(new DataGridViewTextBoxColumn
                 {
@@ -1285,7 +1285,7 @@ namespace Land_Readjustment_Tool.Forms
             };
         }
 
-        private OperationResult ValidateDataOperation(List<BaselineLandParceRecord> records, BackgroundWorker worker)
+        private OperationResult ValidateDataOperation(List<BaselineLandParcelRecord> records, BackgroundWorker worker)
         {
             worker.ReportProgress(30);
             var dt = ConvertRecordsToDataTable(records);
@@ -1302,7 +1302,7 @@ namespace Land_Readjustment_Tool.Forms
             };
         }
 
-        private OperationResult SaveToDatabaseOperation(List<BaselineLandParceRecord> records,
+        private OperationResult SaveToDatabaseOperation(List<BaselineLandParcelRecord> records,
             OwnerDeduplicationService.DeduplicationResult? deduplicationResult,
             bool replaceExisting,
             string? sourceFileName,
@@ -1384,10 +1384,10 @@ namespace Land_Readjustment_Tool.Forms
             }
         }
 
-        private DataTable ConvertRecordsToDataTable(List<BaselineLandParceRecord> records)
+        private DataTable ConvertRecordsToDataTable(List<BaselineLandParcelRecord> records)
         {
             var dt = new DataTable();
-            var properties = typeof(BaselineLandParceRecord).GetProperties();
+            var properties = typeof(BaselineLandParcelRecord).GetProperties();
 
             foreach (var prop in properties)
             {
@@ -1477,7 +1477,7 @@ namespace Land_Readjustment_Tool.Forms
         // ==================== DATA TRANSFORMATION HANDLER ====================
         private void HandleDataTransformed(TransformationResult result)
         {
-            _importedRecords = new SortableBindingList<BaselineLandParceRecord>(result.AllOriginalRecords);
+            _importedRecords = new SortableBindingList<BaselineLandParcelRecord>(result.AllOriginalRecords);
 
             // Auto-calculate RAPD and BKD from AreaInSqm, and auto-detect Ownership Type
             PostProcessImportedRecords();
@@ -1976,7 +1976,7 @@ namespace Land_Readjustment_Tool.Forms
         public string? FilePath { get; set; }
         public DataTable? SourceData { get; set; }
         public Dictionary<string, string>? FieldMappings { get; set; }
-        public List<BaselineLandParceRecord>? Records { get; set; }
+        public List<BaselineLandParcelRecord>? Records { get; set; }
         public OwnerDeduplicationService.DeduplicationResult? DeduplicationResult { get; set; }
         public bool ReplaceExistingData { get; set; }
         public string? SourceFileName { get; set; }

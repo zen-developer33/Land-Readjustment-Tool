@@ -115,22 +115,20 @@ namespace Land_Readjustment_Tool.UI.Forms.Project
             tabSettings.Font = new Font("Segoe UI", 9F);
             tabSettings.HotTrack = true;
             tabSettings.Location = new Point(0, 0);
-            tabSettings.Margin = new Padding(3, 2, 3, 2);
             tabSettings.Name = "tabSettings";
             tabSettings.Padding = new Point(8, 4);
             tabSettings.SelectedIndex = 0;
-            tabSettings.Size = new Size(493, 324);
+            tabSettings.Size = new Size(563, 432);
             tabSettings.TabIndex = 0;
             // 
             // tabCoordinates
             // 
             tabCoordinates.Controls.Add(grpCRS);
             tabCoordinates.Controls.Add(grpDatumTransformation);
-            tabCoordinates.Location = new Point(4, 26);
-            tabCoordinates.Margin = new Padding(3, 2, 3, 2);
+            tabCoordinates.Location = new Point(4, 31);
             tabCoordinates.Name = "tabCoordinates";
-            tabCoordinates.Padding = new Padding(7, 6, 7, 6);
-            tabCoordinates.Size = new Size(485, 294);
+            tabCoordinates.Padding = new Padding(8, 8, 8, 8);
+            tabCoordinates.Size = new Size(555, 397);
             tabCoordinates.TabIndex = 0;
             tabCoordinates.Text = "Coordinate System";
             tabCoordinates.UseVisualStyleBackColor = true;
@@ -142,11 +140,9 @@ namespace Land_Readjustment_Tool.UI.Forms.Project
             grpCRS.Controls.Add(btnManageCRS);
             grpCRS.Controls.Add(lblCrsInfo);
             grpCRS.Font = new Font("Segoe UI", 9F, FontStyle.Bold);
-            grpCRS.Location = new Point(7, 6);
-            grpCRS.Margin = new Padding(3, 2, 3, 2);
+            grpCRS.Location = new Point(8, 8);
             grpCRS.Name = "grpCRS";
-            grpCRS.Padding = new Padding(3, 2, 3, 2);
-            grpCRS.Size = new Size(469, 90);
+            grpCRS.Size = new Size(536, 141);
             grpCRS.TabIndex = 0;
             grpCRS.TabStop = false;
             grpCRS.Text = "Coordinate Reference System";
@@ -154,9 +150,9 @@ namespace Land_Readjustment_Tool.UI.Forms.Project
             // lblCRS
             // 
             lblCRS.Font = new Font("Segoe UI", 9F);
-            lblCRS.Location = new Point(10, 20);
+            lblCRS.Location = new Point(11, 27);
             lblCRS.Name = "lblCRS";
-            lblCRS.Size = new Size(70, 15);
+            lblCRS.Size = new Size(80, 20);
             lblCRS.TabIndex = 0;
             lblCRS.Text = "Select CRS:";
             // 
@@ -164,19 +160,17 @@ namespace Land_Readjustment_Tool.UI.Forms.Project
             // 
             cmbCRS.DropDownStyle = ComboBoxStyle.DropDownList;
             cmbCRS.Font = new Font("Segoe UI", 9F);
-            cmbCRS.Location = new Point(10, 36);
-            cmbCRS.Margin = new Padding(3, 2, 3, 2);
+            cmbCRS.Location = new Point(11, 48);
             cmbCRS.Name = "cmbCRS";
-            cmbCRS.Size = new Size(316, 23);
+            cmbCRS.Size = new Size(361, 28);
             cmbCRS.TabIndex = 0;
             cmbCRS.SelectedIndexChanged += cmbCRS_SelectedIndexChanged;
             // 
             // btnManageCRS
             // 
-            btnManageCRS.Location = new Point(331, 34);
-            btnManageCRS.Margin = new Padding(3, 2, 3, 2);
+            btnManageCRS.Location = new Point(378, 45);
             btnManageCRS.Name = "btnManageCRS";
-            btnManageCRS.Size = new Size(96, 25);
+            btnManageCRS.Size = new Size(110, 33);
             btnManageCRS.TabIndex = 1;
             btnManageCRS.Text = "Manage...";
             btnManageCRS.Click += btnManageCRS_Click;
@@ -185,9 +179,9 @@ namespace Land_Readjustment_Tool.UI.Forms.Project
             // 
             lblCrsInfo.Font = new Font("Segoe UI", 8.5F, FontStyle.Italic);
             lblCrsInfo.ForeColor = SystemColors.GrayText;
-            lblCrsInfo.Location = new Point(10, 58);
+            lblCrsInfo.Location = new Point(11, 81);
             lblCrsInfo.Name = "lblCrsInfo";
-            lblCrsInfo.Size = new Size(416, 30);
+            lblCrsInfo.Size = new Size(475, 38);
             lblCrsInfo.TabIndex = 2;
             // 
             // grpDatumTransformation
@@ -197,11 +191,9 @@ namespace Land_Readjustment_Tool.UI.Forms.Project
             grpDatumTransformation.Controls.Add(btnManageDatum);
             grpDatumTransformation.Controls.Add(lblDatumNote);
             grpDatumTransformation.Font = new Font("Segoe UI", 9F, FontStyle.Bold);
-            grpDatumTransformation.Location = new Point(7, 107);
-            grpDatumTransformation.Margin = new Padding(3, 2, 3, 2);
+            grpDatumTransformation.Location = new Point(8, 155);
             grpDatumTransformation.Name = "grpDatumTransformation";
-            grpDatumTransformation.Padding = new Padding(3, 2, 3, 2);
-            grpDatumTransformation.Size = new Size(469, 98);
+            grpDatumTransformation.Size = new Size(536, 119);
             grpDatumTransformation.TabIndex = 1;
             grpDatumTransformation.TabStop = false;
             grpDatumTransformation.Text = "Datum Transformation (MUTM zones only)";
@@ -209,9 +201,9 @@ namespace Land_Readjustment_Tool.UI.Forms.Project
             // lblDatum
             // 
             lblDatum.Font = new Font("Segoe UI", 9F);
-            lblDatum.Location = new Point(10, 20);
+            lblDatum.Location = new Point(11, 27);
             lblDatum.Name = "lblDatum";
-            lblDatum.Size = new Size(96, 15);
+            lblDatum.Size = new Size(110, 20);
             lblDatum.TabIndex = 0;
             lblDatum.Text = "Transformation:";
             // 
@@ -219,18 +211,16 @@ namespace Land_Readjustment_Tool.UI.Forms.Project
             // 
             cmbDatumTransformation.DropDownStyle = ComboBoxStyle.DropDownList;
             cmbDatumTransformation.Font = new Font("Segoe UI", 9F);
-            cmbDatumTransformation.Location = new Point(10, 36);
-            cmbDatumTransformation.Margin = new Padding(3, 2, 3, 2);
+            cmbDatumTransformation.Location = new Point(11, 48);
             cmbDatumTransformation.Name = "cmbDatumTransformation";
-            cmbDatumTransformation.Size = new Size(316, 23);
+            cmbDatumTransformation.Size = new Size(361, 28);
             cmbDatumTransformation.TabIndex = 2;
             // 
             // btnManageDatum
             // 
-            btnManageDatum.Location = new Point(331, 34);
-            btnManageDatum.Margin = new Padding(3, 2, 3, 2);
+            btnManageDatum.Location = new Point(378, 45);
             btnManageDatum.Name = "btnManageDatum";
-            btnManageDatum.Size = new Size(96, 25);
+            btnManageDatum.Size = new Size(110, 33);
             btnManageDatum.TabIndex = 3;
             btnManageDatum.Text = "Manage...";
             btnManageDatum.Click += btnManageDatum_Click;
@@ -239,20 +229,19 @@ namespace Land_Readjustment_Tool.UI.Forms.Project
             // 
             lblDatumNote.Font = new Font("Segoe UI", 8.5F, FontStyle.Italic);
             lblDatumNote.ForeColor = SystemColors.GrayText;
-            lblDatumNote.Location = new Point(10, 69);
+            lblDatumNote.Location = new Point(11, 92);
             lblDatumNote.Name = "lblDatumNote";
-            lblDatumNote.Size = new Size(416, 21);
+            lblDatumNote.Size = new Size(475, 28);
             lblDatumNote.TabIndex = 4;
             lblDatumNote.Text = "Required for converting MUTM coordinates to/from WGS84.";
             // 
             // tabArea
             // 
             tabArea.Controls.Add(grpAreaUnit);
-            tabArea.Location = new Point(4, 26);
-            tabArea.Margin = new Padding(3, 2, 3, 2);
+            tabArea.Location = new Point(4, 31);
             tabArea.Name = "tabArea";
-            tabArea.Padding = new Padding(7, 6, 7, 6);
-            tabArea.Size = new Size(485, 294);
+            tabArea.Padding = new Padding(8, 8, 8, 8);
+            tabArea.Size = new Size(555, 397);
             tabArea.TabIndex = 1;
             tabArea.Text = "Area Units";
             tabArea.UseVisualStyleBackColor = true;
@@ -263,11 +252,9 @@ namespace Land_Readjustment_Tool.UI.Forms.Project
             grpAreaUnit.Controls.Add(cmbTraditionalUnit);
             grpAreaUnit.Controls.Add(lblAreaNote);
             grpAreaUnit.Font = new Font("Segoe UI", 9F, FontStyle.Bold);
-            grpAreaUnit.Location = new Point(7, 6);
-            grpAreaUnit.Margin = new Padding(3, 2, 3, 2);
+            grpAreaUnit.Location = new Point(8, 8);
             grpAreaUnit.Name = "grpAreaUnit";
-            grpAreaUnit.Padding = new Padding(3, 2, 3, 2);
-            grpAreaUnit.Size = new Size(469, 93);
+            grpAreaUnit.Size = new Size(536, 136);
             grpAreaUnit.TabIndex = 0;
             grpAreaUnit.TabStop = false;
             grpAreaUnit.Text = "Traditional Area Display Unit";
@@ -275,9 +262,9 @@ namespace Land_Readjustment_Tool.UI.Forms.Project
             // lblTraditionalUnit
             // 
             lblTraditionalUnit.Font = new Font("Segoe UI", 9F);
-            lblTraditionalUnit.Location = new Point(10, 20);
+            lblTraditionalUnit.Location = new Point(11, 27);
             lblTraditionalUnit.Name = "lblTraditionalUnit";
-            lblTraditionalUnit.Size = new Size(245, 15);
+            lblTraditionalUnit.Size = new Size(280, 20);
             lblTraditionalUnit.TabIndex = 0;
             lblTraditionalUnit.Text = "Display unit for reports and documents:";
             // 
@@ -286,19 +273,18 @@ namespace Land_Readjustment_Tool.UI.Forms.Project
             cmbTraditionalUnit.DropDownStyle = ComboBoxStyle.DropDownList;
             cmbTraditionalUnit.Font = new Font("Segoe UI", 9F);
             cmbTraditionalUnit.Items.AddRange(new object[] { "RAPD — Ropani-Aana-Paisa-Daam (Hilly)", "BKD  — Bigha-Kattha-Dhur (Terai)" });
-            cmbTraditionalUnit.Location = new Point(10, 39);
-            cmbTraditionalUnit.Margin = new Padding(3, 2, 3, 2);
+            cmbTraditionalUnit.Location = new Point(11, 52);
             cmbTraditionalUnit.Name = "cmbTraditionalUnit";
-            cmbTraditionalUnit.Size = new Size(316, 23);
+            cmbTraditionalUnit.Size = new Size(361, 28);
             cmbTraditionalUnit.TabIndex = 0;
             // 
             // lblAreaNote
             // 
             lblAreaNote.Font = new Font("Segoe UI", 8.5F, FontStyle.Italic);
             lblAreaNote.ForeColor = SystemColors.GrayText;
-            lblAreaNote.Location = new Point(10, 65);
+            lblAreaNote.Location = new Point(11, 90);
             lblAreaNote.Name = "lblAreaNote";
-            lblAreaNote.Size = new Size(416, 22);
+            lblAreaNote.Size = new Size(475, 29);
             lblAreaNote.TabIndex = 1;
             lblAreaNote.Text = "All internal calculations always use Square Meters.";
             // 
@@ -306,11 +292,10 @@ namespace Land_Readjustment_Tool.UI.Forms.Project
             // 
             tabMapCanvas.Controls.Add(grpOther);
             tabMapCanvas.Controls.Add(grpCanvasTheme);
-            tabMapCanvas.Location = new Point(4, 26);
-            tabMapCanvas.Margin = new Padding(3, 2, 3, 2);
+            tabMapCanvas.Location = new Point(4, 31);
             tabMapCanvas.Name = "tabMapCanvas";
-            tabMapCanvas.Padding = new Padding(7, 6, 7, 6);
-            tabMapCanvas.Size = new Size(485, 294);
+            tabMapCanvas.Padding = new Padding(8, 8, 8, 8);
+            tabMapCanvas.Size = new Size(555, 397);
             tabMapCanvas.TabIndex = 2;
             tabMapCanvas.Text = "Map Canvas";
             tabMapCanvas.UseVisualStyleBackColor = true;
@@ -324,11 +309,9 @@ namespace Land_Readjustment_Tool.UI.Forms.Project
             grpOther.Controls.Add(chkSnapEnabled);
             grpOther.Controls.Add(lblSnapUnit);
             grpOther.Font = new Font("Segoe UI", 9F, FontStyle.Bold, GraphicsUnit.Point, 0);
-            grpOther.Location = new Point(7, 142);
-            grpOther.Margin = new Padding(3, 2, 3, 2);
+            grpOther.Location = new Point(8, 189);
             grpOther.Name = "grpOther";
-            grpOther.Padding = new Padding(3, 2, 3, 2);
-            grpOther.Size = new Size(469, 92);
+            grpOther.Size = new Size(536, 123);
             grpOther.TabIndex = 9;
             grpOther.TabStop = false;
             grpOther.Text = "Other";
@@ -336,51 +319,47 @@ namespace Land_Readjustment_Tool.UI.Forms.Project
             // chkOriginAxisMarkerVisible
             // 
             chkOriginAxisMarkerVisible.Font = new Font("Segoe UI", 9F);
-            chkOriginAxisMarkerVisible.Location = new Point(9, 41);
-            chkOriginAxisMarkerVisible.Margin = new Padding(3, 2, 3, 2);
+            chkOriginAxisMarkerVisible.Location = new Point(10, 55);
             chkOriginAxisMarkerVisible.Name = "chkOriginAxisMarkerVisible";
-            chkOriginAxisMarkerVisible.Size = new Size(131, 20);
+            chkOriginAxisMarkerVisible.Size = new Size(150, 27);
             chkOriginAxisMarkerVisible.TabIndex = 9;
             chkOriginAxisMarkerVisible.Text = "Show Origin/Axis Marker";
             // 
             // nudSnapTolerance
             // 
             nudSnapTolerance.DecimalPlaces = 1;
-            nudSnapTolerance.Location = new Point(242, 62);
-            nudSnapTolerance.Margin = new Padding(3, 2, 3, 2);
+            nudSnapTolerance.Location = new Point(277, 83);
             nudSnapTolerance.Maximum = new decimal(new int[] { 50, 0, 0, 0 });
             nudSnapTolerance.Minimum = new decimal(new int[] { 1, 0, 0, 0 });
             nudSnapTolerance.Name = "nudSnapTolerance";
-            nudSnapTolerance.Size = new Size(61, 23);
+            nudSnapTolerance.Size = new Size(70, 27);
             nudSnapTolerance.TabIndex = 5;
             nudSnapTolerance.Value = new decimal(new int[] { 1, 0, 0, 0 });
             // 
             // lblSnapTolerance
             // 
             lblSnapTolerance.Font = new Font("Segoe UI", 9F);
-            lblSnapTolerance.Location = new Point(125, 64);
+            lblSnapTolerance.Location = new Point(143, 85);
             lblSnapTolerance.Name = "lblSnapTolerance";
-            lblSnapTolerance.Size = new Size(112, 16);
+            lblSnapTolerance.Size = new Size(128, 21);
             lblSnapTolerance.TabIndex = 7;
             lblSnapTolerance.Text = "Snap Tolerance:";
             // 
             // chkGridVisible
             // 
             chkGridVisible.Font = new Font("Segoe UI", 9F);
-            chkGridVisible.Location = new Point(9, 20);
-            chkGridVisible.Margin = new Padding(3, 2, 3, 2);
+            chkGridVisible.Location = new Point(10, 27);
             chkGridVisible.Name = "chkGridVisible";
-            chkGridVisible.Size = new Size(131, 20);
+            chkGridVisible.Size = new Size(150, 27);
             chkGridVisible.TabIndex = 3;
             chkGridVisible.Text = "Show Grid Lines";
             // 
             // chkSnapEnabled
             // 
             chkSnapEnabled.Font = new Font("Segoe UI", 9F);
-            chkSnapEnabled.Location = new Point(9, 63);
-            chkSnapEnabled.Margin = new Padding(3, 2, 3, 2);
+            chkSnapEnabled.Location = new Point(10, 84);
             chkSnapEnabled.Name = "chkSnapEnabled";
-            chkSnapEnabled.Size = new Size(131, 20);
+            chkSnapEnabled.Size = new Size(150, 27);
             chkSnapEnabled.TabIndex = 4;
             chkSnapEnabled.Text = "Enable Snap";
             // 
@@ -389,9 +368,9 @@ namespace Land_Readjustment_Tool.UI.Forms.Project
             lblSnapUnit.AutoSize = true;
             lblSnapUnit.Font = new Font("Segoe UI", 9F);
             lblSnapUnit.ForeColor = SystemColors.GrayText;
-            lblSnapUnit.Location = new Point(309, 64);
+            lblSnapUnit.Location = new Point(353, 85);
             lblSnapUnit.Name = "lblSnapUnit";
-            lblSnapUnit.Size = new Size(37, 15);
+            lblSnapUnit.Size = new Size(47, 20);
             lblSnapUnit.TabIndex = 8;
             lblSnapUnit.Text = "pixels";
             // 
@@ -408,11 +387,9 @@ namespace Land_Readjustment_Tool.UI.Forms.Project
             grpCanvasTheme.Controls.Add(btnPickGridColor);
             grpCanvasTheme.Controls.Add(lblGridColorHex);
             grpCanvasTheme.Font = new Font("Segoe UI", 9F, FontStyle.Bold);
-            grpCanvasTheme.Location = new Point(7, 6);
-            grpCanvasTheme.Margin = new Padding(3, 2, 3, 2);
+            grpCanvasTheme.Location = new Point(8, 8);
             grpCanvasTheme.Name = "grpCanvasTheme";
-            grpCanvasTheme.Padding = new Padding(3, 2, 3, 2);
-            grpCanvasTheme.Size = new Size(469, 132);
+            grpCanvasTheme.Size = new Size(536, 176);
             grpCanvasTheme.TabIndex = 0;
             grpCanvasTheme.TabStop = false;
             grpCanvasTheme.Text = "Canvas Theme";
@@ -421,9 +398,9 @@ namespace Land_Readjustment_Tool.UI.Forms.Project
             // lblCanvasTheme
             // 
             lblCanvasTheme.Font = new Font("Segoe UI", 9F);
-            lblCanvasTheme.Location = new Point(10, 20);
+            lblCanvasTheme.Location = new Point(11, 27);
             lblCanvasTheme.Name = "lblCanvasTheme";
-            lblCanvasTheme.Size = new Size(96, 15);
+            lblCanvasTheme.Size = new Size(110, 20);
             lblCanvasTheme.TabIndex = 0;
             lblCanvasTheme.Text = "Theme Preset:";
             // 
@@ -432,19 +409,18 @@ namespace Land_Readjustment_Tool.UI.Forms.Project
             cmbCanvasTheme.DropDownStyle = ComboBoxStyle.DropDownList;
             cmbCanvasTheme.Font = new Font("Segoe UI", 9F);
             cmbCanvasTheme.Items.AddRange(new object[] { "Light", "Dark", "Custom" });
-            cmbCanvasTheme.Location = new Point(110, 18);
-            cmbCanvasTheme.Margin = new Padding(3, 2, 3, 2);
+            cmbCanvasTheme.Location = new Point(126, 24);
             cmbCanvasTheme.Name = "cmbCanvasTheme";
-            cmbCanvasTheme.Size = new Size(127, 23);
+            cmbCanvasTheme.Size = new Size(145, 28);
             cmbCanvasTheme.TabIndex = 0;
             cmbCanvasTheme.SelectedIndexChanged += cmbCanvasTheme_SelectedIndexChanged;
             // 
             // lblBgColor
             // 
             lblBgColor.Font = new Font("Segoe UI", 9F);
-            lblBgColor.Location = new Point(10, 41);
+            lblBgColor.Location = new Point(11, 55);
             lblBgColor.Name = "lblBgColor";
-            lblBgColor.Size = new Size(114, 15);
+            lblBgColor.Size = new Size(130, 20);
             lblBgColor.TabIndex = 1;
             lblBgColor.Text = "Background Color:";
             // 
@@ -453,18 +429,16 @@ namespace Land_Readjustment_Tool.UI.Forms.Project
             pnlBgColor.BackColor = Color.FromArgb(30, 41, 51);
             pnlBgColor.BorderStyle = BorderStyle.FixedSingle;
             pnlBgColor.Cursor = Cursors.Hand;
-            pnlBgColor.Location = new Point(21, 61);
-            pnlBgColor.Margin = new Padding(3, 2, 3, 2);
+            pnlBgColor.Location = new Point(24, 81);
             pnlBgColor.Name = "pnlBgColor";
-            pnlBgColor.Size = new Size(30, 20);
+            pnlBgColor.Size = new Size(34, 26);
             pnlBgColor.TabIndex = 2;
             // 
             // btnPickColor
             // 
-            btnPickColor.Location = new Point(54, 57);
-            btnPickColor.Margin = new Padding(3, 2, 3, 2);
+            btnPickColor.Location = new Point(62, 76);
             btnPickColor.Name = "btnPickColor";
-            btnPickColor.Size = new Size(70, 27);
+            btnPickColor.Size = new Size(80, 36);
             btnPickColor.TabIndex = 1;
             btnPickColor.Text = "Choose...";
             btnPickColor.Click += btnPickColor_Click;
@@ -474,17 +448,17 @@ namespace Land_Readjustment_Tool.UI.Forms.Project
             lblBgColorHex.AutoSize = true;
             lblBgColorHex.Font = new Font("Consolas", 9F);
             lblBgColorHex.ForeColor = SystemColors.GrayText;
-            lblBgColorHex.Location = new Point(133, 61);
+            lblBgColorHex.Location = new Point(152, 81);
             lblBgColorHex.Name = "lblBgColorHex";
-            lblBgColorHex.Size = new Size(0, 14);
+            lblBgColorHex.Size = new Size(0, 18);
             lblBgColorHex.TabIndex = 3;
             // 
             // lblGridColor
             // 
             lblGridColor.Font = new Font("Segoe UI", 9F);
-            lblGridColor.Location = new Point(9, 86);
+            lblGridColor.Location = new Point(10, 115);
             lblGridColor.Name = "lblGridColor";
-            lblGridColor.Size = new Size(114, 15);
+            lblGridColor.Size = new Size(130, 20);
             lblGridColor.TabIndex = 4;
             lblGridColor.Text = "Grid Color:";
             // 
@@ -493,18 +467,16 @@ namespace Land_Readjustment_Tool.UI.Forms.Project
             pnlGridColor.BackColor = Color.FromArgb(74, 85, 98);
             pnlGridColor.BorderStyle = BorderStyle.FixedSingle;
             pnlGridColor.Cursor = Cursors.Hand;
-            pnlGridColor.Location = new Point(21, 105);
-            pnlGridColor.Margin = new Padding(3, 2, 3, 2);
+            pnlGridColor.Location = new Point(24, 140);
             pnlGridColor.Name = "pnlGridColor";
-            pnlGridColor.Size = new Size(30, 20);
+            pnlGridColor.Size = new Size(34, 26);
             pnlGridColor.TabIndex = 5;
             // 
             // btnPickGridColor
             // 
-            btnPickGridColor.Location = new Point(54, 101);
-            btnPickGridColor.Margin = new Padding(3, 2, 3, 2);
+            btnPickGridColor.Location = new Point(62, 135);
             btnPickGridColor.Name = "btnPickGridColor";
-            btnPickGridColor.Size = new Size(70, 27);
+            btnPickGridColor.Size = new Size(80, 36);
             btnPickGridColor.TabIndex = 2;
             btnPickGridColor.Text = "Choose...";
             btnPickGridColor.Click += btnPickGridColor_Click;
@@ -514,20 +486,19 @@ namespace Land_Readjustment_Tool.UI.Forms.Project
             lblGridColorHex.AutoSize = true;
             lblGridColorHex.Font = new Font("Consolas", 9F);
             lblGridColorHex.ForeColor = SystemColors.GrayText;
-            lblGridColorHex.Location = new Point(131, 105);
+            lblGridColorHex.Location = new Point(150, 140);
             lblGridColorHex.Name = "lblGridColorHex";
-            lblGridColorHex.Size = new Size(0, 14);
+            lblGridColorHex.Size = new Size(0, 18);
             lblGridColorHex.TabIndex = 6;
             // 
             // tabParcel
             // 
             tabParcel.Controls.Add(grpParcelNum);
             tabParcel.Controls.Add(grpReplotRules);
-            tabParcel.Location = new Point(4, 26);
-            tabParcel.Margin = new Padding(3, 2, 3, 2);
+            tabParcel.Location = new Point(4, 31);
             tabParcel.Name = "tabParcel";
-            tabParcel.Padding = new Padding(7, 6, 7, 6);
-            tabParcel.Size = new Size(485, 294);
+            tabParcel.Padding = new Padding(8, 8, 8, 8);
+            tabParcel.Size = new Size(555, 397);
             tabParcel.TabIndex = 3;
             tabParcel.Text = "Parcels";
             tabParcel.UseVisualStyleBackColor = true;
@@ -541,11 +512,9 @@ namespace Land_Readjustment_Tool.UI.Forms.Project
             grpParcelNum.Controls.Add(lblPadding);
             grpParcelNum.Controls.Add(nudPadding);
             grpParcelNum.Font = new Font("Segoe UI", 9F, FontStyle.Bold);
-            grpParcelNum.Location = new Point(7, 6);
-            grpParcelNum.Margin = new Padding(3, 2, 3, 2);
+            grpParcelNum.Location = new Point(8, 8);
             grpParcelNum.Name = "grpParcelNum";
-            grpParcelNum.Padding = new Padding(3, 2, 3, 2);
-            grpParcelNum.Size = new Size(439, 111);
+            grpParcelNum.Size = new Size(502, 148);
             grpParcelNum.TabIndex = 0;
             grpParcelNum.TabStop = false;
             grpParcelNum.Text = "Parcel Numbering";
@@ -553,9 +522,9 @@ namespace Land_Readjustment_Tool.UI.Forms.Project
             // lblParcelFormat
             // 
             lblParcelFormat.Font = new Font("Segoe UI", 9F);
-            lblParcelFormat.Location = new Point(10, 20);
+            lblParcelFormat.Location = new Point(11, 27);
             lblParcelFormat.Name = "lblParcelFormat";
-            lblParcelFormat.Size = new Size(70, 15);
+            lblParcelFormat.Size = new Size(80, 20);
             lblParcelFormat.TabIndex = 0;
             lblParcelFormat.Text = "Format:";
             // 
@@ -564,48 +533,45 @@ namespace Land_Readjustment_Tool.UI.Forms.Project
             cmbParcelFormat.DropDownStyle = ComboBoxStyle.DropDownList;
             cmbParcelFormat.Font = new Font("Segoe UI", 9F);
             cmbParcelFormat.Items.AddRange(new object[] { "Sequential", "BlockBased", "Custom" });
-            cmbParcelFormat.Location = new Point(88, 18);
-            cmbParcelFormat.Margin = new Padding(3, 2, 3, 2);
+            cmbParcelFormat.Location = new Point(101, 24);
             cmbParcelFormat.Name = "cmbParcelFormat";
-            cmbParcelFormat.Size = new Size(140, 23);
+            cmbParcelFormat.Size = new Size(159, 28);
             cmbParcelFormat.TabIndex = 0;
             // 
             // lblParcelPrefix
             // 
             lblParcelPrefix.Font = new Font("Segoe UI", 9F);
-            lblParcelPrefix.Location = new Point(10, 46);
+            lblParcelPrefix.Location = new Point(11, 61);
             lblParcelPrefix.Name = "lblParcelPrefix";
-            lblParcelPrefix.Size = new Size(70, 15);
+            lblParcelPrefix.Size = new Size(80, 20);
             lblParcelPrefix.TabIndex = 1;
             lblParcelPrefix.Text = "Prefix:";
             // 
             // txtParcelPrefix
             // 
             txtParcelPrefix.Font = new Font("Segoe UI", 9F);
-            txtParcelPrefix.Location = new Point(88, 45);
-            txtParcelPrefix.Margin = new Padding(3, 2, 3, 2);
+            txtParcelPrefix.Location = new Point(101, 60);
             txtParcelPrefix.Name = "txtParcelPrefix";
             txtParcelPrefix.PlaceholderText = "e.g. RP-";
-            txtParcelPrefix.Size = new Size(106, 23);
+            txtParcelPrefix.Size = new Size(121, 27);
             txtParcelPrefix.TabIndex = 1;
             // 
             // lblPadding
             // 
             lblPadding.Font = new Font("Segoe UI", 9F);
-            lblPadding.Location = new Point(10, 75);
+            lblPadding.Location = new Point(11, 100);
             lblPadding.Name = "lblPadding";
-            lblPadding.Size = new Size(88, 15);
+            lblPadding.Size = new Size(101, 20);
             lblPadding.TabIndex = 2;
             lblPadding.Text = "Digit Padding:";
             // 
             // nudPadding
             // 
-            nudPadding.Location = new Point(102, 74);
-            nudPadding.Margin = new Padding(3, 2, 3, 2);
+            nudPadding.Location = new Point(117, 99);
             nudPadding.Maximum = new decimal(new int[] { 6, 0, 0, 0 });
             nudPadding.Minimum = new decimal(new int[] { 1, 0, 0, 0 });
             nudPadding.Name = "nudPadding";
-            nudPadding.Size = new Size(52, 23);
+            nudPadding.Size = new Size(59, 27);
             nudPadding.TabIndex = 2;
             nudPadding.Value = new decimal(new int[] { 1, 0, 0, 0 });
             // 
@@ -615,11 +581,9 @@ namespace Land_Readjustment_Tool.UI.Forms.Project
             grpReplotRules.Controls.Add(nudMinPlot);
             grpReplotRules.Controls.Add(lblSqm);
             grpReplotRules.Font = new Font("Segoe UI", 9F, FontStyle.Bold);
-            grpReplotRules.Location = new Point(7, 123);
-            grpReplotRules.Margin = new Padding(3, 2, 3, 2);
+            grpReplotRules.Location = new Point(8, 164);
             grpReplotRules.Name = "grpReplotRules";
-            grpReplotRules.Padding = new Padding(3, 2, 3, 2);
-            grpReplotRules.Size = new Size(439, 48);
+            grpReplotRules.Size = new Size(502, 64);
             grpReplotRules.TabIndex = 1;
             grpReplotRules.TabStop = false;
             grpReplotRules.Text = "Replotting Rules";
@@ -627,21 +591,20 @@ namespace Land_Readjustment_Tool.UI.Forms.Project
             // lblMinPlot
             // 
             lblMinPlot.Font = new Font("Segoe UI", 9F);
-            lblMinPlot.Location = new Point(10, 20);
+            lblMinPlot.Location = new Point(11, 27);
             lblMinPlot.Name = "lblMinPlot";
-            lblMinPlot.Size = new Size(114, 15);
+            lblMinPlot.Size = new Size(130, 20);
             lblMinPlot.TabIndex = 0;
             lblMinPlot.Text = "Minimum Plot Area:";
             // 
             // nudMinPlot
             // 
             nudMinPlot.DecimalPlaces = 2;
-            nudMinPlot.Location = new Point(128, 18);
-            nudMinPlot.Margin = new Padding(3, 2, 3, 2);
+            nudMinPlot.Location = new Point(146, 24);
             nudMinPlot.Maximum = new decimal(new int[] { 100000, 0, 0, 0 });
             nudMinPlot.Minimum = new decimal(new int[] { 1, 0, 0, 0 });
             nudMinPlot.Name = "nudMinPlot";
-            nudMinPlot.Size = new Size(79, 23);
+            nudMinPlot.Size = new Size(90, 27);
             nudMinPlot.TabIndex = 3;
             nudMinPlot.Value = new decimal(new int[] { 1, 0, 0, 0 });
             // 
@@ -650,20 +613,19 @@ namespace Land_Readjustment_Tool.UI.Forms.Project
             lblSqm.AutoSize = true;
             lblSqm.Font = new Font("Segoe UI", 9F);
             lblSqm.ForeColor = SystemColors.GrayText;
-            lblSqm.Location = new Point(212, 20);
+            lblSqm.Location = new Point(242, 27);
             lblSqm.Name = "lblSqm";
-            lblSqm.Size = new Size(34, 15);
+            lblSqm.Size = new Size(42, 20);
             lblSqm.TabIndex = 4;
             lblSqm.Text = "Sq.m";
             // 
             // tabDocument
             // 
             tabDocument.Controls.Add(grpDocument);
-            tabDocument.Location = new Point(4, 26);
-            tabDocument.Margin = new Padding(3, 2, 3, 2);
+            tabDocument.Location = new Point(4, 31);
             tabDocument.Name = "tabDocument";
-            tabDocument.Padding = new Padding(7, 6, 7, 6);
-            tabDocument.Size = new Size(485, 294);
+            tabDocument.Padding = new Padding(8, 8, 8, 8);
+            tabDocument.Size = new Size(555, 397);
             tabDocument.TabIndex = 4;
             tabDocument.Text = "Documents";
             tabDocument.UseVisualStyleBackColor = true;
@@ -675,11 +637,9 @@ namespace Land_Readjustment_Tool.UI.Forms.Project
             grpDocument.Controls.Add(lblDateFormat);
             grpDocument.Controls.Add(cmbDateFormat);
             grpDocument.Font = new Font("Segoe UI", 9F, FontStyle.Bold);
-            grpDocument.Location = new Point(7, 6);
-            grpDocument.Margin = new Padding(3, 2, 3, 2);
+            grpDocument.Location = new Point(8, 8);
             grpDocument.Name = "grpDocument";
-            grpDocument.Padding = new Padding(3, 2, 3, 2);
-            grpDocument.Size = new Size(439, 98);
+            grpDocument.Size = new Size(502, 131);
             grpDocument.TabIndex = 0;
             grpDocument.TabStop = false;
             grpDocument.Text = "Document Output";
@@ -687,9 +647,9 @@ namespace Land_Readjustment_Tool.UI.Forms.Project
             // lblLanguage
             // 
             lblLanguage.Font = new Font("Segoe UI", 9F);
-            lblLanguage.Location = new Point(10, 20);
+            lblLanguage.Location = new Point(11, 27);
             lblLanguage.Name = "lblLanguage";
-            lblLanguage.Size = new Size(70, 15);
+            lblLanguage.Size = new Size(80, 20);
             lblLanguage.TabIndex = 0;
             lblLanguage.Text = "Language:";
             // 
@@ -698,18 +658,17 @@ namespace Land_Readjustment_Tool.UI.Forms.Project
             cmbLanguage.DropDownStyle = ComboBoxStyle.DropDownList;
             cmbLanguage.Font = new Font("Segoe UI", 9F);
             cmbLanguage.Items.AddRange(new object[] { "English", "Nepali", "Both" });
-            cmbLanguage.Location = new Point(88, 18);
-            cmbLanguage.Margin = new Padding(3, 2, 3, 2);
+            cmbLanguage.Location = new Point(101, 24);
             cmbLanguage.Name = "cmbLanguage";
-            cmbLanguage.Size = new Size(158, 23);
+            cmbLanguage.Size = new Size(180, 28);
             cmbLanguage.TabIndex = 0;
             // 
             // lblDateFormat
             // 
             lblDateFormat.Font = new Font("Segoe UI", 9F);
-            lblDateFormat.Location = new Point(10, 48);
+            lblDateFormat.Location = new Point(11, 64);
             lblDateFormat.Name = "lblDateFormat";
-            lblDateFormat.Size = new Size(70, 15);
+            lblDateFormat.Size = new Size(80, 20);
             lblDateFormat.TabIndex = 1;
             lblDateFormat.Text = "Date Format:";
             // 
@@ -718,20 +677,18 @@ namespace Land_Readjustment_Tool.UI.Forms.Project
             cmbDateFormat.DropDownStyle = ComboBoxStyle.DropDownList;
             cmbDateFormat.Font = new Font("Segoe UI", 9F);
             cmbDateFormat.Items.AddRange(new object[] { "AD", "BS", "Both" });
-            cmbDateFormat.Location = new Point(88, 46);
-            cmbDateFormat.Margin = new Padding(3, 2, 3, 2);
+            cmbDateFormat.Location = new Point(101, 61);
             cmbDateFormat.Name = "cmbDateFormat";
-            cmbDateFormat.Size = new Size(158, 23);
+            cmbDateFormat.Size = new Size(180, 28);
             cmbDateFormat.TabIndex = 1;
             // 
             // tabPrint
             // 
             tabPrint.Controls.Add(grpPrint);
-            tabPrint.Location = new Point(4, 26);
-            tabPrint.Margin = new Padding(3, 2, 3, 2);
+            tabPrint.Location = new Point(4, 31);
             tabPrint.Name = "tabPrint";
-            tabPrint.Padding = new Padding(7, 6, 7, 6);
-            tabPrint.Size = new Size(485, 294);
+            tabPrint.Padding = new Padding(8, 8, 8, 8);
+            tabPrint.Size = new Size(555, 397);
             tabPrint.TabIndex = 5;
             tabPrint.Text = "Print";
             tabPrint.UseVisualStyleBackColor = true;
@@ -744,11 +701,9 @@ namespace Land_Readjustment_Tool.UI.Forms.Project
             grpPrint.Controls.Add(lblScalePrefix);
             grpPrint.Controls.Add(nudPrintScale);
             grpPrint.Font = new Font("Segoe UI", 9F, FontStyle.Bold);
-            grpPrint.Location = new Point(7, 6);
-            grpPrint.Margin = new Padding(3, 2, 3, 2);
+            grpPrint.Location = new Point(8, 8);
             grpPrint.Name = "grpPrint";
-            grpPrint.Padding = new Padding(3, 2, 3, 2);
-            grpPrint.Size = new Size(439, 98);
+            grpPrint.Size = new Size(502, 131);
             grpPrint.TabIndex = 0;
             grpPrint.TabStop = false;
             grpPrint.Text = "Print & Export";
@@ -756,9 +711,9 @@ namespace Land_Readjustment_Tool.UI.Forms.Project
             // lblPaperSize
             // 
             lblPaperSize.Font = new Font("Segoe UI", 9F);
-            lblPaperSize.Location = new Point(10, 20);
+            lblPaperSize.Location = new Point(11, 27);
             lblPaperSize.Name = "lblPaperSize";
-            lblPaperSize.Size = new Size(70, 15);
+            lblPaperSize.Size = new Size(80, 20);
             lblPaperSize.TabIndex = 0;
             lblPaperSize.Text = "Paper Size:";
             // 
@@ -767,18 +722,17 @@ namespace Land_Readjustment_Tool.UI.Forms.Project
             cmbPaperSize.DropDownStyle = ComboBoxStyle.DropDownList;
             cmbPaperSize.Font = new Font("Segoe UI", 9F);
             cmbPaperSize.Items.AddRange(new object[] { "A4", "A3", "A2", "A1" });
-            cmbPaperSize.Location = new Point(88, 18);
-            cmbPaperSize.Margin = new Padding(3, 2, 3, 2);
+            cmbPaperSize.Location = new Point(101, 24);
             cmbPaperSize.Name = "cmbPaperSize";
-            cmbPaperSize.Size = new Size(106, 23);
+            cmbPaperSize.Size = new Size(121, 28);
             cmbPaperSize.TabIndex = 0;
             // 
             // lblScale
             // 
             lblScale.Font = new Font("Segoe UI", 9F);
-            lblScale.Location = new Point(10, 48);
+            lblScale.Location = new Point(11, 64);
             lblScale.Name = "lblScale";
-            lblScale.Size = new Size(70, 15);
+            lblScale.Size = new Size(80, 20);
             lblScale.TabIndex = 1;
             lblScale.Text = "Print Scale:";
             // 
@@ -786,21 +740,20 @@ namespace Land_Readjustment_Tool.UI.Forms.Project
             // 
             lblScalePrefix.AutoSize = true;
             lblScalePrefix.Font = new Font("Segoe UI", 9F);
-            lblScalePrefix.Location = new Point(88, 48);
+            lblScalePrefix.Location = new Point(101, 64);
             lblScalePrefix.Name = "lblScalePrefix";
-            lblScalePrefix.Size = new Size(19, 15);
+            lblScalePrefix.Size = new Size(24, 20);
             lblScalePrefix.TabIndex = 2;
             lblScalePrefix.Text = "1 :";
             // 
             // nudPrintScale
             // 
             nudPrintScale.Increment = new decimal(new int[] { 100, 0, 0, 0 });
-            nudPrintScale.Location = new Point(110, 46);
-            nudPrintScale.Margin = new Padding(3, 2, 3, 2);
+            nudPrintScale.Location = new Point(126, 61);
             nudPrintScale.Maximum = new decimal(new int[] { 100000, 0, 0, 0 });
             nudPrintScale.Minimum = new decimal(new int[] { 50, 0, 0, 0 });
             nudPrintScale.Name = "nudPrintScale";
-            nudPrintScale.Size = new Size(88, 23);
+            nudPrintScale.Size = new Size(101, 27);
             nudPrintScale.TabIndex = 1;
             nudPrintScale.Value = new decimal(new int[] { 50, 0, 0, 0 });
             // 
@@ -810,53 +763,48 @@ namespace Land_Readjustment_Tool.UI.Forms.Project
             pnlFooter.Controls.Add(btnApply);
             pnlFooter.Controls.Add(btnCancel);
             pnlFooter.Dock = DockStyle.Bottom;
-            pnlFooter.Location = new Point(0, 324);
-            pnlFooter.Margin = new Padding(3, 2, 3, 2);
+            pnlFooter.Location = new Point(0, 432);
             pnlFooter.Name = "pnlFooter";
-            pnlFooter.Padding = new Padding(7, 6, 7, 6);
-            pnlFooter.Size = new Size(493, 41);
+            pnlFooter.Padding = new Padding(8, 8, 8, 8);
+            pnlFooter.Size = new Size(563, 55);
             pnlFooter.TabIndex = 1;
             // 
             // btnRestoreDefaults
             // 
-            btnRestoreDefaults.Location = new Point(209, 4);
-            btnRestoreDefaults.Margin = new Padding(3, 2, 3, 2);
+            btnRestoreDefaults.Location = new Point(239, 5);
             btnRestoreDefaults.Name = "btnRestoreDefaults";
-            btnRestoreDefaults.Size = new Size(123, 26);
+            btnRestoreDefaults.Size = new Size(141, 35);
             btnRestoreDefaults.TabIndex = 2;
             btnRestoreDefaults.Text = "Restore Defaults";
             btnRestoreDefaults.Click += btnRestoreDefaults_Click;
             // 
             // btnApply
             // 
-            btnApply.Location = new Point(338, 4);
-            btnApply.Margin = new Padding(3, 2, 3, 2);
+            btnApply.Location = new Point(386, 5);
             btnApply.Name = "btnApply";
-            btnApply.Size = new Size(70, 26);
+            btnApply.Size = new Size(80, 35);
             btnApply.TabIndex = 0;
             btnApply.Text = "Apply";
             btnApply.Click += btnApply_Click;
             // 
             // btnCancel
             // 
-            btnCancel.Location = new Point(413, 4);
-            btnCancel.Margin = new Padding(3, 2, 3, 2);
+            btnCancel.Location = new Point(472, 5);
             btnCancel.Name = "btnCancel";
-            btnCancel.Size = new Size(70, 26);
+            btnCancel.Size = new Size(80, 35);
             btnCancel.TabIndex = 3;
             btnCancel.Text = "OK";
             btnCancel.Click += btnCancel_Click;
             // 
             // frmProjectSettings
             // 
-            AutoScaleDimensions = new SizeF(7F, 15F);
+            AutoScaleDimensions = new SizeF(8F, 20F);
             AutoScaleMode = AutoScaleMode.Font;
-            ClientSize = new Size(493, 365);
+            ClientSize = new Size(563, 487);
             Controls.Add(tabSettings);
             Controls.Add(pnlFooter);
             Font = new Font("Segoe UI", 9F);
             FormBorderStyle = FormBorderStyle.FixedDialog;
-            Margin = new Padding(3, 2, 3, 2);
             MaximizeBox = false;
             MinimizeBox = false;
             Name = "frmProjectSettings";

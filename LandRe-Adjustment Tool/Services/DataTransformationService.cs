@@ -1,4 +1,5 @@
-﻿using Land_Readjustment_Tool.Models;
+﻿using Land_Readjustment_Tool.Infrastructure.Constants;
+using Land_Readjustment_Tool.Models;
 using System.Data;
 using System.Text;
 using System.Text.RegularExpressions;
@@ -8,14 +9,6 @@ namespace Land_Readjustment_Tool.Services
 {
 public class DataTransformationService
 {
-        private static readonly string[] InstitutionKeywords =
-        [
-            "नेपाल सरकार", "सरकार", "government", "govt", "sarkar",
-            "ministry", "department", "कार्यालय", "मन्त्रालय", "विभाग",
-            "नगरपालिका", "गाउँपालिका", "गाउपालिका", "गा.पा", "न.पा",
-            "वडा कार्यालय", "सार्वजनिक", "public", "committee", "समिति",
-            "trust", "गुठी", "school", "विद्यालय", "bank", "company", "कम्पनी", "ltd", "pvt"
-        ];
 
         // ==================== GRID → DATATABLE ====================
 
@@ -70,7 +63,7 @@ public class DataTransformationService
                     continue;
                 }
 
-                var record = new BaselineLandParceRecord();
+                var record = new BaselineLandParcelRecord();
                 var rowErrors = new List<string>();
 
                 try
@@ -135,7 +128,7 @@ public class DataTransformationService
                 DataRow row = sourceData.Rows[i];
                 int rowNumber = i + 1;
 
-                var record = new BaselineLandParceRecord();
+                var record = new BaselineLandParcelRecord();
                 var rowErrors = new List<string>();
 
                 try
@@ -204,9 +197,9 @@ public class DataTransformationService
                 return true;
 
             // Check if all required fields are missing
-            string? parcelNo = GetMappedValue(row, fieldMappings, nameof(BaselineLandParceRecord.ParcelNo));
-            string? mapSheetNo = GetMappedValue(row, fieldMappings, nameof(BaselineLandParceRecord.MapSheetNo));
-            string? areaInSqm = GetMappedValue(row, fieldMappings, nameof(BaselineLandParceRecord.AreaInSqm));
+            string? parcelNo = GetMappedValue(row, fieldMappings, nameof(BaselineLandParcelRecord.ParcelNo));
+            string? mapSheetNo = GetMappedValue(row, fieldMappings, nameof(BaselineLandParcelRecord.MapSheetNo));
+            string? areaInSqm = GetMappedValue(row, fieldMappings, nameof(BaselineLandParcelRecord.AreaInSqm));
 
             bool allRequiredFieldsMissing = 
                 string.IsNullOrWhiteSpace(parcelNo) &&
@@ -288,12 +281,12 @@ public class DataTransformationService
         // ==================== PROPERTY MAPPING ====================
 
         private static void SetPropertyValue(
-            BaselineLandParceRecord record,
+            BaselineLandParcelRecord record,
             string propertyName,
             object value,
             List<string> errors)
         {
-            var property = typeof(BaselineLandParceRecord).GetProperty(propertyName);
+            var property = typeof(BaselineLandParcelRecord).GetProperty(propertyName);
             if (property == null) return;
 
             try
@@ -354,16 +347,16 @@ public class DataTransformationService
 
         // ==================== OWNER SEMANTICS ====================
 
-        private static void ApplyOwnerSemanticNormalization(BaselineLandParceRecord record)
+        private static void ApplyOwnerSemanticNormalization(BaselineLandParcelRecord record)
         {
             record.LandOwnersName = NormalizeNullable(record.LandOwnersName);
             record.FatherSpouse = NormalizeNullable(record.FatherSpouse);
             record.Gender = NormalizeNullable(record.Gender);
             record.CitizenshipNumber = NormalizeNullable(record.CitizenshipNumber);
             record.CitizenshipIssuedDistrict = NormalizeNullable(record.CitizenshipIssuedDistrict);
-            record.citizenshipIssuedDate = NormalizeNullable(record.citizenshipIssuedDate);
+            record.CitizenshipIssuedDate = NormalizeNullable(record.CitizenshipIssuedDate);
             record.PermanentAddress = NormalizeNullable(record.PermanentAddress);
-            record.TempoaryAddress = NormalizeNullable(record.TempoaryAddress);
+            record.TemporaryAddress = NormalizeNullable(record.TemporaryAddress);
             record.ContactNumber = NormalizeNullable(record.ContactNumber);
             record.EmailID = NormalizeNullable(record.EmailID);
             record.LandOwnershipType = NormalizeNullable(record.LandOwnershipType);
@@ -383,9 +376,9 @@ public class DataTransformationService
             record.Gender = null;
             record.CitizenshipNumber = null;
             record.CitizenshipIssuedDistrict = null;
-            record.citizenshipIssuedDate = null;
+            record.CitizenshipIssuedDate = null;
             record.PermanentAddress = null;
-            record.TempoaryAddress = null;
+            record.TemporaryAddress = null;
             record.ContactNumber = null;
             record.EmailID = null;
             record.LandOwnershipType ??= "Government/Institution";
@@ -402,7 +395,7 @@ public class DataTransformationService
                 return false;
 
             var normalized = OwnerDeduplicationService.NormalizeString(value);
-            return InstitutionKeywords.Any(keyword =>
+            return NepalDomainConstants.InstitutionKeywords.Any(keyword =>
                 normalized.Contains(
                     OwnerDeduplicationService.NormalizeString(keyword),
                     StringComparison.OrdinalIgnoreCase));
@@ -447,7 +440,7 @@ public class DataTransformationService
         // ==================== BASE BUSINESS RULES ====================
 
         private static void ValidateBusinessRules(
-            BaselineLandParceRecord record,
+            BaselineLandParcelRecord record,
             int rowNumber,
             List<string> errors)
         {
@@ -465,7 +458,7 @@ public class DataTransformationService
         /// Validates a single record and returns a list of validation errors.
         /// Returns empty list if record is valid.
         /// </summary>
-        public static List<string> ValidateSingleRecord(BaselineLandParceRecord record, int rowNumber)
+        public static List<string> ValidateSingleRecord(BaselineLandParcelRecord record, int rowNumber)
         {
             var errors = new List<string>();
             ValidateBusinessRules(record, rowNumber, errors);
@@ -477,9 +470,9 @@ public class DataTransformationService
 
     public class TransformationResult
     {
-        public List<BaselineLandParceRecord> ValidRecords { get; set; } = new();
-        public List<BaselineLandParceRecord> InvalidRecords { get; set; } = new();
-        public List<BaselineLandParceRecord> AllOriginalRecords { get; set; } = new();
+        public List<BaselineLandParcelRecord> ValidRecords { get; set; } = new();
+        public List<BaselineLandParcelRecord> InvalidRecords { get; set; } = new();
+        public List<BaselineLandParcelRecord> AllOriginalRecords { get; set; } = new();
         public List<ValidationError> ValidationErrors { get; set; } = new();
         public int SkippedRows { get; set; } = 0;
 
@@ -490,7 +483,7 @@ public class DataTransformationService
     public class ValidationError
     {
         public int RowNumber { get; set; }
-        public BaselineLandParceRecord? RecordData { get; set; }
+        public BaselineLandParcelRecord? RecordData { get; set; }
         public List<string> Errors { get; set; } = new();
 
         public string ErrorSummary => $"Row {RowNumber}: {string.Join("; ", Errors)}";

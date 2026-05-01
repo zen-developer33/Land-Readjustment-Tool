@@ -55,7 +55,7 @@ namespace Land_Readjustment_Tool.Forms
             _ = dgvMapping.Columns.Add(comboCol);
 
             // Add rows for each property in OriginalLandOwnersRecord
-            foreach (var prop in typeof(BaselineLandParceRecord).GetProperties())
+            foreach (var prop in typeof(BaselineLandParcelRecord).GetProperties())
             {
                 int rowIndex = dgvMapping.Rows.Add();
                 dgvMapping.Rows[rowIndex].Cells["TargetField"].Value = prop.Name;
@@ -109,9 +109,9 @@ namespace Land_Readjustment_Tool.Forms
 
             var requiredFields = allTargetFields
                 .Where(name =>
-                    name == nameof(BaselineLandParceRecord.ParcelNo) ||
-                    name == nameof(BaselineLandParceRecord.MapSheetNo) ||
-                    name == nameof(BaselineLandParceRecord.AreaInSqm))
+                    name == nameof(BaselineLandParcelRecord.ParcelNo) ||
+                    name == nameof(BaselineLandParcelRecord.MapSheetNo) ||
+                    name == nameof(BaselineLandParcelRecord.AreaInSqm))
                 .ToList();
 
             var mappings = GetFieldMappings();

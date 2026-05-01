@@ -1330,9 +1330,9 @@ namespace Land_Readjustment_Tool.Forms.LandOwnersRecord_Managerment
 
         #region Helper Methods
 
-        private bool SaveNewRecord(BaselineLandParceRecord record)
+        private bool SaveNewRecord(BaselineLandParcelRecord record)
         {
-            var records = new List<BaselineLandParceRecord> { record };
+            var records = new List<BaselineLandParcelRecord> { record };
 
             // Step 1: Run owner deduplication on the single record
             var deduplicationResult = OwnerDeduplicationService.ExtractUniqueOwners(records, excludeAnonymous: false);
@@ -1340,7 +1340,7 @@ namespace Land_Readjustment_Tool.Forms.LandOwnersRecord_Managerment
             // Step 2: If there are duplicates needing review, show the review form
             if (deduplicationResult.DuplicatesNeedingReview.Count > 0)
             {
-                var bindingList = new BindingList<BaselineLandParceRecord>(records);
+                var bindingList = new BindingList<BaselineLandParcelRecord>(records);
                 using var reviewForm = new frmReviewDuplicates(deduplicationResult, bindingList);
 
                 if (reviewForm.ShowDialog() != DialogResult.OK)
@@ -1365,7 +1365,7 @@ namespace Land_Readjustment_Tool.Forms.LandOwnersRecord_Managerment
             return true;
         }
 
-        private bool UpdateExistingRecord(int parcelId, int existingLandOwnerId, BaselineLandParceRecord record)
+        private bool UpdateExistingRecord(int parcelId, int existingLandOwnerId, BaselineLandParcelRecord record)
         {
             // Step 1: Check if owner information has changed
             var existingParcel = _allRecords.FirstOrDefault(p => p.ParcelId == parcelId);
@@ -1383,13 +1383,13 @@ namespace Land_Readjustment_Tool.Forms.LandOwnersRecord_Managerment
             if (ownerChanged)
             {
                 // Step 2: Run owner deduplication to find if this owner already exists
-                var records = new List<BaselineLandParceRecord> { record };
+                var records = new List<BaselineLandParcelRecord> { record };
                 var deduplicationResult = OwnerDeduplicationService.ExtractUniqueOwners(records, excludeAnonymous: false);
 
                 // Step 3: If there are duplicates needing review, show the review form
                 if (deduplicationResult.DuplicatesNeedingReview.Count > 0)
                 {
-                    var bindingList = new BindingList<BaselineLandParceRecord>(records);
+                    var bindingList = new BindingList<BaselineLandParcelRecord>(records);
                     using var reviewForm = new frmReviewDuplicates(deduplicationResult, bindingList);
 
                     if (reviewForm.ShowDialog() != DialogResult.OK)
@@ -1425,9 +1425,9 @@ namespace Land_Readjustment_Tool.Forms.LandOwnersRecord_Managerment
                     Gender = record.Gender,
                     CitizenshipNumber = record.CitizenshipNumber,
                     CitizenshipIssuedDistrict = record.CitizenshipIssuedDistrict,
-                    CitizenshipIssuedDate = record.citizenshipIssuedDate, // lowercase 'c' property
+                    CitizenshipIssuedDate = record.CitizenshipIssuedDate, // lowercase 'c' property
                     PermanentAddress = record.PermanentAddress,
-                    TemporaryAddress = record.TempoaryAddress, // Note: typo in model - 'Tempoary'
+                    TemporaryAddress = record.TemporaryAddress, // Note: typo in model - 'Tempoary'
                     ContactNumber = record.ContactNumber,
                     EmailID = record.EmailID,
                     ModifiedDate = DateTime.Now
@@ -1462,9 +1462,9 @@ namespace Land_Readjustment_Tool.Forms.LandOwnersRecord_Managerment
             return true;
         }
 
-        private static BaselineLandParceRecord ConvertToEditableRecord(OriginalLandParcel parcel)
+        private static BaselineLandParcelRecord ConvertToEditableRecord(OriginalLandParcel parcel)
         {
-            return new BaselineLandParceRecord
+            return new BaselineLandParcelRecord
             {
                 ParcelNo = parcel.ParcelNo,
                 MapSheetNo = parcel.MapSheetNo,

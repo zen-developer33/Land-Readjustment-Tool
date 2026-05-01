@@ -2,6 +2,7 @@ using Land_Readjustment_Tool.Core.Entities.Import;
 using Land_Readjustment_Tool.Core.Entities.LandData;
 using Land_Readjustment_Tool.Core.Entities.Replotting;
 using Land_Readjustment_Tool.Data;
+using Land_Readjustment_Tool.Infrastructure.Constants;
 using Land_Readjustment_Tool.Models;
 using Microsoft.EntityFrameworkCore;
 using LegacyLandOwner = Land_Readjustment_Tool.Models.LandOwner;
@@ -18,15 +19,6 @@ namespace Land_Readjustment_Tool.Services.LandData
     {
         private readonly AppDbContext _context;
         private readonly string _projectFilePath;
-
-        private static readonly string[] InstitutionKeywords =
-        [
-            "नेपाल सरकार", "सरकार", "government", "govt", "sarkar",
-            "ministry", "department", "कार्यालय", "मन्त्रालय", "विभाग",
-            "नगरपालिका", "गाउँपालिका", "गाउपालिका", "गा.पा", "न.पा",
-            "वडा कार्यालय", "सार्वजनिक", "public", "committee", "समिति",
-            "trust", "गुठी", "school", "विद्यालय", "bank", "company", "कम्पनी", "ltd", "pvt"
-        ];
 
         public LandRecordsService(ProjectSession session, string projectFilePath)
         {
@@ -469,7 +461,7 @@ namespace Land_Readjustment_Tool.Services.LandData
             return parcelToOwnerMap;
         }
 
-        public int SaveParcelsWithDeduplication(List<BaselineLandParceRecord> records, Dictionary<int, int> parcelToOwnerMap)
+        public int SaveParcelsWithDeduplication(List<BaselineLandParcelRecord> records, Dictionary<int, int> parcelToOwnerMap)
         {
             if (records == null || records.Count == 0 || parcelToOwnerMap.Count == 0)
                 return 0;
@@ -774,7 +766,7 @@ namespace Land_Readjustment_Tool.Services.LandData
                 return false;
 
             var normalized = NormalizeName(ownerName);
-            return InstitutionKeywords.Any(keyword =>
+            return NepalDomainConstants.InstitutionKeywords.Any(keyword =>
                 normalized.Contains(NormalizeName(keyword), StringComparison.OrdinalIgnoreCase));
         }
 

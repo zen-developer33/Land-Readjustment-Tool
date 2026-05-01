@@ -6,7 +6,7 @@ namespace Land_Readjustment_Tool.Forms
     public partial class frmOwnerLookup : Form
     {
         private readonly List<LandOwner>? _ownersFromDatabase;
-        private readonly List<BaselineLandParceRecord>? _importedRecords;
+        private readonly List<BaselineLandParcelRecord>? _importedRecords;
         private List<LandOwner> _allOwners = [];
         private List<LandOwner> _filteredOwners = [];
         private BindingList<OwnerLookupDisplayModel> _displayedOwners = [];
@@ -23,7 +23,7 @@ namespace Land_Readjustment_Tool.Forms
         }
 
         // Constructor for imported records mode (Import Manager)
-        public frmOwnerLookup(List<BaselineLandParceRecord> importedRecords)
+        public frmOwnerLookup(List<BaselineLandParcelRecord> importedRecords)
         {
             _ownersFromDatabase = null;
             _importedRecords = importedRecords;
@@ -190,9 +190,9 @@ namespace Land_Readjustment_Tool.Forms
                             Gender = record.Gender,
                             CitizenshipNumber = record.CitizenshipNumber,
                             CitizenshipIssuedDistrict = record.CitizenshipIssuedDistrict,
-                            CitizenshipIssuedDate = record.citizenshipIssuedDate,
+                            CitizenshipIssuedDate = record.CitizenshipIssuedDate,
                             PermanentAddress = record.PermanentAddress,
-                            TemporaryAddress = record.TempoaryAddress,
+                            TemporaryAddress = record.TemporaryAddress,
                             ContactNumber = record.ContactNumber,
                             EmailID = record.EmailID
                         };

@@ -2,9 +2,10 @@ using Land_Readjustment_Tool.Core.Entities.LandData;
 using Land_Readjustment_Tool.Core.Entities.Replotting;
 using Land_Readjustment_Tool.Core.Interfaces;
 using Land_Readjustment_Tool.Data;
+using Land_Readjustment_Tool.Infrastructure.Constants;
 using Land_Readjustment_Tool.Infrastructure.Logging;
 using Microsoft.EntityFrameworkCore;
-using BaselineRecord = Land_Readjustment_Tool.Models.BaselineLandParceRecord;
+using BaselineRecord = Land_Readjustment_Tool.Models.BaselineLandParcelRecord;
 using System.Text;
 
 namespace Land_Readjustment_Tool.Services.Import
@@ -14,15 +15,6 @@ namespace Land_Readjustment_Tool.Services.Import
         private readonly AppDbContext _context;
         private readonly IAppLogger _logger;
         private readonly IImportManagerService _importManagerService;
-
-        private static readonly string[] InstitutionKeywords =
-        [
-            "नेपाल सरकार", "सरकार", "government", "govt", "sarkar",
-            "ministry", "department", "कार्यालय", "मन्त्रालय", "विभाग",
-            "नगरपालिका", "गाउँपालिका", "गाउपालिका", "गा.पा", "न.पा",
-            "वडा कार्यालय", "सार्वजनिक", "public", "committee", "समिति",
-            "trust", "गुठी", "school", "विद्यालय", "bank", "company", "कम्पनी", "ltd", "pvt"
-        ];
 
         private enum OwnerCategory
         {
@@ -226,9 +218,9 @@ namespace Land_Readjustment_Tool.Services.Import
                     record.Gender,
                     record.CitizenshipNumber,
                     record.CitizenshipIssuedDistrict,
-                    record.citizenshipIssuedDate,
+                    record.CitizenshipIssuedDate,
                     record.PermanentAddress,
-                    record.TempoaryAddress,
+                    record.TemporaryAddress,
                     record.ContactNumber,
                     record.EmailID,
                     isAnonymous: false);
@@ -524,7 +516,7 @@ namespace Land_Readjustment_Tool.Services.Import
             if (!string.IsNullOrWhiteSpace(fullName))
             {
                 var normalized = OwnerDeduplicationService.NormalizeString(fullName);
-                if (InstitutionKeywords.Any(k =>
+                if (NepalDomainConstants.InstitutionKeywords.Any(k =>
                     normalized.Contains(OwnerDeduplicationService.NormalizeString(k), StringComparison.OrdinalIgnoreCase)))
                 {
                     return OwnerCategory.Institution;
