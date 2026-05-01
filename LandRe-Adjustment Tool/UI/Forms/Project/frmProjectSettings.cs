@@ -111,6 +111,15 @@ namespace Land_Readjustment_Tool.UI.Forms.Project
                 // SelectedValue assignments in PopulateForm succeed.
                 BindCrsDropdown(_crsList);
                 BindDatumDropdown(_datumList);
+
+                if (!string.Equals(_settings.CanvasBackgroundColor, "#FFFFFF", StringComparison.OrdinalIgnoreCase) ||
+                    !string.Equals(_settings.CanvasGridColor, "#CCCCCC", StringComparison.OrdinalIgnoreCase))
+                {
+                    _settings.CanvasBackgroundColor = "#FFFFFF";
+                    _settings.CanvasGridColor = "#CCCCCC";
+                    await _service.SaveAsync(_settings);
+                }
+
                 PopulateForm(_settings);
                 RefreshDatumUiForSelectedCrs(preserveSelection: true);
                 

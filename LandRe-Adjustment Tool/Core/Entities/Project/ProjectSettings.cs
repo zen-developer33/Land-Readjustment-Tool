@@ -51,7 +51,7 @@ namespace Land_Readjustment_Tool.Core.Entities.Project
         // Grid line color in hex
         [Required]
         public string CanvasGridColor { get; set; }
-            = "#2A3A47";
+            = "#CCCCCC";
 
         // Show grid lines on canvas
         public bool CanvasGridVisible { get; set; } = false;

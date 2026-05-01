@@ -1241,7 +1241,7 @@ namespace Land_Readjustment_Tool
 
             try
             {
-                SetOperationProgress(2, "Reading raster details");
+                SetOperationProgress(2, "Reading raster details", showProgressForm: false);
 
                 RasterLayerImportPreview importPreview =
                     await _rasterLayerImportService.PrepareImportAsync(
@@ -1274,7 +1274,7 @@ namespace Land_Readjustment_Tool
                     await ReplaceRasterLayerAsync(existingRasterLayer);
                 }
 
-                SetOperationProgress(2, "Starting raster import");
+                SetOperationProgress(2, "Starting raster import", showProgressForm: false);
 
                 Progress<RasterImportProgressInfo> progress = new(
                     update => SetOperationProgress(update.Percent, update.Status));
@@ -1289,7 +1289,7 @@ namespace Land_Readjustment_Tool
                             reviewForm.SourceSrsDefinitionOverride),
                         progress);
 
-                SetOperationProgress(94, "Refreshing raster layer list");
+                SetOperationProgress(94, "Refreshing raster layer list", showProgressForm: false);
 
                 _rasterImportFileManagementService.RegisterImportedRaster(
                     AppServices.Context,
@@ -1420,7 +1420,7 @@ namespace Land_Readjustment_Tool
                     await ReplaceRasterLayerAsync(existingRasterLayer);
                 }
 
-                SetOperationProgress(2, "Preparing XYZ tile source");
+                SetOperationProgress(2, "Preparing XYZ tile source", showProgressForm: false);
 
                 XyzTileSourceDefinition sourceDefinition =
                     _xyzTileSourceService.CreateSourceDefinition(
@@ -1441,7 +1441,7 @@ namespace Land_Readjustment_Tool
                             sourceDefinition.SourceExtent),
                         progress);
 
-                SetOperationProgress(94, "Refreshing raster layer list");
+                SetOperationProgress(94, "Refreshing raster layer list", showProgressForm: false);
 
                 if (_xyzTileImportOptionsForm != null &&
                     !_xyzTileImportOptionsForm.IsDisposed)
@@ -2975,15 +2975,15 @@ namespace Land_Readjustment_Tool
                 int layerPercent = Math.Clamp(startPercent + 25, 0, 95);
                 int renderPercent = Math.Clamp(startPercent + 55, 0, 98);
 
-                SetOperationProgress(startPercent, status);
-                SetOperationProgress(layerPercent, "Loading map layers");
+                SetOperationProgress(startPercent, status, showProgressForm: false);
+                SetOperationProgress(layerPercent, "Loading map layers", showProgressForm: false);
                 await RefreshLayerTreeAsync();
 
-                SetOperationProgress(renderPercent, "Rendering map canvas");
+                SetOperationProgress(renderPercent, "Rendering map canvas", showProgressForm: false);
                 mapCanvasControlMain.RequestRender();
                 SetCanvasCommandStatus("Canvas: Refreshed");
 
-                SetOperationProgress(100, "Canvas refreshed");
+                SetOperationProgress(100, "Canvas refreshed", showProgressForm: false);
                 await Task.Delay(250);
             }
             finally
@@ -3553,11 +3553,11 @@ namespace Land_Readjustment_Tool
         /// <summary>
         /// Shows operation progress in the map canvas status bar.
         /// </summary>
-        private void SetOperationProgress(int percent, string status)
+        private void SetOperationProgress(int percent, string status, bool showProgressForm = true)
         {
             if (InvokeRequired)
             {
-                BeginInvoke(new Action(() => SetOperationProgress(percent, status)));
+                BeginInvoke(new Action(() => SetOperationProgress(percent, status, showProgressForm)));
                 return;
             }
 
@@ -3567,10 +3567,17 @@ namespace Land_Readjustment_Tool
             _operationProgressBar.Value = clampedPercent;
             _operationProgressBar.Invalidate();
             _operationProgressHost.Visible = true;
-            ShowOperationProgressForm(
-                GetOperationProgressTitle(status),
-                status,
-                clampedPercent);
+            if (showProgressForm)
+            {
+                ShowOperationProgressForm(
+                    GetOperationProgressTitle(status),
+                    status,
+                    clampedPercent);
+            }
+            else
+            {
+                HideOperationProgressForm();
+            }
             statusCanvas.Refresh();
         }
 
@@ -3586,11 +3593,13 @@ namespace Land_Readjustment_Tool
             if (_operationProgressForm.IsDisposed)
                 _operationProgressForm = new frmOperationProgress();
 
-            PositionOperationProgressForm(_operationProgressForm);
+            _operationProgressForm.Owner = this;
             _operationProgressForm.UpdateProgress(title, status, percent);
 
             if (!_operationProgressForm.Visible)
                 _operationProgressForm.Show(this);
+
+            PositionOperationProgressForm(_operationProgressForm);
         }
 
         private void PositionOperationProgressForm(Form form)
@@ -3607,6 +3616,18 @@ namespace Land_Readjustment_Tool
             form.Location = new Point(
                 Math.Min(x, workingArea.Right - form.Width),
                 Math.Min(y, workingArea.Bottom - form.Height));
+        }
+
+        private void HideOperationProgressForm()
+        {
+            if (InvokeRequired)
+            {
+                BeginInvoke(new Action(HideOperationProgressForm));
+                return;
+            }
+
+            _operationProgressForm?.Close();
+            _operationProgressForm = null;
         }
 
         private static string GetOperationProgressTitle(string status)
