@@ -28,10 +28,15 @@ namespace Land_Readjustment_Tool.UI.MapCanvas.Services
 
         private static readonly IReadOnlyList<DefaultLayerDefinition> DefaultLayers =
         [
-            new(OriginalDataGroupKey, "Boundary", "ProjectBoundary", "#7c1616", 2.0),
-            new(OriginalDataGroupKey, "Original Parcels", "BaselineParcel", "#2E7D32", 1.4),
-            new(ProposedDataGroupKey, "Proposed Roads", "ProposedRoad", "#F9A825", 2.0),
-            new(ProposedDataGroupKey, "Replotted Parcels", "ReplottedParcel", "#512DA8", 1.5)
+            // Colours follow the muted, context-aware palette used by ArcMap / ArcGIS Pro.
+            // ProjectBoundary — dark brick-red: authoritative, thick perimeter line.
+            new(OriginalDataGroupKey, "Boundary", "ProjectBoundary", "#9B3A2A", 2.0),
+            // BaselineParcel — muted steel-teal: classic cadastral / parcel layer tone.
+            new(OriginalDataGroupKey, "Original Parcels", "BaselineParcel", "#2F6B8F", 1.4),
+            // ProposedRoad — warm copper-amber: standard GIS road-layer colour.
+            new(ProposedDataGroupKey, "Proposed Roads", "ProposedRoad", "#C07B30", 2.0),
+            // ReplottedParcel — muted amethyst: clearly distinguishes proposed from existing.
+            new(ProposedDataGroupKey, "Replotted Parcels", "ReplottedParcel", "#5B4F8A", 1.5)
         ];
 
         public CanvasLayerTreeService(ICanvasLayerRepository canvasLayerRepository)

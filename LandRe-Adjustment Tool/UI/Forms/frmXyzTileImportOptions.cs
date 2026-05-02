@@ -674,6 +674,11 @@ namespace Land_Readjustment_Tool.UI.Forms
         {
 
         }
+
+        private void frmXyzTileImportOptions_Load_1(object sender, EventArgs e)
+        {
+
+        }
     }
 
     public sealed class XyzTileImportRequestedEventArgs : EventArgs

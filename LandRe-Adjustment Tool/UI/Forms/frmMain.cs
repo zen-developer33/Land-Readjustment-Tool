@@ -51,45 +51,7 @@ namespace Land_Readjustment_Tool
         private frmAreaConverter? _areaConverterForm;
         private CanvasLayerTreeService? _layerTreeService;
         private bool _suppressLayerTreeEvents;
-        private readonly ToolStripStatusLabel _statusSpacer = new()
-        {
-            Name = "lblStatusSpacer",
-            Spring = true,
-            Text = string.Empty
-        };
-        private readonly ToolStripStatusLabel _activeLayerLabel = new()
-        {
-            Name = "lblActiveLayer",
-            Text = "Layer:",
-            Visible = false
-        };
-        private readonly ToolStripComboBox _activeLayerCombo = new()
-        {
-            Name = "cmbActiveLayer",
-            DropDownStyle = ComboBoxStyle.DropDownList,
-            AutoSize = false,
-            Width = 190,
-            Visible = false
-        };
-        private readonly ToolStripStatusLabel _operationProgressStatus = new()
-        {
-            Name = "lblOperationProgressStatus",
-            AutoSize = false,
-            Width = 210,
-            Text = string.Empty,
-            TextAlign = ContentAlignment.MiddleRight,
-            Visible = false
-        };
-        private readonly StatusProgressBar _operationProgressBar = new()
-        {
-            Minimum = 0,
-            Maximum = 100,
-            Value = 0,
-            Size = new Size(150, 16)
-        };
-        private readonly ToolStripControlHost _operationProgressHost;
         private frmOperationProgress? _operationProgressForm;
-        private bool _suppressActiveLayerEvents;
         private const string LayerGroupNodeNamePrefix = "LayerGroup_";
         private const string RasterLayerGroupKey = "RasterLayer";
         private const int LayerNodeCheckBoxSize = 14;
@@ -118,22 +80,6 @@ namespace Land_Readjustment_Tool
             public CanvasLayer? Layer { get; set; }
         }
 
-        private sealed class ActiveLayerStatusItem
-        {
-            public ActiveLayerStatusItem(int layerId, string name)
-            {
-                LayerId = layerId;
-                Name = name;
-            }
-
-            public int LayerId { get; }
-            public string Name { get; }
-
-            public override string ToString()
-            {
-                return Name;
-            }
-        }
         // Keeps designer/local fallback working without DI container.
         public frmMain(string? startupFilePath = null)
             : this(
@@ -206,19 +152,9 @@ namespace Land_Readjustment_Tool
             _projectSaveAsService = projectSaveAsService ?? throw new ArgumentNullException(nameof(projectSaveAsService));
 
             InitializeComponent();
-            _operationProgressHost = new ToolStripControlHost(_operationProgressBar)
-            {
-                Name = "hostOperationProgress",
-                AutoSize = false,
-                Size = new Size(154, 22),
-                Margin = new Padding(4, 2, 8, 2),
-                Visible = false
-            };
-            _activeLayerCombo.SelectedIndexChanged += ActiveLayerCombo_SelectedIndexChanged;
             _startupFilePath = startupFilePath;
             ConfigureSmoothSplitterLayout();
             mapCanvasControlMain.StatusChanged += MapCanvasControlMain_StatusChanged;
-            ConfigureCanvasStatusBarLayout();
             ConfigureLayerTree();
             ConfigureLayerPropertiesPanel();
             MapCanvasControlMain_StatusChanged("E: --    N: --", "Ready");
@@ -2340,21 +2276,27 @@ namespace Land_Readjustment_Tool
                     return;
                 }
 
-                Color layerColor = ParseColorOrDefault(
-                    layer.BorderColor,
-                    Color.Black);
-                if (isLockedLayer)
-                {
-                    layerColor = BlendColor(layerColor, treeViewLayers.BackColor, 0.45f);
-                }
-
                 Rectangle colorRect = GetLayerNodeColorRect(e.Node);
 
-                using (SolidBrush colorBrush = new(layerColor))
-                    g.FillRectangle(colorBrush, colorRect);
+                if (IsRasterLayer(layer))
+                {
+                    // Raster layers have no single border colour -- draw a small
+                    // checkerboard icon that universally signals imagery / raster data.
+                    DrawRasterLayerIcon(g, colorRect);
+                }
+                else
+                {
+                    // Vector layers: render the configured border colour exactly.
+                    // Locked state only fades the *text* (handled above); we never
+                    // tint the swatch -- that would distort the layer's actual colour.
+                    Color layerColor = ParseColorOrDefault(layer.BorderColor, Color.Black);
 
-                using (Pen borderPen = new(Color.FromArgb(60, 60, 60)))
-                    g.DrawRectangle(borderPen, colorRect);
+                    using (SolidBrush colorBrush = new(layerColor))
+                        g.FillRectangle(colorBrush, colorRect);
+
+                    using (Pen borderPen = new(Color.FromArgb(80, 80, 80)))
+                        g.DrawRectangle(borderPen, colorRect);
+                }
 
                 x = colorRect.Right + LayerNodeColorBoxGap;
             }
@@ -2476,19 +2418,6 @@ namespace Land_Readjustment_Tool
                 return;
             }
 
-            UpdateActiveLayerComboFromTree(layer.Id);
-            SetCanvasCommandStatus("Layer selected");
-        }
-
-        private void ActiveLayerCombo_SelectedIndexChanged(object? sender, EventArgs e)
-        {
-            if (_suppressActiveLayerEvents ||
-                _activeLayerCombo.SelectedItem is not ActiveLayerStatusItem item)
-            {
-                return;
-            }
-
-            SelectLayerNodeById(item.LayerId);
             SetCanvasCommandStatus("Layer selected");
         }
 
@@ -2542,6 +2471,34 @@ namespace Land_Readjustment_Tool
             int blue = (int)Math.Round((source.B * sourceWeight) + (target.B * clampedWeight));
 
             return Color.FromArgb(red, green, blue);
+        }
+
+        /// <summary>
+        /// Draws a small 2x2 checkerboard icon inside <paramref name=rect/> to
+        /// indicate a raster / imagery layer.  The pattern mirrors the transparency
+        /// icon used in image editors and is instantly recognisable as raster data.
+        /// </summary>
+        private static void DrawRasterLayerIcon(Graphics g, Rectangle rect)
+        {
+            int halfW = Math.Max(1, rect.Width / 2);
+            int halfH = Math.Max(1, rect.Height / 2);
+
+            // Cell colours: two tones of slate-gray that read well on any background.
+            Color dark  = Color.FromArgb(148, 148, 155);
+            Color light = Color.FromArgb(210, 210, 215);
+
+            using SolidBrush darkBrush  = new(dark);
+            using SolidBrush lightBrush = new(light);
+
+            // Top-left and bottom-right = dark; top-right and bottom-left = light.
+            g.FillRectangle(darkBrush,  rect.X,         rect.Y,         halfW, halfH);
+            g.FillRectangle(lightBrush, rect.X + halfW, rect.Y,         halfW, halfH);
+            g.FillRectangle(lightBrush, rect.X,         rect.Y + halfH, halfW, halfH);
+            g.FillRectangle(darkBrush,  rect.X + halfW, rect.Y + halfH, halfW, halfH);
+
+            // Thin border so the icon has the same framed look as a vector swatch.
+            using Pen borderPen = new(Color.FromArgb(110, 110, 120));
+            g.DrawRectangle(borderPen, rect);
         }
 
         private void ConfigureRasterGroupContextMenuItems()
@@ -2931,7 +2888,6 @@ namespace Land_Readjustment_Tool
 
             node.Text = layer.Name;
             treeViewLayers.Invalidate();
-            UpdateActiveLayerComboFromTree(layer.Id);
 
             if (updateRasterStack)
                 UpdateRasterCanvasLayersFromTree();
@@ -3051,7 +3007,6 @@ namespace Land_Readjustment_Tool
             }
 
             UpdateRasterCanvasLayersFromTree();
-            UpdateActiveLayerComboFromTree();
         }
 
         private void ResetLayerTree()
@@ -3088,7 +3043,6 @@ namespace Land_Readjustment_Tool
             }
 
             UpdateRasterCanvasLayersFromTree();
-            UpdateActiveLayerComboFromTree();
         }
 
         private void PopulateLayerProperties(CanvasLayer layer)
@@ -3256,52 +3210,6 @@ namespace Land_Readjustment_Tool
             var service = _projectScopedFactory.CreateProjectSettingsService(
                 AppServices.Context.Session);
             await service.SaveAsync(settings);
-        }
-
-        private void UpdateActiveLayerComboFromTree(int? preferredLayerId = null)
-        {
-            int? selectedLayerId =
-                preferredLayerId ??
-                (_activeLayerCombo.SelectedItem as ActiveLayerStatusItem)?.LayerId ??
-                GetLayerFromNode(treeViewLayers.SelectedNode)?.Id;
-
-            List<ActiveLayerStatusItem> layerItems = [];
-            foreach (TreeNode groupNode in treeViewLayers.Nodes)
-            {
-                foreach (TreeNode layerNode in groupNode.Nodes)
-                {
-                    CanvasLayer? layer = GetLayerFromNode(layerNode);
-                    if (layer != null)
-                    {
-                        layerItems.Add(new ActiveLayerStatusItem(layer.Id, layer.Name));
-                    }
-                }
-            }
-
-            _suppressActiveLayerEvents = true;
-            try
-            {
-                _activeLayerCombo.Items.Clear();
-                foreach (ActiveLayerStatusItem item in layerItems)
-                    _activeLayerCombo.Items.Add(item);
-
-                bool hasLayers = layerItems.Count > 0;
-                _activeLayerLabel.Visible = hasLayers;
-                _activeLayerCombo.Visible = hasLayers;
-
-                if (!hasLayers)
-                    return;
-
-                ActiveLayerStatusItem selectedItem =
-                    layerItems.FirstOrDefault(item => item.LayerId == selectedLayerId) ??
-                    layerItems[0];
-
-                _activeLayerCombo.SelectedItem = selectedItem;
-            }
-            finally
-            {
-                _suppressActiveLayerEvents = false;
-            }
         }
 
         private static bool IsLayerNode(TreeNode? node)
@@ -3561,11 +3469,11 @@ namespace Land_Readjustment_Tool
             }
 
             int clampedPercent = Math.Clamp(percent, 0, 100);
-            _operationProgressStatus.Text = status;
-            _operationProgressStatus.Visible = true;
-            _operationProgressBar.Value = clampedPercent;
-            _operationProgressBar.Invalidate();
-            _operationProgressHost.Visible = true;
+            lblOperationProgressStatus.Text = status;
+            lblOperationProgressStatus.Visible = true;
+            progressBarOperation.Value = clampedPercent;
+            progressBarOperation.Invalidate();
+            hostOperationProgress.Visible = true;
             if (showProgressForm)
             {
                 ShowOperationProgressForm(
@@ -3665,71 +3573,14 @@ namespace Land_Readjustment_Tool
                 return;
             }
 
-            _operationProgressStatus.Text = string.Empty;
-            _operationProgressStatus.Visible = false;
-            _operationProgressBar.Value = 0;
-            _operationProgressBar.Invalidate();
-            _operationProgressHost.Visible = false;
+            lblOperationProgressStatus.Text = string.Empty;
+            lblOperationProgressStatus.Visible = false;
+            progressBarOperation.Value = 0;
+            progressBarOperation.Invalidate();
+            hostOperationProgress.Visible = false;
             _operationProgressForm?.Close();
             _operationProgressForm = null;
             statusCanvas.Refresh();
-        }
-
-        private void ConfigureCanvasStatusBarLayout()
-        {
-            // Force a stable, readable layout regardless of designer changes:
-            // one status field on the left, coordinates pinned on the right.
-            statusCanvas.SuspendLayout();
-            try
-            {
-                statusCanvas.Visible = true;
-                statusCanvas.Dock = DockStyle.Bottom;
-                statusCanvas.RightToLeft = RightToLeft.No;
-                statusCanvas.BackColor = SystemColors.ControlLightLight;
-                statusCanvas.ForeColor = SystemColors.ControlText;
-
-                lblCanvasMode.Alignment = ToolStripItemAlignment.Left;
-                lblCanvasMode.Spring = false;
-                lblCanvasMode.AutoSize = false;
-                lblCanvasMode.Width = 220;
-                lblCanvasMode.Text = "Status: Ready";
-                lblCanvasMode.TextAlign = System.Drawing.ContentAlignment.MiddleLeft;
-                lblCanvasMode.ForeColor = SystemColors.ControlText;
-                lblCanvasMode.BorderSides = ToolStripStatusLabelBorderSides.Right;
-                lblCanvasMode.BorderStyle = Border3DStyle.Flat;
-
-                _activeLayerLabel.ForeColor = SystemColors.ControlText;
-                _activeLayerCombo.DropDownWidth = 260;
-
-                lblCanvasCoordinates.Alignment = ToolStripItemAlignment.Right;
-                lblCanvasCoordinates.Spring = false;
-                lblCanvasCoordinates.AutoSize = false;
-                lblCanvasCoordinates.Width = 270;
-                lblCanvasCoordinates.TextAlign = System.Drawing.ContentAlignment.MiddleRight;
-                lblCanvasCoordinates.ForeColor = SystemColors.ControlText;
-                lblCanvasCoordinates.BorderSides = ToolStripStatusLabelBorderSides.Left;
-                lblCanvasCoordinates.BorderStyle = Border3DStyle.RaisedOuter;
-                lblCanvasCoordinates.Margin = new Padding(0, 3, 6, 2);
-
-                _operationProgressStatus.ForeColor = SystemColors.ControlText;
-                _operationProgressStatus.BorderSides = ToolStripStatusLabelBorderSides.Left;
-                _operationProgressStatus.BorderStyle = Border3DStyle.Flat;
-                _operationProgressHost.Visible = false;
-
-                // Rebuild order deterministically.
-                statusCanvas.Items.Clear();
-                statusCanvas.Items.Add(lblCanvasMode);
-                statusCanvas.Items.Add(_statusSpacer);
-                statusCanvas.Items.Add(_activeLayerLabel);
-                statusCanvas.Items.Add(_activeLayerCombo);
-                statusCanvas.Items.Add(_operationProgressStatus);
-                statusCanvas.Items.Add(_operationProgressHost);
-                statusCanvas.Items.Add(lblCanvasCoordinates);
-            }
-            finally
-            {
-                statusCanvas.ResumeLayout(performLayout: true);
-            }
         }
 
         private void MapCanvasControlMain_StatusChanged(string coordinates, string mode)

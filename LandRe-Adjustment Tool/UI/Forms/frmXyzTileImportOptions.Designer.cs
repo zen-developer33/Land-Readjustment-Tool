@@ -411,6 +411,7 @@ namespace Land_Readjustment_Tool.UI.Forms
             ShowInTaskbar = false;
             StartPosition = FormStartPosition.CenterParent;
             Text = "Import XYZ Tiles";
+            Load += frmXyzTileImportOptions_Load_1;
             layout.ResumeLayout(false);
             layout.PerformLayout();
             sourceLayout.ResumeLayout(false);
