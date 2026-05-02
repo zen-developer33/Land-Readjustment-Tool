@@ -127,7 +127,7 @@ namespace Land_Readjustment_Tool.UI.Forms.Project
             tabCoordinates.Controls.Add(grpDatumTransformation);
             tabCoordinates.Location = new Point(4, 31);
             tabCoordinates.Name = "tabCoordinates";
-            tabCoordinates.Padding = new Padding(8, 8, 8, 8);
+            tabCoordinates.Padding = new Padding(8);
             tabCoordinates.Size = new Size(555, 397);
             tabCoordinates.TabIndex = 0;
             tabCoordinates.Text = "Coordinate System";
@@ -142,7 +142,7 @@ namespace Land_Readjustment_Tool.UI.Forms.Project
             grpCRS.Font = new Font("Segoe UI", 9F, FontStyle.Bold);
             grpCRS.Location = new Point(8, 8);
             grpCRS.Name = "grpCRS";
-            grpCRS.Size = new Size(536, 141);
+            grpCRS.Size = new Size(536, 128);
             grpCRS.TabIndex = 0;
             grpCRS.TabStop = false;
             grpCRS.Text = "Coordinate Reference System";
@@ -179,9 +179,9 @@ namespace Land_Readjustment_Tool.UI.Forms.Project
             // 
             lblCrsInfo.Font = new Font("Segoe UI", 8.5F, FontStyle.Italic);
             lblCrsInfo.ForeColor = SystemColors.GrayText;
-            lblCrsInfo.Location = new Point(11, 81);
+            lblCrsInfo.Location = new Point(13, 81);
             lblCrsInfo.Name = "lblCrsInfo";
-            lblCrsInfo.Size = new Size(475, 38);
+            lblCrsInfo.Size = new Size(475, 33);
             lblCrsInfo.TabIndex = 2;
             // 
             // grpDatumTransformation
@@ -240,7 +240,7 @@ namespace Land_Readjustment_Tool.UI.Forms.Project
             tabArea.Controls.Add(grpAreaUnit);
             tabArea.Location = new Point(4, 31);
             tabArea.Name = "tabArea";
-            tabArea.Padding = new Padding(8, 8, 8, 8);
+            tabArea.Padding = new Padding(8);
             tabArea.Size = new Size(555, 397);
             tabArea.TabIndex = 1;
             tabArea.Text = "Area Units";
@@ -294,7 +294,7 @@ namespace Land_Readjustment_Tool.UI.Forms.Project
             tabMapCanvas.Controls.Add(grpCanvasTheme);
             tabMapCanvas.Location = new Point(4, 31);
             tabMapCanvas.Name = "tabMapCanvas";
-            tabMapCanvas.Padding = new Padding(8, 8, 8, 8);
+            tabMapCanvas.Padding = new Padding(8);
             tabMapCanvas.Size = new Size(555, 397);
             tabMapCanvas.TabIndex = 2;
             tabMapCanvas.Text = "Map Canvas";
@@ -497,7 +497,7 @@ namespace Land_Readjustment_Tool.UI.Forms.Project
             tabParcel.Controls.Add(grpReplotRules);
             tabParcel.Location = new Point(4, 31);
             tabParcel.Name = "tabParcel";
-            tabParcel.Padding = new Padding(8, 8, 8, 8);
+            tabParcel.Padding = new Padding(8);
             tabParcel.Size = new Size(555, 397);
             tabParcel.TabIndex = 3;
             tabParcel.Text = "Parcels";
@@ -624,7 +624,7 @@ namespace Land_Readjustment_Tool.UI.Forms.Project
             tabDocument.Controls.Add(grpDocument);
             tabDocument.Location = new Point(4, 31);
             tabDocument.Name = "tabDocument";
-            tabDocument.Padding = new Padding(8, 8, 8, 8);
+            tabDocument.Padding = new Padding(8);
             tabDocument.Size = new Size(555, 397);
             tabDocument.TabIndex = 4;
             tabDocument.Text = "Documents";
@@ -687,7 +687,7 @@ namespace Land_Readjustment_Tool.UI.Forms.Project
             tabPrint.Controls.Add(grpPrint);
             tabPrint.Location = new Point(4, 31);
             tabPrint.Name = "tabPrint";
-            tabPrint.Padding = new Padding(8, 8, 8, 8);
+            tabPrint.Padding = new Padding(8);
             tabPrint.Size = new Size(555, 397);
             tabPrint.TabIndex = 5;
             tabPrint.Text = "Print";
@@ -765,7 +765,7 @@ namespace Land_Readjustment_Tool.UI.Forms.Project
             pnlFooter.Dock = DockStyle.Bottom;
             pnlFooter.Location = new Point(0, 432);
             pnlFooter.Name = "pnlFooter";
-            pnlFooter.Padding = new Padding(8, 8, 8, 8);
+            pnlFooter.Padding = new Padding(8);
             pnlFooter.Size = new Size(563, 55);
             pnlFooter.TabIndex = 1;
             // 

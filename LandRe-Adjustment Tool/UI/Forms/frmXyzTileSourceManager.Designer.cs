@@ -31,10 +31,10 @@ namespace Land_Readjustment_Tool.UI.Forms
             layout = new TableLayoutPanel();
             dgvSources = new DataGridView();
             buttonLayout = new FlowLayoutPanel();
-            btnAdd = new Button();
-            btnDelete = new Button();
-            btnSave = new Button();
             btnClose = new Button();
+            btnSave = new Button();
+            btnDelete = new Button();
+            btnAdd = new Button();
             layout.SuspendLayout();
             ((System.ComponentModel.ISupportInitialize)dgvSources).BeginInit();
             buttonLayout.SuspendLayout();
@@ -54,7 +54,7 @@ namespace Land_Readjustment_Tool.UI.Forms
             layout.RowCount = 2;
             layout.RowStyles.Add(new RowStyle(SizeType.Percent, 100F));
             layout.RowStyles.Add(new RowStyle(SizeType.Absolute, 59F));
-            layout.Size = new Size(810, 392);
+            layout.Size = new Size(674, 392);
             layout.TabIndex = 0;
             // 
             // dgvSources
@@ -70,7 +70,7 @@ namespace Land_Readjustment_Tool.UI.Forms
             dgvSources.RowHeadersVisible = false;
             dgvSources.RowHeadersWidth = 51;
             dgvSources.SelectionMode = DataGridViewSelectionMode.FullRowSelect;
-            dgvSources.Size = new Size(782, 299);
+            dgvSources.Size = new Size(646, 299);
             dgvSources.TabIndex = 0;
             // 
             // buttonLayout
@@ -84,34 +84,23 @@ namespace Land_Readjustment_Tool.UI.Forms
             buttonLayout.Location = new Point(14, 324);
             buttonLayout.Margin = new Padding(3, 4, 3, 4);
             buttonLayout.Name = "buttonLayout";
-            buttonLayout.Size = new Size(782, 51);
+            buttonLayout.Size = new Size(646, 51);
             buttonLayout.TabIndex = 1;
             // 
-            // btnAdd
+            // btnClose
             // 
-            btnAdd.Location = new Point(417, 4);
-            btnAdd.Margin = new Padding(3, 4, 3, 4);
-            btnAdd.Name = "btnAdd";
-            btnAdd.Size = new Size(86, 37);
-            btnAdd.TabIndex = 0;
-            btnAdd.Text = "Add";
-            btnAdd.UseVisualStyleBackColor = true;
-            btnAdd.Click += btnAdd_Click;
-            // 
-            // btnDelete
-            // 
-            btnDelete.Location = new Point(509, 4);
-            btnDelete.Margin = new Padding(3, 4, 3, 4);
-            btnDelete.Name = "btnDelete";
-            btnDelete.Size = new Size(86, 37);
-            btnDelete.TabIndex = 1;
-            btnDelete.Text = "Delete";
-            btnDelete.UseVisualStyleBackColor = true;
-            btnDelete.Click += btnDelete_Click;
+            btnClose.DialogResult = DialogResult.Cancel;
+            btnClose.Location = new Point(557, 4);
+            btnClose.Margin = new Padding(3, 4, 3, 4);
+            btnClose.Name = "btnClose";
+            btnClose.Size = new Size(86, 37);
+            btnClose.TabIndex = 3;
+            btnClose.Text = "Close";
+            btnClose.UseVisualStyleBackColor = true;
             // 
             // btnSave
             // 
-            btnSave.Location = new Point(601, 4);
+            btnSave.Location = new Point(465, 4);
             btnSave.Margin = new Padding(3, 4, 3, 4);
             btnSave.Name = "btnSave";
             btnSave.Size = new Size(86, 37);
@@ -120,23 +109,34 @@ namespace Land_Readjustment_Tool.UI.Forms
             btnSave.UseVisualStyleBackColor = true;
             btnSave.Click += btnSave_Click;
             // 
-            // btnClose
+            // btnDelete
             // 
-            btnClose.DialogResult = DialogResult.Cancel;
-            btnClose.Location = new Point(693, 4);
-            btnClose.Margin = new Padding(3, 4, 3, 4);
-            btnClose.Name = "btnClose";
-            btnClose.Size = new Size(86, 37);
-            btnClose.TabIndex = 3;
-            btnClose.Text = "Close";
-            btnClose.UseVisualStyleBackColor = true;
+            btnDelete.Location = new Point(373, 4);
+            btnDelete.Margin = new Padding(3, 4, 3, 4);
+            btnDelete.Name = "btnDelete";
+            btnDelete.Size = new Size(86, 37);
+            btnDelete.TabIndex = 1;
+            btnDelete.Text = "Delete";
+            btnDelete.UseVisualStyleBackColor = true;
+            btnDelete.Click += btnDelete_Click;
+            // 
+            // btnAdd
+            // 
+            btnAdd.Location = new Point(281, 4);
+            btnAdd.Margin = new Padding(3, 4, 3, 4);
+            btnAdd.Name = "btnAdd";
+            btnAdd.Size = new Size(86, 37);
+            btnAdd.TabIndex = 0;
+            btnAdd.Text = "Add";
+            btnAdd.UseVisualStyleBackColor = true;
+            btnAdd.Click += btnAdd_Click;
             // 
             // frmXyzTileSourceManager
             // 
             AutoScaleDimensions = new SizeF(8F, 20F);
             AutoScaleMode = AutoScaleMode.Font;
             CancelButton = btnClose;
-            ClientSize = new Size(810, 392);
+            ClientSize = new Size(674, 392);
             Controls.Add(layout);
             Margin = new Padding(3, 4, 3, 4);
             MinimizeBox = false;

@@ -75,16 +75,23 @@ namespace Land_Readjustment_Tool.UI.Forms
             if (_isImportInProgress)
                 return;
 
-            if (!TryBuildValidatedRequest(out XyzTileSourceImportRequest request))
-                return;
-
-            if (_downloadedRequest == null ||
-                !AreEquivalentRequests(_downloadedRequest, request))
+            if (string.IsNullOrWhiteSpace(txtLayerName.Text))
             {
-                ShowValidationMessage(
-                    "Please download tiles for the current settings before importing.");
+                ShowValidationMessage("Please enter a layer name.");
                 return;
             }
+
+            if (_downloadedRequest == null)
+            {
+                ShowValidationMessage(
+                    "Please download tiles at least once before importing.");
+                return;
+            }
+
+            XyzTileSourceImportRequest request =
+                CreateImportRequestFromDownloadedTiles(
+                    txtLayerName.Text.Trim(),
+                    _downloadedRequest);
 
             ImportRequested?.Invoke(this, new XyzTileImportRequestedEventArgs(request));
         }
@@ -233,7 +240,19 @@ namespace Land_Readjustment_Tool.UI.Forms
 
             _lastSuccessfulDownloadRequest =
                 CreateDownloadRequestFromInitialState();
-            ResetDownloadState("Download tiles to enable Import.");
+            _downloadedRequest = _lastSuccessfulDownloadRequest;
+
+            if (_downloadedRequest != null)
+            {
+                btnImport.Enabled = true;
+                progressTileDownload.Value = 100;
+                lblDownloadStatus.Text =
+                    "Previously downloaded tiles are ready. Click Import to add to the project.";
+            }
+            else
+            {
+                ResetDownloadState("Download tiles to enable Import.");
+            }
         }
 
         private void ApplyBounds(
@@ -321,7 +340,7 @@ namespace Land_Readjustment_Tool.UI.Forms
             numZoomLevel.Minimum = minZoom;
             numZoomLevel.Maximum = maxZoom;
 
-            ResetDownloadState("Download tiles to enable Import.");
+            InvalidateDownloadedRequest();
         }
 
         private bool IsDesignMode()
@@ -457,13 +476,37 @@ namespace Land_Readjustment_Tool.UI.Forms
 
         private void InvalidateDownloadedRequest()
         {
-            // Any settings edit invalidates the current "ready to import" state.
-            btnImport.Enabled = false;
+            if (_downloadCancellation != null)
+            {
+                return;
+            }
+
+            btnImport.Enabled = _downloadedRequest != null;
 
             if (_downloadedRequest == null)
+            {
+                progressTileDownload.Value = 0;
+                lblDownloadStatus.Text = "Download tiles to enable Import.";
                 return;
+            }
 
-            ResetDownloadState("Settings changed. Download tiles again.");
+            lblDownloadStatus.Text =
+                "Settings changed. You can import the last downloaded tiles or download again to refresh.";
+        }
+
+        private static XyzTileSourceImportRequest CreateImportRequestFromDownloadedTiles(
+            string layerName,
+            XyzTileSourceImportRequest downloadedRequest)
+        {
+            return new XyzTileSourceImportRequest(
+                layerName,
+                downloadedRequest.UrlTemplate,
+                downloadedRequest.MinLongitude,
+                downloadedRequest.MinLatitude,
+                downloadedRequest.MaxLongitude,
+                downloadedRequest.MaxLatitude,
+                downloadedRequest.ZoomLevel,
+                downloadedRequest.ImageExtension);
         }
 
         private void ResetDownloadState(string statusText)
