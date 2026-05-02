@@ -39,7 +39,9 @@ namespace Land_Readjustment_Tool.Services.Raster
             string catalogPath = GetCatalogPath(projectFolderPath);
             Directory.CreateDirectory(Path.GetDirectoryName(catalogPath)!);
 
+            // Built-in sources are always derived from code — never persisted to disk.
             List<XyzTileSourceCatalogItem> cleanedSources = sources
+                .Where(s => !s.IsBuiltIn)
                 .Where(IsValidSource)
                 .GroupBy(source => source.Name, StringComparer.OrdinalIgnoreCase)
                 .Select(group => group.First())
@@ -66,48 +68,147 @@ namespace Land_Readjustment_Tool.Services.Raster
                 CatalogFileName);
         }
 
+        /// <summary>
+        /// Returns the hard-coded list of popular, read-only built-in tile sources.
+        /// These are always available regardless of whether a catalog file exists.
+        /// </summary>
         private static List<XyzTileSourceCatalogItem> GetDefaultSources()
         {
             return
             [
-                new XyzTileSourceCatalogItem(
-                    "OpenStreetMap Standard",
+                // ── OpenStreetMap ──────────────────────────────────────────────
+                new("OpenStreetMap Standard",
                     "https://tile.openstreetmap.org/{z}/{x}/{y}.png",
-                    0,
-                    19,
-                    "png"),
-                new XyzTileSourceCatalogItem(
-                    "Esri World Imagery",
+                    0, 19, "png", IsBuiltIn: true),
+
+                new("OpenStreetMap Humanitarian (HOT)",
+                    "https://tile.openstreetmap.fr/hot/{z}/{x}/{y}.png",
+                    0, 19, "png", IsBuiltIn: true),
+
+                // ── Esri / ArcGIS Online ───────────────────────────────────────
+                new("Esri World Imagery",
                     "https://services.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}",
-                    0,
-                    19,
-                    "jpg")
+                    0, 19, "jpg", IsBuiltIn: true),
+
+                new("Esri World Street Map",
+                    "https://services.arcgisonline.com/ArcGIS/rest/services/World_Street_Map/MapServer/tile/{z}/{y}/{x}",
+                    0, 19, "jpg", IsBuiltIn: true),
+
+                new("Esri World Topo Map",
+                    "https://services.arcgisonline.com/ArcGIS/rest/services/World_Topo_Map/MapServer/tile/{z}/{y}/{x}",
+                    0, 19, "jpg", IsBuiltIn: true),
+
+                new("Esri World Light Gray Canvas",
+                    "https://services.arcgisonline.com/ArcGIS/rest/services/Canvas/World_Light_Gray_Base/MapServer/tile/{z}/{y}/{x}",
+                    0, 16, "jpg", IsBuiltIn: true),
+
+                new("Esri World Dark Gray Canvas",
+                    "https://services.arcgisonline.com/ArcGIS/rest/services/Canvas/World_Dark_Gray_Base/MapServer/tile/{z}/{y}/{x}",
+                    0, 16, "jpg", IsBuiltIn: true),
+
+                new("Esri World Shaded Relief",
+                    "https://services.arcgisonline.com/ArcGIS/rest/services/World_Shaded_Relief/MapServer/tile/{z}/{y}/{x}",
+                    0, 13, "jpg", IsBuiltIn: true),
+
+                new("Esri World Physical Map",
+                    "https://services.arcgisonline.com/ArcGIS/rest/services/World_Physical_Map/MapServer/tile/{z}/{y}/{x}",
+                    0, 8, "jpg", IsBuiltIn: true),
+
+                // ── Google (unofficial, no API key — use in compliance with terms) ──
+                new("Google Satellite",
+                    "https://mt1.google.com/vt/lyrs=s&x={x}&y={y}&z={z}",
+                    0, 20, "jpg", IsBuiltIn: true),
+
+                new("Google Hybrid (Satellite + Labels)",
+                    "https://mt1.google.com/vt/lyrs=y&x={x}&y={y}&z={z}",
+                    0, 20, "jpg", IsBuiltIn: true),
+
+                new("Google Streets",
+                    "https://mt1.google.com/vt/lyrs=m&x={x}&y={y}&z={z}",
+                    0, 20, "png", IsBuiltIn: true),
+
+                new("Google Terrain",
+                    "https://mt1.google.com/vt/lyrs=p&x={x}&y={y}&z={z}",
+                    0, 20, "png", IsBuiltIn: true),
+
+                // ── CartoDB / CARTO ────────────────────────────────────────────
+                new("CartoDB Positron (Light)",
+                    "https://cartodb-basemaps-a.global.ssl.fastly.net/light_all/{z}/{x}/{y}.png",
+                    0, 19, "png", IsBuiltIn: true),
+
+                new("CartoDB Dark Matter",
+                    "https://cartodb-basemaps-a.global.ssl.fastly.net/dark_all/{z}/{x}/{y}.png",
+                    0, 19, "png", IsBuiltIn: true),
+
+                new("CartoDB Positron (No Labels)",
+                    "https://cartodb-basemaps-a.global.ssl.fastly.net/light_nolabels/{z}/{x}/{y}.png",
+                    0, 19, "png", IsBuiltIn: true),
+
+                // ── Stadia Maps (Stamen successor) ─────────────────────────────
+                new("Stadia Stamen Terrain",
+                    "https://tiles.stadiamaps.com/tiles/stamen_terrain/{z}/{x}/{y}.png",
+                    0, 18, "png", IsBuiltIn: true),
+
+                new("Stadia Stamen Toner",
+                    "https://tiles.stadiamaps.com/tiles/stamen_toner/{z}/{x}/{y}.png",
+                    0, 20, "png", IsBuiltIn: true),
+
+                new("Stadia Stamen Toner Lite",
+                    "https://tiles.stadiamaps.com/tiles/stamen_toner_lite/{z}/{x}/{y}.png",
+                    0, 20, "png", IsBuiltIn: true),
+
+                new("Stadia Alidade Smooth",
+                    "https://tiles.stadiamaps.com/tiles/alidade_smooth/{z}/{x}/{y}.png",
+                    0, 20, "png", IsBuiltIn: true),
+
+                new("Stadia Alidade Smooth Dark",
+                    "https://tiles.stadiamaps.com/tiles/alidade_smooth_dark/{z}/{x}/{y}.png",
+                    0, 20, "png", IsBuiltIn: true),
+
+                new("Stadia OSM Bright",
+                    "https://tiles.stadiamaps.com/tiles/osm_bright/{z}/{x}/{y}.png",
+                    0, 20, "png", IsBuiltIn: true),
+
+                // ── OpenTopoMap ────────────────────────────────────────────────
+                new("OpenTopoMap",
+                    "https://opentopomap.org/{z}/{x}/{y}.png",
+                    0, 17, "png", IsBuiltIn: true),
+
+                // ── USGS National Map (US-centric, useful for reference) ───────
+                new("USGS Topo",
+                    "https://basemap.nationalmap.gov/arcgis/rest/services/USGSTopo/MapServer/tile/{z}/{y}/{x}",
+                    0, 16, "jpg", IsBuiltIn: true),
+
+                new("USGS Imagery",
+                    "https://basemap.nationalmap.gov/arcgis/rest/services/USGSImageryOnly/MapServer/tile/{z}/{y}/{x}",
+                    0, 16, "jpg", IsBuiltIn: true),
+
+                // ── Wikimedia Maps ─────────────────────────────────────────────
+                new("Wikimedia Maps",
+                    "https://maps.wikimedia.org/osm-intl/{z}/{x}/{y}.png",
+                    0, 19, "png", IsBuiltIn: true),
             ];
         }
 
         private static List<XyzTileSourceCatalogItem> MergeWithDefaultSources(
             IEnumerable<XyzTileSourceCatalogItem>? savedSources)
         {
-            List<XyzTileSourceCatalogItem> mergedSources = (savedSources ?? [])
+            List<XyzTileSourceCatalogItem> builtInSources = GetDefaultSources();
+            HashSet<string> builtInNames = new(
+                builtInSources.Select(s => s.Name),
+                StringComparer.OrdinalIgnoreCase);
+
+            // Only keep user-added sources; strip any stale saved copy of a built-in name.
+            List<XyzTileSourceCatalogItem> userSources = (savedSources ?? [])
+                .Where(s => !s.IsBuiltIn && !builtInNames.Contains(s.Name))
                 .Where(IsValidSource)
                 .GroupBy(source => source.Name, StringComparer.OrdinalIgnoreCase)
                 .Select(group => group.First())
                 .ToList();
 
-            foreach (XyzTileSourceCatalogItem defaultSource in GetDefaultSources())
-            {
-                bool exists = mergedSources.Any(source =>
-                    string.Equals(
-                        source.Name,
-                        defaultSource.Name,
-                        StringComparison.OrdinalIgnoreCase));
-
-                if (!exists)
-                    mergedSources.Add(defaultSource);
-            }
-
-            return mergedSources
-                .OrderBy(source => source.Name)
+            // Built-in sources always come first, then user sources sorted alphabetically.
+            return builtInSources
+                .Concat(userSources.OrderBy(s => s.Name))
                 .ToList();
         }
 
@@ -126,5 +227,6 @@ namespace Land_Readjustment_Tool.Services.Raster
         string UrlTemplate,
         int MinZoom,
         int MaxZoom,
-        string ImageExtension);
+        string ImageExtension,
+        bool IsBuiltIn = false);
 }

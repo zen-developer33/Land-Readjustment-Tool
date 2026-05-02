@@ -21,6 +21,9 @@ namespace Land_Readjustment_Tool.UI.Forms
         private XyzTileSourceImportRequest? _lastSuccessfulDownloadRequest;
         private CancellationTokenSource? _downloadCancellation;
         private bool _isImportInProgress;
+        // Tracks the last layer name we injected automatically so we never
+        // overwrite a name the user has typed manually.
+        private string _lastAutoSuggestedLayerName = string.Empty;
 
         public frmXyzTileImportOptions()
             : this(string.Empty)
@@ -136,6 +139,11 @@ namespace Land_Readjustment_Tool.UI.Forms
                 progressTileDownload.Value = 100;
                 lblDownloadStatus.Text =
                     "Download complete. Click Import to add to the project.";
+
+                // Upgrade the layer name to include zoom and bounding-box coordinates
+                // now that we know exactly what was downloaded.
+                SuggestLayerName(BuildDownloadedLayerName(SelectedTileSource.Name, request));
+
                 RaiseOptionsStateChanged();
             }
             catch (OperationCanceledException)
@@ -220,7 +228,12 @@ namespace Land_Readjustment_Tool.UI.Forms
                 return;
 
             if (!string.IsNullOrWhiteSpace(_initialState.LayerName))
+            {
                 txtLayerName.Text = _initialState.LayerName;
+                // Treat the restored name as "user-chosen" so it is never
+                // overwritten by a subsequent auto-suggestion.
+                _lastAutoSuggestedLayerName = string.Empty;
+            }
 
             if (!string.IsNullOrWhiteSpace(_initialState.UrlTemplate))
                 SelectTileSourceByUrl(_initialState.UrlTemplate);
@@ -340,8 +353,59 @@ namespace Land_Readjustment_Tool.UI.Forms
             numZoomLevel.Minimum = minZoom;
             numZoomLevel.Maximum = maxZoom;
 
+            // On source change: suggest just the source name as a lightweight placeholder.
+            SuggestLayerName(source.Name.Trim());
             InvalidateDownloadedRequest();
         }
+
+        // ── Layer-name suggestion ────────────────────────────────────────────────
+
+        /// <summary>
+        /// Writes <paramref name="suggested"/> into <see cref="txtLayerName"/> only when
+        /// the field is empty or still shows the previous auto-suggestion.
+        /// A name typed manually by the user is never overwritten.
+        /// </summary>
+        private void SuggestLayerName(string suggested)
+        {
+            string current = txtLayerName.Text.Trim();
+
+            bool isEmpty = string.IsNullOrEmpty(current);
+            bool isStillOurSuggestion =
+                string.Equals(current, _lastAutoSuggestedLayerName, StringComparison.Ordinal);
+
+            if (isEmpty || isStillOurSuggestion)
+            {
+                txtLayerName.Text = suggested;
+                _lastAutoSuggestedLayerName = suggested;
+            }
+        }
+
+        /// <summary>
+        /// Builds the rich layer name used after a successful tile download.
+        /// Format: <c>Source Name  —  Z{zoom}  [{W}–{E}, {S}–{N}]</c>
+        /// Example: <c>Google Satellite  —  Z16  [83.9°E–84.2°E, 27.2°N–27.5°N]</c>
+        /// </summary>
+        private static string BuildDownloadedLayerName(
+            string sourceName,
+            XyzTileSourceImportRequest request)
+        {
+            string lonRange =
+                $"{FormatLon(request.MinLongitude)}–{FormatLon(request.MaxLongitude)}";
+            string latRange =
+                $"{FormatLat(request.MinLatitude)}–{FormatLat(request.MaxLatitude)}";
+
+            return $"{sourceName.Trim()}  —  Z{request.ZoomLevel}  [{lonRange}, {latRange}]";
+        }
+
+        private static string FormatLon(double v) =>
+            v >= 0
+                ? $"{v:F1}°E"
+                : $"{Math.Abs(v):F1}°W";
+
+        private static string FormatLat(double v) =>
+            v >= 0
+                ? $"{v:F1}°N"
+                : $"{Math.Abs(v):F1}°S";
 
         private bool IsDesignMode()
         {
