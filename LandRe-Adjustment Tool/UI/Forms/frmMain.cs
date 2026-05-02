@@ -189,7 +189,7 @@ namespace Land_Readjustment_Tool
         private void ConfigureSmoothSplitterLayout()
         {
             // Prevent property panel from collapsing into a broken layout.
-            mainSplitContainer.Panel1MinSize = 270;
+            mainSplitContainer.Panel1MinSize = 250;
 
             EnableDoubleBuffering(mainSplitContainer);
             EnableDoubleBuffering(leftSplitContainer);
@@ -302,24 +302,6 @@ namespace Land_Readjustment_Tool
 
         }
 
-        private static Cursor LoadPanCursor()
-        {
-            var candidates = new[]
-            {
-                Path.Combine(AppContext.BaseDirectory, "Resources", "Cursors", "hand_pan.cur"),
-                Path.GetFullPath(Path.Combine(AppContext.BaseDirectory, "..", "..", "..", "..", "Resources", "Cursors", "Pan_hand.cur"))
-            };
-
-            foreach (var cursorPath in candidates)
-            {
-                if (File.Exists(cursorPath))
-                {
-                    return new Cursor(cursorPath);
-                }
-            }
-
-            return Cursors.Hand;
-        }
 
         // -- FORM CLOSING -----------------------------
 
@@ -3473,7 +3455,7 @@ namespace Land_Readjustment_Tool
             lblOperationProgressStatus.Visible = true;
             hostOperationProgress.Value = clampedPercent;
             hostOperationProgress.Invalidate();
-            hostOperationProgress.Visible = true;
+            hostProgressBarHost.Visible = true;
             if (showProgressForm)
             {
                 ShowOperationProgressForm(
@@ -3577,7 +3559,7 @@ namespace Land_Readjustment_Tool
             lblOperationProgressStatus.Visible = false;
             hostOperationProgress.Value = 0;
             hostOperationProgress.Invalidate();
-            hostOperationProgress.Visible = false;
+            hostProgressBarHost.Visible = false;
             _operationProgressForm?.Close();
             _operationProgressForm = null;
             statusCanvas.Refresh();

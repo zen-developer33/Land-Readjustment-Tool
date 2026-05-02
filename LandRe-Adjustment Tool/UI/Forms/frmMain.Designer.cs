@@ -1186,11 +1186,14 @@ namespace Land_Readjustment_Tool
             // 
             // lblCanvasMode
             // 
+            lblCanvasMode.Alignment = ToolStripItemAlignment.Left;
             lblCanvasMode.AutoSize = false;
             lblCanvasMode.BorderSides = ToolStripStatusLabelBorderSides.Right;
+            lblCanvasMode.BorderStyle = Border3DStyle.Flat;
             lblCanvasMode.ForeColor = SystemColors.ControlText;
             lblCanvasMode.Name = "lblCanvasMode";
             lblCanvasMode.Size = new Size(220, 24);
+            lblCanvasMode.Spring = false;
             lblCanvasMode.Text = "Status: Ready";
             lblCanvasMode.TextAlign = ContentAlignment.MiddleLeft;
             // 
