@@ -1,4 +1,6 @@
-﻿using Land_Readjustment_Tool.UI.CustomControls;
+﻿using System.Drawing;
+using System.Windows.Forms;
+using Land_Readjustment_Tool.UI.CustomControls;
 using Land_Readjustment_Tool.Data;
 using Land_Readjustment_Tool.Core;
 namespace Land_Readjustment_Tool
@@ -143,8 +145,7 @@ namespace Land_Readjustment_Tool
             lblCanvasMode = new ToolStripStatusLabel();
             lblStatusSpacer = new ToolStripStatusLabel();
             lblOperationProgressStatus = new ToolStripStatusLabel();
-            progressBarOperation = new StatusProgressBar();
-            hostOperationProgress = new ToolStripControlHost(progressBarOperation);
+            hostProgressBarHost = new StatusProgressBar();
             lblCanvasCoordinates = new ToolStripStatusLabel();
             mapCanvasControlMain = new MapCanvasControl();
             tsCanvasTools = new ToolStrip();
@@ -372,7 +373,7 @@ namespace Land_Readjustment_Tool
             // 
             importDataToolStripMenuItem1.DropDownItems.AddRange(new ToolStripItem[] { ImportParcelOwnerShipRecords, toolStripSeparator5, importCadastralDataDXFDWGShapefileToolStripMenuItem, ImportProjectBoundaryDXFDWGToolStripMenuItem, toolStripSeparator6, baseMapsToolStripMenuItem });
             importDataToolStripMenuItem1.Name = "importDataToolStripMenuItem1";
-            importDataToolStripMenuItem1.Size = new Size(145, 26);
+            importDataToolStripMenuItem1.Size = new Size(224, 26);
             importDataToolStripMenuItem1.Text = "Import";
             // 
             // ImportParcelOwnerShipRecords
@@ -415,7 +416,7 @@ namespace Land_Readjustment_Tool
             // 
             importToolStripMenuItem.DropDownItems.AddRange(new ToolStripItem[] { viewEditRecordToolStripMenuItem, landOwnerDataToolStripMenuItem });
             importToolStripMenuItem.Name = "importToolStripMenuItem";
-            importToolStripMenuItem.Size = new Size(145, 26);
+            importToolStripMenuItem.Size = new Size(224, 26);
             importToolStripMenuItem.Text = "Records";
             // 
             // viewEditRecordToolStripMenuItem
@@ -1163,70 +1164,64 @@ namespace Land_Readjustment_Tool
             splitContainer3.Size = new Size(1131, 731);
             splitContainer3.SplitterDistance = 807;
             splitContainer3.TabIndex = 1;
-            //
+            // 
             // statusCanvas
-            //
+            // 
             statusCanvas.BackColor = SystemColors.ControlLightLight;
             statusCanvas.ForeColor = SystemColors.ControlText;
-            statusCanvas.Dock = DockStyle.Bottom;
-            statusCanvas.RightToLeft = RightToLeft.No;
             statusCanvas.ImageScalingSize = new Size(20, 20);
-            statusCanvas.Items.AddRange(new ToolStripItem[] { lblCanvasMode, lblStatusSpacer, lblOperationProgressStatus, hostOperationProgress, lblCanvasCoordinates });
+            statusCanvas.Items.AddRange(new ToolStripItem[] { lblCanvasMode, lblStatusSpacer, lblOperationProgressStatus, hostProgressBarHost, lblCanvasCoordinates });
             statusCanvas.Location = new Point(0, 697);
             statusCanvas.Name = "statusCanvas";
+            statusCanvas.RightToLeft = RightToLeft.No;
             statusCanvas.Size = new Size(803, 30);
             statusCanvas.TabIndex = 6;
             statusCanvas.Text = "Map Canvas Status";
-            //
+            // 
             // lblCanvasMode
-            //
-            lblCanvasMode.Alignment = ToolStripItemAlignment.Left;
+            // 
             lblCanvasMode.AutoSize = false;
             lblCanvasMode.BorderSides = ToolStripStatusLabelBorderSides.Right;
-            lblCanvasMode.BorderStyle = Border3DStyle.Flat;
             lblCanvasMode.ForeColor = SystemColors.ControlText;
             lblCanvasMode.Name = "lblCanvasMode";
             lblCanvasMode.Size = new Size(220, 24);
-            lblCanvasMode.Spring = false;
             lblCanvasMode.Text = "Status: Ready";
             lblCanvasMode.TextAlign = ContentAlignment.MiddleLeft;
-            //
+            // 
             // lblStatusSpacer
-            //
+            // 
             lblStatusSpacer.Name = "lblStatusSpacer";
+            lblStatusSpacer.Size = new Size(292, 24);
             lblStatusSpacer.Spring = true;
-            lblStatusSpacer.Text = "";
-            //
+            // 
             // lblOperationProgressStatus
-            //
+            // 
             lblOperationProgressStatus.AutoSize = false;
             lblOperationProgressStatus.BorderSides = ToolStripStatusLabelBorderSides.Left;
-            lblOperationProgressStatus.BorderStyle = Border3DStyle.Flat;
             lblOperationProgressStatus.ForeColor = SystemColors.ControlText;
             lblOperationProgressStatus.Name = "lblOperationProgressStatus";
             lblOperationProgressStatus.Size = new Size(210, 24);
-            lblOperationProgressStatus.Text = "";
             lblOperationProgressStatus.TextAlign = ContentAlignment.MiddleRight;
             lblOperationProgressStatus.Visible = false;
-            //
-            // progressBarOperation
-            //
-            progressBarOperation.Maximum = 100;
-            progressBarOperation.Minimum = 0;
-            progressBarOperation.Name = "progressBarOperation";
-            progressBarOperation.Size = new Size(150, 16);
-            progressBarOperation.Value = 0;
-            //
-            // hostOperationProgress
-            //
-            hostOperationProgress.AutoSize = false;
-            hostOperationProgress.Margin = new Padding(4, 2, 8, 2);
-            hostOperationProgress.Name = "hostOperationProgress";
-            hostOperationProgress.Size = new Size(154, 22);
-            hostOperationProgress.Visible = false;
-            //
+            // 
+            // hostProgressBarHost
+            // 
+            hostProgressBarHost.AccessibleName = "hostProgressBarHost";
+            hostProgressBarHost.Location = new Point(805, 31);
+            hostProgressBarHost.Name = "hostProgressBarHost";
+            hostProgressBarHost.Size = new Size(154, 26);
+            hostProgressBarHost.TabIndex = 0;
+            // 
+            // hostProgressBarHost
+            // 
+            hostProgressBarHost.AutoSize = false;
+            hostProgressBarHost.Margin = new Padding(4, 2, 8, 2);
+            hostProgressBarHost.Name = "hostProgressBarHost";
+            hostProgressBarHost.Size = new Size(154, 26);
+            hostProgressBarHost.Visible = false;
+            // 
             // lblCanvasCoordinates
-            //
+            // 
             lblCanvasCoordinates.Alignment = ToolStripItemAlignment.Right;
             lblCanvasCoordinates.AutoSize = false;
             lblCanvasCoordinates.BorderSides = ToolStripStatusLabelBorderSides.Left;
@@ -1234,8 +1229,7 @@ namespace Land_Readjustment_Tool
             lblCanvasCoordinates.ForeColor = SystemColors.ControlText;
             lblCanvasCoordinates.Margin = new Padding(0, 3, 6, 2);
             lblCanvasCoordinates.Name = "lblCanvasCoordinates";
-            lblCanvasCoordinates.Size = new Size(270, 24);
-            lblCanvasCoordinates.Spring = false;
+            lblCanvasCoordinates.Size = new Size(270, 25);
             lblCanvasCoordinates.Text = "E: 0.0000    N: 0.0000";
             lblCanvasCoordinates.TextAlign = ContentAlignment.MiddleRight;
             // 
@@ -1600,7 +1594,6 @@ namespace Land_Readjustment_Tool
         private System.Windows.Forms.ToolStripMenuItem tsmNewProject;
         private System.Windows.Forms.ToolStripMenuItem tsmOpenProject;
         private System.Windows.Forms.ToolStripMenuItem tsmSave;
-        private System.Windows.Forms.ToolStripMenuItem exportProjectToolStripMenuItem;
         private System.Windows.Forms.ToolStripMenuItem tsmSaveAs;
         private System.Windows.Forms.ToolStripSeparator toolStripSeparator1;
         private System.Windows.Forms.ToolStripMenuItem tsmExit;
@@ -1726,8 +1719,10 @@ namespace Land_Readjustment_Tool
         private ToolStripStatusLabel lblCanvasMode;
         private ToolStripStatusLabel lblStatusSpacer;
         private ToolStripStatusLabel lblOperationProgressStatus;
-        private StatusProgressBar progressBarOperation;
-        private ToolStripControlHost hostOperationProgress;
         private ToolStripStatusLabel lblCanvasCoordinates;
+
+        // FIX: Declare hostOperationProgress as the actual control type
+        private StatusProgressBar hostOperationProgress;
+        private StatusProgressBar hostProgressBarHost;
     }
 }

@@ -3471,8 +3471,8 @@ namespace Land_Readjustment_Tool
             int clampedPercent = Math.Clamp(percent, 0, 100);
             lblOperationProgressStatus.Text = status;
             lblOperationProgressStatus.Visible = true;
-            progressBarOperation.Value = clampedPercent;
-            progressBarOperation.Invalidate();
+            hostOperationProgress.Value = clampedPercent;
+            hostOperationProgress.Invalidate();
             hostOperationProgress.Visible = true;
             if (showProgressForm)
             {
@@ -3575,8 +3575,8 @@ namespace Land_Readjustment_Tool
 
             lblOperationProgressStatus.Text = string.Empty;
             lblOperationProgressStatus.Visible = false;
-            progressBarOperation.Value = 0;
-            progressBarOperation.Invalidate();
+            hostOperationProgress.Value = 0;
+            hostOperationProgress.Invalidate();
             hostOperationProgress.Visible = false;
             _operationProgressForm?.Close();
             _operationProgressForm = null;
