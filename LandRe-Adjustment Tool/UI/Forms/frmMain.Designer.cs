@@ -94,6 +94,7 @@ namespace Land_Readjustment_Tool
             cadastralDataToolStripMenuItem = new ToolStripMenuItem();
             importDataToolStripMenuItem = new ToolStripMenuItem();
             viewEditRecordsToolStripMenuItem = new ToolStripMenuItem();
+
             leftSplitContainer = new SplitContainer();
             grpLayer = new GroupBox();
             treeViewLayers = new TreeView();
@@ -145,7 +146,11 @@ namespace Land_Readjustment_Tool
             lblCanvasMode = new ToolStripStatusLabel();
             lblStatusSpacer = new ToolStripStatusLabel();
             lblOperationProgressStatus = new ToolStripStatusLabel();
-            hostProgressBarHost = new StatusProgressBar();
+
+            // FIX: Create StatusProgressBar first, then wrap in ToolStripControlHost
+            hostOperationProgress = new StatusProgressBar();
+            hostProgressBarHost = new ToolStripControlHost(hostOperationProgress);
+
             lblCanvasCoordinates = new ToolStripStatusLabel();
             mapCanvasControlMain = new MapCanvasControl();
             tsCanvasTools = new ToolStrip();
@@ -772,7 +777,7 @@ namespace Land_Readjustment_Tool
             btnBorderColor.Name = "btnBorderColor";
             btnBorderColor.Size = new Size(79, 30);
             btnBorderColor.TabIndex = 6;
-            btnBorderColor.Text = "Choose…";
+            btnBorderColor.Text = "Choose\u2026";
             // 
             // lblLineStyle
             // 
@@ -902,7 +907,7 @@ namespace Land_Readjustment_Tool
             btnFillColor.Name = "btnFillColor";
             btnFillColor.Size = new Size(69, 30);
             btnFillColor.TabIndex = 2;
-            btnFillColor.Text = "Choose…";
+            btnFillColor.Text = "Choose\u2026";
             // 
             // lblFillStyle
             // 
@@ -1040,7 +1045,7 @@ namespace Land_Readjustment_Tool
             btnPickFont.Name = "btnPickFont";
             btnPickFont.Size = new Size(40, 26);
             btnPickFont.TabIndex = 3;
-            btnPickFont.Text = "…";
+            btnPickFont.Text = "\u2026";
             // 
             // lblFontSize
             // 
@@ -1089,7 +1094,7 @@ namespace Land_Readjustment_Tool
             btnLabelColor.Name = "btnLabelColor";
             btnLabelColor.Size = new Size(75, 26);
             btnLabelColor.TabIndex = 8;
-            btnLabelColor.Text = "Choose…";
+            btnLabelColor.Text = "Choose\u2026";
             // 
             // lblLabelField
             // 
@@ -1170,6 +1175,7 @@ namespace Land_Readjustment_Tool
             statusCanvas.BackColor = SystemColors.ControlLightLight;
             statusCanvas.ForeColor = SystemColors.ControlText;
             statusCanvas.ImageScalingSize = new Size(20, 20);
+            // FIX: Use hostProgressBarHost (ToolStripControlHost) instead of hostOperationProgress directly
             statusCanvas.Items.AddRange(new ToolStripItem[] { lblCanvasMode, lblStatusSpacer, lblOperationProgressStatus, hostProgressBarHost, lblCanvasCoordinates });
             statusCanvas.Location = new Point(0, 697);
             statusCanvas.Name = "statusCanvas";
@@ -1191,7 +1197,7 @@ namespace Land_Readjustment_Tool
             // lblStatusSpacer
             // 
             lblStatusSpacer.Name = "lblStatusSpacer";
-            lblStatusSpacer.Size = new Size(292, 24);
+            lblStatusSpacer.Size = new Size(192, 24);
             lblStatusSpacer.Spring = true;
             // 
             // lblOperationProgressStatus
@@ -1204,15 +1210,13 @@ namespace Land_Readjustment_Tool
             lblOperationProgressStatus.TextAlign = ContentAlignment.MiddleRight;
             lblOperationProgressStatus.Visible = false;
             // 
-            // hostProgressBarHost
+            // hostOperationProgress (the actual StatusProgressBar control)
             // 
-            hostProgressBarHost.AccessibleName = "hostProgressBarHost";
-            hostProgressBarHost.Location = new Point(805, 31);
-            hostProgressBarHost.Name = "hostProgressBarHost";
-            hostProgressBarHost.Size = new Size(154, 26);
-            hostProgressBarHost.TabIndex = 0;
+            hostOperationProgress.Name = "hostOperationProgress";
+            hostOperationProgress.Size = new Size(154, 26);
             // 
-            // hostProgressBarHost
+            // hostProgressBarHost (ToolStripControlHost wrapping hostOperationProgress)
+            // FIX: This is what gets added to the StatusStrip - ToolStripControlHost IS a ToolStripItem
             // 
             hostProgressBarHost.AutoSize = false;
             hostProgressBarHost.Margin = new Padding(4, 2, 8, 2);
@@ -1723,6 +1727,8 @@ namespace Land_Readjustment_Tool
 
         // FIX: Declare hostOperationProgress as the actual control type
         private StatusProgressBar hostOperationProgress;
-        private StatusProgressBar hostProgressBarHost;
+
+        // FIX: New wrapper field - this is the ToolStripItem that goes into StatusStrip
+        private ToolStripControlHost hostProgressBarHost;
     }
 }
