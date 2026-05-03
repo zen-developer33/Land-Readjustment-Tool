@@ -42,8 +42,10 @@ namespace Land_Readjustment_Tool.Services.Raster
             Directory.CreateDirectory(cacheFolder);
 
             string normalizedUrl = NormalizeUrlTemplate(request.UrlTemplate);
-            RasterSourceExtent sourceExtent = BuildSourceExtent(request);
-            long tileCount = CalculateTileCount(request);
+            RasterSourceExtent sourceExtent = request.IsLiveTiles
+                ? BuildGlobalSourceExtent()
+                : BuildSourceExtent(request);
+            long tileCount = request.IsLiveTiles ? 0L : CalculateTileCount(request);
             string xmlPath = GetUniquePath(
                 Path.Combine(
                     sourceFolder,
@@ -51,11 +53,9 @@ namespace Land_Readjustment_Tool.Services.Raster
 
             File.WriteAllText(
                 xmlPath,
-                BuildGdalWmsXml(
-                    normalizedUrl,
-                    cacheFolder,
-                    request.ZoomLevel,
-                    request.ImageExtension),
+                request.IsLiveTiles
+                    ? BuildGdalWmsXmlLive(normalizedUrl, cacheFolder, request.ZoomLevel, request.ImageExtension)
+                    : BuildGdalWmsXml(normalizedUrl, cacheFolder, request.ZoomLevel, request.ImageExtension),
                 Utf8NoBom);
 
             return new XyzTileSourceDefinition(
@@ -66,6 +66,7 @@ namespace Land_Readjustment_Tool.Services.Raster
 
         /// <summary>
         /// Validates user-entered web tile settings before a GDAL definition is written.
+        /// Live-tile requests skip bounds and tile-count checks — GDAL fetches on demand.
         /// </summary>
         private static void ValidateRequest(XyzTileSourceImportRequest request)
         {
@@ -85,6 +86,10 @@ namespace Land_Readjustment_Tool.Services.Raster
 
             if (request.ZoomLevel < 0 || request.ZoomLevel > 25)
                 throw new ArgumentException("Zoom level must be between 0 and 25.");
+
+            // Live-tile sources use a global extent — no per-request bounds to validate.
+            if (request.IsLiveTiles)
+                return;
 
             if (request.MinLongitude < -180 ||
                 request.MaxLongitude > 180 ||
@@ -131,6 +136,69 @@ namespace Land_Readjustment_Tool.Services.Raster
                 minY,
                 maxX,
                 maxY);
+        }
+
+        /// <summary>
+        /// Returns a global Web Mercator extent used by live-tile sources.
+        /// </summary>
+        private static RasterSourceExtent BuildGlobalSourceExtent()
+        {
+            return new RasterSourceExtent(
+                "EPSG:3857",
+                -WebMercatorOriginShift,
+                -WebMercatorOriginShift,
+                WebMercatorOriginShift,
+                WebMercatorOriginShift);
+        }
+
+        /// <summary>
+        /// Builds a GDAL WMS XML for live (on-demand internet) tile access.
+        /// Uses a higher connection count and no pre-download extent restriction.
+        /// </summary>
+        private static string BuildGdalWmsXmlLive(
+            string normalizedUrl,
+            string cacheFolder,
+            int maximumZoomLevel,
+            string imageExtension)
+        {
+            string escapedUrl = SecurityElement.Escape(normalizedUrl) ?? normalizedUrl;
+            string escapedCachePath = SecurityElement.Escape(cacheFolder) ?? cacheFolder;
+            string extension = NormalizeImageExtension(imageExtension);
+            string format = extension.TrimStart('.');
+            int bandsCount = format.Equals("png", StringComparison.OrdinalIgnoreCase) ? 4 : 3;
+
+            return
+                "<GDAL_WMS>\r\n" +
+                "  <Service name=\"TMS\">\r\n" +
+                $"    <ServerUrl>{escapedUrl}</ServerUrl>\r\n" +
+                $"    <Format>{format}</Format>\r\n" +
+                "  </Service>\r\n" +
+                "  <DataWindow>\r\n" +
+                $"    <UpperLeftX>{FormatDouble(-WebMercatorOriginShift)}</UpperLeftX>\r\n" +
+                $"    <UpperLeftY>{FormatDouble(WebMercatorOriginShift)}</UpperLeftY>\r\n" +
+                $"    <LowerRightX>{FormatDouble(WebMercatorOriginShift)}</LowerRightX>\r\n" +
+                $"    <LowerRightY>{FormatDouble(-WebMercatorOriginShift)}</LowerRightY>\r\n" +
+                $"    <TileLevel>{maximumZoomLevel}</TileLevel>\r\n" +
+                "    <TileCountX>1</TileCountX>\r\n" +
+                "    <TileCountY>1</TileCountY>\r\n" +
+                "    <YOrigin>top</YOrigin>\r\n" +
+                "  </DataWindow>\r\n" +
+                "  <Projection>EPSG:3857</Projection>\r\n" +
+                $"  <BlockSizeX>{TileSize}</BlockSizeX>\r\n" +
+                $"  <BlockSizeY>{TileSize}</BlockSizeY>\r\n" +
+                $"  <BandsCount>{bandsCount}</BandsCount>\r\n" +
+                "  <Cache>\r\n" +
+                $"    <Path>{escapedCachePath}</Path>\r\n" +
+                $"    <Extension>{extension}</Extension>\r\n" +
+                "    <Type>file</Type>\r\n" +
+                "    <Unique>True</Unique>\r\n" +
+                "  </Cache>\r\n" +
+                "  <MaxConnections>6</MaxConnections>\r\n" +
+                "  <Timeout>20</Timeout>\r\n" +
+                $"  <UserAgent>{DefaultUserAgent}</UserAgent>\r\n" +
+                "  <ZeroBlockHttpCodes>204,404</ZeroBlockHttpCodes>\r\n" +
+                "  <ZeroBlockOnServerException>true</ZeroBlockOnServerException>\r\n" +
+                "</GDAL_WMS>\r\n";
         }
 
         /// <summary>

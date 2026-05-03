@@ -285,6 +285,8 @@ namespace Land_Readjustment_Tool.Services.Raster
                     $"Imported '{layerName}' with the assigned source CRS.",
                 RasterDatasetImportMode.MbTilesDirectTileSource =>
                     $"Imported '{layerName}' as a direct MBTiles tile layer.",
+                RasterDatasetImportMode.XyzLiveTileSource =>
+                    $"Imported '{layerName}' as a live internet tile layer.",
                 _ => $"Imported '{layerName}'."
             };
         }
@@ -435,6 +437,8 @@ namespace Land_Readjustment_Tool.Services.Raster
                     "Raster has no map coordinates; source CRS was assigned to the copied raster without reprojection.",
                 RasterDatasetImportMode.MbTilesDirectTileSource =>
                     "MBTiles tile package was preserved and will be rendered directly from its tile pyramid.",
+                RasterDatasetImportMode.XyzLiveTileSource =>
+                    "A lazy VRT was created that references the WMS/TMS XML; tiles are fetched from the internet on demand during rendering.",
                 _ => "Unknown"
             };
         }
@@ -458,6 +462,8 @@ namespace Land_Readjustment_Tool.Services.Raster
                     "Local image coordinates with assigned CRS metadata; not georeferenced and not spatially aligned.",
                 RasterDatasetImportMode.MbTilesDirectTileSource =>
                     "Direct MBTiles tile rendering with tile footprints transformed to the project CRS.",
+                RasterDatasetImportMode.XyzLiveTileSource =>
+                    "Project CRS coordinates via lazy VRT reprojection; tiles are fetched from the internet in real time.",
                 _ => "Unknown"
             };
         }

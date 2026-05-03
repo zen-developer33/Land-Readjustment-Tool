@@ -26,7 +26,8 @@ namespace Land_Readjustment_Tool.Services.Raster
         double MaxLongitude,
         double MaxLatitude,
         int ZoomLevel,
-        string ImageExtension);
+        string ImageExtension,
+        bool IsLiveTiles = false);
 
     /// <summary>
     /// Project-scoped memory for the XYZ tile import form and the last downloaded map bounds.
@@ -108,7 +109,8 @@ public sealed record XyzTileSourceDefinition(
         UnknownCrsCopiedWithoutProjection,
         UnreferencedCopiedToLocalCoordinates,
         SourceCrsAssignedWithoutGeoreferencing,
-        MbTilesDirectTileSource
+        MbTilesDirectTileSource,
+        XyzLiveTileSource
     }
 
     /// <summary>

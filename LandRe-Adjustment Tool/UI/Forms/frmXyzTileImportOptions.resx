@@ -117,4 +117,12 @@
   <resheader name="writer">
     <value>System.Resources.ResXResourceWriter, System.Windows.Forms, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b77a5c561934e089</value>
   </resheader>
+  <data name="lblLiveTilesInfo.Text" xml:space="preserve">
+    <value>Live Tiles — tiles are fetched directly from the internet during map navigation.
+
+• No pre-download step required — click Import to add the layer immediately.
+• Zoom range: defined by the selected source.
+• Tiles are cached locally for faster repeat access.
+• Requires an active internet connection while the layer is visible.</value>
+  </data>
 </root>

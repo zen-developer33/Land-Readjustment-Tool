@@ -144,6 +144,41 @@ namespace Land_Readjustment_Tool.UI.MapCanvas.Services
                         sourceMetadata);
                 }
 
+                // ── Live tile WMS/TMS XML shortcut ───────────────────────────────
+                // A GDAL WMS/TMS XML represents a global virtual dataset — warping it
+                // to a GeoTIFF would require materializing billions of pixels.
+                // Instead, create a thin VRT (lazy warp descriptor): GDAL fetches tiles
+                // on demand from the internet when the canvas reads visible pixels.
+                if (isNetworkServiceDescriptor)
+                {
+                    progress?.Report(new RasterImportProgress(45, "Creating live tile VRT descriptor"));
+
+                    string vrtFileName = $"{SanitizeFileName(layerName)}.vrt";
+                    string vrtPath = GetUniquePath(Path.Combine(rasterFolder, vrtFileName));
+
+                    string sourceSrs =
+                        sourceExtent?.SrsDefinition ??
+                        (!string.IsNullOrWhiteSpace(sourceMetadata.ProjectionWkt)
+                            ? sourceMetadata.ProjectionWkt
+                            : "EPSG:3857");
+
+                    CreateLiveTileVrt(sourceDataset, vrtPath, sourceSrs, targetSrsDefinition);
+
+                    progress?.Report(new RasterImportProgress(88, "Finalizing live tile layer"));
+
+                    string vrtRelativePath = Path.Combine(
+                        RasterFolderName,
+                        Path.GetFileName(vrtPath));
+
+                    return new RasterImportResult(
+                        vrtPath,
+                        vrtRelativePath,
+                        RasterImportMode.XyzLiveTileSource,
+                        sourceDataset.RasterXSize,
+                        sourceDataset.RasterYSize,
+                        sourceMetadata);
+                }
+
                 string outputFileName = $"{SanitizeFileName(layerName)}.tif";
                 string outputPath = GetUniquePath(Path.Combine(rasterFolder, outputFileName));
 
@@ -323,6 +358,42 @@ namespace Land_Readjustment_Tool.UI.MapCanvas.Services
             }
 
             GdalConfiguration.ConfigureGdal();
+
+            // Live tile VRT — recreate the warp descriptor for the new project CRS.
+            if (IsLiveTileVrtPath(rasterPath))
+            {
+                if (!GdalConfiguration.Usable)
+                    throw new InvalidOperationException(
+                        "GDAL is not configured correctly. Live tile VRT cannot be recreated.");
+
+                string? wmsXmlPath = FindLiveTileVrtSource(rasterPath);
+                if (wmsXmlPath == null || !File.Exists(wmsXmlPath))
+                {
+                    skipReason = "Live tile VRT source XML was not found; layer must be re-imported.";
+                    return false;
+                }
+
+                ApplyGdalNetworkOptions();
+                NormalizeNetworkServiceDescriptorForGdal(wmsXmlPath);
+
+                using Dataset sourceDataset = Gdal.Open(wmsXmlPath, Access.GA_ReadOnly)
+                    ?? throw new InvalidOperationException(
+                        "GDAL could not open the live tile source XML.");
+
+                string sourceSrsWkt = sourceDataset.GetProjectionRef();
+                string sourceSrs = string.IsNullOrWhiteSpace(sourceSrsWkt)
+                    ? "EPSG:3857"
+                    : sourceSrsWkt;
+
+                string tempVrtPath = rasterPath + ".recreating.vrt";
+                CreateLiveTileVrt(sourceDataset, tempVrtPath, sourceSrs, targetSrsDefinition);
+                File.Copy(tempVrtPath, rasterPath, overwrite: true);
+                File.Delete(tempVrtPath);
+
+                skipReason = "Live tile VRT descriptor recreated for the new project CRS.";
+                return true;
+            }
+
             if (!GdalConfiguration.Usable)
                 throw new InvalidOperationException(
                     "GDAL is not configured correctly. Raster reprojection cannot continue.");
@@ -437,6 +508,41 @@ namespace Land_Readjustment_Tool.UI.MapCanvas.Services
 
             BuildRasterOverviews(outputDataset, "NEAREST");
             outputDataset.FlushCache();
+        }
+
+        /// <summary>
+        /// Creates a lightweight VRT that lazily warps a WMS/TMS virtual dataset
+        /// to the project CRS. No pixels are materialized — GDAL fetches tiles
+        /// on demand from the internet when the canvas reads visible pixel windows.
+        /// </summary>
+        private static void CreateLiveTileVrt(
+            Dataset sourceDataset,
+            string vrtPath,
+            string sourceSrsDefinition,
+            string targetSrsDefinition)
+        {
+            string[] warpArgs =
+            [
+                "-overwrite",
+                "-of", "VRT",
+                "-r", "near",
+                "-multi",
+                "-wo", "NUM_THREADS=ALL_CPUS",
+                "-s_srs", sourceSrsDefinition,
+                "-t_srs", targetSrsDefinition
+            ];
+
+            using GDALWarpAppOptions warpOptions = new([.. warpArgs]);
+            using Dataset warpedDataset = Gdal.Warp(
+                vrtPath,
+                [sourceDataset],
+                warpOptions,
+                null,
+                null)
+                ?? throw new InvalidOperationException(
+                    "GDAL could not create a live tile VRT descriptor.");
+
+            warpedDataset.FlushCache();
         }
 
         /// <summary>
@@ -701,6 +807,69 @@ namespace Land_Readjustment_Tool.UI.MapCanvas.Services
                 Path.GetExtension(sourcePath),
                 ".mbtiles",
                 StringComparison.OrdinalIgnoreCase);
+        }
+
+        /// <summary>
+        /// Returns true when the path is a VRT file that contains a GDAL WMS/TMS descriptor
+        /// reference, indicating it was created as a live tile layer.
+        /// </summary>
+        private static bool IsLiveTileVrtPath(string path)
+        {
+            if (!string.Equals(Path.GetExtension(path), ".vrt", StringComparison.OrdinalIgnoreCase))
+                return false;
+
+            if (!File.Exists(path))
+                return false;
+
+            try
+            {
+                string content = File.ReadAllText(path);
+                return content.Contains(".gdal-wms", StringComparison.OrdinalIgnoreCase) ||
+                       content.Contains("GDAL_WMS", StringComparison.OrdinalIgnoreCase);
+            }
+            catch
+            {
+                return false;
+            }
+        }
+
+        /// <summary>
+        /// Reads the VRT file to find the path of the WMS/TMS XML source it references.
+        /// Returns null if the source cannot be determined.
+        /// </summary>
+        private static string? FindLiveTileVrtSource(string vrtPath)
+        {
+            try
+            {
+                string vrtContent = File.ReadAllText(vrtPath);
+                string? vrtDirectory = Path.GetDirectoryName(vrtPath);
+
+                // Look for <SourceFilename ...>path</SourceFilename>
+                int startTag = vrtContent.IndexOf("<SourceFilename", StringComparison.OrdinalIgnoreCase);
+                if (startTag < 0)
+                    return null;
+
+                int contentStart = vrtContent.IndexOf('>', startTag) + 1;
+                int endTag = vrtContent.IndexOf("</SourceFilename>", contentStart, StringComparison.OrdinalIgnoreCase);
+                if (contentStart <= 0 || endTag < 0)
+                    return null;
+
+                string rawPath = vrtContent[contentStart..endTag].Trim();
+                if (string.IsNullOrWhiteSpace(rawPath))
+                    return null;
+
+                if (Path.IsPathRooted(rawPath))
+                    return rawPath;
+
+                if (string.IsNullOrWhiteSpace(vrtDirectory))
+                    return rawPath;
+
+                return Path.GetFullPath(Path.Combine(vrtDirectory, rawPath));
+            }
+            catch
+            {
+                return null;
+            }
         }
 
         /// <summary>
@@ -972,7 +1141,8 @@ namespace Land_Readjustment_Tool.UI.MapCanvas.Services
         UnknownCrsCopiedWithoutProjection,
         UnreferencedCopiedToLocalCoordinates,
         SourceCrsAssignedWithoutGeoreferencing,
-        MbTilesDirectTileSource
+        MbTilesDirectTileSource,
+        XyzLiveTileSource
     }
 
     internal sealed record RasterBandMetadata(

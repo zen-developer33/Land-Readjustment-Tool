@@ -5,13 +5,60 @@ namespace Land_Readjustment_Tool.UI.Forms
 {
     /// <summary>
     /// Collects the settings needed to import an online XYZ tile source.
+    /// Supports three bounds modes: Center + Radius, Bounding Box, and Live Tiles.
     /// </summary>
     public sealed partial class frmXyzTileImportOptions : Form
     {
+        // ── Nepal bbox defaults (for Bounding Box mode) ──────────────────────────
         private const decimal NepalDefaultMinLongitude = 80.058622m;
         private const decimal NepalDefaultMinLatitude = 26.347000m;
         private const decimal NepalDefaultMaxLongitude = 88.201525m;
         private const decimal NepalDefaultMaxLatitude = 30.447020m;
+
+        // ── Nepal center+radius defaults (for Center + Radius mode) ──────────────
+        private const decimal NepalDefaultCenterLat = 27.7172m;   // Kathmandu
+        private const decimal NepalDefaultCenterLon = 85.3240m;
+        private const decimal NepalDefaultRadiusKm = 10.0m;
+
+        // ── Source-name abbreviation table ───────────────────────────────────────
+        private static readonly Dictionary<string, string> _sourceAbbreviations =
+            new(StringComparer.OrdinalIgnoreCase)
+            {
+                // OpenStreetMap
+                ["OpenStreetMap Standard"] = "OSM",
+                ["OpenStreetMap Humanitarian (HOT)"] = "OSM-HOT",
+                // Esri
+                ["Esri World Imagery"] = "ESRI-Img",
+                ["Esri World Street Map"] = "ESRI-Streets",
+                ["Esri World Topo Map"] = "ESRI-Topo",
+                ["Esri World Light Gray Canvas"] = "ESRI-LGray",
+                ["Esri World Dark Gray Canvas"] = "ESRI-DGray",
+                ["Esri World Shaded Relief"] = "ESRI-Relief",
+                ["Esri World Physical Map"] = "ESRI-Phys",
+                // Google
+                ["Google Satellite"] = "GSat",
+                ["Google Hybrid (Satellite + Labels)"] = "GHyb",
+                ["Google Streets"] = "GStreets",
+                ["Google Terrain"] = "GTerrain",
+                // CartoDB
+                ["CartoDB Positron (Light)"] = "Carto-Light",
+                ["CartoDB Dark Matter"] = "Carto-Dark",
+                ["CartoDB Positron (No Labels)"] = "Carto-NoLbl",
+                // Stadia
+                ["Stadia Stamen Terrain"] = "Stadia-Terrain",
+                ["Stadia Stamen Toner"] = "Stadia-Toner",
+                ["Stadia Stamen Toner Lite"] = "Stadia-TonerLite",
+                ["Stadia Alidade Smooth"] = "Stadia-Smooth",
+                ["Stadia Alidade Smooth Dark"] = "Stadia-SmoothDk",
+                ["Stadia OSM Bright"] = "Stadia-Bright",
+                // OpenTopo
+                ["OpenTopoMap"] = "OTopo",
+                // USGS
+                ["USGS Topo"] = "USGS-Topo",
+                ["USGS Imagery"] = "USGS-Img",
+                // Wikimedia
+                ["Wikimedia Maps"] = "Wiki",
+            };
 
         private readonly string _projectFolderPath;
         private readonly XyzTileImportOptionsState? _initialState;
@@ -21,8 +68,11 @@ namespace Land_Readjustment_Tool.UI.Forms
         private XyzTileSourceImportRequest? _lastSuccessfulDownloadRequest;
         private CancellationTokenSource? _downloadCancellation;
         private bool _isImportInProgress;
-        // Tracks the last layer name we injected automatically so we never
-        // overwrite a name the user has typed manually.
+
+        /// <summary>
+        /// Tracks the last auto-injected layer name so a user-typed name is
+        /// never overwritten by a subsequent auto-suggestion.
+        /// </summary>
         private string _lastAutoSuggestedLayerName = string.Empty;
 
         public frmXyzTileImportOptions()
@@ -49,19 +99,26 @@ namespace Land_Readjustment_Tool.UI.Forms
         }
 
         public event EventHandler<XyzTileImportRequestedEventArgs>? ImportRequested;
-
         public event EventHandler<XyzTileImportOptionsStateChangedEventArgs>? OptionsStateChanged;
 
-        public XyzTileSourceImportRequest ImportRequest =>
-            new(
-                txtLayerName.Text.Trim(),
-                SelectedTileSource.UrlTemplate,
-                decimal.ToDouble(numMinLongitude.Value),
-                decimal.ToDouble(numMinLatitude.Value),
-                decimal.ToDouble(numMaxLongitude.Value),
-                decimal.ToDouble(numMaxLatitude.Value),
-                decimal.ToInt32(numZoomLevel.Value),
-                SelectedTileSource.ImageExtension);
+        // ── Public read properties ───────────────────────────────────────────────
+
+        public XyzTileSourceImportRequest ImportRequest
+        {
+            get
+            {
+                var (minLon, minLat, maxLon, maxLat) = GetCurrentBounds();
+                return new(
+                    txtLayerName.Text.Trim(),
+                    SelectedTileSource.UrlTemplate,
+                    minLon, minLat, maxLon, maxLat,
+                    decimal.ToInt32(numZoomLevel.Value),
+                    SelectedTileSource.ImageExtension,
+                    IsLiveMode);
+            }
+        }
+
+        private bool IsLiveMode => rdoLiveTiles.Checked;
 
         private XyzTileSourceCatalogItem SelectedTileSource =>
             cmbTileSource.SelectedItem as XyzTileSourceCatalogItem ??
@@ -69,9 +126,9 @@ namespace Land_Readjustment_Tool.UI.Forms
             new XyzTileSourceCatalogItem(
                 "OpenStreetMap Standard",
                 "https://tile.openstreetmap.org/{z}/{x}/{y}.png",
-                0,
-                19,
-                "png");
+                0, 19, "png");
+
+        // ── Button handlers ──────────────────────────────────────────────────────
 
         private void btnImport_Click(object? sender, EventArgs e)
         {
@@ -84,17 +141,42 @@ namespace Land_Readjustment_Tool.UI.Forms
                 return;
             }
 
-            if (_downloadedRequest == null)
-            {
-                ShowValidationMessage(
-                    "Please download tiles at least once before importing.");
-                return;
-            }
+            XyzTileSourceImportRequest request;
 
-            XyzTileSourceImportRequest request =
-                CreateImportRequestFromDownloadedTiles(
+            if (IsLiveMode)
+            {
+                // Live mode: build request directly — no prior download needed.
+                XyzTileSourceCatalogItem src = SelectedTileSource;
+                if (!ContainsTileToken(src.UrlTemplate, "z") ||
+                    !ContainsTileToken(src.UrlTemplate, "x") ||
+                    !ContainsTileToken(src.UrlTemplate, "y"))
+                {
+                    ShowValidationMessage(
+                        "The selected tile source URL must include {z}, {x}, and {y} tokens.");
+                    return;
+                }
+
+                request = new XyzTileSourceImportRequest(
+                    txtLayerName.Text.Trim(),
+                    src.UrlTemplate,
+                    -180, -85.05112878, 180, 85.05112878,
+                    decimal.ToInt32(numZoomLevel.Value),
+                    src.ImageExtension,
+                    IsLiveTiles: true);
+            }
+            else
+            {
+                if (_downloadedRequest == null)
+                {
+                    ShowValidationMessage(
+                        "Please download tiles at least once before importing.");
+                    return;
+                }
+
+                request = CreateImportRequestFromDownloadedTiles(
                     txtLayerName.Text.Trim(),
                     _downloadedRequest);
+            }
 
             ImportRequested?.Invoke(this, new XyzTileImportRequestedEventArgs(request));
         }
@@ -140,8 +222,7 @@ namespace Land_Readjustment_Tool.UI.Forms
                 lblDownloadStatus.Text =
                     "Download complete. Click Import to add to the project.";
 
-                // Upgrade the layer name to include zoom and bounding-box coordinates
-                // now that we know exactly what was downloaded.
+                // Upgrade the layer name to the rich abbreviated format.
                 SuggestLayerName(BuildDownloadedLayerName(SelectedTileSource.Name, request));
 
                 RaiseOptionsStateChanged();
@@ -165,22 +246,115 @@ namespace Land_Readjustment_Tool.UI.Forms
             }
         }
 
-        private void ShowValidationMessage(string message)
+        private void btnCancel_Click(object? sender, EventArgs e)
         {
-            MessageBox.Show(
-                this,
-                message,
-                "Import XYZ Tiles",
-                MessageBoxButtons.OK,
-                MessageBoxIcon.Warning);
-            DialogResult = DialogResult.None;
+            if (_downloadCancellation != null)
+            {
+                PromptToCancelActiveDownload();
+                return;
+            }
+
+            if (_isImportInProgress)
+            {
+                ShowValidationMessage("Import is in progress. Please wait until it completes.");
+                return;
+            }
+
+            Close();
         }
 
-        private static bool ContainsTileToken(string urlTemplate, string token)
+        // ── Bounds mode toggle ───────────────────────────────────────────────────
+
+        private void rdoCenterRadius_CheckedChanged(object? sender, EventArgs e)
         {
-            return urlTemplate.Contains($"{{{token}}}", StringComparison.OrdinalIgnoreCase) ||
-                   urlTemplate.Contains($"${{{token}}}", StringComparison.OrdinalIgnoreCase);
+            pnlCenterRadius.Visible = rdoCenterRadius.Checked;
+            pnlBoundingBox.Visible = rdoBoundingBox.Checked;
+            pnlLiveTilesInfo.Visible = rdoLiveTiles.Checked;
+
+            // When switching INTO bbox mode, auto-fill N/S/E/W from current center+radius.
+            if (rdoBoundingBox.Checked)
+                SyncBboxFromCenterRadius();
+
+            // In live mode Import is always enabled (no download required);
+            // disable Download button since it is irrelevant.
+            if (rdoLiveTiles.Checked)
+            {
+                btnImport.Enabled = true;
+                btnDownloadTiles.Enabled = false;
+                SuggestLayerName(BuildLiveLayerName(SelectedTileSource.Name, decimal.ToInt32(numZoomLevel.Value)));
+            }
+            else
+            {
+                btnDownloadTiles.Enabled = _downloadCancellation == null;
+                btnImport.Enabled = _downloadedRequest != null;
+            }
+
+            InvalidateDownloadedRequest();
         }
+
+        /// <summary>
+        /// Populates the Bounding Box fields from the current Center + Radius values
+        /// whenever the user switches to Bounding Box mode.
+        /// </summary>
+        private void SyncBboxFromCenterRadius()
+        {
+            var (minLon, minLat, maxLon, maxLat) = CenterRadiusToBbox(
+                decimal.ToDouble(numCenterLat.Value),
+                decimal.ToDouble(numCenterLon.Value),
+                decimal.ToDouble(numRadius.Value));
+
+            numWest.Value = ClampNumericValue(numWest, (decimal)minLon);
+            numSouth.Value = ClampNumericValue(numSouth, (decimal)minLat);
+            numEast.Value = ClampNumericValue(numEast, (decimal)maxLon);
+            numNorth.Value = ClampNumericValue(numNorth, (decimal)maxLat);
+        }
+
+        // ── Source selection ─────────────────────────────────────────────────────
+
+        private void cmbTileSource_SelectedIndexChanged(object? sender, EventArgs e)
+        {
+            RefreshSelectedSourceDetails();
+        }
+
+        private void btnManageSources_Click(object? sender, EventArgs e)
+        {
+            using frmXyzTileSourceManager manager = new(_projectFolderPath);
+
+            if (manager.ShowDialog(this) == DialogResult.OK)
+                LoadTileSources();
+        }
+
+        private void RefreshSelectedSourceDetails()
+        {
+            if (cmbTileSource.SelectedItem is not XyzTileSourceCatalogItem source)
+            {
+                txtUrlTemplate.Text = string.Empty;
+                ResetDownloadState("Download tiles to enable Import.");
+                return;
+            }
+
+            txtUrlTemplate.Text = NormalizeUrlForTextbox(source.UrlTemplate);
+
+            decimal minZoom = source.MinZoom;
+            decimal maxZoom = source.MaxZoom;
+            decimal targetZoom = Math.Clamp(numZoomLevel.Value, minZoom, maxZoom);
+
+            numZoomLevel.Minimum = 0;
+            numZoomLevel.Maximum = 25;
+            numZoomLevel.Value = targetZoom;
+            numZoomLevel.Minimum = minZoom;
+            numZoomLevel.Maximum = maxZoom;
+
+            // In live mode refresh the layer name suggestion immediately.
+            if (IsLiveMode)
+                SuggestLayerName(BuildLiveLayerName(source.Name, decimal.ToInt32(numZoomLevel.Value)));
+            else
+                SuggestLayerName(source.Name.Trim());
+
+            InvalidateDownloadedRequest();
+        }
+
+        // ── Loading ──────────────────────────────────────────────────────────────
 
         private void LoadTileSources()
         {
@@ -188,18 +362,16 @@ namespace Land_Readjustment_Tool.UI.Forms
             cmbTileSource.Items.Clear();
 
             foreach (XyzTileSourceCatalogItem source in _tileSources)
-            {
                 cmbTileSource.Items.Add(source);
-            }
 
             if (cmbTileSource.Items.Count > 0)
-            {
                 cmbTileSource.SelectedIndex = 0;
-            }
 
             RefreshSelectedSourceDetails();
             ResetDownloadState("Download tiles to enable Import.");
         }
+
+        // ── State read / write ───────────────────────────────────────────────────
 
         public XyzTileImportOptionsState GetCurrentOptionsState()
         {
@@ -207,13 +379,12 @@ namespace Land_Readjustment_Tool.UI.Forms
                 _lastSuccessfulDownloadRequest ??
                 CreateDownloadRequestFromInitialState();
 
+            var (minLon, minLat, maxLon, maxLat) = GetCurrentBounds();
+
             return new XyzTileImportOptionsState(
                 txtLayerName.Text.Trim(),
                 SelectedTileSource.UrlTemplate,
-                decimal.ToDouble(numMinLongitude.Value),
-                decimal.ToDouble(numMinLatitude.Value),
-                decimal.ToDouble(numMaxLongitude.Value),
-                decimal.ToDouble(numMaxLatitude.Value),
+                minLon, minLat, maxLon, maxLat,
                 decimal.ToInt32(numZoomLevel.Value),
                 SelectedTileSource.ImageExtension,
                 lastDownload?.MinLongitude,
@@ -230,8 +401,7 @@ namespace Land_Readjustment_Tool.UI.Forms
             if (!string.IsNullOrWhiteSpace(_initialState.LayerName))
             {
                 txtLayerName.Text = _initialState.LayerName;
-                // Treat the restored name as "user-chosen" so it is never
-                // overwritten by a subsequent auto-suggestion.
+                // Treat the restored name as user-chosen — never overwrite it.
                 _lastAutoSuggestedLayerName = string.Empty;
             }
 
@@ -251,8 +421,7 @@ namespace Land_Readjustment_Tool.UI.Forms
                     (decimal)_initialState.ZoomLevel.Value);
             }
 
-            _lastSuccessfulDownloadRequest =
-                CreateDownloadRequestFromInitialState();
+            _lastSuccessfulDownloadRequest = CreateDownloadRequestFromInitialState();
             _downloadedRequest = _lastSuccessfulDownloadRequest;
 
             if (_downloadedRequest != null)
@@ -268,16 +437,34 @@ namespace Land_Readjustment_Tool.UI.Forms
             }
         }
 
+        /// <summary>
+        /// Populates both the Bounding Box controls and derives matching
+        /// Center + Radius values from the same bbox.
+        /// </summary>
         private void ApplyBounds(
             double? minLongitude,
             double? minLatitude,
             double? maxLongitude,
             double? maxLatitude)
         {
-            ApplyNullableDouble(numMinLongitude, minLongitude);
-            ApplyNullableDouble(numMinLatitude, minLatitude);
-            ApplyNullableDouble(numMaxLongitude, maxLongitude);
-            ApplyNullableDouble(numMaxLatitude, maxLatitude);
+            ApplyNullableDouble(numWest, minLongitude);
+            ApplyNullableDouble(numSouth, minLatitude);
+            ApplyNullableDouble(numEast, maxLongitude);
+            ApplyNullableDouble(numNorth, maxLatitude);
+
+            if (minLongitude.HasValue && minLatitude.HasValue &&
+                maxLongitude.HasValue && maxLatitude.HasValue)
+            {
+                (double cLat, double cLon, double radius) = DeriveCenterRadiusFromBbox(
+                    minLongitude.Value, minLatitude.Value,
+                    maxLongitude.Value, maxLatitude.Value);
+
+                numCenterLat.Value = ClampNumericValue(numCenterLat, (decimal)cLat);
+                numCenterLon.Value = ClampNumericValue(numCenterLon, (decimal)cLon);
+                numRadius.Value = ClampNumericValue(numRadius, (decimal)radius);
+            }
+
+            UpdateAreaHint();
         }
 
         private void SelectTileSourceByUrl(string urlTemplate)
@@ -318,167 +505,7 @@ namespace Land_Readjustment_Tool.UI.Forms
                 _initialState.ImageExtension ?? SelectedTileSource.ImageExtension);
         }
 
-        private void cmbTileSource_SelectedIndexChanged(object? sender, EventArgs e)
-        {
-            RefreshSelectedSourceDetails();
-        }
-
-        private void btnManageSources_Click(object? sender, EventArgs e)
-        {
-            using frmXyzTileSourceManager manager = new(_projectFolderPath);
-
-            if (manager.ShowDialog(this) == DialogResult.OK)
-            {
-                LoadTileSources();
-            }
-        }
-
-        private void RefreshSelectedSourceDetails()
-        {
-            if (cmbTileSource.SelectedItem is not XyzTileSourceCatalogItem source)
-            {
-                txtUrlTemplate.Text = string.Empty;
-                ResetDownloadState("Download tiles to enable Import.");
-                return;
-            }
-
-            txtUrlTemplate.Text = NormalizeUrlForTextbox(source.UrlTemplate);
-            decimal minZoom = source.MinZoom;
-            decimal maxZoom = source.MaxZoom;
-            decimal targetZoom = Math.Clamp(numZoomLevel.Value, minZoom, maxZoom);
-
-            numZoomLevel.Minimum = 0;
-            numZoomLevel.Maximum = 25;
-            numZoomLevel.Value = targetZoom;
-            numZoomLevel.Minimum = minZoom;
-            numZoomLevel.Maximum = maxZoom;
-
-            // On source change: suggest just the source name as a lightweight placeholder.
-            SuggestLayerName(source.Name.Trim());
-            InvalidateDownloadedRequest();
-        }
-
-        // ── Layer-name suggestion ────────────────────────────────────────────────
-
-        /// <summary>
-        /// Writes <paramref name="suggested"/> into <see cref="txtLayerName"/> only when
-        /// the field is empty or still shows the previous auto-suggestion.
-        /// A name typed manually by the user is never overwritten.
-        /// </summary>
-        private void SuggestLayerName(string suggested)
-        {
-            string current = txtLayerName.Text.Trim();
-
-            bool isEmpty = string.IsNullOrEmpty(current);
-            bool isStillOurSuggestion =
-                string.Equals(current, _lastAutoSuggestedLayerName, StringComparison.Ordinal);
-
-            if (isEmpty || isStillOurSuggestion)
-            {
-                txtLayerName.Text = suggested;
-                _lastAutoSuggestedLayerName = suggested;
-            }
-        }
-
-        /// <summary>
-        /// Builds the rich layer name used after a successful tile download.
-        /// Format: <c>Source Name  —  Z{zoom}  [{W}–{E}, {S}–{N}]</c>
-        /// Example: <c>Google Satellite  —  Z16  [83.9°E–84.2°E, 27.2°N–27.5°N]</c>
-        /// </summary>
-        private static string BuildDownloadedLayerName(
-            string sourceName,
-            XyzTileSourceImportRequest request)
-        {
-            string lonRange =
-                $"{FormatLon(request.MinLongitude)}–{FormatLon(request.MaxLongitude)}";
-            string latRange =
-                $"{FormatLat(request.MinLatitude)}–{FormatLat(request.MaxLatitude)}";
-
-            return $"{sourceName.Trim()}  —  Z{request.ZoomLevel}  [{lonRange}, {latRange}]";
-        }
-
-        private static string FormatLon(double v) =>
-            v >= 0
-                ? $"{v:F1}°E"
-                : $"{Math.Abs(v):F1}°W";
-
-        private static string FormatLat(double v) =>
-            v >= 0
-                ? $"{v:F1}°N"
-                : $"{Math.Abs(v):F1}°S";
-
-        private bool IsDesignMode()
-        {
-            return LicenseManager.UsageMode == LicenseUsageMode.Designtime ||
-                   DesignMode ||
-                   string.IsNullOrWhiteSpace(_projectFolderPath);
-        }
-
-        private void WireRuntimeEvents()
-        {
-            cmbTileSource.SelectedIndexChanged += cmbTileSource_SelectedIndexChanged;
-            btnManageSources.Click += btnManageSources_Click;
-            btnImport.Click += btnImport_Click;
-            btnDownloadTiles.Click += btnDownloadTiles_Click;
-            btnCancel.Click += btnCancel_Click;
-            FormClosing += frmXyzTileImportOptions_FormClosing;
-
-            txtLayerName.TextChanged += (_, _) => InvalidateDownloadedRequest();
-            numMinLongitude.ValueChanged += (_, _) => InvalidateDownloadedRequest();
-            numMinLatitude.ValueChanged += (_, _) => InvalidateDownloadedRequest();
-            numMaxLongitude.ValueChanged += (_, _) => InvalidateDownloadedRequest();
-            numMaxLatitude.ValueChanged += (_, _) => InvalidateDownloadedRequest();
-            numZoomLevel.ValueChanged += (_, _) => InvalidateDownloadedRequest();
-        }
-
-        private void ConfigureRuntimeFormBehavior()
-        {
-            // Runtime-only behavior so designer loading is never required.
-            btnImport.DialogResult = DialogResult.None;
-            btnCancel.DialogResult = DialogResult.None;
-            AcceptButton = btnImport;
-            CancelButton = btnCancel;
-            MinimizeBox = true;
-            ShowInTaskbar = true;
-        }
-
-        private void ApplyNepalDefaultBounds()
-        {
-            numMinLongitude.Value = ClampNumericValue(
-                numMinLongitude,
-                NepalDefaultMinLongitude);
-            numMinLatitude.Value = ClampNumericValue(
-                numMinLatitude,
-                NepalDefaultMinLatitude);
-            numMaxLongitude.Value = ClampNumericValue(
-                numMaxLongitude,
-                NepalDefaultMaxLongitude);
-            numMaxLatitude.Value = ClampNumericValue(
-                numMaxLatitude,
-                NepalDefaultMaxLatitude);
-        }
-
-        private static decimal ClampNumericValue(
-            NumericUpDown input,
-            decimal value)
-        {
-            return Math.Min(input.Maximum, Math.Max(input.Minimum, value));
-        }
-
-        private static void ApplyNullableDouble(
-            NumericUpDown input,
-            double? value)
-        {
-            if (!value.HasValue || !double.IsFinite(value.Value))
-                return;
-
-            input.Value = ClampNumericValue(input, (decimal)value.Value);
-        }
-
-        private void frmXyzTileImportOptions_Load(object sender, EventArgs e)
-        {
-
-        }
+        // ── Validation ───────────────────────────────────────────────────────────
 
         private bool TryBuildValidatedRequest(out XyzTileSourceImportRequest request)
         {
@@ -510,38 +537,208 @@ namespace Land_Readjustment_Tool.UI.Forms
             if (zoom < selectedSource.MinZoom || zoom > selectedSource.MaxZoom)
             {
                 ShowValidationMessage(
-                    $"Zoom level must be between {selectedSource.MinZoom} and {selectedSource.MaxZoom} for this source.");
+                    $"Zoom level must be between {selectedSource.MinZoom} and " +
+                    $"{selectedSource.MaxZoom} for this source.");
                 return false;
             }
 
-            if (numMinLongitude.Value >= numMaxLongitude.Value)
+            var (minLon, minLat, maxLon, maxLat) = GetCurrentBounds();
+
+            if (minLon >= maxLon)
             {
-                ShowValidationMessage("Minimum longitude must be less than maximum longitude.");
+                string msg = rdoCenterRadius.Checked
+                    ? "Radius produces an invalid longitude range. Try a smaller radius or adjust the center."
+                    : "West longitude must be less than East longitude.";
+                ShowValidationMessage(msg);
                 return false;
             }
 
-            if (numMinLatitude.Value >= numMaxLatitude.Value)
+            if (minLat >= maxLat)
             {
-                ShowValidationMessage("Minimum latitude must be less than maximum latitude.");
+                string msg = rdoCenterRadius.Checked
+                    ? "Radius produces an invalid latitude range. Try a smaller radius or adjust the center."
+                    : "South latitude must be less than North latitude.";
+                ShowValidationMessage(msg);
                 return false;
             }
 
             request = new XyzTileSourceImportRequest(
                 txtLayerName.Text.Trim(),
-                SelectedTileSource.UrlTemplate,
-                decimal.ToDouble(numMinLongitude.Value),
-                decimal.ToDouble(numMinLatitude.Value),
-                decimal.ToDouble(numMaxLongitude.Value),
-                decimal.ToDouble(numMaxLatitude.Value),
-                decimal.ToInt32(numZoomLevel.Value),
-                SelectedTileSource.ImageExtension);
+                selectedSource.UrlTemplate,
+                minLon, minLat, maxLon, maxLat,
+                zoom,
+                selectedSource.ImageExtension);
             return true;
         }
+
+        // ── Bounds helpers ───────────────────────────────────────────────────────
+
+        /// <summary>
+        /// Returns the current import bounds (minLon, minLat, maxLon, maxLat)
+        /// from whichever bounds mode is active.
+        /// Live mode returns the global Web Mercator extent.
+        /// </summary>
+        private (double minLon, double minLat, double maxLon, double maxLat) GetCurrentBounds()
+        {
+            if (rdoLiveTiles.Checked)
+                return (-180.0, -85.05112878, 180.0, 85.05112878);
+
+            if (rdoCenterRadius.Checked)
+            {
+                return CenterRadiusToBbox(
+                    decimal.ToDouble(numCenterLat.Value),
+                    decimal.ToDouble(numCenterLon.Value),
+                    decimal.ToDouble(numRadius.Value));
+            }
+
+            return (
+                decimal.ToDouble(numWest.Value),
+                decimal.ToDouble(numSouth.Value),
+                decimal.ToDouble(numEast.Value),
+                decimal.ToDouble(numNorth.Value));
+        }
+
+        /// <summary>
+        /// Converts a centre point and radius (km) to a WGS-84 bounding box.
+        /// Δlat ≈ r / 111 km/degree,  Δlon ≈ r / (111 · cos(lat))
+        /// </summary>
+        private static (double minLon, double minLat, double maxLon, double maxLat)
+            CenterRadiusToBbox(double centerLat, double centerLon, double radiusKm)
+        {
+            double deltaLat = radiusKm / 111.0;
+            double cosLat = Math.Cos(centerLat * Math.PI / 180.0);
+            double deltaLon = cosLat > 1e-6
+                ? radiusKm / (111.0 * cosLat)
+                : radiusKm / 111.0;
+
+            return (centerLon - deltaLon, centerLat - deltaLat,
+                    centerLon + deltaLon, centerLat + deltaLat);
+        }
+
+        /// <summary>
+        /// Derives the best-fit Center + Radius values from a bounding box.
+        /// Radius is the smaller of the N-S and E-W half-spans in km.
+        /// </summary>
+        private static (double centerLat, double centerLon, double radiusKm)
+            DeriveCenterRadiusFromBbox(
+                double minLon, double minLat,
+                double maxLon, double maxLat)
+        {
+            double centerLat = (minLat + maxLat) / 2.0;
+            double centerLon = (minLon + maxLon) / 2.0;
+            double latRadiusKm = (maxLat - minLat) * 111.0 / 2.0;
+            double cosLat = Math.Cos(centerLat * Math.PI / 180.0);
+            double lonRadiusKm = cosLat > 1e-6
+                ? (maxLon - minLon) * 111.0 * cosLat / 2.0
+                : (maxLon - minLon) * 111.0 / 2.0;
+
+            double radius = Math.Max(0.1, Math.Round(Math.Min(latRadiusKm, lonRadiusKm), 1));
+            return (centerLat, centerLon, radius);
+        }
+
+        // ── Layer-name suggestion ────────────────────────────────────────────────
+
+        /// <summary>
+        /// Writes <paramref name="suggested"/> into <see cref="txtLayerName"/> only when
+        /// the field is empty or still shows our last auto-suggestion.
+        /// A name typed manually by the user is never overwritten.
+        /// </summary>
+        private void SuggestLayerName(string suggested)
+        {
+            string current = txtLayerName.Text.Trim();
+
+            bool isEmpty = string.IsNullOrEmpty(current);
+            bool isStillOurSuggestion =
+                string.Equals(current, _lastAutoSuggestedLayerName, StringComparison.Ordinal);
+
+            if (isEmpty || isStillOurSuggestion)
+            {
+                txtLayerName.Text = suggested;
+                _lastAutoSuggestedLayerName = suggested;
+            }
+        }
+
+        /// <summary>
+        /// Returns a short abbreviation for a tile source name.
+        /// Falls back to a PascalCase-initial abbreviation for user-added sources.
+        /// Example: "My Custom Layer" → "MyCusLay"
+        /// </summary>
+        private static string AbbreviateSourceName(string sourceName)
+        {
+            if (_sourceAbbreviations.TryGetValue(sourceName.Trim(), out string? abbrev))
+                return abbrev;
+
+            // Fallback: concatenate up to 3 words, each capitalised, max 10 chars total.
+            string[] words = sourceName
+                .Trim()
+                .Split(' ', StringSplitOptions.RemoveEmptyEntries);
+
+            string joined = string.Concat(
+                words.Take(3).Select(w => char.ToUpperInvariant(w[0]) + w[1..Math.Min(w.Length, 4)]));
+
+            return joined.Length > 10 ? joined[..10] : joined;
+        }
+
+        /// <summary>
+        /// Builds the layer name used after a successful tile download.
+        /// Format: <c>GSat [84.1E 27.3N] Z16</c>
+        /// Center is the midpoint of the downloaded bbox.
+        /// </summary>
+        private static string BuildDownloadedLayerName(
+            string sourceName,
+            XyzTileSourceImportRequest request)
+        {
+            double centerLon = (request.MinLongitude + request.MaxLongitude) / 2.0;
+            double centerLat = (request.MinLatitude + request.MaxLatitude) / 2.0;
+
+            string lonPart = centerLon >= 0
+                ? $"{centerLon:F1}E"
+                : $"{Math.Abs(centerLon):F1}W";
+            string latPart = centerLat >= 0
+                ? $"{centerLat:F1}N"
+                : $"{Math.Abs(centerLat):F1}S";
+
+            string abbrev = AbbreviateSourceName(sourceName);
+            return $"{abbrev} [{lonPart} {latPart}] Z{request.ZoomLevel}";
+        }
+
+        /// <summary>
+        /// Builds the layer name used for a live (on-demand internet) tile layer.
+        /// Format: <c>GSat [Live] Z16</c>
+        /// </summary>
+        private static string BuildLiveLayerName(string sourceName, int zoomLevel)
+        {
+            string abbrev = AbbreviateSourceName(sourceName);
+            return $"{abbrev} [Live] Z{zoomLevel}";
+        }
+
+        // ── Area hint ────────────────────────────────────────────────────────────
+
+        /// <summary>
+        /// Refreshes the ≈ W × H hint next to the radius field.
+        /// The bbox from radius r is always ≈ 2r × 2r km (by construction).
+        /// Displays metres when the diameter is below 1 km.
+        /// </summary>
+        private void UpdateAreaHint()
+        {
+            double diameter = decimal.ToDouble(numRadius.Value) * 2.0;
+            lblAreaHint.Text = diameter < 1.0
+                ? $"≈ {diameter * 1000:F0} × {diameter * 1000:F0} m area"
+                : $"≈ {diameter:F3} × {diameter:F3} km area";
+        }
+
+        // ── UI state helpers ─────────────────────────────────────────────────────
 
         private void InvalidateDownloadedRequest()
         {
             if (_downloadCancellation != null)
+                return;
+
+            // In live mode Import is always enabled — no download required.
+            if (IsLiveMode)
             {
+                btnImport.Enabled = true;
+                btnDownloadTiles.Enabled = false;
                 return;
             }
 
@@ -558,25 +755,10 @@ namespace Land_Readjustment_Tool.UI.Forms
                 "Settings changed. You can import the last downloaded tiles or download again to refresh.";
         }
 
-        private static XyzTileSourceImportRequest CreateImportRequestFromDownloadedTiles(
-            string layerName,
-            XyzTileSourceImportRequest downloadedRequest)
-        {
-            return new XyzTileSourceImportRequest(
-                layerName,
-                downloadedRequest.UrlTemplate,
-                downloadedRequest.MinLongitude,
-                downloadedRequest.MinLatitude,
-                downloadedRequest.MaxLongitude,
-                downloadedRequest.MaxLatitude,
-                downloadedRequest.ZoomLevel,
-                downloadedRequest.ImageExtension);
-        }
-
         private void ResetDownloadState(string statusText)
         {
             _downloadedRequest = null;
-            btnImport.Enabled = false;
+            btnImport.Enabled = IsLiveMode;
             progressTileDownload.Value = 0;
             lblDownloadStatus.Text = statusText;
         }
@@ -587,18 +769,23 @@ namespace Land_Readjustment_Tool.UI.Forms
             btnManageSources.Enabled = !isDownloading;
             cmbTileSource.Enabled = !isDownloading;
             txtLayerName.Enabled = !isDownloading;
-            numMinLongitude.Enabled = !isDownloading;
-            numMinLatitude.Enabled = !isDownloading;
-            numMaxLongitude.Enabled = !isDownloading;
-            numMaxLatitude.Enabled = !isDownloading;
+            rdoCenterRadius.Enabled = !isDownloading;
+            rdoBoundingBox.Enabled = !isDownloading;
+            rdoLiveTiles.Enabled = !isDownloading;
+            numCenterLat.Enabled = !isDownloading;
+            numCenterLon.Enabled = !isDownloading;
+            numRadius.Enabled = !isDownloading;
+            numNorth.Enabled = !isDownloading;
+            numSouth.Enabled = !isDownloading;
+            numEast.Enabled = !isDownloading;
+            numWest.Enabled = !isDownloading;
             numZoomLevel.Enabled = !isDownloading;
             btnCancel.Enabled = true;
         }
 
         public void BeginImportExecution(string statusText = "Importing tiles to map...")
         {
-            if (IsDisposed)
-                return;
+            if (IsDisposed) return;
 
             _isImportInProgress = true;
             btnImport.Enabled = false;
@@ -609,77 +796,104 @@ namespace Land_Readjustment_Tool.UI.Forms
 
         public void CompleteImportExecution(string statusText)
         {
-            if (IsDisposed)
-                return;
+            if (IsDisposed) return;
 
             _isImportInProgress = false;
             btnManageSources.Enabled = true;
-            btnDownloadTiles.Enabled = _downloadCancellation == null;
-            btnImport.Enabled = _downloadedRequest != null;
+            btnDownloadTiles.Enabled = _downloadCancellation == null && !IsLiveMode;
+            btnImport.Enabled = _downloadedRequest != null || IsLiveMode;
             lblDownloadStatus.Text = statusText;
         }
 
         public void FailImportExecution(string statusText)
         {
-            if (IsDisposed)
-                return;
+            if (IsDisposed) return;
 
             _isImportInProgress = false;
             btnManageSources.Enabled = true;
-            btnDownloadTiles.Enabled = _downloadCancellation == null;
-            btnImport.Enabled = _downloadedRequest != null;
+            btnDownloadTiles.Enabled = _downloadCancellation == null && !IsLiveMode;
+            btnImport.Enabled = _downloadedRequest != null || IsLiveMode;
             lblDownloadStatus.Text = statusText;
         }
 
-        private static bool AreEquivalentRequests(
-            XyzTileSourceImportRequest left,
-            XyzTileSourceImportRequest right)
+        // ── Defaults ─────────────────────────────────────────────────────────────
+
+        private void ApplyNepalDefaultBounds()
         {
-            return string.Equals(left.LayerName, right.LayerName, StringComparison.Ordinal) &&
-                   string.Equals(left.UrlTemplate, right.UrlTemplate, StringComparison.Ordinal) &&
-                   left.MinLongitude.Equals(right.MinLongitude) &&
-                   left.MinLatitude.Equals(right.MinLatitude) &&
-                   left.MaxLongitude.Equals(right.MaxLongitude) &&
-                   left.MaxLatitude.Equals(right.MaxLatitude) &&
-                   left.ZoomLevel == right.ZoomLevel &&
-                   string.Equals(left.ImageExtension, right.ImageExtension, StringComparison.OrdinalIgnoreCase);
+            // Center + Radius mode: Kathmandu, 10 km radius
+            numCenterLat.Value = ClampNumericValue(numCenterLat, NepalDefaultCenterLat);
+            numCenterLon.Value = ClampNumericValue(numCenterLon, NepalDefaultCenterLon);
+            numRadius.Value = ClampNumericValue(numRadius, NepalDefaultRadiusKm);
+
+            // Bounding Box mode: all of Nepal
+            numWest.Value = ClampNumericValue(numWest, NepalDefaultMinLongitude);
+            numSouth.Value = ClampNumericValue(numSouth, NepalDefaultMinLatitude);
+            numEast.Value = ClampNumericValue(numEast, NepalDefaultMaxLongitude);
+            numNorth.Value = ClampNumericValue(numNorth, NepalDefaultMaxLatitude);
+
+            UpdateAreaHint();
         }
 
-        private static string NormalizeUrlForTextbox(string? url)
-        {
-            if (string.IsNullOrWhiteSpace(url))
-                return string.Empty;
+        // ── Wiring ───────────────────────────────────────────────────────────────
 
-            return url
-                .Replace("\r\n", string.Empty, StringComparison.Ordinal)
-                .Replace("\n", string.Empty, StringComparison.Ordinal)
-                .Replace("\r", string.Empty, StringComparison.Ordinal)
-                .Trim();
-        }
-
-        private static string FormatDownloadProgressStatus(
-            XyzTileDownloadProgress progress)
+        private void WireRuntimeEvents()
         {
-            return
-                $"{progress.Percent}% ({progress.CompletedTiles:N0}/{progress.TotalTiles:N0} tiles) - {progress.Status}";
-        }
+            cmbTileSource.SelectedIndexChanged += cmbTileSource_SelectedIndexChanged;
+            btnManageSources.Click += btnManageSources_Click;
+            btnImport.Click += btnImport_Click;
+            btnDownloadTiles.Click += btnDownloadTiles_Click;
+            btnCancel.Click += btnCancel_Click;
+            FormClosing += frmXyzTileImportOptions_FormClosing;
 
-        private void btnCancel_Click(object? sender, EventArgs e)
-        {
-            if (_downloadCancellation != null)
+            // All three radio buttons share the same handler.
+            rdoCenterRadius.CheckedChanged += rdoCenterRadius_CheckedChanged;
+            rdoBoundingBox.CheckedChanged += rdoCenterRadius_CheckedChanged;
+            rdoLiveTiles.CheckedChanged += rdoCenterRadius_CheckedChanged;
+
+            txtLayerName.TextChanged += (_, _) => InvalidateDownloadedRequest();
+
+            // Center + Radius controls — also refresh the area hint.
+            numCenterLat.ValueChanged += (_, _) =>
             {
-                PromptToCancelActiveDownload();
-                return;
-            }
-
-            if (_isImportInProgress)
+                UpdateAreaHint();
+                InvalidateDownloadedRequest();
+            };
+            numCenterLon.ValueChanged += (_, _) =>
             {
-                ShowValidationMessage("Import is in progress. Please wait until it completes.");
-                return;
-            }
+                UpdateAreaHint();
+                InvalidateDownloadedRequest();
+            };
+            numRadius.ValueChanged += (_, _) =>
+            {
+                UpdateAreaHint();
+                InvalidateDownloadedRequest();
+            };
 
-            Close();
+            // Bounding Box controls
+            numNorth.ValueChanged += (_, _) => InvalidateDownloadedRequest();
+            numSouth.ValueChanged += (_, _) => InvalidateDownloadedRequest();
+            numEast.ValueChanged += (_, _) => InvalidateDownloadedRequest();
+            numWest.ValueChanged += (_, _) => InvalidateDownloadedRequest();
+
+            numZoomLevel.ValueChanged += (_, _) =>
+            {
+                InvalidateDownloadedRequest();
+                if (IsLiveMode)
+                    SuggestLayerName(BuildLiveLayerName(SelectedTileSource.Name, decimal.ToInt32(numZoomLevel.Value)));
+            };
         }
+
+        private void ConfigureRuntimeFormBehavior()
+        {
+            btnImport.DialogResult = DialogResult.None;
+            btnCancel.DialogResult = DialogResult.None;
+            AcceptButton = btnImport;
+            CancelButton = btnCancel;
+            MinimizeBox = true;
+            ShowInTaskbar = true;
+        }
+
+        // ── Form events ──────────────────────────────────────────────────────────
 
         private void frmXyzTileImportOptions_FormClosing(object? sender, FormClosingEventArgs e)
         {
@@ -698,19 +912,70 @@ namespace Land_Readjustment_Tool.UI.Forms
                 MessageBoxDefaultButton.Button2);
 
             if (result == DialogResult.Yes)
-            {
                 _downloadCancellation.Cancel();
-            }
 
             e.Cancel = true;
+        }
+
+        // ── Misc helpers ─────────────────────────────────────────────────────────
+
+        private void ShowValidationMessage(string message)
+        {
+            MessageBox.Show(
+                this,
+                message,
+                "Import XYZ Tiles",
+                MessageBoxButtons.OK,
+                MessageBoxIcon.Warning);
+            DialogResult = DialogResult.None;
+        }
+
+        private static bool ContainsTileToken(string urlTemplate, string token)
+        {
+            return urlTemplate.Contains($"{{{token}}}", StringComparison.OrdinalIgnoreCase) ||
+                   urlTemplate.Contains($"${{{token}}}", StringComparison.OrdinalIgnoreCase);
+        }
+
+        private static XyzTileSourceImportRequest CreateImportRequestFromDownloadedTiles(
+            string layerName,
+            XyzTileSourceImportRequest downloadedRequest)
+        {
+            return new XyzTileSourceImportRequest(
+                layerName,
+                downloadedRequest.UrlTemplate,
+                downloadedRequest.MinLongitude,
+                downloadedRequest.MinLatitude,
+                downloadedRequest.MaxLongitude,
+                downloadedRequest.MaxLatitude,
+                downloadedRequest.ZoomLevel,
+                downloadedRequest.ImageExtension);
+        }
+
+        private static string NormalizeUrlForTextbox(string? url)
+        {
+            if (string.IsNullOrWhiteSpace(url))
+                return string.Empty;
+
+            return url
+                .Replace("\r\n", string.Empty, StringComparison.Ordinal)
+                .Replace("\n", string.Empty, StringComparison.Ordinal)
+                .Replace("\r", string.Empty, StringComparison.Ordinal)
+                .Trim();
+        }
+
+        private static string FormatDownloadProgressStatus(XyzTileDownloadProgress progress)
+        {
+            return
+                $"{progress.Percent}% " +
+                $"({progress.CompletedTiles:N0}/{progress.TotalTiles:N0} tiles)" +
+                $" - {progress.Status}";
         }
 
         private void RaiseOptionsStateChanged()
         {
             OptionsStateChanged?.Invoke(
                 this,
-                new XyzTileImportOptionsStateChangedEventArgs(
-                    GetCurrentOptionsState()));
+                new XyzTileImportOptionsStateChangedEventArgs(GetCurrentOptionsState()));
         }
 
         private void PromptToCancelActiveDownload()
@@ -724,22 +989,30 @@ namespace Land_Readjustment_Tool.UI.Forms
                 MessageBoxDefaultButton.Button2);
 
             if (result == DialogResult.Yes)
-            {
                 _downloadCancellation?.Cancel();
-            }
         }
 
-        private void lblHint_Click(object sender, EventArgs e)
+        private bool IsDesignMode()
         {
-
+            return LicenseManager.UsageMode == LicenseUsageMode.Designtime ||
+                   DesignMode ||
+                   string.IsNullOrWhiteSpace(_projectFolderPath);
         }
 
-        private void layout_Paint(object sender, PaintEventArgs e)
+        private static decimal ClampNumericValue(NumericUpDown input, decimal value)
         {
-
+            return Math.Min(input.Maximum, Math.Max(input.Minimum, value));
         }
 
-        private void frmXyzTileImportOptions_Load_1(object sender, EventArgs e)
+        private static void ApplyNullableDouble(NumericUpDown input, double? value)
+        {
+            if (!value.HasValue || !double.IsFinite(value.Value))
+                return;
+
+            input.Value = ClampNumericValue(input, (decimal)value.Value);
+        }
+
+        private void rdoLiveTiles_CheckedChanged(object sender, EventArgs e)
         {
 
         }
@@ -757,8 +1030,7 @@ namespace Land_Readjustment_Tool.UI.Forms
 
     public sealed class XyzTileImportOptionsStateChangedEventArgs : EventArgs
     {
-        public XyzTileImportOptionsStateChangedEventArgs(
-            XyzTileImportOptionsState state)
+        public XyzTileImportOptionsStateChangedEventArgs(XyzTileImportOptionsState state)
         {
             State = state ?? throw new ArgumentNullException(nameof(state));
         }

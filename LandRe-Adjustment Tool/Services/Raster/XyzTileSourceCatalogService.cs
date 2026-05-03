@@ -84,7 +84,6 @@ namespace Land_Readjustment_Tool.Services.Raster
                 new("OpenStreetMap Humanitarian (HOT)",
                     "https://tile.openstreetmap.fr/hot/{z}/{x}/{y}.png",
                     0, 19, "png", IsBuiltIn: true),
-
                 // ── Esri / ArcGIS Online ───────────────────────────────────────
                 new("Esri World Imagery",
                     "https://services.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}",
@@ -93,7 +92,6 @@ namespace Land_Readjustment_Tool.Services.Raster
                 new("Esri World Street Map",
                     "https://services.arcgisonline.com/ArcGIS/rest/services/World_Street_Map/MapServer/tile/{z}/{y}/{x}",
                     0, 19, "jpg", IsBuiltIn: true),
-
                 new("Esri World Topo Map",
                     "https://services.arcgisonline.com/ArcGIS/rest/services/World_Topo_Map/MapServer/tile/{z}/{y}/{x}",
                     0, 19, "jpg", IsBuiltIn: true),
@@ -117,20 +115,18 @@ namespace Land_Readjustment_Tool.Services.Raster
                 // ── Google (unofficial, no API key — use in compliance with terms) ──
                 new("Google Satellite",
                     "https://mt1.google.com/vt/lyrs=s&x={x}&y={y}&z={z}",
-                    0, 20, "jpg", IsBuiltIn: true),
+                    0, 19, "jpg", IsBuiltIn: true),
 
                 new("Google Hybrid (Satellite + Labels)",
                     "https://mt1.google.com/vt/lyrs=y&x={x}&y={y}&z={z}",
-                    0, 20, "jpg", IsBuiltIn: true),
-
+                    0, 19, "jpg", IsBuiltIn: true),
                 new("Google Streets",
                     "https://mt1.google.com/vt/lyrs=m&x={x}&y={y}&z={z}",
-                    0, 20, "png", IsBuiltIn: true),
+                    0, 19, "png", IsBuiltIn: true),
 
                 new("Google Terrain",
                     "https://mt1.google.com/vt/lyrs=p&x={x}&y={y}&z={z}",
-                    0, 20, "png", IsBuiltIn: true),
-
+                    0, 19, "png", IsBuiltIn: true),
                 // ── CartoDB / CARTO ────────────────────────────────────────────
                 new("CartoDB Positron (Light)",
                     "https://cartodb-basemaps-a.global.ssl.fastly.net/light_all/{z}/{x}/{y}.png",
@@ -151,24 +147,23 @@ namespace Land_Readjustment_Tool.Services.Raster
 
                 new("Stadia Stamen Toner",
                     "https://tiles.stadiamaps.com/tiles/stamen_toner/{z}/{x}/{y}.png",
-                    0, 20, "png", IsBuiltIn: true),
+                    0, 19, "png", IsBuiltIn: true),
 
                 new("Stadia Stamen Toner Lite",
                     "https://tiles.stadiamaps.com/tiles/stamen_toner_lite/{z}/{x}/{y}.png",
-                    0, 20, "png", IsBuiltIn: true),
+                    0, 19, "png", IsBuiltIn: true),
 
                 new("Stadia Alidade Smooth",
                     "https://tiles.stadiamaps.com/tiles/alidade_smooth/{z}/{x}/{y}.png",
-                    0, 20, "png", IsBuiltIn: true),
+                    0, 19, "png", IsBuiltIn: true),
 
                 new("Stadia Alidade Smooth Dark",
                     "https://tiles.stadiamaps.com/tiles/alidade_smooth_dark/{z}/{x}/{y}.png",
-                    0, 20, "png", IsBuiltIn: true),
+                    0, 19, "png", IsBuiltIn: true),
 
                 new("Stadia OSM Bright",
                     "https://tiles.stadiamaps.com/tiles/osm_bright/{z}/{x}/{y}.png",
-                    0, 20, "png", IsBuiltIn: true),
-
+                    0, 19, "png", IsBuiltIn: true),
                 // ── OpenTopoMap ────────────────────────────────────────────────
                 new("OpenTopoMap",
                     "https://opentopomap.org/{z}/{x}/{y}.png",

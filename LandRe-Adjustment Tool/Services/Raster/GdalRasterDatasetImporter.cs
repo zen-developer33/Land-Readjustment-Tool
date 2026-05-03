@@ -105,6 +105,8 @@ namespace Land_Readjustment_Tool.Services.Raster
                     RasterDatasetImportMode.SourceCrsAssignedWithoutGeoreferencing,
                 RasterImportMode.MbTilesDirectTileSource =>
                     RasterDatasetImportMode.MbTilesDirectTileSource,
+                RasterImportMode.XyzLiveTileSource =>
+                    RasterDatasetImportMode.XyzLiveTileSource,
                 _ => RasterDatasetImportMode.UnreferencedCopiedToLocalCoordinates
             };
         }
