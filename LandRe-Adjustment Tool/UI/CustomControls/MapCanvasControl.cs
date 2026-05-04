@@ -284,6 +284,16 @@ namespace Land_Readjustment_Tool.UI.CustomControls
 
             if (rasterLayers != null)
             {
+                // Shared callback used by live tile layers to trigger a repaint when a
+                // tile finishes loading on a background thread.
+                Action liveTileCallback = () =>
+                {
+                    if (!IsDisposed && IsHandleCreated)
+                    {
+                        BeginInvoke((MethodInvoker)RequestRender);
+                    }
+                };
+
                 foreach (CanvasLayer rasterLayer in rasterLayers
                     .OrderBy(layer => layer.DisplayOrder)
                     .ThenBy(layer => layer.Name))
@@ -293,7 +303,8 @@ namespace Land_Readjustment_Tool.UI.CustomControls
                         _rasterRenderLayers.Add(
                             RasterRenderLayerFactory.FromCanvasLayer(
                                 rasterLayer,
-                                projectFolderPath));
+                                projectFolderPath,
+                                liveTileCallback));
                     }
                     catch (Exception ex)
                     {

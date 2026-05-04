@@ -222,8 +222,10 @@ namespace Land_Readjustment_Tool.UI.Forms
                 lblDownloadStatus.Text =
                     "Download complete. Click Import to add to the project.";
 
-                // Upgrade the layer name to the rich abbreviated format.
-                SuggestLayerName(BuildDownloadedLayerName(SelectedTileSource.Name, request));
+                // Always update the layer name to the formatted name once download finishes.
+                string downloadedName = BuildDownloadedLayerName(SelectedTileSource.Name, request);
+                txtLayerName.Text = downloadedName;
+                _lastAutoSuggestedLayerName = downloadedName;
 
                 RaiseOptionsStateChanged();
             }
@@ -401,8 +403,7 @@ namespace Land_Readjustment_Tool.UI.Forms
             if (!string.IsNullOrWhiteSpace(_initialState.LayerName))
             {
                 txtLayerName.Text = _initialState.LayerName;
-                // Treat the restored name as user-chosen — never overwrite it.
-                _lastAutoSuggestedLayerName = string.Empty;
+                _lastAutoSuggestedLayerName = _initialState.LayerName;
             }
 
             if (!string.IsNullOrWhiteSpace(_initialState.UrlTemplate))
@@ -681,7 +682,7 @@ namespace Land_Readjustment_Tool.UI.Forms
 
         /// <summary>
         /// Builds the layer name used after a successful tile download.
-        /// Format: <c>GSat [84.1E 27.3N] Z16</c>
+        /// Format: <c>GSat [84.1E 27.3N] Z16 2026-05-04 14:30</c>
         /// Center is the midpoint of the downloaded bbox.
         /// </summary>
         private static string BuildDownloadedLayerName(
@@ -699,17 +700,17 @@ namespace Land_Readjustment_Tool.UI.Forms
                 : $"{Math.Abs(centerLat):F1}S";
 
             string abbrev = AbbreviateSourceName(sourceName);
-            return $"{abbrev} [{lonPart} {latPart}] Z{request.ZoomLevel}";
+            DateTime now = DateTime.Now;
+            return $"{abbrev} [{lonPart} {latPart}] Z{request.ZoomLevel} {now:yyyy-MM-dd HH:mm}";
         }
 
         /// <summary>
         /// Builds the layer name used for a live (on-demand internet) tile layer.
-        /// Format: <c>GSat [Live] Z16</c>
+        /// Format: <c>World Imagery (Google Satellite)</c>
         /// </summary>
         private static string BuildLiveLayerName(string sourceName, int zoomLevel)
         {
-            string abbrev = AbbreviateSourceName(sourceName);
-            return $"{abbrev} [Live] Z{zoomLevel}";
+            return $"World Imagery ({sourceName})";
         }
 
         // ── Area hint ────────────────────────────────────────────────────────────

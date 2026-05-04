@@ -190,7 +190,7 @@ namespace Land_Readjustment_Tool.UI.Forms
             txtLayerName.Name = "txtLayerName";
             txtLayerName.Size = new Size(457, 27);
             txtLayerName.TabIndex = 1;
-            txtLayerName.Text = "XYZ Basemap";
+            txtLayerName.Text = string.Empty;
             // 
             // lblTileSource
             // 
