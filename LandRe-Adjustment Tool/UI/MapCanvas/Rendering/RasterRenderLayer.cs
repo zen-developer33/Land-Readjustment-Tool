@@ -496,6 +496,7 @@ namespace Land_Readjustment_Tool.UI.MapCanvas.Rendering
 
                 if (_bandSelection.AlphaBand.HasValue)
                 {
+
                     using Band alphaBand = _dataset.GetRasterBand(_bandSelection.AlphaBand.Value);
                     alpha = ReadBandWindow(alphaBand, overviewIndex, tileWindow);
                 }
@@ -506,14 +507,16 @@ namespace Land_Readjustment_Tool.UI.MapCanvas.Rendering
 
                 ApplyRgbNoData(red, green, blue, alpha, redNoData, greenNoData, blueNoData);
 
-                // If no NoData was declared, remove black border collar by flood-fill from edges.
-                // This handles drone orthophotos that use black fill without declaring NoData.
+                // If no NoData value is declared in file metadata, flood-fill black
+                // border pixels from the edges. Drone orthophotos and warped XYZ
+                // GeoTIFFs commonly use black as the fill colour without declaring NoData.
                 if (redNoData == null && greenNoData == null && blueNoData == null)
                 {
                     RemoveBlackNoDataCollar(
                         red, green, blue, alpha,
                         tileWindow.Width, tileWindow.Height);
                 }
+
                 return CreateArgbBitmap(red, green, blue, alpha, tileWindow.Width, tileWindow.Height);
             }
 

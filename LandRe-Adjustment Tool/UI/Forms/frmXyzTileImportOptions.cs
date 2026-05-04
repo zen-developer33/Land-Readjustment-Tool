@@ -68,6 +68,7 @@ namespace Land_Readjustment_Tool.UI.Forms
         private XyzTileSourceImportRequest? _lastSuccessfulDownloadRequest;
         private CancellationTokenSource? _downloadCancellation;
         private bool _isImportInProgress;
+        private bool _closingAfterImport;
 
         /// <summary>
         /// Tracks the last auto-injected layer name so a user-typed name is
@@ -251,17 +252,13 @@ namespace Land_Readjustment_Tool.UI.Forms
         private void btnCancel_Click(object? sender, EventArgs e)
         {
             if (_downloadCancellation != null)
-            {
                 PromptToCancelActiveDownload();
-                return;
-            }
+        }
 
-            if (_isImportInProgress)
-            {
-                ShowValidationMessage("Import is in progress. Please wait until it completes.");
-                return;
-            }
-
+        private void btnClose_Click(object? sender, EventArgs e)
+        {
+            // btnClose is disabled while download or import is in progress, so this
+            // handler can always close without an additional guard.
             Close();
         }
 
@@ -272,6 +269,9 @@ namespace Land_Readjustment_Tool.UI.Forms
             pnlCenterRadius.Visible = rdoCenterRadius.Checked;
             pnlBoundingBox.Visible = rdoBoundingBox.Checked;
             pnlLiveTilesInfo.Visible = rdoLiveTiles.Checked;
+
+            // Progress bar and status label are irrelevant in Live Tiles mode.
+            SetProgressAreaVisible(!rdoLiveTiles.Checked);
 
             // When switching INTO bbox mode, auto-fill N/S/E/W from current center+radius.
             if (rdoBoundingBox.Checked)
@@ -730,6 +730,19 @@ namespace Land_Readjustment_Tool.UI.Forms
 
         // ── UI state helpers ─────────────────────────────────────────────────────
 
+        /// <summary>
+        /// Shows or hides the download-status label and progress row, and collapses
+        /// their layout rows so no blank gap appears in Live Tiles mode.
+        /// </summary>
+        private void SetProgressAreaVisible(bool visible)
+        {
+            lblDownloadStatus.Visible = visible;
+            pnlProgressRow.Visible = visible;
+            layout.RowStyles[6] = new RowStyle(SizeType.Absolute, visible ? 39F : 0F);
+            layout.RowStyles[7] = new RowStyle(SizeType.Absolute, visible ? 36F : 0F);
+            layout.PerformLayout();
+        }
+
         private void InvalidateDownloadedRequest()
         {
             if (_downloadCancellation != null)
@@ -781,7 +794,8 @@ namespace Land_Readjustment_Tool.UI.Forms
             numEast.Enabled = !isDownloading;
             numWest.Enabled = !isDownloading;
             numZoomLevel.Enabled = !isDownloading;
-            btnCancel.Enabled = true;
+            btnCancel.Enabled = isDownloading;   // cancel button active only while download runs
+            btnClose.Enabled = !isDownloading;   // close button disabled while download runs
         }
 
         public void BeginImportExecution(string statusText = "Importing tiles to map...")
@@ -792,6 +806,7 @@ namespace Land_Readjustment_Tool.UI.Forms
             btnImport.Enabled = false;
             btnDownloadTiles.Enabled = false;
             btnManageSources.Enabled = false;
+            btnClose.Enabled = false;
             lblDownloadStatus.Text = statusText;
         }
 
@@ -803,8 +818,11 @@ namespace Land_Readjustment_Tool.UI.Forms
             btnManageSources.Enabled = true;
             btnDownloadTiles.Enabled = _downloadCancellation == null && !IsLiveMode;
             btnImport.Enabled = _downloadedRequest != null || IsLiveMode;
+            btnClose.Enabled = true;
             lblDownloadStatus.Text = statusText;
         }
+
+       
 
         public void FailImportExecution(string statusText)
         {
@@ -814,7 +832,33 @@ namespace Land_Readjustment_Tool.UI.Forms
             btnManageSources.Enabled = true;
             btnDownloadTiles.Enabled = _downloadCancellation == null && !IsLiveMode;
             btnImport.Enabled = _downloadedRequest != null || IsLiveMode;
+            btnClose.Enabled = true;
             lblDownloadStatus.Text = statusText;
+        }
+
+        /// <summary>
+        /// Shows the completion message then closes the form.
+        /// Called after a successful download-and-import workflow.
+        /// </summary>
+        public void CompleteImportAndClose(string statusText)
+        {
+            if (IsDisposed || !IsHandleCreated)
+                return;
+
+            if (InvokeRequired)
+            {
+                BeginInvoke(() => CompleteImportAndClose(statusText));
+                return;
+            }
+
+            CompleteImportExecution(statusText);
+
+            // Give the user a moment to see the success message before closing.
+            Task.Delay(1200).ContinueWith(_ =>
+            {
+                if (!IsDisposed && IsHandleCreated)
+                    BeginInvoke(Close);
+            });
         }
 
         // ── Defaults ─────────────────────────────────────────────────────────────
@@ -844,6 +888,7 @@ namespace Land_Readjustment_Tool.UI.Forms
             btnImport.Click += btnImport_Click;
             btnDownloadTiles.Click += btnDownloadTiles_Click;
             btnCancel.Click += btnCancel_Click;
+            btnClose.Click += btnClose_Click;
             FormClosing += frmXyzTileImportOptions_FormClosing;
 
             // All three radio buttons share the same handler.
@@ -887,9 +932,8 @@ namespace Land_Readjustment_Tool.UI.Forms
         private void ConfigureRuntimeFormBehavior()
         {
             btnImport.DialogResult = DialogResult.None;
-            btnCancel.DialogResult = DialogResult.None;
             AcceptButton = btnImport;
-            CancelButton = btnCancel;
+            CancelButton = btnClose;  // ESC closes the form, not the download
             MinimizeBox = true;
             ShowInTaskbar = true;
         }
@@ -898,6 +942,18 @@ namespace Land_Readjustment_Tool.UI.Forms
 
         private void frmXyzTileImportOptions_FormClosing(object? sender, FormClosingEventArgs e)
         {
+            // Auto-close triggered by CompleteImportAndClose — state already saved.
+            if (_closingAfterImport)
+                return;
+
+            // Block accidental close while import is running.
+            if (_isImportInProgress)
+            {
+                ShowValidationMessage("Import is in progress. Please wait until it completes.");
+                e.Cancel = true;
+                return;
+            }
+
             if (_downloadCancellation == null)
             {
                 RaiseOptionsStateChanged();

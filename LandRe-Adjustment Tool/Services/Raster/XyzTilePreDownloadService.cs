@@ -1,4 +1,9 @@
+using Land_Readjustment_Tool.UI.MapCanvas.Services;
 using Microsoft.Data.Sqlite;
+using OSGeo.GDAL;
+using OSGeo.OSR;
+using System.Drawing;
+using System.Drawing.Imaging;
 using System.Net.Http;
 using System.Text;
 
@@ -11,6 +16,10 @@ namespace Land_Readjustment_Tool.Services.Raster
     {
         private const string DownloadCacheFolderName = "XyzTilePreDownloadCache";
         private const int MaxConcurrentDownloads = 8;
+        private const int TilePixelSize = 256;
+        private const int DefaultMaxTileCount = 5000;
+        private const double WebMercatorOriginShift = 20037508.342789244;
+        private const double InitialResolution = 156543.03392804097;
         private static readonly HttpClient HttpClient = new();
 
         public async Task<XyzTileDownloadResult> DownloadTilesAsync(
@@ -29,6 +38,12 @@ namespace Land_Readjustment_Tool.Services.Raster
 
             TileRange tileRange = BuildTileRange(request);
             long totalTiles = tileRange.TotalTiles;
+            if (totalTiles > DefaultMaxTileCount)
+            {
+                throw new InvalidOperationException(
+                    $"The selected area and zoom level require {totalTiles:N0} tiles. " +
+                    "Please reduce the area or choose a lower zoom level.");
+            }
             string cacheFolder = BuildCacheFolderPath(projectFolderPath, request);
             Directory.CreateDirectory(cacheFolder);
 
@@ -204,6 +219,82 @@ namespace Land_Readjustment_Tool.Services.Raster
             return outputMbTilesPath;
         }
 
+        public static string AssembleDownloadedTilesIntoGeoTiff(
+            XyzTileDownloadResult downloadResult,
+            XyzTileSourceImportRequest request,
+            string outputTiffPath,
+            IProgress<XyzTileDownloadProgress>? progress = null)
+        {
+            if (string.IsNullOrWhiteSpace(outputTiffPath))
+            {
+                throw new ArgumentException("Output GeoTIFF path is required.", nameof(outputTiffPath));
+            }
+
+            TileRange tileRange = BuildTileRange(request);
+            long totalTiles = tileRange.TotalTiles;
+            if (totalTiles > DefaultMaxTileCount)
+            {
+                throw new InvalidOperationException(
+                    $"The selected area and zoom level require {totalTiles:N0} tiles. " +
+                    "Please reduce the area or choose a lower zoom level.");
+            }
+
+            int tileCountX = tileRange.MaxTileX - tileRange.MinTileX + 1;
+            int tileCountY = tileRange.MaxTileY - tileRange.MinTileY + 1;
+            int mosaicWidth = tileCountX * TilePixelSize;
+            int mosaicHeight = tileCountY * TilePixelSize;
+
+            if (mosaicWidth <= 0 || mosaicHeight <= 0)
+            {
+                throw new InvalidOperationException("Invalid tile range for GeoTIFF assembly.");
+            }
+
+            string cacheFolder = downloadResult.CacheFolderPath;
+            string extension = NormalizeImageExtension(request.ImageExtension);
+            using Bitmap mosaic = new(mosaicWidth, mosaicHeight, PixelFormat.Format32bppArgb);
+            using (Graphics graphics = Graphics.FromImage(mosaic))
+            {
+                graphics.Clear(Color.Transparent);
+
+                long inserted = 0;
+                for (int tileY = tileRange.MinTileY; tileY <= tileRange.MaxTileY; tileY++)
+                {
+                    for (int tileX = tileRange.MinTileX; tileX <= tileRange.MaxTileX; tileX++)
+                    {
+                        string tilePath = Path.Combine(
+                            cacheFolder,
+                            request.ZoomLevel.ToString(),
+                            tileX.ToString(),
+                            $"{tileY}{extension}");
+
+                        if (!File.Exists(tilePath))
+                        {
+                            continue;
+                        }
+
+                        using Image tile = Image.FromFile(tilePath);
+                        int pixelX = (tileX - tileRange.MinTileX) * TilePixelSize;
+                        int pixelY = (tileY - tileRange.MinTileY) * TilePixelSize;
+                        graphics.DrawImage(tile, pixelX, pixelY, TilePixelSize, TilePixelSize);
+
+                        inserted++;
+                        if (inserted % 100 == 0)
+                        {
+                            progress?.Report(new XyzTileDownloadProgress(
+                                inserted,
+                                totalTiles,
+                                (int)(inserted * 100 / Math.Max(1, totalTiles)),
+                                $"Stitching tiles ({inserted:N0}/{totalTiles:N0})"));
+                        }
+                    }
+                }
+            }
+
+            WebMercatorBounds bounds = TileRangeToWebMercatorBounds(tileRange, request.ZoomLevel);
+            WriteGeoTiff(outputTiffPath, mosaic, bounds);
+            return outputTiffPath;
+        }
+
         private static XyzTileDownloadProgress CreateProgress(
             long completed,
             long total,
@@ -361,6 +452,7 @@ namespace Land_Readjustment_Tool.Services.Raster
 
         private static int LatitudeToTileY(double latitude, int zoomLevel)
         {
+            latitude = Math.Clamp(latitude, -85.05112878, 85.05112878);
             double latitudeRadians = latitude * Math.PI / 180d;
             int tileCount = 1 << zoomLevel;
             int tileY = (int)Math.Floor(
@@ -370,12 +462,128 @@ namespace Land_Readjustment_Tool.Services.Raster
             return Math.Clamp(tileY, 0, tileCount - 1);
         }
 
+        private static double GetResolution(int zoom) =>
+            InitialResolution / Math.Pow(2.0, zoom);
+
+        private static WebMercatorBounds TileRangeToWebMercatorBounds(
+            TileRange tileRange,
+            int zoom)
+        {
+            double resolution = GetResolution(zoom);
+            double minX = tileRange.MinTileX * TilePixelSize * resolution - WebMercatorOriginShift;
+            double maxX = (tileRange.MaxTileX + 1) * TilePixelSize * resolution - WebMercatorOriginShift;
+            double maxY = WebMercatorOriginShift - tileRange.MinTileY * TilePixelSize * resolution;
+            double minY = WebMercatorOriginShift - (tileRange.MaxTileY + 1) * TilePixelSize * resolution;
+            return new WebMercatorBounds(minX, minY, maxX, maxY, resolution);
+        }
+
+        private static void WriteGeoTiff(
+            string outputPath,
+            Bitmap bitmap,
+            WebMercatorBounds bounds)
+        {
+            GdalConfiguration.ConfigureGdal();
+            if (!GdalConfiguration.Usable)
+            {
+                throw new InvalidOperationException(
+                    "GDAL is not configured correctly. GeoTIFF export cannot continue.");
+            }
+
+            Driver? driver = Gdal.GetDriverByName("GTiff");
+            if (driver == null)
+            {
+                throw new InvalidOperationException("GDAL GTiff driver is not available.");
+            }
+
+            string[] options =
+            [
+                "TILED=YES",
+                "BIGTIFF=IF_SAFER",
+                "COMPRESS=DEFLATE"
+            ];
+
+            using Dataset dataset = driver.Create(
+                outputPath,
+                bitmap.Width,
+                bitmap.Height,
+                4,
+                DataType.GDT_Byte,
+                options);
+
+            double[] geoTransform =
+            [
+                bounds.MinX,
+                bounds.Resolution,
+                0,
+                bounds.MaxY,
+                0,
+                -bounds.Resolution
+            ];
+            dataset.SetGeoTransform(geoTransform);
+
+            using SpatialReference srs = new(string.Empty);
+            srs.SetAxisMappingStrategy(AxisMappingStrategy.OAMS_TRADITIONAL_GIS_ORDER);
+            srs.ImportFromEPSG(3857);
+            srs.ExportToWkt(out string? wkt, null);
+            if (!string.IsNullOrWhiteSpace(wkt))
+            {
+                dataset.SetProjection(wkt);
+            }
+
+            Rectangle rect = new(0, 0, bitmap.Width, bitmap.Height);
+            BitmapData data = bitmap.LockBits(rect, ImageLockMode.ReadOnly, PixelFormat.Format32bppArgb);
+            try
+            {
+                int bytes = Math.Abs(data.Stride) * data.Height;
+                byte[] buffer = new byte[bytes];
+                System.Runtime.InteropServices.Marshal.Copy(data.Scan0, buffer, 0, bytes);
+
+                byte[] red = new byte[bitmap.Width * bitmap.Height];
+                byte[] green = new byte[bitmap.Width * bitmap.Height];
+                byte[] blue = new byte[bitmap.Width * bitmap.Height];
+                byte[] alpha = new byte[bitmap.Width * bitmap.Height];
+
+                int index = 0;
+                for (int y = 0; y < bitmap.Height; y++)
+                {
+                    int rowOffset = y * data.Stride;
+                    for (int x = 0; x < bitmap.Width; x++)
+                    {
+                        int offset = rowOffset + x * 4;
+                        blue[index] = buffer[offset];
+                        green[index] = buffer[offset + 1];
+                        red[index] = buffer[offset + 2];
+                        alpha[index] = buffer[offset + 3];
+                        index++;
+                    }
+                }
+
+                dataset.GetRasterBand(1).WriteRaster(0, 0, bitmap.Width, bitmap.Height, red, bitmap.Width, bitmap.Height, 0, 0);
+                dataset.GetRasterBand(2).WriteRaster(0, 0, bitmap.Width, bitmap.Height, green, bitmap.Width, bitmap.Height, 0, 0);
+                dataset.GetRasterBand(3).WriteRaster(0, 0, bitmap.Width, bitmap.Height, blue, bitmap.Width, bitmap.Height, 0, 0);
+                dataset.GetRasterBand(4).WriteRaster(0, 0, bitmap.Width, bitmap.Height, alpha, bitmap.Width, bitmap.Height, 0, 0);
+            }
+            finally
+            {
+                bitmap.UnlockBits(data);
+            }
+
+            dataset.FlushCache();
+        }
+
         private readonly record struct TileRange(
             int MinTileX,
             int MaxTileX,
             int MinTileY,
             int MaxTileY,
             long TotalTiles);
+
+        private readonly record struct WebMercatorBounds(
+            double MinX,
+            double MinY,
+            double MaxX,
+            double MaxY,
+            double Resolution);
     }
 
     public sealed record XyzTileDownloadProgress(

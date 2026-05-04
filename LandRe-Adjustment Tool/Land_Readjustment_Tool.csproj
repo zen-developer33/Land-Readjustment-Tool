@@ -13,6 +13,8 @@
   </PropertyGroup>
 
   <ItemGroup>
+    <!-- Suppress the NuGet-generated GdalConfiguration.cs; we maintain our own copy. -->
+    <Compile Remove="$(BaseIntermediateOutputPath)**/GDAL/**/GdalConfiguration.cs" />
     <Compile Remove="Canvas\**" />
     <Compile Remove="Custom Controls\**" />
     <Compile Remove="Forms\**" />

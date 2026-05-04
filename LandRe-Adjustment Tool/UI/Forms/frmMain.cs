@@ -1,11 +1,10 @@
 
-using Land_Readjustment_Tool.Core.Interfaces;
 using Land_Readjustment_Tool.Core.Entities.Canvas;
 using Land_Readjustment_Tool.Core.Entities.Project;
+using Land_Readjustment_Tool.Core.Interfaces;
 using Land_Readjustment_Tool.Data;
 using Land_Readjustment_Tool.Forms;
 using Land_Readjustment_Tool.Forms.LandOwnersRecord_Managerment;
-using Land_Readjustment_Tool.Properties;
 using Land_Readjustment_Tool.Services;
 using Land_Readjustment_Tool.Services.Canvas;
 using Land_Readjustment_Tool.Services.Project;
@@ -17,7 +16,6 @@ using Land_Readjustment_Tool.UI.MapCanvas.Core;
 using Land_Readjustment_Tool.UI.MapCanvas.Models.Shapes;
 using Land_Readjustment_Tool.UI.MapCanvas.Services;
 using Microsoft.Data.Sqlite;
-using System.Drawing;
 using System.Reflection;
 using VisualStyles = System.Windows.Forms.VisualStyles;
 
@@ -1360,25 +1358,49 @@ namespace Land_Readjustment_Tool
                 }
                 else
                 {
-                    XyzTileDownloadResult downloadResult = await _xyzTilePreDownloadService.DownloadTilesAsync(
-                        AppServices.Context.ProjectFolderPath,
-                        request,
-                        new Progress<XyzTileDownloadProgress>(update =>
-                            SetOperationProgress(update.Percent, update.Status, showProgressForm: false)));
+                    // Step 1 — Download tiles to local cache folder
+                    SetOperationProgress(5, "Downloading XYZ tiles", showProgressForm: false);
 
-                    string rasterFolder = Path.Combine(AppServices.Context.ProjectFolderPath, "RasterLayers");
+                    XyzTileDownloadResult downloadResult =
+                        await _xyzTilePreDownloadService.DownloadTilesAsync(
+                            AppServices.Context.ProjectFolderPath,
+                            request,
+                            new Progress<XyzTileDownloadProgress>(update =>
+                                SetOperationProgress(
+                                    Math.Clamp(5 + update.Percent / 3, 5, 38),
+                                    update.Status,
+                                    showProgressForm: false)));
+
+                    // Step 2 — Stitch downloaded tiles into a GeoTIFF with EPSG:3857 georeference.
+                    // This is the correct approach: XYZ tiles are Web Mercator (EPSG:3857),
+                    // not WGS84. Assigning EPSG:3857 lets the existing import pipeline
+                    // correctly reproject into the project CRS.
+                    SetOperationProgress(40, "Stitching tiles into GeoTIFF", showProgressForm: false);
+
+                    string rasterFolder = Path.Combine(
+                        AppServices.Context.ProjectFolderPath, "RasterLayers");
                     Directory.CreateDirectory(rasterFolder);
 
-                    string mbTilesPath = Path.Combine(
-                        rasterFolder,
-                        $"{SanitizeFileName(request.LayerName)}_downloaded.mbtiles");
+                    string tiffFileName = $"{SanitizeFileName(request.LayerName)}_xyz.tif";
+                    string tiffPath = Path.Combine(rasterFolder, tiffFileName);
 
-                    sourcePath = XyzTilePreDownloadService.AssembleDownloadedTilesIntoMbTiles(
-                        downloadResult,
-                        request,
-                        mbTilesPath,
-                        new Progress<XyzTileDownloadProgress>(update =>
-                            SetOperationProgress(update.Percent, update.Status, showProgressForm: false)));
+                    // Overwrite if already exists from a previous import of same name
+                    if (File.Exists(tiffPath))
+                        File.Delete(tiffPath);
+
+                    await Task.Run(() =>
+                        XyzTilePreDownloadService.AssembleDownloadedTilesIntoGeoTiff(
+                            downloadResult,
+                            request,
+                            tiffPath,
+                            new Progress<XyzTileDownloadProgress>(update =>
+                                SetOperationProgress(
+                                    Math.Clamp(40 + update.Percent / 5, 40, 58),
+                                    update.Status,
+                                    showProgressForm: false))));
+
+                    sourcePath = tiffPath;
+                    sourceSrsOverride = "EPSG:3857"; // XYZ tiles are always Web Mercator
                 }
 
                 RasterLayerImportResult importResult =
@@ -1391,6 +1413,15 @@ namespace Land_Readjustment_Tool
                             sourceSrsOverride,
                             sourceExtent),
                         progress);
+
+                // Clean up the temporary assembled GeoTIFF — the import service
+                // has already warped and saved its own copy into the project raster folder.
+                // The temp file in RasterLayers/ is no longer needed.
+                if (!request.IsLiveTiles && File.Exists(sourcePath))
+                {
+                    try { File.Delete(sourcePath); }
+                    catch { /* best-effort cleanup — never block import success */ }
+                }
 
                 SetOperationProgress(94, "Refreshing raster layer list", showProgressForm: false);
 
@@ -1416,7 +1447,7 @@ namespace Land_Readjustment_Tool
 
                 SetCanvasCommandStatus(
                     $"Imported XYZ tiles: {importResult.Layer.Name}");
-                _xyzTileImportOptionsForm?.CompleteImportExecution(
+                _xyzTileImportOptionsForm?.CompleteImportAndClose(
                     $"Import complete: {importResult.Layer.Name}");
             }
             catch (InvalidOperationException ex)
@@ -2511,17 +2542,17 @@ namespace Land_Readjustment_Tool
             int halfH = Math.Max(1, rect.Height / 2);
 
             // Cell colours: two tones of slate-gray that read well on any background.
-            Color dark  = Color.FromArgb(148, 148, 155);
+            Color dark = Color.FromArgb(148, 148, 155);
             Color light = Color.FromArgb(210, 210, 215);
 
-            using SolidBrush darkBrush  = new(dark);
+            using SolidBrush darkBrush = new(dark);
             using SolidBrush lightBrush = new(light);
 
             // Top-left and bottom-right = dark; top-right and bottom-left = light.
-            g.FillRectangle(darkBrush,  rect.X,         rect.Y,         halfW, halfH);
-            g.FillRectangle(lightBrush, rect.X + halfW, rect.Y,         halfW, halfH);
-            g.FillRectangle(lightBrush, rect.X,         rect.Y + halfH, halfW, halfH);
-            g.FillRectangle(darkBrush,  rect.X + halfW, rect.Y + halfH, halfW, halfH);
+            g.FillRectangle(darkBrush, rect.X, rect.Y, halfW, halfH);
+            g.FillRectangle(lightBrush, rect.X + halfW, rect.Y, halfW, halfH);
+            g.FillRectangle(lightBrush, rect.X, rect.Y + halfH, halfW, halfH);
+            g.FillRectangle(darkBrush, rect.X + halfW, rect.Y + halfH, halfW, halfH);
 
             // Thin border so the icon has the same framed look as a vector swatch.
             using Pen borderPen = new(Color.FromArgb(110, 110, 120));

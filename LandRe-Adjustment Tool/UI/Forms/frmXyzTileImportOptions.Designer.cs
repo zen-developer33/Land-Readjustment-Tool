@@ -55,11 +55,13 @@ namespace Land_Readjustment_Tool.UI.Forms
         private Label lblZoomLevel;
         private NumericUpDown numZoomLevel;
         private Label lblDownloadStatus;
+        private TableLayoutPanel pnlProgressRow;
         private ProgressBar progressTileDownload;
         private FlowLayoutPanel buttonLayout;
         private Button btnImport;
         private Button btnDownloadTiles;
         private Button btnCancel;
+        private Button btnClose;
 
         protected override void Dispose(bool disposing)
         {
@@ -113,11 +115,13 @@ namespace Land_Readjustment_Tool.UI.Forms
             lblZoomLevel = new Label();
             numZoomLevel = new NumericUpDown();
             lblDownloadStatus = new Label();
+            pnlProgressRow = new TableLayoutPanel();
             progressTileDownload = new ProgressBar();
             buttonLayout = new FlowLayoutPanel();
             btnImport = new Button();
             btnDownloadTiles = new Button();
             btnCancel = new Button();
+            btnClose = new Button();
             layout.SuspendLayout();
             sourceLayout.SuspendLayout();
             pnlBoundsHeader.SuspendLayout();
@@ -134,6 +138,7 @@ namespace Land_Readjustment_Tool.UI.Forms
             ((System.ComponentModel.ISupportInitialize)numCenterLon).BeginInit();
             ((System.ComponentModel.ISupportInitialize)numRadius).BeginInit();
             ((System.ComponentModel.ISupportInitialize)numZoomLevel).BeginInit();
+            pnlProgressRow.SuspendLayout();
             buttonLayout.SuspendLayout();
             SuspendLayout();
             // 
@@ -153,7 +158,7 @@ namespace Land_Readjustment_Tool.UI.Forms
             layout.Controls.Add(lblZoomLevel, 0, 5);
             layout.Controls.Add(numZoomLevel, 1, 5);
             layout.Controls.Add(lblDownloadStatus, 0, 6);
-            layout.Controls.Add(progressTileDownload, 0, 7);
+            layout.Controls.Add(pnlProgressRow, 0, 7);
             layout.Controls.Add(buttonLayout, 0, 8);
             layout.Dock = DockStyle.Fill;
             layout.Location = new Point(0, 0);
@@ -167,7 +172,7 @@ namespace Land_Readjustment_Tool.UI.Forms
             layout.RowStyles.Add(new RowStyle(SizeType.Absolute, 191F));
             layout.RowStyles.Add(new RowStyle(SizeType.Absolute, 37F));
             layout.RowStyles.Add(new RowStyle(SizeType.Absolute, 39F));
-            layout.RowStyles.Add(new RowStyle(SizeType.Absolute, 26F));
+            layout.RowStyles.Add(new RowStyle(SizeType.Absolute, 36F));
             layout.RowStyles.Add(new RowStyle(SizeType.Absolute, 48F));
             layout.Size = new Size(600, 591);
             layout.TabIndex = 0;
@@ -612,23 +617,39 @@ namespace Land_Readjustment_Tool.UI.Forms
             lblDownloadStatus.TabIndex = 10;
             lblDownloadStatus.Text = "Download tiles to enable Import.";
             lblDownloadStatus.TextAlign = ContentAlignment.MiddleLeft;
-            // 
+            //
+            // pnlProgressRow
+            //
+            layout.SetColumnSpan(pnlProgressRow, 2);
+            pnlProgressRow.ColumnCount = 2;
+            pnlProgressRow.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 100F));
+            pnlProgressRow.ColumnStyles.Add(new ColumnStyle(SizeType.Absolute, 100F));
+            pnlProgressRow.Controls.Add(progressTileDownload, 0, 0);
+            pnlProgressRow.Controls.Add(btnCancel, 1, 0);
+            pnlProgressRow.Dock = DockStyle.Fill;
+            pnlProgressRow.Location = new Point(13, 462);
+            pnlProgressRow.Margin = new Padding(3, 2, 3, 2);
+            pnlProgressRow.Name = "pnlProgressRow";
+            pnlProgressRow.RowCount = 1;
+            pnlProgressRow.RowStyles.Add(new RowStyle(SizeType.Percent, 100F));
+            pnlProgressRow.Size = new Size(574, 36);
+            pnlProgressRow.TabIndex = 11;
+            //
             // progressTileDownload
-            // 
-            layout.SetColumnSpan(progressTileDownload, 2);
-            progressTileDownload.Dock = DockStyle.Fill;
-            progressTileDownload.Location = new Point(13, 462);
-            progressTileDownload.Margin = new Padding(3, 2, 3, 2);
+            //
+            progressTileDownload.Anchor = AnchorStyles.Left | AnchorStyles.Right | AnchorStyles.Top | AnchorStyles.Bottom;
+            progressTileDownload.Location = new Point(3, 7);
+            progressTileDownload.Margin = new Padding(3, 7, 3, 7);
             progressTileDownload.Name = "progressTileDownload";
-            progressTileDownload.Size = new Size(574, 22);
-            progressTileDownload.TabIndex = 11;
+            progressTileDownload.Size = new Size(462, 22);
+            progressTileDownload.TabIndex = 0;
             // 
             // buttonLayout
             // 
             layout.SetColumnSpan(buttonLayout, 2);
             buttonLayout.Controls.Add(btnImport);
             buttonLayout.Controls.Add(btnDownloadTiles);
-            buttonLayout.Controls.Add(btnCancel);
+            buttonLayout.Controls.Add(btnClose);
             buttonLayout.Dock = DockStyle.Fill;
             buttonLayout.FlowDirection = FlowDirection.RightToLeft;
             buttonLayout.Location = new Point(13, 490);
@@ -658,24 +679,35 @@ namespace Land_Readjustment_Tool.UI.Forms
             btnDownloadTiles.TabIndex = 2;
             btnDownloadTiles.Text = "Download";
             btnDownloadTiles.UseVisualStyleBackColor = true;
-            // 
-            // btnCancel
-            // 
-            btnCancel.DialogResult = DialogResult.Cancel;
-            btnCancel.Location = new Point(289, 4);
-            btnCancel.Margin = new Padding(3, 4, 3, 4);
+            //
+            // btnCancel  (cancel active download only; lives beside progress bar)
+            //
+            btnCancel.Dock = DockStyle.Fill;
+            btnCancel.Enabled = false;
+            btnCancel.Location = new Point(3, 3);
+            btnCancel.Margin = new Padding(3, 3, 3, 3);
             btnCancel.Name = "btnCancel";
-            btnCancel.Size = new Size(90, 36);
+            btnCancel.Size = new Size(94, 30);
             btnCancel.TabIndex = 1;
             btnCancel.Text = "Cancel";
             btnCancel.UseVisualStyleBackColor = true;
+            //
+            // btnClose
+            //
+            btnClose.Location = new Point(193, 4);
+            btnClose.Margin = new Padding(3, 4, 3, 4);
+            btnClose.Name = "btnClose";
+            btnClose.Size = new Size(90, 36);
+            btnClose.TabIndex = 3;
+            btnClose.Text = "Close";
+            btnClose.UseVisualStyleBackColor = true;
             // 
             // frmXyzTileImportOptions
             // 
             AcceptButton = btnImport;
             AutoScaleDimensions = new SizeF(8F, 20F);
             AutoScaleMode = AutoScaleMode.Font;
-            CancelButton = btnCancel;
+            CancelButton = btnClose;
             ClientSize = new Size(600, 591);
             Controls.Add(layout);
             FormBorderStyle = FormBorderStyle.FixedDialog;
@@ -706,6 +738,7 @@ namespace Land_Readjustment_Tool.UI.Forms
             ((System.ComponentModel.ISupportInitialize)numCenterLon).EndInit();
             ((System.ComponentModel.ISupportInitialize)numRadius).EndInit();
             ((System.ComponentModel.ISupportInitialize)numZoomLevel).EndInit();
+            pnlProgressRow.ResumeLayout(false);
             buttonLayout.ResumeLayout(false);
             ResumeLayout(false);
         }
