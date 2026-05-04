@@ -519,6 +519,11 @@ namespace Land_Readjustment_Tool.UI.MapCanvas.Rendering
             oldCts.Cancel();
             oldCts.Dispose();
 
+            if (newCts.IsCancellationRequested)
+            {
+                return;
+            }
+
             _ = FetchMissingTilesAsync(webMercatorBounds, zoom, newCts.Token);
         }
 
