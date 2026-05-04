@@ -25,7 +25,7 @@ namespace Land_Readjustment_Tool.UI.MapCanvas.Rendering
         private const int MaxCachedTiles = 512;
         private const int MaxTilesPerFrame = 256;
         private const int MaxConcurrentFetches = 6;
-        private const int DebounceMilliseconds = 80;
+        private const int DebounceMilliseconds =50;
         private const int MaxSupportedZoom = 22;
         private const double WebMercatorExtent = 20037508.342789244;
         private const double WebMercatorWorldSize = WebMercatorExtent * 2.0;

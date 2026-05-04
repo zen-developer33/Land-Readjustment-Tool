@@ -738,6 +738,7 @@ namespace Land_Readjustment_Tool.UI.CustomControls
 
             try
             {
+                _engine.SnapViewOriginToPixelGrid();
                 _rasterDeferredRenderer.RenderNow(
                     canvasSurface.Size,
                     _rasterRenderLayers,
@@ -779,6 +780,7 @@ namespace Land_Readjustment_Tool.UI.CustomControls
 
             try
             {
+                _engine.SnapViewOriginToPixelGrid();
                 await _rasterDeferredRenderer.RenderAsync(
                     canvasSurface.Size,
                     _rasterRenderLayers,

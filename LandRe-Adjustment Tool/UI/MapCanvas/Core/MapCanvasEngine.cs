@@ -11,7 +11,7 @@ namespace Land_Readjustment_Tool.UI.MapCanvas.Core
     {
         public const double MinZoom = 0.000001;
         public const double MaxZoom = 100000.0;
-        public const double ZoomStep = 1.2;
+        public const double ZoomStep = 1.4;
         private const double DefaultInitialCenterX = 245426.0206;
         private const double DefaultInitialCenterY = 3121303.7884;
         private const double DefaultInitialViewWidth = 8000.0;
@@ -136,6 +136,18 @@ namespace Land_Readjustment_Tool.UI.MapCanvas.Core
             _viewOriginWorld = new PointD(
                 centerWorld.X - (_canvasSize.Width / 2.0) / _zoomScale,
                 centerWorld.Y - (_canvasSize.Height / 2.0) / _zoomScale);
+        }
+
+        public void SnapViewOriginToPixelGrid()
+        {
+            if (_zoomScale <= 0 || !double.IsFinite(_zoomScale))
+            {
+                return;
+            }
+
+            double snappedX = Math.Round(_viewOriginWorld.X * _zoomScale) / _zoomScale;
+            double snappedY = Math.Round(_viewOriginWorld.Y * _zoomScale) / _zoomScale;
+            _viewOriginWorld = new PointD(snappedX, snappedY);
         }
 
         public void ZoomIn()
