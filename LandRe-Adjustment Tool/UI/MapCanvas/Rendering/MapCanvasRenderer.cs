@@ -108,6 +108,9 @@ namespace Land_Readjustment_Tool.UI.MapCanvas.Rendering
                             interactiveRaster);
                         break;
 
+                    case MapCanvasRenderStage.VectorContent:
+
+
                     case MapCanvasRenderStage.InteractionOverlay:
                         RenderInteractionOverlay(graphics, zoomWindowRectangle);
                         break;

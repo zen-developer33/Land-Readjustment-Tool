@@ -9,6 +9,7 @@ namespace Land_Readjustment_Tool.UI.MapCanvas.Rendering
         [
             MapCanvasRenderStage.FixedReference,
             MapCanvasRenderStage.RasterContent,
+            MapCanvasRenderStage.VectorContent,
             MapCanvasRenderStage.InteractionOverlay
         ];
 
@@ -44,6 +45,11 @@ namespace Land_Readjustment_Tool.UI.MapCanvas.Rendering
         /// </summary>
         RasterContent,
 
+        /// <summary>
+        /// Draws vector content for the current viewport.
+        /// </summary>
+
+        VectorContent,
         /// <summary>
         /// Draws temporary interaction feedback such as zoom-window selection.
         /// </summary>
