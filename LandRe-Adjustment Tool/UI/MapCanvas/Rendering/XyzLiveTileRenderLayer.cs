@@ -1,3 +1,7 @@
+using Land_Readjustment_Tool.Core.Entities.Canvas;
+using Land_Readjustment_Tool.UI.MapCanvas.Core;
+using Land_Readjustment_Tool.UI.MapCanvas.Models.Shapes;
+using OSGeo.OSR;
 using System.Drawing.Drawing2D;
 using System.Drawing.Imaging;
 using System.Globalization;
@@ -5,10 +9,6 @@ using System.Net;
 using System.Security.Cryptography;
 using System.Text;
 using System.Xml;
-using Land_Readjustment_Tool.Core.Entities.Canvas;
-using Land_Readjustment_Tool.UI.MapCanvas.Core;
-using Land_Readjustment_Tool.UI.MapCanvas.Models.Shapes;
-using OSGeo.OSR;
 
 namespace Land_Readjustment_Tool.UI.MapCanvas.Rendering
 {
@@ -265,7 +265,10 @@ namespace Land_Readjustment_Tool.UI.MapCanvas.Rendering
                     graphics.InterpolationMode = InterpolationMode.NearestNeighbor;
                     graphics.PixelOffsetMode = PixelOffsetMode.HighQuality;
                     graphics.CompositingQuality = CompositingQuality.HighSpeed;
-                    graphics.CompositingMode = CompositingMode.SourceOver;
+                    // FIX: SourceCopy prevents alpha-fringe bleed at tile edges.
+                    // SourceOver blends pre-multiplied alpha edge pixels against the
+                    // transparent off-screen buffer, producing dark seams.
+                    graphics.CompositingMode = CompositingMode.SourceCopy;
 
                     drawnAny = DrawVisibleTiles(
                         graphics,
@@ -363,6 +366,14 @@ namespace Land_Readjustment_Tool.UI.MapCanvas.Rendering
 
                     if (!_tileCache.TryGetValue(key, out Bitmap? bitmap))
                     {
+                        // FIX: Draw a scaled parent tile as a placeholder while the real
+                        // tile is being fetched from the internet. This prevents the map
+                        // going blank or showing gaps during pan/zoom. The real tile
+                        // replaces the placeholder as soon as _invalidateCallback fires.
+                        if (TryDrawParentTileFallback(graphics, engine, key, projectBounds))
+                        {
+                            drawnAny = true;
+                        }
                         continue;
                     }
 
@@ -386,6 +397,94 @@ namespace Land_Readjustment_Tool.UI.MapCanvas.Rendering
             }
 
             return drawnAny;
+        }
+
+        /// <summary>
+        /// Walks up to 3 zoom levels looking for a cached ancestor tile and draws its
+        /// sub-region scaled to fill <paramref name="missingProjectBounds"/>.
+        /// This gives the user a blurry-but-visible placeholder while the correct tile
+        /// loads, exactly as Google Maps and QGIS do.
+        /// </summary>
+        /// <returns>
+        /// <see langword="true"/> if a fallback tile was drawn; otherwise
+        /// <see langword="false"/>.
+        /// </returns>
+        private bool TryDrawParentTileFallback(
+            Graphics graphics,
+            MapCanvasEngine engine,
+            TileKey missingKey,
+            RectangleD missingProjectBounds)
+        {
+            for (int dz = 1; dz <= 3; dz++)
+            {
+                int parentZoom = missingKey.Z - dz;
+                if (parentZoom < 0)
+                    break;
+
+                // Each zoom step up doubles the tile coverage area.
+                // scale = 2 for dz=1, 4 for dz=2, 8 for dz=3.
+                int scale = 1 << dz;
+                int parentX = missingKey.X / scale;
+                int parentY = missingKey.Y / scale;
+                TileKey parentKey = new TileKey(parentZoom, parentX, parentY);
+
+                if (!_tileCache.TryGetValue(parentKey, out Bitmap? parentBitmap))
+                    continue;
+
+                // Compute which sub-region of the 256×256 parent bitmap covers
+                // the missing child tile.
+                int subTileSize = TilePixelSize / scale;
+                int subX = missingKey.X % scale;
+                int subY = missingKey.Y % scale;
+                RectangleF srcRect = new RectangleF(
+                    subX * subTileSize,
+                    subY * subTileSize,
+                    subTileSize,
+                    subTileSize);
+
+                RectangleF dest = WorldBoundsToScreenRectangle(engine, missingProjectBounds);
+                if (!IsValidDestination(dest))
+                    return false;
+
+                Rectangle intDest = CreateIntegerDestinationRectangle(
+                    AlignDestinationToPixelGrid(dest));
+
+                // Use NearestNeighbor — fast pixel doubling, no bicubic blur.
+                InterpolationMode savedMode = graphics.InterpolationMode;
+                graphics.InterpolationMode = InterpolationMode.NearestNeighbor;
+
+                if (_opacityImageAttributes != null)
+                {
+                    graphics.DrawImage(
+                        parentBitmap,
+                        intDest,
+                        srcRect.X,
+                        srcRect.Y,
+                        srcRect.Width,
+                        srcRect.Height,
+                        GraphicsUnit.Pixel,
+                        _opacityImageAttributes);
+                }
+                else
+                {
+                    using ImageAttributes ia = new ImageAttributes();
+                    ia.SetWrapMode(WrapMode.TileFlipXY);
+                    graphics.DrawImage(
+                        parentBitmap,
+                        intDest,
+                        srcRect.X,
+                        srcRect.Y,
+                        srcRect.Width,
+                        srcRect.Height,
+                        GraphicsUnit.Pixel,
+                        ia);
+                }
+
+                graphics.InterpolationMode = savedMode;
+                return true;
+            }
+
+            return false;
         }
 
         // ── Debounce & background fetch ────────────────────────────────────────

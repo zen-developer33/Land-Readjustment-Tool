@@ -167,7 +167,7 @@ namespace Land_Readjustment_Tool.UI.MapCanvas.Rendering
                 GraphicsState state = graphics.Save();
                 try
                 {
-                    graphics.SmoothingMode = SmoothingMode.None;
+                    graphics.SmoothingMode = SmoothingMode.HighSpeed;
                     graphics.InterpolationMode = ResolveInterpolationMode(
                         interactive,
                         readContext);
@@ -500,14 +500,20 @@ namespace Land_Readjustment_Tool.UI.MapCanvas.Rendering
                     alpha = ReadBandWindow(alphaBand, overviewIndex, tileWindow);
                 }
 
-                ApplyRgbNoData(
-                    red,
-                    green,
-                    blue,
-                    alpha,
-                    TryGetNoDataValue(redBand),
-                    TryGetNoDataValue(greenBand),
-                    TryGetNoDataValue(blueBand));
+                double? redNoData = TryGetNoDataValue(redBand);
+                double? greenNoData = TryGetNoDataValue(greenBand);
+                double? blueNoData = TryGetNoDataValue(blueBand);
+
+                ApplyRgbNoData(red, green, blue, alpha, redNoData, greenNoData, blueNoData);
+
+                // If no NoData was declared, remove black border collar by flood-fill from edges.
+                // This handles drone orthophotos that use black fill without declaring NoData.
+                if (redNoData == null && greenNoData == null && blueNoData == null)
+                {
+                    RemoveBlackNoDataCollar(
+                        red, green, blue, alpha,
+                        tileWindow.Width, tileWindow.Height);
+                }
                 return CreateArgbBitmap(red, green, blue, alpha, tileWindow.Width, tileWindow.Height);
             }
 
@@ -1008,6 +1014,50 @@ namespace Land_Readjustment_Tool.UI.MapCanvas.Rendering
             }
         }
 
+        private static void RemoveBlackNoDataCollar(
+    byte[] red, byte[] green, byte[] blue, byte[] alpha,
+    int width, int height)
+        {
+            // Flood-fill from all 4 edges — only removes black pixels
+            // reachable from the border, not interior black pixels.
+            bool[] visited = new bool[width * height];
+            Queue<int> queue = new();
+
+            void TrySeed(int x, int y)
+            {
+                if (x < 0 || x >= width || y < 0 || y >= height) return;
+                int idx = y * width + x;
+                if (visited[idx]) return;
+                if (red[idx] != 0 || green[idx] != 0 || blue[idx] != 0) return;
+                visited[idx] = true;
+                queue.Enqueue(idx);
+            }
+
+            // Seed from all 4 edges
+            for (int x = 0; x < width; x++)
+            {
+                TrySeed(x, 0);
+                TrySeed(x, height - 1);
+            }
+            for (int y = 1; y < height - 1; y++)
+            {
+                TrySeed(0, y);
+                TrySeed(width - 1, y);
+            }
+
+            // Flood fill
+            while (queue.Count > 0)
+            {
+                int idx = queue.Dequeue();
+                alpha[idx] = 0;  // make transparent
+                int x = idx % width;
+                int y = idx / width;
+                TrySeed(x - 1, y);
+                TrySeed(x + 1, y);
+                TrySeed(x, y - 1);
+                TrySeed(x, y + 1);
+            }
+        }
         private static string ResolveLayerFilePath(
             string storedPath,
             string? projectFolderPath)

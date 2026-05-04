@@ -1,9 +1,8 @@
-using System.Drawing;
-using System.Drawing.Drawing2D;
-using System.Runtime.InteropServices;
-using System.Drawing.Text;
 using Land_Readjustment_Tool.UI.MapCanvas.Core;
 using Land_Readjustment_Tool.UI.MapCanvas.Models.Shapes;
+using System.Drawing.Drawing2D;
+using System.Drawing.Text;
+using System.Runtime.InteropServices;
 
 
 namespace Land_Readjustment_Tool.UI.MapCanvas.Rendering
@@ -86,21 +85,19 @@ namespace Land_Readjustment_Tool.UI.MapCanvas.Rendering
         {
             ArgumentNullException.ThrowIfNull(graphics);
 
-            ConfigureGraphics(graphics);
             graphics.Clear(_settings.BackgroundColor);
             MapCanvasRenderViewport viewport = CreateViewport(graphics);
-
             foreach (MapCanvasRenderStage stage in _renderOrderService.GetFrameStages())
             {
-                ConfigureGraphics(graphics);
-
                 switch (stage)
                 {
                     case MapCanvasRenderStage.FixedReference:
+                        ConfigureVectorGraphics(graphics);
                         RenderFixedReferenceLayers(graphics, viewport);
                         break;
 
                     case MapCanvasRenderStage.RasterContent:
+                        ConfigureRasterGraphics(graphics);
                         RenderRasterContent(
                             graphics,
                             viewport,
@@ -110,8 +107,8 @@ namespace Land_Readjustment_Tool.UI.MapCanvas.Rendering
 
                     case MapCanvasRenderStage.VectorContent:
 
-
                     case MapCanvasRenderStage.InteractionOverlay:
+                        ConfigureVectorGraphics(graphics);
                         RenderInteractionOverlay(graphics, zoomWindowRectangle);
                         break;
                 }
@@ -165,6 +162,7 @@ namespace Land_Readjustment_Tool.UI.MapCanvas.Rendering
         {
             if (rasterFrame.HasValue)
             {
+                // Draw the stretched cached frame as background (fast, slightly blurry)
                 RasterRenderFrame frame = rasterFrame.Value;
                 try
                 {
@@ -174,10 +172,15 @@ namespace Land_Readjustment_Tool.UI.MapCanvas.Rendering
                 {
                     frame.Dispose();
                 }
+
+                // Draw cached tiles directly on top at correct zoom positions (sharp)
+                // This overwrites the blurry parts with sharp tiles for anything in cache.
+                RenderRasterLayers(graphics, viewport, interactive: true);
             }
             else if (interactiveRaster)
             {
-                return;
+                // No frame yet — draw direct from cache only
+                RenderRasterLayers(graphics, viewport, interactiveRaster);
             }
             else
             {
@@ -388,13 +391,24 @@ namespace Land_Readjustment_Tool.UI.MapCanvas.Rendering
         /// Applies high-quality graphics options for anti-aliased rendering.
         /// </summary>
         /// <param name="graphics">Graphics context to configure.</param>
-        private static void ConfigureGraphics(Graphics graphics)
+        // For vector content — grid, axis, overlays
+        private static void ConfigureVectorGraphics(Graphics graphics)
         {
             graphics.SmoothingMode = SmoothingMode.AntiAlias;
             graphics.InterpolationMode = InterpolationMode.HighQualityBicubic;
             graphics.PixelOffsetMode = PixelOffsetMode.HighQuality;
             graphics.CompositingQuality = CompositingQuality.HighQuality;
             graphics.TextRenderingHint = TextRenderingHint.ClearTypeGridFit;
+        }
+
+        // For raster content — tiles, bitmaps
+        private static void ConfigureRasterGraphics(Graphics graphics)
+        {
+            graphics.SmoothingMode = SmoothingMode.None;
+            graphics.InterpolationMode = InterpolationMode.NearestNeighbor;
+            graphics.PixelOffsetMode = PixelOffsetMode.HighQuality;
+            graphics.CompositingQuality = CompositingQuality.HighSpeed;
+            graphics.TextRenderingHint = TextRenderingHint.SingleBitPerPixel;
         }
 
         /// <summary>

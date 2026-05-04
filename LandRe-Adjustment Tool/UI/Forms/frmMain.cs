@@ -38,6 +38,7 @@ namespace Land_Readjustment_Tool
         private readonly IRasterLayerImportService _rasterLayerImportService;
         private readonly RasterImportFileManagementService _rasterImportFileManagementService;
         private readonly IXyzTileSourceService _xyzTileSourceService;
+        private readonly XyzTilePreDownloadService _xyzTilePreDownloadService;
         private readonly ProjectOpenService _projectOpenService;
         private readonly ProjectSaveAsService _projectSaveAsService;
         #endregion
@@ -148,6 +149,7 @@ namespace Land_Readjustment_Tool
             _rasterLayerImportService = rasterLayerImportService ?? throw new ArgumentNullException(nameof(rasterLayerImportService));
             _rasterImportFileManagementService = rasterImportFileManagementService ?? throw new ArgumentNullException(nameof(rasterImportFileManagementService));
             _xyzTileSourceService = xyzTileSourceService ?? throw new ArgumentNullException(nameof(xyzTileSourceService));
+            _xyzTilePreDownloadService = new XyzTilePreDownloadService();
             _projectOpenService = projectOpenService ?? throw new ArgumentNullException(nameof(projectOpenService));
             _projectSaveAsService = projectSaveAsService ?? throw new ArgumentNullException(nameof(projectSaveAsService));
 
@@ -1339,23 +1341,55 @@ namespace Land_Readjustment_Tool
 
                 SetOperationProgress(2, "Preparing XYZ tile source", showProgressForm: false);
 
-                XyzTileSourceDefinition sourceDefinition =
-                    _xyzTileSourceService.CreateSourceDefinition(
-                        AppServices.Context.ProjectFolderPath,
-                        request);
-
                 Progress<RasterImportProgressInfo> progress = new(
                     update => SetOperationProgress(update.Percent, update.Status, showProgressForm: false));
+
+                string sourcePath;
+                string? sourceSrsOverride = null;
+                RasterSourceExtent? sourceExtent = null;
+
+                if (request.IsLiveTiles)
+                {
+                    XyzTileSourceDefinition sourceDefinition =
+                        _xyzTileSourceService.CreateSourceDefinition(
+                            AppServices.Context.ProjectFolderPath,
+                            request);
+                    sourcePath = sourceDefinition.DefinitionPath;
+                    sourceSrsOverride = sourceDefinition.SourceExtent.SrsDefinition;
+                    sourceExtent = sourceDefinition.SourceExtent;
+                }
+                else
+                {
+                    XyzTileDownloadResult downloadResult = await _xyzTilePreDownloadService.DownloadTilesAsync(
+                        AppServices.Context.ProjectFolderPath,
+                        request,
+                        new Progress<XyzTileDownloadProgress>(update =>
+                            SetOperationProgress(update.Percent, update.Status, showProgressForm: false)));
+
+                    string rasterFolder = Path.Combine(AppServices.Context.ProjectFolderPath, "RasterLayers");
+                    Directory.CreateDirectory(rasterFolder);
+
+                    string mbTilesPath = Path.Combine(
+                        rasterFolder,
+                        $"{SanitizeFileName(request.LayerName)}_downloaded.mbtiles");
+
+                    sourcePath = XyzTilePreDownloadService.AssembleDownloadedTilesIntoMbTiles(
+                        downloadResult,
+                        request,
+                        mbTilesPath,
+                        new Progress<XyzTileDownloadProgress>(update =>
+                            SetOperationProgress(update.Percent, update.Status, showProgressForm: false)));
+                }
 
                 RasterLayerImportResult importResult =
                     await _rasterLayerImportService.ImportAsync(
                         new RasterLayerImportRequest(
                             AppServices.Context.Session,
                             AppServices.Context.ProjectFolderPath,
-                            sourceDefinition.DefinitionPath,
+                            sourcePath,
                             request.LayerName,
-                            sourceDefinition.SourceExtent.SrsDefinition,
-                            sourceDefinition.SourceExtent),
+                            sourceSrsOverride,
+                            sourceExtent),
                         progress);
 
                 SetOperationProgress(94, "Refreshing raster layer list", showProgressForm: false);
@@ -1452,6 +1486,17 @@ namespace Land_Readjustment_Tool
                 existingLayer);
             AppServices.Context.MarkAsModified();
             UpdateWindowTitle();
+        }
+
+        private static string SanitizeFileName(string input)
+        {
+            if (string.IsNullOrWhiteSpace(input))
+            {
+                return string.Empty;
+            }
+
+            HashSet<char> invalidChars = Path.GetInvalidFileNameChars().ToHashSet();
+            return new string(input.Select(ch => invalidChars.Contains(ch) ? '_' : ch).ToArray());
         }
 
         /// <summary>

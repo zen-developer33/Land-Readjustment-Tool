@@ -200,7 +200,7 @@ namespace Land_Readjustment_Tool.UI.MapCanvas.Rendering
 
                 using Graphics graphics = Graphics.FromImage(_panBuffer);
                 graphics.Clear(Color.Transparent);
-                graphics.CompositingMode = CompositingMode.SourceCopy;
+                graphics.CompositingMode = CompositingMode.SourceOver;
                 graphics.DrawImageUnscaled(_rasterCache, 0, 0);
                 _panBufferValid = true;
             }
@@ -570,9 +570,9 @@ namespace Land_Readjustment_Tool.UI.MapCanvas.Rendering
         {
             graphics.SmoothingMode = SmoothingMode.None;
             graphics.InterpolationMode = InterpolationMode.NearestNeighbor;
-            graphics.PixelOffsetMode = PixelOffsetMode.HighQuality;
+            graphics.PixelOffsetMode = PixelOffsetMode.HighQuality; //must be highquality not highspeed for nearestneighbor interpolation to work correctly
             graphics.CompositingQuality = CompositingQuality.HighSpeed;
-            graphics.CompositingMode = CompositingMode.SourceOver;
+            graphics.CompositingMode = CompositingMode.SourceCopy;
         }
 
         private static Size ClampSize(Size size)

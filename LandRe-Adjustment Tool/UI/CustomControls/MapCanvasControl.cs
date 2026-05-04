@@ -36,6 +36,7 @@ namespace Land_Readjustment_Tool.UI.CustomControls
         private CancellationTokenSource? _rasterRenderCancellation;
         private int _rasterRenderGeneration;
         private bool _rasterCacheRefreshPending;
+        private volatile bool _liveTileRefreshPending;
         private readonly System.Windows.Forms.Timer _zoomingStatusTimer = new()
         {
             Interval = ZoomSettleIntervalMs
@@ -288,9 +289,14 @@ namespace Land_Readjustment_Tool.UI.CustomControls
                 // tile finishes loading on a background thread.
                 Action liveTileCallback = () =>
                 {
-                    if (!IsDisposed && IsHandleCreated)
+                    if (!IsDisposed && IsHandleCreated && !_liveTileRefreshPending)
                     {
-                        BeginInvoke((MethodInvoker)RequestRender);
+                        _liveTileRefreshPending = true;
+                        BeginInvoke((MethodInvoker)(() =>
+                        {
+                            _liveTileRefreshPending = false;
+                            RefreshRasterCacheForCurrentViewAsync();
+                        }));
                     }
                 };
 

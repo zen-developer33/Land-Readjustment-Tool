@@ -1,3 +1,4 @@
+using Microsoft.Data.Sqlite;
 using System.Net.Http;
 using System.Text;
 
@@ -79,6 +80,128 @@ namespace Land_Readjustment_Tool.Services.Raster
             progress?.Report(CreateProgress(totalTiles, totalTiles, "Tile download complete"));
 
             return new XyzTileDownloadResult(totalTiles, totalTiles, cacheFolder);
+        }
+
+        /// <summary>
+        /// Assembles downloaded XYZ tile files from the cache folder into a
+        /// single MBTiles SQLite file. Tiles are stored using TMS row convention
+        /// (Y flipped) which is what MbTilesRenderLayer expects by default.
+        /// </summary>
+        public static string AssembleDownloadedTilesIntoMbTiles(
+            XyzTileDownloadResult downloadResult,
+            XyzTileSourceImportRequest request,
+            string outputMbTilesPath,
+            IProgress<XyzTileDownloadProgress>? progress = null)
+        {
+            string cacheFolder = downloadResult.CacheFolderPath;
+            int zoom = request.ZoomLevel;
+            string extension = NormalizeImageExtension(request.ImageExtension);
+            string format = extension.TrimStart('.');
+            int tileCount = 1 << zoom;
+
+            SqliteConnectionStringBuilder builder = new()
+            {
+                DataSource = outputMbTilesPath,
+                Mode = SqliteOpenMode.ReadWriteCreate
+            };
+
+            using SqliteConnection connection = new(builder.ToString());
+            connection.Open();
+
+            // Create MBTiles schema
+            using (SqliteCommand cmd = connection.CreateCommand())
+            {
+                cmd.CommandText = """
+            CREATE TABLE IF NOT EXISTS metadata (name TEXT, value TEXT);
+            CREATE TABLE IF NOT EXISTS tiles (
+                zoom_level  INTEGER NOT NULL,
+                tile_column INTEGER NOT NULL,
+                tile_row    INTEGER NOT NULL,
+                tile_data   BLOB    NOT NULL,
+                PRIMARY KEY (zoom_level, tile_column, tile_row));
+            """;
+                cmd.ExecuteNonQuery();
+            }
+
+            // Write metadata
+            using (SqliteCommand cmd = connection.CreateCommand())
+            {
+                cmd.CommandText = """
+            INSERT OR REPLACE INTO metadata (name, value) VALUES
+                ('name',    $name),
+                ('format',  $format),
+                ('minzoom', $zoom),
+                ('maxzoom', $zoom),
+                ('scheme',  'tms'),
+                ('bounds',  $bounds);
+            """;
+                cmd.Parameters.AddWithValue("$name", request.LayerName);
+                cmd.Parameters.AddWithValue("$format", format);
+                cmd.Parameters.AddWithValue("$zoom", zoom);
+                cmd.Parameters.AddWithValue("$bounds",
+                    $"{request.MinLongitude},{request.MinLatitude},{request.MaxLongitude},{request.MaxLatitude}");
+                cmd.ExecuteNonQuery();
+            }
+
+            // Insert tiles inside a transaction for performance
+            using SqliteTransaction transaction = connection.BeginTransaction();
+            using SqliteCommand insertCmd = connection.CreateCommand();
+            insertCmd.Transaction = transaction;
+            insertCmd.CommandText = """
+        INSERT OR REPLACE INTO tiles (zoom_level, tile_column, tile_row, tile_data)
+        VALUES ($zoom, $x, $row, $data)
+        """;
+            insertCmd.Parameters.Add("$zoom", SqliteType.Integer);
+            insertCmd.Parameters.Add("$x", SqliteType.Integer);
+            insertCmd.Parameters.Add("$row", SqliteType.Integer);
+            insertCmd.Parameters.Add("$data", SqliteType.Blob);
+
+            long inserted = 0;
+            long total = downloadResult.TotalTiles;
+
+            // Walk the cache folder: zoom/x/y.ext
+            string zoomFolder = Path.Combine(cacheFolder, zoom.ToString());
+            if (Directory.Exists(zoomFolder))
+            {
+                foreach (string xFolder in Directory.EnumerateDirectories(zoomFolder))
+                {
+                    if (!int.TryParse(Path.GetFileName(xFolder), out int tileX))
+                        continue;
+
+                    foreach (string tileFile in Directory.EnumerateFiles(xFolder, $"*{extension}"))
+                    {
+                        string yStr = Path.GetFileNameWithoutExtension(tileFile);
+                        if (!int.TryParse(yStr, out int tileY))
+                            continue;
+
+                        byte[] tileData = File.ReadAllBytes(tileFile);
+                        if (tileData.Length == 0)
+                            continue;
+
+                        // Convert XYZ Y to TMS row (flip Y axis)
+                        int tmsRow = tileCount - 1 - tileY;
+
+                        insertCmd.Parameters["$zoom"].Value = zoom;
+                        insertCmd.Parameters["$x"].Value = tileX;
+                        insertCmd.Parameters["$row"].Value = tmsRow;
+                        insertCmd.Parameters["$data"].Value = tileData;
+                        insertCmd.ExecuteNonQuery();
+
+                        inserted++;
+                        if (inserted % 100 == 0)
+                        {
+                            progress?.Report(new XyzTileDownloadProgress(
+                                inserted, total,
+                                (int)(inserted * 100 / Math.Max(1, total)),
+                                $"Packaging tiles ({inserted:N0}/{total:N0})"));
+                        }
+                    }
+                }
+            }
+
+            transaction.Commit();
+
+            return outputMbTilesPath;
         }
 
         private static XyzTileDownloadProgress CreateProgress(

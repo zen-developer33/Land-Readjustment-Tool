@@ -50,7 +50,7 @@ private static RectangleF AlignDestinationToPixelGrid(RectangleF destination)
 
 **Current broken code (both files, inside `GraphicsState` block):**
 ```csharp
-graphics.PixelOffsetMode = PixelOffsetMode.HighSpeed;
+graphics.PixelOffsetMode = PixelOffsetMode.HighQuality;
 ```
 
 **Problem:**  

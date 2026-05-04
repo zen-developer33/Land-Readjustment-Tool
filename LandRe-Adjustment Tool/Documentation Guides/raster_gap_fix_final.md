@@ -20,7 +20,7 @@ return RectangleF.FromLTRB(left, top, right, bottom);
 
 Find this exact line:
 ```csharp
-graphics.PixelOffsetMode = PixelOffsetMode.HighSpeed;
+graphics.PixelOffsetMode = PixelOffsetMode.HighQuality;
 ```
 
 Replace with:

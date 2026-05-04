@@ -54,6 +54,7 @@ namespace Land_Readjustment_Tool.UI.MapCanvas.Services
 
             progress?.Report(new RasterImportProgress(12, "Preparing raster engine"));
 
+
             GdalConfiguration.ConfigureGdal();
             if (!GdalConfiguration.Usable)
                 throw new InvalidOperationException(
@@ -243,6 +244,8 @@ namespace Land_Readjustment_Tool.UI.MapCanvas.Services
                 throw new NotSupportedException(
                     $"'{Path.GetFileName(sourcePath)}' is a GDAL network-service descriptor " +
                     "and does not contain raster metadata that can be read as a file.");
+
+
 
             GdalConfiguration.ConfigureGdal();
             if (!GdalConfiguration.Usable)
