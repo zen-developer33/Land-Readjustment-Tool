@@ -1,11 +1,13 @@
 using Land_Readjustment_Tool.Core.Entities.Canvas;
 using Land_Readjustment_Tool.UI.MapCanvas.Core;
 using Land_Readjustment_Tool.UI.MapCanvas.Models.Shapes;
+using OSGeo.GDAL;
 using OSGeo.OSR;
 using System.Drawing.Drawing2D;
 using System.Drawing.Imaging;
 using System.Globalization;
 using System.Net;
+using System.Runtime.InteropServices;
 using System.Security.Cryptography;
 using System.Text;
 using System.Xml;
@@ -32,7 +34,7 @@ namespace Land_Readjustment_Tool.UI.MapCanvas.Rendering
         private const int DebounceMilliseconds = 120;
         private const int MaxSupportedZoom = 22;
         private const int ProjectedTileMeshSubdivisions = 4;
-        private const int MinFreshTileZoom = 6;
+        private const int MinFreshTileZoom = 0;
         private const int MaxMosaicMeshSubdivisions = 32;
         private const double WebMercatorExtent = 20037508.342789244;
         private const double WebMercatorWorldSize = WebMercatorExtent * 2.0;
@@ -215,6 +217,7 @@ namespace Land_Readjustment_Tool.UI.MapCanvas.Rendering
                 CreateSpatialReference(WebMercatorSrsDefinition);
             SpatialReference projectSrs =
                 ExtractProjectSrs(filePath) ??
+                ExtractProjectSrsFromGdal(filePath) ??
                 CreateSpatialReference(WebMercatorSrsDefinition);
 
             CoordinateTransformation webMercatorToProject =
@@ -293,13 +296,9 @@ namespace Land_Readjustment_Tool.UI.MapCanvas.Rendering
                 _lastViewportAllowed = true;
                 lastViewportAllowed = true;
 
-                int zoom = SelectZoom(engine, clippedWebMercatorBounds, interactive);
-                if (zoom < MinFreshTileZoom)
-                {
-                    _lastViewportAllowed = false;
-                    drawnAny = _compositeBitmap != null && DrawCompositeCache(graphics, engine);
-                    return drawnAny;
-                }
+                int zoom = Math.Max(
+                    MinFreshTileZoom,
+                    SelectZoom(engine, clippedWebMercatorBounds, interactive));
 
                 if (!TryCreateTileRange(zoom, clippedWebMercatorBounds, out TileRange tileRange))
                 {
@@ -716,56 +715,176 @@ namespace Land_Readjustment_Tool.UI.MapCanvas.Rendering
                 return true;
             }
 
-            int subdivisionsX = Math.Clamp(
-                (mosaic.Width / TilePixelSize) * 2,
-                8,
-                MaxMosaicMeshSubdivisions);
-            int subdivisionsY = Math.Clamp(
-                (mosaic.Height / TilePixelSize) * 2,
-                8,
-                MaxMosaicMeshSubdivisions);
-            bool drawnAny = false;
+            return DrawWarpedMosaicSurface(
+                graphics,
+                engine,
+                mosaic,
+                webMercatorBounds);
+        }
 
-            for (int row = 0; row < subdivisionsY; row++)
+        private bool DrawWarpedMosaicSurface(
+            Graphics graphics,
+            MapCanvasEngine engine,
+            Bitmap mosaic,
+            RectangleD webMercatorBounds)
+        {
+            Size canvasSize = engine.CanvasSize;
+            if (canvasSize.Width <= 0 || canvasSize.Height <= 0)
             {
-                for (int column = 0; column < subdivisionsX; column++)
-                {
-                    RectangleD cellBounds = GetSubBounds(
-                        webMercatorBounds,
-                        column,
-                        row,
-                        subdivisionsX,
-                        subdivisionsY);
-                    if (!TryCreateProjectedScreenQuad(
-                            engine,
-                            cellBounds,
-                            out PointF[] destination))
-                    {
-                        continue;
-                    }
-
-                    RectangleF cellSource = GetSourceSubRectangle(
-                        source,
-                        column,
-                        row,
-                        subdivisionsX,
-                        subdivisionsY);
-                    if (!IsValidSource(cellSource))
-                    {
-                        continue;
-                    }
-
-                    DrawBitmapQuad(
-                        graphics,
-                        mosaic,
-                        ExpandDestinationQuadForSeams(destination),
-                        cellSource);
-                    drawnAny = true;
-                }
+                return false;
             }
 
-            return drawnAny;
+            using Bitmap warped = new(
+                canvasSize.Width,
+                canvasSize.Height,
+                PixelFormat.Format32bppPArgb);
+
+            BitmapData sourceData = mosaic.LockBits(
+                new Rectangle(0, 0, mosaic.Width, mosaic.Height),
+                ImageLockMode.ReadOnly,
+                PixelFormat.Format32bppPArgb);
+            BitmapData targetData = warped.LockBits(
+                new Rectangle(0, 0, warped.Width, warped.Height),
+                ImageLockMode.WriteOnly,
+                PixelFormat.Format32bppPArgb);
+
+            int sourceStride = Math.Abs(sourceData.Stride);
+            int targetStride = Math.Abs(targetData.Stride);
+            byte[] sourcePixels = new byte[sourceStride * mosaic.Height];
+            byte[] targetPixels = new byte[targetStride * warped.Height];
+
+            try
+            {
+                Marshal.Copy(sourceData.Scan0, sourcePixels, 0, sourcePixels.Length);
+                FillWarpedMosaicPixels(
+                    sourcePixels,
+                    sourceStride,
+                    mosaic.Width,
+                    mosaic.Height,
+                    targetPixels,
+                    targetStride,
+                    warped.Width,
+                    warped.Height,
+                    engine,
+                    webMercatorBounds);
+                Marshal.Copy(targetPixels, 0, targetData.Scan0, targetPixels.Length);
+            }
+            finally
+            {
+                mosaic.UnlockBits(sourceData);
+                warped.UnlockBits(targetData);
+            }
+
+            GraphicsState state = graphics.Save();
+            try
+            {
+                graphics.CompositingMode = CompositingMode.SourceOver;
+                graphics.CompositingQuality = CompositingQuality.HighSpeed;
+                graphics.InterpolationMode = InterpolationMode.NearestNeighbor;
+                graphics.PixelOffsetMode = PixelOffsetMode.None;
+                graphics.DrawImageUnscaled(warped, 0, 0);
+            }
+            finally
+            {
+                graphics.Restore(state);
+            }
+
+            return true;
         }
+
+        private void FillWarpedMosaicPixels(
+            byte[] sourcePixels,
+            int sourceStride,
+            int sourceWidth,
+            int sourceHeight,
+            byte[] targetPixels,
+            int targetStride,
+            int targetWidth,
+            int targetHeight,
+            MapCanvasEngine engine,
+            RectangleD webMercatorBounds)
+        {
+            const int cellSize = 24;
+            double sourceMinX = MinX(webMercatorBounds);
+            double sourceMaxX = MaxX(webMercatorBounds);
+            double sourceMinY = MinY(webMercatorBounds);
+            double sourceMaxY = MaxY(webMercatorBounds);
+            double sourceScaleX = (sourceWidth - 1.0) / (sourceMaxX - sourceMinX);
+            double sourceScaleY = (sourceHeight - 1.0) / (sourceMaxY - sourceMinY);
+
+            for (int cellTop = 0; cellTop < targetHeight; cellTop += cellSize)
+            {
+                int cellBottom = Math.Min(targetHeight, cellTop + cellSize);
+                for (int cellLeft = 0; cellLeft < targetWidth; cellLeft += cellSize)
+                {
+                    int cellRight = Math.Min(targetWidth, cellLeft + cellSize);
+                    if (!TryScreenToWebMercator(engine, cellLeft, cellTop, out PointD wm00) ||
+                        !TryScreenToWebMercator(engine, cellRight, cellTop, out PointD wm10) ||
+                        !TryScreenToWebMercator(engine, cellLeft, cellBottom, out PointD wm01) ||
+                        !TryScreenToWebMercator(engine, cellRight, cellBottom, out PointD wm11))
+                    {
+                        continue;
+                    }
+
+                    double invWidth = 1.0 / Math.Max(1, cellRight - cellLeft);
+                    double invHeight = 1.0 / Math.Max(1, cellBottom - cellTop);
+
+                    for (int y = cellTop; y < cellBottom; y++)
+                    {
+                        double v = (y - cellTop + 0.5) * invHeight;
+                        double leftX = Lerp(wm00.X, wm01.X, v);
+                        double leftY = Lerp(wm00.Y, wm01.Y, v);
+                        double rightX = Lerp(wm10.X, wm11.X, v);
+                        double rightY = Lerp(wm10.Y, wm11.Y, v);
+                        int targetRow = y * targetStride;
+
+                        for (int x = cellLeft; x < cellRight; x++)
+                        {
+                            double u = (x - cellLeft + 0.5) * invWidth;
+                            double wmX = Lerp(leftX, rightX, u);
+                            double wmY = Lerp(leftY, rightY, u);
+                            if (wmX < sourceMinX || wmX > sourceMaxX ||
+                                wmY < sourceMinY || wmY > sourceMaxY)
+                            {
+                                continue;
+                            }
+
+                            int sourceX = (int)Math.Round((wmX - sourceMinX) * sourceScaleX);
+                            int sourceY = (int)Math.Round((sourceMaxY - wmY) * sourceScaleY);
+                            if ((uint)sourceX >= (uint)sourceWidth ||
+                                (uint)sourceY >= (uint)sourceHeight)
+                            {
+                                continue;
+                            }
+
+                            int sourceOffset = sourceY * sourceStride + sourceX * 4;
+                            int targetOffset = targetRow + x * 4;
+                            targetPixels[targetOffset] = sourcePixels[sourceOffset];
+                            targetPixels[targetOffset + 1] = sourcePixels[sourceOffset + 1];
+                            targetPixels[targetOffset + 2] = sourcePixels[sourceOffset + 2];
+                            targetPixels[targetOffset + 3] = sourcePixels[sourceOffset + 3];
+                        }
+                    }
+                }
+            }
+        }
+
+        private bool TryScreenToWebMercator(
+            MapCanvasEngine engine,
+            int screenX,
+            int screenY,
+            out PointD webMercator)
+        {
+            PointD projectPoint = engine.ScreenToWorld(
+                new PointD(screenX, screenY));
+            return TryTransformPoint(
+                _projectToWebMercator,
+                projectPoint,
+                out webMercator);
+        }
+
+        private static double Lerp(double a, double b, double t) =>
+            a + (b - a) * t;
 
         private void DrawMosaicBitmapRegion(
             Graphics graphics,
@@ -2130,28 +2249,48 @@ namespace Land_Readjustment_Tool.UI.MapCanvas.Rendering
         {
             try
             {
-                string content = File.ReadAllText(vrtPath);
-
-                int startTag = content.IndexOf("<SRS", StringComparison.OrdinalIgnoreCase);
-                if (startTag < 0)
+                XmlDocument document = new()
                 {
-                    return null;
-                }
+                    XmlResolver = null
+                };
+                document.Load(vrtPath);
 
-                int contentStart = content.IndexOf('>', startTag) + 1;
-                int endTag = content.IndexOf(
-                    "</SRS>",
-                    contentStart,
-                    StringComparison.OrdinalIgnoreCase);
-                if (contentStart <= 0 || endTag < 0)
-                {
-                    return null;
-                }
+                XmlNode? rootSrsNode = document.DocumentElement?
+                    .ChildNodes
+                    .Cast<XmlNode>()
+                    .FirstOrDefault(node =>
+                        node.NodeType == XmlNodeType.Element &&
+                        string.Equals(
+                            node.Name,
+                            "SRS",
+                            StringComparison.OrdinalIgnoreCase));
 
-                string wkt = content[contentStart..endTag].Trim();
-                return string.IsNullOrWhiteSpace(wkt)
+                string definition = rootSrsNode?.InnerText.Trim() ?? string.Empty;
+                return string.IsNullOrWhiteSpace(definition)
                     ? null
-                    : CreateSpatialReference(wkt);
+                    : CreateSpatialReference(definition);
+            }
+            catch
+            {
+                return null;
+            }
+        }
+
+        private static SpatialReference? ExtractProjectSrsFromGdal(string vrtPath)
+        {
+            try
+            {
+                GdalConfiguration.ConfigureGdal();
+                if (!GdalConfiguration.Usable)
+                {
+                    return null;
+                }
+
+                using Dataset dataset = Gdal.Open(vrtPath, Access.GA_ReadOnly);
+                string definition = dataset?.GetProjectionRef() ?? string.Empty;
+                return string.IsNullOrWhiteSpace(definition)
+                    ? null
+                    : CreateSpatialReference(definition);
             }
             catch
             {

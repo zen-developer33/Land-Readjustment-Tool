@@ -508,12 +508,15 @@ namespace Land_Readjustment_Tool.UI.MapCanvas.Rendering
 
                 ApplyRgbNoData(red, green, blue, alpha, redNoData, greenNoData, blueNoData);
 
-                // If no NoData value is declared in file metadata, flood-fill black
-                // border pixels from the edges. Drone orthophotos and warped XYZ
-                // GeoTIFFs commonly use black as the fill colour without declaring NoData.
+                // If no NoData value is declared in file metadata, flood-fill blank
+                // border pixels from the edges. Imported/warped rasters often carry
+                // black or white fill without declaring NoData.
                 if (redNoData == null && greenNoData == null && blueNoData == null)
                 {
                     RemoveBlackNoDataCollar(
+                        red, green, blue, alpha,
+                        tileWindow.Width, tileWindow.Height);
+                    RemoveWhiteNoDataCollar(
                         red, green, blue, alpha,
                         tileWindow.Width, tileWindow.Height);
                 }
@@ -1062,6 +1065,53 @@ namespace Land_Readjustment_Tool.UI.MapCanvas.Rendering
                 TrySeed(x, y + 1);
             }
         }
+
+        private static void RemoveWhiteNoDataCollar(
+            byte[] red,
+            byte[] green,
+            byte[] blue,
+            byte[] alpha,
+            int width,
+            int height)
+        {
+            bool[] visited = new bool[width * height];
+            Queue<int> queue = new();
+
+            void TrySeed(int x, int y)
+            {
+                if (x < 0 || x >= width || y < 0 || y >= height) return;
+                int idx = y * width + x;
+                if (visited[idx]) return;
+                if (alpha[idx] == 0) return;
+                if (red[idx] < 248 || green[idx] < 248 || blue[idx] < 248) return;
+                visited[idx] = true;
+                queue.Enqueue(idx);
+            }
+
+            for (int x = 0; x < width; x++)
+            {
+                TrySeed(x, 0);
+                TrySeed(x, height - 1);
+            }
+            for (int y = 1; y < height - 1; y++)
+            {
+                TrySeed(0, y);
+                TrySeed(width - 1, y);
+            }
+
+            while (queue.Count > 0)
+            {
+                int idx = queue.Dequeue();
+                alpha[idx] = 0;
+                int x = idx % width;
+                int y = idx / width;
+                TrySeed(x - 1, y);
+                TrySeed(x + 1, y);
+                TrySeed(x, y - 1);
+                TrySeed(x, y + 1);
+            }
+        }
+
         private static string ResolveLayerFilePath(
             string storedPath,
             string? projectFolderPath)
@@ -1268,7 +1318,7 @@ namespace Land_Readjustment_Tool.UI.MapCanvas.Rendering
         private sealed class RasterTileDiskCache
         {
             private const string CacheRootFolderName = "RePlotRasterTileCache";
-            private const string CacheFormatVersion = "raster-tile-cache-v2";
+            private const string CacheFormatVersion = "raster-tile-cache-v3";
             private readonly string _cacheFolder;
             private readonly ConcurrentDictionary<RasterTileCacheKey, byte> _pendingWrites = [];
 

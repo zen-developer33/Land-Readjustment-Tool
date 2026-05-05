@@ -1,4 +1,5 @@
 using System.Drawing;
+using System.IO;
 using System.Threading;
 using System.Windows.Forms;
 using Land_Readjustment_Tool.Core.Entities.Canvas;
@@ -10,7 +11,7 @@ namespace Land_Readjustment_Tool.UI.CustomControls
 {
     public partial class MapCanvasControl : UserControl
     {
-        private const int ZoomSettleIntervalMs = 100;
+        private const int ZoomSettleIntervalMs = 80;
 
         private readonly MapCanvasEngine _engine;
         private readonly MapCanvasRenderer _renderer;
@@ -297,14 +298,24 @@ namespace Land_Readjustment_Tool.UI.CustomControls
                         BeginInvoke((MethodInvoker)(() =>
                         {
                             _liveTileRefreshPending = false;
-                            RefreshRasterCacheForCurrentViewAsync();
+                            if (!IsInteractiveNavigation)
+                            {
+                                RefreshRasterCacheForCurrentViewAsync();
+                            }
+                            else if (_isZooming)
+                            {
+                                _zoomingStatusTimer.Stop();
+                                _zoomingStatusTimer.Start();
+                            }
+
                             RequestRender();
                         }));
                     }
                 };
 
                 foreach (CanvasLayer rasterLayer in rasterLayers
-                    .OrderBy(layer => layer.DisplayOrder)
+                    .OrderBy(layer => IsLiveOnlineBasemap(layer, projectFolderPath) ? 0 : 1)
+                    .ThenBy(layer => layer.DisplayOrder)
                     .ThenBy(layer => layer.Name))
                 {
                     try
@@ -327,6 +338,40 @@ namespace Land_Readjustment_Tool.UI.CustomControls
             _renderer.UpdateRasterLayers(_rasterRenderLayers);
             RefreshRasterCacheForCurrentViewAsync();
             RequestRender();
+        }
+
+        private static bool IsLiveOnlineBasemap(
+            CanvasLayer layer,
+            string? projectFolderPath)
+        {
+            if (string.IsNullOrWhiteSpace(layer.SourceFile))
+            {
+                return false;
+            }
+
+            string sourcePath = Path.IsPathRooted(layer.SourceFile)
+                ? Path.GetFullPath(layer.SourceFile)
+                : Path.GetFullPath(Path.Combine(projectFolderPath ?? string.Empty, layer.SourceFile));
+
+            if (File.Exists(sourcePath) &&
+                XyzLiveTileRenderLayer.IsLiveTileVrtPath(sourcePath))
+            {
+                return true;
+            }
+
+            return layer.SourceFile.EndsWith(
+                       ".vrt",
+                       StringComparison.OrdinalIgnoreCase) &&
+                   layer.Description != null &&
+                   (layer.Description.Contains(
+                        "internet",
+                        StringComparison.OrdinalIgnoreCase) ||
+                    layer.Description.Contains(
+                        "lazy VRT",
+                        StringComparison.OrdinalIgnoreCase) ||
+                    layer.Description.Contains(
+                        "GDAL_WMS",
+                        StringComparison.OrdinalIgnoreCase));
         }
 
         /// <summary>
@@ -425,6 +470,7 @@ namespace Land_Readjustment_Tool.UI.CustomControls
         {
             if (!_isZooming)
             {
+                CancelPendingRasterRender();
                 CancelActiveCanvasGesture();
                 _rasterDeferredRenderer.BeginZoom(
                     canvasSurface.Size,

@@ -14,6 +14,7 @@ using Land_Readjustment_Tool.UI.Forms;
 using Land_Readjustment_Tool.UI.Forms.Project;
 using Land_Readjustment_Tool.UI.MapCanvas.Core;
 using Land_Readjustment_Tool.UI.MapCanvas.Models.Shapes;
+using Land_Readjustment_Tool.UI.MapCanvas.Rendering;
 using Land_Readjustment_Tool.UI.MapCanvas.Services;
 using Microsoft.Data.Sqlite;
 using System.Reflection;
@@ -61,6 +62,8 @@ namespace Land_Readjustment_Tool
         private readonly ToolStripMenuItem _mnuZoomToLayer = new("Zoom To Layer");
         private readonly ToolStripMenuItem _mnuRenameLayer = new("Rename");
         private readonly ToolStripMenuItem _mnuDeleteLayer = new("Delete");
+        private readonly ToolStripMenuItem _mnuMoveLayerUp = new("Shift Layer Up");
+        private readonly ToolStripMenuItem _mnuMoveLayerDown = new("Shift Layer Down");
         private readonly ToolStripMenuItem _mnuToggleLayerVisibility = new("Hidden");
         private readonly ToolStripMenuItem _mnuToggleLayerLock = new("Locked");
         private readonly ToolStripMenuItem _mnuLayerProperties = new("Layer Properties");
@@ -77,6 +80,7 @@ namespace Land_Readjustment_Tool
         {
             public bool IsLayerNode { get; init; }
             public CanvasLayer? Layer { get; set; }
+            public bool IsOnlineBasemap { get; set; }
         }
 
         // Keeps designer/local fallback working without DI container.
@@ -1315,6 +1319,16 @@ namespace Land_Readjustment_Tool
 
             try
             {
+                if (request.IsLiveTiles)
+                {
+                    IReadOnlyList<CanvasLayer> existingBasemaps =
+                        await FindExistingOnlineBasemapLayersAsync();
+                    foreach (CanvasLayer existingBasemap in existingBasemaps)
+                    {
+                        await ReplaceRasterLayerAsync(existingBasemap);
+                    }
+                }
+
                 CanvasLayer? existingRasterLayer =
                     await FindExistingRasterLayerAsync(request.LayerName);
                 if (existingRasterLayer != null)
@@ -1498,6 +1512,21 @@ namespace Land_Readjustment_Tool
                 string.Equals(layer.Name, layerName, StringComparison.OrdinalIgnoreCase));
         }
 
+        private async Task<IReadOnlyList<CanvasLayer>> FindExistingOnlineBasemapLayersAsync()
+        {
+            if (!AppServices.HasContext || _layerTreeService == null)
+            {
+                return [];
+            }
+
+            IReadOnlyList<CanvasLayer> rasterLayers =
+                await _layerTreeService.GetRasterLayersAsync();
+
+            return rasterLayers
+                .Where(IsOnlineBasemapLayer)
+                .ToList();
+        }
+
         private async Task ReplaceRasterLayerAsync(CanvasLayer existingLayer)
         {
             if (!AppServices.HasContext)
@@ -1505,9 +1534,10 @@ namespace Land_Readjustment_Tool
                 return;
             }
 
-            await _layerCommandService.DeleteAsync(
-                AppServices.Context.Session,
-                existingLayer);
+            var layerRepository =
+                _projectScopedFactory.CreateCanvasLayerRepository(
+                    AppServices.Context.Session);
+            await layerRepository.DeleteAsync(existingLayer.Id);
 
             _rasterImportFileManagementService.HandleLayerDeleted(
                 AppServices.Context,
@@ -2257,6 +2287,8 @@ namespace Land_Readjustment_Tool
             _mnuZoomToLayer.Click += async (_, _) => await ZoomToLayerAsync(_contextLayerNode);
             _mnuRenameLayer.Click += (_, _) => BeginLayerRename(_contextLayerNode);
             _mnuDeleteLayer.Click += async (_, _) => await DeleteLayerAsync(_contextLayerNode);
+            _mnuMoveLayerUp.Click += async (_, _) => await MoveRasterLayerInDisplayOrderAsync(_contextLayerNode, -1);
+            _mnuMoveLayerDown.Click += async (_, _) => await MoveRasterLayerInDisplayOrderAsync(_contextLayerNode, 1);
             _mnuToggleLayerVisibility.Click += async (_, _) => await ToggleLayerNodeVisibilityAsync(_contextLayerNode);
             _mnuToggleLayerLock.Click += async (_, _) => await ToggleLayerLockAsync(_contextLayerNode);
             _mnuLayerProperties.Click += async (_, _) => await OpenLayerPropertyManagerAsync(_contextLayerNode);
@@ -2333,7 +2365,11 @@ namespace Land_Readjustment_Tool
 
                 Rectangle colorRect = GetLayerNodeColorRect(e.Node);
 
-                if (IsRasterLayer(layer))
+                if (layerState?.IsOnlineBasemap == true)
+                {
+                    DrawOnlineBasemapIcon(g, colorRect);
+                }
+                else if (IsRasterLayer(layer))
                 {
                     // Raster layers have no single border colour -- draw a small
                     // checkerboard icon that universally signals imagery / raster data.
@@ -2387,7 +2423,8 @@ namespace Land_Readjustment_Tool
                 Tag = new LayerTreeNodeState
                 {
                     IsLayerNode = true,
-                    Layer = layer
+                    Layer = layer,
+                    IsOnlineBasemap = IsOnlineBasemapLayer(layer)
                 }
             };
         }
@@ -2511,6 +2548,15 @@ namespace Land_Readjustment_Tool
             _mnuZoomToLayer.Enabled = true;
             _mnuRenameLayer.Enabled = true;
             _mnuDeleteLayer.Enabled = true;
+            bool canReorderRaster =
+                IsRasterLayer(layer) &&
+                !IsOnlineBasemapLayer(_contextLayerNode);
+            _mnuMoveLayerUp.Enabled =
+                canReorderRaster &&
+                CanMoveRasterLayerInDisplayOrder(_contextLayerNode, -1);
+            _mnuMoveLayerDown.Enabled =
+                canReorderRaster &&
+                CanMoveRasterLayerInDisplayOrder(_contextLayerNode, 1);
             _mnuToggleLayerVisibility.Enabled = true;
             _mnuToggleLayerLock.Enabled = true;
             _mnuLayerProperties.Enabled = true;
@@ -2556,6 +2602,26 @@ namespace Land_Readjustment_Tool
             g.DrawRectangle(borderPen, rect);
         }
 
+        private static void DrawOnlineBasemapIcon(Graphics g, Rectangle rect)
+        {
+            using SolidBrush fillBrush = new(Color.FromArgb(42, 132, 218));
+            using Pen outlinePen = new(Color.FromArgb(18, 82, 145));
+            using Pen linePen = new(Color.White, 1.4f);
+
+            g.SmoothingMode = System.Drawing.Drawing2D.SmoothingMode.AntiAlias;
+            Rectangle globeRect = Rectangle.Inflate(rect, -1, -1);
+            g.FillEllipse(fillBrush, globeRect);
+            g.DrawEllipse(outlinePen, globeRect);
+
+            int centerX = globeRect.Left + globeRect.Width / 2;
+            int centerY = globeRect.Top + globeRect.Height / 2;
+            g.DrawLine(linePen, centerX, globeRect.Top + 3, centerX, globeRect.Bottom - 3);
+            g.DrawArc(linePen, globeRect.Left + 3, globeRect.Top + 2, globeRect.Width - 6, globeRect.Height - 4, 90, 180);
+            g.DrawArc(linePen, globeRect.Left + 3, globeRect.Top + 2, globeRect.Width - 6, globeRect.Height - 4, 270, 180);
+            g.DrawLine(linePen, globeRect.Left + 3, centerY, globeRect.Right - 3, centerY);
+            g.SmoothingMode = System.Drawing.Drawing2D.SmoothingMode.None;
+        }
+
         private void ConfigureRasterGroupContextMenuItems()
         {
             _layerContextMenu.Items.Clear();
@@ -2575,6 +2641,9 @@ namespace Land_Readjustment_Tool
                 new ToolStripSeparator(),
                 _mnuRenameLayer,
                 _mnuDeleteLayer,
+                new ToolStripSeparator(),
+                _mnuMoveLayerUp,
+                _mnuMoveLayerDown,
                 new ToolStripSeparator(),
                 _mnuToggleLayerVisibility,
                 _mnuToggleLayerLock,
@@ -2795,6 +2864,111 @@ namespace Land_Readjustment_Tool
             }
         }
 
+        private bool CanMoveRasterLayerInDisplayOrder(
+            TreeNode? node,
+            int visualDirection)
+        {
+            if (node?.Parent == null ||
+                !IsRasterLayer(GetLayerFromNode(node)) ||
+                IsOnlineBasemapLayer(node))
+            {
+                return false;
+            }
+
+            int targetIndex = node.Index + Math.Sign(visualDirection);
+            if (targetIndex < 0 || targetIndex >= node.Parent.Nodes.Count)
+            {
+                return false;
+            }
+
+            TreeNode targetNode = node.Parent.Nodes[targetIndex];
+            return IsRasterLayer(GetLayerFromNode(targetNode)) &&
+                   !IsOnlineBasemapLayer(targetNode);
+        }
+
+        private async Task MoveRasterLayerInDisplayOrderAsync(
+            TreeNode? node,
+            int visualDirection)
+        {
+            if (!CanMoveRasterLayerInDisplayOrder(node, visualDirection) ||
+                node?.Parent == null)
+            {
+                return;
+            }
+
+            TreeNode parent = node.Parent;
+            CanvasLayer? currentLayer = GetLayerFromNode(node);
+            List<CanvasLayer> visualLayers = parent.Nodes
+                .Cast<TreeNode>()
+                .Select(GetLayerFromNode)
+                .Where(layer => IsRasterLayer(layer))
+                .Select(layer => layer!)
+                .ToList();
+
+            int currentIndex = visualLayers.FindIndex(layer =>
+                layer.Id == currentLayer?.Id);
+            int targetIndex = currentIndex + Math.Sign(visualDirection);
+            if (currentIndex < 0 ||
+                targetIndex < 0 ||
+                targetIndex >= visualLayers.Count ||
+                IsOnlineBasemapLayer(visualLayers[currentIndex]) ||
+                IsOnlineBasemapLayer(visualLayers[targetIndex]))
+            {
+                return;
+            }
+
+            (visualLayers[currentIndex], visualLayers[targetIndex]) =
+                (visualLayers[targetIndex], visualLayers[currentIndex]);
+
+            CanvasLayer movedLayer = visualLayers[targetIndex];
+            await PersistRasterVisualOrderAsync(visualLayers);
+            MarkProjectModifiedIfOpen();
+            await RefreshLayerTreeAsync();
+            SelectLayerNodeById(movedLayer.Id);
+            SetCanvasCommandStatus($"Layer order updated: {movedLayer.Name}");
+        }
+
+        private async Task PersistRasterVisualOrderAsync(
+            IReadOnlyList<CanvasLayer> visualLayers)
+        {
+            List<CanvasLayer> basemapLayers = visualLayers
+                .Where(IsOnlineBasemapLayer)
+                .ToList();
+            List<CanvasLayer> overlayLayers = visualLayers
+                .Where(layer => !IsOnlineBasemapLayer(layer))
+                .ToList();
+
+            int displayOrder = 0;
+            foreach (CanvasLayer basemapLayer in basemapLayers)
+            {
+                basemapLayer.DisplayOrder = displayOrder++;
+                basemapLayer.LastModifiedDate = DateTime.Now;
+            }
+
+            foreach (CanvasLayer overlayLayer in overlayLayers.AsEnumerable().Reverse())
+            {
+                overlayLayer.DisplayOrder = displayOrder++;
+                overlayLayer.LastModifiedDate = DateTime.Now;
+            }
+
+            if (!AppServices.HasContext)
+            {
+                UpdateRasterCanvasLayersFromTree();
+                return;
+            }
+
+            var repository =
+                _projectScopedFactory.CreateCanvasLayerRepository(
+                    AppServices.Context.Session);
+            foreach (CanvasLayer layer in visualLayers)
+            {
+                if (layer.Id > 0)
+                {
+                    await repository.UpdateAsync(layer);
+                }
+            }
+        }
+
         private async Task DeleteLayerAsync(TreeNode? node)
         {
             CanvasLayer? layer = GetLayerFromNode(node);
@@ -2939,6 +3113,7 @@ namespace Land_Readjustment_Tool
             if (node.Tag is LayerTreeNodeState nodeState)
             {
                 nodeState.Layer = layer;
+                nodeState.IsOnlineBasemap = IsOnlineBasemapLayer(layer);
             }
 
             node.Text = layer.Name;
@@ -3043,8 +3218,12 @@ namespace Land_Readjustment_Tool
                     TreeNode groupNode =
                         CreateLayerGroupNode(group.Key, group.Name);
 
-                    foreach (CanvasLayer layer in group.Layers)
+                    foreach (CanvasLayer layer in OrderLayerGroupForDisplay(
+                                 group.Key,
+                                 group.Layers))
+                    {
                         groupNode.Nodes.Add(CreateLayerNode(layer));
+                    }
 
                     treeViewLayers.Nodes.Add(groupNode);
                     groupNode.Expand();
@@ -3295,6 +3474,70 @@ namespace Land_Readjustment_Tool
             return CanvasLayerBoundsService.IsRasterLayer(layer);
         }
 
+        private bool IsOnlineBasemapLayer(TreeNode? node)
+        {
+            return node?.Tag is LayerTreeNodeState state &&
+                   state.IsOnlineBasemap;
+        }
+
+        private bool IsOnlineBasemapLayer(CanvasLayer? layer)
+        {
+            if (!IsRasterLayer(layer) ||
+                string.IsNullOrWhiteSpace(layer?.SourceFile))
+            {
+                return false;
+            }
+
+            string sourcePath = ResolveLayerSourcePathForUi(layer.SourceFile);
+            if (File.Exists(sourcePath) &&
+                XyzLiveTileRenderLayer.IsLiveTileVrtPath(sourcePath))
+            {
+                return true;
+            }
+
+            return layer.SourceFile.EndsWith(
+                       ".vrt",
+                       StringComparison.OrdinalIgnoreCase) &&
+                   layer.Description != null &&
+                   (layer.Description.Contains(
+                        "internet",
+                        StringComparison.OrdinalIgnoreCase) ||
+                    layer.Description.Contains(
+                        "lazy VRT",
+                        StringComparison.OrdinalIgnoreCase) ||
+                    layer.Description.Contains(
+                        "GDAL_WMS",
+                        StringComparison.OrdinalIgnoreCase));
+        }
+
+        private string ResolveLayerSourcePathForUi(string sourceFile)
+        {
+            if (Path.IsPathRooted(sourceFile))
+                return Path.GetFullPath(sourceFile);
+
+            return AppServices.HasContext
+                ? Path.GetFullPath(Path.Combine(AppServices.Context.ProjectFolderPath, sourceFile))
+                : Path.GetFullPath(sourceFile);
+        }
+
+        private IEnumerable<CanvasLayer> OrderLayerGroupForDisplay(
+            string groupKey,
+            IReadOnlyList<CanvasLayer> layers)
+        {
+            if (!string.Equals(
+                    groupKey,
+                    RasterLayerGroupKey,
+                    StringComparison.OrdinalIgnoreCase))
+            {
+                return layers;
+            }
+
+            return layers
+                .OrderBy(layer => IsOnlineBasemapLayer(layer) ? 1 : 0)
+                .ThenByDescending(layer => layer.DisplayOrder)
+                .ThenBy(layer => layer.Name);
+        }
+
         private Rectangle GetLayerNodeCheckBoxRect(TreeNode node)
         {
             return new Rectangle(
@@ -3463,7 +3706,10 @@ namespace Land_Readjustment_Tool
             }
 
             mapCanvasControlMain.SetRasterLayers(
-                rasterLayers,
+                rasterLayers
+                    .OrderBy(layer => IsOnlineBasemapLayer(layer) ? 0 : 1)
+                    .ThenBy(layer => layer.DisplayOrder)
+                    .ThenBy(layer => layer.Name),
                 projectFolderPath);
         }
 

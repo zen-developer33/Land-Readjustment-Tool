@@ -572,7 +572,7 @@ namespace Land_Readjustment_Tool.UI.MapCanvas.Rendering
             graphics.InterpolationMode = InterpolationMode.NearestNeighbor;
             graphics.PixelOffsetMode = PixelOffsetMode.None;
             graphics.CompositingQuality = CompositingQuality.HighSpeed;
-            graphics.CompositingMode = CompositingMode.SourceCopy;
+            graphics.CompositingMode = CompositingMode.SourceOver;
         }
 
         private static Size ClampSize(Size size)
