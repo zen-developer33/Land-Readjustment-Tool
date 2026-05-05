@@ -74,6 +74,23 @@ namespace Land_Readjustment_Tool.UI.MapCanvas.Services
                         datumTransformation.ScalePpm),
                     "set datum transformation");
             }
+            else if (!datumName.Contains("WGS", StringComparison.OrdinalIgnoreCase))
+            {
+                // Custom MUTM/Everest-style CRSs must still be transformable
+                // to WGS84/WebMercator for live online basemaps. If the user
+                // has not chosen a datum transformation, attach a zero
+                // Bursa-Wolf transform as a renderable ballpark fallback.
+                CheckOsr(
+                    spatialReference.SetTOWGS84(
+                        0.0,
+                        0.0,
+                        0.0,
+                        0.0,
+                        0.0,
+                        0.0,
+                        0.0),
+                    "set default datum transformation");
+            }
 
             CheckOsr(
                 spatialReference.SetTM(

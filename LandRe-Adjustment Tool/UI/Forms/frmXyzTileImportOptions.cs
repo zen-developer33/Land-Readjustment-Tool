@@ -103,6 +103,12 @@ namespace Land_Readjustment_Tool.UI.Forms
         public event EventHandler<XyzTileImportRequestedEventArgs>? ImportRequested;
         public event EventHandler<XyzTileImportOptionsStateChangedEventArgs>? OptionsStateChanged;
 
+        [Browsable(false)]
+        [DesignerSerializationVisibility(DesignerSerializationVisibility.Hidden)]
+        public Func<(double West, double South, double East, double North)?>?
+            CurrentViewportBoundsProvider
+        { get; set; }
+
         // ── Public read properties ───────────────────────────────────────────────
 
         public XyzTileSourceImportRequest ImportRequest
@@ -326,6 +332,24 @@ namespace Land_Readjustment_Tool.UI.Forms
 
             if (manager.ShowDialog(this) == DialogResult.OK)
                 LoadTileSources();
+        }
+
+        private void btnGetBoundsFromViewport_Click(object? sender, EventArgs e)
+        {
+            var bounds = CurrentViewportBoundsProvider?.Invoke();
+            if (bounds == null)
+            {
+                ShowValidationMessage(
+                    "Current viewport bounds could not be converted to latitude/longitude.");
+                return;
+            }
+
+            ApplyBounds(
+                bounds.Value.West,
+                bounds.Value.South,
+                bounds.Value.East,
+                bounds.Value.North);
+            InvalidateDownloadedRequest();
         }
 
         private void RefreshSelectedSourceDetails()
@@ -797,6 +821,9 @@ namespace Land_Readjustment_Tool.UI.Forms
             numSouth.Enabled = !isDownloading;
             numEast.Enabled = !isDownloading;
             numWest.Enabled = !isDownloading;
+            btnGetBoundsFromViewport.Enabled =
+                !isDownloading &&
+                CurrentViewportBoundsProvider != null;
             numZoomLevel.Enabled = !isDownloading && !IsLiveMode;
             btnCancel.Enabled = isDownloading && !_isImportInProgress;
             btnClose.Enabled = !isDownloading;
@@ -898,6 +925,7 @@ namespace Land_Readjustment_Tool.UI.Forms
             btnDownloadTiles.Click += btnDownloadTiles_Click;
             btnCancel.Click += btnCancel_Click;
             btnClose.Click += btnClose_Click;
+            btnGetBoundsFromViewport.Click += btnGetBoundsFromViewport_Click;
             FormClosing += frmXyzTileImportOptions_FormClosing;
 
             // Radio buttons — rdoLiveTiles is wired in Designer; the others are here.

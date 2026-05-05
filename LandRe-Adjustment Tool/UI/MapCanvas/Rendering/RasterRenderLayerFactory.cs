@@ -15,7 +15,8 @@ namespace Land_Readjustment_Tool.UI.MapCanvas.Rendering
         public static IRasterRenderLayer FromCanvasLayer(
             CanvasLayer layer,
             string? projectFolderPath,
-            Action? tileReadyCallback = null)
+            Action? tileReadyCallback = null,
+            string? projectSrsDefinition = null)
         {
             ArgumentNullException.ThrowIfNull(layer);
 
@@ -34,7 +35,8 @@ namespace Land_Readjustment_Tool.UI.MapCanvas.Rendering
                 return XyzLiveTileRenderLayer.FromCanvasLayer(
                     layer,
                     filePath,
-                    tileReadyCallback);
+                    tileReadyCallback,
+                    projectSrsDefinition);
             }
 
             if (MbTilesRenderLayer.IsMbTilesPath(filePath))

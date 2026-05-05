@@ -210,6 +210,9 @@ namespace Land_Readjustment_Tool.UI.CustomControls
                 visibleBounds.Height);
         }
 
+        public RectangleD GetVisibleWorldBounds() =>
+            _engine.GetVisibleWorldBounds();
+
         public bool TryApplyViewportState(MapCanvasViewportState? viewportState)
         {
             if (viewportState == null ||
@@ -288,7 +291,8 @@ namespace Land_Readjustment_Tool.UI.CustomControls
 
         public void SetRasterLayers(
             IEnumerable<CanvasLayer>? rasterLayers,
-            string? projectFolderPath)
+            string? projectFolderPath,
+            string? projectSrsDefinition = null)
         {
             DisposeRasterRenderLayers();
 
@@ -330,7 +334,8 @@ namespace Land_Readjustment_Tool.UI.CustomControls
                             RasterRenderLayerFactory.FromCanvasLayer(
                                 rasterLayer,
                                 projectFolderPath,
-                                liveTileCallback));
+                                liveTileCallback,
+                                projectSrsDefinition));
                     }
                     catch (Exception ex)
                     {
@@ -344,6 +349,36 @@ namespace Land_Readjustment_Tool.UI.CustomControls
             _renderer.UpdateRasterLayers(_rasterRenderLayers);
             RefreshRasterCacheForCurrentViewAsync();
             RequestRender();
+        }
+
+        /// <summary>
+        /// Recreates every raster render layer after project CRS/datum changes.
+        /// Live XYZ and MBTiles renderers cache coordinate transformations at
+        /// construction time, so CRS changes must rebuild the renderer objects
+        /// from the refreshed project layer records.
+        /// </summary>
+        public void RebuildRasterLayersAfterCrsChange(
+            IEnumerable<CanvasLayer>? rasterLayers,
+            string? projectFolderPath,
+            string? projectSrsDefinition = null)
+        {
+            if (IsDisposed || Disposing)
+            {
+                return;
+            }
+
+            StopZoomInteraction();
+            CancelActiveCanvasGesture();
+            CancelPendingRasterRender();
+            _rasterCacheRefreshPending = false;
+            _liveTileRefreshPending = false;
+            ClearSettlingPanFrame();
+            _rasterDeferredRenderer.Invalidate();
+
+            SetRasterLayers(
+                rasterLayers,
+                projectFolderPath,
+                projectSrsDefinition);
         }
 
         private static bool IsLiveOnlineBasemap(

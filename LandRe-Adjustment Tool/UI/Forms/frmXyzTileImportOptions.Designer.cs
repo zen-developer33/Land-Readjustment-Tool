@@ -48,6 +48,7 @@ namespace Land_Readjustment_Tool.UI.Forms
         private NumericUpDown numEast;
         private Label lblSouth;
         private NumericUpDown numSouth;
+        private Button btnGetBoundsFromViewport;
 
         // ── Bottom section ───────────────────────────────────────────────────────
         private Label lblZoomLevel;
@@ -101,6 +102,7 @@ namespace Land_Readjustment_Tool.UI.Forms
             numEast = new NumericUpDown();
             lblSouth = new Label();
             numSouth = new NumericUpDown();
+            btnGetBoundsFromViewport = new Button();
             pnlCenterRadius = new Panel();
             label1 = new Label();
             lblCenterLat = new Label();
@@ -368,6 +370,7 @@ namespace Land_Readjustment_Tool.UI.Forms
             pnlBoundingBox.Controls.Add(numEast);
             pnlBoundingBox.Controls.Add(lblSouth);
             pnlBoundingBox.Controls.Add(numSouth);
+            pnlBoundingBox.Controls.Add(btnGetBoundsFromViewport);
             pnlBoundingBox.Dock = DockStyle.Fill;
             pnlBoundingBox.Location = new Point(0, 0);
             pnlBoundingBox.Name = "pnlBoundingBox";
@@ -482,6 +485,15 @@ namespace Land_Readjustment_Tool.UI.Forms
             numSouth.Size = new Size(124, 27);
             numSouth.TabIndex = 8;
             numSouth.Value = new decimal(new int[] { 272, 0, 0, 65536 });
+            // 
+            // btnGetBoundsFromViewport
+            // 
+            btnGetBoundsFromViewport.Location = new Point(326, 129);
+            btnGetBoundsFromViewport.Name = "btnGetBoundsFromViewport";
+            btnGetBoundsFromViewport.Size = new Size(196, 31);
+            btnGetBoundsFromViewport.TabIndex = 9;
+            btnGetBoundsFromViewport.Text = "Get Bounds from current viewport";
+            btnGetBoundsFromViewport.UseVisualStyleBackColor = true;
             // 
             // pnlCenterRadius
             // 

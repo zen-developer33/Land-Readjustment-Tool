@@ -194,8 +194,16 @@ namespace Land_Readjustment_Tool.UI.MapCanvas.Rendering
         public static XyzLiveTileRenderLayer FromCanvasLayer(
             CanvasLayer layer,
             string filePath,
-            Action? invalidateCallback = null)
+            Action? invalidateCallback = null,
+            string? projectSrsDefinition = null)
         {
+            GdalBootstrapper.ConfigureAll();
+            if (!GdalConfiguration.Usable)
+            {
+                throw new InvalidOperationException(
+                    "GDAL/PROJ is not configured correctly. Live XYZ tile reprojection cannot continue.");
+            }
+
             if (!File.Exists(filePath))
             {
                 throw new FileNotFoundException(
@@ -220,6 +228,7 @@ namespace Land_Readjustment_Tool.UI.MapCanvas.Rendering
             SpatialReference webMercatorSrs =
                 CreateSpatialReference(WebMercatorSrsDefinition);
             SpatialReference projectSrs =
+                TryCreateSpatialReference(projectSrsDefinition) ??
                 ExtractProjectSrs(filePath) ??
                 ExtractProjectSrsFromGdal(filePath) ??
                 CreateSpatialReference(WebMercatorSrsDefinition);
@@ -294,6 +303,10 @@ namespace Land_Readjustment_Tool.UI.MapCanvas.Rendering
                         visibleWebMercatorBounds,
                         out RectangleD clippedWebMercatorBounds))
                 {
+                    System.Diagnostics.Debug.WriteLine(
+                        $"[XyzLiveTileRenderLayer] Viewport transform/clip failed for '{Name}'. " +
+                        $"Project bounds: X={visibleWorldBounds.X}, Y={visibleWorldBounds.Y}, " +
+                        $"W={visibleWorldBounds.Width}, H={visibleWorldBounds.Height}.");
                     _lastViewportAllowed = false;
                     return false;
                 }
@@ -641,11 +654,10 @@ namespace Land_Readjustment_Tool.UI.MapCanvas.Rendering
                         cancellationToken.ThrowIfCancellationRequested();
 
                         TileKey key = new TileKey(tileRange.Zoom, x, y);
-                        RectangleD projectBounds = GetProjectTileBounds(key);
-                        if (!TryIntersects(projectBounds, visibleWorldBounds))
-                        {
-                            continue;
-                        }
+                        // The range was already computed from the current viewport
+                        // transformed into WebMercator. A second per-tile MUTM
+                        // footprint test is fragile for custom projected CRSs and
+                        // can incorrectly skip every visible tile.
 
                         Rectangle destination = new(
                             (x - tileRange.MinX) * TilePixelSize,
@@ -2391,7 +2403,73 @@ namespace Land_Readjustment_Tool.UI.MapCanvas.Rendering
             }
 
             srs.SetAxisMappingStrategy(AxisMappingStrategy.OAMS_TRADITIONAL_GIS_ORDER);
+            ApplyBallparkDatumTransformIfNeeded(srs);
             return srs;
+        }
+
+        private static void ApplyBallparkDatumTransformIfNeeded(
+            SpatialReference srs)
+        {
+            try
+            {
+                srs.AutoIdentifyEPSG();
+
+                string? authorityCode =
+                    srs.GetAuthorityCode(null) ??
+                    srs.GetAuthorityCode("PROJCS") ??
+                    srs.GetAuthorityCode("GEOGCS");
+                if (!string.IsNullOrWhiteSpace(authorityCode))
+                {
+                    return;
+                }
+
+                string? geographicName = srs.GetAttrValue("GEOGCS", 0);
+                string? datumName = srs.GetAttrValue("DATUM", 0);
+                if (ContainsIgnoreCase(geographicName, "WGS") ||
+                    ContainsIgnoreCase(datumName, "WGS"))
+                {
+                    return;
+                }
+
+                srs.ExportToWkt(out string wkt, []);
+                if (wkt.Contains("TOWGS84", StringComparison.OrdinalIgnoreCase))
+                {
+                    return;
+                }
+
+                // Custom MUTM/Everest-style CRSs without a datum transform may
+                // parse correctly but still fail when OSR transforms them to
+                // EPSG:3857. Attach a zero Bursa-Wolf fallback so live imagery
+                // remains renderable; a configured datum transform still wins.
+                srs.SetTOWGS84(0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0);
+            }
+            catch
+            {
+                // Optional rendering fallback only.
+            }
+        }
+
+        private static bool ContainsIgnoreCase(string? value, string text) =>
+            value?.Contains(text, StringComparison.OrdinalIgnoreCase) == true;
+
+        private static SpatialReference? TryCreateSpatialReference(
+            string? definition)
+        {
+            if (string.IsNullOrWhiteSpace(definition))
+            {
+                return null;
+            }
+
+            try
+            {
+                return CreateSpatialReference(definition);
+            }
+            catch (Exception ex)
+            {
+                System.Diagnostics.Debug.WriteLine(
+                    $"[XyzLiveTileRenderLayer] Project CRS override could not be parsed. {ex.Message}");
+                return null;
+            }
         }
 
         private static bool IsWebMercatorSpatialReference(SpatialReference srs)

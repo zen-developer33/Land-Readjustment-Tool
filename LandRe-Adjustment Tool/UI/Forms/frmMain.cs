@@ -18,6 +18,7 @@ using Land_Readjustment_Tool.UI.MapCanvas.Models.Shapes;
 using Land_Readjustment_Tool.UI.MapCanvas.Rendering;
 using Land_Readjustment_Tool.UI.MapCanvas.Services;
 using Microsoft.Data.Sqlite;
+using OSGeo.OSR;
 using System.Reflection;
 using VisualStyles = System.Windows.Forms.VisualStyles;
 
@@ -51,6 +52,7 @@ namespace Land_Readjustment_Tool
         private frmReplotWorkspace? _replotWorkspaceForm;
         private frmAreaConverter? _areaConverterForm;
         private CanvasLayerTreeService? _layerTreeService;
+        private string? _currentProjectRasterSrsDefinition;
         private bool _suppressLayerTreeEvents;
         private frmOperationProgress? _operationProgressForm;
         private bool _operationProgressActive;
@@ -778,6 +780,8 @@ namespace Land_Readjustment_Tool
 
                 if (settings == null) return;
 
+                await RefreshCurrentProjectRasterSrsDefinitionAsync();
+
                 if (showRefreshProgress)
                     SetOperationProgress(35, "Applying canvas settings");
 
@@ -1084,8 +1088,7 @@ namespace Land_Readjustment_Tool
                         AppServices.Context.Session,
                         AppServices.Context.ProjectFolderPath);
 
-            await RefreshLayerTreeAsync();
-            mapCanvasControlMain.RequestRender();
+            await RefreshLayerTreeAsync(rebuildRasterLayersAfterCrsChange: true);
 
             if (result.FailedCount > 0)
             {
@@ -1321,6 +1324,9 @@ namespace Land_Readjustment_Tool
             if (_xyzTileImportOptionsForm != null &&
                 !_xyzTileImportOptionsForm.IsDisposed)
             {
+                _xyzTileImportOptionsForm.CurrentViewportBoundsProvider =
+                    TryGetCurrentViewportGeographicBounds;
+
                 if (_xyzTileImportOptionsForm.WindowState ==
                     FormWindowState.Minimized)
                 {
@@ -1337,6 +1343,8 @@ namespace Land_Readjustment_Tool
                 new frmXyzTileImportOptions(
                     AppServices.Context.ProjectFolderPath,
                     await LoadXyzTileOptionsStateAsync());
+            _xyzTileImportOptionsForm.CurrentViewportBoundsProvider =
+                TryGetCurrentViewportGeographicBounds;
             _xyzTileImportOptionsForm.ImportRequested +=
                 async (_, args) => await ImportXyzTilesRequestAsync(args.Request);
             _xyzTileImportOptionsForm.OptionsStateChanged +=
@@ -1542,6 +1550,140 @@ namespace Land_Readjustment_Tool
             finally
             {
                 HideOperationProgress();
+            }
+        }
+
+        private (double West, double South, double East, double North)?
+            TryGetCurrentViewportGeographicBounds()
+        {
+            if (string.IsNullOrWhiteSpace(_currentProjectRasterSrsDefinition))
+            {
+                return null;
+            }
+
+            try
+            {
+                GdalBootstrapper.ConfigureAll();
+                if (!GdalConfiguration.Usable)
+                {
+                    return null;
+                }
+
+                RectangleD visibleBounds =
+                    mapCanvasControlMain.GetVisibleWorldBounds();
+                using SpatialReference sourceSrs =
+                    CreateSpatialReference(_currentProjectRasterSrsDefinition);
+                using SpatialReference geographicSrs =
+                    CreateSpatialReference("EPSG:4326");
+                using CoordinateTransformation transformation =
+                    new(sourceSrs, geographicSrs);
+
+                double minLon = double.MaxValue;
+                double maxLon = double.MinValue;
+                double minLat = double.MaxValue;
+                double maxLat = double.MinValue;
+                int validCount = 0;
+
+                const int gridSize = 3;
+                for (int row = 0; row < gridSize; row++)
+                {
+                    double y = visibleBounds.Y +
+                        visibleBounds.Height * row / (gridSize - 1.0);
+                    for (int col = 0; col < gridSize; col++)
+                    {
+                        double x = visibleBounds.X +
+                            visibleBounds.Width * col / (gridSize - 1.0);
+
+                        if (!TryTransformPoint(
+                                transformation,
+                                x,
+                                y,
+                                out double lon,
+                                out double lat))
+                        {
+                            continue;
+                        }
+
+                        minLon = Math.Min(minLon, lon);
+                        maxLon = Math.Max(maxLon, lon);
+                        minLat = Math.Min(minLat, lat);
+                        maxLat = Math.Max(maxLat, lat);
+                        validCount++;
+                    }
+                }
+
+                if (validCount == 0 ||
+                    minLon >= maxLon ||
+                    minLat >= maxLat)
+                {
+                    return null;
+                }
+
+                return (
+                    Math.Clamp(minLon, -180.0, 180.0),
+                    Math.Clamp(minLat, -85.05112878, 85.05112878),
+                    Math.Clamp(maxLon, -180.0, 180.0),
+                    Math.Clamp(maxLat, -85.05112878, 85.05112878));
+            }
+            catch (Exception ex)
+            {
+                LogProjectError(
+                    "Failed to derive XYZ import bounds from current viewport.",
+                    ex);
+                return null;
+            }
+        }
+
+        private static SpatialReference CreateSpatialReference(
+            string definition)
+        {
+            SpatialReference srs = new(string.Empty);
+            srs.SetAxisMappingStrategy(
+                AxisMappingStrategy.OAMS_TRADITIONAL_GIS_ORDER);
+
+            if (srs.SetFromUserInput(definition) != 0)
+            {
+                string wkt = definition;
+                if (srs.ImportFromWkt(ref wkt) != 0)
+                {
+                    srs.Dispose();
+                    throw new InvalidOperationException(
+                        $"Could not parse CRS definition '{definition}'.");
+                }
+            }
+
+            srs.SetAxisMappingStrategy(
+                AxisMappingStrategy.OAMS_TRADITIONAL_GIS_ORDER);
+            return srs;
+        }
+
+        private static bool TryTransformPoint(
+            CoordinateTransformation transformation,
+            double x,
+            double y,
+            out double transformedX,
+            out double transformedY)
+        {
+            transformedX = 0.0;
+            transformedY = 0.0;
+
+            try
+            {
+                double[] point = [x, y, 0.0];
+                transformation.TransformPoint(point);
+                if (!double.IsFinite(point[0]) ||
+                    !double.IsFinite(point[1]))
+                {
+                    return false;
+                }
+
+                transformedX = point[0];
+                transformedY = point[1];
+                return true;
+            }
+            catch
+            {
+                return false;
             }
         }
 
@@ -3361,7 +3503,8 @@ namespace Land_Readjustment_Tool
                 HideOperationProgress();
             }
         }
-        private async Task RefreshLayerTreeAsync()
+        private async Task RefreshLayerTreeAsync(
+            bool rebuildRasterLayersAfterCrsChange = false)
         {
             if (!AppServices.HasContext || _layerTreeService == null)
             {
@@ -3374,7 +3517,9 @@ namespace Land_Readjustment_Tool
                 IReadOnlyList<CanvasLayerTreeGroup> layerGroups =
                     await _layerTreeService.GetLayerTreeAsync();
 
-                PopulateLayerTree(layerGroups);
+                PopulateLayerTree(
+                    layerGroups,
+                    rebuildRasterLayersAfterCrsChange);
             }
             catch (Exception ex)
             {
@@ -3389,7 +3534,8 @@ namespace Land_Readjustment_Tool
         }
 
         private void PopulateLayerTree(
-            IReadOnlyList<CanvasLayerTreeGroup> layerGroups)
+            IReadOnlyList<CanvasLayerTreeGroup> layerGroups,
+            bool rebuildRasterLayersAfterCrsChange = false)
         {
             _suppressLayerTreeEvents = true;
 
@@ -3441,7 +3587,7 @@ namespace Land_Readjustment_Tool
                 _suppressLayerTreeEvents = false;
             }
 
-            UpdateRasterCanvasLayersFromTree();
+            UpdateRasterCanvasLayersFromTree(rebuildRasterLayersAfterCrsChange);
         }
 
         private void ResetLayerTree()
@@ -3939,7 +4085,8 @@ namespace Land_Readjustment_Tool
             }
         }
 
-        private void UpdateRasterCanvasLayersFromTree()
+        private void UpdateRasterCanvasLayersFromTree(
+            bool rebuildRasterLayersAfterCrsChange = false)
         {
             string? projectFolderPath = AppServices.HasContext
                 ? AppServices.Context.ProjectFolderPath
@@ -3963,12 +4110,50 @@ namespace Land_Readjustment_Tool
                 }
             }
 
+            List<CanvasLayer> orderedRasterLayers = rasterLayers
+                .OrderBy(layer => IsOnlineBasemapLayer(layer) ? 0 : 1)
+                .ThenBy(layer => layer.DisplayOrder)
+                .ThenBy(layer => layer.Name)
+                .ToList();
+
+            if (rebuildRasterLayersAfterCrsChange)
+            {
+                mapCanvasControlMain.RebuildRasterLayersAfterCrsChange(
+                    orderedRasterLayers,
+                    projectFolderPath,
+                    _currentProjectRasterSrsDefinition);
+                return;
+            }
+
             mapCanvasControlMain.SetRasterLayers(
-                rasterLayers
-                    .OrderBy(layer => IsOnlineBasemapLayer(layer) ? 0 : 1)
-                    .ThenBy(layer => layer.DisplayOrder)
-                    .ThenBy(layer => layer.Name),
-                projectFolderPath);
+                orderedRasterLayers,
+                projectFolderPath,
+                _currentProjectRasterSrsDefinition);
+        }
+
+        private async Task RefreshCurrentProjectRasterSrsDefinitionAsync()
+        {
+            _currentProjectRasterSrsDefinition = null;
+
+            if (!AppServices.HasContext)
+            {
+                return;
+            }
+
+            try
+            {
+                ProjectRasterCrsResolver resolver = new(_projectScopedFactory);
+                ProjectRasterCrsContext crsContext =
+                    await resolver.ResolveAsync(AppServices.Context.Session);
+                _currentProjectRasterSrsDefinition =
+                    crsContext.TargetSrsDefinition;
+            }
+            catch (Exception ex)
+            {
+                LogProjectError(
+                    "Failed to resolve current project CRS for live tile rendering.",
+                    ex);
+            }
         }
 
         private static string GetMostUsefulExceptionMessage(Exception exception)

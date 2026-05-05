@@ -57,6 +57,17 @@ namespace Land_Readjustment_Tool.Services.Raster
                         settings.DatumTransformationId.Value,
                         ct);
             }
+            else if (RequiresDatumTransformation(coordinateSystem))
+            {
+                List<DatumTransformation> availableTransformations =
+                    await datumTransformationRepository
+                        .GetForCoordinateSystemAsync(coordinateSystem.Code, ct);
+
+                datumTransformation =
+                    availableTransformations.FirstOrDefault(IsOfficialSurveyDepartmentTransform) ??
+                    availableTransformations.FirstOrDefault(d => d.IsSystemDefault) ??
+                    availableTransformations.FirstOrDefault();
+            }
 
             string targetSrsDefinition =
                 ProjectCrsWktBuilder.BuildTargetSrsDefinition(
@@ -68,5 +79,40 @@ namespace Land_Readjustment_Tool.Services.Raster
                 datumTransformation,
                 targetSrsDefinition);
         }
+
+        private static bool RequiresDatumTransformation(
+            CoordinateSystem coordinateSystem)
+        {
+            if (coordinateSystem.EpsgCode.HasValue)
+            {
+                return false;
+            }
+
+            string code = coordinateSystem.Code ?? string.Empty;
+            if (code.StartsWith("MUTM", StringComparison.OrdinalIgnoreCase))
+            {
+                return true;
+            }
+
+            string? projectionType = coordinateSystem.ProjectionType;
+            string? ellipsoid = coordinateSystem.ProjectionParameters?.Ellipsoid;
+            return projectionType?.Contains(
+                       "Transverse",
+                       StringComparison.OrdinalIgnoreCase) == true &&
+                   ellipsoid?.Contains(
+                       "Everest",
+                       StringComparison.OrdinalIgnoreCase) == true;
+        }
+
+        private static bool IsOfficialSurveyDepartmentTransform(
+            DatumTransformation datumTransformation)
+        {
+            return ContainsIgnoreCase(datumTransformation.Code, "SURVEY") ||
+                   ContainsIgnoreCase(datumTransformation.Name, "Survey Department") ||
+                   ContainsIgnoreCase(datumTransformation.Source, "Survey Department");
+        }
+
+        private static bool ContainsIgnoreCase(string? value, string text) =>
+            value?.Contains(text, StringComparison.OrdinalIgnoreCase) == true;
     }
 }
