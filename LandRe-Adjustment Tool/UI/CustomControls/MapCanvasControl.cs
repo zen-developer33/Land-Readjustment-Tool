@@ -19,7 +19,7 @@ namespace Land_Readjustment_Tool.UI.CustomControls
         private readonly List<IRasterRenderLayer> _rasterRenderLayers = [];
         private MapCanvasRenderSettings _renderSettings;
 
-        public event Action<string, string>? StatusChanged;
+        public event Action<string, string, double>? StatusChanged;
 
         private bool _panToolActive;
         private bool _isPanning;
@@ -682,7 +682,7 @@ namespace Land_Readjustment_Tool.UI.CustomControls
 
             string modeText = GetModeText();
 
-            StatusChanged?.Invoke(coordinatesText, modeText);
+            StatusChanged?.Invoke(coordinatesText, modeText, _engine.ZoomScale);
         }
 
         private string GetModeText()

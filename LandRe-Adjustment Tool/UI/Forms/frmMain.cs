@@ -168,7 +168,7 @@ namespace Land_Readjustment_Tool
             mapCanvasControlMain.StatusChanged += MapCanvasControlMain_StatusChanged;
             ConfigureLayerTree();
             ConfigureLayerPropertiesPanel();
-            MapCanvasControlMain_StatusChanged("E: --    N: --", "Ready");
+            MapCanvasControlMain_StatusChanged("E: --    N: --", "Ready", 0);
 
 
             UpdateWindowTitle();
@@ -205,7 +205,7 @@ namespace Land_Readjustment_Tool
             EnableDoubleBuffering(mainSplitContainer);
             EnableDoubleBuffering(leftSplitContainer);
             EnableDoubleBuffering(splitContainer3);
-            EnableDoubleBuffering(grpProperties);
+
 
             HookSplitterRedrawHandlers();
         }
@@ -225,10 +225,10 @@ namespace Land_Readjustment_Tool
                 return;
             }
 
-            grpProperties.SuspendLayout();
-            grpProperties.ResumeLayout(true);
-            grpProperties.Invalidate(true);
-            grpProperties.Update();
+            tabProperties.SuspendLayout();
+            tabProperties.ResumeLayout(true);
+            tabProperties.Invalidate(true);
+            tabProperties.Update();
         }
 
         private static void EnableDoubleBuffering(Control control)
@@ -290,12 +290,28 @@ namespace Land_Readjustment_Tool
             if (!AppServices.HasContext || AppServices.Context.Info == null)
             {
                 this.Text = _appTitle;
+                UpdateProjectNameStatus();
                 return;
             }
 
             var name = AppServices.Context.Info.ProjectName;
-
             this.Text = AppServices.Context.HasUnsavedChanges ? $"{name}* - {_appTitle}" : $"{name} - {_appTitle}";
+            UpdateProjectNameStatus();
+        }
+
+        private void UpdateProjectNameStatus()
+        {
+            if (!AppServices.HasContext || AppServices.Context.Info == null)
+            {
+                lblProjectName.Text = "● No Project";
+                lblProjectName.ForeColor = SystemColors.GrayText;
+                return;
+            }
+
+            string name = AppServices.Context.Info.ProjectName;
+            bool unsaved = AppServices.Context.HasUnsavedChanges;
+            lblProjectName.Text = unsaved ? $"● {name} *" : $"● {name}";
+            lblProjectName.ForeColor = unsaved ? Color.DarkOrange : Color.SeaGreen;
         }
 
         private async void frmMain_Load(object sender, EventArgs e)
@@ -2323,7 +2339,7 @@ namespace Land_Readjustment_Tool
 
         private void ConfigureLayerPropertiesPanel()
         {
-            grpProperties.Text = "Properties";
+            // tabProperties (TabControl) replaced the old grpProperties GroupBox.
         }
 
         private void treeViewLayers_DrawNode(object? sender, DrawTreeNodeEventArgs e)
@@ -3487,7 +3503,7 @@ namespace Land_Readjustment_Tool
                     .Replace("Canvas:", string.Empty, StringComparison.OrdinalIgnoreCase)
                     .Trim();
 
-            lblCanvasMode.Text = $"Status: {cleanedStatus}";
+            lblStatusMessage.Text = $"Status: {cleanedStatus}";
         }
 
         private async Task PersistProjectUiStateAsync()
@@ -4038,7 +4054,7 @@ namespace Land_Readjustment_Tool
         private int CalculateOperationStatusWidth()
         {
             int reservedWidth =
-                lblCanvasMode.Width +
+                lblStatusMessage.Width +
                 lblCanvasCoordinates.Width +
                 260;
 
@@ -4144,10 +4160,37 @@ namespace Land_Readjustment_Tool
             statusCanvas.Refresh();
         }
 
-        private void MapCanvasControlMain_StatusChanged(string coordinates, string mode)
+        private void MapCanvasControlMain_StatusChanged(string coordinates, string mode, double zoomScale)
         {
             lblCanvasCoordinates.Text = coordinates;
+            UpdateActiveTool(mode);
             SetCanvasCommandStatus(mode);
+            UpdateScaleLabel(zoomScale);
+        }
+
+        private void UpdateActiveTool(string mode)
+        {
+            string toolName = mode switch
+            {
+                _ when mode.Contains("Pan", StringComparison.OrdinalIgnoreCase) => "Pan",
+                _ when mode.Contains("Zoom Window", StringComparison.OrdinalIgnoreCase) => "Zoom Window",
+                _ when mode.Contains("Zoom", StringComparison.OrdinalIgnoreCase) => "Zoom",
+                _ => "Select"
+            };
+            lblActiveTool.Text = $"Active Tool: {toolName}";
+        }
+
+        private void UpdateScaleLabel(double zoomScale)
+        {
+            if (zoomScale <= 0)
+            {
+                lblScale.Text = "Scale: 1:—";
+                return;
+            }
+            // 96 DPI screen: pixels per metre = 96 / 0.0254
+            const double screenPixelsPerMetre = 96.0 / 0.0254;
+            long denom = Math.Max(1, (long)Math.Round(screenPixelsPerMetre / zoomScale));
+            lblScale.Text = $"Scale: 1:{denom:N0}";
         }
 
         /// <summary>
