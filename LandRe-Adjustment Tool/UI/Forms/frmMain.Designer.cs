@@ -1345,24 +1345,24 @@ namespace Land_Readjustment_Tool
             // lblScale
             // 
             lblScale.Alignment = ToolStripItemAlignment.Right;
-            lblScale.AutoSize = false;
+            lblScale.AutoSize = true;
             lblScale.BorderSides = ToolStripStatusLabelBorderSides.Left;
             lblScale.Margin = new Padding(0, 3, 4, 2);
             lblScale.Name = "lblScale";
-            lblScale.Size = new Size(79, 21);
+            lblScale.Size = new Size(75, 21);
             lblScale.Text = "Scale: 1:—";
             lblScale.TextAlign = ContentAlignment.MiddleRight;
             // 
             // lblCanvasCoordinates
             // 
             lblCanvasCoordinates.Alignment = ToolStripItemAlignment.Right;
-            lblCanvasCoordinates.AutoSize = false;
+            lblCanvasCoordinates.AutoSize = true;
             lblCanvasCoordinates.BorderSides = ToolStripStatusLabelBorderSides.Left;
             lblCanvasCoordinates.BorderStyle = Border3DStyle.RaisedOuter;
             lblCanvasCoordinates.ForeColor = SystemColors.ControlText;
             lblCanvasCoordinates.Margin = new Padding(0, 3, 6, 2);
             lblCanvasCoordinates.Name = "lblCanvasCoordinates";
-            lblCanvasCoordinates.Size = new Size(140, 21);
+            lblCanvasCoordinates.Size = new Size(163, 21);
             lblCanvasCoordinates.Text = "E: 0.0000    N: 0.0000";
             lblCanvasCoordinates.TextAlign = ContentAlignment.MiddleRight;
             // 

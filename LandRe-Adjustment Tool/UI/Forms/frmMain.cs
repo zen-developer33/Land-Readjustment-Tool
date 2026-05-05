@@ -53,6 +53,7 @@ namespace Land_Readjustment_Tool
         private CanvasLayerTreeService? _layerTreeService;
         private bool _suppressLayerTreeEvents;
         private frmOperationProgress? _operationProgressForm;
+        private bool _operationProgressActive;
         private const string LayerGroupNodeNamePrefix = "LayerGroup_";
         private const string RePlotRootNodeKey = "RePlotRoot";
         private const string OriginalDataGroupKey = "OriginalDataLayer";
@@ -165,6 +166,7 @@ namespace Land_Readjustment_Tool
             NumericUpDownSelectAllBehavior.AttachTo(this);
             _startupFilePath = startupFilePath;
             ConfigureSmoothSplitterLayout();
+            ConfigureStatusStripSizing();
             mapCanvasControlMain.StatusChanged += MapCanvasControlMain_StatusChanged;
             ConfigureLayerTree();
             ConfigureLayerPropertiesPanel();
@@ -195,6 +197,14 @@ namespace Land_Readjustment_Tool
             _mnuImportXyzTiles.Click += importXyzTilesToolStripMenuItem_Click!;
             importDataToolStripMenuItem1.DropDownItems.Add(_mnuImportXyzTiles);
 
+        }
+
+        private void ConfigureStatusStripSizing()
+        {
+            lblScale.AutoSize = true;
+            lblCanvasCoordinates.AutoSize = true;
+            lblScale.TextAlign = ContentAlignment.MiddleRight;
+            lblCanvasCoordinates.TextAlign = ContentAlignment.MiddleRight;
         }
 
         private void ConfigureSmoothSplitterLayout()
@@ -4022,8 +4032,10 @@ namespace Land_Readjustment_Tool
             // Progress callbacks can arrive slightly after an awaited import/render
             // has completed. Do not let a late 94-100% callback resurrect the bar
             // after HideOperationProgress has already returned the strip to idle.
-            if (!hostProgressBarHost.Visible && clampedPercent >= 90)
+            if (!_operationProgressActive && clampedPercent >= 90)
                 return;
+
+            _operationProgressActive = true;
 
             lblOperationProgressStatus.Text = status;
             lblOperationProgressStatus.Visible = true;
@@ -4147,13 +4159,16 @@ namespace Land_Readjustment_Tool
                 return;
             }
 
-            lblOperationProgressStatus.Text = string.Empty;
-            lblOperationProgressStatus.Visible = false;
+            _operationProgressActive = false;
+            lblOperationProgressStatus.Visible = true;
+            lblOperationProgressStatus.AutoSize = false;
+            lblOperationProgressStatus.Width = CalculateOperationStatusWidth();
+            lblOperationProgressStatus.TextAlign = ContentAlignment.MiddleRight;
             hostOperationProgress.Value = 0;
-            hostOperationProgress.Visible = false;
+            hostOperationProgress.Visible = true;
             hostOperationProgress.Invalidate();
-            hostProgressBarHost.Visible = false;
-            hostProgressBarHost.Size = Size.Empty;
+            hostProgressBarHost.Size = new Size(154, 26);
+            hostProgressBarHost.Visible = true;
             _operationProgressForm?.Close();
             _operationProgressForm = null;
             statusCanvas.PerformLayout();
@@ -4235,15 +4250,18 @@ namespace Land_Readjustment_Tool
                     e.Graphics.FillRectangle(fillBrush, fill);
                 }
 
-                TextRenderer.DrawText(
-                    e.Graphics,
-                    $"{Value}%",
-                    Font,
-                    bounds,
-                    SystemColors.ControlText,
-                    TextFormatFlags.HorizontalCenter |
-                    TextFormatFlags.VerticalCenter |
-                    TextFormatFlags.SingleLine);
+                if (Value > Minimum)
+                {
+                    TextRenderer.DrawText(
+                        e.Graphics,
+                        $"{Value}%",
+                        Font,
+                        bounds,
+                        SystemColors.ControlText,
+                        TextFormatFlags.HorizontalCenter |
+                        TextFormatFlags.VerticalCenter |
+                        TextFormatFlags.SingleLine);
+                }
             }
 
         }
