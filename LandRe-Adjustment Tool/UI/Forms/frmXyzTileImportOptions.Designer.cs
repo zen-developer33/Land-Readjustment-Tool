@@ -89,8 +89,6 @@ namespace Land_Readjustment_Tool.UI.Forms
             rdoBoundingBox = new RadioButton();
             rdoLiveTiles = new RadioButton();
             pnlBoundsContainer = new Panel();
-            pnlLiveTilesInfo = new Panel();
-            lblLiveTilesInfo = new Label();
             pnlBoundingBox = new Panel();
             lblNorth = new Label();
             numNorth = new NumericUpDown();
@@ -113,6 +111,8 @@ namespace Land_Readjustment_Tool.UI.Forms
             numRadius = new NumericUpDown();
             lblRadiusUnit = new Label();
             lblAreaHint = new Label();
+            pnlLiveTilesInfo = new Panel();
+            lblLiveTilesInfo = new Label();
             lblZoomLevel = new Label();
             numZoomLevel = new NumericUpDown();
             lblDownloadStatus = new Label();
@@ -127,7 +127,6 @@ namespace Land_Readjustment_Tool.UI.Forms
             sourceLayout.SuspendLayout();
             pnlBoundsHeader.SuspendLayout();
             pnlBoundsContainer.SuspendLayout();
-            pnlLiveTilesInfo.SuspendLayout();
             pnlBoundingBox.SuspendLayout();
             ((System.ComponentModel.ISupportInitialize)numNorth).BeginInit();
             ((System.ComponentModel.ISupportInitialize)numWest).BeginInit();
@@ -138,6 +137,7 @@ namespace Land_Readjustment_Tool.UI.Forms
             ((System.ComponentModel.ISupportInitialize)numCenterLat).BeginInit();
             ((System.ComponentModel.ISupportInitialize)numCenterLon).BeginInit();
             ((System.ComponentModel.ISupportInitialize)numRadius).BeginInit();
+            pnlLiveTilesInfo.SuspendLayout();
             ((System.ComponentModel.ISupportInitialize)numZoomLevel).BeginInit();
             pnlProgressRow.SuspendLayout();
             buttonLayout.SuspendLayout();
@@ -328,36 +328,15 @@ namespace Land_Readjustment_Tool.UI.Forms
             // pnlBoundsContainer
             // 
             layout.SetColumnSpan(pnlBoundsContainer, 2);
-            pnlBoundsContainer.Controls.Add(pnlLiveTilesInfo);
             pnlBoundsContainer.Controls.Add(pnlBoundingBox);
             pnlBoundsContainer.Controls.Add(pnlCenterRadius);
+            pnlBoundsContainer.Controls.Add(pnlLiveTilesInfo);
             pnlBoundsContainer.Dock = DockStyle.Fill;
             pnlBoundsContainer.Location = new Point(13, 193);
             pnlBoundsContainer.Margin = new Padding(3, 0, 3, 0);
             pnlBoundsContainer.Name = "pnlBoundsContainer";
             pnlBoundsContainer.Size = new Size(530, 189);
             pnlBoundsContainer.TabIndex = 7;
-            // 
-            // pnlLiveTilesInfo
-            // 
-            pnlLiveTilesInfo.Controls.Add(lblLiveTilesInfo);
-            pnlLiveTilesInfo.Dock = DockStyle.Fill;
-            pnlLiveTilesInfo.Location = new Point(0, 0);
-            pnlLiveTilesInfo.Name = "pnlLiveTilesInfo";
-            pnlLiveTilesInfo.Size = new Size(530, 189);
-            pnlLiveTilesInfo.TabIndex = 2;
-            pnlLiveTilesInfo.Visible = false;
-            // 
-            // lblLiveTilesInfo
-            // 
-            lblLiveTilesInfo.Dock = DockStyle.Bottom;
-            lblLiveTilesInfo.ForeColor = SystemColors.GrayText;
-            lblLiveTilesInfo.Location = new Point(0, 0);
-            lblLiveTilesInfo.Name = "lblLiveTilesInfo";
-            lblLiveTilesInfo.Padding = new Padding(12, 16, 12, 0);
-            lblLiveTilesInfo.Size = new Size(530, 189);
-            lblLiveTilesInfo.TabIndex = 0;
-            lblLiveTilesInfo.Text = resources.GetString("lblLiveTilesInfo.Text");
             // 
             // pnlBoundingBox
             // 
@@ -381,7 +360,7 @@ namespace Land_Readjustment_Tool.UI.Forms
             // lblNorth
             // 
             lblNorth.AutoSize = true;
-            lblNorth.Location = new Point(247, 8);
+            lblNorth.Location = new Point(191, 12);
             lblNorth.Name = "lblNorth";
             lblNorth.Size = new Size(37, 20);
             lblNorth.TabIndex = 0;
@@ -391,19 +370,19 @@ namespace Land_Readjustment_Tool.UI.Forms
             // 
             numNorth.DecimalPlaces = 8;
             numNorth.Increment = new decimal(new int[] { 1, 0, 0, 262144 });
-            numNorth.Location = new Point(211, 30);
+            numNorth.Location = new Point(160, 34);
             numNorth.Margin = new Padding(3, 4, 3, 4);
             numNorth.Maximum = new decimal(new int[] { -84821714, 1, 0, 524288 });
             numNorth.Minimum = new decimal(new int[] { -84821714, 1, 0, -2146959360 });
             numNorth.Name = "numNorth";
-            numNorth.Size = new Size(124, 27);
+            numNorth.Size = new Size(109, 27);
             numNorth.TabIndex = 1;
             numNorth.Value = new decimal(new int[] { 285, 0, 0, 65536 });
             // 
             // lblWest
             // 
             lblWest.AutoSize = true;
-            lblWest.Location = new Point(20, 87);
+            lblWest.Location = new Point(8, 87);
             lblWest.Name = "lblWest";
             lblWest.Size = new Size(40, 20);
             lblWest.TabIndex = 2;
@@ -413,12 +392,12 @@ namespace Land_Readjustment_Tool.UI.Forms
             // 
             numWest.DecimalPlaces = 8;
             numWest.Increment = new decimal(new int[] { 1, 0, 0, 262144 });
-            numWest.Location = new Point(63, 84);
+            numWest.Location = new Point(51, 84);
             numWest.Margin = new Padding(3, 4, 3, 4);
             numWest.Maximum = new decimal(new int[] { 180, 0, 0, 0 });
             numWest.Minimum = new decimal(new int[] { 180, 0, 0, int.MinValue });
             numWest.Name = "numWest";
-            numWest.Size = new Size(124, 27);
+            numWest.Size = new Size(107, 27);
             numWest.TabIndex = 3;
             numWest.Value = new decimal(new int[] { 840, 0, 0, 65536 });
             // 
@@ -427,17 +406,18 @@ namespace Land_Readjustment_Tool.UI.Forms
             pnlMapRect.BackColor = Color.FromArgb(240, 245, 255);
             pnlMapRect.BorderStyle = BorderStyle.FixedSingle;
             pnlMapRect.Controls.Add(lblMapRect);
-            pnlMapRect.Location = new Point(193, 64);
+            pnlMapRect.Location = new Point(162, 65);
             pnlMapRect.Name = "pnlMapRect";
-            pnlMapRect.Size = new Size(161, 58);
+            pnlMapRect.Size = new Size(107, 58);
             pnlMapRect.TabIndex = 4;
             // 
             // lblMapRect
             // 
+            lblMapRect.Dock = DockStyle.Fill;
             lblMapRect.ForeColor = Color.FromArgb(100, 120, 160);
-            lblMapRect.Location = new Point(24, 18);
+            lblMapRect.Location = new Point(0, 0);
             lblMapRect.Name = "lblMapRect";
-            lblMapRect.Size = new Size(100, 23);
+            lblMapRect.Size = new Size(105, 56);
             lblMapRect.TabIndex = 0;
             lblMapRect.Text = "XYZ Map";
             lblMapRect.TextAlign = ContentAlignment.MiddleCenter;
@@ -445,7 +425,7 @@ namespace Land_Readjustment_Tool.UI.Forms
             // lblEast
             // 
             lblEast.AutoSize = true;
-            lblEast.Location = new Point(488, 86);
+            lblEast.Location = new Point(392, 87);
             lblEast.Name = "lblEast";
             lblEast.Size = new Size(34, 20);
             lblEast.TabIndex = 5;
@@ -455,19 +435,19 @@ namespace Land_Readjustment_Tool.UI.Forms
             // 
             numEast.DecimalPlaces = 8;
             numEast.Increment = new decimal(new int[] { 1, 0, 0, 262144 });
-            numEast.Location = new Point(360, 83);
+            numEast.Location = new Point(274, 84);
             numEast.Margin = new Padding(3, 4, 3, 4);
             numEast.Maximum = new decimal(new int[] { 180, 0, 0, 0 });
             numEast.Minimum = new decimal(new int[] { 180, 0, 0, int.MinValue });
             numEast.Name = "numEast";
-            numEast.Size = new Size(124, 27);
+            numEast.Size = new Size(114, 27);
             numEast.TabIndex = 6;
             numEast.Value = new decimal(new int[] { 850, 0, 0, 65536 });
             // 
             // lblSouth
             // 
             lblSouth.AutoSize = true;
-            lblSouth.Location = new Point(250, 160);
+            lblSouth.Location = new Point(194, 159);
             lblSouth.Name = "lblSouth";
             lblSouth.Size = new Size(34, 20);
             lblSouth.TabIndex = 7;
@@ -477,20 +457,20 @@ namespace Land_Readjustment_Tool.UI.Forms
             // 
             numSouth.DecimalPlaces = 8;
             numSouth.Increment = new decimal(new int[] { 1, 0, 0, 262144 });
-            numSouth.Location = new Point(211, 129);
+            numSouth.Location = new Point(160, 128);
             numSouth.Margin = new Padding(3, 4, 3, 4);
             numSouth.Maximum = new decimal(new int[] { -84821714, 1, 0, 524288 });
             numSouth.Minimum = new decimal(new int[] { -84821714, 1, 0, -2146959360 });
             numSouth.Name = "numSouth";
-            numSouth.Size = new Size(124, 27);
+            numSouth.Size = new Size(109, 27);
             numSouth.TabIndex = 8;
             numSouth.Value = new decimal(new int[] { 272, 0, 0, 65536 });
             // 
             // btnGetBoundsFromViewport
             // 
-            btnGetBoundsFromViewport.Location = new Point(326, 129);
+            btnGetBoundsFromViewport.Location = new Point(375, 11);
             btnGetBoundsFromViewport.Name = "btnGetBoundsFromViewport";
-            btnGetBoundsFromViewport.Size = new Size(196, 31);
+            btnGetBoundsFromViewport.Size = new Size(145, 50);
             btnGetBoundsFromViewport.TabIndex = 9;
             btnGetBoundsFromViewport.Text = "Get Bounds from current viewport";
             btnGetBoundsFromViewport.UseVisualStyleBackColor = true;
@@ -605,6 +585,27 @@ namespace Land_Readjustment_Tool.UI.Forms
             lblAreaHint.Size = new Size(152, 20);
             lblAreaHint.TabIndex = 7;
             lblAreaHint.Text = "≈ 20.0 × 18.0 km area";
+            // 
+            // pnlLiveTilesInfo
+            // 
+            pnlLiveTilesInfo.Controls.Add(lblLiveTilesInfo);
+            pnlLiveTilesInfo.Dock = DockStyle.Fill;
+            pnlLiveTilesInfo.Location = new Point(0, 0);
+            pnlLiveTilesInfo.Name = "pnlLiveTilesInfo";
+            pnlLiveTilesInfo.Size = new Size(530, 189);
+            pnlLiveTilesInfo.TabIndex = 2;
+            pnlLiveTilesInfo.Visible = false;
+            // 
+            // lblLiveTilesInfo
+            // 
+            lblLiveTilesInfo.Dock = DockStyle.Bottom;
+            lblLiveTilesInfo.ForeColor = SystemColors.GrayText;
+            lblLiveTilesInfo.Location = new Point(0, 107);
+            lblLiveTilesInfo.Name = "lblLiveTilesInfo";
+            lblLiveTilesInfo.Padding = new Padding(12, 16, 12, 0);
+            lblLiveTilesInfo.Size = new Size(530, 82);
+            lblLiveTilesInfo.TabIndex = 0;
+            lblLiveTilesInfo.Text = resources.GetString("lblLiveTilesInfo.Text");
             // 
             // lblZoomLevel
             // 
@@ -743,7 +744,6 @@ namespace Land_Readjustment_Tool.UI.Forms
             pnlBoundsHeader.ResumeLayout(false);
             pnlBoundsHeader.PerformLayout();
             pnlBoundsContainer.ResumeLayout(false);
-            pnlLiveTilesInfo.ResumeLayout(false);
             pnlBoundingBox.ResumeLayout(false);
             pnlBoundingBox.PerformLayout();
             ((System.ComponentModel.ISupportInitialize)numNorth).EndInit();
@@ -756,6 +756,7 @@ namespace Land_Readjustment_Tool.UI.Forms
             ((System.ComponentModel.ISupportInitialize)numCenterLat).EndInit();
             ((System.ComponentModel.ISupportInitialize)numCenterLon).EndInit();
             ((System.ComponentModel.ISupportInitialize)numRadius).EndInit();
+            pnlLiveTilesInfo.ResumeLayout(false);
             ((System.ComponentModel.ISupportInitialize)numZoomLevel).EndInit();
             pnlProgressRow.ResumeLayout(false);
             buttonLayout.ResumeLayout(false);
