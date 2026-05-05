@@ -22,16 +22,18 @@ namespace Land_Readjustment_Tool.UI.MapCanvas.Rendering
     {
 
 
-
+        private readonly RectangleD _validProjectExtent;
         // ── Constants ──────────────────────────────────────────────────────────
         private const int TilePixelSize = 256;
         private const int MaxCachedTiles = 512;
         private const int MaxTilesPerFrame = 256;
         private const int MaxBootstrapTilesPerFrame = 16;
         private const int MaxConcurrentFetches = 6;
-        private const int DebounceMilliseconds =50;
+        private const int DebounceMilliseconds = 120;
         private const int MaxSupportedZoom = 22;
-        private const int ProjectedTileMeshSubdivisions = 8;
+        private const int ProjectedTileMeshSubdivisions = 4;
+        private const int MinFreshTileZoom = 6;
+        private const int MaxMosaicMeshSubdivisions = 32;
         private const double WebMercatorExtent = 20037508.342789244;
         private const double WebMercatorWorldSize = WebMercatorExtent * 2.0;
         private const double InitialResolution = WebMercatorWorldSize / TilePixelSize;
@@ -83,6 +85,18 @@ namespace Land_Readjustment_Tool.UI.MapCanvas.Rendering
         // ── Opacity ────────────────────────────────────────────────────────────
         private ImageAttributes? _opacityImageAttributes;
 
+        // ── Composite bitmap cache ──────────────────────────────────────────────
+        // Pre-rendered offscreen bitmap of all cached tiles at the last settled viewport.
+        // Interactive pan/zoom frames blit-and-stretch this instead of re-drawing every tile.
+        private Bitmap? _compositeBitmap;
+        private RectangleD _compositeWorldBounds;
+        private Size _compositeCanvasSize;
+        private bool _compositeValid;
+        private double _compositeZoomScale;   // engine zoom when composite was built
+
+        private bool _lastRenderInteractive;
+        private bool _lastViewportAllowed;
+
         // ── Dispose guard ──────────────────────────────────────────────────────
         private volatile bool _disposed;
 
@@ -105,6 +119,7 @@ namespace Land_Readjustment_Tool.UI.MapCanvas.Rendering
             Transparency = Math.Clamp(layer.FillTransparency, 0, 100);
             IsVisible = layer.IsVisible;
             WorldBounds = worldBounds;
+            _validProjectExtent = ExpandExtent(worldBounds, 0.5);
             _urlTemplate = urlTemplate;
             _diskCacheRoot = diskCacheRoot;
             _webMercatorSrs = webMercatorSrs;
@@ -237,16 +252,32 @@ namespace Land_Readjustment_Tool.UI.MapCanvas.Rendering
             bool drawnAny;
             RectangleD fetchWebMercatorBounds = default;
             int fetchZoom = 0;
+            bool lastInteractive = interactive;
+            bool lastViewportAllowed = false;
 
             lock (_renderSync)
             {
                 cancellationToken.ThrowIfCancellationRequested();
 
-                if (!IsVisible || !TryIntersects(WorldBounds, visibleWorldBounds))
+                if (!IsVisible)
                 {
+                    _lastRenderInteractive = interactive;
+                    _lastViewportAllowed = false;
                     return false;
                 }
 
+                _lastRenderInteractive = interactive;
+                _lastViewportAllowed = false;
+
+                if (interactive && !_viewportCts.IsCancellationRequested)
+                {
+                    _viewportCts.Cancel();
+                }
+
+                // Do NOT clip against WorldBounds/_validProjectExtent here.
+                // For live XYZ tiles, those projected bounds can be inaccurate in local/project CRS.
+                // Instead, transform the current canvas viewport to WebMercator,
+                // then clip only in WebMercator using AsiaWebMercatorBounds.
                 if (!TryTransformBounds(
                         _projectToWebMercator,
                         visibleWorldBounds,
@@ -255,10 +286,20 @@ namespace Land_Readjustment_Tool.UI.MapCanvas.Rendering
                         visibleWebMercatorBounds,
                         out RectangleD clippedWebMercatorBounds))
                 {
+                    _lastViewportAllowed = false;
                     return false;
                 }
 
+                _lastViewportAllowed = true;
+                lastViewportAllowed = true;
+
                 int zoom = SelectZoom(engine, clippedWebMercatorBounds, interactive);
+                if (zoom < MinFreshTileZoom)
+                {
+                    _lastViewportAllowed = false;
+                    drawnAny = _compositeBitmap != null && DrawCompositeCache(graphics, engine);
+                    return drawnAny;
+                }
 
                 if (!TryCreateTileRange(zoom, clippedWebMercatorBounds, out TileRange tileRange))
                 {
@@ -271,28 +312,26 @@ namespace Land_Readjustment_Tool.UI.MapCanvas.Rendering
                 fetchWebMercatorBounds = clippedWebMercatorBounds;
                 fetchZoom = zoom;
 
-                GraphicsState graphicsState = graphics.Save();
-                try
-                {
-                    graphics.SmoothingMode = SmoothingMode.None;
-                    graphics.InterpolationMode = InterpolationMode.NearestNeighbor;
-                    graphics.PixelOffsetMode = PixelOffsetMode.HighQuality;
-                    graphics.CompositingQuality = CompositingQuality.HighSpeed;
-                    // FIX: SourceCopy prevents alpha-fringe bleed at tile edges.
-                    // SourceOver blends pre-multiplied alpha edge pixels against the
-                    // transparent off-screen buffer, producing dark seams.
-                    graphics.CompositingMode = CompositingMode.SourceCopy;
+                Size canvasSize = engine.CanvasSize;
 
-                    drawnAny = DrawVisibleTiles(
+                if (interactive)
+                {
+                    // ── Interactive: NEVER draw tiles. Just stretch the cached composite. ──
+                    // Pan/zoom = one DrawImage call, zero tile iteration, zero reprojection.
+                    drawnAny = _compositeBitmap != null &&
+                               _compositeCanvasSize == canvasSize &&
+                               DrawCompositeCache(graphics, engine);
+                }
+                else
+                {
+                    // ── Settled: rebuild composite from cached tiles, then blit 1:1. ────
+                    drawnAny = RebuildCompositeAndDraw(
                         graphics,
                         engine,
                         visibleWorldBounds,
                         tileRange,
+                        canvasSize,
                         cancellationToken);
-                }
-                finally
-                {
-                    graphics.Restore(graphicsState);
                 }
             }
 
@@ -300,15 +339,216 @@ namespace Land_Readjustment_Tool.UI.MapCanvas.Rendering
             // penalised for the timer-system call.
             if (!_disposed)
             {
-                if (!drawnAny)
+                if (!lastInteractive && lastViewportAllowed && !drawnAny)
                 {
                     QueueBootstrapFetch(fetchWebMercatorBounds, fetchZoom);
                 }
 
-                _debounceTimer.Change(DebounceMilliseconds, Timeout.Infinite);
+                if (!lastInteractive && lastViewportAllowed)
+                {
+                    _debounceTimer.Change(DebounceMilliseconds, Timeout.Infinite);
+                }
             }
 
             return drawnAny;
+        }
+
+        /// <summary>
+        /// Paints the pre-built composite bitmap translated/scaled to the current viewport.
+        /// One DrawImage call per frame — O(1) regardless of tile count.
+        /// </summary>
+        private bool DrawCompositeCache(Graphics graphics, MapCanvasEngine engine)
+        {
+            if (_compositeBitmap == null)
+            {
+                return false;
+            }
+
+            // Map the stored world bounds corners to screen space in the current viewport.
+            PointD tl = engine.WorldToScreen(
+                new PointD(MinX(_compositeWorldBounds), MaxY(_compositeWorldBounds)));
+            PointD br = engine.WorldToScreen(
+                new PointD(MaxX(_compositeWorldBounds), MinY(_compositeWorldBounds)));
+
+            if (!IsFiniteD(tl.X) || !IsFiniteD(tl.Y) ||
+                !IsFiniteD(br.X) || !IsFiniteD(br.Y))
+            {
+                return false;
+            }
+
+            float dstW = (float)(br.X - tl.X);
+            float dstH = (float)(br.Y - tl.Y);
+            if (dstW < 0.5f || dstH < 0.5f)
+            {
+                return false;
+            }
+
+            GraphicsState gs = graphics.Save();
+            try
+            {
+                // SourceOver so transparent composite margins don't erase layers below.
+                graphics.CompositingMode = CompositingMode.SourceOver;
+                graphics.CompositingQuality = CompositingQuality.HighSpeed;
+                // HighQualityBicubic gives smooth appearance when zooming — no blocky pixels.
+                graphics.InterpolationMode = InterpolationMode.HighQualityBicubic;
+                graphics.PixelOffsetMode = PixelOffsetMode.None;
+
+                graphics.DrawImage(
+                    _compositeBitmap,
+                    new RectangleF((float)tl.X, (float)tl.Y, dstW, dstH),
+                    new RectangleF(0, 0, _compositeBitmap.Width, _compositeBitmap.Height),
+                    GraphicsUnit.Pixel);
+            }
+            finally
+            {
+                graphics.Restore(gs);
+            }
+
+            return true;
+        }
+
+        /// <summary>
+        /// Draws all cached tiles into an offscreen composite bitmap (applying the Asia clip
+        /// and pixel-perfect alignment), then blits it 1:1 to the canvas.
+        /// Sets <see cref="_compositeValid"/> so subsequent interactive frames can fast-path.
+        /// </summary>
+        private bool RebuildCompositeAndDraw(
+            Graphics graphics,
+            MapCanvasEngine engine,
+            RectangleD visibleWorldBounds,
+            TileRange tileRange,
+            Size canvasSize,
+            CancellationToken cancellationToken)
+        {
+            // Allocate or resize the offscreen bitmap to match the canvas.
+            if (_compositeBitmap == null ||
+                _compositeBitmap.Width != canvasSize.Width ||
+                _compositeBitmap.Height != canvasSize.Height)
+            {
+                _compositeBitmap?.Dispose();
+                _compositeValid = false;
+                _compositeBitmap = canvasSize.Width > 0 && canvasSize.Height > 0
+                    ? new Bitmap(canvasSize.Width, canvasSize.Height, PixelFormat.Format32bppPArgb)
+                    : null;
+            }
+
+            bool drawnAny = false;
+
+            if (_compositeBitmap != null)
+            {
+                using (Graphics cg = Graphics.FromImage(_compositeBitmap))
+                {
+                    cg.Clear(Color.Transparent);
+
+                    // PixelOffsetMode.None = pixels land exactly on integer coordinates.
+                    // HighQuality offsets by 0.5 px which creates 1-pixel seams between tiles.
+                    cg.SmoothingMode = SmoothingMode.None;
+                    cg.InterpolationMode = InterpolationMode.NearestNeighbor;
+                    cg.PixelOffsetMode = PixelOffsetMode.None;
+                    cg.CompositingQuality = CompositingQuality.HighSpeed;
+                    // SourceCopy prevents alpha-fringe bleed at tile seams.
+                    cg.CompositingMode = CompositingMode.SourceCopy;
+
+                    // Clip to the Asia continent boundary so tiles that partially
+                    // overlap the edge are not drawn beyond the Asian extent.
+                    ApplyAsiaScreenClip(cg, engine);
+
+                    drawnAny = DrawVisibleTileMosaic(
+                        cg, engine, visibleWorldBounds, tileRange, cancellationToken);
+                }
+
+                // Store the viewport reference so interactive frames can remap it.
+                if (drawnAny)
+                {
+                    _compositeWorldBounds = visibleWorldBounds;
+                    _compositeCanvasSize = canvasSize;
+                    _compositeZoomScale = engine.ZoomScale;
+                    _compositeValid = true;
+                }
+
+                // Blit composite to the canvas using SourceOver so transparent margins
+                // (Asia clip edges) do not erase underlying layers.
+                GraphicsState gs = graphics.Save();
+                try
+                {
+                    graphics.CompositingMode = CompositingMode.SourceOver;
+                    graphics.CompositingQuality = CompositingQuality.HighQuality;
+                    graphics.InterpolationMode = InterpolationMode.HighQualityBicubic;
+                    graphics.PixelOffsetMode = PixelOffsetMode.HighQuality;
+                    graphics.DrawImageUnscaled(_compositeBitmap, 0, 0);
+                }
+                finally
+                {
+                    graphics.Restore(gs);
+                }
+            }
+            else
+            {
+                // Fallback: draw directly when bitmap allocation fails (e.g. zero-size canvas).
+                GraphicsState gs = graphics.Save();
+                try
+                {
+                    graphics.SmoothingMode = SmoothingMode.None;
+                    graphics.InterpolationMode = InterpolationMode.NearestNeighbor;
+                    graphics.PixelOffsetMode = PixelOffsetMode.None;
+                    graphics.CompositingQuality = CompositingQuality.HighSpeed;
+                    graphics.CompositingMode = CompositingMode.SourceCopy;
+
+                    drawnAny = DrawVisibleTileMosaic(
+                        graphics, engine, visibleWorldBounds, tileRange, cancellationToken);
+                }
+                finally
+                {
+                    graphics.Restore(gs);
+                }
+            }
+
+            return drawnAny;
+        }
+
+        /// <summary>
+        /// Clips <paramref name="g"/> to the Asia extent projected into current screen space.
+        /// Tiles that spill beyond the Asian boundary are masked out.
+        /// </summary>
+        private void ApplyAsiaScreenClip(Graphics g, MapCanvasEngine engine)
+        {
+            RectangleD asiaBoundsProject;
+            if (_projectIsWebMercator)
+            {
+                asiaBoundsProject = AsiaWebMercatorBounds;
+            }
+            else if (!TryTransformBounds(
+                         _webMercatorToProject,
+                         AsiaWebMercatorBounds,
+                         out asiaBoundsProject))
+            {
+                return;
+            }
+
+            PointD tl = engine.WorldToScreen(
+                new PointD(MinX(asiaBoundsProject), MaxY(asiaBoundsProject)));
+            PointD br = engine.WorldToScreen(
+                new PointD(MaxX(asiaBoundsProject), MinY(asiaBoundsProject)));
+
+            if (!IsFiniteD(tl.X) || !IsFiniteD(tl.Y) ||
+                !IsFiniteD(br.X) || !IsFiniteD(br.Y))
+            {
+                return;
+            }
+
+            float left   = (float)Math.Min(tl.X, br.X);
+            float top    = (float)Math.Min(tl.Y, br.Y);
+            float right  = (float)Math.Max(tl.X, br.X);
+            float bottom = (float)Math.Max(tl.Y, br.Y);
+
+            if (right <= left || bottom <= top)
+            {
+                return;
+            }
+
+            g.SetClip(
+                new RectangleF(left, top, right - left, bottom - top),
+                CombineMode.Intersect);
         }
 
         public void UpdateRenderState(bool isVisible, int transparency)
@@ -343,7 +583,7 @@ namespace Land_Readjustment_Tool.UI.MapCanvas.Rendering
             lock (_renderSync)
             {
                 oldCts = _viewportCts;
-                ClearTileCache();
+                ClearTileCache();          // also disposes _compositeBitmap
                 _projectTileBoundsCache.Clear();
                 _opacityImageAttributes?.Dispose();
                 _opacityImageAttributes = null;
@@ -358,6 +598,205 @@ namespace Land_Readjustment_Tool.UI.MapCanvas.Rendering
         }
 
         // ── Synchronous tile draw ──────────────────────────────────────────────
+
+        private bool DrawVisibleTileMosaic(
+            Graphics graphics,
+            MapCanvasEngine engine,
+            RectangleD visibleWorldBounds,
+            TileRange tileRange,
+            CancellationToken cancellationToken)
+        {
+            int columns = tileRange.MaxX - tileRange.MinX + 1;
+            int rows = tileRange.MaxY - tileRange.MinY + 1;
+            if (columns <= 0 || rows <= 0)
+            {
+                return false;
+            }
+
+            int mosaicWidth = columns * TilePixelSize;
+            int mosaicHeight = rows * TilePixelSize;
+            using Bitmap mosaic = new(
+                mosaicWidth,
+                mosaicHeight,
+                PixelFormat.Format32bppPArgb);
+
+            bool hasPixels = false;
+            using (Graphics mosaicGraphics = Graphics.FromImage(mosaic))
+            {
+                mosaicGraphics.Clear(Color.Transparent);
+                mosaicGraphics.SmoothingMode = SmoothingMode.None;
+                mosaicGraphics.InterpolationMode = InterpolationMode.NearestNeighbor;
+                mosaicGraphics.PixelOffsetMode = PixelOffsetMode.None;
+                mosaicGraphics.CompositingQuality = CompositingQuality.HighSpeed;
+                mosaicGraphics.CompositingMode = CompositingMode.SourceCopy;
+
+                for (int y = tileRange.MinY; y <= tileRange.MaxY; y++)
+                {
+                    for (int x = tileRange.MinX; x <= tileRange.MaxX; x++)
+                    {
+                        cancellationToken.ThrowIfCancellationRequested();
+
+                        TileKey key = new TileKey(tileRange.Zoom, x, y);
+                        RectangleD projectBounds = GetProjectTileBounds(key);
+                        if (!TryIntersects(projectBounds, visibleWorldBounds))
+                        {
+                            continue;
+                        }
+
+                        Rectangle destination = new(
+                            (x - tileRange.MinX) * TilePixelSize,
+                            (y - tileRange.MinY) * TilePixelSize,
+                            TilePixelSize,
+                            TilePixelSize);
+
+                        if (_tileCache.TryGetValue(key, out Bitmap? bitmap))
+                        {
+                            TouchTile(key);
+                            DrawMosaicBitmapRegion(
+                                mosaicGraphics,
+                                bitmap,
+                                destination,
+                                new RectangleF(0, 0, bitmap.Width, bitmap.Height),
+                                smooth: false);
+                            hasPixels = true;
+                            continue;
+                        }
+
+                        if (TryGetParentPlaceholder(
+                                key,
+                                maxLevelsUp: 4,
+                                out Bitmap? parentBitmap,
+                                out RectangleF parentSource))
+                        {
+                            DrawMosaicBitmapRegion(
+                                mosaicGraphics,
+                                parentBitmap,
+                                destination,
+                                parentSource,
+                                smooth: true);
+                            hasPixels = true;
+                        }
+                    }
+                }
+            }
+
+            if (!hasPixels)
+            {
+                return false;
+            }
+
+            return DrawMosaicSurface(
+                graphics,
+                engine,
+                mosaic,
+                GetWebMercatorTileRangeBounds(tileRange));
+        }
+
+        private bool DrawMosaicSurface(
+            Graphics graphics,
+            MapCanvasEngine engine,
+            Bitmap mosaic,
+            RectangleD webMercatorBounds)
+        {
+            RectangleF source = new(0, 0, mosaic.Width, mosaic.Height);
+            if (_projectIsWebMercator)
+            {
+                RectangleF destination =
+                    WorldBoundsToScreenRectangle(engine, webMercatorBounds);
+                if (!IsValidDestination(destination))
+                {
+                    return false;
+                }
+
+                DrawBitmapRegion(
+                    graphics,
+                    mosaic,
+                    AlignDestinationToPixelGrid(destination),
+                    source);
+                return true;
+            }
+
+            int subdivisionsX = Math.Clamp(
+                (mosaic.Width / TilePixelSize) * 2,
+                8,
+                MaxMosaicMeshSubdivisions);
+            int subdivisionsY = Math.Clamp(
+                (mosaic.Height / TilePixelSize) * 2,
+                8,
+                MaxMosaicMeshSubdivisions);
+            bool drawnAny = false;
+
+            for (int row = 0; row < subdivisionsY; row++)
+            {
+                for (int column = 0; column < subdivisionsX; column++)
+                {
+                    RectangleD cellBounds = GetSubBounds(
+                        webMercatorBounds,
+                        column,
+                        row,
+                        subdivisionsX,
+                        subdivisionsY);
+                    if (!TryCreateProjectedScreenQuad(
+                            engine,
+                            cellBounds,
+                            out PointF[] destination))
+                    {
+                        continue;
+                    }
+
+                    RectangleF cellSource = GetSourceSubRectangle(
+                        source,
+                        column,
+                        row,
+                        subdivisionsX,
+                        subdivisionsY);
+                    if (!IsValidSource(cellSource))
+                    {
+                        continue;
+                    }
+
+                    DrawBitmapQuad(
+                        graphics,
+                        mosaic,
+                        ExpandDestinationQuadForSeams(destination),
+                        cellSource);
+                    drawnAny = true;
+                }
+            }
+
+            return drawnAny;
+        }
+
+        private void DrawMosaicBitmapRegion(
+            Graphics graphics,
+            Bitmap bitmap,
+            Rectangle destination,
+            RectangleF source,
+            bool smooth)
+        {
+            InterpolationMode savedInterpolation = graphics.InterpolationMode;
+            graphics.InterpolationMode = smooth
+                ? InterpolationMode.HighQualityBicubic
+                : InterpolationMode.NearestNeighbor;
+
+            try
+            {
+                using ImageAttributes attributes = CreateDefaultImageAttributes();
+                graphics.DrawImage(
+                    bitmap,
+                    destination,
+                    source.X,
+                    source.Y,
+                    source.Width,
+                    source.Height,
+                    GraphicsUnit.Pixel,
+                    attributes);
+            }
+            finally
+            {
+                graphics.InterpolationMode = savedInterpolation;
+            }
+        }
 
         private bool DrawVisibleTiles(
             Graphics graphics,
@@ -384,14 +823,15 @@ namespace Land_Readjustment_Tool.UI.MapCanvas.Rendering
 
                     if (!_tileCache.TryGetValue(key, out Bitmap? bitmap))
                     {
-                        // FIX: Draw a scaled parent tile as a placeholder while the real
-                        // tile is being fetched from the internet. This prevents the map
-                        // going blank or showing gaps during pan/zoom. The real tile
-                        // replaces the placeholder as soon as _invalidateCallback fires.
-                        if (TryDrawParentTileFallback(graphics, engine, key, projectBounds))
+                        if (TryDrawParentTileFallback(
+                                graphics,
+                                engine,
+                                key,
+                                projectBounds))
                         {
                             drawnAny = true;
                         }
+
                         continue;
                     }
 
@@ -550,6 +990,51 @@ namespace Land_Readjustment_Tool.UI.MapCanvas.Rendering
 
         // ── Debounce & background fetch ────────────────────────────────────────
 
+        private bool TryGetParentPlaceholder(
+            TileKey missingKey,
+            int maxLevelsUp,
+            out Bitmap? bitmap,
+            out RectangleF sourceRect)
+        {
+            bitmap = null;
+            sourceRect = default;
+
+            for (int dz = 1; dz <= maxLevelsUp; dz++)
+            {
+                int parentZoom = missingKey.Z - dz;
+                if (parentZoom < 0)
+                {
+                    return false;
+                }
+
+                int factor = 1 << dz;
+                TileKey parentKey = new(
+                    parentZoom,
+                    missingKey.X / factor,
+                    missingKey.Y / factor);
+                if (!_tileCache.TryGetValue(parentKey, out Bitmap? parentBitmap))
+                {
+                    continue;
+                }
+
+                TouchTile(parentKey);
+                float sourceWidth = parentBitmap.Width / (float)factor;
+                float sourceHeight = parentBitmap.Height / (float)factor;
+                int offsetX = missingKey.X % factor;
+                int offsetY = missingKey.Y % factor;
+
+                bitmap = parentBitmap;
+                sourceRect = new RectangleF(
+                    offsetX * sourceWidth,
+                    offsetY * sourceHeight,
+                    sourceWidth,
+                    sourceHeight);
+                return true;
+            }
+
+            return false;
+        }
+
         private bool DrawParentBitmapRegion(
             Graphics graphics,
             MapCanvasEngine engine,
@@ -559,7 +1044,7 @@ namespace Land_Readjustment_Tool.UI.MapCanvas.Rendering
             RectangleF source)
         {
             InterpolationMode savedMode = graphics.InterpolationMode;
-            graphics.InterpolationMode = InterpolationMode.NearestNeighbor;
+            graphics.InterpolationMode = InterpolationMode.HighQualityBicubic;
 
             try
             {
@@ -606,6 +1091,8 @@ namespace Land_Readjustment_Tool.UI.MapCanvas.Rendering
             CancellationTokenSource oldCts;
             RectangleD webMercatorBounds;
             int zoom;
+            bool lastInteractive;
+            bool lastViewportAllowed;
 
             lock (_renderSync)
             {
@@ -619,6 +1106,8 @@ namespace Land_Readjustment_Tool.UI.MapCanvas.Rendering
                 _viewportCts = newCts;
                 webMercatorBounds = _lastWebMercatorBounds;
                 zoom = _lastZoom;
+                lastInteractive = _lastRenderInteractive;
+                lastViewportAllowed = _lastViewportAllowed;
             }
 
             oldCts.Cancel();
@@ -629,7 +1118,44 @@ namespace Land_Readjustment_Tool.UI.MapCanvas.Rendering
                 return;
             }
 
+            if (lastInteractive || !lastViewportAllowed)
+            {
+                return;
+            }
+
             _ = FetchMissingTilesAsync(webMercatorBounds, zoom, newCts.Token);
+        }
+
+        private static RectangleD ExpandExtent(RectangleD bounds, double paddingFactor)
+        {
+            double padX = bounds.Width * paddingFactor;
+            double padY = bounds.Height * paddingFactor;
+
+            return new RectangleD(
+                bounds.X - padX,
+                bounds.Y - padY,
+                bounds.Width + padX * 2.0,
+                bounds.Height + padY * 2.0);
+        }
+
+        private static bool TryGetIntersection(
+            RectangleD a,
+            RectangleD b,
+            out RectangleD intersection)
+        {
+            double left = Math.Max(a.Left, b.Left);
+            double right = Math.Min(a.Right, b.Right);
+            double bottom = Math.Max(a.Bottom, b.Bottom);
+            double top = Math.Min(a.Top, b.Top);
+
+            if (right <= left || top <= bottom)
+            {
+                intersection = default;
+                return false;
+            }
+
+            intersection = new RectangleD(left, bottom, right - left, top - bottom);
+            return true;
         }
 
         private void QueueBootstrapFetch(
@@ -837,6 +1363,8 @@ namespace Land_Readjustment_Tool.UI.MapCanvas.Rendering
                     _tileCache[key] = bitmap;
                     _noDataTiles.Remove(key);
                     bitmap = null; // ownership transferred to cache
+                    // A new tile has arrived — the composite is stale and must be rebuilt.
+                    _compositeValid = false;
                     LinkedListNode<TileKey> node = _tileLru.AddLast(key);
                     _tileLruNodes[key] = node;
                     TrimTileCache();
@@ -999,6 +1527,21 @@ namespace Land_Readjustment_Tool.UI.MapCanvas.Rendering
             return new RectangleD(left, bottom, right - left, top - bottom);
         }
 
+        private static RectangleD GetWebMercatorTileRangeBounds(TileRange range)
+        {
+            RectangleD topLeft = GetWebMercatorTileBounds(
+                new TileKey(range.Zoom, range.MinX, range.MinY));
+            RectangleD bottomRight = GetWebMercatorTileBounds(
+                new TileKey(range.Zoom, range.MaxX, range.MaxY));
+
+            double left = MinX(topLeft);
+            double right = MaxX(bottomRight);
+            double top = MaxY(topLeft);
+            double bottom = MinY(bottomRight);
+
+            return new RectangleD(left, bottom, right - left, top - bottom);
+        }
+
         private static bool TryTransformBounds(
             CoordinateTransformation transformation,
             RectangleD sourceBounds,
@@ -1105,6 +1648,20 @@ namespace Land_Readjustment_Tool.UI.MapCanvas.Rendering
             return true;
         }
 
+        private static bool IsViewportWithinAllowedBounds(
+            RectangleD visibleWebMercatorBounds)
+        {
+            return ContainsBounds(AsiaWebMercatorBounds, visibleWebMercatorBounds);
+        }
+
+        private static bool ContainsBounds(RectangleD outer, RectangleD inner)
+        {
+            return MinX(inner) >= MinX(outer) &&
+                   MaxX(inner) <= MaxX(outer) &&
+                   MinY(inner) >= MinY(outer) &&
+                   MaxY(inner) <= MaxY(outer);
+        }
+
         // ── Drawing helpers ────────────────────────────────────────────────────
 
         private bool TryCreateProjectedScreenQuad(
@@ -1162,60 +1719,88 @@ namespace Land_Readjustment_Tool.UI.MapCanvas.Rendering
             PointF[] destination,
             RectangleF source)
         {
-            if (_opacityImageAttributes == null)
+            RectangleF expandedSource = ExpandSourceForSeams(
+                source,
+                bitmap.Width,
+                bitmap.Height);
+
+            PixelOffsetMode oldPixelOffset = graphics.PixelOffsetMode;
+            InterpolationMode oldInterpolation = graphics.InterpolationMode;
+            graphics.PixelOffsetMode = PixelOffsetMode.None;
+            graphics.InterpolationMode = InterpolationMode.HighQualityBicubic;
+
+            try
             {
-                using ImageAttributes attributes = new();
-                attributes.SetWrapMode(WrapMode.TileFlipXY);
+                if (_opacityImageAttributes == null)
+                {
+                    using ImageAttributes attributes = new();
+                    attributes.SetWrapMode(WrapMode.TileFlipXY);
+                    graphics.DrawImage(
+                        bitmap,
+                        destination,
+                        expandedSource,
+                        GraphicsUnit.Pixel,
+                        attributes);
+                    return;
+                }
+
                 graphics.DrawImage(
                     bitmap,
                     destination,
-                    source,
+                    expandedSource,
                     GraphicsUnit.Pixel,
-                    attributes);
-                return;
+                    _opacityImageAttributes);
             }
-
-            graphics.DrawImage(
-                bitmap,
-                destination,
-                source,
-                GraphicsUnit.Pixel,
-                _opacityImageAttributes);
+            finally
+            {
+                graphics.InterpolationMode = oldInterpolation;
+                graphics.PixelOffsetMode = oldPixelOffset;
+            }
         }
 
         private void DrawBitmapRegion(
             Graphics graphics,
             Bitmap bitmap,
             RectangleF destination,
-            RectangleF source)
+            RectangleF source,
+            bool isPlaceholder = false)
         {
-            if (_opacityImageAttributes == null)
+            // Always use integer Rectangle destination — the 3-point parallelogram overload
+            // causes 1-pixel seam bleed between adjacent tiles in GDI+.
+            Rectangle dest = CreateIntegerDestinationRectangle(destination);
+
+            InterpolationMode oldInterpolation = graphics.InterpolationMode;
+            graphics.InterpolationMode = isPlaceholder
+                ? InterpolationMode.HighQualityBicubic
+                : InterpolationMode.NearestNeighbor;
+
+            try
             {
-                using ImageAttributes ia = new ImageAttributes();
-                ia.SetWrapMode(WrapMode.TileFlipXY);
-                graphics.DrawImage(
-                    bitmap,
-                    [
-                        new PointF(destination.Left, destination.Top),
-                        new PointF(destination.Right, destination.Top),
-                        new PointF(destination.Left, destination.Bottom)
-                    ],
-                    source,
-                    GraphicsUnit.Pixel,
-                    ia);
-                return;
+                ImageAttributes ia = _opacityImageAttributes ?? CreateDefaultImageAttributes();
+                bool ownedIa = _opacityImageAttributes == null;
+                try
+                {
+                    graphics.DrawImage(
+                        bitmap,
+                        dest,
+                        source.X,
+                        source.Y,
+                        source.Width,
+                        source.Height,
+                        GraphicsUnit.Pixel,
+                        ia);
+                }
+                finally
+                {
+                    if (ownedIa) ia.Dispose();
+                }
+            }
+            finally
+            {
+                graphics.InterpolationMode = oldInterpolation;
             }
 
-            Rectangle dest = CreateIntegerDestinationRectangle(destination);
-            graphics.DrawImage(
-                bitmap,
-                dest,
-                source.X,
-                source.Y,
-                source.Width,
-                source.Height,
-                GraphicsUnit.Pixel,
-                _opacityImageAttributes);
+            
         }
 
         private void UpdateOpacityAttributes()
@@ -1241,6 +1826,13 @@ namespace Land_Readjustment_Tool.UI.MapCanvas.Rendering
             ia.SetColorMatrix(matrix, ColorMatrixFlag.Default, ColorAdjustType.Bitmap);
             ia.SetWrapMode(WrapMode.TileFlipXY);
             _opacityImageAttributes = ia;
+        }
+
+        private static ImageAttributes CreateDefaultImageAttributes()
+        {
+            ImageAttributes ia = new ImageAttributes();
+            ia.SetWrapMode(WrapMode.TileFlipXY);
+            return ia;
         }
 
         // ── Bitmap decoding ────────────────────────────────────────────────────
@@ -1385,6 +1977,10 @@ namespace Land_Readjustment_Tool.UI.MapCanvas.Rendering
             _pendingFetches.Clear();
             _noDataTiles.Clear();
             _projectTileBoundsCache.Clear();
+
+            _compositeValid = false;
+            _compositeBitmap?.Dispose();
+            _compositeBitmap = null;
         }
 
         // ── Disk cache ─────────────────────────────────────────────────────────
@@ -1571,18 +2167,16 @@ namespace Land_Readjustment_Tool.UI.MapCanvas.Rendering
         }
 
         private static RectangleD BuildWorldBounds(
-            CoordinateTransformation webMercatorToProject)
+    CoordinateTransformation webMercatorToProject)
         {
-            // Full WebMercator extent (±20 037 508 m in both axes).
-            RectangleD full = new RectangleD(
-                -WebMercatorExtent,
-                -WebMercatorExtent,
-                WebMercatorWorldSize,
-                WebMercatorWorldSize);
-
-            return TryTransformBounds(webMercatorToProject, full, out RectangleD projected)
-                ? projected
-                : full;
+            // Only Asia extent, not full world.
+            // Full WebMercator -> UTM transform is unreliable and can make the layer disappear.
+            return TryTransformBounds(
+                    webMercatorToProject,
+                    AsiaWebMercatorBounds,
+                    out RectangleD projectedAsia)
+                ? projectedAsia
+                : AsiaWebMercatorBounds;
         }
 
         private static SpatialReference CreateSpatialReference(string definition)
@@ -1668,6 +2262,94 @@ namespace Land_Readjustment_Tool.UI.MapCanvas.Rendering
                 height);
         }
 
+        private static RectangleF GetSourceSubRectangle(
+            RectangleF source,
+            int column,
+            int row,
+            int columns,
+            int rows)
+        {
+            float width = source.Width / columns;
+            float height = source.Height / rows;
+            return new RectangleF(
+                source.Left + column * width,
+                source.Top + row * height,
+                width,
+                height);
+        }
+
+        private static RectangleF ExpandSourceForSeams(
+            RectangleF source,
+            int bitmapWidth,
+            int bitmapHeight)
+        {
+            const float inflate = 0.5f;
+
+            float left = Math.Max(0.0f, source.Left - inflate);
+            float top = Math.Max(0.0f, source.Top - inflate);
+            float right = Math.Min(bitmapWidth, source.Right + inflate);
+            float bottom = Math.Min(bitmapHeight, source.Bottom + inflate);
+
+            if (right <= left)
+            {
+                right = Math.Min(bitmapWidth, left + 1.0f);
+            }
+
+            if (bottom <= top)
+            {
+                bottom = Math.Min(bitmapHeight, top + 1.0f);
+            }
+
+            return RectangleF.FromLTRB(left, top, right, bottom);
+        }
+
+        private static PointF[] ExpandDestinationQuadForSeams(PointF[] destination)
+        {
+            if (destination.Length < 3)
+            {
+                return destination;
+            }
+
+            PointF topLeft = destination[0];
+            PointF topRight = destination[1];
+            PointF bottomLeft = destination[2];
+            PointF bottomRight = new(
+                topRight.X + bottomLeft.X - topLeft.X,
+                topRight.Y + bottomLeft.Y - topLeft.Y);
+
+            float centerX =
+                (topLeft.X + topRight.X + bottomLeft.X + bottomRight.X) / 4.0f;
+            float centerY =
+                (topLeft.Y + topRight.Y + bottomLeft.Y + bottomRight.Y) / 4.0f;
+
+            return
+            [
+                ExpandPointFromCenter(topLeft, centerX, centerY),
+                ExpandPointFromCenter(topRight, centerX, centerY),
+                ExpandPointFromCenter(bottomLeft, centerX, centerY)
+            ];
+        }
+
+        private static PointF ExpandPointFromCenter(
+            PointF point,
+            float centerX,
+            float centerY)
+        {
+            const float overlapPixels = 1.25f;
+            float dx = point.X - centerX;
+            float dy = point.Y - centerY;
+            float length = MathF.Sqrt(dx * dx + dy * dy);
+            if (length <= 0.001f)
+            {
+                return point;
+            }
+
+            float scale = (length + overlapPixels) / length;
+            return new PointF(
+                centerX + dx * scale,
+                centerY + dy * scale);
+        }
+
         private static RectangleD GetSubTileWebMercatorBounds(
             RectangleD tileBounds,
             int column,
@@ -1680,6 +2362,26 @@ namespace Land_Readjustment_Tool.UI.MapCanvas.Rendering
             double maxY = MaxY(tileBounds);
             double width = (maxX - minX) / subdivisions;
             double height = (maxY - minY) / subdivisions;
+
+            double left = minX + column * width;
+            double top = maxY - row * height;
+            double bottom = top - height;
+            return new RectangleD(left, bottom, width, height);
+        }
+
+        private static RectangleD GetSubBounds(
+            RectangleD bounds,
+            int column,
+            int row,
+            int columns,
+            int rows)
+        {
+            double minX = MinX(bounds);
+            double maxX = MaxX(bounds);
+            double minY = MinY(bounds);
+            double maxY = MaxY(bounds);
+            double width = (maxX - minX) / columns;
+            double height = (maxY - minY) / rows;
 
             double left = minX + column * width;
             double top = maxY - row * height;
@@ -1740,18 +2442,12 @@ namespace Land_Readjustment_Tool.UI.MapCanvas.Rendering
 
         private static RectangleF AlignDestinationToPixelGrid(RectangleF destination)
         {
-            float left = (float)Math.Round(
-                destination.Left,
-                MidpointRounding.AwayFromZero);
-            float top = (float)Math.Round(
-                destination.Top,
-                MidpointRounding.AwayFromZero);
-            float right = (float)Math.Round(
-                destination.Right,
-                MidpointRounding.AwayFromZero);
-            float bottom = (float)Math.Round(
-                destination.Bottom,
-                MidpointRounding.AwayFromZero);
+            // Floor left/top and Ceiling right/bottom so adjacent tiles always share an
+            // integer pixel edge — no sub-pixel gap can appear between neighbours.
+            float left   = (float)Math.Floor(destination.Left);
+            float top    = (float)Math.Floor(destination.Top);
+            float right  = (float)Math.Ceiling(destination.Right);
+            float bottom = (float)Math.Ceiling(destination.Bottom);
 
             if (right <= left)
             {

@@ -298,6 +298,7 @@ namespace Land_Readjustment_Tool.UI.CustomControls
                         {
                             _liveTileRefreshPending = false;
                             RefreshRasterCacheForCurrentViewAsync();
+                            RequestRender();
                         }));
                     }
                 };
@@ -449,6 +450,15 @@ namespace Land_Readjustment_Tool.UI.CustomControls
         {
             canvasSurface.Focus();
 
+            bool isPanGesture =
+                e.Button == MouseButtons.Middle ||
+                (_panToolActive && e.Button == MouseButtons.Left);
+
+            if (_isZooming && isPanGesture)
+            {
+                StopZoomInteraction();
+            }
+
             if (IsCanvasInteractionLocked)
             {
                 return;
@@ -463,8 +473,9 @@ namespace Land_Readjustment_Tool.UI.CustomControls
                 return;
             }
 
-            if (e.Button == MouseButtons.Middle || (_panToolActive && e.Button == MouseButtons.Left))
+            if (isPanGesture)
             {
+                CancelPendingRasterRender();
                 _isPanning = true;
                 _lastPanPoint = e.Location;
                 _totalPanDelta = PointF.Empty;
@@ -642,7 +653,7 @@ namespace Land_Readjustment_Tool.UI.CustomControls
             return "Mode: Ready";
         }
 
-        private bool IsCanvasInteractionLocked => _isZooming;
+        private bool IsCanvasInteractionLocked => false;
 
         private bool IsInteractiveNavigation =>
             _isPanning || _isZooming || _isSelectingZoomWindow;
@@ -697,6 +708,8 @@ namespace Land_Readjustment_Tool.UI.CustomControls
         private void ZoomingStatusTimer_Tick(object? sender, EventArgs e)
         {
             _zoomingStatusTimer.Stop();
+            _isZooming = false;
+            _zoomDirection = null;
             RefreshRasterCacheForCurrentViewAsync(endZoomWhenComplete: true);
             UpdateStatusBar();
             RequestRender();
@@ -741,6 +754,23 @@ namespace Land_Readjustment_Tool.UI.CustomControls
                 _isSelectingZoomWindow = false;
                 _zoomWindowActive = false;
             }
+        }
+
+        private void StopZoomInteraction()
+        {
+            if (!_isZooming)
+            {
+                return;
+            }
+
+            _zoomingStatusTimer.Stop();
+            CancelPendingRasterRender();
+            _rasterDeferredRenderer.EndZoom();
+            _isZooming = false;
+            _zoomDirection = null;
+            _rasterCacheRefreshPending = false;
+            UpdateCanvasCursor();
+            UpdateStatusBar();
         }
 
         private void RefreshRasterCacheForCurrentViewImmediately()

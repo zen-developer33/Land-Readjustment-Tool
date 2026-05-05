@@ -162,7 +162,9 @@ namespace Land_Readjustment_Tool.UI.MapCanvas.Rendering
         {
             if (rasterFrame.HasValue)
             {
-                // Draw the stretched cached frame as background (fast, slightly blurry)
+                // Draw only the shifted/scaled cached raster frame during interaction.
+                // Do not ask live XYZ layers to draw again here; doing both leaves the
+                // previous cache visible behind a second shifted cache.
                 RasterRenderFrame frame = rasterFrame.Value;
                 try
                 {
@@ -171,15 +173,6 @@ namespace Land_Readjustment_Tool.UI.MapCanvas.Rendering
                 finally
                 {
                     frame.Dispose();
-                }
-
-                if (interactiveRaster)
-                {
-                    RenderRasterLayers(
-                        graphics,
-                        viewport,
-                        interactive: true,
-                        cachedOnly: true);
                 }
             }
             else if (interactiveRaster)
@@ -272,17 +265,16 @@ namespace Land_Readjustment_Tool.UI.MapCanvas.Rendering
                 try
                 {
                     graphics.SmoothingMode = SmoothingMode.None;
-                    graphics.InterpolationMode = InterpolationMode.NearestNeighbor;
-                    graphics.PixelOffsetMode = PixelOffsetMode.HighQuality;
+                    graphics.InterpolationMode = InterpolationMode.HighQualityBicubic;
+                    graphics.PixelOffsetMode = PixelOffsetMode.None;
                     graphics.CompositingQuality = CompositingQuality.HighSpeed;
                     graphics.DrawImage(
                         rasterFrame.Bitmap,
-                        [
-                            new PointF(destination.Left, destination.Top),
-                            new PointF(destination.Right, destination.Top),
-                            new PointF(destination.Left, destination.Bottom)
-                        ],
-                        source,
+                        Rectangle.Round(destination),
+                        source.X,
+                        source.Y,
+                        source.Width,
+                        source.Height,
                         GraphicsUnit.Pixel);
                 }
                 catch (ArgumentException ex)
@@ -426,7 +418,7 @@ namespace Land_Readjustment_Tool.UI.MapCanvas.Rendering
         {
             graphics.SmoothingMode = SmoothingMode.None;
             graphics.InterpolationMode = InterpolationMode.NearestNeighbor;
-            graphics.PixelOffsetMode = PixelOffsetMode.HighQuality;
+            graphics.PixelOffsetMode = PixelOffsetMode.None;
             graphics.CompositingQuality = CompositingQuality.HighSpeed;
             graphics.TextRenderingHint = TextRenderingHint.SingleBitPerPixel;
         }

@@ -570,7 +570,7 @@ namespace Land_Readjustment_Tool.UI.MapCanvas.Rendering
         {
             graphics.SmoothingMode = SmoothingMode.None;
             graphics.InterpolationMode = InterpolationMode.NearestNeighbor;
-            graphics.PixelOffsetMode = PixelOffsetMode.HighQuality; //must be highquality not highspeed for nearestneighbor interpolation to work correctly
+            graphics.PixelOffsetMode = PixelOffsetMode.None;
             graphics.CompositingQuality = CompositingQuality.HighSpeed;
             graphics.CompositingMode = CompositingMode.SourceCopy;
         }
