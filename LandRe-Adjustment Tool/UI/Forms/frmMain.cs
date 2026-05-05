@@ -1371,36 +1371,33 @@ namespace Land_Readjustment_Tool
                                     update.Status,
                                     showProgressForm: false)));
 
-                    // Step 2 — Stitch downloaded tiles into a GeoTIFF with EPSG:3857 georeference.
-                    // This is the correct approach: XYZ tiles are Web Mercator (EPSG:3857),
-                    // not WGS84. Assigning EPSG:3857 lets the existing import pipeline
-                    // correctly reproject into the project CRS.
-                    SetOperationProgress(40, "Stitching tiles into GeoTIFF", showProgressForm: false);
+                    SetOperationProgress(40, "Packaging tiles into MBTiles", showProgressForm: false);
 
                     string rasterFolder = Path.Combine(
                         AppServices.Context.ProjectFolderPath, "RasterLayers");
                     Directory.CreateDirectory(rasterFolder);
 
-                    string tiffFileName = $"{SanitizeFileName(request.LayerName)}_xyz.tif";
-                    string tiffPath = Path.Combine(rasterFolder, tiffFileName);
+                    string mbTilesFileName = $"{SanitizeFileName(request.LayerName)}_xyz.mbtiles";
+                    string mbTilesPath = Path.Combine(rasterFolder, mbTilesFileName);
 
                     // Overwrite if already exists from a previous import of same name
-                    if (File.Exists(tiffPath))
-                        File.Delete(tiffPath);
+                    if (File.Exists(mbTilesPath))
+                        File.Delete(mbTilesPath);
 
                     await Task.Run(() =>
-                        XyzTilePreDownloadService.AssembleDownloadedTilesIntoGeoTiff(
+                        XyzTilePreDownloadService.AssembleDownloadedTilesIntoMbTiles(
                             downloadResult,
                             request,
-                            tiffPath,
+                            mbTilesPath,
                             new Progress<XyzTileDownloadProgress>(update =>
                                 SetOperationProgress(
                                     Math.Clamp(40 + update.Percent / 5, 40, 58),
                                     update.Status,
                                     showProgressForm: false))));
 
-                    sourcePath = tiffPath;
-                    sourceSrsOverride = "EPSG:3857"; // XYZ tiles are always Web Mercator
+                    sourcePath = mbTilesPath;
+                    sourceSrsOverride = null;
+                    sourceExtent = null;
                 }
 
                 RasterLayerImportResult importResult =

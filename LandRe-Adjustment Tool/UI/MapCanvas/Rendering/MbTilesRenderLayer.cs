@@ -14,10 +14,12 @@ namespace Land_Readjustment_Tool.UI.MapCanvas.Rendering
     internal sealed class MbTilesRenderLayer : IRasterRenderLayer
     {
         private const int TilePixelSize = 256;
-        private const int MaxCachedTiles = 256;
+        private const int MaxCachedTiles = 1024;
+        private const int MaxMissingTileKeys = 8192;
         private const int MaxTilesPerFrame = 512;
+        private const int MaxTileFetchesPerFrame = 192;
+        private const int MaxTileFetchBatchSize = 64;
         private const int MaxSupportedZoom = 30;
-        private const int ReprojectedTileMeshSubdivisions = 2;
         private const byte TransparentWhiteThreshold = 248;
         private const byte TransparentWhiteMaxChannelSpread = 12;
         private const double TransparentWhiteMinimumMaskRatio = 0.01;
@@ -36,6 +38,8 @@ namespace Land_Readjustment_Tool.UI.MapCanvas.Rendering
         private readonly Dictionary<MbTilesTileKey, Bitmap> _tileCache = new();
         private readonly LinkedList<MbTilesTileKey> _tileLru = new();
         private readonly Dictionary<MbTilesTileKey, LinkedListNode<MbTilesTileKey>> _tileLruNodes = new();
+        private readonly HashSet<MbTilesTileKey> _missingTiles = new();
+        private readonly Queue<MbTilesTileKey> _missingTileOrder = new();
         private readonly Dictionary<MbTilesTileKey, RectangleD> _projectTileBoundsCache = new();
         private readonly IReadOnlyList<MbTilesZoomInfo> _zoomInfos;
         private readonly HashSet<int> _availableZooms;
@@ -92,6 +96,7 @@ namespace Land_Readjustment_Tool.UI.MapCanvas.Rendering
         public RectangleD WorldBounds { get; }
         public int Transparency { get; private set; }
         public bool IsVisible { get; private set; }
+        public bool CanRenderFromMemoryCacheDuringInteraction => true;
 
         public static bool IsMbTilesPath(string filePath) =>
             string.Equals(
@@ -143,10 +148,15 @@ namespace Land_Readjustment_Tool.UI.MapCanvas.Rendering
                         "Direct MBTiles rendering only supports Web Mercator tile pyramids.");
                 }
 
+                bool projectIsWebMercator = IsWebMercatorSpatialReference(projectSrs);
+                if (!projectIsWebMercator)
+                {
+                    throw new NotSupportedException(
+                        "Direct MBTiles rendering is only enabled when the project canvas uses Web Mercator. Non-WebMercator projects must render a GDAL-warped raster view.");
+                }
                 CoordinateTransformation webMercatorToProject = new(webMercatorSrs, projectSrs);
                 CoordinateTransformation projectToWebMercator = new(projectSrs, webMercatorSrs);
                 CoordinateTransformation wgs84ToProject = new(wgs84Srs, projectSrs);
-                bool projectIsWebMercator = IsWebMercatorSpatialReference(projectSrs);
 
                 RectangleD worldBounds = ResolveWorldBounds(
                     mbTilesMetadata,
@@ -314,11 +324,19 @@ namespace Land_Readjustment_Tool.UI.MapCanvas.Rendering
 
 
 
-            // Batch fetch all missing tiles in one SQLite query
-            List<MbTilesTileKey> missedKeys = visibleTiles
-                .Where(t => !_tileCache.ContainsKey(t.Key))
-                .Select(t => t.Key)
+            List<MbTilesVisibleTile> orderedTiles = visibleTiles
+                .OrderBy(tile => tile.Priority)
                 .ToList();
+
+            List<MbTilesTileKey> missedKeys = interactive
+                ? []
+                : orderedTiles
+                    .Where(tile =>
+                        !_tileCache.ContainsKey(tile.Key) &&
+                        !_missingTiles.Contains(tile.Key))
+                    .Select(tile => tile.Key)
+                    .Take(MaxTileFetchesPerFrame)
+                    .ToList();
 
             if (missedKeys.Count > 0)
             {
@@ -326,8 +344,7 @@ namespace Land_Readjustment_Tool.UI.MapCanvas.Rendering
             }
 
             // Draw — read directly from cache, no per-tile SQLite call needed
-            foreach (MbTilesVisibleTile visibleTile in visibleTiles
-                .OrderBy(tile => tile.Priority))
+            foreach (MbTilesVisibleTile visibleTile in orderedTiles)
             {
                 cancellationToken.ThrowIfCancellationRequested();
 
@@ -337,8 +354,7 @@ namespace Land_Readjustment_Tool.UI.MapCanvas.Rendering
                 TouchTile(visibleTile.Key);
                 drawnAny |= DrawTileBitmap(
                     graphics, engine, bitmap,
-                    visibleTile.Key, visibleTile.ProjectBounds,
-                    visibleWorldBounds, interactive);
+                    visibleTile.ProjectBounds);
             }
         
             return drawnAny;
@@ -492,87 +508,20 @@ namespace Land_Readjustment_Tool.UI.MapCanvas.Rendering
             Graphics graphics,
             MapCanvasEngine engine,
             Bitmap bitmap,
-            MbTilesTileKey key,
-            RectangleD projectBounds,
-            RectangleD visibleWorldBounds,
-            bool interactive)
+            RectangleD projectBounds)
         {
-            if (_projectIsWebMercator)
+            RectangleF destination = WorldBoundsToScreenRectangle(engine, projectBounds);
+            if (!IsValidDestination(destination))
             {
-                RectangleF destination = WorldBoundsToScreenRectangle(engine, projectBounds);
-                if (!IsValidDestination(destination))
-                {
-                    return false;
-                }
-
-                DrawBitmapRegion(
-                    graphics,
-                    bitmap,
-                    AlignDestinationToPixelGrid(destination),
-                    new RectangleF(0, 0, bitmap.Width, bitmap.Height));
-                return true;
+                return false;
             }
 
-            int subdivisions = interactive ? 1 : ReprojectedTileMeshSubdivisions;
-            RectangleD webMercatorBounds = GetWebMercatorTileBounds(key);
-            bool drawnAny = false;
-
-            for (int row = 0; row < subdivisions; row++)
-            {
-                for (int column = 0; column < subdivisions; column++)
-                {
-                    RectangleF source = GetTileSourceRectangle(
-                        bitmap,
-                        column,
-                        row,
-                        subdivisions);
-                    if (!IsValidSource(source))
-                    {
-                        continue;
-                    }
-
-                    RectangleD subTileWebMercatorBounds = GetSubTileWebMercatorBounds(
-                        webMercatorBounds,
-                        column,
-                        row,
-                        subdivisions);
-                    if (!TryTransformBounds(
-                            _webMercatorToProject,
-                            subTileWebMercatorBounds,
-                            out RectangleD subTileProjectBounds) ||
-                        !TryIntersects(subTileProjectBounds, visibleWorldBounds))
-                    {
-                        continue;
-                    }
-
-                    RectangleF destination = WorldBoundsToScreenRectangle(
-                        engine,
-                        subTileProjectBounds);
-                    if (!IsValidDestination(destination))
-                    {
-                        continue;
-                    }
-
-                    DrawBitmapRegion(
-                        graphics,
-                        bitmap,
-                        AlignDestinationToPixelGrid(destination),
-                        source);
-                    drawnAny = true;
-                }
-            }
-
-            return drawnAny;
-        }
-
-        private Bitmap? GetOrCreateTileBitmap(MbTilesTileKey key)
-        {
-            if (_tileCache.TryGetValue(key, out Bitmap? cachedBitmap))
-            {
-                TouchTile(key);
-                return cachedBitmap;
-            }
-            return null;
+            DrawBitmapRegion(
+                graphics,
+                bitmap,
+                AlignDestinationToPixelGrid(destination),
+                new RectangleF(0, 0, bitmap.Width, bitmap.Height));
+            return true;
         }
 
         private void BatchFetchAndCacheTiles(List<MbTilesTileKey> keys)
@@ -580,56 +529,55 @@ namespace Land_Readjustment_Tool.UI.MapCanvas.Rendering
             if (keys.Count == 0)
                 return;
 
-            // Build one SQL query fetching all missing tiles in a single round-trip.
-            // SQLite handles this efficiently using the index on (zoom_level, tile_column, tile_row).
-            var sb = new System.Text.StringBuilder();
-            sb.Append(
-                "SELECT zoom_level, tile_column, tile_row, tile_data FROM tiles WHERE (zoom_level, tile_column, tile_row) IN (");
-
-            for (int i = 0; i < keys.Count; i++)
-            {
-                if (i > 0) sb.Append(',');
-                sb.Append($"($z{i},$c{i},$r{i})");
-            }
-            sb.Append(')');
-
             try
             {
-                using SqliteCommand cmd = _connection.CreateCommand();
-                cmd.CommandText = sb.ToString();
-
-                for (int i = 0; i < keys.Count; i++)
+                foreach (MbTilesTileKey[] batch in keys.Chunk(MaxTileFetchBatchSize))
                 {
-                    cmd.Parameters.AddWithValue($"$z{i}", keys[i].Zoom);
-                    cmd.Parameters.AddWithValue($"$c{i}", keys[i].X);
-                    cmd.Parameters.AddWithValue($"$r{i}", ToStorageTileRow(keys[i].Zoom, keys[i].Y));
-                }
+                    HashSet<MbTilesTileKey> pendingKeys = batch.ToHashSet();
+                    using SqliteCommand cmd = _connection.CreateCommand();
+                    cmd.CommandText = CreateTileFetchSql(batch.Length);
 
-                using SqliteDataReader reader = cmd.ExecuteReader();
-                while (reader.Read())
-                {
-                    int zoom = reader.GetInt32(0);
-                    int col = reader.GetInt32(1);
-                    int stoRow = reader.GetInt32(2);
-                    byte[] tileData = (byte[])reader.GetValue(3);
+                    for (int i = 0; i < batch.Length; i++)
+                    {
+                        cmd.Parameters.AddWithValue($"$z{i}", batch[i].Zoom);
+                        cmd.Parameters.AddWithValue($"$c{i}", batch[i].X);
+                        cmd.Parameters.AddWithValue($"$r{i}", ToStorageTileRow(batch[i].Zoom, batch[i].Y));
+                    }
 
-                    // Convert storage row back to XYZ Y
-                    int xyzY = _tileRowScheme == MbTilesTileRowScheme.Xyz
-                        ? stoRow
-                        : (int)((1L << zoom) - 1 - stoRow);
+                    using SqliteDataReader reader = cmd.ExecuteReader();
+                    while (reader.Read())
+                    {
+                        int zoom = reader.GetInt32(0);
+                        int col = reader.GetInt32(1);
+                        int stoRow = reader.GetInt32(2);
+                        byte[] tileData = (byte[])reader.GetValue(3);
 
-                    MbTilesTileKey key = new(zoom, col, xyzY);
+                        int xyzY = _tileRowScheme == MbTilesTileRowScheme.Xyz
+                            ? stoRow
+                            : (int)((1L << zoom) - 1 - stoRow);
 
-                    if (_tileCache.ContainsKey(key))
-                        continue;
+                        MbTilesTileKey key = new(zoom, col, xyzY);
+                        pendingKeys.Remove(key);
 
-                    Bitmap? bitmap = DecodeTileBitmap(tileData);
-                    if (bitmap == null)
-                        continue;
+                        if (_tileCache.ContainsKey(key))
+                            continue;
 
-                    _tileCache[key] = bitmap;
-                    LinkedListNode<MbTilesTileKey> node = _tileLru.AddLast(key);
-                    _tileLruNodes[key] = node;
+                        Bitmap? bitmap = DecodeTileBitmap(tileData);
+                        if (bitmap == null)
+                        {
+                            AddMissingTile(key);
+                            continue;
+                        }
+
+                        _tileCache[key] = bitmap;
+                        LinkedListNode<MbTilesTileKey> node = _tileLru.AddLast(key);
+                        _tileLruNodes[key] = node;
+                    }
+
+                    foreach (MbTilesTileKey missingKey in pendingKeys)
+                    {
+                        AddMissingTile(missingKey);
+                    }
                 }
 
                 TrimTileCache();
@@ -642,18 +590,27 @@ namespace Land_Readjustment_Tool.UI.MapCanvas.Rendering
             }
         }
 
-        //private byte[]? ReadTileData(
-        //    MbTilesTileKey key,
-        //    SqliteCommand command)
-        //{
-        //    int storageRow = ToStorageTileRow(key.Zoom, key.Y);
-        //    command.Parameters["$zoom"].Value = key.Zoom;
-        //    command.Parameters["$column"].Value = key.X;
-        //    command.Parameters["$row"].Value = storageRow;
+        private static string CreateTileFetchSql(int keyCount)
+        {
+            System.Text.StringBuilder builder = new();
+            builder.Append(
+                "SELECT zoom_level, tile_column, tile_row, tile_data FROM tiles WHERE ");
 
-        //    object? value = command.ExecuteScalar();
-        //    return value as byte[];
-        //}
+            for (int i = 0; i < keyCount; i++)
+            {
+                if (i > 0)
+                {
+                    builder.Append(" OR ");
+                }
+
+                builder.Append(
+                    "(zoom_level=$z" + i +
+                    " AND tile_column=$c" + i +
+                    " AND tile_row=$r" + i + ")");
+            }
+
+            return builder.ToString();
+        }
 
         private Bitmap? DecodeTileBitmap(byte[] tileData)
         {
@@ -1318,36 +1275,6 @@ namespace Land_Readjustment_Tool.UI.MapCanvas.Rendering
                 _opacityImageAttributes);
         }
 
-        private static RectangleF GetTileSourceRectangle(
-            Bitmap bitmap,
-            int column,
-            int row,
-            int subdivisions)
-        {
-            float left = column * bitmap.Width / (float)subdivisions;
-            float top = row * bitmap.Height / (float)subdivisions;
-            float right = (column + 1) * bitmap.Width / (float)subdivisions;
-            float bottom = (row + 1) * bitmap.Height / (float)subdivisions;
-
-            return RectangleF.FromLTRB(left, top, right, bottom);
-        }
-
-        private static RectangleD GetSubTileWebMercatorBounds(
-            RectangleD tileBounds,
-            int column,
-            int row,
-            int subdivisions)
-        {
-            double tileWidth = Math.Abs(tileBounds.Width);
-            double tileHeight = Math.Abs(tileBounds.Height);
-            double left = MinX(tileBounds) + column * tileWidth / subdivisions;
-            double right = MinX(tileBounds) + (column + 1) * tileWidth / subdivisions;
-            double top = MaxY(tileBounds) - row * tileHeight / subdivisions;
-            double bottom = MaxY(tileBounds) - (row + 1) * tileHeight / subdivisions;
-
-            return new RectangleD(left, bottom, right - left, top - bottom);
-        }
-
         private void UpdateOpacityAttributes()
         {
             _opacityImageAttributes?.Dispose();
@@ -1404,6 +1331,21 @@ namespace Land_Readjustment_Tool.UI.MapCanvas.Rendering
             }
         }
 
+        private void AddMissingTile(MbTilesTileKey key)
+        {
+            if (!_missingTiles.Add(key))
+            {
+                return;
+            }
+
+            _missingTileOrder.Enqueue(key);
+            while (_missingTiles.Count > MaxMissingTileKeys &&
+                   _missingTileOrder.Count > 0)
+            {
+                _missingTiles.Remove(_missingTileOrder.Dequeue());
+            }
+        }
+
         private void TrimProjectBoundsCache()
         {
             if (_projectTileBoundsCache.Count <= MaxCachedTiles * 2)
@@ -1431,6 +1373,8 @@ namespace Land_Readjustment_Tool.UI.MapCanvas.Rendering
             _tileCache.Clear();
             _tileLru.Clear();
             _tileLruNodes.Clear();
+            _missingTiles.Clear();
+            _missingTileOrder.Clear();
             _projectTileBoundsCache.Clear();
         }
 

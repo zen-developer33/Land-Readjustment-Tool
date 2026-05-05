@@ -89,7 +89,6 @@ namespace Land_Readjustment_Tool.UI.Forms
             _initialState = initialState;
             InitializeComponent();
             WireRuntimeEvents();
-            ConfigureRuntimeFormBehavior();
             ApplyNepalDefaultBounds();
 
             if (!IsDesignMode())
@@ -731,16 +730,15 @@ namespace Land_Readjustment_Tool.UI.Forms
         // ── UI state helpers ─────────────────────────────────────────────────────
 
         /// <summary>
-        /// Shows or hides the download-status label and progress row, and collapses
-        /// their layout rows so no blank gap appears in Live Tiles mode.
+        /// Enables or disables the download-status label and progress row without
+        /// changing their layout visibility.
         /// </summary>
         private void SetProgressAreaVisible(bool visible)
         {
-            lblDownloadStatus.Visible = visible;
-            pnlProgressRow.Visible = visible;
-            layout.RowStyles[6] = new RowStyle(SizeType.Absolute, visible ? 39F : 0F);
-            layout.RowStyles[7] = new RowStyle(SizeType.Absolute, visible ? 36F : 0F);
-            layout.PerformLayout();
+            lblDownloadStatus.Enabled = visible;
+            pnlProgressRow.Enabled = visible;
+            progressTileDownload.Enabled = visible;
+            btnCancel.Enabled = visible && _downloadCancellation != null;
         }
 
         private void InvalidateDownloadedRequest()
@@ -794,8 +792,9 @@ namespace Land_Readjustment_Tool.UI.Forms
             numEast.Enabled = !isDownloading;
             numWest.Enabled = !isDownloading;
             numZoomLevel.Enabled = !isDownloading;
-            btnCancel.Enabled = isDownloading;   // cancel button active only while download runs
-            btnClose.Enabled = !isDownloading;   // close button disabled while download runs
+            btnCancel.Enabled = isDownloading && !_isImportInProgress;
+            btnClose.Enabled = !isDownloading;
+            progressTileDownload.Enabled = true;
         }
 
         public void BeginImportExecution(string statusText = "Importing tiles to map...")
@@ -891,10 +890,9 @@ namespace Land_Readjustment_Tool.UI.Forms
             btnClose.Click += btnClose_Click;
             FormClosing += frmXyzTileImportOptions_FormClosing;
 
-            // All three radio buttons share the same handler.
+            // Radio buttons — rdoLiveTiles is wired in Designer; the others are here.
             rdoCenterRadius.CheckedChanged += rdoCenterRadius_CheckedChanged;
             rdoBoundingBox.CheckedChanged += rdoCenterRadius_CheckedChanged;
-            rdoLiveTiles.CheckedChanged += rdoCenterRadius_CheckedChanged;
 
             txtLayerName.TextChanged += (_, _) => InvalidateDownloadedRequest();
 
@@ -927,15 +925,6 @@ namespace Land_Readjustment_Tool.UI.Forms
                 if (IsLiveMode)
                     SuggestLayerName(BuildLiveLayerName(SelectedTileSource.Name, decimal.ToInt32(numZoomLevel.Value)));
             };
-        }
-
-        private void ConfigureRuntimeFormBehavior()
-        {
-            btnImport.DialogResult = DialogResult.None;
-            AcceptButton = btnImport;
-            CancelButton = btnClose;  // ESC closes the form, not the download
-            MinimizeBox = true;
-            ShowInTaskbar = true;
         }
 
         // ── Form events ──────────────────────────────────────────────────────────
@@ -1069,10 +1058,6 @@ namespace Land_Readjustment_Tool.UI.Forms
             input.Value = ClampNumericValue(input, (decimal)value.Value);
         }
 
-        private void rdoLiveTiles_CheckedChanged(object sender, EventArgs e)
-        {
-
-        }
     }
 
     public sealed class XyzTileImportRequestedEventArgs : EventArgs

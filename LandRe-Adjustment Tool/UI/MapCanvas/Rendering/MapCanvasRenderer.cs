@@ -173,18 +173,31 @@ namespace Land_Readjustment_Tool.UI.MapCanvas.Rendering
                     frame.Dispose();
                 }
 
-                // Draw cached tiles directly on top at correct zoom positions (sharp)
-                // This overwrites the blurry parts with sharp tiles for anything in cache.
-                RenderRasterLayers(graphics, viewport, interactive: true);
+                if (interactiveRaster)
+                {
+                    RenderRasterLayers(
+                        graphics,
+                        viewport,
+                        interactive: true,
+                        cachedOnly: true);
+                }
             }
             else if (interactiveRaster)
             {
                 // No frame yet — draw direct from cache only
-                RenderRasterLayers(graphics, viewport, interactiveRaster);
+                RenderRasterLayers(
+                    graphics,
+                    viewport,
+                    interactiveRaster,
+                    cachedOnly: true);
             }
             else
             {
-                RenderRasterLayers(graphics, viewport, interactiveRaster);
+                RenderRasterLayers(
+                    graphics,
+                    viewport,
+                    interactiveRaster,
+                    cachedOnly: false);
             }
         }
 
@@ -212,13 +225,20 @@ namespace Land_Readjustment_Tool.UI.MapCanvas.Rendering
         private void RenderRasterLayers(
             Graphics graphics,
             MapCanvasRenderViewport viewport,
-            bool interactive)
+            bool interactive,
+            bool cachedOnly)
         {
             if (_rasterLayers.Count == 0)
                 return;
 
             foreach (IRasterRenderLayer layer in _rasterLayers)
             {
+                if (cachedOnly &&
+                    !layer.CanRenderFromMemoryCacheDuringInteraction)
+                {
+                    continue;
+                }
+
                 layer.RenderVisible(
                     graphics,
                     _engine,

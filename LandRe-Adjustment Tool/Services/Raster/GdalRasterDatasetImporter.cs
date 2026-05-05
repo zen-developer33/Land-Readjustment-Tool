@@ -58,16 +58,20 @@ namespace Land_Readjustment_Tool.Services.Raster
         }
 
         /// <inheritdoc />
-        public bool TryReprojectProjectRasterToProjectCrs(
+        public RasterProjectReprojectionResult TryReprojectProjectRasterToProjectCrs(
             string rasterPath,
-            string targetSrsDefinition,
-            out string skipReason)
+            string targetSrsDefinition)
         {
             RasterImportService importService = new();
-            return importService.TryReprojectProjectRasterToProjectCrs(
+            RasterProjectRasterReprojectionResult result =
+                importService.TryReprojectProjectRasterToProjectCrs(
                 rasterPath,
-                targetSrsDefinition,
-                out skipReason);
+                targetSrsDefinition);
+
+            return new RasterProjectReprojectionResult(
+                result.Reprojected,
+                result.UpdatedRasterPath,
+                result.SkipReason);
         }
 
         /// <summary>

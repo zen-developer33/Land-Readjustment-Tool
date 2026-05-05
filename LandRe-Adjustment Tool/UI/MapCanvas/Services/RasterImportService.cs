@@ -116,7 +116,7 @@ namespace Land_Readjustment_Tool.UI.MapCanvas.Services
 
                 if (sourceIsMbTiles &&
                     sourceExtent == null &&
-                    CanUseDirectMbTiles(sourcePath, sourceMetadata))
+                    CanUseDirectMbTiles(sourcePath, sourceMetadata, targetSrsDefinition))
                 {
                     progress?.Report(new RasterImportProgress(45, "Copying MBTiles tile package"));
 
@@ -324,13 +324,10 @@ namespace Land_Readjustment_Tool.UI.MapCanvas.Services
         /// <summary>
         /// Reprojects an existing project raster file to the supplied project CRS definition.
         /// </summary>
-        public bool TryReprojectProjectRasterToProjectCrs(
+        public RasterProjectRasterReprojectionResult TryReprojectProjectRasterToProjectCrs(
             string rasterPath,
-            string targetSrsDefinition,
-            out string skipReason)
+            string targetSrsDefinition)
         {
-            skipReason = string.Empty;
-
             if (string.IsNullOrWhiteSpace(rasterPath) || !File.Exists(rasterPath))
                 throw new FileNotFoundException("Raster file was not found.", rasterPath);
 
@@ -347,17 +344,33 @@ namespace Land_Readjustment_Tool.UI.MapCanvas.Services
                         targetSrsDefinition,
                         rasterPath);
 
-                MbTilesLayerMetadataStore.Write(
-                    rasterPath,
-                    MbTilesLayerMetadata.Create(
-                        string.IsNullOrWhiteSpace(existingMetadata.SourceSrsDefinition)
-                            ? "EPSG:3857"
-                            : existingMetadata.SourceSrsDefinition,
-                        targetSrsDefinition,
-                        existingMetadata.OriginalSourcePath ?? rasterPath));
+                string sourceSrs = string.IsNullOrWhiteSpace(
+                        existingMetadata.SourceSrsDefinition)
+                    ? "EPSG:3857"
+                    : existingMetadata.SourceSrsDefinition;
 
-                skipReason = "MBTiles tile source metadata refreshed for the project CRS.";
-                return true;
+                if (IsWebMercatorDefinition(targetSrsDefinition))
+                {
+                    MbTilesLayerMetadataStore.Write(
+                        rasterPath,
+                        MbTilesLayerMetadata.Create(
+                            sourceSrs,
+                            targetSrsDefinition,
+                            existingMetadata.OriginalSourcePath ?? rasterPath));
+
+                    return RasterProjectRasterReprojectionResult.Updated(
+                        null,
+                        "MBTiles direct tile source metadata refreshed for Web Mercator.");
+                }
+
+                string mbTilesVrtPath = CreateOrUpdateProjectWarpVrt(
+                    rasterPath,
+                    sourceSrs,
+                    targetSrsDefinition);
+
+                return RasterProjectRasterReprojectionResult.Updated(
+                    mbTilesVrtPath,
+                    "MBTiles project-CRS VRT view refreshed.");
             }
 
             GdalConfiguration.ConfigureGdal();
@@ -372,8 +385,8 @@ namespace Land_Readjustment_Tool.UI.MapCanvas.Services
                 string? wmsXmlPath = FindLiveTileVrtSource(rasterPath);
                 if (wmsXmlPath == null || !File.Exists(wmsXmlPath))
                 {
-                    skipReason = "Live tile VRT source XML was not found; layer must be re-imported.";
-                    return false;
+                    return RasterProjectRasterReprojectionResult.Skipped(
+                        "Live tile VRT source XML was not found; layer must be re-imported.");
                 }
 
                 ApplyGdalNetworkOptions();
@@ -393,60 +406,128 @@ namespace Land_Readjustment_Tool.UI.MapCanvas.Services
                 File.Copy(tempVrtPath, rasterPath, overwrite: true);
                 File.Delete(tempVrtPath);
 
-                skipReason = "Live tile VRT descriptor recreated for the new project CRS.";
-                return true;
+                return RasterProjectRasterReprojectionResult.Updated(
+                    null,
+                    "Live tile VRT descriptor recreated for the new project CRS.");
             }
 
             if (!GdalConfiguration.Usable)
                 throw new InvalidOperationException(
                     "GDAL is not configured correctly. Raster reprojection cannot continue.");
 
-            string directory = Path.GetDirectoryName(rasterPath)
-                ?? throw new InvalidOperationException("Invalid raster path.");
-            string tempPath = Path.Combine(
-                directory,
-                $"{Path.GetFileNameWithoutExtension(rasterPath)}.reprojecting.{Guid.NewGuid():N}.tif");
-
-            try
+            using (Dataset sourceDataset = Gdal.Open(rasterPath, Access.GA_ReadOnly)
+                ?? throw new InvalidOperationException(
+                    "GDAL could not open the project raster."))
             {
-                using (Dataset sourceDataset = Gdal.Open(rasterPath, Access.GA_ReadOnly)
-                    ?? throw new InvalidOperationException(
-                        "GDAL could not open the project raster."))
+                if (sourceDataset.RasterCount <= 0)
+                    throw new InvalidOperationException(
+                        "The project raster does not contain raster bands.");
+
+                RasterImportMetadata sourceMetadata =
+                    ReadMetadata(rasterPath, sourceDataset);
+
+                if (!sourceMetadata.HasGeoreferencing)
                 {
-                    if (sourceDataset.RasterCount <= 0)
-                        throw new InvalidOperationException(
-                            "The project raster does not contain raster bands.");
-
-                    RasterImportMetadata sourceMetadata =
-                        ReadMetadata(rasterPath, sourceDataset);
-
-                    if (!sourceMetadata.HasGeoreferencing)
-                    {
-                        skipReason = "Raster has no georeferencing.";
-                        return false;
-                    }
-
-                    if (string.IsNullOrWhiteSpace(sourceMetadata.ProjectionWkt))
-                    {
-                        skipReason = "Raster has no stored CRS.";
-                        return false;
-                    }
-
-                    WarpToProjectCrs(
-                        sourceDataset,
-                        tempPath,
-                        sourceMetadata.ProjectionWkt,
-                        targetSrsDefinition);
+                    return RasterProjectRasterReprojectionResult.Skipped(
+                        "Raster has no georeferencing.");
                 }
 
-                File.Copy(tempPath, rasterPath, overwrite: true);
-                return true;
+                if (string.IsNullOrWhiteSpace(sourceMetadata.ProjectionWkt))
+                {
+                    return RasterProjectRasterReprojectionResult.Skipped(
+                        "Raster has no stored CRS.");
+                }
+
+                string vrtPath = CreateOrUpdateProjectWarpVrt(
+                    rasterPath,
+                    sourceMetadata.ProjectionWkt,
+                    targetSrsDefinition);
+
+                return RasterProjectRasterReprojectionResult.Updated(
+                    vrtPath,
+                    "Raster project-CRS VRT view refreshed.");
             }
-            finally
+        }
+
+        private static string CreateOrUpdateProjectWarpVrt(
+            string rasterPath,
+            string sourceSrsDefinition,
+            string targetSrsDefinition)
+        {
+            GdalConfiguration.ConfigureGdal();
+            if (!GdalConfiguration.Usable)
+                throw new InvalidOperationException(
+                    "GDAL is not configured correctly. Raster projection view cannot be created.");
+
+            string directory = Path.GetDirectoryName(rasterPath)
+                ?? throw new InvalidOperationException("Invalid raster path.");
+            string cacheFolder = Path.Combine(directory, ".replot-projection-views");
+            Directory.CreateDirectory(cacheFolder);
+
+            FileInfo rasterInfo = new(rasterPath);
+            string cacheKey = CreateProjectionViewCacheKey(
+                rasterInfo.FullName,
+                rasterInfo.Length,
+                rasterInfo.LastWriteTimeUtc.Ticks,
+                sourceSrsDefinition,
+                targetSrsDefinition);
+            string vrtPath = Path.Combine(
+                cacheFolder,
+                $"{Path.GetFileNameWithoutExtension(rasterPath)}-{cacheKey}.vrt");
+
+            if (File.Exists(vrtPath) &&
+                File.GetLastWriteTimeUtc(vrtPath) >= rasterInfo.LastWriteTimeUtc)
             {
-                if (File.Exists(tempPath))
-                    File.Delete(tempPath);
+                return vrtPath;
             }
+
+            using Dataset sourceDataset = Gdal.Open(rasterPath, Access.GA_ReadOnly)
+                ?? throw new InvalidOperationException(
+                    $"GDAL could not open raster '{rasterPath}'.");
+            CreateWarpVrt(
+                sourceDataset,
+                vrtPath,
+                sourceSrsDefinition,
+                targetSrsDefinition);
+            return vrtPath;
+        }
+
+        private static void CreateWarpVrt(
+            Dataset sourceDataset,
+            string vrtPath,
+            string sourceSrsDefinition,
+            string targetSrsDefinition)
+        {
+            string[] warpArgs =
+            [
+                "-overwrite",
+                "-of", "VRT",
+                "-r", "near",
+                "-multi",
+                "-wo", "NUM_THREADS=ALL_CPUS",
+                "-s_srs", sourceSrsDefinition,
+                "-t_srs", targetSrsDefinition
+            ];
+
+            using GDALWarpAppOptions warpOptions = new(warpArgs);
+            using Dataset warpedDataset = Gdal.Warp(
+                vrtPath,
+                [sourceDataset],
+                warpOptions,
+                null,
+                null)
+                ?? throw new InvalidOperationException(
+                    "GDAL could not create a raster projection VRT.");
+
+            warpedDataset.FlushCache();
+        }
+
+        private static string CreateProjectionViewCacheKey(params object[] values)
+        {
+            string text = string.Join("|", values);
+            byte[] hash = System.Security.Cryptography.SHA256.HashData(
+                Encoding.UTF8.GetBytes(text));
+            return Convert.ToHexString(hash, 0, 8).ToLowerInvariant();
         }
 
         private static void WarpToProjectCrs(
@@ -933,9 +1014,11 @@ namespace Land_Readjustment_Tool.UI.MapCanvas.Services
 
         private static bool CanUseDirectMbTiles(
             string sourcePath,
-            RasterImportMetadata metadata)
+            RasterImportMetadata metadata,
+            string targetSrsDefinition)
         {
             return IsWebMercatorOrUnspecified(metadata) &&
+                   IsWebMercatorDefinition(targetSrsDefinition) &&
                    IsSupportedDirectMbTilesFormat(sourcePath);
         }
 
@@ -982,6 +1065,63 @@ namespace Land_Readjustment_Tool.UI.MapCanvas.Services
 
                 string format = formatText.Trim().TrimStart('.').ToLowerInvariant();
                 return format is "png" or "jpg" or "jpeg";
+            }
+            catch
+            {
+                return false;
+            }
+        }
+
+        private static bool IsWebMercatorDefinition(string srsDefinition)
+        {
+            if (string.IsNullOrWhiteSpace(srsDefinition))
+            {
+                return false;
+            }
+
+            if (srsDefinition.Contains("EPSG:3857", StringComparison.OrdinalIgnoreCase) ||
+                srsDefinition.Contains("EPSG:900913", StringComparison.OrdinalIgnoreCase) ||
+                srsDefinition.Contains("EPSG:3785", StringComparison.OrdinalIgnoreCase))
+            {
+                return true;
+            }
+
+            try
+            {
+                using SpatialReference spatialReference = new(string.Empty);
+                spatialReference.SetAxisMappingStrategy(
+                    AxisMappingStrategy.OAMS_TRADITIONAL_GIS_ORDER);
+                if (spatialReference.SetFromUserInput(srsDefinition) != 0)
+                {
+                    string wkt = srsDefinition;
+                    if (spatialReference.ImportFromWkt(ref wkt) != 0)
+                    {
+                        return false;
+                    }
+                }
+
+                spatialReference.SetAxisMappingStrategy(
+                    AxisMappingStrategy.OAMS_TRADITIONAL_GIS_ORDER);
+                spatialReference.AutoIdentifyEPSG();
+                string? authorityCode =
+                    spatialReference.GetAuthorityCode(null) ??
+                    spatialReference.GetAuthorityCode("PROJCS");
+                if (authorityCode is "3857" or "900913" or "3785")
+                {
+                    return true;
+                }
+
+                string? projectedName = spatialReference.GetAttrValue("PROJCS", 0);
+                return projectedName != null &&
+                       (projectedName.Contains(
+                            "Pseudo-Mercator",
+                            StringComparison.OrdinalIgnoreCase) ||
+                        projectedName.Contains(
+                            "Web Mercator",
+                            StringComparison.OrdinalIgnoreCase) ||
+                        projectedName.Contains(
+                            "Popular Visualisation",
+                            StringComparison.OrdinalIgnoreCase));
             }
             catch
             {
@@ -1039,16 +1179,46 @@ namespace Land_Readjustment_Tool.UI.MapCanvas.Services
 
                 TryExecuteSql(connection, "PRAGMA temp_store=MEMORY");
                 TryExecuteSql(connection, "PRAGMA cache_size=-65536");
-                TryExecuteSql(
-                    connection,
-                    "CREATE INDEX IF NOT EXISTS idx_replot_tiles_zxy ON tiles(zoom_level, tile_column, tile_row)");
-                TryExecuteSql(
-                    connection,
-                    "CREATE INDEX IF NOT EXISTS idx_replot_map_zxy ON map(zoom_level, tile_column, tile_row)");
-                TryExecuteSql(
-                    connection,
-                    "CREATE INDEX IF NOT EXISTS idx_replot_images_tile_id ON images(tile_id)");
-                TryExecuteSql(connection, "ANALYZE");
+                bool schemaChanged = false;
+
+                if (TableExists(connection, "tiles") &&
+                    !HasCoveringIndex(
+                        connection,
+                        "tiles",
+                        ["zoom_level", "tile_column", "tile_row"]))
+                {
+                    TryExecuteSql(
+                        connection,
+                        "CREATE INDEX IF NOT EXISTS idx_replot_tiles_zxy ON tiles(zoom_level, tile_column, tile_row)");
+                    schemaChanged = true;
+                }
+
+                if (TableExists(connection, "map") &&
+                    !HasCoveringIndex(
+                        connection,
+                        "map",
+                        ["zoom_level", "tile_column", "tile_row"]))
+                {
+                    TryExecuteSql(
+                        connection,
+                        "CREATE INDEX IF NOT EXISTS idx_replot_map_zxy ON map(zoom_level, tile_column, tile_row)");
+                    schemaChanged = true;
+                }
+
+                if (TableExists(connection, "images") &&
+                    !HasCoveringIndex(connection, "images", ["tile_id"]))
+                {
+                    TryExecuteSql(
+                        connection,
+                        "CREATE INDEX IF NOT EXISTS idx_replot_images_tile_id ON images(tile_id)");
+                    schemaChanged = true;
+                }
+
+                if (schemaChanged)
+                {
+                    TryExecuteSql(connection, "ANALYZE");
+                }
+
                 TryExecuteSql(connection, "PRAGMA optimize");
             }
             catch (Exception ex)
@@ -1056,6 +1226,82 @@ namespace Land_Readjustment_Tool.UI.MapCanvas.Services
                 System.Diagnostics.Debug.WriteLine(
                     $"MBTiles optimization skipped for '{mbTilesPath}': {ex.Message}");
             }
+        }
+
+        private static bool TableExists(
+            SqliteConnection connection,
+            string tableName)
+        {
+            using SqliteCommand command = connection.CreateCommand();
+            command.CommandText = """
+                SELECT 1
+                FROM sqlite_master
+                WHERE type IN ('table', 'view')
+                  AND name = $name
+                LIMIT 1
+                """;
+            command.Parameters.AddWithValue("$name", tableName);
+            return command.ExecuteScalar() != null;
+        }
+
+        private static bool HasCoveringIndex(
+            SqliteConnection connection,
+            string tableName,
+            IReadOnlyList<string> expectedColumns)
+        {
+            using SqliteCommand indexCommand = connection.CreateCommand();
+            indexCommand.CommandText = $"PRAGMA index_list({QuoteSqliteIdentifier(tableName)})";
+
+            using SqliteDataReader indexReader = indexCommand.ExecuteReader();
+            while (indexReader.Read())
+            {
+                string indexName = indexReader.GetString(1);
+                if (IndexStartsWithColumns(connection, indexName, expectedColumns))
+                {
+                    return true;
+                }
+            }
+
+            return false;
+        }
+
+        private static bool IndexStartsWithColumns(
+            SqliteConnection connection,
+            string indexName,
+            IReadOnlyList<string> expectedColumns)
+        {
+            using SqliteCommand infoCommand = connection.CreateCommand();
+            infoCommand.CommandText = $"PRAGMA index_info({QuoteSqliteIdentifier(indexName)})";
+
+            List<string> actualColumns = [];
+            using SqliteDataReader infoReader = infoCommand.ExecuteReader();
+            while (infoReader.Read())
+            {
+                actualColumns.Add(infoReader.GetString(2));
+            }
+
+            if (actualColumns.Count < expectedColumns.Count)
+            {
+                return false;
+            }
+
+            for (int i = 0; i < expectedColumns.Count; i++)
+            {
+                if (!string.Equals(
+                        actualColumns[i],
+                        expectedColumns[i],
+                        StringComparison.OrdinalIgnoreCase))
+                {
+                    return false;
+                }
+            }
+
+            return true;
+        }
+
+        private static string QuoteSqliteIdentifier(string identifier)
+        {
+            return "\"" + identifier.Replace("\"", "\"\"") + "\"";
         }
 
         private static void ExecuteSql(
@@ -1129,6 +1375,21 @@ namespace Land_Readjustment_Tool.UI.MapCanvas.Services
     internal sealed record RasterImportProgress(
         int Percent,
         string Status);
+
+    internal sealed record RasterProjectRasterReprojectionResult(
+        bool Reprojected,
+        string? UpdatedRasterPath,
+        string SkipReason)
+    {
+        public static RasterProjectRasterReprojectionResult Updated(
+            string? updatedRasterPath = null,
+            string skipReason = "") =>
+            new(true, updatedRasterPath, skipReason);
+
+        public static RasterProjectRasterReprojectionResult Skipped(
+            string skipReason) =>
+            new(false, null, skipReason);
+    }
 
     internal sealed record RasterImportSourceExtent(
         string SrsDefinition,

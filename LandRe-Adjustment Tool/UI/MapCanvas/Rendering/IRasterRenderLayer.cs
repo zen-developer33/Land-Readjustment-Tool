@@ -11,6 +11,7 @@ namespace Land_Readjustment_Tool.UI.MapCanvas.Rendering
         RectangleD WorldBounds { get; }
         int Transparency { get; }
         bool IsVisible { get; }
+        bool CanRenderFromMemoryCacheDuringInteraction { get; }
 
         bool RenderVisible(
             Graphics graphics,

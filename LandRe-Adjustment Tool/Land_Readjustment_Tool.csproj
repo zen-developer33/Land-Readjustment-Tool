@@ -51,10 +51,10 @@
     <PackageReference Include="GDAL.Native" Version="3.12.1" />
     <PackageReference Include="Krypton.Toolkit" Version="105.26.4.110" />
     <PackageReference Include="Microsoft.Extensions.DependencyInjection" Version="10.0.7" />
-    <PackageReference Include="Microsoft.EntityFrameworkCore" Version="10.0.3" />
-    <PackageReference Include="Microsoft.EntityFrameworkCore.Sqlite" Version="10.0.3" />
-    <PackageReference Include="Microsoft.EntityFrameworkCore.Sqlite.NetTopologySuite" Version="10.0.3" />
-    <PackageReference Include="Microsoft.EntityFrameworkCore.Tools" Version="10.0.3">
+    <PackageReference Include="Microsoft.EntityFrameworkCore" Version="10.0.7" />
+    <PackageReference Include="Microsoft.EntityFrameworkCore.Sqlite" Version="10.0.7" />
+    <PackageReference Include="Microsoft.EntityFrameworkCore.Sqlite.NetTopologySuite" Version="10.0.7" />
+    <PackageReference Include="Microsoft.EntityFrameworkCore.Tools" Version="10.0.7">
       <PrivateAssets>all</PrivateAssets>
       <IncludeAssets>runtime; build; native; contentfiles; analyzers; buildtransitive</IncludeAssets>
     </PackageReference>
@@ -64,7 +64,7 @@
     <PackageReference Include="SkiaSharp" Version="3.119.2" />
     <PackageReference Include="SQLitePCLRaw.bundle_green" Version="2.1.11" />
     <PackageReference Include="SQLitePCLRaw.provider.sqlite3" Version="3.0.2" />
-    <PackageReference Include="System.Data.SQLite" Version="2.0.2">
+    <PackageReference Include="System.Data.SQLite" Version="2.0.3">
       <TreatAsUsed>true</TreatAsUsed>
     </PackageReference>
     <PackageReference Include="System.Data.SQLite.Core" Version="1.0.119" />

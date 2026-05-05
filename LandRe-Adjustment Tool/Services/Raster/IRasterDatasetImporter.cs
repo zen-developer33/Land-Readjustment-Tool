@@ -30,9 +30,22 @@ namespace Land_Readjustment_Tool.Services.Raster
         /// <summary>
         /// Reprojects a project-owned raster file to the supplied project CRS when the source has valid CRS metadata.
         /// </summary>
-        bool TryReprojectProjectRasterToProjectCrs(
+        RasterProjectReprojectionResult TryReprojectProjectRasterToProjectCrs(
             string rasterPath,
-            string targetSrsDefinition,
-            out string skipReason);
+            string targetSrsDefinition);
+    }
+
+    public sealed record RasterProjectReprojectionResult(
+        bool Reprojected,
+        string? UpdatedRasterPath,
+        string SkipReason)
+    {
+        public static RasterProjectReprojectionResult Updated(
+            string? updatedRasterPath = null,
+            string skipReason = "") =>
+            new(true, updatedRasterPath, skipReason);
+
+        public static RasterProjectReprojectionResult Skipped(string skipReason) =>
+            new(false, null, skipReason);
     }
 }

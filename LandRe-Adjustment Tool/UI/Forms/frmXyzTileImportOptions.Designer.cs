@@ -116,12 +116,12 @@ namespace Land_Readjustment_Tool.UI.Forms
             numZoomLevel = new NumericUpDown();
             lblDownloadStatus = new Label();
             pnlProgressRow = new TableLayoutPanel();
+            btnCancel = new Button();
             progressTileDownload = new ProgressBar();
             buttonLayout = new FlowLayoutPanel();
+            btnClose = new Button();
             btnImport = new Button();
             btnDownloadTiles = new Button();
-            btnCancel = new Button();
-            btnClose = new Button();
             layout.SuspendLayout();
             sourceLayout.SuspendLayout();
             pnlBoundsHeader.SuspendLayout();
@@ -169,12 +169,12 @@ namespace Land_Readjustment_Tool.UI.Forms
             layout.RowStyles.Add(new RowStyle(SizeType.Absolute, 40F));
             layout.RowStyles.Add(new RowStyle(SizeType.Absolute, 68F));
             layout.RowStyles.Add(new RowStyle(SizeType.Absolute, 37F));
-            layout.RowStyles.Add(new RowStyle(SizeType.Absolute, 191F));
-            layout.RowStyles.Add(new RowStyle(SizeType.Absolute, 37F));
+            layout.RowStyles.Add(new RowStyle(SizeType.Absolute, 189F));
             layout.RowStyles.Add(new RowStyle(SizeType.Absolute, 39F));
-            layout.RowStyles.Add(new RowStyle(SizeType.Absolute, 36F));
-            layout.RowStyles.Add(new RowStyle(SizeType.Absolute, 48F));
-            layout.Size = new Size(600, 591);
+            layout.RowStyles.Add(new RowStyle(SizeType.Absolute, 39F));
+            layout.RowStyles.Add(new RowStyle(SizeType.Absolute, 51F));
+            layout.RowStyles.Add(new RowStyle(SizeType.Absolute, 33F));
+            layout.Size = new Size(600, 574);
             layout.TabIndex = 0;
             // 
             // lblLayerName
@@ -195,7 +195,6 @@ namespace Land_Readjustment_Tool.UI.Forms
             txtLayerName.Name = "txtLayerName";
             txtLayerName.Size = new Size(457, 27);
             txtLayerName.TabIndex = 1;
-            txtLayerName.Text = string.Empty;
             // 
             // lblTileSource
             // 
@@ -323,7 +322,7 @@ namespace Land_Readjustment_Tool.UI.Forms
             rdoLiveTiles.TabIndex = 3;
             rdoLiveTiles.Text = "Live Tiles";
             rdoLiveTiles.UseVisualStyleBackColor = true;
-            rdoLiveTiles.CheckedChanged += rdoLiveTiles_CheckedChanged;
+            rdoLiveTiles.CheckedChanged += rdoCenterRadius_CheckedChanged;
             // 
             // pnlBoundsContainer
             // 
@@ -335,7 +334,7 @@ namespace Land_Readjustment_Tool.UI.Forms
             pnlBoundsContainer.Location = new Point(13, 193);
             pnlBoundsContainer.Margin = new Padding(3, 0, 3, 0);
             pnlBoundsContainer.Name = "pnlBoundsContainer";
-            pnlBoundsContainer.Size = new Size(574, 191);
+            pnlBoundsContainer.Size = new Size(574, 189);
             pnlBoundsContainer.TabIndex = 7;
             // 
             // pnlLiveTilesInfo
@@ -344,7 +343,7 @@ namespace Land_Readjustment_Tool.UI.Forms
             pnlLiveTilesInfo.Dock = DockStyle.Fill;
             pnlLiveTilesInfo.Location = new Point(0, 0);
             pnlLiveTilesInfo.Name = "pnlLiveTilesInfo";
-            pnlLiveTilesInfo.Size = new Size(574, 191);
+            pnlLiveTilesInfo.Size = new Size(574, 189);
             pnlLiveTilesInfo.TabIndex = 2;
             pnlLiveTilesInfo.Visible = false;
             // 
@@ -355,7 +354,7 @@ namespace Land_Readjustment_Tool.UI.Forms
             lblLiveTilesInfo.Location = new Point(0, 0);
             lblLiveTilesInfo.Name = "lblLiveTilesInfo";
             lblLiveTilesInfo.Padding = new Padding(12, 16, 12, 0);
-            lblLiveTilesInfo.Size = new Size(574, 191);
+            lblLiveTilesInfo.Size = new Size(574, 189);
             lblLiveTilesInfo.TabIndex = 0;
             lblLiveTilesInfo.Text = resources.GetString("lblLiveTilesInfo.Text");
             // 
@@ -373,7 +372,7 @@ namespace Land_Readjustment_Tool.UI.Forms
             pnlBoundingBox.Dock = DockStyle.Fill;
             pnlBoundingBox.Location = new Point(0, 0);
             pnlBoundingBox.Name = "pnlBoundingBox";
-            pnlBoundingBox.Size = new Size(574, 191);
+            pnlBoundingBox.Size = new Size(574, 189);
             pnlBoundingBox.TabIndex = 0;
             pnlBoundingBox.Visible = false;
             // 
@@ -498,7 +497,7 @@ namespace Land_Readjustment_Tool.UI.Forms
             pnlCenterRadius.Dock = DockStyle.Fill;
             pnlCenterRadius.Location = new Point(0, 0);
             pnlCenterRadius.Name = "pnlCenterRadius";
-            pnlCenterRadius.Size = new Size(574, 191);
+            pnlCenterRadius.Size = new Size(574, 189);
             pnlCenterRadius.TabIndex = 1;
             // 
             // lblCenterLat
@@ -589,16 +588,16 @@ namespace Land_Readjustment_Tool.UI.Forms
             // lblZoomLevel
             // 
             lblZoomLevel.Dock = DockStyle.Fill;
-            lblZoomLevel.Location = new Point(13, 384);
+            lblZoomLevel.Location = new Point(13, 382);
             lblZoomLevel.Name = "lblZoomLevel";
-            lblZoomLevel.Size = new Size(104, 37);
+            lblZoomLevel.Size = new Size(104, 39);
             lblZoomLevel.TabIndex = 8;
             lblZoomLevel.Text = "Zoom level:";
             lblZoomLevel.TextAlign = ContentAlignment.MiddleLeft;
             // 
             // numZoomLevel
             // 
-            numZoomLevel.Location = new Point(123, 389);
+            numZoomLevel.Location = new Point(123, 387);
             numZoomLevel.Margin = new Padding(3, 5, 3, 4);
             numZoomLevel.Maximum = new decimal(new int[] { 25, 0, 0, 0 });
             numZoomLevel.Name = "numZoomLevel";
@@ -617,52 +616,73 @@ namespace Land_Readjustment_Tool.UI.Forms
             lblDownloadStatus.TabIndex = 10;
             lblDownloadStatus.Text = "Download tiles to enable Import.";
             lblDownloadStatus.TextAlign = ContentAlignment.MiddleLeft;
-            //
+            // 
             // pnlProgressRow
-            //
-            layout.SetColumnSpan(pnlProgressRow, 2);
+            // 
             pnlProgressRow.ColumnCount = 2;
+            layout.SetColumnSpan(pnlProgressRow, 2);
             pnlProgressRow.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 100F));
-            pnlProgressRow.ColumnStyles.Add(new ColumnStyle(SizeType.Absolute, 100F));
-            pnlProgressRow.Controls.Add(progressTileDownload, 0, 0);
+            pnlProgressRow.ColumnStyles.Add(new ColumnStyle(SizeType.Absolute, 151F));
             pnlProgressRow.Controls.Add(btnCancel, 1, 0);
+            pnlProgressRow.Controls.Add(progressTileDownload, 0, 0);
             pnlProgressRow.Dock = DockStyle.Fill;
             pnlProgressRow.Location = new Point(13, 462);
             pnlProgressRow.Margin = new Padding(3, 2, 3, 2);
             pnlProgressRow.Name = "pnlProgressRow";
             pnlProgressRow.RowCount = 1;
             pnlProgressRow.RowStyles.Add(new RowStyle(SizeType.Percent, 100F));
-            pnlProgressRow.Size = new Size(574, 36);
+            pnlProgressRow.Size = new Size(574, 47);
             pnlProgressRow.TabIndex = 11;
-            //
+            // 
+            // btnCancel
+            // 
+            btnCancel.Dock = DockStyle.Fill;
+            btnCancel.Enabled = false;
+            btnCancel.Location = new Point(426, 3);
+            btnCancel.Name = "btnCancel";
+            btnCancel.Size = new Size(145, 41);
+            btnCancel.TabIndex = 1;
+            btnCancel.Text = "Cancel Download";
+            btnCancel.UseVisualStyleBackColor = true;
+            // 
             // progressTileDownload
-            //
-            progressTileDownload.Anchor = AnchorStyles.Left | AnchorStyles.Right | AnchorStyles.Top | AnchorStyles.Bottom;
+            // 
+            progressTileDownload.Anchor = AnchorStyles.Top | AnchorStyles.Bottom | AnchorStyles.Left | AnchorStyles.Right;
             progressTileDownload.Location = new Point(3, 7);
             progressTileDownload.Margin = new Padding(3, 7, 3, 7);
             progressTileDownload.Name = "progressTileDownload";
-            progressTileDownload.Size = new Size(462, 22);
+            progressTileDownload.Size = new Size(417, 33);
             progressTileDownload.TabIndex = 0;
             // 
             // buttonLayout
             // 
             layout.SetColumnSpan(buttonLayout, 2);
+            buttonLayout.Controls.Add(btnClose);
             buttonLayout.Controls.Add(btnImport);
             buttonLayout.Controls.Add(btnDownloadTiles);
-            buttonLayout.Controls.Add(btnClose);
             buttonLayout.Dock = DockStyle.Fill;
             buttonLayout.FlowDirection = FlowDirection.RightToLeft;
-            buttonLayout.Location = new Point(13, 490);
+            buttonLayout.Location = new Point(13, 515);
             buttonLayout.Margin = new Padding(3, 4, 3, 4);
             buttonLayout.Name = "buttonLayout";
-            buttonLayout.Size = new Size(574, 87);
+            buttonLayout.Size = new Size(574, 45);
             buttonLayout.TabIndex = 12;
+            // 
+            // btnClose
+            // 
+            btnClose.Location = new Point(481, 4);
+            btnClose.Margin = new Padding(3, 4, 3, 4);
+            btnClose.Name = "btnClose";
+            btnClose.Size = new Size(90, 36);
+            btnClose.TabIndex = 3;
+            btnClose.Text = "Close";
+            btnClose.UseVisualStyleBackColor = true;
             // 
             // btnImport
             // 
             btnImport.DialogResult = DialogResult.OK;
             btnImport.Enabled = false;
-            btnImport.Location = new Point(481, 4);
+            btnImport.Location = new Point(385, 4);
             btnImport.Margin = new Padding(3, 4, 3, 4);
             btnImport.Name = "btnImport";
             btnImport.Size = new Size(90, 36);
@@ -672,35 +692,13 @@ namespace Land_Readjustment_Tool.UI.Forms
             // 
             // btnDownloadTiles
             // 
-            btnDownloadTiles.Location = new Point(385, 4);
+            btnDownloadTiles.Location = new Point(289, 4);
             btnDownloadTiles.Margin = new Padding(3, 4, 3, 4);
             btnDownloadTiles.Name = "btnDownloadTiles";
             btnDownloadTiles.Size = new Size(90, 36);
             btnDownloadTiles.TabIndex = 2;
             btnDownloadTiles.Text = "Download";
             btnDownloadTiles.UseVisualStyleBackColor = true;
-            //
-            // btnCancel  (cancel active download only; lives beside progress bar)
-            //
-            btnCancel.Dock = DockStyle.Fill;
-            btnCancel.Enabled = false;
-            btnCancel.Location = new Point(3, 3);
-            btnCancel.Margin = new Padding(3, 3, 3, 3);
-            btnCancel.Name = "btnCancel";
-            btnCancel.Size = new Size(94, 30);
-            btnCancel.TabIndex = 1;
-            btnCancel.Text = "Cancel";
-            btnCancel.UseVisualStyleBackColor = true;
-            //
-            // btnClose
-            //
-            btnClose.Location = new Point(193, 4);
-            btnClose.Margin = new Padding(3, 4, 3, 4);
-            btnClose.Name = "btnClose";
-            btnClose.Size = new Size(90, 36);
-            btnClose.TabIndex = 3;
-            btnClose.Text = "Close";
-            btnClose.UseVisualStyleBackColor = true;
             // 
             // frmXyzTileImportOptions
             // 
@@ -708,9 +706,8 @@ namespace Land_Readjustment_Tool.UI.Forms
             AutoScaleDimensions = new SizeF(8F, 20F);
             AutoScaleMode = AutoScaleMode.Font;
             CancelButton = btnClose;
-            ClientSize = new Size(600, 591);
+            ClientSize = new Size(600, 574);
             Controls.Add(layout);
-            FormBorderStyle = FormBorderStyle.FixedDialog;
             Margin = new Padding(3, 4, 3, 4);
             MaximizeBox = false;
             MinimizeBox = false;

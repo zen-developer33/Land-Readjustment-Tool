@@ -31,6 +31,7 @@ namespace Land_Readjustment_Tool
             AppDomain.CurrentDomain.UnhandledException += OnUnhandledException;
 
             ConfigureNativeLibrarySearchPath();
+            GdalBootstrapper.ConfigureAll();
             SQLitePCL.Batteries_V2.Init();
             Application.EnableVisualStyles();
             Application.SetCompatibleTextRenderingDefault(false);

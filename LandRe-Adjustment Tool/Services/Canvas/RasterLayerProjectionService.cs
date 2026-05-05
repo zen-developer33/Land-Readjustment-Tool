@@ -79,17 +79,24 @@ namespace Land_Readjustment_Tool.Services.Canvas
 
                 try
                 {
-                    bool reprojected = await Task.Run(
+                    RasterProjectReprojectionResult reprojectionResult = await Task.Run(
                         () => _datasetImporter.TryReprojectProjectRasterToProjectCrs(
                             rasterPath,
-                            crsContext.TargetSrsDefinition,
-                            out _),
+                            crsContext.TargetSrsDefinition),
                         ct);
 
-                    if (!reprojected)
+                    if (!reprojectionResult.Reprojected)
                     {
                         skippedCount++;
                         continue;
+                    }
+
+                    if (!string.IsNullOrWhiteSpace(
+                            reprojectionResult.UpdatedRasterPath))
+                    {
+                        layer.SourceFile = ToProjectRelativePath(
+                            projectFolderPath,
+                            reprojectionResult.UpdatedRasterPath);
                     }
 
                     layer.Description = AppendRefreshNote(
@@ -124,6 +131,28 @@ namespace Land_Readjustment_Tool.Services.Canvas
             return Path.IsPathRooted(sourceFile)
                 ? sourceFile
                 : Path.Combine(projectFolderPath, sourceFile);
+        }
+
+        private static string ToProjectRelativePath(
+            string projectFolderPath,
+            string rasterPath)
+        {
+            string fullProjectPath = Path.GetFullPath(projectFolderPath);
+            string fullRasterPath = Path.GetFullPath(rasterPath);
+
+            try
+            {
+                string relativePath = Path.GetRelativePath(
+                    fullProjectPath,
+                    fullRasterPath);
+                return relativePath.StartsWith("..", StringComparison.Ordinal)
+                    ? fullRasterPath
+                    : relativePath;
+            }
+            catch
+            {
+                return fullRasterPath;
+            }
         }
 
         /// <summary>

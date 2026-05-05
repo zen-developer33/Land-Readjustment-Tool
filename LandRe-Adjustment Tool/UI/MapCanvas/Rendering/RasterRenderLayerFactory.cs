@@ -39,17 +39,22 @@ namespace Land_Readjustment_Tool.UI.MapCanvas.Rendering
 
             if (MbTilesRenderLayer.IsMbTilesPath(filePath))
             {
-                MbTilesLayerMetadata? metadata =
-                    MbTilesLayerMetadataStore.TryRead(filePath);
-                if (metadata != null &&
-                    !IsWebMercatorDefinition(metadata.TargetSrsDefinition))
+                MbTilesLayerMetadata metadata =
+                    MbTilesLayerMetadataStore.TryRead(filePath) ??
+                    MbTilesLayerMetadata.Create(
+                        WebMercatorSrsDefinition,
+                        WebMercatorSrsDefinition,
+                        filePath);
+
+                if (!IsWebMercatorDefinition(metadata.TargetSrsDefinition))
                 {
-                    string warpedVrtPath = CreateOrUpdateWarpedMbTilesVrt(
+                    string warpedRasterPath = CreateOrUpdateWarpedMbTilesVrt(
                         filePath,
                         metadata);
-                    return RasterRenderLayer.FromCanvasLayer(
-                        CreateRasterLayerForSource(layer, warpedVrtPath),
-                        null);
+                    CanvasLayer warpedLayer = CreateRasterLayerForSource(
+                        layer,
+                        warpedRasterPath);
+                    return RasterRenderLayer.FromCanvasLayer(warpedLayer, projectFolderPath);
                 }
 
                 try
@@ -104,14 +109,14 @@ namespace Land_Readjustment_Tool.UI.MapCanvas.Rendering
                 mbTilesInfo.LastWriteTimeUtc.Ticks,
                 metadata.SourceSrsDefinition,
                 metadata.TargetSrsDefinition);
-            string vrtPath = Path.Combine(
+            string warpedRasterPath = Path.Combine(
                 cacheFolder,
                 $"{Path.GetFileNameWithoutExtension(mbTilesPath)}-{cacheKey}.vrt");
 
-            if (File.Exists(vrtPath) &&
-                File.GetLastWriteTimeUtc(vrtPath) >= mbTilesInfo.LastWriteTimeUtc)
+            if (File.Exists(warpedRasterPath) &&
+                File.GetLastWriteTimeUtc(warpedRasterPath) >= mbTilesInfo.LastWriteTimeUtc)
             {
-                return vrtPath;
+                return warpedRasterPath;
             }
 
             GdalConfiguration.ConfigureGdal();
@@ -143,7 +148,7 @@ namespace Land_Readjustment_Tool.UI.MapCanvas.Rendering
 
             using GDALWarpAppOptions warpOptions = new(warpArgs);
             using Dataset warpedDataset = Gdal.Warp(
-                vrtPath,
+                warpedRasterPath,
                 [sourceDataset],
                 warpOptions,
                 null,
@@ -152,7 +157,7 @@ namespace Land_Readjustment_Tool.UI.MapCanvas.Rendering
                     $"GDAL could not create a warped view for MBTiles layer '{mbTilesPath}'.");
 
             warpedDataset.FlushCache();
-            return vrtPath;
+            return warpedRasterPath;
         }
 
         private static string CreateCacheKey(params object[] values)

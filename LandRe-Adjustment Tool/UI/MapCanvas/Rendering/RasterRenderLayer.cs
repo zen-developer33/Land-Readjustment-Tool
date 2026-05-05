@@ -72,6 +72,7 @@ namespace Land_Readjustment_Tool.UI.MapCanvas.Rendering
         public RectangleD WorldBounds { get; }
         public int Transparency { get; private set; }
         public bool IsVisible { get; private set; }
+        public bool CanRenderFromMemoryCacheDuringInteraction => false;
 
         public static RasterRenderLayer FromCanvasLayer(
             CanvasLayer layer,

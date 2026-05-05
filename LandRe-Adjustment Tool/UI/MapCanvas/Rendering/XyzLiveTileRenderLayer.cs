@@ -20,17 +20,24 @@ namespace Land_Readjustment_Tool.UI.MapCanvas.Rendering
     /// </summary>
     internal sealed class XyzLiveTileRenderLayer : IRasterRenderLayer
     {
+
+
+
         // ── Constants ──────────────────────────────────────────────────────────
         private const int TilePixelSize = 256;
         private const int MaxCachedTiles = 512;
         private const int MaxTilesPerFrame = 256;
+        private const int MaxBootstrapTilesPerFrame = 16;
         private const int MaxConcurrentFetches = 6;
         private const int DebounceMilliseconds =50;
         private const int MaxSupportedZoom = 22;
+        private const int ProjectedTileMeshSubdivisions = 8;
         private const double WebMercatorExtent = 20037508.342789244;
         private const double WebMercatorWorldSize = WebMercatorExtent * 2.0;
         private const double InitialResolution = WebMercatorWorldSize / TilePixelSize;
         private const string WebMercatorSrsDefinition = "EPSG:3857";
+        private static readonly RectangleD AsiaWebMercatorBounds =
+            CreateWebMercatorBoundsFromLonLat(24.0, -12.0, 150.0, 82.0);
 
         // ── Process-wide shared resources ──────────────────────────────────────
         private static readonly HttpClient SharedHttpClient = CreateSharedHttpClient();
@@ -57,6 +64,7 @@ namespace Land_Readjustment_Tool.UI.MapCanvas.Rendering
         private readonly LinkedList<TileKey> _tileLru = [];
         private readonly Dictionary<TileKey, LinkedListNode<TileKey>> _tileLruNodes = [];
         private readonly HashSet<TileKey> _pendingFetches = [];
+        private readonly HashSet<TileKey> _noDataTiles = [];
         private readonly Dictionary<TileKey, RectangleD> _projectTileBoundsCache = [];
 
         // ── Tile source ────────────────────────────────────────────────────────
@@ -121,6 +129,7 @@ namespace Land_Readjustment_Tool.UI.MapCanvas.Rendering
         public RectangleD WorldBounds { get; }
         public int Transparency { get; private set; }
         public bool IsVisible { get; private set; }
+        public bool CanRenderFromMemoryCacheDuringInteraction => true;
 
         // ── Factory helpers ────────────────────────────────────────────────────
 
@@ -226,6 +235,8 @@ namespace Land_Readjustment_Tool.UI.MapCanvas.Rendering
             CancellationToken cancellationToken = default)
         {
             bool drawnAny;
+            RectangleD fetchWebMercatorBounds = default;
+            int fetchZoom = 0;
 
             lock (_renderSync)
             {
@@ -257,6 +268,8 @@ namespace Land_Readjustment_Tool.UI.MapCanvas.Rendering
                 // Persist viewport for the debounced fetch that fires after this returns.
                 _lastWebMercatorBounds = clippedWebMercatorBounds;
                 _lastZoom = zoom;
+                fetchWebMercatorBounds = clippedWebMercatorBounds;
+                fetchZoom = zoom;
 
                 GraphicsState graphicsState = graphics.Save();
                 try
@@ -287,6 +300,11 @@ namespace Land_Readjustment_Tool.UI.MapCanvas.Rendering
             // penalised for the timer-system call.
             if (!_disposed)
             {
+                if (!drawnAny)
+                {
+                    QueueBootstrapFetch(fetchWebMercatorBounds, fetchZoom);
+                }
+
                 _debounceTimer.Change(DebounceMilliseconds, Timeout.Infinite);
             }
 
@@ -379,19 +397,94 @@ namespace Land_Readjustment_Tool.UI.MapCanvas.Rendering
 
                     TouchTile(key);
 
-                    RectangleF destination =
-                        WorldBoundsToScreenRectangle(engine, projectBounds);
-                    if (!IsValidDestination(destination))
+                    drawnAny |= DrawTileBitmap(
+                        graphics,
+                        engine,
+                        bitmap,
+                        key,
+                        projectBounds);
+                }
+            }
+
+            return drawnAny;
+        }
+
+        private bool DrawTileBitmap(
+            Graphics graphics,
+            MapCanvasEngine engine,
+            Bitmap bitmap,
+            TileKey key,
+            RectangleD projectBounds)
+        {
+            if (_projectIsWebMercator)
+            {
+                RectangleF destination =
+                    WorldBoundsToScreenRectangle(engine, projectBounds);
+                if (!IsValidDestination(destination))
+                {
+                    return false;
+                }
+
+                DrawBitmapRegion(
+                    graphics,
+                    bitmap,
+                    AlignDestinationToPixelGrid(destination),
+                    new RectangleF(0, 0, bitmap.Width, bitmap.Height));
+                return true;
+            }
+
+            return DrawTileBitmapMesh(
+                graphics,
+                engine,
+                bitmap,
+                key,
+                new RectangleF(0, 0, bitmap.Width, bitmap.Height));
+        }
+
+        private bool DrawTileBitmapMesh(
+            Graphics graphics,
+            MapCanvasEngine engine,
+            Bitmap bitmap,
+            TileKey key,
+            RectangleF sourceBounds)
+        {
+            RectangleD webMercatorBounds = GetWebMercatorTileBounds(key);
+            bool drawnAny = false;
+
+            for (int row = 0; row < ProjectedTileMeshSubdivisions; row++)
+            {
+                for (int column = 0; column < ProjectedTileMeshSubdivisions; column++)
+                {
+                    RectangleD sourceWebMercatorBounds =
+                        GetSubTileWebMercatorBounds(
+                            webMercatorBounds,
+                            column,
+                            row,
+                            ProjectedTileMeshSubdivisions);
+
+                    if (!TryCreateProjectedScreenQuad(
+                            engine,
+                            sourceWebMercatorBounds,
+                            out PointF[] destination))
                     {
                         continue;
                     }
 
-                    DrawBitmapRegion(
+                    RectangleF source = GetSourceSubRectangle(
+                        sourceBounds,
+                        column,
+                        row,
+                        ProjectedTileMeshSubdivisions);
+                    if (!IsValidSource(source))
+                    {
+                        continue;
+                    }
+
+                    DrawBitmapQuad(
                         graphics,
                         bitmap,
-                        AlignDestinationToPixelGrid(destination),
-                        new RectangleF(0, 0, bitmap.Width, bitmap.Height));
-
+                        destination,
+                        source);
                     drawnAny = true;
                 }
             }
@@ -442,52 +535,64 @@ namespace Land_Readjustment_Tool.UI.MapCanvas.Rendering
                     subTileSize,
                     subTileSize);
 
-                RectangleF dest = WorldBoundsToScreenRectangle(engine, missingProjectBounds);
-                if (!IsValidDestination(dest))
-                    return false;
+                return DrawParentBitmapRegion(
+                    graphics,
+                    engine,
+                    parentBitmap,
+                    missingKey,
+                    missingProjectBounds,
+                    srcRect);
 
-                Rectangle intDest = CreateIntegerDestinationRectangle(
-                    AlignDestinationToPixelGrid(dest));
-
-                // Use NearestNeighbor — fast pixel doubling, no bicubic blur.
-                InterpolationMode savedMode = graphics.InterpolationMode;
-                graphics.InterpolationMode = InterpolationMode.NearestNeighbor;
-
-                if (_opacityImageAttributes != null)
-                {
-                    graphics.DrawImage(
-                        parentBitmap,
-                        intDest,
-                        srcRect.X,
-                        srcRect.Y,
-                        srcRect.Width,
-                        srcRect.Height,
-                        GraphicsUnit.Pixel,
-                        _opacityImageAttributes);
-                }
-                else
-                {
-                    using ImageAttributes ia = new ImageAttributes();
-                    ia.SetWrapMode(WrapMode.TileFlipXY);
-                    graphics.DrawImage(
-                        parentBitmap,
-                        intDest,
-                        srcRect.X,
-                        srcRect.Y,
-                        srcRect.Width,
-                        srcRect.Height,
-                        GraphicsUnit.Pixel,
-                        ia);
-                }
-
-                graphics.InterpolationMode = savedMode;
-                return true;
             }
 
             return false;
         }
 
         // ── Debounce & background fetch ────────────────────────────────────────
+
+        private bool DrawParentBitmapRegion(
+            Graphics graphics,
+            MapCanvasEngine engine,
+            Bitmap parentBitmap,
+            TileKey missingKey,
+            RectangleD missingProjectBounds,
+            RectangleF source)
+        {
+            InterpolationMode savedMode = graphics.InterpolationMode;
+            graphics.InterpolationMode = InterpolationMode.NearestNeighbor;
+
+            try
+            {
+                if (_projectIsWebMercator)
+                {
+                    RectangleF destination = WorldBoundsToScreenRectangle(
+                        engine,
+                        missingProjectBounds);
+                    if (!IsValidDestination(destination))
+                    {
+                        return false;
+                    }
+
+                    DrawBitmapRegion(
+                        graphics,
+                        parentBitmap,
+                        AlignDestinationToPixelGrid(destination),
+                        source);
+                    return true;
+                }
+
+                return DrawTileBitmapMesh(
+                    graphics,
+                    engine,
+                    parentBitmap,
+                    missingKey,
+                    source);
+            }
+            finally
+            {
+                graphics.InterpolationMode = savedMode;
+            }
+        }
 
         /// <summary>Called on a thread-pool thread 80 ms after the last render pass.</summary>
         private void OnDebounceElapsed(object? state)
@@ -527,10 +632,57 @@ namespace Land_Readjustment_Tool.UI.MapCanvas.Rendering
             _ = FetchMissingTilesAsync(webMercatorBounds, zoom, newCts.Token);
         }
 
+        private void QueueBootstrapFetch(
+            RectangleD webMercatorBounds,
+            int desiredZoom)
+        {
+            int bootstrapZoom = SelectBootstrapZoom(
+                webMercatorBounds,
+                desiredZoom);
+            if (bootstrapZoom < 0)
+            {
+                return;
+            }
+
+            _ = FetchMissingTilesAsync(
+                webMercatorBounds,
+                bootstrapZoom,
+                CancellationToken.None,
+                MaxBootstrapTilesPerFrame);
+        }
+
+        private static int SelectBootstrapZoom(
+            RectangleD webMercatorBounds,
+            int desiredZoom)
+        {
+            int bootstrapZoom = Math.Clamp(
+                desiredZoom,
+                0,
+                MaxSupportedZoom);
+
+            while (bootstrapZoom > 0 &&
+                   TryCreateTileRange(
+                       bootstrapZoom,
+                       webMercatorBounds,
+                       out TileRange tileRange) &&
+                   tileRange.Count > MaxBootstrapTilesPerFrame)
+            {
+                bootstrapZoom--;
+            }
+
+            return TryCreateTileRange(
+                bootstrapZoom,
+                webMercatorBounds,
+                out _)
+                ? bootstrapZoom
+                : -1;
+        }
+
         private async Task FetchMissingTilesAsync(
             RectangleD webMercatorBounds,
             int zoom,
-            CancellationToken cancellationToken)
+            CancellationToken cancellationToken,
+            int maxTilesToFetch = int.MaxValue)
         {
             if (!TryCreateTileRange(zoom, webMercatorBounds, out TileRange tileRange))
             {
@@ -545,11 +697,23 @@ namespace Land_Readjustment_Tool.UI.MapCanvas.Rendering
                 {
                     for (int x = tileRange.MinX; x <= tileRange.MaxX; x++)
                     {
+                        if (missing.Count >= maxTilesToFetch)
+                        {
+                            break;
+                        }
+
                         TileKey key = new TileKey(zoom, x, y);
-                        if (!_tileCache.ContainsKey(key) && _pendingFetches.Add(key))
+                        if (!_tileCache.ContainsKey(key) &&
+                            !_noDataTiles.Contains(key) &&
+                            _pendingFetches.Add(key))
                         {
                             missing.Add(key);
                         }
+                    }
+
+                    if (missing.Count >= maxTilesToFetch)
+                    {
+                        break;
                     }
                 }
             }
@@ -595,8 +759,10 @@ namespace Land_Readjustment_Tool.UI.MapCanvas.Rendering
                         return;
                     }
 
-                    // Disk cache — avoids re-downloading tiles the user has already seen.
+                    // Disk cache avoids re-downloading valid imagery the user has already seen.
                     byte[]? bytes = TryReadDiskCache(key);
+                    bool bytesFromDiskCache = bytes != null && bytes.Length > 0;
+                    bool bytesDownloaded = false;
 
                     if (bytes == null || bytes.Length == 0)
                     {
@@ -604,11 +770,7 @@ namespace Land_Readjustment_Tool.UI.MapCanvas.Rendering
                         bytes = await SharedHttpClient
                             .GetByteArrayAsync(url, cancellationToken)
                             .ConfigureAwait(false);
-
-                        if (bytes != null && bytes.Length > 0)
-                        {
-                            TryWriteDiskCache(key, bytes);
-                        }
+                        bytesDownloaded = bytes != null && bytes.Length > 0;
                     }
 
                     if (bytes == null || bytes.Length == 0)
@@ -621,6 +783,34 @@ namespace Land_Readjustment_Tool.UI.MapCanvas.Rendering
                     bitmap = await Task
                         .Run(() => DecodeTileBitmap(capturedBytes), cancellationToken)
                         .ConfigureAwait(false);
+
+                    if (bitmap != null && IsLikelyNoDataTile(bitmap))
+                    {
+                        bitmap.Dispose();
+                        bitmap = null;
+
+                        if (bytesFromDiskCache)
+                        {
+                            TryDeleteDiskCache(key);
+                        }
+
+                        lock (_renderSync)
+                        {
+                            _noDataTiles.Add(key);
+                            if (_noDataTiles.Count > MaxCachedTiles * 8)
+                            {
+                                _noDataTiles.Clear();
+                                _noDataTiles.Add(key);
+                            }
+                        }
+
+                        return;
+                    }
+
+                    if (bytesDownloaded && bytes.Length > 0)
+                    {
+                        TryWriteDiskCache(key, bytes);
+                    }
                 }
                 finally
                 {
@@ -645,6 +835,7 @@ namespace Land_Readjustment_Tool.UI.MapCanvas.Rendering
                     }
 
                     _tileCache[key] = bitmap;
+                    _noDataTiles.Remove(key);
                     bitmap = null; // ownership transferred to cache
                     LinkedListNode<TileKey> node = _tileLru.AddLast(key);
                     _tileLruNodes[key] = node;
@@ -693,14 +884,15 @@ namespace Land_Readjustment_Tool.UI.MapCanvas.Rendering
                 return 0;
             }
 
-            int desiredZoom = (int)Math.Round(
-                Math.Log(InitialResolution / metersPerPixel, 2.0),
-                MidpointRounding.AwayFromZero);
+            double rawZoom = Math.Log(
+                InitialResolution / metersPerPixel,
+                2.0);
 
-            if (interactive)
-            {
-                desiredZoom--;
-            }
+            int desiredZoom = interactive
+                ? (int)Math.Floor(rawZoom + 0.3)
+                : (int)Math.Round(
+                    rawZoom,
+                    MidpointRounding.AwayFromZero);
 
             desiredZoom = Math.Clamp(desiredZoom, 0, MaxSupportedZoom);
 
@@ -814,46 +1006,59 @@ namespace Land_Readjustment_Tool.UI.MapCanvas.Rendering
         {
             targetBounds = default;
 
-            PointD[] sourcePoints =
-            [
-                new PointD(MinX(sourceBounds), MinY(sourceBounds)),
-                new PointD(MinX(sourceBounds), MaxY(sourceBounds)),
-                new PointD(MaxX(sourceBounds), MinY(sourceBounds)),
-                new PointD(MaxX(sourceBounds), MaxY(sourceBounds)),
-                new PointD((MinX(sourceBounds) + MaxX(sourceBounds)) / 2.0, MinY(sourceBounds)),
-                new PointD((MinX(sourceBounds) + MaxX(sourceBounds)) / 2.0, MaxY(sourceBounds)),
-                new PointD(MinX(sourceBounds), (MinY(sourceBounds) + MaxY(sourceBounds)) / 2.0),
-                new PointD(MaxX(sourceBounds), (MinY(sourceBounds) + MaxY(sourceBounds)) / 2.0),
-                new PointD(
-                    (MinX(sourceBounds) + MaxX(sourceBounds)) / 2.0,
-                    (MinY(sourceBounds) + MaxY(sourceBounds)) / 2.0)
-            ];
+            const int gridSize = 4;
+            double sourceMinX = MinX(sourceBounds);
+            double sourceMaxX = MaxX(sourceBounds);
+            double sourceMinY = MinY(sourceBounds);
+            double sourceMaxY = MaxY(sourceBounds);
 
-            List<PointD> transformed = [];
-            foreach (PointD src in sourcePoints)
+            double targetMinX = double.MaxValue;
+            double targetMaxX = double.MinValue;
+            double targetMinY = double.MaxValue;
+            double targetMaxY = double.MinValue;
+            int transformedCount = 0;
+
+            for (int row = 0; row < gridSize; row++)
             {
-                if (TryTransformPoint(transformation, src, out PointD dst))
+                double y = sourceMinY +
+                    (sourceMaxY - sourceMinY) * row / (gridSize - 1.0);
+
+                for (int column = 0; column < gridSize; column++)
                 {
-                    transformed.Add(dst);
+                    double x = sourceMinX +
+                        (sourceMaxX - sourceMinX) * column / (gridSize - 1.0);
+
+                    if (!TryTransformPoint(
+                            transformation,
+                            new PointD(x, y),
+                            out PointD transformed))
+                    {
+                        continue;
+                    }
+
+                    targetMinX = Math.Min(targetMinX, transformed.X);
+                    targetMaxX = Math.Max(targetMaxX, transformed.X);
+                    targetMinY = Math.Min(targetMinY, transformed.Y);
+                    targetMaxY = Math.Max(targetMaxY, transformed.Y);
+                    transformedCount++;
                 }
             }
 
-            if (transformed.Count == 0)
+            if (transformedCount == 0)
             {
                 return false;
             }
 
-            double minX = transformed.Min(p => p.X);
-            double maxX = transformed.Max(p => p.X);
-            double minY = transformed.Min(p => p.Y);
-            double maxY = transformed.Max(p => p.Y);
-
-            if (maxX <= minX || maxY <= minY)
+            if (targetMaxX <= targetMinX || targetMaxY <= targetMinY)
             {
                 return false;
             }
 
-            targetBounds = new RectangleD(minX, minY, maxX - minX, maxY - minY);
+            targetBounds = new RectangleD(
+                targetMinX,
+                targetMinY,
+                targetMaxX - targetMinX,
+                targetMaxY - targetMinY);
             return true;
         }
 
@@ -886,10 +1091,10 @@ namespace Land_Readjustment_Tool.UI.MapCanvas.Rendering
             out RectangleD clipped)
         {
             clipped = default;
-            double left = Math.Max(MinX(bounds), -WebMercatorExtent);
-            double right = Math.Min(MaxX(bounds), WebMercatorExtent);
-            double bottom = Math.Max(MinY(bounds), -WebMercatorExtent);
-            double top = Math.Min(MaxY(bounds), WebMercatorExtent);
+            double left = Math.Max(MinX(bounds), MinX(AsiaWebMercatorBounds));
+            double right = Math.Min(MaxX(bounds), MaxX(AsiaWebMercatorBounds));
+            double bottom = Math.Max(MinY(bounds), MinY(AsiaWebMercatorBounds));
+            double top = Math.Min(MaxY(bounds), MaxY(AsiaWebMercatorBounds));
 
             if (right <= left || top <= bottom)
             {
@@ -901,6 +1106,82 @@ namespace Land_Readjustment_Tool.UI.MapCanvas.Rendering
         }
 
         // ── Drawing helpers ────────────────────────────────────────────────────
+
+        private bool TryCreateProjectedScreenQuad(
+            MapCanvasEngine engine,
+            RectangleD webMercatorBounds,
+            out PointF[] destination)
+        {
+            destination = [];
+
+            PointD topLeftWebMercator = new(
+                MinX(webMercatorBounds),
+                MaxY(webMercatorBounds));
+            PointD topRightWebMercator = new(
+                MaxX(webMercatorBounds),
+                MaxY(webMercatorBounds));
+            PointD bottomLeftWebMercator = new(
+                MinX(webMercatorBounds),
+                MinY(webMercatorBounds));
+
+            if (!TryTransformPoint(
+                    _webMercatorToProject,
+                    topLeftWebMercator,
+                    out PointD topLeftProject) ||
+                !TryTransformPoint(
+                    _webMercatorToProject,
+                    topRightWebMercator,
+                    out PointD topRightProject) ||
+                !TryTransformPoint(
+                    _webMercatorToProject,
+                    bottomLeftWebMercator,
+                    out PointD bottomLeftProject))
+            {
+                return false;
+            }
+
+            PointD topLeft = engine.WorldToScreen(topLeftProject);
+            PointD topRight = engine.WorldToScreen(topRightProject);
+            PointD bottomLeft = engine.WorldToScreen(bottomLeftProject);
+
+            destination =
+            [
+                new PointF((float)topLeft.X, (float)topLeft.Y),
+                new PointF((float)topRight.X, (float)topRight.Y),
+                new PointF((float)bottomLeft.X, (float)bottomLeft.Y)
+            ];
+
+            return destination.All(point =>
+                IsFiniteF(point.X) &&
+                IsFiniteF(point.Y));
+        }
+
+        private void DrawBitmapQuad(
+            Graphics graphics,
+            Bitmap bitmap,
+            PointF[] destination,
+            RectangleF source)
+        {
+            if (_opacityImageAttributes == null)
+            {
+                using ImageAttributes attributes = new();
+                attributes.SetWrapMode(WrapMode.TileFlipXY);
+                graphics.DrawImage(
+                    bitmap,
+                    destination,
+                    source,
+                    GraphicsUnit.Pixel,
+                    attributes);
+                return;
+            }
+
+            graphics.DrawImage(
+                bitmap,
+                destination,
+                source,
+                GraphicsUnit.Pixel,
+                _opacityImageAttributes);
+        }
 
         private void DrawBitmapRegion(
             Graphics graphics,
@@ -992,6 +1273,59 @@ namespace Land_Readjustment_Tool.UI.MapCanvas.Rendering
             }
         }
 
+        private static bool IsLikelyNoDataTile(Bitmap bitmap)
+        {
+            int step = Math.Max(1, Math.Min(bitmap.Width, bitmap.Height) / 32);
+            int total = 0;
+            int neutral = 0;
+            int brightNeutral = 0;
+            double sum = 0.0;
+            double sumSq = 0.0;
+
+            for (int y = 0; y < bitmap.Height; y += step)
+            {
+                for (int x = 0; x < bitmap.Width; x += step)
+                {
+                    Color color = bitmap.GetPixel(x, y);
+                    int max = Math.Max(color.R, Math.Max(color.G, color.B));
+                    int min = Math.Min(color.R, Math.Min(color.G, color.B));
+                    int brightness = (color.R + color.G + color.B) / 3;
+
+                    if (max - min <= 14 &&
+                        brightness >= 120 &&
+                        brightness <= 245)
+                    {
+                        neutral++;
+                    }
+
+                    if (max - min <= 18 && brightness >= 220)
+                    {
+                        brightNeutral++;
+                    }
+
+                    sum += brightness;
+                    sumSq += brightness * brightness;
+                    total++;
+                }
+            }
+
+            if (total == 0)
+            {
+                return false;
+            }
+
+            double neutralRatio = neutral / (double)total;
+            double brightRatio = brightNeutral / (double)total;
+            double mean = sum / total;
+            double variance = Math.Max(0.0, (sumSq / total) - (mean * mean));
+
+            // Esri "Map data not yet available" tiles are mostly flat gray with
+            // small bright text. Real imagery has much more chroma and texture.
+            return neutralRatio > 0.78 &&
+                   brightRatio > 0.015 &&
+                   variance < 1800.0;
+        }
+
         // ── LRU cache management ───────────────────────────────────────────────
 
         private void TouchTile(TileKey key)
@@ -1049,6 +1383,7 @@ namespace Land_Readjustment_Tool.UI.MapCanvas.Rendering
             _tileLru.Clear();
             _tileLruNodes.Clear();
             _pendingFetches.Clear();
+            _noDataTiles.Clear();
             _projectTileBoundsCache.Clear();
         }
 
@@ -1083,6 +1418,22 @@ namespace Land_Readjustment_Tool.UI.MapCanvas.Rendering
             catch
             {
                 // Disk cache writes are best-effort; never block rendering.
+            }
+        }
+
+        private void TryDeleteDiskCache(TileKey key)
+        {
+            try
+            {
+                string path = GetDiskCachePath(key);
+                if (File.Exists(path))
+                {
+                    File.Delete(path);
+                }
+            }
+            catch
+            {
+                // Disk cache cleanup is best-effort.
             }
         }
 
@@ -1302,6 +1653,75 @@ namespace Land_Readjustment_Tool.UI.MapCanvas.Rendering
 
         // ── Screen geometry helpers ────────────────────────────────────────────
 
+        private static RectangleF GetSourceSubRectangle(
+            RectangleF source,
+            int column,
+            int row,
+            int subdivisions)
+        {
+            float width = source.Width / subdivisions;
+            float height = source.Height / subdivisions;
+            return new RectangleF(
+                source.Left + column * width,
+                source.Top + row * height,
+                width,
+                height);
+        }
+
+        private static RectangleD GetSubTileWebMercatorBounds(
+            RectangleD tileBounds,
+            int column,
+            int row,
+            int subdivisions)
+        {
+            double minX = MinX(tileBounds);
+            double maxX = MaxX(tileBounds);
+            double minY = MinY(tileBounds);
+            double maxY = MaxY(tileBounds);
+            double width = (maxX - minX) / subdivisions;
+            double height = (maxY - minY) / subdivisions;
+
+            double left = minX + column * width;
+            double top = maxY - row * height;
+            double bottom = top - height;
+            return new RectangleD(left, bottom, width, height);
+        }
+
+        private static bool IsValidSource(RectangleF source) =>
+            IsFiniteF(source.Left) &&
+            IsFiniteF(source.Top) &&
+            IsFiniteF(source.Width) &&
+            IsFiniteF(source.Height) &&
+            source.Width > 0.0f &&
+            source.Height > 0.0f;
+
+        private static RectangleD CreateWebMercatorBoundsFromLonLat(
+            double west,
+            double south,
+            double east,
+            double north)
+        {
+            PointD southWest = ProjectLonLatToWebMercator(west, south);
+            PointD northEast = ProjectLonLatToWebMercator(east, north);
+            double left = Math.Min(southWest.X, northEast.X);
+            double right = Math.Max(southWest.X, northEast.X);
+            double bottom = Math.Min(southWest.Y, northEast.Y);
+            double top = Math.Max(southWest.Y, northEast.Y);
+            return new RectangleD(left, bottom, right - left, top - bottom);
+        }
+
+        private static PointD ProjectLonLatToWebMercator(double longitude, double latitude)
+        {
+            double clampedLatitude = Math.Clamp(latitude, -85.05112878, 85.05112878);
+            double x = longitude / 180.0 * WebMercatorExtent;
+            double radians = clampedLatitude * Math.PI / 180.0;
+            double y = Math.Log(Math.Tan((Math.PI / 4.0) + (radians / 2.0))) *
+                WebMercatorExtent / Math.PI;
+            return new PointD(
+                Math.Clamp(x, -WebMercatorExtent, WebMercatorExtent),
+                Math.Clamp(y, -WebMercatorExtent, WebMercatorExtent));
+        }
+
         private static RectangleF WorldBoundsToScreenRectangle(
             MapCanvasEngine engine,
             RectangleD worldBounds)
@@ -1318,12 +1738,33 @@ namespace Land_Readjustment_Tool.UI.MapCanvas.Rendering
                 (float)Math.Max(topLeft.Y, bottomRight.Y));
         }
 
-        private static RectangleF AlignDestinationToPixelGrid(RectangleF destination) =>
-            RectangleF.FromLTRB(
-                (float)Math.Floor(destination.Left),
-                (float)Math.Floor(destination.Top),
-                (float)Math.Ceiling(destination.Right),
-                (float)Math.Ceiling(destination.Bottom));
+        private static RectangleF AlignDestinationToPixelGrid(RectangleF destination)
+        {
+            float left = (float)Math.Round(
+                destination.Left,
+                MidpointRounding.AwayFromZero);
+            float top = (float)Math.Round(
+                destination.Top,
+                MidpointRounding.AwayFromZero);
+            float right = (float)Math.Round(
+                destination.Right,
+                MidpointRounding.AwayFromZero);
+            float bottom = (float)Math.Round(
+                destination.Bottom,
+                MidpointRounding.AwayFromZero);
+
+            if (right <= left)
+            {
+                right = left + 1.0f;
+            }
+
+            if (bottom <= top)
+            {
+                bottom = top + 1.0f;
+            }
+
+            return RectangleF.FromLTRB(left, top, right, bottom);
+        }
 
         private static Rectangle CreateIntegerDestinationRectangle(RectangleF destination) =>
             Rectangle.FromLTRB(
