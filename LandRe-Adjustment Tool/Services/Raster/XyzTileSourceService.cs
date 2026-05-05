@@ -42,6 +42,9 @@ namespace Land_Readjustment_Tool.Services.Raster
             Directory.CreateDirectory(cacheFolder);
 
             string normalizedUrl = NormalizeUrlTemplate(request.UrlTemplate);
+            int tileLevel = request.IsLiveTiles
+                ? ResolvePracticalLiveTileMaxZoom(normalizedUrl, request.ZoomLevel)
+                : request.ZoomLevel;
             RasterSourceExtent sourceExtent = request.IsLiveTiles
                 ? BuildGlobalSourceExtent()
                 : BuildSourceExtent(request);
@@ -54,8 +57,8 @@ namespace Land_Readjustment_Tool.Services.Raster
             File.WriteAllText(
                 xmlPath,
                 request.IsLiveTiles
-                    ? BuildGdalWmsXmlLive(normalizedUrl, cacheFolder, request.ZoomLevel, request.ImageExtension)
-                    : BuildGdalWmsXml(normalizedUrl, cacheFolder, request.ZoomLevel, request.ImageExtension),
+                    ? BuildGdalWmsXmlLive(normalizedUrl, cacheFolder, tileLevel, request.ImageExtension)
+                    : BuildGdalWmsXml(normalizedUrl, cacheFolder, tileLevel, request.ImageExtension),
                 Utf8NoBom);
 
             return new XyzTileSourceDefinition(
@@ -360,6 +363,47 @@ namespace Land_Readjustment_Tool.Services.Raster
             return extension is ".jpg" or ".jpeg" or ".png"
                 ? extension
                 : ".png";
+        }
+
+        private static int ResolvePracticalLiveTileMaxZoom(
+            string normalizedUrl,
+            int requestedZoomLevel)
+        {
+            int maxZoom = Math.Clamp(requestedZoomLevel, 0, 25);
+            string url = normalizedUrl.ToLowerInvariant();
+
+            if (url.Contains("world_physical_map", StringComparison.Ordinal))
+                return Math.Min(maxZoom, 16);
+
+            if (url.Contains("opentopomap", StringComparison.Ordinal))
+                return Math.Min(maxZoom, 17);
+
+            if (url.Contains("tile.openstreetmap.", StringComparison.Ordinal) ||
+                url.Contains("openstreetmap.org", StringComparison.Ordinal) ||
+                url.Contains("wikimedia.org", StringComparison.Ordinal))
+            {
+                return Math.Min(maxZoom, 19);
+            }
+
+            if (url.Contains("arcgisonline.com", StringComparison.Ordinal) ||
+                url.Contains("basemap.nationalmap.gov", StringComparison.Ordinal))
+            {
+                return Math.Min(maxZoom, 19);
+            }
+
+            if (url.Contains("cartodb-basemaps", StringComparison.Ordinal) ||
+                url.Contains("tiles.stadiamaps.com", StringComparison.Ordinal))
+            {
+                return Math.Min(maxZoom, 20);
+            }
+
+            if (url.Contains("google.com", StringComparison.Ordinal) ||
+                url.Contains("googleapis.com", StringComparison.Ordinal))
+            {
+                return Math.Min(maxZoom, 22);
+            }
+
+            return maxZoom;
         }
 
         /// <summary>

@@ -28,15 +28,11 @@ namespace Land_Readjustment_Tool.UI.MapCanvas.Services
 
         private static readonly IReadOnlyList<DefaultLayerDefinition> DefaultLayers =
         [
-            // Colours follow the muted, context-aware palette used by ArcMap / ArcGIS Pro.
-            // ProjectBoundary — dark brick-red: authoritative, thick perimeter line.
-            new(OriginalDataGroupKey, "Boundary", "ProjectBoundary", "#9B3A2A", 2.0),
-            // BaselineParcel — muted steel-teal: classic cadastral / parcel layer tone.
-            new(OriginalDataGroupKey, "Original Parcels", "BaselineParcel", "#2F6B8F", 1.4),
-            // ProposedRoad — warm copper-amber: standard GIS road-layer colour.
-            new(ProposedDataGroupKey, "Proposed Roads", "ProposedRoad", "#C07B30", 2.0),
-            // ReplottedParcel — muted amethyst: clearly distinguishes proposed from existing.
-            new(ProposedDataGroupKey, "Replotted Parcels", "ReplottedParcel", "#5B4F8A", 1.5)
+            // Colours follow the ArcMap-style palette used elsewhere in the app.
+            new(OriginalDataGroupKey, "Boundary", "ProjectBoundary", "#CF7C82", "#F6B3B6", 75, 2.0),
+            new(OriginalDataGroupKey, "Original Parcels", "BaselineParcel", "#B7C9EF", "#B7DDF0", 85, 1.4),
+            new(ProposedDataGroupKey, "Proposed Roads", "ProposedRoad", "#D99A5A", "#F6C766", 55, 2.0),
+            new(ProposedDataGroupKey, "Replotted Parcels", "ReplottedParcel", "#D9A9F0", "#F1A9D8", 80, 1.5)
         ];
 
         public CanvasLayerTreeService(ICanvasLayerRepository canvasLayerRepository)
@@ -136,18 +132,23 @@ namespace Land_Readjustment_Tool.UI.MapCanvas.Services
         private async Task EnsureDefaultLayersAsync(CancellationToken ct)
         {
             IReadOnlyList<CanvasLayer> existingLayers = await _canvasLayerRepository.GetAllOrderedAsync(ct);
-            HashSet<string> existingNames = existingLayers
-                .Select(layer => layer.Name.Trim())
-                .ToHashSet(StringComparer.OrdinalIgnoreCase);
-
             int nextDisplayOrder = existingLayers.Count == 0
                 ? 0
                 : existingLayers.Max(layer => layer.DisplayOrder) + 1;
 
             foreach (DefaultLayerDefinition definition in DefaultLayers)
             {
-                if (existingNames.Contains(definition.Name))
+                CanvasLayer? existingDefaultLayer = existingLayers
+                    .FirstOrDefault(layer =>
+                        string.Equals(layer.Name, definition.Name, StringComparison.OrdinalIgnoreCase));
+
+                if (existingDefaultLayer != null)
                 {
+                    if (ApplyDefaultLayerStyle(existingDefaultLayer, definition))
+                    {
+                        await _canvasLayerRepository.UpdateAsync(existingDefaultLayer, ct);
+                    }
+
                     continue;
                 }
 
@@ -163,9 +164,9 @@ namespace Land_Readjustment_Tool.UI.MapCanvas.Services
                     BorderColor = definition.BorderColor,
                     LineWeight = definition.LineWeight,
                     LineStyle = "Solid",
-                    FillColor = null,
-                    FillTransparency = 100,
-                    FillStyle = "None",
+                    FillColor = definition.FillColor,
+                    FillTransparency = definition.FillTransparency,
+                    FillStyle = "Solid",
                     LabelColor = "#000000",
                     PointSymbol = "Circle",
                     PointSize = 5.0,
@@ -178,12 +179,64 @@ namespace Land_Readjustment_Tool.UI.MapCanvas.Services
             }
         }
 
+        private static bool ApplyDefaultLayerStyle(
+            CanvasLayer layer,
+            DefaultLayerDefinition definition)
+        {
+            if (!string.Equals(
+                    layer.Description,
+                    $"Default layer: {definition.Name}",
+                    StringComparison.OrdinalIgnoreCase))
+            {
+                return false;
+            }
+
+            bool changed = false;
+
+            if (!string.Equals(layer.BorderColor, definition.BorderColor, StringComparison.OrdinalIgnoreCase))
+            {
+                layer.BorderColor = definition.BorderColor;
+                changed = true;
+            }
+
+            if (!string.Equals(layer.FillColor, definition.FillColor, StringComparison.OrdinalIgnoreCase))
+            {
+                layer.FillColor = definition.FillColor;
+                changed = true;
+            }
+
+            if (!string.Equals(layer.FillStyle, "Solid", StringComparison.OrdinalIgnoreCase))
+            {
+                layer.FillStyle = "Solid";
+                changed = true;
+            }
+
+            if (layer.FillTransparency != definition.FillTransparency)
+            {
+                layer.FillTransparency = definition.FillTransparency;
+                changed = true;
+            }
+
+            if (Math.Abs(layer.LineWeight - definition.LineWeight) >= 0.001)
+            {
+                layer.LineWeight = definition.LineWeight;
+                changed = true;
+            }
+
+            if (changed)
+                layer.LastModifiedDate = DateTime.Now;
+
+            return changed;
+        }
+
         private sealed record LayerGroupDefinition(string Key, string Name);
         private sealed record DefaultLayerDefinition(
             string GroupKey,
             string Name,
             string LayerType,
             string BorderColor,
+            string FillColor,
+            int FillTransparency,
             double LineWeight);
     }
 

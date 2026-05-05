@@ -74,6 +74,7 @@ namespace Land_Readjustment_Tool.UI.MapCanvas.Rendering
         // ── Tile source ────────────────────────────────────────────────────────
         private readonly string _urlTemplate;
         private readonly string _diskCacheRoot;
+        private readonly int _maxSourceZoom;
 
         // ── Tile-ready callback ────────────────────────────────────────────────
         private readonly Action? _invalidateCallback;
@@ -113,6 +114,7 @@ namespace Land_Readjustment_Tool.UI.MapCanvas.Rendering
             CoordinateTransformation webMercatorToProject,
             CoordinateTransformation projectToWebMercator,
             bool projectIsWebMercator,
+            int maxSourceZoom,
             Action? invalidateCallback)
         {
             LayerId = layer.Id;
@@ -129,6 +131,7 @@ namespace Land_Readjustment_Tool.UI.MapCanvas.Rendering
             _webMercatorToProject = webMercatorToProject;
             _projectToWebMercator = projectToWebMercator;
             _projectIsWebMercator = projectIsWebMercator;
+            _maxSourceZoom = Math.Clamp(maxSourceZoom, 0, MaxSupportedZoom);
             _invalidateCallback = invalidateCallback;
             _debounceTimer = new System.Threading.Timer(
                 OnDebounceElapsed,
@@ -210,6 +213,7 @@ namespace Land_Readjustment_Tool.UI.MapCanvas.Rendering
             string urlTemplate = ExtractUrlTemplate(wmsXmlPath)
                 ?? throw new InvalidOperationException(
                     $"Could not extract the tile URL template from '{Path.GetFileName(wmsXmlPath)}'.");
+            int maxSourceZoom = ResolveMaxSourceZoom(wmsXmlPath, urlTemplate);
 
             string diskCacheRoot = BuildDiskCacheRoot(urlTemplate);
 
@@ -240,6 +244,7 @@ namespace Land_Readjustment_Tool.UI.MapCanvas.Rendering
                 webMercatorToProject,
                 projectToWebMercator,
                 projectIsWebMercator,
+                maxSourceZoom,
                 invalidateCallback);
         }
 
@@ -1541,7 +1546,7 @@ namespace Land_Readjustment_Tool.UI.MapCanvas.Rendering
                     rawZoom,
                     MidpointRounding.AwayFromZero);
 
-            desiredZoom = Math.Clamp(desiredZoom, 0, MaxSupportedZoom);
+            desiredZoom = Math.Clamp(desiredZoom, 0, _maxSourceZoom);
 
             // Guard against runaway tile counts at very deep zoom or large viewports.
             while (desiredZoom > 0 &&
@@ -2216,7 +2221,7 @@ namespace Land_Readjustment_Tool.UI.MapCanvas.Rendering
                 return null;
 
             string text = content[contentStart..end].Trim();
-            return string.IsNullOrWhiteSpace(text) ? null : text;
+            return string.IsNullOrWhiteSpace(text) ? null : WebUtility.HtmlDecode(text);
         }
 
         /// <summary>
@@ -2234,6 +2239,57 @@ namespace Land_Readjustment_Tool.UI.MapCanvas.Rendering
                 XmlNode? node = doc.SelectSingleNode("//*[local-name()='ServerUrl']");
                 string? url = node?.InnerText?.Trim();
                 return string.IsNullOrWhiteSpace(url) ? null : url;
+            }
+            catch
+            {
+                return null;
+            }
+        }
+
+        private static int ResolveMaxSourceZoom(
+            string wmsXmlPath,
+            string urlTemplate)
+        {
+            int maxZoom = ExtractTileLevel(wmsXmlPath) ?? MaxSupportedZoom;
+            string url = urlTemplate.ToLowerInvariant();
+
+            // ArcGIS imagery services often return placeholder/partial tiles above
+            // their real cache coverage. Capping prevents mixed high-zoom misses and
+            // parent placeholders from appearing as warped/distorted blocks.
+            if (url.Contains("services.arcgisonline.com/arcgis/rest/services/world_imagery/"))
+            {
+                maxZoom = Math.Min(maxZoom, 19);
+            }
+            else if (url.Contains("services.arcgisonline.com/arcgis/rest/services/world_physical_map/"))
+            {
+                maxZoom = Math.Min(maxZoom, 16);
+            }
+            else if (url.Contains("services.arcgisonline.com/arcgis/rest/services/") ||
+                     url.Contains("basemap.nationalmap.gov/arcgis/rest/services/"))
+            {
+                maxZoom = Math.Min(maxZoom, 19);
+            }
+
+            return Math.Clamp(maxZoom, 0, MaxSupportedZoom);
+        }
+
+        private static int? ExtractTileLevel(string wmsXmlPath)
+        {
+            try
+            {
+                XmlDocument doc = new()
+                {
+                    XmlResolver = null
+                };
+                doc.Load(wmsXmlPath);
+                XmlNode? node = doc.SelectSingleNode("//*[local-name()='TileLevel']");
+                return int.TryParse(
+                    node?.InnerText?.Trim(),
+                    NumberStyles.Integer,
+                    CultureInfo.InvariantCulture,
+                    out int tileLevel)
+                    ? tileLevel
+                    : null;
             }
             catch
             {

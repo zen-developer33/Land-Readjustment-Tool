@@ -94,9 +94,10 @@ namespace Land_Readjustment_Tool.Services
                 TraditionalAreaUnit = "RAPD",
 
                 // Canvas defaults
-                CanvasBackgroundColor = "#F0F0F0",
+                CanvasBackgroundColor = "#FFFFFF",
                 CanvasGridColor = "#CCCCCC",
-                CanvasGridVisible = true,
+                CanvasGridVisible = false,
+                CanvasAxisMarkerVisible = false,
                 SnapEnabled = true,
                 SnapTolerancePx = 8.0,
 

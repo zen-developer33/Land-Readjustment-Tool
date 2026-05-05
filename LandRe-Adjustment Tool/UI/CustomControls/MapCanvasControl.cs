@@ -11,7 +11,7 @@ namespace Land_Readjustment_Tool.UI.CustomControls
 {
     public partial class MapCanvasControl : UserControl
     {
-        private const int ZoomSettleIntervalMs = 80;
+        private const int ZoomSettleIntervalMs = 50;
 
         private readonly MapCanvasEngine _engine;
         private readonly MapCanvasRenderer _renderer;
@@ -239,6 +239,7 @@ namespace Land_Readjustment_Tool.UI.CustomControls
             IRasterRenderLayer? rasterLayer = _rasterRenderLayers
                 .FirstOrDefault(layer => layer.LayerId == layerId);
             if (rasterLayer == null ||
+                rasterLayer is XyzLiveTileRenderLayer ||
                 !TryNormalizeWorldBounds(rasterLayer.WorldBounds, out RectangleD bounds))
             {
                 return false;
@@ -252,6 +253,11 @@ namespace Land_Readjustment_Tool.UI.CustomControls
 
         public void SetPanToolActive(bool active)
         {
+            if (_isZooming && active)
+            {
+                return;
+            }
+
             if (IsCanvasInteractionLocked)
             {
                 return;
@@ -502,7 +508,7 @@ namespace Land_Readjustment_Tool.UI.CustomControls
 
             if (_isZooming && isPanGesture)
             {
-                StopZoomInteraction();
+                return;
             }
 
             if (IsCanvasInteractionLocked)
@@ -947,19 +953,23 @@ namespace Land_Readjustment_Tool.UI.CustomControls
 
         private void UpdateRasterWorldBounds()
         {
-            if (_rasterRenderLayers.Count == 0)
+            List<IRasterRenderLayer> extentLayers = _rasterRenderLayers
+                .Where(layer => layer is not XyzLiveTileRenderLayer)
+                .ToList();
+
+            if (extentLayers.Count == 0)
             {
                 _engine.SetWorldBounds(MapCanvasEngine.DefaultWorldBounds);
                 return;
             }
 
-            double minX = _rasterRenderLayers.Min(layer =>
+            double minX = extentLayers.Min(layer =>
                 Math.Min(layer.WorldBounds.Left, layer.WorldBounds.Right));
-            double maxX = _rasterRenderLayers.Max(layer =>
+            double maxX = extentLayers.Max(layer =>
                 Math.Max(layer.WorldBounds.Left, layer.WorldBounds.Right));
-            double minY = _rasterRenderLayers.Min(layer =>
+            double minY = extentLayers.Min(layer =>
                 Math.Min(layer.WorldBounds.Top, layer.WorldBounds.Bottom));
-            double maxY = _rasterRenderLayers.Max(layer =>
+            double maxY = extentLayers.Max(layer =>
                 Math.Max(layer.WorldBounds.Top, layer.WorldBounds.Bottom));
 
             _engine.SetWorldBounds(

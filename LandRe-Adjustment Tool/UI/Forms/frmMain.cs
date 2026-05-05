@@ -53,6 +53,9 @@ namespace Land_Readjustment_Tool
         private bool _suppressLayerTreeEvents;
         private frmOperationProgress? _operationProgressForm;
         private const string LayerGroupNodeNamePrefix = "LayerGroup_";
+        private const string RePlotRootNodeKey = "RePlotRoot";
+        private const string OriginalDataGroupKey = "OriginalDataLayer";
+        private const string ProposedDataGroupKey = "ProposedDataLayer";
         private const string RasterLayerGroupKey = "RasterLayer";
         private const int LayerNodeCheckBoxSize = 14;
         private const int LayerNodeCheckBoxGap = 6;
@@ -79,6 +82,8 @@ namespace Land_Readjustment_Tool
         private sealed class LayerTreeNodeState
         {
             public bool IsLayerNode { get; init; }
+            public bool IsCheckableGroup { get; init; }
+            public string? GroupKey { get; init; }
             public CanvasLayer? Layer { get; set; }
             public bool IsOnlineBasemap { get; set; }
         }
@@ -1065,6 +1070,24 @@ namespace Land_Readjustment_Tool
             }
         }
 
+        private async Task RefreshLiveTileLayersForCurrentProjectAsync()
+        {
+            if (!AppServices.HasContext)
+                return;
+
+            RasterLayerProjectionUpdateResult result =
+                await _rasterLayerProjectionService
+                    .RefreshLiveTileLayersToProjectCrsAsync(
+                        AppServices.Context.Session,
+                        AppServices.Context.ProjectFolderPath);
+
+            if (result.UpdatedCount > 0)
+            {
+                await RefreshLayerTreeAsync();
+                mapCanvasControlMain.RequestRender();
+            }
+        }
+
         private void projectSettingToolStripMenuItem_Click(object sender, EventArgs e)
         {
             if (!AppServices.HasContext) return;
@@ -1451,7 +1474,8 @@ namespace Land_Readjustment_Tool
 
                 await RefreshLayerTreeAsync();
                 SelectLayerNodeById(importResult.Layer.Id);
-                if (!await TryZoomToLayerAsync(importResult.Layer, showErrorDialog: false))
+                if (!request.IsLiveTiles &&
+                    !await TryZoomToLayerAsync(importResult.Layer, showErrorDialog: false))
                 {
                     mapCanvasControlMain.ZoomExtents();
                 }
@@ -2311,6 +2335,7 @@ namespace Land_Readjustment_Tool
                 ? layerState.Layer
                 : null;
             bool isLayer = activeLayer != null;
+            bool isCheckableGroup = layerState?.IsCheckableGroup == true;
 
             Graphics g = e.Graphics;
             g.TextRenderingHint =
@@ -2377,19 +2402,20 @@ namespace Land_Readjustment_Tool
                 }
                 else
                 {
-                    // Vector layers: render the configured border colour exactly.
-                    // Locked state only fades the *text* (handled above); we never
-                    // tint the swatch -- that would distort the layer's actual colour.
-                    Color layerColor = ParseColorOrDefault(layer.BorderColor, Color.Black);
-
-                    using (SolidBrush colorBrush = new(layerColor))
-                        g.FillRectangle(colorBrush, colorRect);
-
-                    using (Pen borderPen = new(Color.FromArgb(80, 80, 80)))
-                        g.DrawRectangle(borderPen, colorRect);
+                    DrawVectorLayerSwatch(g, colorRect, layer);
                 }
 
                 x = colorRect.Right + LayerNodeColorBoxGap;
+            }
+            else if (isCheckableGroup)
+            {
+                Rectangle chkRect = GetLayerNodeCheckBoxRect(e.Node);
+                CheckBoxRenderer.DrawCheckBox(
+                    g,
+                    chkRect.Location,
+                    GetGroupCheckBoxState(e.Node));
+
+                x = chkRect.Right + LayerNodeCheckBoxGap;
             }
 
             TextRenderer.DrawText(
@@ -2410,7 +2436,22 @@ namespace Land_Readjustment_Tool
                 Name = $"{LayerGroupNodeNamePrefix}{key}",
                 Tag = new LayerTreeNodeState
                 {
-                    IsLayerNode = false
+                    IsLayerNode = false,
+                    IsCheckableGroup = IsRePlotDataGroupKey(key),
+                    GroupKey = key
+                }
+            };
+        }
+
+        private static TreeNode CreateRePlotRootNode()
+        {
+            return new TreeNode("RePlot")
+            {
+                Name = $"{LayerGroupNodeNamePrefix}{RePlotRootNodeKey}",
+                Tag = new LayerTreeNodeState
+                {
+                    IsLayerNode = false,
+                    GroupKey = RePlotRootNodeKey
                 }
             };
         }
@@ -2446,9 +2487,19 @@ namespace Land_Readjustment_Tool
                 return;
             }
 
-            if (e.Node.Tag is not LayerTreeNodeState state ||
-                !state.IsLayerNode)
+            if (e.Node.Tag is not LayerTreeNodeState state)
                 return;
+
+            if (!state.IsLayerNode)
+            {
+                if (state.IsCheckableGroup &&
+                    GetLayerNodeCheckBoxRect(e.Node).Contains(e.Location))
+                {
+                    await ToggleLayerGroupVisibilityAsync(e.Node);
+                }
+
+                return;
+            }
 
             Rectangle checkBoxRect = GetLayerNodeCheckBoxRect(e.Node);
             Rectangle colorRect = GetLayerNodeColorRect(e.Node);
@@ -2545,7 +2596,7 @@ namespace Land_Readjustment_Tool
             _mnuToggleLayerVisibility.Checked = !layer.IsVisible;
             _mnuToggleLayerLock.Checked = layer.IsLocked;
 
-            _mnuZoomToLayer.Enabled = true;
+            _mnuZoomToLayer.Enabled = !IsOnlineBasemapLayer(_contextLayerNode);
             _mnuRenameLayer.Enabled = true;
             _mnuDeleteLayer.Enabled = true;
             bool canReorderRaster =
@@ -2620,6 +2671,35 @@ namespace Land_Readjustment_Tool
             g.DrawArc(linePen, globeRect.Left + 3, globeRect.Top + 2, globeRect.Width - 6, globeRect.Height - 4, 270, 180);
             g.DrawLine(linePen, globeRect.Left + 3, centerY, globeRect.Right - 3, centerY);
             g.SmoothingMode = System.Drawing.Drawing2D.SmoothingMode.None;
+        }
+
+        private static void DrawVectorLayerSwatch(
+            Graphics g,
+            Rectangle rect,
+            CanvasLayer layer)
+        {
+            Color outlineColor = ParseColorOrDefault(layer.BorderColor, Color.Black);
+            bool hasFill =
+                !string.IsNullOrWhiteSpace(layer.FillColor) &&
+                !string.Equals(layer.FillStyle, "None", StringComparison.OrdinalIgnoreCase) &&
+                layer.FillTransparency < 100;
+
+            Color fillColor = hasFill
+                ? ParseColorOrDefault(layer.FillColor, Color.White)
+                : Color.White;
+
+            Rectangle outlineRect = new(
+                rect.X + 1,
+                rect.Y + 1,
+                Math.Max(1, rect.Width - 2),
+                Math.Max(1, rect.Height - 2));
+            Rectangle fillRect = Rectangle.Inflate(outlineRect, -2, -2);
+
+            using SolidBrush fillBrush = new(fillColor);
+            g.FillRectangle(fillBrush, fillRect);
+
+            using Pen outlinePen = new(outlineColor, 2f);
+            g.DrawRectangle(outlinePen, outlineRect);
         }
 
         private void ConfigureRasterGroupContextMenuItems()
@@ -2778,6 +2858,78 @@ namespace Land_Readjustment_Tool
             {
                 MessageBox.Show(
                     $"Failed to update layer visibility: {ex.Message}",
+                    "Layer Visibility",
+                    MessageBoxButtons.OK,
+                    MessageBoxIcon.Error);
+            }
+        }
+
+        private async Task ToggleLayerGroupVisibilityAsync(TreeNode? groupNode)
+        {
+            if (groupNode == null ||
+                groupNode.Tag is not LayerTreeNodeState nodeState ||
+                !nodeState.IsCheckableGroup)
+            {
+                return;
+            }
+
+            List<TreeNode> layerNodes = EnumerateLayerNodes(groupNode).ToList();
+            if (layerNodes.Count == 0)
+                return;
+
+            bool newVisibility = layerNodes
+                .Select(GetLayerFromNode)
+                .Where(layer => layer != null)
+                .Any(layer => layer!.IsVisible == false);
+
+            try
+            {
+                bool rasterStackDirty = false;
+                bool vectorStackDirty = false;
+
+                foreach (TreeNode layerNode in layerNodes)
+                {
+                    CanvasLayer? layer = GetLayerFromNode(layerNode);
+                    if (layer == null || layer.IsVisible == newVisibility)
+                        continue;
+
+                    CanvasLayer? updatedLayer =
+                        await _layerCommandService.SetVisibilityAsync(
+                            AppServices.HasContext ? AppServices.Context.Session : null,
+                            layer,
+                            newVisibility);
+
+                    if (updatedLayer == null)
+                        continue;
+
+                    UpdateLayerNode(layerNode, updatedLayer, updateRasterStack: false);
+                    if (IsRasterLayer(updatedLayer))
+                    {
+                        rasterStackDirty = true;
+                    }
+                    else
+                    {
+                        vectorStackDirty = true;
+                    }
+                }
+
+                MarkProjectModifiedIfOpen();
+                treeViewLayers.Invalidate();
+
+                if (rasterStackDirty)
+                    UpdateRasterCanvasLayersFromTree();
+
+                if (vectorStackDirty)
+                    mapCanvasControlMain.RequestRender();
+
+                SetCanvasCommandStatus(newVisibility
+                    ? $"Layer group shown: {groupNode.Text}"
+                    : $"Layer group hidden: {groupNode.Text}");
+            }
+            catch (Exception ex)
+            {
+                MessageBox.Show(
+                    $"Failed to update layer group visibility: {ex.Message}",
                     "Layer Visibility",
                     MessageBoxButtons.OK,
                     MessageBoxIcon.Error);
@@ -3027,6 +3179,11 @@ namespace Land_Readjustment_Tool
 
         private async Task ZoomToLayerAsync(TreeNode? node)
         {
+            if (IsOnlineBasemapLayer(node))
+            {
+                return;
+            }
+
             CanvasLayer? layer = GetLayerFromNode(node);
             if (layer == null)
             {
@@ -3213,6 +3370,7 @@ namespace Land_Readjustment_Tool
                 treeViewLayers.BeginUpdate();
                 treeViewLayers.Nodes.Clear();
 
+                TreeNode? rePlotRootNode = null;
                 foreach (CanvasLayerTreeGroup group in layerGroups)
                 {
                     TreeNode groupNode =
@@ -3225,8 +3383,23 @@ namespace Land_Readjustment_Tool
                         groupNode.Nodes.Add(CreateLayerNode(layer));
                     }
 
-                    treeViewLayers.Nodes.Add(groupNode);
+                    if (IsRePlotDataGroupKey(group.Key))
+                    {
+                        rePlotRootNode ??= CreateRePlotRootNode();
+                        rePlotRootNode.Nodes.Add(groupNode);
+                    }
+                    else
+                    {
+                        treeViewLayers.Nodes.Add(groupNode);
+                    }
+
                     groupNode.Expand();
+                }
+
+                if (rePlotRootNode != null)
+                {
+                    treeViewLayers.Nodes.Insert(0, rePlotRootNode);
+                    rePlotRootNode.Expand();
                 }
 
                 treeViewLayers.SelectedNode =
@@ -3252,6 +3425,7 @@ namespace Land_Readjustment_Tool
                 treeViewLayers.BeginUpdate();
                 treeViewLayers.Nodes.Clear();
 
+                TreeNode? rePlotRootNode = null;
                 foreach (CanvasLayerTreeGroup group
                     in CanvasLayerTreeService.GetDefaultLayerTree())
                 {
@@ -3261,8 +3435,23 @@ namespace Land_Readjustment_Tool
                     foreach (CanvasLayer layer in group.Layers)
                         groupNode.Nodes.Add(CreateLayerNode(layer));
 
-                    treeViewLayers.Nodes.Add(groupNode);
+                    if (IsRePlotDataGroupKey(group.Key))
+                    {
+                        rePlotRootNode ??= CreateRePlotRootNode();
+                        rePlotRootNode.Nodes.Add(groupNode);
+                    }
+                    else
+                    {
+                        treeViewLayers.Nodes.Add(groupNode);
+                    }
+
                     groupNode.Expand();
+                }
+
+                if (rePlotRootNode != null)
+                {
+                    treeViewLayers.Nodes.Insert(0, rePlotRootNode);
+                    rePlotRootNode.Expand();
                 }
 
                 treeViewLayers.SelectedNode =
@@ -3453,6 +3642,12 @@ namespace Land_Readjustment_Tool
                    state.Layer != null;
         }
 
+        private static bool IsRePlotDataGroupKey(string? groupKey)
+        {
+            return string.Equals(groupKey, OriginalDataGroupKey, StringComparison.OrdinalIgnoreCase) ||
+                   string.Equals(groupKey, ProposedDataGroupKey, StringComparison.OrdinalIgnoreCase);
+        }
+
         private static bool IsRasterLayerGroupNode(TreeNode? node)
         {
             return string.Equals(
@@ -3469,6 +3664,36 @@ namespace Land_Readjustment_Tool
                 : null;
         }
 
+        private static IEnumerable<TreeNode> EnumerateLayerNodes(TreeNode parentNode)
+        {
+            foreach (TreeNode childNode in parentNode.Nodes)
+            {
+                if (IsLayerNode(childNode))
+                {
+                    yield return childNode;
+                }
+
+                foreach (TreeNode descendantNode in EnumerateLayerNodes(childNode))
+                    yield return descendantNode;
+            }
+        }
+
+        private static VisualStyles.CheckBoxState GetGroupCheckBoxState(TreeNode groupNode)
+        {
+            List<CanvasLayer> layers = EnumerateLayerNodes(groupNode)
+                .Select(GetLayerFromNode)
+                .Where(layer => layer != null)
+                .Select(layer => layer!)
+                .ToList();
+
+            if (layers.Count == 0)
+                return VisualStyles.CheckBoxState.UncheckedDisabled;
+
+            return layers.Any(layer => layer.IsVisible)
+                ? VisualStyles.CheckBoxState.CheckedNormal
+                : VisualStyles.CheckBoxState.UncheckedNormal;
+        }
+
         private static bool IsRasterLayer(CanvasLayer? layer)
         {
             return CanvasLayerBoundsService.IsRasterLayer(layer);
@@ -3476,8 +3701,13 @@ namespace Land_Readjustment_Tool
 
         private bool IsOnlineBasemapLayer(TreeNode? node)
         {
-            return node?.Tag is LayerTreeNodeState state &&
-                   state.IsOnlineBasemap;
+            if (node?.Tag is not LayerTreeNodeState state)
+            {
+                return false;
+            }
+
+            return state.IsOnlineBasemap ||
+                   IsOnlineBasemapLayer(state.Layer);
         }
 
         private bool IsOnlineBasemapLayer(CanvasLayer? layer)
@@ -3770,10 +4000,23 @@ namespace Land_Readjustment_Tool
             }
 
             int clampedPercent = Math.Clamp(percent, 0, 100);
+
+            // Progress callbacks can arrive slightly after an awaited import/render
+            // has completed. Do not let a late 94-100% callback resurrect the bar
+            // after HideOperationProgress has already returned the strip to idle.
+            if (!hostProgressBarHost.Visible && clampedPercent >= 90)
+                return;
+
             lblOperationProgressStatus.Text = status;
             lblOperationProgressStatus.Visible = true;
+            lblOperationProgressStatus.AutoSize = false;
+            lblOperationProgressStatus.Width = CalculateOperationStatusWidth();
+            lblOperationProgressStatus.TextAlign = ContentAlignment.MiddleRight;
+
             hostOperationProgress.Value = clampedPercent;
+            hostOperationProgress.Visible = true;
             hostOperationProgress.Invalidate();
+            hostProgressBarHost.Size = new Size(154, 26);
             hostProgressBarHost.Visible = true;
             if (showProgressForm)
             {
@@ -3786,7 +4029,19 @@ namespace Land_Readjustment_Tool
             {
                 HideOperationProgressForm();
             }
+            statusCanvas.PerformLayout();
             statusCanvas.Refresh();
+        }
+
+        private int CalculateOperationStatusWidth()
+        {
+            int reservedWidth =
+                lblCanvasMode.Width +
+                lblCanvasCoordinates.Width +
+                260;
+
+            int availableWidth = Math.Max(220, statusCanvas.ClientSize.Width - reservedWidth);
+            return Math.Clamp(availableWidth, 260, 460);
         }
 
         private void ShowOperationProgressForm(
@@ -3877,10 +4132,13 @@ namespace Land_Readjustment_Tool
             lblOperationProgressStatus.Text = string.Empty;
             lblOperationProgressStatus.Visible = false;
             hostOperationProgress.Value = 0;
+            hostOperationProgress.Visible = false;
             hostOperationProgress.Invalidate();
             hostProgressBarHost.Visible = false;
+            hostProgressBarHost.Size = Size.Empty;
             _operationProgressForm?.Close();
             _operationProgressForm = null;
+            statusCanvas.PerformLayout();
             statusCanvas.Refresh();
         }
 

@@ -109,7 +109,10 @@ namespace Land_Readjustment_Tool.UI.MapCanvas.Rendering
 
                     case MapCanvasRenderStage.InteractionOverlay:
                         ConfigureVectorGraphics(graphics);
-                        RenderInteractionOverlay(graphics, zoomWindowRectangle);
+                        RenderInteractionOverlay(
+                            graphics,
+                            viewport,
+                            zoomWindowRectangle);
                         break;
                 }
             }
@@ -139,11 +142,6 @@ namespace Land_Readjustment_Tool.UI.MapCanvas.Rendering
             if (_settings.ShowGrid)
             {
                 RenderGrid(graphics, viewport);
-            }
-
-            if (_settings.ShowAxisLines || _settings.ShowOriginMarker)
-            {
-                RenderAxisAndOriginMarker(graphics, viewport);
             }
         }
 
@@ -198,14 +196,21 @@ namespace Land_Readjustment_Tool.UI.MapCanvas.Rendering
         /// Draws temporary interaction feedback that must stay visible above map content.
         /// </summary>
         /// <param name="graphics">Target graphics surface.</param>
+        /// <param name="viewport">Current world and screen viewport.</param>
         /// <param name="zoomWindowRectangle">Optional screen-space zoom-window rectangle.</param>
         private void RenderInteractionOverlay(
             Graphics graphics,
+            MapCanvasRenderViewport viewport,
             Rectangle? zoomWindowRectangle)
         {
             if (zoomWindowRectangle.HasValue)
             {
                 RenderZoomWindow(graphics, zoomWindowRectangle.Value);
+            }
+
+            if (_settings.ShowAxisLines || _settings.ShowOriginMarker)
+            {
+                RenderAxisAndOriginMarker(graphics, viewport);
             }
         }
 

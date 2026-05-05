@@ -112,7 +112,7 @@ namespace Land_Readjustment_Tool.UI.Forms
                     txtLayerName.Text.Trim(),
                     SelectedTileSource.UrlTemplate,
                     minLon, minLat, maxLon, maxLat,
-                    decimal.ToInt32(numZoomLevel.Value),
+                    GetEffectiveZoomLevel(SelectedTileSource),
                     SelectedTileSource.ImageExtension,
                     IsLiveMode);
             }
@@ -160,7 +160,7 @@ namespace Land_Readjustment_Tool.UI.Forms
                     txtLayerName.Text.Trim(),
                     src.UrlTemplate,
                     -180, -85.05112878, 180, 85.05112878,
-                    decimal.ToInt32(numZoomLevel.Value),
+                    GetEffectiveZoomLevel(src),
                     src.ImageExtension,
                     IsLiveTiles: true);
             }
@@ -271,6 +271,7 @@ namespace Land_Readjustment_Tool.UI.Forms
 
             // Progress bar and status label are irrelevant in Live Tiles mode.
             SetProgressAreaVisible(!rdoLiveTiles.Checked);
+            UpdateZoomControlState();
 
             // When switching INTO bbox mode, auto-fill N/S/E/W from current center+radius.
             if (rdoBoundingBox.Checked)
@@ -282,7 +283,7 @@ namespace Land_Readjustment_Tool.UI.Forms
             {
                 btnImport.Enabled = true;
                 btnDownloadTiles.Enabled = false;
-                SuggestLayerName(BuildLiveLayerName(SelectedTileSource.Name, decimal.ToInt32(numZoomLevel.Value)));
+                SuggestLayerName(BuildLiveLayerName(SelectedTileSource.Name, GetEffectiveZoomLevel(SelectedTileSource)));
             }
             else
             {
@@ -338,17 +339,20 @@ namespace Land_Readjustment_Tool.UI.Forms
 
             decimal minZoom = source.MinZoom;
             decimal maxZoom = source.MaxZoom;
-            decimal targetZoom = Math.Clamp(numZoomLevel.Value, minZoom, maxZoom);
+            decimal targetZoom = IsLiveMode
+                ? maxZoom
+                : Math.Clamp(numZoomLevel.Value, minZoom, maxZoom);
 
             numZoomLevel.Minimum = 0;
             numZoomLevel.Maximum = 25;
             numZoomLevel.Value = targetZoom;
             numZoomLevel.Minimum = minZoom;
             numZoomLevel.Maximum = maxZoom;
+            UpdateZoomControlState();
 
             // In live mode refresh the layer name suggestion immediately.
             if (IsLiveMode)
-                SuggestLayerName(BuildLiveLayerName(source.Name, decimal.ToInt32(numZoomLevel.Value)));
+                SuggestLayerName(BuildLiveLayerName(source.Name, GetEffectiveZoomLevel(source)));
             else
                 SuggestLayerName(source.Name.Trim());
 
@@ -533,7 +537,7 @@ namespace Land_Readjustment_Tool.UI.Forms
                 return false;
             }
 
-            int zoom = decimal.ToInt32(numZoomLevel.Value);
+            int zoom = GetEffectiveZoomLevel(selectedSource);
             if (zoom < selectedSource.MinZoom || zoom > selectedSource.MaxZoom)
             {
                 ShowValidationMessage(
@@ -791,10 +795,11 @@ namespace Land_Readjustment_Tool.UI.Forms
             numSouth.Enabled = !isDownloading;
             numEast.Enabled = !isDownloading;
             numWest.Enabled = !isDownloading;
-            numZoomLevel.Enabled = !isDownloading;
+            numZoomLevel.Enabled = !isDownloading && !IsLiveMode;
             btnCancel.Enabled = isDownloading && !_isImportInProgress;
             btnClose.Enabled = !isDownloading;
             progressTileDownload.Enabled = true;
+            UpdateZoomControlState();
         }
 
         public void BeginImportExecution(string statusText = "Importing tiles to map...")
@@ -807,6 +812,7 @@ namespace Land_Readjustment_Tool.UI.Forms
             btnManageSources.Enabled = false;
             btnClose.Enabled = false;
             lblDownloadStatus.Text = statusText;
+            UpdateZoomControlState();
         }
 
         public void CompleteImportExecution(string statusText)
@@ -819,6 +825,7 @@ namespace Land_Readjustment_Tool.UI.Forms
             btnImport.Enabled = _downloadedRequest != null || IsLiveMode;
             btnClose.Enabled = true;
             lblDownloadStatus.Text = statusText;
+            UpdateZoomControlState();
         }
 
        
@@ -833,6 +840,7 @@ namespace Land_Readjustment_Tool.UI.Forms
             btnImport.Enabled = _downloadedRequest != null || IsLiveMode;
             btnClose.Enabled = true;
             lblDownloadStatus.Text = statusText;
+            UpdateZoomControlState();
         }
 
         /// <summary>
@@ -923,7 +931,7 @@ namespace Land_Readjustment_Tool.UI.Forms
             {
                 InvalidateDownloadedRequest();
                 if (IsLiveMode)
-                    SuggestLayerName(BuildLiveLayerName(SelectedTileSource.Name, decimal.ToInt32(numZoomLevel.Value)));
+                    SuggestLayerName(BuildLiveLayerName(SelectedTileSource.Name, GetEffectiveZoomLevel(SelectedTileSource)));
             };
         }
 
@@ -995,6 +1003,23 @@ namespace Land_Readjustment_Tool.UI.Forms
                 downloadedRequest.MaxLatitude,
                 downloadedRequest.ZoomLevel,
                 downloadedRequest.ImageExtension);
+        }
+
+        private int GetEffectiveZoomLevel(XyzTileSourceCatalogItem source)
+        {
+            return IsLiveMode
+                ? source.MaxZoom
+                : decimal.ToInt32(numZoomLevel.Value);
+        }
+
+        private void UpdateZoomControlState()
+        {
+            bool enableZoomPicker = !IsLiveMode && !_isImportInProgress && _downloadCancellation == null;
+            numZoomLevel.Enabled = enableZoomPicker;
+            lblZoomLevel.Enabled = enableZoomPicker;
+            lblZoomLevel.Text = IsLiveMode
+                ? $"Zoom range: {SelectedTileSource.MinZoom}-{SelectedTileSource.MaxZoom}"
+                : "Zoom level:";
         }
 
         private static string NormalizeUrlForTextbox(string? url)

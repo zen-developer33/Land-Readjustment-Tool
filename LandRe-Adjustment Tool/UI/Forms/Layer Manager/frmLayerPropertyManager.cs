@@ -1,4 +1,5 @@
 using Land_Readjustment_Tool.Core.Entities.Canvas;
+using Land_Readjustment_Tool.UI.Helpers;
 
 namespace Land_Readjustment_Tool.UI.Forms
 {
@@ -112,9 +113,12 @@ namespace Land_Readjustment_Tool.UI.Forms
         private void PickColor(Panel swatch)
         {
             _colorDialog.Color = swatch.BackColor;
+            ColorDialogCustomColorsStore.LoadInto(_colorDialog);
 
             if (_colorDialog.ShowDialog(this) == DialogResult.OK)
                 swatch.BackColor = _colorDialog.Color;
+
+            ColorDialogCustomColorsStore.SaveFrom(_colorDialog);
         }
 
         private void btnFont_Click(object? sender, EventArgs e)

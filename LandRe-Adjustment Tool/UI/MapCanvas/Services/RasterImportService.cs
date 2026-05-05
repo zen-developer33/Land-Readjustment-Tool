@@ -3,6 +3,7 @@ using OSGeo.OSR;
 using ProjNet;
 using System.Drawing;
 using System.Globalization;
+using System.Security;
 using System.Text;
 using Microsoft.Data.Sqlite;
 
@@ -114,9 +115,7 @@ namespace Land_Readjustment_Tool.UI.MapCanvas.Services
                 string rasterFolder = Path.Combine(projectFolderPath, RasterFolderName);
                 Directory.CreateDirectory(rasterFolder);
 
-                if (sourceIsMbTiles &&
-                    sourceExtent == null &&
-                    CanUseDirectMbTiles(sourcePath, sourceMetadata, targetSrsDefinition))
+                if (sourceIsMbTiles && sourceExtent == null)
                 {
                     progress?.Report(new RasterImportProgress(45, "Copying MBTiles tile package"));
 
@@ -124,14 +123,23 @@ namespace Land_Readjustment_Tool.UI.MapCanvas.Services
                     string mbTilesOutputPath = GetUniquePath(Path.Combine(rasterFolder, mbTilesOutputName));
                     File.Copy(sourcePath, mbTilesOutputPath);
                     OptimizeMbTilesForRendering(mbTilesOutputPath);
+
+                    string mbTilesSourceSrs = string.IsNullOrWhiteSpace(sourceProjection)
+                        ? "EPSG:3857"
+                        : sourceProjection;
+
                     MbTilesLayerMetadataStore.Write(
                         mbTilesOutputPath,
                         MbTilesLayerMetadata.Create(
-                            "EPSG:3857",
+                            mbTilesSourceSrs,
                             targetSrsDefinition,
                             sourcePath));
 
-                    progress?.Report(new RasterImportProgress(88, "Finalizing MBTiles layer"));
+                    progress?.Report(new RasterImportProgress(
+                        88,
+                        CanUseDirectMbTiles(sourcePath, sourceMetadata, targetSrsDefinition)
+                            ? "Finalizing MBTiles layer"
+                            : "Finalizing MBTiles projection metadata"));
 
                     string mbTilesRelativePath = Path.Combine(
                         RasterFolderName,
@@ -163,7 +171,12 @@ namespace Land_Readjustment_Tool.UI.MapCanvas.Services
                             ? sourceMetadata.ProjectionWkt
                             : "EPSG:3857");
 
-                    CreateLiveTileVrt(sourceDataset, vrtPath, sourceSrs, targetSrsDefinition);
+                    CreateLiveTileVrt(
+                        sourcePath,
+                        sourceDataset,
+                        vrtPath,
+                        sourceSrs,
+                        targetSrsDefinition);
 
                     progress?.Report(new RasterImportProgress(88, "Finalizing live tile layer"));
 
@@ -402,7 +415,12 @@ namespace Land_Readjustment_Tool.UI.MapCanvas.Services
                     : sourceSrsWkt;
 
                 string tempVrtPath = rasterPath + ".recreating.vrt";
-                CreateLiveTileVrt(sourceDataset, tempVrtPath, sourceSrs, targetSrsDefinition);
+                CreateLiveTileVrt(
+                    wmsXmlPath,
+                    sourceDataset,
+                    tempVrtPath,
+                    sourceSrs,
+                    targetSrsDefinition);
                 File.Copy(tempVrtPath, rasterPath, overwrite: true);
                 File.Delete(tempVrtPath);
 
@@ -600,33 +618,56 @@ namespace Land_Readjustment_Tool.UI.MapCanvas.Services
         /// on demand from the internet when the canvas reads visible pixel windows.
         /// </summary>
         private static void CreateLiveTileVrt(
+            string sourceXmlPath,
             Dataset sourceDataset,
             string vrtPath,
             string sourceSrsDefinition,
             string targetSrsDefinition)
         {
-            string[] warpArgs =
-            [
-                "-overwrite",
-                "-of", "VRT",
-                "-r", "near",
-                "-multi",
-                "-wo", "NUM_THREADS=ALL_CPUS",
-                "-s_srs", sourceSrsDefinition,
-                "-t_srs", targetSrsDefinition
-            ];
+            int width = Math.Max(1, sourceDataset.RasterXSize);
+            int height = Math.Max(1, sourceDataset.RasterYSize);
+            int bandCount = Math.Max(1, Math.Min(sourceDataset.RasterCount, 4));
+            string escapedSourcePath = SecurityElement.Escape(Path.GetFullPath(sourceXmlPath)) ??
+                Path.GetFullPath(sourceXmlPath);
+            string escapedSourceSrs = SecurityElement.Escape(sourceSrsDefinition) ?? sourceSrsDefinition;
+            string escapedTargetSrs = SecurityElement.Escape(targetSrsDefinition) ?? targetSrsDefinition;
 
-            using GDALWarpAppOptions warpOptions = new([.. warpArgs]);
-            using Dataset warpedDataset = Gdal.Warp(
-                vrtPath,
-                [sourceDataset],
-                warpOptions,
-                null,
-                null)
-                ?? throw new InvalidOperationException(
-                    "GDAL could not create a live tile VRT descriptor.");
+            StringBuilder builder = new();
+            builder.AppendLine($"<VRTDataset rasterXSize=\"{width}\" rasterYSize=\"{height}\">");
+            builder.AppendLine($"  <SRS>{escapedTargetSrs}</SRS>");
+            builder.AppendLine("  <Metadata domain=\"RePlotLiveTile\">");
+            builder.AppendLine($"    <MDI key=\"SourceSRS\">{escapedSourceSrs}</MDI>");
+            builder.AppendLine("  </Metadata>");
 
-            warpedDataset.FlushCache();
+            for (int band = 1; band <= bandCount; band++)
+            {
+                builder.AppendLine($"  <VRTRasterBand dataType=\"Byte\" band=\"{band}\">");
+                builder.AppendLine("    <ColorInterp>" + GetColorInterpretationName(band, bandCount) + "</ColorInterp>");
+                builder.AppendLine("    <SimpleSource>");
+                builder.AppendLine($"      <SourceFilename relativeToVRT=\"0\">{escapedSourcePath}</SourceFilename>");
+                builder.AppendLine($"      <SourceBand>{band}</SourceBand>");
+                builder.AppendLine($"      <SourceProperties RasterXSize=\"{width}\" RasterYSize=\"{height}\" DataType=\"Byte\" BlockXSize=\"256\" BlockYSize=\"256\" />");
+                builder.AppendLine($"      <SrcRect xOff=\"0\" yOff=\"0\" xSize=\"{width}\" ySize=\"{height}\" />");
+                builder.AppendLine($"      <DstRect xOff=\"0\" yOff=\"0\" xSize=\"{width}\" ySize=\"{height}\" />");
+                builder.AppendLine("    </SimpleSource>");
+                builder.AppendLine("  </VRTRasterBand>");
+            }
+
+            builder.AppendLine("</VRTDataset>");
+
+            File.WriteAllText(vrtPath, builder.ToString(), Utf8NoBom);
+        }
+
+        private static string GetColorInterpretationName(int band, int bandCount)
+        {
+            return band switch
+            {
+                1 => "Red",
+                2 => "Green",
+                3 => "Blue",
+                4 when bandCount >= 4 => "Alpha",
+                _ => "Undefined"
+            };
         }
 
         /// <summary>
@@ -1179,8 +1220,6 @@ namespace Land_Readjustment_Tool.UI.MapCanvas.Services
 
                 TryExecuteSql(connection, "PRAGMA temp_store=MEMORY");
                 TryExecuteSql(connection, "PRAGMA cache_size=-65536");
-                bool schemaChanged = false;
-
                 if (TableExists(connection, "tiles") &&
                     !HasCoveringIndex(
                         connection,
@@ -1190,33 +1229,6 @@ namespace Land_Readjustment_Tool.UI.MapCanvas.Services
                     TryExecuteSql(
                         connection,
                         "CREATE INDEX IF NOT EXISTS idx_replot_tiles_zxy ON tiles(zoom_level, tile_column, tile_row)");
-                    schemaChanged = true;
-                }
-
-                if (TableExists(connection, "map") &&
-                    !HasCoveringIndex(
-                        connection,
-                        "map",
-                        ["zoom_level", "tile_column", "tile_row"]))
-                {
-                    TryExecuteSql(
-                        connection,
-                        "CREATE INDEX IF NOT EXISTS idx_replot_map_zxy ON map(zoom_level, tile_column, tile_row)");
-                    schemaChanged = true;
-                }
-
-                if (TableExists(connection, "images") &&
-                    !HasCoveringIndex(connection, "images", ["tile_id"]))
-                {
-                    TryExecuteSql(
-                        connection,
-                        "CREATE INDEX IF NOT EXISTS idx_replot_images_tile_id ON images(tile_id)");
-                    schemaChanged = true;
-                }
-
-                if (schemaChanged)
-                {
-                    TryExecuteSql(connection, "ANALYZE");
                 }
 
                 TryExecuteSql(connection, "PRAGMA optimize");
