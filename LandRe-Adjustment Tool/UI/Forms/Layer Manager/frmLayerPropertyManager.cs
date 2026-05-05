@@ -14,8 +14,11 @@ namespace Land_Readjustment_Tool.UI.Forms
             _isRasterLayer = IsRasterLayer(layer);
 
             InitializeComponent();
+            NumericUpDownSelectAllBehavior.AttachTo(this);
             LoadLayer();
             ConfigureApplicableControls();
+            _chkLocked.CheckedChanged += (_, _) => ConfigureLockedControlState();
+            ConfigureLockedControlState();
         }
 
         /// <summary>
@@ -160,18 +163,53 @@ namespace Land_Readjustment_Tool.UI.Forms
 
         private void UpdateFillControlState()
         {
+            bool canEdit = !_chkLocked.Checked;
+
             if (_isRasterLayer)
             {
-                _trkTransparency.Enabled = true;
+                _trkTransparency.Enabled = canEdit;
+                _txtTransparencyValue.Enabled = canEdit;
                 return;
             }
 
             bool hasFill = !string.Equals(_cboFillStyle.Text, "None", StringComparison.OrdinalIgnoreCase);
             bool isHatched = string.Equals(_cboFillStyle.Text, "Hatched", StringComparison.OrdinalIgnoreCase);
 
-            _pnlFillColor.Enabled = hasFill;
-            _cboHatch.Enabled = isHatched;
-            _trkTransparency.Enabled = hasFill;
+            _pnlFillColor.Enabled = canEdit && hasFill;
+            _btnFillColor.Enabled = canEdit && hasFill;
+            _cboHatch.Enabled = canEdit && isHatched;
+            _trkTransparency.Enabled = canEdit && hasFill;
+            _txtTransparencyValue.Enabled = canEdit && hasFill;
+        }
+
+        private void ConfigureLockedControlState()
+        {
+            bool canEdit = !_chkLocked.Checked;
+
+            _txtName.Enabled = canEdit;
+            _chkVisible.Enabled = canEdit;
+
+            _pnlBorderColor.Enabled = canEdit;
+            _btnBorderColor.Enabled = canEdit;
+            _cboLineStyle.Enabled = canEdit;
+            _numLineWeight.Enabled = canEdit;
+
+            _cboFillStyle.Enabled = canEdit;
+            _pnlFillColor.Enabled = canEdit;
+            _btnFillColor.Enabled = canEdit;
+            _cboHatch.Enabled = canEdit;
+            _trkTransparency.Enabled = canEdit;
+            _txtTransparencyValue.Enabled = canEdit;
+
+            _chkShowLabels.Enabled = canEdit;
+            _btnFont.Enabled = canEdit;
+            _numFontSize.Enabled = canEdit;
+            _pnlLabelColor.Enabled = canEdit;
+            _btnLabelColor.Enabled = canEdit;
+            _cboLabelField.Enabled = canEdit;
+
+            _chkLocked.Enabled = true;
+            UpdateFillControlState();
         }
 
         protected override void OnFormClosing(FormClosingEventArgs e)

@@ -94,7 +94,6 @@ namespace Land_Readjustment_Tool
             cadastralDataToolStripMenuItem = new ToolStripMenuItem();
             importDataToolStripMenuItem = new ToolStripMenuItem();
             viewEditRecordsToolStripMenuItem = new ToolStripMenuItem();
-
             leftSplitContainer = new SplitContainer();
             grpLayer = new GroupBox();
             treeViewLayers = new TreeView();
@@ -146,13 +145,9 @@ namespace Land_Readjustment_Tool
             lblCanvasMode = new ToolStripStatusLabel();
             lblStatusSpacer = new ToolStripStatusLabel();
             lblOperationProgressStatus = new ToolStripStatusLabel();
-
-            // FIX: Create StatusProgressBar first, then wrap in ToolStripControlHost
             hostOperationProgress = new StatusProgressBar();
             hostProgressBarHost = new ToolStripControlHost(hostOperationProgress);
-
             lblCanvasCoordinates = new ToolStripStatusLabel();
-            mapCanvasControlMain = new MapCanvasControl();
             tsCanvasTools = new ToolStrip();
             tsmExpandCollapseLeftPanel = new ToolStripButton();
             toolStripLabel1 = new ToolStripLabel();
@@ -186,6 +181,8 @@ namespace Land_Readjustment_Tool
             toolStripSeparator16 = new ToolStripSeparator();
             toolStripComboBox1 = new ToolStripComboBox();
             tsProjectMenu = new ToolStrip();
+            toolStripStatusLabel1 = new ToolStripStatusLabel();
+            mapCanvasControlMain = new MapCanvasControl();
             mainMenuStrip.SuspendLayout();
             ((System.ComponentModel.ISupportInitialize)leftSplitContainer).BeginInit();
             leftSplitContainer.Panel1.SuspendLayout();
@@ -378,7 +375,7 @@ namespace Land_Readjustment_Tool
             // 
             importDataToolStripMenuItem1.DropDownItems.AddRange(new ToolStripItem[] { ImportParcelOwnerShipRecords, toolStripSeparator5, importCadastralDataDXFDWGShapefileToolStripMenuItem, ImportProjectBoundaryDXFDWGToolStripMenuItem, toolStripSeparator6, baseMapsToolStripMenuItem });
             importDataToolStripMenuItem1.Name = "importDataToolStripMenuItem1";
-            importDataToolStripMenuItem1.Size = new Size(224, 26);
+            importDataToolStripMenuItem1.Size = new Size(145, 26);
             importDataToolStripMenuItem1.Text = "Import";
             // 
             // ImportParcelOwnerShipRecords
@@ -421,7 +418,7 @@ namespace Land_Readjustment_Tool
             // 
             importToolStripMenuItem.DropDownItems.AddRange(new ToolStripItem[] { viewEditRecordToolStripMenuItem, landOwnerDataToolStripMenuItem });
             importToolStripMenuItem.Name = "importToolStripMenuItem";
-            importToolStripMenuItem.Size = new Size(224, 26);
+            importToolStripMenuItem.Size = new Size(145, 26);
             importToolStripMenuItem.Text = "Records";
             // 
             // viewEditRecordToolStripMenuItem
@@ -620,8 +617,8 @@ namespace Land_Readjustment_Tool
             // 
             leftSplitContainer.Panel2.BackColor = Color.White;
             leftSplitContainer.Panel2.Controls.Add(grpProperties);
-            leftSplitContainer.Size = new Size(189, 727);
-            leftSplitContainer.SplitterDistance = 465;
+            leftSplitContainer.Size = new Size(189, 701);
+            leftSplitContainer.SplitterDistance = 484;
             leftSplitContainer.TabIndex = 0;
             // 
             // grpLayer
@@ -634,7 +631,7 @@ namespace Land_Readjustment_Tool
             grpLayer.Name = "grpLayer";
             grpLayer.Padding = new Padding(4);
             grpLayer.RightToLeft = RightToLeft.No;
-            grpLayer.Size = new Size(182, 457);
+            grpLayer.Size = new Size(182, 439);
             grpLayer.TabIndex = 0;
             grpLayer.TabStop = false;
             grpLayer.Text = "Layers";
@@ -658,7 +655,7 @@ namespace Land_Readjustment_Tool
             treeNode5.Name = "Node2";
             treeNode5.Text = "Other External Layers";
             treeViewLayers.Nodes.AddRange(new TreeNode[] { treeNode1, treeNode2, treeNode4, treeNode5 });
-            treeViewLayers.Size = new Size(168, 426);
+            treeViewLayers.Size = new Size(168, 371);
             treeViewLayers.TabIndex = 0;
             // 
             // grpProperties
@@ -668,7 +665,7 @@ namespace Land_Readjustment_Tool
             grpProperties.Location = new Point(0, 0);
             grpProperties.Name = "grpProperties";
             grpProperties.Padding = new Padding(6, 8, 6, 6);
-            grpProperties.Size = new Size(189, 258);
+            grpProperties.Size = new Size(189, 213);
             grpProperties.TabIndex = 2;
             grpProperties.TabStop = false;
             grpProperties.Text = "Properties";
@@ -777,7 +774,7 @@ namespace Land_Readjustment_Tool
             btnBorderColor.Name = "btnBorderColor";
             btnBorderColor.Size = new Size(79, 30);
             btnBorderColor.TabIndex = 6;
-            btnBorderColor.Text = "Choose\u2026";
+            btnBorderColor.Text = "Choose…";
             // 
             // lblLineStyle
             // 
@@ -907,7 +904,7 @@ namespace Land_Readjustment_Tool
             btnFillColor.Name = "btnFillColor";
             btnFillColor.Size = new Size(69, 30);
             btnFillColor.TabIndex = 2;
-            btnFillColor.Text = "Choose\u2026";
+            btnFillColor.Text = "Choose…";
             // 
             // lblFillStyle
             // 
@@ -1045,7 +1042,7 @@ namespace Land_Readjustment_Tool
             btnPickFont.Name = "btnPickFont";
             btnPickFont.Size = new Size(40, 26);
             btnPickFont.TabIndex = 3;
-            btnPickFont.Text = "\u2026";
+            btnPickFont.Text = "…";
             // 
             // lblFontSize
             // 
@@ -1094,7 +1091,7 @@ namespace Land_Readjustment_Tool
             btnLabelColor.Name = "btnLabelColor";
             btnLabelColor.Size = new Size(75, 26);
             btnLabelColor.TabIndex = 8;
-            btnLabelColor.Text = "Choose\u2026";
+            btnLabelColor.Text = "Choose…";
             // 
             // lblLabelField
             // 
@@ -1144,7 +1141,7 @@ namespace Land_Readjustment_Tool
             // mainSplitContainer.Panel2
             // 
             mainSplitContainer.Panel2.Controls.Add(splitContainer3);
-            mainSplitContainer.Size = new Size(1328, 731);
+            mainSplitContainer.Size = new Size(1328, 705);
             mainSplitContainer.SplitterDistance = 193;
             mainSplitContainer.TabIndex = 3;
             mainSplitContainer.Visible = false;
@@ -1159,14 +1156,13 @@ namespace Land_Readjustment_Tool
             // 
             // splitContainer3.Panel1
             // 
-            splitContainer3.Panel1.Controls.Add(statusCanvas);
             splitContainer3.Panel1.Controls.Add(mapCanvasControlMain);
             splitContainer3.Panel1.Controls.Add(tsCanvasTools);
             // 
             // splitContainer3.Panel2
             // 
             splitContainer3.Panel2.Controls.Add(grpParcelObjProp);
-            splitContainer3.Size = new Size(1131, 731);
+            splitContainer3.Size = new Size(1131, 705);
             splitContainer3.SplitterDistance = 807;
             splitContainer3.TabIndex = 1;
             // 
@@ -1175,32 +1171,29 @@ namespace Land_Readjustment_Tool
             statusCanvas.BackColor = SystemColors.ControlLightLight;
             statusCanvas.ForeColor = SystemColors.ControlText;
             statusCanvas.ImageScalingSize = new Size(20, 20);
-            // FIX: Use hostProgressBarHost (ToolStripControlHost) instead of hostOperationProgress directly
-            statusCanvas.Items.AddRange(new ToolStripItem[] { lblCanvasMode, lblStatusSpacer, lblOperationProgressStatus, hostProgressBarHost, lblCanvasCoordinates });
-            statusCanvas.Location = new Point(0, 697);
+            statusCanvas.Items.AddRange(new ToolStripItem[] { toolStripStatusLabel1, lblCanvasMode, lblStatusSpacer, lblOperationProgressStatus, hostProgressBarHost, lblCanvasCoordinates });
+            statusCanvas.Location = new Point(0, 767);
             statusCanvas.Name = "statusCanvas";
             statusCanvas.RightToLeft = RightToLeft.No;
-            statusCanvas.Size = new Size(803, 30);
+            statusCanvas.Size = new Size(1328, 26);
             statusCanvas.TabIndex = 6;
             statusCanvas.Text = "Map Canvas Status";
+            statusCanvas.ItemClicked += statusCanvas_ItemClicked;
             // 
             // lblCanvasMode
             // 
-            lblCanvasMode.Alignment = ToolStripItemAlignment.Left;
             lblCanvasMode.AutoSize = false;
             lblCanvasMode.BorderSides = ToolStripStatusLabelBorderSides.Right;
-            lblCanvasMode.BorderStyle = Border3DStyle.Flat;
             lblCanvasMode.ForeColor = SystemColors.ControlText;
             lblCanvasMode.Name = "lblCanvasMode";
-            lblCanvasMode.Size = new Size(220, 24);
-            lblCanvasMode.Spring = false;
+            lblCanvasMode.Size = new Size(220, 20);
             lblCanvasMode.Text = "Status: Ready";
             lblCanvasMode.TextAlign = ContentAlignment.MiddleLeft;
             // 
             // lblStatusSpacer
             // 
             lblStatusSpacer.Name = "lblStatusSpacer";
-            lblStatusSpacer.Size = new Size(192, 24);
+            lblStatusSpacer.Size = new Size(694, 20);
             lblStatusSpacer.Spring = true;
             // 
             // lblOperationProgressStatus
@@ -1209,22 +1202,24 @@ namespace Land_Readjustment_Tool
             lblOperationProgressStatus.BorderSides = ToolStripStatusLabelBorderSides.Left;
             lblOperationProgressStatus.ForeColor = SystemColors.ControlText;
             lblOperationProgressStatus.Name = "lblOperationProgressStatus";
-            lblOperationProgressStatus.Size = new Size(210, 24);
+            lblOperationProgressStatus.Size = new Size(210, 20);
             lblOperationProgressStatus.TextAlign = ContentAlignment.MiddleRight;
             lblOperationProgressStatus.Visible = false;
-            // 
-            // hostOperationProgress (the actual StatusProgressBar control)
-            // 
+            //
+            // hostOperationProgress
+            //
+            hostOperationProgress.AccessibleName = "hostOperationProgress";
+            hostOperationProgress.Location = new Point(1330, 27);
             hostOperationProgress.Name = "hostOperationProgress";
-            hostOperationProgress.Size = new Size(154, 26);
-            // 
-            // hostProgressBarHost (ToolStripControlHost wrapping hostOperationProgress)
-            // FIX: This is what gets added to the StatusStrip - ToolStripControlHost IS a ToolStripItem
-            // 
+            hostOperationProgress.Size = new Size(154, 22);
+            hostOperationProgress.TabIndex = 0;
+            //
+            // hostProgressBarHost
+            //
             hostProgressBarHost.AutoSize = false;
             hostProgressBarHost.Margin = new Padding(4, 2, 8, 2);
             hostProgressBarHost.Name = "hostProgressBarHost";
-            hostProgressBarHost.Size = new Size(154, 26);
+            hostProgressBarHost.Size = new Size(154, 22);
             hostProgressBarHost.Visible = false;
             // 
             // lblCanvasCoordinates
@@ -1236,20 +1231,9 @@ namespace Land_Readjustment_Tool
             lblCanvasCoordinates.ForeColor = SystemColors.ControlText;
             lblCanvasCoordinates.Margin = new Padding(0, 3, 6, 2);
             lblCanvasCoordinates.Name = "lblCanvasCoordinates";
-            lblCanvasCoordinates.Size = new Size(270, 25);
+            lblCanvasCoordinates.Size = new Size(270, 21);
             lblCanvasCoordinates.Text = "E: 0.0000    N: 0.0000";
             lblCanvasCoordinates.TextAlign = ContentAlignment.MiddleRight;
-            // 
-            // mapCanvasControlMain
-            // 
-            mapCanvasControlMain.Anchor = AnchorStyles.Top | AnchorStyles.Bottom | AnchorStyles.Left | AnchorStyles.Right;
-            mapCanvasControlMain.BackColor = Color.White;
-            mapCanvasControlMain.BorderStyle = BorderStyle.FixedSingle;
-            mapCanvasControlMain.Location = new Point(0, 27);
-            mapCanvasControlMain.Name = "mapCanvasControlMain";
-            mapCanvasControlMain.Size = new Size(803, 673);
-            mapCanvasControlMain.TabIndex = 2;
-            mapCanvasControlMain.Load += mapCanvasControlMain_Load;
             // 
             // tsCanvasTools
             // 
@@ -1316,7 +1300,7 @@ namespace Land_Readjustment_Tool
             grpParcelObjProp.Name = "grpParcelObjProp";
             grpParcelObjProp.Padding = new Padding(4);
             grpParcelObjProp.RightToLeft = RightToLeft.No;
-            grpParcelObjProp.Size = new Size(316, 727);
+            grpParcelObjProp.Size = new Size(316, 701);
             grpParcelObjProp.TabIndex = 1;
             grpParcelObjProp.TabStop = false;
             grpParcelObjProp.Text = "Parcel";
@@ -1329,7 +1313,7 @@ namespace Land_Readjustment_Tool
             dgvParcelObjProperty.Location = new Point(4, 24);
             dgvParcelObjProperty.Name = "dgvParcelObjProperty";
             dgvParcelObjProperty.RowHeadersWidth = 51;
-            dgvParcelObjProperty.Size = new Size(308, 699);
+            dgvParcelObjProperty.Size = new Size(308, 673);
             dgvParcelObjProperty.TabIndex = 0;
             // 
             // mnuNewProject
@@ -1530,11 +1514,29 @@ namespace Land_Readjustment_Tool
             tsProjectMenu.TabIndex = 4;
             tsProjectMenu.Text = "Project Menu";
             // 
+            // toolStripStatusLabel1
+            // 
+            toolStripStatusLabel1.Name = "toolStripStatusLabel1";
+            toolStripStatusLabel1.Size = new Size(123, 20);
+            toolStripStatusLabel1.Text = "<Project Name> ";
+            // 
+            // mapCanvasControlMain
+            // 
+            mapCanvasControlMain.BackColor = Color.White;
+            mapCanvasControlMain.BorderStyle = BorderStyle.FixedSingle;
+            mapCanvasControlMain.Dock = DockStyle.Bottom;
+            mapCanvasControlMain.Location = new Point(0, 27);
+            mapCanvasControlMain.Name = "mapCanvasControlMain";
+            mapCanvasControlMain.Size = new Size(803, 674);
+            mapCanvasControlMain.TabIndex = 2;
+            mapCanvasControlMain.Load += mapCanvasControlMain_Load;
+            // 
             // frmMain
             // 
             AutoScaleMode = AutoScaleMode.None;
             BackColor = SystemColors.ControlLightLight;
             ClientSize = new Size(1328, 793);
+            Controls.Add(statusCanvas);
             Controls.Add(tsProjectMenu);
             Controls.Add(mainSplitContainer);
             Controls.Add(mainMenuStrip);
@@ -1715,7 +1717,6 @@ namespace Land_Readjustment_Tool
         private ToolStripSeparator toolStripSeparator16;
         private ToolStripComboBox toolStripComboBox1;
         private ToolStrip tsProjectMenu;
-        private MapCanvasControl mapCanvasControlMain;
         private ToolStrip tsCanvasTools;
         private ToolStripButton tsmExpandCollapseLeftPanel;
         private ToolStripLabel toolStripLabel1;
@@ -1728,10 +1729,9 @@ namespace Land_Readjustment_Tool
         private ToolStripStatusLabel lblOperationProgressStatus;
         private ToolStripStatusLabel lblCanvasCoordinates;
 
-        // FIX: Declare hostOperationProgress as the actual control type
         private StatusProgressBar hostOperationProgress;
-
-        // FIX: New wrapper field - this is the ToolStripItem that goes into StatusStrip
         private ToolStripControlHost hostProgressBarHost;
+        private MapCanvasControl mapCanvasControlMain;
+        private ToolStripStatusLabel toolStripStatusLabel1;
     }
 }

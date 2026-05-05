@@ -1,5 +1,6 @@
 using System.ComponentModel;
 using Land_Readjustment_Tool.Services.Raster;
+using Land_Readjustment_Tool.UI.Helpers;
 
 namespace Land_Readjustment_Tool.UI.Forms
 {
@@ -88,6 +89,7 @@ namespace Land_Readjustment_Tool.UI.Forms
             _projectFolderPath = projectFolderPath;
             _initialState = initialState;
             InitializeComponent();
+            NumericUpDownSelectAllBehavior.AttachTo(this);
             WireRuntimeEvents();
             ApplyNepalDefaultBounds();
 
@@ -828,7 +830,7 @@ namespace Land_Readjustment_Tool.UI.Forms
             UpdateZoomControlState();
         }
 
-       
+
 
         public void FailImportExecution(string statusText)
         {
@@ -933,6 +935,9 @@ namespace Land_Readjustment_Tool.UI.Forms
                 if (IsLiveMode)
                     SuggestLayerName(BuildLiveLayerName(SelectedTileSource.Name, GetEffectiveZoomLevel(SelectedTileSource)));
             };
+
+            numCenterLat.KeyDown += NumCenterLatLon_KeyDown;
+            numCenterLon.KeyDown += NumCenterLatLon_KeyDown;
         }
 
         // ── Form events ──────────────────────────────────────────────────────────
@@ -1083,6 +1088,56 @@ namespace Land_Readjustment_Tool.UI.Forms
             input.Value = ClampNumericValue(input, (decimal)value.Value);
         }
 
+        private void frmXyzTileImportOptions_Load(object sender, EventArgs e)
+        {
+
+        }
+
+        // ── Lat/Lon smart paste ──────────────────────────────────────────────────
+
+        /// <summary>
+        /// When the user pastes "lat,lon" (e.g. "27.7172, 85.3240") into either
+        /// the latitude or longitude NUD, both fields are populated automatically.
+        /// A plain number falls through to the default NumericUpDown paste behaviour.
+        /// </summary>
+        private void NumCenterLatLon_KeyDown(object? sender, KeyEventArgs e)
+        {
+            if (!e.Control || e.KeyCode != Keys.V)
+                return;
+
+            string clipboard = Clipboard.GetText();
+            if (!TrySplitLatLon(clipboard, out decimal lat, out decimal lon))
+                return;
+
+            numCenterLat.Value = ClampNumericValue(numCenterLat, lat);
+            numCenterLon.Value = ClampNumericValue(numCenterLon, lon);
+            e.Handled = true;
+            e.SuppressKeyPress = true;
+        }
+
+        private static bool TrySplitLatLon(string text, out decimal lat, out decimal lon)
+        {
+            lat = 0;
+            lon = 0;
+
+            if (string.IsNullOrWhiteSpace(text))
+                return false;
+
+            string[] parts = text.Trim().Split(',');
+            if (parts.Length != 2)
+                return false;
+
+            return decimal.TryParse(
+                       parts[0].Trim(),
+                       System.Globalization.NumberStyles.Float,
+                       System.Globalization.CultureInfo.InvariantCulture,
+                       out lat) &&
+                   decimal.TryParse(
+                       parts[1].Trim(),
+                       System.Globalization.NumberStyles.Float,
+                       System.Globalization.CultureInfo.InvariantCulture,
+                       out lon);
+        }
     }
 
     public sealed class XyzTileImportRequestedEventArgs : EventArgs

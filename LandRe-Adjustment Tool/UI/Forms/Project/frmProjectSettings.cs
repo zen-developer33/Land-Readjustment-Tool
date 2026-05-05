@@ -60,6 +60,7 @@ namespace Land_Readjustment_Tool.UI.Forms.Project
             IDatumTransformationRepository datumRepo)
         {
             InitializeComponent();
+            NumericUpDownSelectAllBehavior.AttachTo(this);
             _service = service;
             _crsRepo = crsRepo;
             _datumRepo = datumRepo;

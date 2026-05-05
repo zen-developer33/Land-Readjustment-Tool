@@ -1,5 +1,6 @@
 using Land_Readjustment_Tool.Core.Entities.Spatial;
 using Land_Readjustment_Tool.Core.Interfaces;
+using Land_Readjustment_Tool.UI.Helpers;
 
 namespace Land_Readjustment_Tool.UI.Forms.Project
 {
@@ -50,6 +51,7 @@ namespace Land_Readjustment_Tool.UI.Forms.Project
             IDatumTransformationRepository repo)
         {
             InitializeComponent();
+            NumericUpDownSelectAllBehavior.AttachTo(this);
             _repo = repo;
             _existing = existing;
             _isNew = existing?.Id == 0 || existing == null;

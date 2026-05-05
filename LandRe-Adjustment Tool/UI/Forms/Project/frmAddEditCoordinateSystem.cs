@@ -1,5 +1,6 @@
 using Land_Readjustment_Tool.Core.Entities.Spatial;
 using Land_Readjustment_Tool.Core.Interfaces;
+using Land_Readjustment_Tool.UI.Helpers;
 
 namespace Land_Readjustment_Tool.UI.Forms.Project
 {
@@ -62,6 +63,7 @@ namespace Land_Readjustment_Tool.UI.Forms.Project
             IProjectionParametersRepository projRepo)
         {
             InitializeComponent();
+            NumericUpDownSelectAllBehavior.AttachTo(this);
             _repo = repo;
             _projRepo = projRepo;
             _existing = existing;

@@ -99,7 +99,7 @@ namespace Land_Readjustment_Tool.Services.Canvas
             CanvasLayer layer,
             CancellationToken ct = default)
         {
-            await EnsureLayerEditableAsync(session, layer, "edited", ct);
+            await EnsureLayerPropertiesEditableAsync(session, layer, ct);
 
             CanvasLayer updatedLayer = CloneLayer(layer);
             updatedLayer.LastModifiedDate = DateTime.Now;
@@ -168,6 +168,32 @@ namespace Land_Readjustment_Tool.Services.Canvas
             if (layer.IsLocked)
                 throw new InvalidOperationException(
                     $"Layer '{layer.Name}' is locked and cannot be {action}.");
+        }
+
+        /// <summary>
+        /// Allows the properties dialog to unlock a locked layer, while blocking
+        /// normal property edits until that lock checkbox is cleared.
+        /// </summary>
+        private async Task EnsureLayerPropertiesEditableAsync(
+            ProjectSession? session,
+            CanvasLayer layer,
+            CancellationToken ct)
+        {
+            if (session != null && layer.Id > 0)
+            {
+                var repository = _projectScopedFactory.CreateCanvasLayerRepository(session);
+                CanvasLayer? currentLayer = await repository.GetByIDAsync(layer.Id, ct);
+
+                if (currentLayer?.IsLocked == true && layer.IsLocked)
+                    throw new InvalidOperationException(
+                        $"Layer '{currentLayer.Name}' is locked and cannot be edited.");
+
+                return;
+            }
+
+            if (layer.IsLocked)
+                throw new InvalidOperationException(
+                    $"Layer '{layer.Name}' is locked and cannot be edited.");
         }
 
         /// <summary>

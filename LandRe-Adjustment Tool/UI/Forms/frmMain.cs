@@ -12,6 +12,7 @@ using Land_Readjustment_Tool.Services.Raster;
 using Land_Readjustment_Tool.UI.CustomControls;
 using Land_Readjustment_Tool.UI.Forms;
 using Land_Readjustment_Tool.UI.Forms.Project;
+using Land_Readjustment_Tool.UI.Helpers;
 using Land_Readjustment_Tool.UI.MapCanvas.Core;
 using Land_Readjustment_Tool.UI.MapCanvas.Models.Shapes;
 using Land_Readjustment_Tool.UI.MapCanvas.Rendering;
@@ -161,6 +162,7 @@ namespace Land_Readjustment_Tool
             _projectSaveAsService = projectSaveAsService ?? throw new ArgumentNullException(nameof(projectSaveAsService));
 
             InitializeComponent();
+            NumericUpDownSelectAllBehavior.AttachTo(this);
             _startupFilePath = startupFilePath;
             ConfigureSmoothSplitterLayout();
             mapCanvasControlMain.StatusChanged += MapCanvasControlMain_StatusChanged;
@@ -3824,17 +3826,17 @@ namespace Land_Readjustment_Tool
             CanvasLayer editableLayer =
                 _layerCommandService.CreateEditableCopy(nodeState.Layer);
 
-            if (nodeState.Layer.IsLocked)
-            {
-                ShowLayerLockedMessage(nodeState.Layer, "edited");
-                return;
-            }
-
             using var frm = new frmLayerPropertyManager(editableLayer);
             PositionLayerPropertyManager(frm);
 
             if (frm.ShowDialog(this) != DialogResult.OK)
                 return;
+
+            if (nodeState.Layer.IsLocked && editableLayer.IsLocked)
+            {
+                SetCanvasCommandStatus($"Layer locked: {nodeState.Layer.Name}");
+                return;
+            }
 
             try
             {
@@ -4200,6 +4202,11 @@ namespace Land_Readjustment_Tool
                     TextFormatFlags.VerticalCenter |
                     TextFormatFlags.SingleLine);
             }
+
+        }
+
+        private void statusCanvas_ItemClicked(object sender, ToolStripItemClickedEventArgs e)
+        {
 
         }
     }
