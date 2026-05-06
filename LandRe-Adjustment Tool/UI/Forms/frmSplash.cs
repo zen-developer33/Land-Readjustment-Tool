@@ -7,9 +7,9 @@ namespace Land_Readjustment_Tool.UI.Forms
     internal sealed class frmSplash : Form
     {
         private const int ProgressIntervalMs = 10;
-        private const int TotalProgressTicks = 50;
+        private const int TotalProgressTicks = 80;
         private const int CloseHoldTicks = 1;
-        private static readonly Size SplashSize = new(960, 540);
+        private static readonly Size SplashSize = new(768, 432);
 
         private readonly Timer _progressTimer;
         private readonly Panel _canvas;

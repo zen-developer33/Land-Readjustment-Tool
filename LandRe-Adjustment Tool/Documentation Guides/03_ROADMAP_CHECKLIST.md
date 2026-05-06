@@ -246,7 +246,9 @@ a prerequisite for the next phase.
 - [ ] Status bar showing cursor coordinates in world units
 - [ ] Properties panel (right panel) showing selected object attributes
 - [ ] Undo/Redo system (Command pattern)
-- [ ] Settings: auto-backup interval
+- [ ] Settings: auto-backup 
+
+
 - [ ] MSI installer
 - [ ] `.lpp` file association in Windows registry (code exists in `Program.cs`)
 - [ ] Update checker (optional)
