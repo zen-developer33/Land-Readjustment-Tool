@@ -107,6 +107,7 @@ namespace Land_Readjustment_Tool.UI.MapCanvas.Services
                 FillTransparency = 100,
                 LineWeight = 1.0,
                 LineStyle = "Solid",
+                LineTypeScale = 1.0,
                 LabelColor = "#000000",
                 FillStyle = "Solid",
                 PointSymbol = "Circle",

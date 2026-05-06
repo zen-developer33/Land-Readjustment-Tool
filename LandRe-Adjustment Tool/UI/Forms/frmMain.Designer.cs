@@ -33,11 +33,14 @@ namespace Land_Readjustment_Tool
         /// </summary>
         private void InitializeComponent()
         {
-            TreeNode treeNode1 = new TreeNode("Original Data Layer ");
-            TreeNode treeNode2 = new TreeNode("Proposed Data Layer");
-            TreeNode treeNode3 = new TreeNode("");
-            TreeNode treeNode4 = new TreeNode("RasterLayer", new TreeNode[] { treeNode3 });
-            TreeNode treeNode5 = new TreeNode("Other External Layers");
+            TreeNode treeNode1 = new TreeNode("Original Data Layer");
+            TreeNode treeNode2 = new TreeNode("Roads");
+            TreeNode treeNode3 = new TreeNode("Block Layout Plan", new TreeNode[] { treeNode2 });
+            TreeNode treeNode4 = new TreeNode("Replotted Parcels");
+            TreeNode treeNode5 = new TreeNode("RePlot", new TreeNode[] { treeNode1, treeNode3, treeNode4 });
+            TreeNode treeNode6 = new TreeNode("Drawing/Mark Up Layers");
+            TreeNode treeNode7 = new TreeNode("Other External Layers");
+            TreeNode treeNode8 = new TreeNode("Raster Layers");
             System.ComponentModel.ComponentResourceManager resources = new System.ComponentModel.ComponentResourceManager(typeof(frmMain));
             mainMenuStrip = new MenuStrip();
             fileToolStripMenuItem = new ToolStripMenuItem();
@@ -645,18 +648,23 @@ namespace Land_Readjustment_Tool
             treeViewLayers.Location = new Point(6, 23);
             treeViewLayers.Margin = new Padding(4);
             treeViewLayers.Name = "treeViewLayers";
-            treeNode1.Name = "Node3";
-            treeNode1.Text = "Original Data Layer ";
-            treeNode2.Name = "Node4";
-            treeNode2.Text = "Proposed Data Layer";
-            treeNode3.Name = "Node1";
-            treeNode3.Text = "";
-            treeNode4.Checked = true;
-            treeNode4.Name = "RasterLayer";
-            treeNode4.Text = "RasterLayer";
-            treeNode5.Name = "Node2";
-            treeNode5.Text = "Other External Layers";
-            treeViewLayers.Nodes.AddRange(new TreeNode[] { treeNode1, treeNode2, treeNode4, treeNode5 });
+            treeNode1.Name = "LayerGroup_OriginalDataLayer";
+            treeNode1.Text = "Original Data Layer";
+            treeNode2.Name = "LayerGroup_Roads";
+            treeNode2.Text = "Roads";
+            treeNode3.Name = "LayerGroup_BlockLayoutPlan";
+            treeNode3.Text = "Block Layout Plan";
+            treeNode4.Name = "LayerGroup_ReplottedParcels";
+            treeNode4.Text = "Replotted Parcels";
+            treeNode5.Name = "LayerGroup_RePlotRoot";
+            treeNode5.Text = "RePlot";
+            treeNode6.Name = "LayerGroup_DrawingMarkupLayers";
+            treeNode6.Text = "Drawing/Mark Up Layers";
+            treeNode7.Name = "LayerGroup_OtherExternalLayers";
+            treeNode7.Text = "Other External Layers";
+            treeNode8.Name = "LayerGroup_RasterLayer";
+            treeNode8.Text = "Raster Layers";
+            treeViewLayers.Nodes.AddRange(new TreeNode[] { treeNode5, treeNode6, treeNode7, treeNode8 });
             treeViewLayers.Size = new Size(168, 662);
             treeViewLayers.TabIndex = 0;
             // 

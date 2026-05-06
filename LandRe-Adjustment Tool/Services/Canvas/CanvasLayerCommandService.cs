@@ -214,6 +214,7 @@ namespace Land_Readjustment_Tool.Services.Canvas
                 BorderColor = source.BorderColor,
                 LineWeight = source.LineWeight,
                 LineStyle = source.LineStyle,
+                LineTypeScale = source.LineTypeScale,
                 FillColor = source.FillColor,
                 FillTransparency = source.FillTransparency,
                 FillStyle = source.FillStyle,

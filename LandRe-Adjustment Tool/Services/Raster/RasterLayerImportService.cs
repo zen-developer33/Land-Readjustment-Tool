@@ -221,6 +221,7 @@ namespace Land_Readjustment_Tool.Services.Raster
                 BorderColor = "#4B8BBE",
                 LineWeight = 1.0,
                 LineStyle = "Solid",
+                LineTypeScale = 1.0,
                 FillTransparency = 0,
                 FillStyle = "None",
                 LabelColor = "#000000",

@@ -58,9 +58,12 @@ namespace Land_Readjustment_Tool
         private bool _operationProgressActive;
         private const string LayerGroupNodeNamePrefix = "LayerGroup_";
         private const string RePlotRootNodeKey = "RePlotRoot";
-        private const string OriginalDataGroupKey = "OriginalDataLayer";
-        private const string ProposedDataGroupKey = "ProposedDataLayer";
-        private const string RasterLayerGroupKey = "RasterLayer";
+        private const string OriginalDataGroupKey = CanvasLayerTreeService.OriginalDataGroupKey;
+        private const string BlockLayoutGroupKey = CanvasLayerTreeService.BlockLayoutGroupKey;
+        private const string RoadsGroupKey = CanvasLayerTreeService.RoadsGroupKey;
+        private const string ReplottedParcelsGroupKey = CanvasLayerTreeService.ReplottedParcelsGroupKey;
+        private const string DrawingMarkupGroupKey = CanvasLayerTreeService.DrawingMarkupGroupKey;
+        private const string RasterLayerGroupKey = CanvasLayerTreeService.RasterGroupKey;
         private const int LayerNodeCheckBoxSize = 14;
         private const int LayerNodeCheckBoxGap = 6;
         private const int LayerNodeColorBoxSize = 18;
@@ -338,7 +341,6 @@ namespace Land_Readjustment_Tool
                     checkUnsavedChanges: false);
                 return;
             }
-            mainSplitContainer.Cursor = new Cursor("C:\\Users\\CYBORG\\source\\repos\\zen-developer33\\Land-Readjustment-Tool\\LandRe-Adjustment Tool\\Resources\\Cursors\\pan.cur");
         }
 
 
@@ -2570,9 +2572,17 @@ namespace Land_Readjustment_Tool
                     // checkerboard icon that universally signals imagery / raster data.
                     DrawRasterLayerIcon(g, colorRect);
                 }
+                else if (CanvasLayerTreeService.IsLineLayer(layer))
+                {
+                    DrawLineLayerSwatch(g, colorRect, layer, treeViewLayers.BackColor);
+                }
                 else
                 {
-                    DrawVectorLayerSwatch(g, colorRect, layer);
+                    DrawVectorLayerSwatch(
+                        g,
+                        colorRect,
+                        layer,
+                        treeViewLayers.BackColor);
                 }
 
                 x = colorRect.Right + LayerNodeColorBoxGap;
@@ -2586,6 +2596,13 @@ namespace Land_Readjustment_Tool
                     GetGroupCheckBoxState(e.Node));
 
                 x = chkRect.Right + LayerNodeCheckBoxGap;
+
+                if (CanvasLayerTreeService.IsRoadsGroupKey(layerState?.GroupKey))
+                {
+                    Rectangle colorRect = GetLayerNodeColorRect(e.Node);
+                    DrawRoadsGroupSwatch(g, colorRect, e.Node, treeViewLayers.BackColor);
+                    x = colorRect.Right + LayerNodeColorBoxGap;
+                }
             }
 
             TextRenderer.DrawText(
@@ -2766,9 +2783,11 @@ namespace Land_Readjustment_Tool
             _mnuToggleLayerVisibility.Checked = !layer.IsVisible;
             _mnuToggleLayerLock.Checked = layer.IsLocked;
 
+            bool isProtectedDefaultLayer =
+                CanvasLayerTreeService.IsProtectedDefaultLayer(layer);
             _mnuZoomToLayer.Enabled = !IsOnlineBasemapLayer(_contextLayerNode);
-            _mnuRenameLayer.Enabled = true;
-            _mnuDeleteLayer.Enabled = true;
+            _mnuRenameLayer.Enabled = !isProtectedDefaultLayer;
+            _mnuDeleteLayer.Enabled = !isProtectedDefaultLayer;
             bool canReorderRaster =
                 IsRasterLayer(layer) &&
                 !IsOnlineBasemapLayer(_contextLayerNode);
@@ -2846,7 +2865,8 @@ namespace Land_Readjustment_Tool
         private static void DrawVectorLayerSwatch(
             Graphics g,
             Rectangle rect,
-            CanvasLayer layer)
+            CanvasLayer layer,
+            Color backgroundColor)
         {
             Color outlineColor = ParseColorOrDefault(layer.BorderColor, Color.Black);
             bool hasFill =
@@ -2854,22 +2874,146 @@ namespace Land_Readjustment_Tool
                 !string.Equals(layer.FillStyle, "None", StringComparison.OrdinalIgnoreCase) &&
                 layer.FillTransparency < 100;
 
-            Color fillColor = hasFill
+            Color rawFillColor = hasFill
                 ? ParseColorOrDefault(layer.FillColor, Color.White)
-                : Color.White;
+                : backgroundColor;
 
-            Rectangle outlineRect = new(
-                rect.X + 1,
-                rect.Y + 1,
-                Math.Max(1, rect.Width - 2),
-                Math.Max(1, rect.Height - 2));
-            Rectangle fillRect = Rectangle.Inflate(outlineRect, -2, -2);
+            Color fillColor = hasFill
+                ? BlendColor(rawFillColor, backgroundColor, layer.FillTransparency / 100f)
+                : backgroundColor;
 
-            using SolidBrush fillBrush = new(fillColor);
-            g.FillRectangle(fillBrush, fillRect);
+            Rectangle symbolRect = new(
+                rect.X,
+                rect.Y,
+                Math.Max(1, rect.Width - 1),
+                Math.Max(1, rect.Height - 1));
 
-            using Pen outlinePen = new(outlineColor, 2f);
-            g.DrawRectangle(outlinePen, outlineRect);
+            using (SolidBrush fillBrush = new(fillColor))
+            {
+                g.FillRectangle(fillBrush, symbolRect);
+            }
+
+            float outlineWidth = (float)Math.Clamp(
+                layer.LineWeight,
+                1.0,
+                Math.Max(1.0, Math.Min(symbolRect.Width, symbolRect.Height) / 2.0));
+
+            using Pen outlinePen = new(outlineColor, outlineWidth)
+            {
+                Alignment = System.Drawing.Drawing2D.PenAlignment.Inset
+            };
+            g.DrawRectangle(outlinePen, symbolRect);
+        }
+
+        private static void DrawLineLayerSwatch(
+            Graphics g,
+            Rectangle rect,
+            CanvasLayer layer,
+            Color backgroundColor)
+        {
+            Rectangle symbolRect = new(
+                rect.X,
+                rect.Y,
+                Math.Max(1, rect.Width - 1),
+                Math.Max(1, rect.Height - 1));
+
+            using (SolidBrush fillBrush = new(backgroundColor))
+                g.FillRectangle(fillBrush, symbolRect);
+
+            Color lineColor = ParseColorOrDefault(layer.BorderColor, Color.Black);
+            DrawLineStylePreview(
+                g,
+                new Rectangle(symbolRect.X + 2, symbolRect.Y, Math.Max(1, symbolRect.Width - 4), symbolRect.Height),
+                lineColor,
+                (float)layer.LineWeight,
+                layer.LineStyle);
+
+            using Pen borderPen = new(Color.FromArgb(140, 140, 145));
+            g.DrawRectangle(borderPen, symbolRect);
+        }
+
+        private static void DrawRoadsGroupSwatch(
+            Graphics g,
+            Rectangle rect,
+            TreeNode roadsNode,
+            Color backgroundColor)
+        {
+            CanvasLayer? roadParcel = EnumerateLayerNodes(roadsNode)
+                .Select(GetLayerFromNode)
+                .FirstOrDefault(layer =>
+                    layer != null &&
+                    !CanvasLayerTreeService.IsLineLayer(layer));
+
+            CanvasLayer? centerline = EnumerateLayerNodes(roadsNode)
+                .Select(GetLayerFromNode)
+                .FirstOrDefault(layer =>
+                    layer != null &&
+                    CanvasLayerTreeService.IsLineLayer(layer));
+
+            if (roadParcel != null)
+            {
+                DrawVectorLayerSwatch(g, rect, roadParcel, backgroundColor);
+            }
+            else
+            {
+                using SolidBrush fillBrush = new(backgroundColor);
+                g.FillRectangle(fillBrush, rect);
+            }
+
+            if (centerline != null)
+            {
+                Color lineColor = ParseColorOrDefault(centerline.BorderColor, Color.Black);
+                DrawLineStylePreview(
+                    g,
+                    new Rectangle(rect.X + 2, rect.Y, Math.Max(1, rect.Width - 4), rect.Height),
+                    lineColor,
+                    (float)centerline.LineWeight,
+                    centerline.LineStyle);
+            }
+        }
+
+        private static void DrawLineStylePreview(
+            Graphics g,
+            Rectangle rect,
+            Color lineColor,
+            float lineWeight,
+            string? lineStyle)
+        {
+            int y = rect.Top + rect.Height / 2;
+            float width = Math.Clamp(lineWeight, 1.0f, Math.Max(1.0f, rect.Height / 2.0f));
+            using Pen pen = new(lineColor, width)
+            {
+                StartCap = System.Drawing.Drawing2D.LineCap.Flat,
+                EndCap = System.Drawing.Drawing2D.LineCap.Flat
+            };
+
+            ApplyPenLineStyle(pen, lineStyle);
+            g.SmoothingMode = System.Drawing.Drawing2D.SmoothingMode.AntiAlias;
+            g.DrawLine(pen, rect.Left, y, rect.Right, y);
+            g.SmoothingMode = System.Drawing.Drawing2D.SmoothingMode.None;
+        }
+
+        private static void ApplyPenLineStyle(Pen pen, string? lineStyle)
+        {
+            switch (lineStyle?.Trim())
+            {
+                case "Dashed":
+                    pen.DashStyle = System.Drawing.Drawing2D.DashStyle.Dash;
+                    break;
+                case "Dotted":
+                    pen.DashStyle = System.Drawing.Drawing2D.DashStyle.Dot;
+                    break;
+                case "DashDot":
+                    pen.DashStyle = System.Drawing.Drawing2D.DashStyle.DashDot;
+                    break;
+                case "Centerline":
+                    pen.DashStyle = System.Drawing.Drawing2D.DashStyle.Custom;
+                    pen.DashPattern = [8f, 3f, 2f, 3f];
+                    break;
+                default:
+                    pen.DashStyle = System.Drawing.Drawing2D.DashStyle.Solid;
+                    break;
+            }
         }
 
         private void ConfigureRasterGroupContextMenuItems()
@@ -3545,6 +3689,7 @@ namespace Land_Readjustment_Tool
                 treeViewLayers.Nodes.Clear();
 
                 TreeNode? rePlotRootNode = null;
+                TreeNode? blockLayoutNode = null;
                 foreach (CanvasLayerTreeGroup group in layerGroups)
                 {
                     TreeNode groupNode =
@@ -3560,7 +3705,20 @@ namespace Land_Readjustment_Tool
                     if (IsRePlotDataGroupKey(group.Key))
                     {
                         rePlotRootNode ??= CreateRePlotRootNode();
-                        rePlotRootNode.Nodes.Add(groupNode);
+                        if (string.Equals(group.Key, RoadsGroupKey, StringComparison.OrdinalIgnoreCase))
+                        {
+                            blockLayoutNode ??= FindGroupNode(rePlotRootNode, BlockLayoutGroupKey);
+                            if (blockLayoutNode == null)
+                                rePlotRootNode.Nodes.Add(groupNode);
+                            else
+                                blockLayoutNode.Nodes.Add(groupNode);
+                        }
+                        else
+                        {
+                            rePlotRootNode.Nodes.Add(groupNode);
+                            if (string.Equals(group.Key, BlockLayoutGroupKey, StringComparison.OrdinalIgnoreCase))
+                                blockLayoutNode = groupNode;
+                        }
                     }
                     else
                     {
@@ -3600,6 +3758,7 @@ namespace Land_Readjustment_Tool
                 treeViewLayers.Nodes.Clear();
 
                 TreeNode? rePlotRootNode = null;
+                TreeNode? blockLayoutNode = null;
                 foreach (CanvasLayerTreeGroup group
                     in CanvasLayerTreeService.GetDefaultLayerTree())
                 {
@@ -3612,7 +3771,20 @@ namespace Land_Readjustment_Tool
                     if (IsRePlotDataGroupKey(group.Key))
                     {
                         rePlotRootNode ??= CreateRePlotRootNode();
-                        rePlotRootNode.Nodes.Add(groupNode);
+                        if (string.Equals(group.Key, RoadsGroupKey, StringComparison.OrdinalIgnoreCase))
+                        {
+                            blockLayoutNode ??= FindGroupNode(rePlotRootNode, BlockLayoutGroupKey);
+                            if (blockLayoutNode == null)
+                                rePlotRootNode.Nodes.Add(groupNode);
+                            else
+                                blockLayoutNode.Nodes.Add(groupNode);
+                        }
+                        else
+                        {
+                            rePlotRootNode.Nodes.Add(groupNode);
+                            if (string.Equals(group.Key, BlockLayoutGroupKey, StringComparison.OrdinalIgnoreCase))
+                                blockLayoutNode = groupNode;
+                        }
                     }
                     else
                     {
@@ -3818,8 +3990,25 @@ namespace Land_Readjustment_Tool
 
         private static bool IsRePlotDataGroupKey(string? groupKey)
         {
-            return string.Equals(groupKey, OriginalDataGroupKey, StringComparison.OrdinalIgnoreCase) ||
-                   string.Equals(groupKey, ProposedDataGroupKey, StringComparison.OrdinalIgnoreCase);
+            return CanvasLayerTreeService.IsRePlotDataGroupKey(groupKey);
+        }
+
+        private static TreeNode? FindGroupNode(TreeNode rootNode, string groupKey)
+        {
+            foreach (TreeNode node in rootNode.Nodes)
+            {
+                if (node.Tag is LayerTreeNodeState state &&
+                    string.Equals(state.GroupKey, groupKey, StringComparison.OrdinalIgnoreCase))
+                {
+                    return node;
+                }
+
+                TreeNode? childMatch = FindGroupNode(node, groupKey);
+                if (childMatch != null)
+                    return childMatch;
+            }
+
+            return null;
         }
 
         private static bool IsRasterLayerGroupNode(TreeNode? node)

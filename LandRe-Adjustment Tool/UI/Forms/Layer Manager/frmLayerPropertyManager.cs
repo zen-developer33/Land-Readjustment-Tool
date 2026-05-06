@@ -1,5 +1,6 @@
 using Land_Readjustment_Tool.Core.Entities.Canvas;
 using Land_Readjustment_Tool.UI.Helpers;
+using Land_Readjustment_Tool.UI.MapCanvas.Services;
 
 namespace Land_Readjustment_Tool.UI.Forms
 {
@@ -7,11 +8,13 @@ namespace Land_Readjustment_Tool.UI.Forms
     {
         public CanvasLayer Layer { get; }
         private readonly bool _isRasterLayer;
+        private readonly bool _isLineLayer;
 
         public frmLayerPropertyManager(CanvasLayer layer)
         {
             Layer = layer ?? throw new ArgumentNullException(nameof(layer));
             _isRasterLayer = IsRasterLayer(layer);
+            _isLineLayer = CanvasLayerTreeService.IsLineLayer(layer);
 
             InitializeComponent();
             NumericUpDownSelectAllBehavior.AttachTo(this);
@@ -27,8 +30,10 @@ namespace Land_Readjustment_Tool.UI.Forms
         private void LoadLayer()
         {
             _txtName.Text = Layer.Name;
+            _txtLayerKind.Text = GetLayerKindText(Layer);
             _pnlBorderColor.BackColor = ParseColorOrDefault(Layer.BorderColor, Color.Black);
             SetComboText(_cboLineStyle, Layer.LineStyle);
+            _numLineTypeScale.Value = ClampDecimal((decimal)NormalizeLineTypeScale(Layer.LineTypeScale), _numLineTypeScale);
             _numLineWeight.Value = ClampDecimal((decimal)Layer.LineWeight, _numLineWeight);
             _chkVisible.Checked = Layer.IsVisible;
             _chkLocked.Checked = Layer.IsLocked;
@@ -54,6 +59,21 @@ namespace Land_Readjustment_Tool.UI.Forms
         /// </summary>
         private void ConfigureApplicableControls()
         {
+            if (_isLineLayer)
+            {
+                Text = "Line Layer Properties";
+                _lblBorderColor.Text = "Line Color";
+                _tabs.TabPages.Remove(_tabFill);
+                return;
+            }
+
+            if (!_isRasterLayer)
+            {
+                Text = "Polygon Layer Properties";
+                _lblBorderColor.Text = "Outline Color";
+                return;
+            }
+
             if (!_isRasterLayer)
                 return;
 
@@ -61,14 +81,18 @@ namespace Land_Readjustment_Tool.UI.Forms
             _tabFill.Text = "Raster";
             _tabs.TabPages.Remove(_tabLabel);
 
+            SetControlVisible(_lblLayerKind, true);
+            SetControlVisible(_txtLayerKind, true);
             SetControlVisible(_lblBorderColor, false);
             SetControlVisible(_borderColorPanel, false);
             SetControlVisible(_lblLineStyle, false);
-            SetControlVisible(_cboLineStyle, false);
+            SetControlVisible(_lineTypePanel, false);
+            SetControlVisible(_lblLinePreview, false);
+            SetControlVisible(_pnlLinePreview, false);
             SetControlVisible(_lblLineWeight, false);
             SetControlVisible(_numLineWeight, false);
-            _generalLayout.SetRow(_lblState, 1);
-            _generalLayout.SetRow(_statePanel, 1);
+            _generalLayout.SetRow(_lblState, 2);
+            _generalLayout.SetRow(_statePanel, 2);
 
             SetControlVisible(_lblFillStyle, false);
             SetControlVisible(_cboFillStyle, false);
@@ -122,6 +146,7 @@ namespace Land_Readjustment_Tool.UI.Forms
                 swatch.BackColor = _colorDialog.Color;
 
             ColorDialogCustomColorsStore.SaveFrom(_colorDialog);
+            _pnlLinePreview.Invalidate();
         }
 
         private void btnFont_Click(object? sender, EventArgs e)
@@ -140,6 +165,39 @@ namespace Land_Readjustment_Tool.UI.Forms
         private void cboFillStyle_SelectedIndexChanged(object? sender, EventArgs e)
         {
             UpdateFillControlState();
+        }
+
+        private void cboLineStyle_SelectedIndexChanged(object? sender, EventArgs e)
+        {
+            _pnlLinePreview.Invalidate();
+        }
+
+        private void numLineWeight_ValueChanged(object? sender, EventArgs e)
+        {
+            _pnlLinePreview.Invalidate();
+        }
+
+        private void numLineTypeScale_ValueChanged(object? sender, EventArgs e)
+        {
+            _pnlLinePreview.Invalidate();
+        }
+
+        private void pnlLinePreview_Paint(object? sender, PaintEventArgs e)
+        {
+            e.Graphics.Clear(_pnlLinePreview.BackColor);
+            Rectangle previewRect = Rectangle.Inflate(_pnlLinePreview.ClientRectangle, -10, -4);
+            if (previewRect.Width <= 0 || previewRect.Height <= 0)
+                return;
+
+            using Pen pen = new(_pnlBorderColor.BackColor, Math.Max(1f, (float)_numLineWeight.Value))
+            {
+                StartCap = System.Drawing.Drawing2D.LineCap.Flat,
+                EndCap = System.Drawing.Drawing2D.LineCap.Flat
+            };
+            ApplyPenLineStyle(pen, _cboLineStyle.Text, (float)_numLineTypeScale.Value);
+            e.Graphics.SmoothingMode = System.Drawing.Drawing2D.SmoothingMode.AntiAlias;
+            int y = previewRect.Top + previewRect.Height / 2;
+            e.Graphics.DrawLine(pen, previewRect.Left, y, previewRect.Right, y);
         }
 
         private void trkTransparency_ValueChanged(object? sender, EventArgs e)
@@ -187,11 +245,14 @@ namespace Land_Readjustment_Tool.UI.Forms
             bool canEdit = !_chkLocked.Checked;
 
             _txtName.Enabled = canEdit;
+            _txtLayerKind.Enabled = false;
             _chkVisible.Enabled = canEdit;
 
             _pnlBorderColor.Enabled = canEdit;
             _btnBorderColor.Enabled = canEdit;
+            _lineTypePanel.Enabled = canEdit;
             _cboLineStyle.Enabled = canEdit;
+            _numLineTypeScale.Enabled = canEdit;
             _numLineWeight.Enabled = canEdit;
 
             _cboFillStyle.Enabled = canEdit;
@@ -233,16 +294,27 @@ namespace Land_Readjustment_Tool.UI.Forms
             {
                 Layer.BorderColor = ColorTranslator.ToHtml(_pnlBorderColor.BackColor);
                 Layer.LineStyle = string.IsNullOrWhiteSpace(_cboLineStyle.Text) ? "Solid" : _cboLineStyle.Text.Trim();
+                Layer.LineTypeScale = NormalizeLineTypeScale((double)_numLineTypeScale.Value);
                 Layer.LineWeight = (double)_numLineWeight.Value;
 
-                Layer.FillStyle = string.IsNullOrWhiteSpace(_cboFillStyle.Text) ? "None" : _cboFillStyle.Text.Trim();
-                Layer.FillColor = string.Equals(Layer.FillStyle, "None", StringComparison.OrdinalIgnoreCase)
-                    ? null
-                    : ColorTranslator.ToHtml(_pnlFillColor.BackColor);
-                Layer.HatchPattern = string.Equals(Layer.FillStyle, "Hatched", StringComparison.OrdinalIgnoreCase) &&
-                                     !string.IsNullOrWhiteSpace(_cboHatch.Text)
-                    ? _cboHatch.Text.Trim()
-                    : null;
+                if (_isLineLayer)
+                {
+                    Layer.FillStyle = "None";
+                    Layer.FillColor = null;
+                    Layer.HatchPattern = null;
+                    Layer.FillTransparency = 100;
+                }
+                else
+                {
+                    Layer.FillStyle = string.IsNullOrWhiteSpace(_cboFillStyle.Text) ? "None" : _cboFillStyle.Text.Trim();
+                    Layer.FillColor = string.Equals(Layer.FillStyle, "None", StringComparison.OrdinalIgnoreCase)
+                        ? null
+                        : ColorTranslator.ToHtml(_pnlFillColor.BackColor);
+                    Layer.HatchPattern = string.Equals(Layer.FillStyle, "Hatched", StringComparison.OrdinalIgnoreCase) &&
+                                         !string.IsNullOrWhiteSpace(_cboHatch.Text)
+                        ? _cboHatch.Text.Trim()
+                        : null;
+                }
 
                 Layer.ShowLabels = _chkShowLabels.Checked;
                 Layer.LabelFontName = string.IsNullOrWhiteSpace(_txtFontName.Text)
@@ -279,6 +351,51 @@ namespace Land_Readjustment_Tool.UI.Forms
                 layer.LayerType,
                 "Raster",
                 StringComparison.OrdinalIgnoreCase);
+        }
+
+        private static string GetLayerKindText(CanvasLayer layer)
+        {
+            if (IsRasterLayer(layer))
+                return "Raster";
+
+            return CanvasLayerTreeService.IsLineLayer(layer)
+                ? "Line"
+                : "Polygon";
+        }
+
+        private static double NormalizeLineTypeScale(double scale)
+        {
+            if (double.IsNaN(scale) || double.IsInfinity(scale) || scale <= 0)
+                return 1.0;
+
+            return Math.Clamp(scale, 0.1, 100.0);
+        }
+
+        private static void ApplyPenLineStyle(Pen pen, string? lineStyle, float lineTypeScale)
+        {
+            float scale = Math.Clamp(lineTypeScale, 0.1f, 100f);
+            switch (lineStyle?.Trim())
+            {
+                case "Dashed":
+                    pen.DashStyle = System.Drawing.Drawing2D.DashStyle.Custom;
+                    pen.DashPattern = [4f * scale, 2f * scale];
+                    break;
+                case "Dotted":
+                    pen.DashStyle = System.Drawing.Drawing2D.DashStyle.Custom;
+                    pen.DashPattern = [1f * scale, 2f * scale];
+                    break;
+                case "DashDot":
+                    pen.DashStyle = System.Drawing.Drawing2D.DashStyle.Custom;
+                    pen.DashPattern = [4f * scale, 2f * scale, 1f * scale, 2f * scale];
+                    break;
+                case "Centerline":
+                    pen.DashStyle = System.Drawing.Drawing2D.DashStyle.Custom;
+                    pen.DashPattern = [8f * scale, 3f * scale, 2f * scale, 3f * scale];
+                    break;
+                default:
+                    pen.DashStyle = System.Drawing.Drawing2D.DashStyle.Solid;
+                    break;
+            }
         }
 
         private static void SetControlVisible(Control control, bool visible)

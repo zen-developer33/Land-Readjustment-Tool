@@ -97,6 +97,10 @@ namespace Land_Readjustment_Tool.Data
                 .Property(layer => layer.IsLocked)
                 .HasDefaultValue(false);
 
+            modelBuilder.Entity<CanvasLayer>()
+                .Property(layer => layer.LineTypeScale)
+                .HasDefaultValue(1.0);
+
             modelBuilder.Entity<CanvasObject>()
                 .Property(canvasObject => canvasObject.IsLocked)
                 .HasDefaultValue(false);

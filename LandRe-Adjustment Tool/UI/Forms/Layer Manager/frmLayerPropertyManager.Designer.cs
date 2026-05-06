@@ -12,6 +12,7 @@ namespace Land_Readjustment_Tool.UI.Forms
         private TableLayoutPanel _fillLayout = null!;
         private TableLayoutPanel _labelLayout = null!;
         private TableLayoutPanel _transparencyLayout = null!;
+        private FlowLayoutPanel _lineTypePanel = null!;
         private FlowLayoutPanel _statePanel = null!;
         private FlowLayoutPanel _borderColorPanel = null!;
         private FlowLayoutPanel _fillColorPanel = null!;
@@ -20,8 +21,11 @@ namespace Land_Readjustment_Tool.UI.Forms
         private TableLayoutPanel _fontPanel = null!;
 
         private Label _lblName = null!;
+        private Label _lblLayerKind = null!;
         private Label _lblBorderColor = null!;
         private Label _lblLineStyle = null!;
+        private Label _lblLineTypeScale = null!;
+        private Label _lblLinePreview = null!;
         private Label _lblLineWeight = null!;
         private Label _lblState = null!;
         private Label _lblFillStyle = null!;
@@ -36,8 +40,11 @@ namespace Land_Readjustment_Tool.UI.Forms
         private Label _lblLabelField = null!;
 
         private TextBox _txtName = null!;
+        private TextBox _txtLayerKind = null!;
         private Panel _pnlBorderColor = null!;
         private ComboBox _cboLineStyle = null!;
+        private NumericUpDown _numLineTypeScale = null!;
+        private Panel _pnlLinePreview = null!;
         private NumericUpDown _numLineWeight = null!;
         private CheckBox _chkVisible = null!;
         private CheckBox _chkLocked = null!;
@@ -74,12 +81,19 @@ namespace Land_Readjustment_Tool.UI.Forms
             _generalLayout = new TableLayoutPanel();
             _lblName = new Label();
             _txtName = new TextBox();
+            _lblLayerKind = new Label();
+            _txtLayerKind = new TextBox();
             _lblBorderColor = new Label();
             _borderColorPanel = new FlowLayoutPanel();
             _pnlBorderColor = new Panel();
             _btnBorderColor = new Button();
             _lblLineStyle = new Label();
+            _lineTypePanel = new FlowLayoutPanel();
             _cboLineStyle = new ComboBox();
+            _lblLineTypeScale = new Label();
+            _numLineTypeScale = new NumericUpDown();
+            _lblLinePreview = new Label();
+            _pnlLinePreview = new Panel();
             _lblLineWeight = new Label();
             _numLineWeight = new NumericUpDown();
             _lblState = new Label();
@@ -125,6 +139,8 @@ namespace Land_Readjustment_Tool.UI.Forms
             _tabGeneral.SuspendLayout();
             _generalLayout.SuspendLayout();
             _borderColorPanel.SuspendLayout();
+            _lineTypePanel.SuspendLayout();
+            ((System.ComponentModel.ISupportInitialize)_numLineTypeScale).BeginInit();
             ((System.ComponentModel.ISupportInitialize)_numLineWeight).BeginInit();
             _statePanel.SuspendLayout();
             _tabFill.SuspendLayout();
@@ -151,7 +167,7 @@ namespace Land_Readjustment_Tool.UI.Forms
             _tabs.Name = "_tabs";
             _tabs.Padding = new Point(12, 4);
             _tabs.SelectedIndex = 0;
-            _tabs.Size = new Size(351, 271);
+            _tabs.Size = new Size(457, 385);
             _tabs.TabIndex = 0;
             // 
             // _tabGeneral
@@ -161,7 +177,7 @@ namespace Land_Readjustment_Tool.UI.Forms
             _tabGeneral.Location = new Point(4, 31);
             _tabGeneral.Name = "_tabGeneral";
             _tabGeneral.Padding = new Padding(12);
-            _tabGeneral.Size = new Size(343, 236);
+            _tabGeneral.Size = new Size(449, 350);
             _tabGeneral.TabIndex = 0;
             _tabGeneral.Text = "General";
             // 
@@ -174,18 +190,24 @@ namespace Land_Readjustment_Tool.UI.Forms
             _generalLayout.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 100F));
             _generalLayout.Controls.Add(_lblName, 0, 0);
             _generalLayout.Controls.Add(_txtName, 1, 0);
-            _generalLayout.Controls.Add(_lblBorderColor, 0, 1);
-            _generalLayout.Controls.Add(_borderColorPanel, 1, 1);
-            _generalLayout.Controls.Add(_lblLineStyle, 0, 2);
-            _generalLayout.Controls.Add(_cboLineStyle, 1, 2);
-            _generalLayout.Controls.Add(_lblLineWeight, 0, 3);
-            _generalLayout.Controls.Add(_numLineWeight, 1, 3);
-            _generalLayout.Controls.Add(_lblState, 0, 4);
-            _generalLayout.Controls.Add(_statePanel, 1, 4);
+            _generalLayout.Controls.Add(_lblLayerKind, 0, 1);
+            _generalLayout.Controls.Add(_txtLayerKind, 1, 1);
+            _generalLayout.Controls.Add(_lblBorderColor, 0, 2);
+            _generalLayout.Controls.Add(_borderColorPanel, 1, 2);
+            _generalLayout.Controls.Add(_lblLineStyle, 0, 3);
+            _generalLayout.Controls.Add(_lineTypePanel, 1, 3);
+            _generalLayout.Controls.Add(_lblLinePreview, 0, 4);
+            _generalLayout.Controls.Add(_pnlLinePreview, 1, 4);
+            _generalLayout.Controls.Add(_lblLineWeight, 0, 5);
+            _generalLayout.Controls.Add(_numLineWeight, 1, 5);
+            _generalLayout.Controls.Add(_lblState, 0, 6);
+            _generalLayout.Controls.Add(_statePanel, 1, 6);
             _generalLayout.Dock = DockStyle.Fill;
             _generalLayout.Location = new Point(12, 12);
             _generalLayout.Name = "_generalLayout";
-            _generalLayout.RowCount = 8;
+            _generalLayout.RowCount = 9;
+            _generalLayout.RowStyles.Add(new RowStyle(SizeType.Absolute, 38F));
+            _generalLayout.RowStyles.Add(new RowStyle(SizeType.Absolute, 38F));
             _generalLayout.RowStyles.Add(new RowStyle(SizeType.Absolute, 38F));
             _generalLayout.RowStyles.Add(new RowStyle(SizeType.Absolute, 38F));
             _generalLayout.RowStyles.Add(new RowStyle(SizeType.Absolute, 38F));
@@ -194,7 +216,7 @@ namespace Land_Readjustment_Tool.UI.Forms
             _generalLayout.RowStyles.Add(new RowStyle(SizeType.Absolute, 37F));
             _generalLayout.RowStyles.Add(new RowStyle(SizeType.Absolute, 38F));
             _generalLayout.RowStyles.Add(new RowStyle(SizeType.Percent, 100F));
-            _generalLayout.Size = new Size(319, 212);
+            _generalLayout.Size = new Size(425, 326);
             _generalLayout.TabIndex = 0;
             // 
             // _lblName
@@ -209,7 +231,7 @@ namespace Land_Readjustment_Tool.UI.Forms
             // 
             // _txtName
             // 
-            _txtName.Dock = DockStyle.Fill;
+            _txtName.Dock = DockStyle.Left;
             _txtName.Location = new Point(110, 4);
             _txtName.Margin = new Padding(0, 4, 0, 4);
             _txtName.Name = "_txtName";
@@ -217,13 +239,33 @@ namespace Land_Readjustment_Tool.UI.Forms
             _txtName.Size = new Size(209, 27);
             _txtName.TabIndex = 1;
             // 
+            // _lblLayerKind
+            // 
+            _lblLayerKind.Dock = DockStyle.Fill;
+            _lblLayerKind.Location = new Point(3, 38);
+            _lblLayerKind.Name = "_lblLayerKind";
+            _lblLayerKind.Size = new Size(104, 38);
+            _lblLayerKind.TabIndex = 2;
+            _lblLayerKind.Text = "Layer Type";
+            _lblLayerKind.TextAlign = ContentAlignment.MiddleLeft;
+            // 
+            // _txtLayerKind
+            // 
+            _txtLayerKind.Dock = DockStyle.Left;
+            _txtLayerKind.Location = new Point(110, 42);
+            _txtLayerKind.Margin = new Padding(0, 4, 0, 4);
+            _txtLayerKind.Name = "_txtLayerKind";
+            _txtLayerKind.ReadOnly = true;
+            _txtLayerKind.Size = new Size(209, 27);
+            _txtLayerKind.TabIndex = 3;
+            // 
             // _lblBorderColor
             // 
             _lblBorderColor.Dock = DockStyle.Fill;
-            _lblBorderColor.Location = new Point(3, 38);
+            _lblBorderColor.Location = new Point(3, 76);
             _lblBorderColor.Name = "_lblBorderColor";
             _lblBorderColor.Size = new Size(104, 38);
-            _lblBorderColor.TabIndex = 2;
+            _lblBorderColor.TabIndex = 4;
             _lblBorderColor.Text = "Border Color";
             _lblBorderColor.TextAlign = ContentAlignment.MiddleLeft;
             // 
@@ -232,11 +274,11 @@ namespace Land_Readjustment_Tool.UI.Forms
             _borderColorPanel.Controls.Add(_pnlBorderColor);
             _borderColorPanel.Controls.Add(_btnBorderColor);
             _borderColorPanel.Dock = DockStyle.Fill;
-            _borderColorPanel.Location = new Point(110, 38);
+            _borderColorPanel.Location = new Point(110, 76);
             _borderColorPanel.Margin = new Padding(0);
             _borderColorPanel.Name = "_borderColorPanel";
-            _borderColorPanel.Size = new Size(209, 38);
-            _borderColorPanel.TabIndex = 3;
+            _borderColorPanel.Size = new Size(294, 38);
+            _borderColorPanel.TabIndex = 5;
             _borderColorPanel.WrapContents = false;
             // 
             // _pnlBorderColor
@@ -264,30 +306,91 @@ namespace Land_Readjustment_Tool.UI.Forms
             // _lblLineStyle
             // 
             _lblLineStyle.Dock = DockStyle.Fill;
-            _lblLineStyle.Location = new Point(3, 76);
+            _lblLineStyle.Location = new Point(3, 114);
             _lblLineStyle.Name = "_lblLineStyle";
             _lblLineStyle.Size = new Size(104, 38);
-            _lblLineStyle.TabIndex = 4;
-            _lblLineStyle.Text = "Line Style";
+            _lblLineStyle.TabIndex = 6;
+            _lblLineStyle.Text = "Line Type";
             _lblLineStyle.TextAlign = ContentAlignment.MiddleLeft;
+            // 
+            // _lineTypePanel
+            // 
+            _lineTypePanel.Controls.Add(_cboLineStyle);
+            _lineTypePanel.Controls.Add(_lblLineTypeScale);
+            _lineTypePanel.Controls.Add(_numLineTypeScale);
+            _lineTypePanel.Dock = DockStyle.Fill;
+            _lineTypePanel.Location = new Point(110, 114);
+            _lineTypePanel.Margin = new Padding(0);
+            _lineTypePanel.Name = "_lineTypePanel";
+            _lineTypePanel.Size = new Size(294, 38);
+            _lineTypePanel.TabIndex = 7;
+            _lineTypePanel.WrapContents = false;
             // 
             // _cboLineStyle
             // 
-            _cboLineStyle.Items.AddRange(new object[] { "Solid", "Dashed", "Dotted", "DashDot" });
-            _cboLineStyle.Location = new Point(110, 80);
-            _cboLineStyle.Margin = new Padding(0, 4, 0, 4);
+            _cboLineStyle.DropDownStyle = ComboBoxStyle.DropDownList;
+            _cboLineStyle.Items.AddRange(new object[] { "Solid", "Dashed", "Dotted", "Centerline", "DashDot" });
+            _cboLineStyle.Location = new Point(0, 4);
+            _cboLineStyle.Margin = new Padding(0, 4, 8, 4);
             _cboLineStyle.Name = "_cboLineStyle";
-            _cboLineStyle.Size = new Size(209, 28);
-            _cboLineStyle.TabIndex = 5;
+            _cboLineStyle.Size = new Size(130, 28);
+            _cboLineStyle.TabIndex = 0;
+            _cboLineStyle.SelectedIndexChanged += cboLineStyle_SelectedIndexChanged;
+            // 
+            // _lblLineTypeScale
+            // 
+            _lblLineTypeScale.AutoSize = true;
+            _lblLineTypeScale.Location = new Point(141, 8);
+            _lblLineTypeScale.Margin = new Padding(3, 8, 6, 0);
+            _lblLineTypeScale.Name = "_lblLineTypeScale";
+            _lblLineTypeScale.Size = new Size(43, 20);
+            _lblLineTypeScale.TabIndex = 1;
+            _lblLineTypeScale.Text = "Scale";
+            // 
+            // _numLineTypeScale
+            // 
+            _numLineTypeScale.DecimalPlaces = 1;
+            _numLineTypeScale.Increment = new decimal(new int[] { 1, 0, 0, 65536 });
+            _numLineTypeScale.Location = new Point(193, 4);
+            _numLineTypeScale.Margin = new Padding(0, 4, 0, 4);
+            _numLineTypeScale.Maximum = new decimal(new int[] { 100, 0, 0, 0 });
+            _numLineTypeScale.Minimum = new decimal(new int[] { 1, 0, 0, 65536 });
+            _numLineTypeScale.Name = "_numLineTypeScale";
+            _numLineTypeScale.Size = new Size(70, 27);
+            _numLineTypeScale.TabIndex = 2;
+            _numLineTypeScale.Value = new decimal(new int[] { 10, 0, 0, 65536 });
+            _numLineTypeScale.ValueChanged += numLineTypeScale_ValueChanged;
+            // 
+            // _lblLinePreview
+            // 
+            _lblLinePreview.Dock = DockStyle.Fill;
+            _lblLinePreview.Location = new Point(3, 152);
+            _lblLinePreview.Name = "_lblLinePreview";
+            _lblLinePreview.Size = new Size(104, 38);
+            _lblLinePreview.TabIndex = 8;
+            _lblLinePreview.Text = "Preview";
+            _lblLinePreview.TextAlign = ContentAlignment.MiddleLeft;
+            // 
+            // _pnlLinePreview
+            // 
+            _pnlLinePreview.BackColor = Color.White;
+            _pnlLinePreview.BorderStyle = BorderStyle.FixedSingle;
+            _pnlLinePreview.Dock = DockStyle.Left;
+            _pnlLinePreview.Location = new Point(110, 156);
+            _pnlLinePreview.Margin = new Padding(0, 4, 0, 4);
+            _pnlLinePreview.Name = "_pnlLinePreview";
+            _pnlLinePreview.Size = new Size(209, 30);
+            _pnlLinePreview.TabIndex = 9;
+            _pnlLinePreview.Paint += pnlLinePreview_Paint;
             // 
             // _lblLineWeight
             // 
             _lblLineWeight.Dock = DockStyle.Fill;
-            _lblLineWeight.Location = new Point(3, 114);
+            _lblLineWeight.Location = new Point(3, 190);
             _lblLineWeight.Name = "_lblLineWeight";
             _lblLineWeight.Size = new Size(104, 38);
-            _lblLineWeight.TabIndex = 6;
-            _lblLineWeight.Text = "Line Weight";
+            _lblLineWeight.TabIndex = 10;
+            _lblLineWeight.Text = "Lineweight";
             _lblLineWeight.TextAlign = ContentAlignment.MiddleLeft;
             // 
             // _numLineWeight
@@ -295,21 +398,22 @@ namespace Land_Readjustment_Tool.UI.Forms
             _numLineWeight.DecimalPlaces = 2;
             _numLineWeight.Dock = DockStyle.Left;
             _numLineWeight.Increment = new decimal(new int[] { 25, 0, 0, 131072 });
-            _numLineWeight.Location = new Point(110, 118);
+            _numLineWeight.Location = new Point(110, 194);
             _numLineWeight.Margin = new Padding(0, 4, 0, 4);
             _numLineWeight.Minimum = new decimal(new int[] { 1, 0, 0, 131072 });
             _numLineWeight.Name = "_numLineWeight";
             _numLineWeight.Size = new Size(110, 27);
-            _numLineWeight.TabIndex = 7;
+            _numLineWeight.TabIndex = 11;
             _numLineWeight.Value = new decimal(new int[] { 1, 0, 0, 131072 });
+            _numLineWeight.ValueChanged += numLineWeight_ValueChanged;
             // 
             // _lblState
             // 
             _lblState.Dock = DockStyle.Fill;
-            _lblState.Location = new Point(3, 152);
+            _lblState.Location = new Point(3, 228);
             _lblState.Name = "_lblState";
             _lblState.Size = new Size(104, 39);
-            _lblState.TabIndex = 8;
+            _lblState.TabIndex = 12;
             _lblState.Text = "State";
             _lblState.TextAlign = ContentAlignment.MiddleLeft;
             // 
@@ -318,11 +422,11 @@ namespace Land_Readjustment_Tool.UI.Forms
             _statePanel.Controls.Add(_chkVisible);
             _statePanel.Controls.Add(_chkLocked);
             _statePanel.Dock = DockStyle.Fill;
-            _statePanel.Location = new Point(110, 152);
+            _statePanel.Location = new Point(110, 228);
             _statePanel.Margin = new Padding(0);
             _statePanel.Name = "_statePanel";
-            _statePanel.Size = new Size(209, 39);
-            _statePanel.TabIndex = 9;
+            _statePanel.Size = new Size(294, 39);
+            _statePanel.TabIndex = 13;
             // 
             // _chkVisible
             // 
@@ -353,7 +457,7 @@ namespace Land_Readjustment_Tool.UI.Forms
             _tabFill.Location = new Point(4, 31);
             _tabFill.Name = "_tabFill";
             _tabFill.Padding = new Padding(12);
-            _tabFill.Size = new Size(343, 236);
+            _tabFill.Size = new Size(449, 350);
             _tabFill.TabIndex = 1;
             _tabFill.Text = "Fill";
             // 
@@ -383,7 +487,7 @@ namespace Land_Readjustment_Tool.UI.Forms
             _fillLayout.RowStyles.Add(new RowStyle(SizeType.Absolute, 38F));
             _fillLayout.RowStyles.Add(new RowStyle(SizeType.Absolute, 38F));
             _fillLayout.RowStyles.Add(new RowStyle(SizeType.Percent, 100F));
-            _fillLayout.Size = new Size(319, 212);
+            _fillLayout.Size = new Size(425, 326);
             _fillLayout.TabIndex = 0;
             // 
             // _lblFillStyle
@@ -398,12 +502,12 @@ namespace Land_Readjustment_Tool.UI.Forms
             // 
             // _cboFillStyle
             // 
-            _cboFillStyle.Dock = DockStyle.Fill;
+            _cboFillStyle.Dock = DockStyle.Left;
             _cboFillStyle.Items.AddRange(new object[] { "None", "Solid", "Hatched" });
             _cboFillStyle.Location = new Point(110, 4);
             _cboFillStyle.Margin = new Padding(0, 4, 0, 4);
             _cboFillStyle.Name = "_cboFillStyle";
-            _cboFillStyle.Size = new Size(209, 28);
+            _cboFillStyle.Size = new Size(210, 28);
             _cboFillStyle.TabIndex = 1;
             _cboFillStyle.SelectedIndexChanged += cboFillStyle_SelectedIndexChanged;
             // 
@@ -425,7 +529,7 @@ namespace Land_Readjustment_Tool.UI.Forms
             _fillColorPanel.Location = new Point(110, 38);
             _fillColorPanel.Margin = new Padding(0);
             _fillColorPanel.Name = "_fillColorPanel";
-            _fillColorPanel.Size = new Size(209, 38);
+            _fillColorPanel.Size = new Size(315, 38);
             _fillColorPanel.TabIndex = 3;
             _fillColorPanel.WrapContents = false;
             // 
@@ -463,12 +567,12 @@ namespace Land_Readjustment_Tool.UI.Forms
             // 
             // _cboHatch
             // 
-            _cboHatch.Dock = DockStyle.Fill;
+            _cboHatch.Dock = DockStyle.Left;
             _cboHatch.Items.AddRange(new object[] { "ANSI31", "ANSI32", "ANSI33", "ANSI34", "AR-BRSTD", "DOTS", "EARTH" });
             _cboHatch.Location = new Point(110, 80);
             _cboHatch.Margin = new Padding(0, 4, 0, 4);
             _cboHatch.Name = "_cboHatch";
-            _cboHatch.Size = new Size(209, 28);
+            _cboHatch.Size = new Size(210, 28);
             _cboHatch.TabIndex = 5;
             // 
             // _lblTransparency
@@ -485,7 +589,7 @@ namespace Land_Readjustment_Tool.UI.Forms
             // 
             _transparencyLayout.ColumnCount = 2;
             _transparencyLayout.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 100F));
-            _transparencyLayout.ColumnStyles.Add(new ColumnStyle(SizeType.Absolute, 48F));
+            _transparencyLayout.ColumnStyles.Add(new ColumnStyle(SizeType.Absolute, 144F));
             _transparencyLayout.Controls.Add(_trkTransparency, 0, 0);
             _transparencyLayout.Controls.Add(_txtTransparencyValue, 1, 0);
             _transparencyLayout.Dock = DockStyle.Fill;
@@ -494,7 +598,7 @@ namespace Land_Readjustment_Tool.UI.Forms
             _transparencyLayout.Name = "_transparencyLayout";
             _transparencyLayout.RowCount = 1;
             _transparencyLayout.RowStyles.Add(new RowStyle(SizeType.Percent, 100F));
-            _transparencyLayout.Size = new Size(209, 46);
+            _transparencyLayout.Size = new Size(315, 46);
             _transparencyLayout.TabIndex = 7;
             // 
             // _trkTransparency
@@ -503,14 +607,14 @@ namespace Land_Readjustment_Tool.UI.Forms
             _trkTransparency.Location = new Point(3, 3);
             _trkTransparency.Maximum = 100;
             _trkTransparency.Name = "_trkTransparency";
-            _trkTransparency.Size = new Size(155, 40);
+            _trkTransparency.Size = new Size(165, 40);
             _trkTransparency.TabIndex = 0;
             _trkTransparency.TickFrequency = 10;
             _trkTransparency.ValueChanged += trkTransparency_ValueChanged;
             // 
             // _txtTransparencyValue
             // 
-            _txtTransparencyValue.Location = new Point(164, 8);
+            _txtTransparencyValue.Location = new Point(174, 8);
             _txtTransparencyValue.Margin = new Padding(3, 8, 0, 0);
             _txtTransparencyValue.Name = "_txtTransparencyValue";
             _txtTransparencyValue.Size = new Size(42, 27);
@@ -527,7 +631,7 @@ namespace Land_Readjustment_Tool.UI.Forms
             _tabLabel.Location = new Point(4, 31);
             _tabLabel.Name = "_tabLabel";
             _tabLabel.Padding = new Padding(12);
-            _tabLabel.Size = new Size(343, 236);
+            _tabLabel.Size = new Size(449, 350);
             _tabLabel.TabIndex = 2;
             _tabLabel.Text = "Label";
             // 
@@ -559,7 +663,7 @@ namespace Land_Readjustment_Tool.UI.Forms
             _labelLayout.RowStyles.Add(new RowStyle(SizeType.Absolute, 38F));
             _labelLayout.RowStyles.Add(new RowStyle(SizeType.Absolute, 38F));
             _labelLayout.RowStyles.Add(new RowStyle(SizeType.Percent, 100F));
-            _labelLayout.Size = new Size(319, 212);
+            _labelLayout.Size = new Size(425, 326);
             _labelLayout.TabIndex = 0;
             // 
             // _lblLabels
@@ -606,7 +710,7 @@ namespace Land_Readjustment_Tool.UI.Forms
             _fontPanel.Name = "_fontPanel";
             _fontPanel.RowCount = 1;
             _fontPanel.RowStyles.Add(new RowStyle(SizeType.Percent, 100F));
-            _fontPanel.Size = new Size(209, 38);
+            _fontPanel.Size = new Size(315, 38);
             _fontPanel.TabIndex = 3;
             // 
             // _txtFontName
@@ -616,13 +720,13 @@ namespace Land_Readjustment_Tool.UI.Forms
             _txtFontName.Margin = new Padding(0, 4, 4, 4);
             _txtFontName.Name = "_txtFontName";
             _txtFontName.ReadOnly = true;
-            _txtFontName.Size = new Size(119, 27);
+            _txtFontName.Size = new Size(225, 27);
             _txtFontName.TabIndex = 0;
             // 
             // _btnFont
             // 
             _btnFont.Dock = DockStyle.Fill;
-            _btnFont.Location = new Point(123, 3);
+            _btnFont.Location = new Point(229, 3);
             _btnFont.Margin = new Padding(0, 3, 0, 3);
             _btnFont.Name = "_btnFont";
             _btnFont.Size = new Size(86, 32);
@@ -673,7 +777,7 @@ namespace Land_Readjustment_Tool.UI.Forms
             _labelColorPanel.Location = new Point(110, 114);
             _labelColorPanel.Margin = new Padding(0);
             _labelColorPanel.Name = "_labelColorPanel";
-            _labelColorPanel.Size = new Size(209, 38);
+            _labelColorPanel.Size = new Size(315, 38);
             _labelColorPanel.TabIndex = 7;
             _labelColorPanel.WrapContents = false;
             // 
@@ -716,7 +820,7 @@ namespace Land_Readjustment_Tool.UI.Forms
             _cboLabelField.Location = new Point(110, 156);
             _cboLabelField.Margin = new Padding(0, 4, 0, 4);
             _cboLabelField.Name = "_cboLabelField";
-            _cboLabelField.Size = new Size(209, 28);
+            _cboLabelField.Size = new Size(315, 28);
             _cboLabelField.TabIndex = 9;
             // 
             // _footerPanel
@@ -725,10 +829,10 @@ namespace Land_Readjustment_Tool.UI.Forms
             _footerPanel.Controls.Add(_btnCancel);
             _footerPanel.Dock = DockStyle.Bottom;
             _footerPanel.FlowDirection = FlowDirection.RightToLeft;
-            _footerPanel.Location = new Point(0, 271);
+            _footerPanel.Location = new Point(0, 385);
             _footerPanel.Name = "_footerPanel";
             _footerPanel.Padding = new Padding(12, 8, 12, 8);
-            _footerPanel.Size = new Size(351, 48);
+            _footerPanel.Size = new Size(457, 48);
             _footerPanel.TabIndex = 1;
             _footerPanel.WrapContents = false;
             // 
@@ -736,7 +840,7 @@ namespace Land_Readjustment_Tool.UI.Forms
             // 
             _btnOk.AutoSize = true;
             _btnOk.DialogResult = DialogResult.OK;
-            _btnOk.Location = new Point(249, 11);
+            _btnOk.Location = new Point(355, 11);
             _btnOk.Name = "_btnOk";
             _btnOk.Size = new Size(75, 30);
             _btnOk.TabIndex = 0;
@@ -747,7 +851,7 @@ namespace Land_Readjustment_Tool.UI.Forms
             // 
             _btnCancel.AutoSize = true;
             _btnCancel.DialogResult = DialogResult.Cancel;
-            _btnCancel.Location = new Point(168, 11);
+            _btnCancel.Location = new Point(274, 11);
             _btnCancel.Name = "_btnCancel";
             _btnCancel.Size = new Size(75, 30);
             _btnCancel.TabIndex = 1;
@@ -764,7 +868,7 @@ namespace Land_Readjustment_Tool.UI.Forms
             AutoScaleMode = AutoScaleMode.None;
             BackColor = Color.White;
             CancelButton = _btnCancel;
-            ClientSize = new Size(351, 319);
+            ClientSize = new Size(457, 433);
             Controls.Add(_tabs);
             Controls.Add(_footerPanel);
             FormBorderStyle = FormBorderStyle.FixedDialog;
@@ -782,6 +886,9 @@ namespace Land_Readjustment_Tool.UI.Forms
             _generalLayout.PerformLayout();
             _borderColorPanel.ResumeLayout(false);
             _borderColorPanel.PerformLayout();
+            _lineTypePanel.ResumeLayout(false);
+            _lineTypePanel.PerformLayout();
+            ((System.ComponentModel.ISupportInitialize)_numLineTypeScale).EndInit();
             ((System.ComponentModel.ISupportInitialize)_numLineWeight).EndInit();
             _statePanel.ResumeLayout(false);
             _statePanel.PerformLayout();

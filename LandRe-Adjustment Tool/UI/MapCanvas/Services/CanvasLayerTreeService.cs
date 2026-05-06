@@ -10,30 +10,56 @@ namespace Land_Readjustment_Tool.UI.MapCanvas.Services
     public sealed class CanvasLayerTreeService
     {
         public const string RasterLayerType = "Raster";
-        private const string OriginalDataGroupKey = "OriginalDataLayer";
-        private const string ProposedDataGroupKey = "ProposedDataLayer";
-        private const string RasterGroupKey = "RasterLayer";
-        private const string ExternalGroupKey = "OtherExternalLayers";
+        public const string OriginalDataGroupKey = "OriginalDataLayer";
+        public const string BlockLayoutGroupKey = "BlockLayoutPlan";
+        public const string RoadsGroupKey = "Roads";
+        public const string ReplottedParcelsGroupKey = "ReplottedParcels";
+        public const string DrawingMarkupGroupKey = "DrawingMarkupLayers";
+        public const string RasterGroupKey = "RasterLayer";
+        public const string ExternalGroupKey = "OtherExternalLayers";
+        public const string RoadCenterlineLayerType = "RoadCenterline";
+        public const string LineLayerType = "Line";
 
         private readonly ICanvasLayerRepository _canvasLayerRepository;
 
         private static readonly IReadOnlyList<LayerGroupDefinition> LayerGroups =
         [
             new(OriginalDataGroupKey, "Original Data Layer"),
-            new(ProposedDataGroupKey, "Proposed Data Layer"),
+            new(BlockLayoutGroupKey, "Block Layout Plan"),
+            new(RoadsGroupKey, "Roads"),
+            new(ReplottedParcelsGroupKey, "Replotted Parcels"),
+            new(DrawingMarkupGroupKey, "Drawing/Mark Up Layers"),
             new(ExternalGroupKey, "Other External Layers"),
-            new(RasterGroupKey, "RasterLayer")
-            
+            new(RasterGroupKey, "Raster Layers")
         ];
 
         private static readonly IReadOnlyList<DefaultLayerDefinition> DefaultLayers =
         [
             // Colours follow the ArcMap-style palette used elsewhere in the app.
-            new(OriginalDataGroupKey, "Boundary", "ProjectBoundary", "#CF7C82", "#F6B3B6", 75, 2.0),
-            new(OriginalDataGroupKey, "Original Parcels", "BaselineParcel", "#B7C9EF", "#B7DDF0", 85, 1.4),
-            new(ProposedDataGroupKey, "Proposed Roads", "ProposedRoad", "#D99A5A", "#F6C766", 55, 2.0),
-            new(ProposedDataGroupKey, "Replotted Parcels", "ReplottedParcel", "#D9A9F0", "#F1A9D8", 80, 1.5)
+            new(OriginalDataGroupKey, "Project Boundary", "ProjectBoundary", "#CF7C82", "#F6B3BA", 45, 2.0, "Solid", "Boundary"),
+            new(OriginalDataGroupKey, "Original Parcels", "BaselineParcel", "#8FCDE4", "#C8E8F4", 55, 1.4, "Solid", null),
+            new(BlockLayoutGroupKey, "Blocks", "Block", "#D99A5A", "#F6C766", 35, 1.5, "Solid", null),
+            new(RoadsGroupKey, "Road Parcel", "RoadParcel", "#D99A5A", "#F6C766", 20, 1.5, "Solid", "Proposed Roads"),
+            new(RoadsGroupKey, "Road Centerline", RoadCenterlineLayerType, "#C76E78", null, 100, 1.4, "Centerline", null),
+            new(ReplottedParcelsGroupKey, "Private", "PrivateReplotParcel", "#D99BCA", "#F0B2D1", 35, 1.2, "Solid", "Replotted Parcels"),
+            new(ReplottedParcelsGroupKey, "Public/Facilities/Community Spaces", "PublicFacility", "#8FCDE4", "#B7DDF0", 35, 1.2, "Solid", null),
+            new(ReplottedParcelsGroupKey, "Open Spaces/Parks", "OpenSpace", "#6FAF72", "#A8E7AA", 35, 1.2, "Solid", null),
+            new(ReplottedParcelsGroupKey, "Service/Sales Plot", "ServiceSalesPlot", "#E09A5B", "#F6C766", 35, 1.2, "Solid", null)
         ];
+
+        private static readonly IReadOnlyDictionary<string, string> DefaultLayerNameToGroup =
+            DefaultLayers.ToDictionary(
+                definition => definition.Name,
+                definition => definition.GroupKey,
+                StringComparer.OrdinalIgnoreCase);
+
+        private static readonly IReadOnlyDictionary<string, string> LegacyDefaultLayerNameToNewName =
+            DefaultLayers
+                .Where(definition => !string.IsNullOrWhiteSpace(definition.LegacyName))
+                .ToDictionary(
+                    definition => definition.LegacyName!,
+                    definition => definition.Name,
+                    StringComparer.OrdinalIgnoreCase);
 
         public CanvasLayerTreeService(ICanvasLayerRepository canvasLayerRepository)
         {
@@ -104,17 +130,8 @@ namespace Land_Readjustment_Tool.UI.MapCanvas.Services
 
         private static string GetGroupKey(CanvasLayer layer)
         {
-            DefaultLayerDefinition? matchedDefault = DefaultLayers
-                .FirstOrDefault(definition =>
-                    string.Equals(
-                        definition.Name,
-                        layer.Name,
-                        StringComparison.OrdinalIgnoreCase));
-
-            if (matchedDefault != null)
-            {
-                return matchedDefault.GroupKey;
-            }
+            if (DefaultLayerNameToGroup.TryGetValue(layer.Name, out string? defaultGroupKey))
+                return defaultGroupKey;
 
             return layer.LayerType switch
             {
@@ -122,9 +139,17 @@ namespace Land_Readjustment_Tool.UI.MapCanvas.Services
                 "BaselineParcel" => OriginalDataGroupKey,
                 "ExistingRoad" => OriginalDataGroupKey,
                 "ProjectBoundary" => OriginalDataGroupKey,
-                "ProposedRoad" => ProposedDataGroupKey,
-                "ReplottedParcel" => ProposedDataGroupKey,
-                "Block" => ProposedDataGroupKey,
+                "Block" => BlockLayoutGroupKey,
+                "RoadParcel" => RoadsGroupKey,
+                "ProposedRoad" => RoadsGroupKey,
+                RoadCenterlineLayerType => RoadsGroupKey,
+                "ReplottedParcel" => ReplottedParcelsGroupKey,
+                "PrivateReplotParcel" => ReplottedParcelsGroupKey,
+                "PublicFacility" => ReplottedParcelsGroupKey,
+                "OpenSpace" => ReplottedParcelsGroupKey,
+                "ServiceSalesPlot" => ReplottedParcelsGroupKey,
+                "Annotation" => DrawingMarkupGroupKey,
+                LineLayerType => DrawingMarkupGroupKey,
                 _ => ExternalGroupKey
             };
         }
@@ -140,7 +165,7 @@ namespace Land_Readjustment_Tool.UI.MapCanvas.Services
             {
                 CanvasLayer? existingDefaultLayer = existingLayers
                     .FirstOrDefault(layer =>
-                        string.Equals(layer.Name, definition.Name, StringComparison.OrdinalIgnoreCase));
+                        IsDefinitionMatch(layer, definition));
 
                 if (existingDefaultLayer != null)
                 {
@@ -163,10 +188,13 @@ namespace Land_Readjustment_Tool.UI.MapCanvas.Services
                     DisplayOrder = nextDisplayOrder++,
                     BorderColor = definition.BorderColor,
                     LineWeight = definition.LineWeight,
-                    LineStyle = "Solid",
+                    LineStyle = definition.LineStyle,
+                    LineTypeScale = 1.0,
                     FillColor = definition.FillColor,
                     FillTransparency = definition.FillTransparency,
-                    FillStyle = "Solid",
+                    FillStyle = string.IsNullOrWhiteSpace(definition.FillColor)
+                        ? "None"
+                        : "Solid",
                     LabelColor = "#000000",
                     PointSymbol = "Circle",
                     PointSize = 5.0,
@@ -183,50 +211,101 @@ namespace Land_Readjustment_Tool.UI.MapCanvas.Services
             CanvasLayer layer,
             DefaultLayerDefinition definition)
         {
-            if (!string.Equals(
+            bool isManagedDefault =
+                string.Equals(
                     layer.Description,
                     $"Default layer: {definition.Name}",
-                    StringComparison.OrdinalIgnoreCase))
+                    StringComparison.OrdinalIgnoreCase) ||
+                (!string.IsNullOrWhiteSpace(definition.LegacyName) &&
+                 string.Equals(
+                     layer.Description,
+                     $"Default layer: {definition.LegacyName}",
+                     StringComparison.OrdinalIgnoreCase));
+
+            if (!isManagedDefault)
             {
                 return false;
             }
 
             bool changed = false;
 
-            if (!string.Equals(layer.BorderColor, definition.BorderColor, StringComparison.OrdinalIgnoreCase))
+            if (!string.Equals(layer.Name, definition.Name, StringComparison.OrdinalIgnoreCase))
             {
-                layer.BorderColor = definition.BorderColor;
+                layer.Name = definition.Name;
                 changed = true;
             }
 
-            if (!string.Equals(layer.FillColor, definition.FillColor, StringComparison.OrdinalIgnoreCase))
+            if (!string.Equals(layer.LayerType, definition.LayerType, StringComparison.OrdinalIgnoreCase))
             {
-                layer.FillColor = definition.FillColor;
+                layer.LayerType = definition.LayerType;
                 changed = true;
             }
 
-            if (!string.Equals(layer.FillStyle, "Solid", StringComparison.OrdinalIgnoreCase))
+            if (!string.Equals(layer.Description, $"Default layer: {definition.Name}", StringComparison.OrdinalIgnoreCase))
             {
-                layer.FillStyle = "Solid";
+                layer.Description = $"Default layer: {definition.Name}";
                 changed = true;
             }
 
-            if (layer.FillTransparency != definition.FillTransparency)
-            {
-                layer.FillTransparency = definition.FillTransparency;
-                changed = true;
-            }
+            if (string.IsNullOrWhiteSpace(layer.LineStyle))
+                layer.LineStyle = definition.LineStyle;
 
-            if (Math.Abs(layer.LineWeight - definition.LineWeight) >= 0.001)
-            {
-                layer.LineWeight = definition.LineWeight;
-                changed = true;
-            }
+            if (layer.LineTypeScale <= 0)
+                layer.LineTypeScale = 1.0;
 
             if (changed)
                 layer.LastModifiedDate = DateTime.Now;
 
             return changed;
+        }
+
+        public static bool IsProtectedDefaultLayer(CanvasLayer layer)
+        {
+            return DefaultLayers.Any(definition =>
+                string.Equals(
+                    layer.Description,
+                    $"Default layer: {definition.Name}",
+                    StringComparison.OrdinalIgnoreCase) ||
+                (!string.IsNullOrWhiteSpace(definition.LegacyName) &&
+                 string.Equals(
+                     layer.Description,
+                     $"Default layer: {definition.LegacyName}",
+                     StringComparison.OrdinalIgnoreCase)));
+        }
+
+        public static bool IsLineLayer(CanvasLayer layer)
+        {
+            return string.Equals(layer.LayerType, LineLayerType, StringComparison.OrdinalIgnoreCase) ||
+                   string.Equals(layer.LayerType, RoadCenterlineLayerType, StringComparison.OrdinalIgnoreCase);
+        }
+
+        public static bool IsRoadsGroupKey(string? groupKey)
+        {
+            return string.Equals(groupKey, RoadsGroupKey, StringComparison.OrdinalIgnoreCase);
+        }
+
+        public static bool IsRePlotDataGroupKey(string? groupKey)
+        {
+            return string.Equals(groupKey, OriginalDataGroupKey, StringComparison.OrdinalIgnoreCase) ||
+                   string.Equals(groupKey, BlockLayoutGroupKey, StringComparison.OrdinalIgnoreCase) ||
+                   string.Equals(groupKey, RoadsGroupKey, StringComparison.OrdinalIgnoreCase) ||
+                   string.Equals(groupKey, ReplottedParcelsGroupKey, StringComparison.OrdinalIgnoreCase);
+        }
+
+        private static bool IsDefinitionMatch(
+            CanvasLayer layer,
+            DefaultLayerDefinition definition)
+        {
+            if (string.Equals(layer.Name, definition.Name, StringComparison.OrdinalIgnoreCase))
+                return true;
+
+            if (!string.IsNullOrWhiteSpace(definition.LegacyName) &&
+                string.Equals(layer.Name, definition.LegacyName, StringComparison.OrdinalIgnoreCase))
+            {
+                return true;
+            }
+
+            return false;
         }
 
         private sealed record LayerGroupDefinition(string Key, string Name);
@@ -235,9 +314,11 @@ namespace Land_Readjustment_Tool.UI.MapCanvas.Services
             string Name,
             string LayerType,
             string BorderColor,
-            string FillColor,
+            string? FillColor,
             int FillTransparency,
-            double LineWeight);
+            double LineWeight,
+            string LineStyle,
+            string? LegacyName);
     }
 
     public sealed record CanvasLayerTreeGroup(

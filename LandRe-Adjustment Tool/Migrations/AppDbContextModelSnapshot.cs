@@ -91,6 +91,11 @@ namespace Land_Readjustment_Tool.Migrations
                         .IsRequired()
                         .HasColumnType("TEXT");
 
+                    b.Property<double>("LineTypeScale")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("REAL")
+                        .HasDefaultValue(1.0);
+
                     b.Property<double>("LineWeight")
                         .HasColumnType("REAL");
 
