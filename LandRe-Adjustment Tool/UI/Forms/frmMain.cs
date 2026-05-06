@@ -338,7 +338,7 @@ namespace Land_Readjustment_Tool
                     checkUnsavedChanges: false);
                 return;
             }
-
+            mainSplitContainer.Cursor = new Cursor("C:\\Users\\CYBORG\\source\\repos\\zen-developer33\\Land-Readjustment-Tool\\LandRe-Adjustment Tool\\Resources\\Cursors\\pan.cur");
         }
 
 

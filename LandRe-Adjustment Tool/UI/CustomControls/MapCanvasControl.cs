@@ -38,8 +38,11 @@ namespace Land_Readjustment_Tool.UI.CustomControls
         private int _rasterRenderGeneration;
         private bool _rasterCacheRefreshPending;
         private volatile bool _liveTileRefreshPending;
+        private bool _blockPanUntilZoomSettle;
         private bool _hasSettlingPanFrame;
         private PointF _settlingPanDelta;
+        private Cursor? _panHoverCursor;
+        private Cursor? _panDraggingCursor;
         private readonly System.Windows.Forms.Timer _zoomingStatusTimer = new()
         {
             Interval = ZoomSettleIntervalMs
@@ -52,6 +55,7 @@ namespace Land_Readjustment_Tool.UI.CustomControls
             _engine = new MapCanvasEngine(canvasSurface.Size);
             _renderSettings = MapCanvasRenderSettings.CreateLightDefaults();
             _renderer = new MapCanvasRenderer(_engine, _renderSettings);
+            LoadPanCursors();
             _zoomingStatusTimer.Tick += ZoomingStatusTimer_Tick;
             WireInteractionEvents();
             UpdateStatusBar();
@@ -314,8 +318,7 @@ namespace Land_Readjustment_Tool.UI.CustomControls
                             }
                             else if (_isZooming)
                             {
-                                _zoomingStatusTimer.Stop();
-                                _zoomingStatusTimer.Start();
+                                ArmZoomSettleTimer();
                             }
 
                             RequestRender();
@@ -532,8 +535,7 @@ namespace Land_Readjustment_Tool.UI.CustomControls
             RequestRender();
             
             // Redraw the precise raster shortly after the last wheel event.
-            _zoomingStatusTimer.Stop();
-            _zoomingStatusTimer.Start();
+            ArmZoomSettleTimer();
         }
 
         private void canvasSurface_MouseDown(object? sender, MouseEventArgs e)
@@ -716,14 +718,56 @@ namespace Land_Readjustment_Tool.UI.CustomControls
             {
                 canvasSurface.Cursor = Cursors.Cross;
             }
-            else if (_panToolActive || _isPanning)
+            else if (_isPanning)
             {
-                canvasSurface.Cursor = Cursors.Hand;
+                canvasSurface.Cursor = _panDraggingCursor ?? Cursors.SizeAll;
+            }
+            else if (_panToolActive)
+            {
+                canvasSurface.Cursor = _panHoverCursor ?? Cursors.Hand;
             }
             else
             {
                 canvasSurface.Cursor = Cursors.Default;
             }
+        }
+
+        private void LoadPanCursors()
+        {
+            _panHoverCursor = TryLoadCursorResource("pan.cur");
+            _panDraggingCursor = TryLoadCursorResource("pan_active.cur");
+        }
+
+        private static Cursor? TryLoadCursorResource(string fileName)
+        {
+            string cursorPath = Path.Combine(
+                AppContext.BaseDirectory,
+                "Resources",
+                "Cursors",
+                fileName);
+
+            if (!File.Exists(cursorPath))
+            {
+                return null;
+            }
+
+            try
+            {
+                return new Cursor(cursorPath);
+            }
+            catch
+            {
+                return null;
+            }
+        }
+
+        private void DisposePanCursorResources()
+        {
+            _panHoverCursor?.Dispose();
+            _panHoverCursor = null;
+
+            _panDraggingCursor?.Dispose();
+            _panDraggingCursor = null;
         }
 
         private void UpdateStatusBar()
@@ -757,6 +801,7 @@ namespace Land_Readjustment_Tool.UI.CustomControls
 
         private bool IsCanvasInteractionLocked => false;
         private bool IsPanBlockedByZoomDebounce =>
+            _blockPanUntilZoomSettle ||
             _isZooming ||
             (!_zoomingStatusTimerDisposed && _zoomingStatusTimer.Enabled);
 
@@ -813,11 +858,19 @@ namespace Land_Readjustment_Tool.UI.CustomControls
         private void ZoomingStatusTimer_Tick(object? sender, EventArgs e)
         {
             _zoomingStatusTimer.Stop();
+            _blockPanUntilZoomSettle = false;
             _isZooming = false;
             _zoomDirection = null;
             RefreshRasterCacheForCurrentViewAsync(endZoomWhenComplete: true);
             UpdateStatusBar();
             RequestRender();
+        }
+
+        private void ArmZoomSettleTimer()
+        {
+            _blockPanUntilZoomSettle = true;
+            _zoomingStatusTimer.Stop();
+            _zoomingStatusTimer.Start();
         }
 
         private void StopAndDisposeZoomingStatusTimer()
@@ -828,6 +881,7 @@ namespace Land_Readjustment_Tool.UI.CustomControls
             }
 
             _zoomingStatusTimer.Stop();
+            _blockPanUntilZoomSettle = false;
             _zoomingStatusTimer.Tick -= ZoomingStatusTimer_Tick;
             _zoomingStatusTimer.Dispose();
             _zoomingStatusTimerDisposed = true;
@@ -880,6 +934,7 @@ namespace Land_Readjustment_Tool.UI.CustomControls
             }
 
             _zoomingStatusTimer.Stop();
+            _blockPanUntilZoomSettle = false;
             CancelPendingRasterRender();
             _rasterDeferredRenderer.EndZoom();
             _isZooming = false;

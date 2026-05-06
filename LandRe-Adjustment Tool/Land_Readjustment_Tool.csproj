@@ -37,7 +37,10 @@
     <Content Include="Resources\replot-splash-minimal-v2.png">
       <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
     </Content>
-    <Content Include="Resources\Cursors\Pan_hand.cur">
+    <Content Include="Resources\Cursors\pan.cur">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </Content>
+    <Content Include="Resources\Cursors\pan_active.cur">
       <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
     </Content>
   </ItemGroup>
