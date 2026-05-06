@@ -18,7 +18,7 @@ namespace Land_Readjustment_Tool.UI.MapCanvas.Rendering
     /// Renders a live XYZ/TMS tile layer by fetching tiles on demand from the internet.
     /// Uses an LRU memory cache (512 tiles), a persistent disk cache, a bounded
     /// semaphore (6 concurrent HTTP requests), per-viewport cancellation, and an
-    /// 80 ms debounce so fetches only start once the viewport settles.
+    /// 50 ms debounce so fetches only start once the viewport settles.
     /// </summary>
     internal sealed class XyzLiveTileRenderLayer : IRasterRenderLayer
     {
@@ -31,7 +31,7 @@ namespace Land_Readjustment_Tool.UI.MapCanvas.Rendering
         private const int MaxTilesPerFrame = 256;
         private const int MaxBootstrapTilesPerFrame = 16;
         private const int MaxConcurrentFetches = 6;
-        private const int DebounceMilliseconds = 120;
+        private const int DebounceMilliseconds = 50;
         private const int MaxSupportedZoom = 22;
         private const int ProjectedTileMeshSubdivisions = 4;
         private const int MinFreshTileZoom = 0;
@@ -584,6 +584,27 @@ namespace Land_Readjustment_Tool.UI.MapCanvas.Rendering
             {
                 ClearTileCache();
             }
+        }
+
+        public void CancelPendingTileFetches()
+        {
+            if (_disposed)
+            {
+                return;
+            }
+
+            CancellationTokenSource oldCts;
+            lock (_renderSync)
+            {
+                _debounceTimer.Change(Timeout.Infinite, Timeout.Infinite);
+                oldCts = _viewportCts;
+                _viewportCts = new CancellationTokenSource();
+                _lastRenderInteractive = true;
+                _lastViewportAllowed = false;
+            }
+
+            oldCts.Cancel();
+            oldCts.Dispose();
         }
 
         public void Dispose()
@@ -1215,7 +1236,7 @@ namespace Land_Readjustment_Tool.UI.MapCanvas.Rendering
             }
         }
 
-        /// <summary>Called on a thread-pool thread 80 ms after the last render pass.</summary>
+        /// <summary>Called on a thread-pool thread 50 ms after the last render pass.</summary>
         private void OnDebounceElapsed(object? state)
         {
             if (_disposed)

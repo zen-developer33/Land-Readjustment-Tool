@@ -175,12 +175,8 @@ namespace Land_Readjustment_Tool.UI.MapCanvas.Rendering
             }
             else if (interactiveRaster)
             {
-                // No frame yet — draw direct from cache only
-                RenderRasterLayers(
-                    graphics,
-                    viewport,
-                    interactiveRaster,
-                    cachedOnly: true);
+                // Interaction frames must not invoke layer rendering or network-backed tiles.
+                return;
             }
             else
             {

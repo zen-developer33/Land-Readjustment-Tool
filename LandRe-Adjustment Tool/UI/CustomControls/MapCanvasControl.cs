@@ -256,7 +256,7 @@ namespace Land_Readjustment_Tool.UI.CustomControls
 
         public void SetPanToolActive(bool active)
         {
-            if (_isZooming && active)
+            if (active && IsPanBlockedByZoomDebounce)
             {
                 return;
             }
@@ -509,10 +509,13 @@ namespace Land_Readjustment_Tool.UI.CustomControls
 
         private void canvasSurface_MouseWheel(object? sender, MouseEventArgs e)
         {
+            // Never allow a lingering pan gesture to survive into a zoom sequence.
+            CancelActiveCanvasGesture();
+            CancelLiveTileLoading();
+
             if (!_isZooming)
             {
                 CancelPendingRasterRender();
-                CancelActiveCanvasGesture();
                 _rasterDeferredRenderer.BeginZoom(
                     canvasSurface.Size,
                     _rasterRenderLayers,
@@ -541,7 +544,7 @@ namespace Land_Readjustment_Tool.UI.CustomControls
                 e.Button == MouseButtons.Middle ||
                 (_panToolActive && e.Button == MouseButtons.Left);
 
-            if (_isZooming && isPanGesture)
+            if (isPanGesture && IsPanBlockedByZoomDebounce)
             {
                 return;
             }
@@ -563,6 +566,7 @@ namespace Land_Readjustment_Tool.UI.CustomControls
             if (isPanGesture)
             {
                 CancelPendingRasterRender();
+                CancelLiveTileLoading();
                 _isPanning = true;
                 _lastPanPoint = e.Location;
                 _totalPanDelta = PointF.Empty;
@@ -583,6 +587,17 @@ namespace Land_Readjustment_Tool.UI.CustomControls
             if (IsCanvasInteractionLocked)
             {
                 _currentMouseWorld = _engine.ScreenToWorld(e.Location);
+                return;
+            }
+
+            if (_isPanning && IsPanBlockedByZoomDebounce)
+            {
+                _isPanning = false;
+                canvasSurface.Capture = false;
+                _panStartWorld = null;
+                _totalPanDelta = PointF.Empty;
+                UpdateCanvasCursor();
+                RequestRender();
                 return;
             }
             
@@ -741,6 +756,9 @@ namespace Land_Readjustment_Tool.UI.CustomControls
         }
 
         private bool IsCanvasInteractionLocked => false;
+        private bool IsPanBlockedByZoomDebounce =>
+            _isZooming ||
+            (!_zoomingStatusTimerDisposed && _zoomingStatusTimer.Enabled);
 
         private bool IsInteractiveNavigation =>
             _isPanning || _isZooming || _isSelectingZoomWindow;
@@ -822,6 +840,17 @@ namespace Land_Readjustment_Tool.UI.CustomControls
             previousCancellation?.Cancel();
             previousCancellation?.Dispose();
             _rasterCacheRefreshPending = false;
+        }
+
+        private void CancelLiveTileLoading()
+        {
+            foreach (IRasterRenderLayer layer in _rasterRenderLayers)
+            {
+                if (layer is XyzLiveTileRenderLayer liveTileLayer)
+                {
+                    liveTileLayer.CancelPendingTileFetches();
+                }
+            }
         }
 
         private void CancelActiveCanvasGesture()
