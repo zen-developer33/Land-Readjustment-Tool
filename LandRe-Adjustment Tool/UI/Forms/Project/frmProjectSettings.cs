@@ -6,6 +6,7 @@ using Land_Readjustment_Tool.Repositories.Project;
 using Land_Readjustment_Tool.Repositories.Spatial;
 using Land_Readjustment_Tool.Services.Project;
 using Land_Readjustment_Tool.UI.Helpers;
+using Land_Readjustment_Tool.UI.MapCanvas.Core;
 
 namespace Land_Readjustment_Tool.UI.Forms.Project
 {
@@ -24,6 +25,8 @@ namespace Land_Readjustment_Tool.UI.Forms.Project
         }
 
         private const int DefaultCoordinateSystemId = 1;
+        private const string ZoomBehaviorNormalText = "Normal zoom";
+        private const string ZoomBehaviorStandardScaleStepsText = "Standard scale steps";
 
         // AutoCAD-like dark defaults (from current old renderer feel)
         private static readonly Color DarkThemeBackground = Color.FromArgb(34, 41, 51);
@@ -50,6 +53,8 @@ namespace Land_Readjustment_Tool.UI.Forms.Project
         private bool _suppressCanvasThemeEvents = false;
         private bool _settingsApplied = false;
         private bool _settingsModified = false;
+        private readonly Label lblZoomBehavior = new();
+        private readonly ComboBox cmbZoomBehavior = new();
 
         public event EventHandler<ProjectSettingsAppliedEventArgs>? SettingsApplied;
         public event EventHandler? SettingsChanged;
@@ -60,6 +65,7 @@ namespace Land_Readjustment_Tool.UI.Forms.Project
             IDatumTransformationRepository datumRepo)
         {
             InitializeComponent();
+            InitializeZoomBehaviorControls();
             NumericUpDownSelectAllBehavior.AttachTo(this);
             _service = service;
             _crsRepo = crsRepo;
@@ -256,6 +262,7 @@ namespace Land_Readjustment_Tool.UI.Forms.Project
             chkOriginAxisMarkerVisible.Checked = s.CanvasAxisMarkerVisible;
             chkSnapEnabled.Checked = s.SnapEnabled;
             nudSnapTolerance.Value = (decimal)s.SnapTolerancePx;
+            SelectZoomBehavior(s.CanvasZoomBehavior);
 
             // ── PARCEL NUMBERING ─────────────────────
             cmbParcelFormat.SelectedItem = s.ParcelNumberFormat;
@@ -298,6 +305,7 @@ namespace Land_Readjustment_Tool.UI.Forms.Project
             s.CanvasAxisMarkerVisible = chkOriginAxisMarkerVisible.Checked;
             s.SnapEnabled = chkSnapEnabled.Checked;
             s.SnapTolerancePx = (double)nudSnapTolerance.Value;
+            s.CanvasZoomBehavior = GetSelectedZoomBehavior();
 
             s.ParcelNumberFormat =
                 cmbParcelFormat.SelectedItem?.ToString() ?? "Sequential";
@@ -649,6 +657,7 @@ namespace Land_Readjustment_Tool.UI.Forms.Project
             chkOriginAxisMarkerVisible.Checked = false;
             chkSnapEnabled.Checked = true;
             nudSnapTolerance.Value = ClampToRange(nudSnapTolerance, 8m);
+            SelectZoomBehavior(MapCanvasZoomBehavior.Normal.ToString());
 
             // Parcel settings
             cmbParcelFormat.SelectedItem = "Sequential";
@@ -850,6 +859,49 @@ namespace Land_Readjustment_Tool.UI.Forms.Project
             if (value < input.Minimum) return input.Minimum;
             if (value > input.Maximum) return input.Maximum;
             return value;
+        }
+
+        private void InitializeZoomBehaviorControls()
+        {
+            lblZoomBehavior.Font = new Font("Segoe UI", 9F);
+            lblZoomBehavior.Location = new Point(188, 30);
+            lblZoomBehavior.Name = "lblZoomBehavior";
+            lblZoomBehavior.Size = new Size(120, 22);
+            lblZoomBehavior.TabIndex = 10;
+            lblZoomBehavior.Text = "Zoom behavior:";
+
+            cmbZoomBehavior.DropDownStyle = ComboBoxStyle.DropDownList;
+            cmbZoomBehavior.Font = new Font("Segoe UI", 9F);
+            cmbZoomBehavior.FormattingEnabled = true;
+            cmbZoomBehavior.Items.AddRange(
+            [
+                ZoomBehaviorNormalText,
+                ZoomBehaviorStandardScaleStepsText
+            ]);
+            cmbZoomBehavior.Location = new Point(314, 26);
+            cmbZoomBehavior.Name = "cmbZoomBehavior";
+            cmbZoomBehavior.Size = new Size(202, 28);
+            cmbZoomBehavior.TabIndex = 11;
+
+            grpOther.Controls.Add(lblZoomBehavior);
+            grpOther.Controls.Add(cmbZoomBehavior);
+        }
+
+        private void SelectZoomBehavior(string? behavior)
+        {
+            cmbZoomBehavior.SelectedIndex = string.Equals(
+                behavior,
+                MapCanvasZoomBehavior.StandardScaleSteps.ToString(),
+                StringComparison.OrdinalIgnoreCase)
+                ? 1
+                : 0;
+        }
+
+        private string GetSelectedZoomBehavior()
+        {
+            return cmbZoomBehavior.SelectedIndex == 1
+                ? MapCanvasZoomBehavior.StandardScaleSteps.ToString()
+                : MapCanvasZoomBehavior.Normal.ToString();
         }
 
         private void pnlHeader_Paint(object sender, PaintEventArgs e)

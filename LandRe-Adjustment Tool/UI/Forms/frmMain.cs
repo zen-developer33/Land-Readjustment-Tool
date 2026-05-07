@@ -4988,8 +4988,12 @@ namespace Land_Readjustment_Tool
             }
             // 96 DPI screen: pixels per metre = 96 / 0.0254
             const double screenPixelsPerMetre = 96.0 / 0.0254;
-            long denom = Math.Max(1, (long)Math.Round(screenPixelsPerMetre / zoomScale));
-            lblScale.Text = $"Scale: 1:{denom:N0}";
+            double denominator = screenPixelsPerMetre / zoomScale;
+            string denominatorText = denominator >= 1.0
+                ? $"{(long)Math.Round(denominator):N0}"
+                : denominator.ToString("0.###");
+
+            lblScale.Text = $"Scale: 1:{denominatorText}";
         }
 
         /// <summary>

@@ -621,7 +621,7 @@ namespace Land_Readjustment_Tool
             // 
             leftSplitContainer.Panel2.BackColor = Color.White;
             leftSplitContainer.Panel2Collapsed = true;
-            leftSplitContainer.Size = new Size(206, 551);
+            leftSplitContainer.Size = new Size(206, 555);
             leftSplitContainer.SplitterDistance = 484;
             leftSplitContainer.TabIndex = 0;
             // 
@@ -635,7 +635,7 @@ namespace Land_Readjustment_Tool
             grpLayer.Name = "grpLayer";
             grpLayer.Padding = new Padding(4);
             grpLayer.RightToLeft = RightToLeft.No;
-            grpLayer.Size = new Size(199, 544);
+            grpLayer.Size = new Size(199, 548);
             grpLayer.TabIndex = 0;
             grpLayer.TabStop = false;
             grpLayer.Text = "Layers";
@@ -664,7 +664,7 @@ namespace Land_Readjustment_Tool
             treeNode8.Name = "LayerGroup_RasterLayer";
             treeNode8.Text = "Raster Layers";
             treeViewLayers.Nodes.AddRange(new TreeNode[] { treeNode5, treeNode6, treeNode7, treeNode8 });
-            treeViewLayers.Size = new Size(185, 513);
+            treeViewLayers.Size = new Size(185, 517);
             treeViewLayers.TabIndex = 0;
             // 
             // tabProperties
@@ -1138,7 +1138,7 @@ namespace Land_Readjustment_Tool
             // mainSplitContainer.Panel2
             // 
             mainSplitContainer.Panel2.Controls.Add(splitContainer3);
-            mainSplitContainer.Size = new Size(1447, 555);
+            mainSplitContainer.Size = new Size(1447, 559);
             mainSplitContainer.SplitterDistance = 210;
             mainSplitContainer.TabIndex = 3;
             mainSplitContainer.Visible = false;
@@ -1159,7 +1159,7 @@ namespace Land_Readjustment_Tool
             // splitContainer3.Panel2
             // 
             splitContainer3.Panel2.Controls.Add(grpParcelObjProp);
-            splitContainer3.Size = new Size(1233, 555);
+            splitContainer3.Size = new Size(1233, 559);
             splitContainer3.SplitterDistance = 909;
             splitContainer3.TabIndex = 1;
             // 
@@ -1170,7 +1170,7 @@ namespace Land_Readjustment_Tool
             mapCanvasControlMain.BorderStyle = BorderStyle.FixedSingle;
             mapCanvasControlMain.Location = new Point(0, 30);
             mapCanvasControlMain.Name = "mapCanvasControlMain";
-            mapCanvasControlMain.Size = new Size(905, 518);
+            mapCanvasControlMain.Size = new Size(905, 522);
             mapCanvasControlMain.TabIndex = 2;
             mapCanvasControlMain.Load += mapCanvasControlMain_Load;
             // 
@@ -1239,7 +1239,7 @@ namespace Land_Readjustment_Tool
             grpParcelObjProp.Name = "grpParcelObjProp";
             grpParcelObjProp.Padding = new Padding(4);
             grpParcelObjProp.RightToLeft = RightToLeft.No;
-            grpParcelObjProp.Size = new Size(316, 551);
+            grpParcelObjProp.Size = new Size(316, 555);
             grpParcelObjProp.TabIndex = 1;
             grpParcelObjProp.TabStop = false;
             grpParcelObjProp.Text = "Parcel";
@@ -1252,7 +1252,7 @@ namespace Land_Readjustment_Tool
             dgvParcelObjProperty.Location = new Point(4, 24);
             dgvParcelObjProperty.Name = "dgvParcelObjProperty";
             dgvParcelObjProperty.RowHeadersWidth = 51;
-            dgvParcelObjProperty.Size = new Size(308, 523);
+            dgvParcelObjProperty.Size = new Size(308, 527);
             dgvParcelObjProperty.TabIndex = 0;
             // 
             // statusCanvas
@@ -1263,10 +1263,10 @@ namespace Land_Readjustment_Tool
             statusCanvas.ImageScalingSize = new Size(20, 20);
             statusCanvas.Items.AddRange(new ToolStripItem[] { lblProjectName, tsStatusSep1, lblActiveTool, tsStatusSep2, lblStatusMessage, lblStatusSpacer, lblOperationProgressStatus, hostProgressBarHost, lblScale, lblCanvasCoordinates });
             statusCanvas.LayoutStyle = ToolStripLayoutStyle.HorizontalStackWithOverflow;
-            statusCanvas.Location = new Point(0, 619);
+            statusCanvas.Location = new Point(0, 623);
             statusCanvas.Name = "statusCanvas";
             statusCanvas.RightToLeft = RightToLeft.No;
-            statusCanvas.Size = new Size(1447, 42);
+            statusCanvas.Size = new Size(1447, 38);
             statusCanvas.TabIndex = 6;
             statusCanvas.Text = "Map Canvas Status";
             statusCanvas.ItemClicked += statusCanvas_ItemClicked;
@@ -1277,14 +1277,14 @@ namespace Land_Readjustment_Tool
             lblProjectName.ForeColor = SystemColors.GrayText;
             lblProjectName.Margin = new Padding(4, 3, 6, 2);
             lblProjectName.Name = "lblProjectName";
-            lblProjectName.Size = new Size(96, 37);
+            lblProjectName.Size = new Size(96, 33);
             lblProjectName.Text = "● No Project";
             lblProjectName.TextAlign = ContentAlignment.MiddleLeft;
             // 
             // tsStatusSep1
             // 
             tsStatusSep1.Name = "tsStatusSep1";
-            tsStatusSep1.Size = new Size(6, 42);
+            tsStatusSep1.Size = new Size(6, 38);
             // 
             // lblActiveTool
             // 
@@ -1298,7 +1298,7 @@ namespace Land_Readjustment_Tool
             // tsStatusSep2
             // 
             tsStatusSep2.Name = "tsStatusSep2";
-            tsStatusSep2.Size = new Size(6, 42);
+            tsStatusSep2.Size = new Size(6, 38);
             // 
             // lblStatusMessage
             // 
@@ -1314,7 +1314,7 @@ namespace Land_Readjustment_Tool
             // lblStatusSpacer
             // 
             lblStatusSpacer.Name = "lblStatusSpacer";
-            lblStatusSpacer.Size = new Size(0, 36);
+            lblStatusSpacer.Size = new Size(0, 32);
             lblStatusSpacer.Spring = true;
             // 
             // lblOperationProgressStatus
@@ -1342,7 +1342,7 @@ namespace Land_Readjustment_Tool
             lblScale.BorderSides = ToolStripStatusLabelBorderSides.Left;
             lblScale.Margin = new Padding(0, 3, 4, 2);
             lblScale.Name = "lblScale";
-            lblScale.Size = new Size(81, 37);
+            lblScale.Size = new Size(81, 33);
             lblScale.Text = "Scale: 1:—";
             lblScale.TextAlign = ContentAlignment.MiddleRight;
             // 
@@ -1354,7 +1354,7 @@ namespace Land_Readjustment_Tool
             lblCanvasCoordinates.ForeColor = SystemColors.ControlText;
             lblCanvasCoordinates.Margin = new Padding(0, 3, 6, 2);
             lblCanvasCoordinates.Name = "lblCanvasCoordinates";
-            lblCanvasCoordinates.Size = new Size(148, 37);
+            lblCanvasCoordinates.Size = new Size(148, 33);
             lblCanvasCoordinates.Text = "E: 0.0000    N: 0.0000";
             lblCanvasCoordinates.TextAlign = ContentAlignment.MiddleRight;
             // 

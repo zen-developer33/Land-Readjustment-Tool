@@ -66,6 +66,10 @@ namespace Land_Readjustment_Tool.Core.Entities.Project
         // Snap detection radius in pixels
         public double SnapTolerancePx { get; set; } = 8.0;
 
+        // Canvas zoom behavior: "Normal" or "StandardScaleSteps".
+        [Required]
+        public string CanvasZoomBehavior { get; set; } = "Normal";
+
         // Last saved main canvas viewport. Null means use default project view.
         public double? CanvasViewportCenterX { get; set; }
         public double? CanvasViewportCenterY { get; set; }

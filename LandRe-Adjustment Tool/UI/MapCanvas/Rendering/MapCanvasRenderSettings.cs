@@ -1,6 +1,7 @@
 using System.Drawing;
 using System.Drawing.Drawing2D;
 using Land_Readjustment_Tool.Core.Entities.Project;
+using Land_Readjustment_Tool.UI.MapCanvas.Core;
 
 namespace Land_Readjustment_Tool.UI.MapCanvas.Rendering
 {
@@ -36,6 +37,7 @@ namespace Land_Readjustment_Tool.UI.MapCanvas.Rendering
         public bool ShowAxisLabels { get; set; } = true;
         public bool ShowCoordinateOverlay { get; set; } = true;
         public bool ShowOriginMarker { get; set; } = true;
+        public MapCanvasZoomBehavior ZoomBehavior { get; set; } = MapCanvasZoomBehavior.Normal;
 
         /// <summary>
         /// Creates render settings from project settings entity.
@@ -93,6 +95,7 @@ namespace Land_Readjustment_Tool.UI.MapCanvas.Rendering
                 ShowAxisLabels = projectSettings.CanvasAxisMarkerVisible,
                 ShowCoordinateOverlay = true,
                 ShowOriginMarker = projectSettings.CanvasAxisMarkerVisible,
+                ZoomBehavior = ParseZoomBehavior(projectSettings.CanvasZoomBehavior),
             };
         }
 
@@ -164,6 +167,13 @@ namespace Land_Readjustment_Tool.UI.MapCanvas.Rendering
         {
             double luminance = (0.299 * color.R + 0.587 * color.G + 0.114 * color.B) / 255.0;
             return luminance < 0.45;
+        }
+
+        private static MapCanvasZoomBehavior ParseZoomBehavior(string? value)
+        {
+            return Enum.TryParse(value, ignoreCase: true, out MapCanvasZoomBehavior behavior)
+                ? behavior
+                : MapCanvasZoomBehavior.Normal;
         }
     }
 }

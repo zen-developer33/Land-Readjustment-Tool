@@ -100,6 +100,7 @@ namespace Land_Readjustment_Tool.Services
                 CanvasAxisMarkerVisible = false,
                 SnapEnabled = true,
                 SnapTolerancePx = 8.0,
+                CanvasZoomBehavior = "Normal",
 
                 // Parcel numbering
                 ParcelNumberFormat = "Sequential",

@@ -12,6 +12,8 @@ namespace Land_Readjustment_Tool.UI.CustomControls
     public partial class MapCanvasControl : UserControl
     {
         private const int ZoomSettleIntervalMs = 50;
+        private const double ScreenPixelsPerMetre = 96.0 / 0.0254;
+        private static readonly double[] StandardScaleDenominators = BuildStandardScaleDenominators();
 
         private readonly MapCanvasEngine _engine;
         private readonly MapCanvasRenderer _renderer;
@@ -158,7 +160,7 @@ namespace Land_Readjustment_Tool.UI.CustomControls
             }
 
             BeginZoomNavigation("In");
-            _engine.ZoomIn();
+            ZoomAtCanvasCenter(zoomIn: true);
             RequestRender();
             ArmZoomSettleTimer();
         }
@@ -171,7 +173,7 @@ namespace Land_Readjustment_Tool.UI.CustomControls
             }
 
             BeginZoomNavigation("Out");
-            _engine.ZoomOut();
+            ZoomAtCanvasCenter(zoomIn: false);
             RequestRender();
             ArmZoomSettleTimer();
         }
@@ -512,13 +514,94 @@ namespace Land_Readjustment_Tool.UI.CustomControls
         {
             double zoomFactor = e.Delta > 0 ? MapCanvasEngine.ZoomStep : 1.0 / MapCanvasEngine.ZoomStep;
             BeginZoomNavigation(e.Delta > 0 ? "In" : "Out");
-             
-            _engine.ZoomAtPoint(e.Location, zoomFactor);
+
+            ZoomAtPoint(e.Location, e.Delta > 0, zoomFactor);
             _currentMouseWorld = _engine.ScreenToWorld(e.Location);
             RequestRender();
             
             // Redraw the precise raster shortly after the last wheel event.
             ArmZoomSettleTimer();
+        }
+
+        private void ZoomAtCanvasCenter(bool zoomIn)
+        {
+            Point center = new(canvasSurface.Width / 2, canvasSurface.Height / 2);
+            double zoomFactor = zoomIn ? MapCanvasEngine.ZoomStep : 1.0 / MapCanvasEngine.ZoomStep;
+            ZoomAtPoint(center, zoomIn, zoomFactor);
+        }
+
+        private void ZoomAtPoint(Point screenPoint, bool zoomIn, double normalZoomFactor)
+        {
+            if (_renderSettings.ZoomBehavior != MapCanvasZoomBehavior.StandardScaleSteps)
+            {
+                _engine.ZoomAtPoint(screenPoint, normalZoomFactor);
+                return;
+            }
+
+            double targetZoomScale = GetNextStandardZoomScale(_engine.ZoomScale, zoomIn);
+            _engine.ZoomAtPointToScale(screenPoint, targetZoomScale);
+        }
+
+        private static double GetNextStandardZoomScale(double currentZoomScale, bool zoomIn)
+        {
+            if (currentZoomScale <= 0 || !double.IsFinite(currentZoomScale))
+            {
+                return currentZoomScale;
+            }
+
+            double currentDenominator = ScreenPixelsPerMetre / currentZoomScale;
+            const double tolerance = 0.0000001;
+
+            double? targetDenominator = null;
+
+            if (zoomIn)
+            {
+                for (int i = StandardScaleDenominators.Length - 1; i >= 0; i--)
+                {
+                    if (StandardScaleDenominators[i] < currentDenominator * (1.0 - tolerance))
+                    {
+                        targetDenominator = StandardScaleDenominators[i];
+                        break;
+                    }
+                }
+            }
+            else
+            {
+                for (int i = 0; i < StandardScaleDenominators.Length; i++)
+                {
+                    if (StandardScaleDenominators[i] > currentDenominator * (1.0 + tolerance))
+                    {
+                        targetDenominator = StandardScaleDenominators[i];
+                        break;
+                    }
+                }
+            }
+
+            if (!targetDenominator.HasValue)
+            {
+                return currentZoomScale * (zoomIn ? MapCanvasEngine.ZoomStep : 1.0 / MapCanvasEngine.ZoomStep);
+            }
+
+            return ScreenPixelsPerMetre / targetDenominator.Value;
+        }
+
+        private static double[] BuildStandardScaleDenominators()
+        {
+            double[] baseSteps = [1.0, 1.25, 2.0, 2.5, 4.0, 5.0, 7.5];
+            List<double> values = [];
+
+            for (int exponent = -6; exponent <= 12; exponent++)
+            {
+                double magnitude = Math.Pow(10.0, exponent);
+
+                foreach (double step in baseSteps)
+                {
+                    values.Add(step * magnitude);
+                }
+            }
+
+            values.Sort();
+            return values.ToArray();
         }
 
         private void canvasSurface_MouseDown(object? sender, MouseEventArgs e)

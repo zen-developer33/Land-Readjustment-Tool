@@ -1,5 +1,6 @@
 using System.Drawing;
 using Land_Readjustment_Tool.Core.Entities.Project;
+using Land_Readjustment_Tool.UI.MapCanvas.Core;
 using Land_Readjustment_Tool.UI.MapCanvas.Rendering;
 
 namespace Land_Readjustment_Tool.UI.MapCanvas.Services
@@ -61,6 +62,7 @@ namespace Land_Readjustment_Tool.UI.MapCanvas.Services
             settings.ShowAxisLines = projectSettings.CanvasAxisMarkerVisible;
             settings.ShowOriginMarker = projectSettings.CanvasAxisMarkerVisible;
             settings.ShowAxisLabels = projectSettings.CanvasAxisMarkerVisible;
+            settings.ZoomBehavior = ParseZoomBehavior(projectSettings.CanvasZoomBehavior);
 
             return settings;
         }
@@ -93,6 +95,13 @@ namespace Land_Readjustment_Tool.UI.MapCanvas.Services
             return IsDark(backgroundColor)
                 ? Color.FromArgb(lightAlpha, 232, 239, 241)
                 : Color.FromArgb(darkAlpha, 49, 61, 72);
+        }
+
+        private static MapCanvasZoomBehavior ParseZoomBehavior(string? value)
+        {
+            return Enum.TryParse(value, ignoreCase: true, out MapCanvasZoomBehavior behavior)
+                ? behavior
+                : MapCanvasZoomBehavior.Normal;
         }
     }
 }

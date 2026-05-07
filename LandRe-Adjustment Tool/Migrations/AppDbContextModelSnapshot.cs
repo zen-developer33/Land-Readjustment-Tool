@@ -988,6 +988,10 @@ namespace Land_Readjustment_Tool.Migrations
                     b.Property<bool>("CanvasGridVisible")
                         .HasColumnType("INTEGER");
 
+                    b.Property<string>("CanvasZoomBehavior")
+                        .IsRequired()
+                        .HasColumnType("TEXT");
+
                     b.Property<double?>("CanvasViewportCenterX")
                         .HasColumnType("REAL");
 

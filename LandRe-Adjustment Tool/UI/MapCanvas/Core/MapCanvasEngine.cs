@@ -172,8 +172,18 @@ namespace Land_Readjustment_Tool.UI.MapCanvas.Core
                 return;
             }
 
+            ZoomAtPointToScale(screenPoint, _zoomScale * zoomFactor);
+        }
+
+        public void ZoomAtPointToScale(Point screenPoint, double zoomScale)
+        {
+            if (zoomScale <= 0 || !double.IsFinite(zoomScale))
+            {
+                return;
+            }
+
             PointD worldBeforeZoom = ScreenToWorld(screenPoint);
-            double newZoom = Math.Clamp(_zoomScale * zoomFactor, GetMinZoomForWorldBounds(), MaxZoom);
+            double newZoom = Math.Clamp(zoomScale, GetMinZoomForWorldBounds(), MaxZoom);
 
             if (Math.Abs(newZoom - _zoomScale) < 0.000000001)
             {
