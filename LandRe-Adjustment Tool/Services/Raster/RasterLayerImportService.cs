@@ -134,7 +134,8 @@ namespace Land_Readjustment_Tool.Services.Raster
                     layerName,
                     datasetOutput,
                     crsContext.CoordinateSystem.Code,
-                    existingLayers);
+                    existingLayers,
+                    request.IsInitiallyVisible);
 
                 CanvasLayer savedLayer = await layerRepository.AddAsync(rasterLayer, ct);
 
@@ -203,7 +204,8 @@ namespace Land_Readjustment_Tool.Services.Raster
             string layerName,
             RasterDatasetImportOutput datasetOutput,
             string projectCrsCode,
-            IReadOnlyCollection<CanvasLayer> existingLayers)
+            IReadOnlyCollection<CanvasLayer> existingLayers,
+            bool isInitiallyVisible)
         {
             int nextDisplayOrder = existingLayers.Count == 0
                 ? 0
@@ -213,7 +215,7 @@ namespace Land_Readjustment_Tool.Services.Raster
             {
                 Name = layerName,
                 LayerType = CanvasLayerTreeService.RasterLayerType,
-                IsVisible = true,
+                IsVisible = isInitiallyVisible,
                 IsLocked = true,
                 IsSelectable = true,
                 IsPrintable = true,

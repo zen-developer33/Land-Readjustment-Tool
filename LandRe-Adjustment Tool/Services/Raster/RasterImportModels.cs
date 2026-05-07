@@ -13,7 +13,8 @@ namespace Land_Readjustment_Tool.Services.Raster
         string SourcePath,
         string? LayerName = null,
         string? SourceSrsDefinitionOverride = null,
-        RasterSourceExtent? SourceExtent = null);
+        RasterSourceExtent? SourceExtent = null,
+        bool IsInitiallyVisible = true);
 
     /// <summary>
     /// User settings for importing a web XYZ tile source through GDAL's WMS/TMS driver.

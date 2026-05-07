@@ -258,7 +258,9 @@ namespace Land_Readjustment_Tool
                     (_liveTileFetchFrameIndex + 1) % _liveTileFetchFrames.Count;
                 _liveTileFetchStatus.Image =
                     _liveTileFetchFrames[_liveTileFetchFrameIndex];
+                _liveTileFetchStatus.Invalidate();
             };
+
         }
 
         private void PlaceLiveTileFetchStatusLeftOfCoordinates()
@@ -971,6 +973,7 @@ namespace Land_Readjustment_Tool
 
             SetOperationProgress(62, "Applying workspace settings");
             await ApplySettingsAsync(showRefreshProgress: false);
+            await EnsureDefaultGoogleSatelliteLayerAsync(isInitiallyVisible: false);
 
             // Create the very first project backup.
             // This happens AFTER project info + settings are saved,
@@ -1812,6 +1815,82 @@ namespace Land_Readjustment_Tool
             finally
             {
                 HideOperationProgress();
+            }
+        }
+
+        private async Task EnsureDefaultGoogleSatelliteLayerAsync(
+            bool isInitiallyVisible)
+        {
+            if (!AppServices.HasContext)
+            {
+                return;
+            }
+
+            const string sourceName = "Google Satellite";
+            const string layerName = "World Imagery (Google Satellite)";
+
+            var layerRepository =
+                _projectScopedFactory.CreateCanvasLayerRepository(
+                    AppServices.Context.Session);
+            CanvasLayer? existingLayer =
+                await layerRepository.GetByNameAsync(layerName);
+            if (existingLayer != null)
+            {
+                return;
+            }
+
+            try
+            {
+                XyzTileSourceCatalogItem? source =
+                    XyzTileSourceCatalogService
+                        .Load(AppServices.Context.ProjectFolderPath)
+                        .FirstOrDefault(item =>
+                            string.Equals(
+                                item.Name,
+                                sourceName,
+                                StringComparison.OrdinalIgnoreCase));
+
+                if (source == null)
+                {
+                    return;
+                }
+
+                XyzTileSourceImportRequest request = new(
+                    layerName,
+                    source.UrlTemplate,
+                    -180,
+                    -85.05112878,
+                    180,
+                    85.05112878,
+                    source.MaxZoom,
+                    source.ImageExtension,
+                    IsLiveTiles: true);
+
+                XyzTileSourceDefinition sourceDefinition =
+                    _xyzTileSourceService.CreateSourceDefinition(
+                        AppServices.Context.ProjectFolderPath,
+                        request);
+
+                RasterLayerImportResult importResult =
+                    await _rasterLayerImportService.ImportAsync(
+                        new RasterLayerImportRequest(
+                            AppServices.Context.Session,
+                            AppServices.Context.ProjectFolderPath,
+                            sourceDefinition.DefinitionPath,
+                            layerName,
+                            sourceDefinition.SourceExtent.SrsDefinition,
+                            sourceDefinition.SourceExtent,
+                            IsInitiallyVisible: isInitiallyVisible));
+
+                _rasterImportFileManagementService.RegisterImportedRaster(
+                    AppServices.Context,
+                    importResult);
+            }
+            catch (Exception ex)
+            {
+                LogProjectError(
+                    "Failed to add the default Google Satellite online layer.",
+                    ex);
             }
         }
 

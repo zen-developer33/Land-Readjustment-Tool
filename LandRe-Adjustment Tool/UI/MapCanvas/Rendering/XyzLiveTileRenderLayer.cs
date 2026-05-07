@@ -47,6 +47,7 @@ namespace Land_Readjustment_Tool.UI.MapCanvas.Rendering
         private const int MaxBootstrapTilesPerFrame = 16;
         private const int MaxConcurrentFetches = 6;
         private const int DebounceMilliseconds = 50;
+        private const int FetchCompleteQuietMilliseconds = 500;
         private const int MaxSupportedZoom = 22;
         private const int BingLiveMaxFetchZoom = 14;
         private const int ProjectedTileMeshSubdivisions = 4;
@@ -64,7 +65,10 @@ namespace Land_Readjustment_Tool.UI.MapCanvas.Rendering
         private static readonly SemaphoreSlim FetchSemaphore =
             new SemaphoreSlim(MaxConcurrentFetches, MaxConcurrentFetches);
         private static readonly object FetchStatusSync = new();
+        private static readonly System.Threading.Timer FetchCompleteQuietTimer =
+            new(OnFetchCompleteQuietElapsed, state: null, Timeout.Infinite, Timeout.Infinite);
         private static int _activeFetchTileCount;
+        private static bool _fetchStatusReportedFetching;
 
         internal static event EventHandler<LiveTileFetchStatusChangedEventArgs>? FetchStatusChanged;
 
@@ -2602,18 +2606,62 @@ namespace Land_Readjustment_Tool.UI.MapCanvas.Rendering
 
         private static void ReportFetchStatus(int tileCountDelta)
         {
-            LiveTileFetchStatusChangedEventArgs status;
+            LiveTileFetchStatusChangedEventArgs? status = null;
             lock (FetchStatusSync)
             {
+                int previousActiveFetchTileCount = _activeFetchTileCount;
                 _activeFetchTileCount = Math.Max(
                     0,
                     _activeFetchTileCount + tileCountDelta);
-                status = new LiveTileFetchStatusChangedEventArgs(
-                    _activeFetchTileCount > 0,
-                    _activeFetchTileCount);
+
+                if (previousActiveFetchTileCount == 0 &&
+                    _activeFetchTileCount > 0)
+                {
+                    FetchCompleteQuietTimer.Change(
+                        Timeout.Infinite,
+                        Timeout.Infinite);
+                    if (!_fetchStatusReportedFetching)
+                    {
+                        _fetchStatusReportedFetching = true;
+                        status = new LiveTileFetchStatusChangedEventArgs(
+                            isFetching: true,
+                            _activeFetchTileCount);
+                    }
+                }
+                else if (_activeFetchTileCount == 0 &&
+                         _fetchStatusReportedFetching)
+                {
+                    FetchCompleteQuietTimer.Change(
+                        FetchCompleteQuietMilliseconds,
+                        Timeout.Infinite);
+                }
             }
 
-            FetchStatusChanged?.Invoke(null, status);
+            if (status != null)
+            {
+                FetchStatusChanged?.Invoke(null, status);
+            }
+        }
+
+        private static void OnFetchCompleteQuietElapsed(object? state)
+        {
+            LiveTileFetchStatusChangedEventArgs? status = null;
+            lock (FetchStatusSync)
+            {
+                if (_activeFetchTileCount == 0 &&
+                    _fetchStatusReportedFetching)
+                {
+                    _fetchStatusReportedFetching = false;
+                    status = new LiveTileFetchStatusChangedEventArgs(
+                        isFetching: false,
+                        pendingTileCount: 0);
+                }
+            }
+
+            if (status != null)
+            {
+                FetchStatusChanged?.Invoke(null, status);
+            }
         }
 
         private static RectangleD BuildWorldBounds(
