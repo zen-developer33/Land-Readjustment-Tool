@@ -84,6 +84,41 @@ public sealed class XyzTileBingSupportTests : IDisposable
     }
 
     [Fact]
+    public void AddUserGuidance_AccessDeniedMessage_DoesNotDuplicateGuidance()
+    {
+        string firstPass = XyzTileErrorMessageBuilder.AddUserGuidance(
+            "Response status code does not indicate success: 403 (Forbidden).");
+        string secondPass = XyzTileErrorMessageBuilder.AddUserGuidance(firstPass);
+
+        const string guidanceMarker = "This tile server refused access to the imagery.";
+        Assert.Equal(firstPass, secondPass);
+        Assert.Equal(
+            1,
+            CountOccurrences(secondPass, guidanceMarker));
+    }
+
+    [Fact]
+    public async Task DownloadTilesAsync_GoogleTemplate_BlocksOfflinePackagingWithPlainMessage()
+    {
+        XyzTilePreDownloadService service = new();
+        XyzTileSourceImportRequest request = new(
+            "Google Satellite",
+            "https://mt1.google.com/vt/lyrs=s&x={x}&y={y}&z={z}",
+            85.3200,
+            27.7100,
+            85.3300,
+            27.7200,
+            14,
+            "jpg");
+
+        InvalidOperationException ex = await Assert.ThrowsAsync<InvalidOperationException>(
+            () => service.DownloadTilesAsync(_projectFolder, request));
+
+        Assert.Contains("Google imagery cannot be pre-downloaded", ex.Message);
+        Assert.DoesNotContain("This tile server refused access", ex.Message);
+    }
+
+    [Fact]
     public void LiveTileRendererBuildTileUrl_BingTemplate_ReplacesQuadkey()
     {
         Type renderLayerType = typeof(GdalRasterDatasetImporter).Assembly.GetType(
@@ -191,6 +226,19 @@ public sealed class XyzTileBingSupportTests : IDisposable
         byte[] hash = SHA256.HashData(Encoding.UTF8.GetBytes(urlTemplate));
         string prefix = Convert.ToHexString(hash, 0, 8).ToLowerInvariant();
         return Path.Combine(Path.GetTempPath(), "replot-live-tiles", prefix);
+    }
+
+    private static int CountOccurrences(string value, string marker)
+    {
+        int count = 0;
+        int index = 0;
+        while ((index = value.IndexOf(marker, index, StringComparison.OrdinalIgnoreCase)) >= 0)
+        {
+            count++;
+            index += marker.Length;
+        }
+
+        return count;
     }
 
     public void Dispose()

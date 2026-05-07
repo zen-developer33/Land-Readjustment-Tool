@@ -6,6 +6,12 @@ namespace Land_Readjustment_Tool.Services.Raster
     /// </summary>
     public static class XyzTileErrorMessageBuilder
     {
+        private const string AccessDeniedGuidance =
+            "This tile server refused access to the imagery. The source may require an API key, sign-in, billing, a valid license, or permission from the map provider. Choose a built-in public source such as Bing or OpenStreetMap, or update the URL with the required authentication details.";
+
+        private const string RateLimitedGuidance =
+            "The tile server is temporarily limiting requests. Try again later, reduce the selected area or zoom level, or use a source that allows larger tile downloads.";
+
         public static string AddUserGuidance(string message)
         {
             if (string.IsNullOrWhiteSpace(message))
@@ -13,21 +19,26 @@ namespace Land_Readjustment_Tool.Services.Raster
 
             if (LooksLikeAccessDenied(message))
             {
-                return message +
-                    Environment.NewLine +
-                    Environment.NewLine +
-                    "This tile server refused access to the imagery. The source may require an API key, sign-in, billing, a valid license, or permission from the map provider. Choose a built-in public source such as Bing or OpenStreetMap, or update the URL with the required authentication details.";
+                return AppendGuidanceIfMissing(message, AccessDeniedGuidance);
             }
 
             if (LooksLikeRateLimited(message))
             {
-                return message +
-                    Environment.NewLine +
-                    Environment.NewLine +
-                    "The tile server is temporarily limiting requests. Try again later, reduce the selected area or zoom level, or use a source that allows larger tile downloads.";
+                return AppendGuidanceIfMissing(message, RateLimitedGuidance);
             }
 
             return message;
+        }
+
+        private static string AppendGuidanceIfMissing(string message, string guidance)
+        {
+            if (message.Contains(guidance, StringComparison.OrdinalIgnoreCase))
+                return message;
+
+            return message.TrimEnd() +
+                Environment.NewLine +
+                Environment.NewLine +
+                guidance;
         }
 
         private static bool LooksLikeAccessDenied(string message)

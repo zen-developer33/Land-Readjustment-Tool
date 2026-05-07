@@ -22,6 +22,8 @@ namespace Land_Readjustment_Tool.Services.Raster
         private const int DefaultMaxTileCount = 5000;
         private const double WebMercatorOriginShift = 20037508.342789244;
         private const double InitialResolution = 156543.03392804097;
+        private const string GoogleOfflineDownloadNotSupportedMessage =
+            "Google imagery cannot be pre-downloaded or packaged into MBTiles/GeoTIFF by this tool. Google Maps Platform policies restrict pre-fetching, storage, caching, and offline uses except under limited agreement terms. Use live Google tiles with proper credentials, or choose a tile source whose terms allow offline export.";
         private static readonly HttpClient HttpClient = new();
 
         public async Task<XyzTileDownloadResult> DownloadTilesAsync(
@@ -36,6 +38,11 @@ namespace Land_Readjustment_Tool.Services.Raster
                 !Directory.Exists(projectFolderPath))
             {
                 throw new DirectoryNotFoundException("Project folder was not found.");
+            }
+
+            if (IsGoogleTileSource(request.UrlTemplate))
+            {
+                throw new InvalidOperationException(GoogleOfflineDownloadNotSupportedMessage);
             }
 
             TileRange tileRange = BuildTileRange(request);
@@ -441,6 +448,13 @@ namespace Land_Readjustment_Tool.Services.Raster
         {
             return urlTemplate.Contains($"{{{token}}}", StringComparison.OrdinalIgnoreCase) ||
                    urlTemplate.Contains($"${{{token}}}", StringComparison.OrdinalIgnoreCase);
+        }
+
+        private static bool IsGoogleTileSource(string urlTemplate)
+        {
+            return urlTemplate.Contains("google.com", StringComparison.OrdinalIgnoreCase) ||
+                   urlTemplate.Contains("googleapis.com", StringComparison.OrdinalIgnoreCase) ||
+                   urlTemplate.Contains("gstatic.com", StringComparison.OrdinalIgnoreCase);
         }
 
         private static string ReplaceToken(

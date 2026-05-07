@@ -39,9 +39,8 @@ namespace Land_Readjustment_Tool.UI.CustomControls
         private bool _rasterCacheRefreshPending;
         private volatile bool _liveTileRefreshPending;
         private bool _blockPanUntilZoomSettle;
-        private bool _hasSettlingPanFrame;
         private bool _holdZoomStartFrameUntilRasterRefresh;
-        private PointF _settlingPanDelta;
+        private bool _suppressStaleRasterFrameUntilFreshRender;
         private readonly System.Windows.Forms.Timer _zoomingStatusTimer = new()
         {
             Interval = ZoomSettleIntervalMs
@@ -375,7 +374,7 @@ namespace Land_Readjustment_Tool.UI.CustomControls
             CancelPendingRasterRender();
             _rasterCacheRefreshPending = false;
             _liveTileRefreshPending = false;
-            ClearSettlingPanFrame();
+            _suppressStaleRasterFrameUntilFreshRender = false;
             _rasterDeferredRenderer.Invalidate();
 
             SetRasterLayers(
@@ -496,7 +495,6 @@ namespace Land_Readjustment_Tool.UI.CustomControls
 
             _engine.UpdateCanvasSize(canvasSurface.Size);
             _rasterDeferredRenderer.Resize(canvasSurface.Size);
-            ClearSettlingPanFrame();
             RefreshRasterCacheForCurrentViewAsync();
             RequestRender();
         }
@@ -556,6 +554,7 @@ namespace Land_Readjustment_Tool.UI.CustomControls
                 CancelLiveTileLoading();
                 SetLiveTileInternetFetchingSuspended(true);
                 _isPanning = true;
+                _holdZoomStartFrameUntilRasterRefresh = false;
                 _lastPanPoint = e.Location;
                 _totalPanDelta = PointF.Empty;
                 _panStartWorld = _engine.ScreenToWorld(e.Location);
@@ -647,12 +646,9 @@ namespace Land_Readjustment_Tool.UI.CustomControls
                 canvasSurface.Capture = false;
                 _currentMouseWorld = _engine.ScreenToWorld(e.Location);
                 _panStartWorld = null;
-                _settlingPanDelta = _totalPanDelta;
-                _hasSettlingPanFrame =
-                    Math.Abs(_settlingPanDelta.X) > float.Epsilon ||
-                    Math.Abs(_settlingPanDelta.Y) > float.Epsilon;
                 _totalPanDelta = PointF.Empty;
                 SetLiveTileInternetFetchingSuspended(false);
+                _suppressStaleRasterFrameUntilFreshRender = true;
                 RefreshRasterCacheForCurrentViewAsync();
                 UpdateCanvasCursor();
                 RequestRender();
@@ -754,7 +750,9 @@ namespace Land_Readjustment_Tool.UI.CustomControls
             _isPanning || _isZooming || _isSelectingZoomWindow;
 
         private bool ShouldDeferDirectRasterRendering =>
-            IsInteractiveNavigation || _rasterCacheRefreshPending;
+            IsInteractiveNavigation ||
+            (_rasterCacheRefreshPending &&
+             !_suppressStaleRasterFrameUntilFreshRender);
 
         private RasterRenderFrame? GetRasterRenderFrame()
         {
@@ -774,23 +772,6 @@ namespace Land_Readjustment_Tool.UI.CustomControls
                 return zoomFrame;
             }
 
-            if (_rasterCacheRefreshPending &&
-                _hasSettlingPanFrame &&
-                _rasterDeferredRenderer.TryGetPanFrame(
-                    _settlingPanDelta,
-                    out RasterRenderFrame settlingPanFrame))
-            {
-                return settlingPanFrame;
-            }
-
-            if (_rasterCacheRefreshPending &&
-                _rasterDeferredRenderer.TryGetZoomFrame(
-                    _engine,
-                    out RasterRenderFrame pendingZoomFrame))
-            {
-                return pendingZoomFrame;
-            }
-
             if (_holdZoomStartFrameUntilRasterRefresh &&
                 _rasterDeferredRenderer.TryGetZoomFrame(
                     _engine,
@@ -799,7 +780,8 @@ namespace Land_Readjustment_Tool.UI.CustomControls
                 return heldZoomFrame;
             }
 
-            if (_rasterDeferredRenderer.TryGetCacheFrame(
+            if (!_suppressStaleRasterFrameUntilFreshRender &&
+                _rasterDeferredRenderer.TryGetCacheFrame(
                     out RasterRenderFrame cacheFrame))
             {
                 return cacheFrame;
@@ -822,6 +804,7 @@ namespace Land_Readjustment_Tool.UI.CustomControls
             CancelActiveCanvasGesture();
             CancelLiveTileLoading();
             SetLiveTileInternetFetchingSuspended(true);
+            _suppressStaleRasterFrameUntilFreshRender = false;
 
             if (!_isZooming)
             {
@@ -897,8 +880,8 @@ namespace Land_Readjustment_Tool.UI.CustomControls
                 _isPanning = false;
                 _panStartWorld = null;
                 _totalPanDelta = PointF.Empty;
-                ClearSettlingPanFrame();
                 _holdZoomStartFrameUntilRasterRefresh = false;
+                _suppressStaleRasterFrameUntilFreshRender = false;
                 canvasSurface.Capture = false;
                 _rasterDeferredRenderer.Invalidate();
             }
@@ -925,6 +908,7 @@ namespace Land_Readjustment_Tool.UI.CustomControls
             _isZooming = false;
             _zoomDirection = null;
             _rasterCacheRefreshPending = false;
+            _suppressStaleRasterFrameUntilFreshRender = false;
             UpdateCanvasCursor();
             UpdateStatusBar();
         }
@@ -963,7 +947,6 @@ namespace Land_Readjustment_Tool.UI.CustomControls
             finally
             {
                 _rasterCacheRefreshPending = false;
-                ClearSettlingPanFrame();
             }
         }
 
@@ -1016,6 +999,8 @@ namespace Land_Readjustment_Tool.UI.CustomControls
                     _holdZoomStartFrameUntilRasterRefresh = false;
                 }
 
+                _suppressStaleRasterFrameUntilFreshRender = false;
+
                 if (IsHandleCreated)
                 {
                     BeginInvoke((MethodInvoker)RequestRender);
@@ -1053,7 +1038,6 @@ namespace Land_Readjustment_Tool.UI.CustomControls
 
                     _rasterRenderCancellation = null;
                     _rasterCacheRefreshPending = false;
-                    ClearSettlingPanFrame();
 
                     if (endZoomWhenComplete && !IsDisposed && !Disposing)
                     {
@@ -1065,12 +1049,6 @@ namespace Land_Readjustment_Tool.UI.CustomControls
 
                 cancellation.Dispose();
             }
-        }
-
-        private void ClearSettlingPanFrame()
-        {
-            _hasSettlingPanFrame = false;
-            _settlingPanDelta = PointF.Empty;
         }
 
         private void UpdateRasterWorldBounds()
