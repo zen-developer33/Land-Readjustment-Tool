@@ -79,12 +79,17 @@ namespace Land_Readjustment_Tool.Services.Raster
             if (string.IsNullOrWhiteSpace(request.UrlTemplate))
                 throw new ArgumentException("XYZ URL template is required.");
 
-            if (!HasTileToken(request.UrlTemplate, "x") ||
-                !HasTileToken(request.UrlTemplate, "y") ||
-                !HasTileToken(request.UrlTemplate, "z"))
+            if (request.UrlTemplate.Contains("virtualearth.net", StringComparison.OrdinalIgnoreCase) &&
+                !HasTileToken(request.UrlTemplate, "quadkey"))
             {
                 throw new ArgumentException(
-                    "XYZ URL template must include {z}, {x}, and {y} tile variables.");
+                    "Bing Maps tile URLs must include the {quadkey} tile variable.");
+            }
+
+            if (!HasUsableTileTokens(request.UrlTemplate))
+            {
+                throw new ArgumentException(
+                    "XYZ URL template must include {z}, {x}, and {y} tile variables, or a {quadkey} tile variable for Bing Maps.");
             }
 
             if (request.ZoomLevel < 0 || request.ZoomLevel > 25)
@@ -170,11 +175,67 @@ namespace Land_Readjustment_Tool.Services.Raster
             string format = extension.TrimStart('.');
             int bandsCount = format.Equals("png", StringComparison.OrdinalIgnoreCase) ? 4 : 3;
 
+            if (IsBingTileUrl(normalizedUrl))
+            {
+                return BuildGdalWmsXmlForBing(
+                    normalizedUrl,
+                    cacheFolder,
+                    maximumZoomLevel,
+                    extension,
+                    bandsCount);
+            }
+
             return
                 "<GDAL_WMS>\r\n" +
                 "  <Service name=\"TMS\">\r\n" +
                 $"    <ServerUrl>{escapedUrl}</ServerUrl>\r\n" +
                 $"    <Format>{format}</Format>\r\n" +
+                "  </Service>\r\n" +
+                "  <DataWindow>\r\n" +
+                $"    <UpperLeftX>{FormatDouble(-WebMercatorOriginShift)}</UpperLeftX>\r\n" +
+                $"    <UpperLeftY>{FormatDouble(WebMercatorOriginShift)}</UpperLeftY>\r\n" +
+                $"    <LowerRightX>{FormatDouble(WebMercatorOriginShift)}</LowerRightX>\r\n" +
+                $"    <LowerRightY>{FormatDouble(-WebMercatorOriginShift)}</LowerRightY>\r\n" +
+                $"    <TileLevel>{maximumZoomLevel}</TileLevel>\r\n" +
+                "    <TileCountX>1</TileCountX>\r\n" +
+                "    <TileCountY>1</TileCountY>\r\n" +
+                "    <YOrigin>top</YOrigin>\r\n" +
+                "  </DataWindow>\r\n" +
+                "  <Projection>EPSG:3857</Projection>\r\n" +
+                $"  <BlockSizeX>{TileSize}</BlockSizeX>\r\n" +
+                $"  <BlockSizeY>{TileSize}</BlockSizeY>\r\n" +
+                $"  <BandsCount>{bandsCount}</BandsCount>\r\n" +
+                "  <Cache>\r\n" +
+                $"    <Path>{escapedCachePath}</Path>\r\n" +
+                $"    <Extension>{extension}</Extension>\r\n" +
+                "    <Type>file</Type>\r\n" +
+                "    <Unique>True</Unique>\r\n" +
+                "  </Cache>\r\n" +
+                "  <MaxConnections>6</MaxConnections>\r\n" +
+                "  <Timeout>20</Timeout>\r\n" +
+                $"  <UserAgent>{DefaultUserAgent}</UserAgent>\r\n" +
+                "  <ZeroBlockHttpCodes>204,404</ZeroBlockHttpCodes>\r\n" +
+                "  <ZeroBlockOnServerException>true</ZeroBlockOnServerException>\r\n" +
+                "</GDAL_WMS>\r\n";
+        }
+
+        /// <summary>
+        /// Builds GDAL WMS XML for Bing/VirtualEarth quadkey tile sources.
+        /// </summary>
+        private static string BuildGdalWmsXmlForBing(
+            string normalizedUrl,
+            string cacheFolder,
+            int maximumZoomLevel,
+            string extension,
+            int bandsCount)
+        {
+            string escapedUrl = SecurityElement.Escape(normalizedUrl) ?? normalizedUrl;
+            string escapedCachePath = SecurityElement.Escape(cacheFolder) ?? cacheFolder;
+
+            return
+                "<GDAL_WMS>\r\n" +
+                "  <Service name=\"VirtualEarth\">\r\n" +
+                $"    <ServerUrl>{escapedUrl}</ServerUrl>\r\n" +
                 "  </Service>\r\n" +
                 "  <DataWindow>\r\n" +
                 $"    <UpperLeftX>{FormatDouble(-WebMercatorOriginShift)}</UpperLeftX>\r\n" +
@@ -221,6 +282,16 @@ namespace Land_Readjustment_Tool.Services.Raster
                 ? 4
                 : 3;
 
+            if (IsBingTileUrl(normalizedUrl))
+            {
+                return BuildGdalWmsXmlForBing(
+                    normalizedUrl,
+                    cacheFolder,
+                    maximumZoomLevel,
+                    extension,
+                    bandsCount);
+            }
+
             return
                 "<GDAL_WMS>\r\n" +
                 "  <Service name=\"TMS\">\r\n" +
@@ -262,6 +333,7 @@ namespace Land_Readjustment_Tool.Services.Raster
             normalized = NormalizeToken(normalized, "x");
             normalized = NormalizeToken(normalized, "y");
             normalized = NormalizeToken(normalized, "z");
+            normalized = NormalizeToken(normalized, "quadkey");
             normalized = NormalizeToken(normalized, "format");
             return normalized;
         }
@@ -286,6 +358,20 @@ namespace Land_Readjustment_Tool.Services.Raster
         {
             return urlTemplate.Contains($"{{{token}}}", StringComparison.OrdinalIgnoreCase) ||
                    urlTemplate.Contains($"${{{token}}}", StringComparison.OrdinalIgnoreCase);
+        }
+
+        private static bool HasUsableTileTokens(string urlTemplate)
+        {
+            return HasTileToken(urlTemplate, "quadkey") ||
+                   (HasTileToken(urlTemplate, "z") &&
+                    HasTileToken(urlTemplate, "x") &&
+                    HasTileToken(urlTemplate, "y"));
+        }
+
+        private static bool IsBingTileUrl(string normalizedUrl)
+        {
+            return normalizedUrl.Contains("${quadkey}", StringComparison.OrdinalIgnoreCase) ||
+                   normalizedUrl.Contains("virtualearth.net", StringComparison.OrdinalIgnoreCase);
         }
 
         /// <summary>
@@ -401,6 +487,12 @@ namespace Land_Readjustment_Tool.Services.Raster
                 url.Contains("googleapis.com", StringComparison.Ordinal))
             {
                 return Math.Min(maxZoom, 22);
+            }
+
+            if (url.Contains("virtualearth.net", StringComparison.Ordinal) ||
+                url.Contains("${quadkey}", StringComparison.Ordinal))
+            {
+                return Math.Min(maxZoom, 21);
             }
 
             return maxZoom;

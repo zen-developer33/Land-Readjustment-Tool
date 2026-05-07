@@ -37,6 +37,12 @@
     <Content Include="Resources\replot-splash-minimal-v2.png">
       <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
     </Content>
+    <Content Include="Resources\Status\globe.gif" Condition="Exists('Resources\Status\globe.gif')">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </Content>
+    <Content Include="Resources\Status\spinning-globe.gif" Condition="Exists('Resources\Status\spinning-globe.gif')">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </Content>
   </ItemGroup>
 
   <ItemGroup>

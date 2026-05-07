@@ -4,7 +4,9 @@ using OSGeo.GDAL;
 using OSGeo.OSR;
 using System.Drawing;
 using System.Drawing.Imaging;
+using System.Net;
 using System.Net.Http;
+using System.Security.Cryptography;
 using System.Text;
 
 namespace Land_Readjustment_Tool.Services.Raster
@@ -341,7 +343,13 @@ namespace Land_Readjustment_Tool.Services.Raster
                         url,
                         HttpCompletionOption.ResponseHeadersRead,
                         ct);
-                    response.EnsureSuccessStatusCode();
+                    if (!response.IsSuccessStatusCode)
+                    {
+                        throw new HttpRequestException(
+                            BuildTileHttpFailureMessage(response.StatusCode, tileX, tileY, request.ZoomLevel),
+                            inner: null,
+                            response.StatusCode);
+                    }
 
                     await using Stream responseStream =
                         await response.Content.ReadAsStreamAsync(ct);
@@ -371,12 +379,26 @@ namespace Land_Readjustment_Tool.Services.Raster
                 $"{request.MinLongitude:F6}_{request.MinLatitude:F6}_{request.MaxLongitude:F6}_{request.MaxLatitude:F6}";
             string safeToken = SanitizeFileName(boundsToken);
             string safeLayerName = SanitizeFileName(request.LayerName);
-            string signature = $"{safeLayerName}_z{request.ZoomLevel}_{safeToken}";
+            string sourceToken = BuildSourceCacheToken(request.UrlTemplate);
+            string signature =
+                $"{safeLayerName}_z{request.ZoomLevel}_{sourceToken}_{safeToken}";
 
             return Path.Combine(
                 projectFolderPath,
                 DownloadCacheFolderName,
                 signature);
+        }
+
+        private static string BuildSourceCacheToken(string urlTemplate)
+        {
+            string normalized = urlTemplate.Trim();
+            if (ContainsTileToken(normalized, "quadkey"))
+            {
+                normalized += "|quadkey-expanded-cache-v2";
+            }
+
+            byte[] hash = SHA256.HashData(Encoding.UTF8.GetBytes(normalized));
+            return Convert.ToHexString(hash, 0, 6).ToLowerInvariant();
         }
 
         private static TileRange BuildTileRange(XyzTileSourceImportRequest request)
@@ -400,10 +422,25 @@ namespace Land_Readjustment_Tool.Services.Raster
             int tileY)
         {
             string normalized = urlTemplate.Trim();
+            if (ContainsTileToken(normalized, "quadkey"))
+            {
+                string quadkey = QuadkeyConverter.TileXYToQuadkey(
+                    tileX,
+                    tileY,
+                    zoomLevel);
+                normalized = ReplaceToken(normalized, "quadkey", quadkey);
+            }
+
             normalized = ReplaceToken(normalized, "z", zoomLevel.ToString());
             normalized = ReplaceToken(normalized, "x", tileX.ToString());
             normalized = ReplaceToken(normalized, "y", tileY.ToString());
             return normalized;
+        }
+
+        private static bool ContainsTileToken(string urlTemplate, string token)
+        {
+            return urlTemplate.Contains($"{{{token}}}", StringComparison.OrdinalIgnoreCase) ||
+                   urlTemplate.Contains($"${{{token}}}", StringComparison.OrdinalIgnoreCase);
         }
 
         private static string ReplaceToken(
@@ -414,6 +451,20 @@ namespace Land_Readjustment_Tool.Services.Raster
             return value
                 .Replace($"{{{token}}}", replacement, StringComparison.OrdinalIgnoreCase)
                 .Replace($"${{{token}}}", replacement, StringComparison.OrdinalIgnoreCase);
+        }
+
+        private static string BuildTileHttpFailureMessage(
+            HttpStatusCode statusCode,
+            int tileX,
+            int tileY,
+            int zoomLevel)
+        {
+            int statusCodeNumber = (int)statusCode;
+            string message =
+                $"Response status code does not indicate success: {statusCodeNumber} ({statusCode}). " +
+                $"Tile z={zoomLevel}, x={tileX}, y={tileY} could not be downloaded.";
+
+            return XyzTileErrorMessageBuilder.AddUserGuidance(message);
         }
 
         private static string NormalizeImageExtension(string imageExtension)

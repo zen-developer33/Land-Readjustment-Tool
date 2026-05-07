@@ -19,6 +19,8 @@ using Land_Readjustment_Tool.UI.MapCanvas.Rendering;
 using Land_Readjustment_Tool.UI.MapCanvas.Services;
 using Microsoft.Data.Sqlite;
 using OSGeo.OSR;
+using System.Drawing.Drawing2D;
+using System.Drawing.Imaging;
 using System.Reflection;
 using VisualStyles = System.Windows.Forms.VisualStyles;
 
@@ -85,6 +87,11 @@ namespace Land_Readjustment_Tool
         private TreeNode? _renamingLayerNode;
         private bool _isCompletingLayerRename;
         private frmXyzTileImportOptions? _xyzTileImportOptionsForm;
+        private readonly ToolStripStatusLabel _liveTileFetchStatus = new();
+        private readonly System.Windows.Forms.Timer _liveTileFetchTimer = new();
+        private readonly List<Image> _liveTileFetchFrames = [];
+        private Image? _liveTileStaticGlobe;
+        private int _liveTileFetchFrameIndex;
 
         private sealed class LayerTreeNodeState
         {
@@ -168,10 +175,14 @@ namespace Land_Readjustment_Tool
             _projectSaveAsService = projectSaveAsService ?? throw new ArgumentNullException(nameof(projectSaveAsService));
 
             InitializeComponent();
+            hostOperationProgress = hostProgressBarHost;
             NumericUpDownSelectAllBehavior.AttachTo(this);
             _startupFilePath = startupFilePath;
             ConfigureSmoothSplitterLayout();
             ConfigureStatusStripSizing();
+            ConfigureLiveTileFetchStatusIndicator();
+            XyzLiveTileRenderLayer.FetchStatusChanged += XyzLiveTileRenderLayer_FetchStatusChanged;
+            FormClosed += frmMain_FormClosed;
             mapCanvasControlMain.StatusChanged += MapCanvasControlMain_StatusChanged;
             ConfigureLayerTree();
             ConfigureLayerPropertiesPanel();
@@ -210,6 +221,226 @@ namespace Land_Readjustment_Tool
             lblCanvasCoordinates.AutoSize = true;
             lblScale.TextAlign = ContentAlignment.MiddleRight;
             lblCanvasCoordinates.TextAlign = ContentAlignment.MiddleRight;
+        }
+
+        private void ConfigureLiveTileFetchStatusIndicator()
+        {
+            _liveTileStaticGlobe =
+                LoadStatusIconImage("globe.gif") ??
+                CreateEarthSpinnerFrame(0, 12);
+            _liveTileFetchFrames.AddRange(
+                LoadEarthSpinnerFramesFromGif() ?? CreateEarthSpinnerFrames());
+
+            _liveTileFetchStatus.Name = "liveTileFetchStatus";
+            _liveTileFetchStatus.Alignment = ToolStripItemAlignment.Right;
+            _liveTileFetchStatus.AutoSize = false;
+            _liveTileFetchStatus.Size = new Size(24, 21);
+            _liveTileFetchStatus.BorderSides = ToolStripStatusLabelBorderSides.None;
+            _liveTileFetchStatus.DisplayStyle = ToolStripItemDisplayStyle.Image;
+            _liveTileFetchStatus.ImageAlign = ContentAlignment.MiddleCenter;
+            _liveTileFetchStatus.Margin = new Padding(4, 3, 2, 2);
+            _liveTileFetchStatus.Text = string.Empty;
+            _liveTileFetchStatus.ToolTipText = string.Empty;
+            _liveTileFetchStatus.Visible = true;
+            _liveTileFetchStatus.Image = _liveTileStaticGlobe;
+
+            int coordinateIndex = statusCanvas.Items.IndexOf(lblCanvasCoordinates);
+            if (coordinateIndex >= 0)
+            {
+                statusCanvas.Items.Insert(coordinateIndex, _liveTileFetchStatus);
+            }
+            else
+            {
+                statusCanvas.Items.Add(_liveTileFetchStatus);
+            }
+
+            _liveTileFetchTimer.Interval = 110;
+            _liveTileFetchTimer.Tick += (_, _) =>
+            {
+                if (_liveTileFetchFrames.Count == 0)
+                {
+                    return;
+                }
+
+                _liveTileFetchFrameIndex =
+                    (_liveTileFetchFrameIndex + 1) % _liveTileFetchFrames.Count;
+                _liveTileFetchStatus.Image =
+                    _liveTileFetchFrames[_liveTileFetchFrameIndex];
+            };
+        }
+
+        private static List<Image> CreateEarthSpinnerFrames()
+        {
+            const int frameCount = 12;
+            List<Image> frames = new(frameCount);
+            for (int frame = 0; frame < frameCount; frame++)
+            {
+                frames.Add(CreateEarthSpinnerFrame(frame, frameCount));
+            }
+
+            return frames;
+        }
+
+        private static Bitmap CreateEarthSpinnerFrame(int frame, int frameCount)
+        {
+            const int size = 18;
+            Bitmap bitmap = new(size, size, PixelFormat.Format32bppPArgb);
+            using Graphics graphics = Graphics.FromImage(bitmap);
+            graphics.SmoothingMode = SmoothingMode.AntiAlias;
+            graphics.Clear(Color.Transparent);
+
+            RectangleF globe = new(2.2f, 2.2f, 13.6f, 13.6f);
+            using Brush oceanBrush = new SolidBrush(Color.FromArgb(255, 43, 129, 207));
+            using Pen outlinePen = new(Color.FromArgb(255, 25, 88, 150), 1.2f);
+            using Pen gridPen = new(Color.FromArgb(175, 228, 244, 255), 1f);
+            using Pen landPen = new(Color.FromArgb(235, 79, 157, 104), 2f);
+            using GraphicsPath globePath = new();
+
+            graphics.FillEllipse(oceanBrush, globe);
+            globePath.AddEllipse(globe);
+            graphics.SetClip(globePath);
+
+            float phase = frame / (float)frameCount;
+            float offset = phase * globe.Width;
+            for (int i = -2; i <= 2; i++)
+            {
+                float x = globe.Left + ((i * globe.Width / 2f + offset) % globe.Width);
+                if (x < globe.Left)
+                {
+                    x += globe.Width;
+                }
+
+                float distanceFromCenter = Math.Abs(x - (globe.Left + globe.Width / 2f));
+                float arcWidth = Math.Max(1.5f, globe.Width - distanceFromCenter * 2f);
+                RectangleF meridian = new(
+                    x - arcWidth / 2f,
+                    globe.Top,
+                    arcWidth,
+                    globe.Height);
+                graphics.DrawArc(gridPen, meridian, 90, 180);
+            }
+
+            graphics.DrawLine(
+                gridPen,
+                globe.Left + 1.5f,
+                globe.Top + globe.Height / 2f,
+                globe.Right - 1.5f,
+                globe.Top + globe.Height / 2f);
+
+            float landOffset = (phase * 8f) - 4f;
+            graphics.DrawArc(
+                landPen,
+                new RectangleF(globe.Left + 2f + landOffset, globe.Top + 3f, 8f, 5f),
+                190,
+                170);
+            graphics.DrawArc(
+                landPen,
+                new RectangleF(globe.Left + 6f + landOffset, globe.Top + 8f, 7f, 4f),
+                20,
+                145);
+
+            graphics.ResetClip();
+            graphics.DrawEllipse(outlinePen, globe);
+            return bitmap;
+        }
+
+        private static List<Image>? LoadEarthSpinnerFramesFromGif()
+        {
+            string? gifPath = FindStatusResourcePath(
+                Path.Combine("Status", "spinning-globe.gif"));
+            if (gifPath == null)
+            {
+                return null;
+            }
+
+            try
+            {
+                using Image gif = Image.FromFile(gifPath);
+                FrameDimension dimension = new(gif.FrameDimensionsList[0]);
+                int frameCount = gif.GetFrameCount(dimension);
+                if (frameCount <= 0)
+                {
+                    return null;
+                }
+
+                List<Image> frames = new(frameCount);
+                for (int frame = 0; frame < frameCount; frame++)
+                {
+                    gif.SelectActiveFrame(dimension, frame);
+                    frames.Add(CreateStatusIconFrame(gif));
+                }
+
+                return frames;
+            }
+            catch
+            {
+                return null;
+            }
+        }
+
+        private static Image? LoadStatusIconImage(string fileName)
+        {
+            string? imagePath = FindStatusResourcePath(
+                Path.Combine("Status", fileName));
+            if (imagePath == null)
+            {
+                return null;
+            }
+
+            try
+            {
+                using Image image = Image.FromFile(imagePath);
+                return CreateStatusIconFrame(image);
+            }
+            catch
+            {
+                return null;
+            }
+        }
+
+        private static Bitmap CreateStatusIconFrame(Image source)
+        {
+            const int size = 18;
+            Bitmap frame = new(size, size, PixelFormat.Format32bppPArgb);
+            using Graphics graphics = Graphics.FromImage(frame);
+            graphics.SmoothingMode = SmoothingMode.AntiAlias;
+            graphics.InterpolationMode = InterpolationMode.HighQualityBicubic;
+            graphics.Clear(Color.Transparent);
+            graphics.DrawImage(
+                source,
+                new Rectangle(0, 0, size, size),
+                new Rectangle(0, 0, source.Width, source.Height),
+                GraphicsUnit.Pixel);
+            return frame;
+        }
+
+        private static string? FindStatusResourcePath(string relativeResourcePath)
+        {
+            string outputPath = Path.Combine(
+                AppContext.BaseDirectory,
+                "Resources",
+                relativeResourcePath);
+            if (File.Exists(outputPath))
+            {
+                return outputPath;
+            }
+
+            DirectoryInfo? current = new(AppContext.BaseDirectory);
+            while (current != null)
+            {
+                string sourcePath = Path.Combine(
+                    current.FullName,
+                    "Resources",
+                    relativeResourcePath);
+                if (File.Exists(sourcePath))
+                {
+                    return sourcePath;
+                }
+
+                current = current.Parent;
+            }
+
+            return null;
         }
 
         private void ConfigureSmoothSplitterLayout()
@@ -356,6 +587,22 @@ namespace Land_Readjustment_Tool
             }
 
             DisposeCurrentProjectSession();
+        }
+
+        private void frmMain_FormClosed(object? sender, FormClosedEventArgs e)
+        {
+            XyzLiveTileRenderLayer.FetchStatusChanged -= XyzLiveTileRenderLayer_FetchStatusChanged;
+            _liveTileFetchTimer.Stop();
+            _liveTileFetchTimer.Dispose();
+
+            foreach (Image frame in _liveTileFetchFrames)
+            {
+                frame.Dispose();
+            }
+
+            _liveTileFetchFrames.Clear();
+            _liveTileStaticGlobe?.Dispose();
+            _liveTileStaticGlobe = null;
         }
 
         // Returns true if safe to close
@@ -1539,12 +1786,14 @@ namespace Land_Readjustment_Tool
             }
             catch (Exception ex)
             {
+                string errorMessage = XyzTileErrorMessageBuilder.AddUserGuidance(
+                    GetMostUsefulExceptionMessage(ex));
                 _xyzTileImportOptionsForm?.FailImportExecution(
-                    $"Import failed: {GetMostUsefulExceptionMessage(ex)}");
+                    $"Import failed: {errorMessage}");
                 LogProjectError("XYZ tile import failed.", ex);
 
                 MessageBox.Show(
-                    $"Failed to import XYZ tiles: {GetMostUsefulExceptionMessage(ex)}",
+                    $"Failed to import XYZ tiles: {errorMessage}",
                     "XYZ Tile Import",
                     MessageBoxButtons.OK,
                     MessageBoxIcon.Error);
@@ -2560,7 +2809,7 @@ namespace Land_Readjustment_Tool
                     return;
                 }
 
-                Rectangle colorRect = GetLayerNodeColorRect(e.Node);
+                Rectangle colorRect = GetLayerNodeColorRect(e.Node, layer);
 
                 if (layerState?.IsOnlineBasemap == true)
                 {
@@ -2911,25 +3160,8 @@ namespace Land_Readjustment_Tool
             CanvasLayer layer,
             Color backgroundColor)
         {
-            Rectangle symbolRect = new(
-                rect.X,
-                rect.Y,
-                Math.Max(1, rect.Width - 1),
-                Math.Max(1, rect.Height - 1));
-
-            using (SolidBrush fillBrush = new(backgroundColor))
-                g.FillRectangle(fillBrush, symbolRect);
-
             Color lineColor = ParseColorOrDefault(layer.BorderColor, Color.Black);
-            DrawLineStylePreview(
-                g,
-                new Rectangle(symbolRect.X + 2, symbolRect.Y, Math.Max(1, symbolRect.Width - 4), symbolRect.Height),
-                lineColor,
-                (float)layer.LineWeight,
-                layer.LineStyle);
-
-            using Pen borderPen = new(Color.FromArgb(140, 140, 145));
-            g.DrawRectangle(borderPen, symbolRect);
+            DrawCenteredLineSymbol(g, rect, lineColor, (float)layer.LineWeight, layer.LineStyle);
         }
 
         private static void DrawRoadsGroupSwatch(
@@ -2963,13 +3195,40 @@ namespace Land_Readjustment_Tool
             if (centerline != null)
             {
                 Color lineColor = ParseColorOrDefault(centerline.BorderColor, Color.Black);
-                DrawLineStylePreview(
+                Rectangle centerlineRect = new(
+                    rect.X + 2,
+                    rect.Y,
+                    Math.Max(1, rect.Width - 5),
+                    Math.Max(1, rect.Height - 1));
+
+                DrawCenteredLineSymbol(
                     g,
-                    new Rectangle(rect.X + 2, rect.Y, Math.Max(1, rect.Width - 4), rect.Height),
+                    centerlineRect,
                     lineColor,
                     (float)centerline.LineWeight,
                     centerline.LineStyle);
             }
+        }
+
+        private static void DrawCenteredLineSymbol(
+            Graphics g,
+            Rectangle rect,
+            Color lineColor,
+            float lineWeight,
+            string? lineStyle)
+        {
+            float y = rect.Top + (rect.Height - 1) / 2f;
+            float width = Math.Clamp(lineWeight, 1.0f, Math.Max(1.0f, rect.Height / 2.0f));
+            using Pen pen = new(lineColor, width)
+            {
+                StartCap = System.Drawing.Drawing2D.LineCap.Flat,
+                EndCap = System.Drawing.Drawing2D.LineCap.Flat
+            };
+
+            ApplyPenLineStyle(pen, lineStyle);
+            g.SmoothingMode = System.Drawing.Drawing2D.SmoothingMode.AntiAlias;
+            g.DrawLine(pen, rect.Left, y, rect.Right, y);
+            g.SmoothingMode = System.Drawing.Drawing2D.SmoothingMode.None;
         }
 
         private static void DrawLineStylePreview(
@@ -4140,14 +4399,17 @@ namespace Land_Readjustment_Tool
                 LayerNodeCheckBoxSize);
         }
 
-        private Rectangle GetLayerNodeColorRect(TreeNode node)
+        private Rectangle GetLayerNodeColorRect(TreeNode node, CanvasLayer? layer = null)
         {
             Rectangle checkBoxRect = GetLayerNodeCheckBoxRect(node);
+            int symbolWidth = layer != null && CanvasLayerTreeService.IsLineLayer(layer)
+                ? 28
+                : LayerNodeColorBoxSize;
 
             return new Rectangle(
                 checkBoxRect.Right + LayerNodeCheckBoxGap,
                 node.Bounds.Y + Math.Max(0, (treeViewLayers.ItemHeight - LayerNodeColorBoxSize) / 2),
-                LayerNodeColorBoxSize,
+                symbolWidth,
                 LayerNodeColorBoxSize);
         }
 
@@ -4557,6 +4819,63 @@ namespace Land_Readjustment_Tool
             UpdateScaleLabel(zoomScale);
         }
 
+        private void XyzLiveTileRenderLayer_FetchStatusChanged(
+            object? sender,
+            LiveTileFetchStatusChangedEventArgs e)
+        {
+            if (IsDisposed || Disposing)
+            {
+                return;
+            }
+
+            if (InvokeRequired)
+            {
+                try
+                {
+                    BeginInvoke(
+                        new Action(
+                            () => XyzLiveTileRenderLayer_FetchStatusChanged(
+                                sender,
+                                e)));
+                }
+                catch (InvalidOperationException)
+                {
+                    // The form handle can disappear while background tile work finishes.
+                }
+
+                return;
+            }
+
+            _liveTileFetchStatus.Text = string.Empty;
+            _liveTileFetchStatus.Visible = true;
+
+            if (e.IsFetching)
+            {
+                if (_liveTileFetchFrames.Count > 0)
+                {
+                    if (!_liveTileFetchTimer.Enabled)
+                    {
+                        _liveTileFetchFrameIndex = 0;
+                        _liveTileFetchStatus.Image = _liveTileFetchFrames[0];
+                        _liveTileFetchTimer.Start();
+                    }
+                }
+                else
+                {
+                    _liveTileFetchStatus.Image = _liveTileStaticGlobe;
+                }
+            }
+            else
+            {
+                _liveTileFetchTimer.Stop();
+                _liveTileFetchFrameIndex = 0;
+                _liveTileFetchStatus.Image = _liveTileStaticGlobe;
+            }
+
+            statusCanvas.PerformLayout();
+            statusCanvas.Refresh();
+        }
+
         private void UpdateActiveTool(string mode)
         {
             string toolName = mode switch
@@ -4583,61 +4902,78 @@ namespace Land_Readjustment_Tool
         }
 
         /// <summary>
-        /// Small status-strip progress bar that paints the current percentage inside the bar.
+        /// ToolStrip-compatible host for the custom-painted status-strip progress bar.
+        /// Inheriting from ToolStripControlHost (a ToolStripItem) lets the WinForms
+        /// designer place this inside a StatusStrip without regenerating a type error.
         /// </summary>
-        private sealed class StatusProgressBar : ProgressBar
+        private sealed class StatusProgressBar : ToolStripControlHost
         {
-            public StatusProgressBar()
+            private readonly InnerBar _inner;
+
+            public StatusProgressBar() : this(new InnerBar()) { }
+            private StatusProgressBar(InnerBar inner) : base(inner) { _inner = inner; }
+
+            [System.ComponentModel.DesignerSerializationVisibility(System.ComponentModel.DesignerSerializationVisibility.Hidden)]
+            public int Value   { get => _inner.Value;   set => _inner.Value   = value; }
+            [System.ComponentModel.DesignerSerializationVisibility(System.ComponentModel.DesignerSerializationVisibility.Hidden)]
+            public int Minimum { get => _inner.Minimum; set => _inner.Minimum = value; }
+            [System.ComponentModel.DesignerSerializationVisibility(System.ComponentModel.DesignerSerializationVisibility.Hidden)]
+            public int Maximum { get => _inner.Maximum; set => _inner.Maximum = value; }
+            public new void Invalidate() => _inner.Invalidate();
+
+            private sealed class InnerBar : ProgressBar
             {
-                SetStyle(
-                    ControlStyles.UserPaint |
-                    ControlStyles.AllPaintingInWmPaint |
-                    ControlStyles.OptimizedDoubleBuffer,
-                    true);
-            }
-
-            protected override void OnPaint(PaintEventArgs e)
-            {
-                Rectangle bounds = ClientRectangle;
-                e.Graphics.Clear(SystemColors.Control);
-
-                Rectangle track = new(
-                    bounds.X,
-                    bounds.Y,
-                    Math.Max(1, bounds.Width - 1),
-                    Math.Max(1, bounds.Height - 1));
-
-                using Pen borderPen = new(SystemColors.ControlDark);
-                e.Graphics.DrawRectangle(borderPen, track);
-
-                double range = Math.Max(1, Maximum - Minimum);
-                double progress = Math.Clamp((Value - Minimum) / range, 0.0, 1.0);
-                Rectangle fill = new(
-                    bounds.X + 1,
-                    bounds.Y + 1,
-                    Math.Max(0, (int)Math.Round((bounds.Width - 2) * progress)),
-                    Math.Max(0, bounds.Height - 2));
-
-                if (fill.Width > 0)
+                public InnerBar()
                 {
-                    using Brush fillBrush = new SolidBrush(Color.FromArgb(72, 136, 201));
-                    e.Graphics.FillRectangle(fillBrush, fill);
+                    SetStyle(
+                        ControlStyles.UserPaint |
+                        ControlStyles.AllPaintingInWmPaint |
+                        ControlStyles.OptimizedDoubleBuffer,
+                        true);
                 }
 
-                if (Value > Minimum)
+                protected override void OnPaint(PaintEventArgs e)
                 {
-                    TextRenderer.DrawText(
-                        e.Graphics,
-                        $"{Value}%",
-                        Font,
-                        bounds,
-                        SystemColors.ControlText,
-                        TextFormatFlags.HorizontalCenter |
-                        TextFormatFlags.VerticalCenter |
-                        TextFormatFlags.SingleLine);
+                    Rectangle bounds = ClientRectangle;
+                    e.Graphics.Clear(SystemColors.Control);
+
+                    Rectangle track = new(
+                        bounds.X,
+                        bounds.Y,
+                        Math.Max(1, bounds.Width - 1),
+                        Math.Max(1, bounds.Height - 1));
+
+                    using Pen borderPen = new(SystemColors.ControlDark);
+                    e.Graphics.DrawRectangle(borderPen, track);
+
+                    double range = Math.Max(1, Maximum - Minimum);
+                    double progress = Math.Clamp((Value - Minimum) / range, 0.0, 1.0);
+                    Rectangle fill = new(
+                        bounds.X + 1,
+                        bounds.Y + 1,
+                        Math.Max(0, (int)Math.Round((bounds.Width - 2) * progress)),
+                        Math.Max(0, bounds.Height - 2));
+
+                    if (fill.Width > 0)
+                    {
+                        using Brush fillBrush = new SolidBrush(Color.FromArgb(72, 136, 201));
+                        e.Graphics.FillRectangle(fillBrush, fill);
+                    }
+
+                    if (Value > Minimum)
+                    {
+                        TextRenderer.DrawText(
+                            e.Graphics,
+                            $"{Value}%",
+                            Font,
+                            bounds,
+                            SystemColors.ControlText,
+                            TextFormatFlags.HorizontalCenter |
+                            TextFormatFlags.VerticalCenter |
+                            TextFormatFlags.SingleLine);
+                    }
                 }
             }
-
         }
 
         private void statusCanvas_ItemClicked(object sender, ToolStripItemClickedEventArgs e)

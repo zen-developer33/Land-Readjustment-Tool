@@ -76,6 +76,19 @@ namespace Land_Readjustment_Tool.Services.Raster
         {
             return
             [
+                // Bing Maps / VirtualEarth
+                new("Bing Aerial",
+                    "http://ecn.t3.tiles.virtualearth.net/tiles/a{quadkey}.jpeg?g=1",
+                    0, 20, "jpg", IsBuiltIn: false),
+
+                new("Bing Aerial with Labels",
+                    "http://ecn.t3.tiles.virtualearth.net/tiles/h{quadkey}.jpeg?g=1",
+                    0, 20, "jpg", IsBuiltIn: false),
+
+                new("Bing Road Map",
+                    "http://ecn.t3.tiles.virtualearth.net/tiles/r{quadkey}.png?g=1",
+                    0, 20, "png", IsBuiltIn: false),
+
                 // ── OpenStreetMap ──────────────────────────────────────────────
                 new("OpenStreetMap Standard",
                     "https://tile.openstreetmap.org/{z}/{x}/{y}.png",

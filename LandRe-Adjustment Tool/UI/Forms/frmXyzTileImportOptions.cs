@@ -28,6 +28,10 @@ namespace Land_Readjustment_Tool.UI.Forms
                 // OpenStreetMap
                 ["OpenStreetMap Standard"] = "OSM",
                 ["OpenStreetMap Humanitarian (HOT)"] = "OSM-HOT",
+                // Bing
+                ["Bing Aerial"] = "Bing-Aerial",
+                ["Bing Aerial with Labels"] = "Bing-Hybrid",
+                ["Bing Road Map"] = "Bing-Road",
                 // Esri
                 ["Esri World Imagery"] = "ESRI-Img",
                 ["Esri World Street Map"] = "ESRI-Streets",
@@ -155,12 +159,10 @@ namespace Land_Readjustment_Tool.UI.Forms
             {
                 // Live mode: build request directly — no prior download needed.
                 XyzTileSourceCatalogItem src = SelectedTileSource;
-                if (!ContainsTileToken(src.UrlTemplate, "z") ||
-                    !ContainsTileToken(src.UrlTemplate, "x") ||
-                    !ContainsTileToken(src.UrlTemplate, "y"))
+                if (!HasUsableTileTokens(src.UrlTemplate))
                 {
                     ShowValidationMessage(
-                        "The selected tile source URL must include {z}, {x}, and {y} tokens.");
+                        "The selected tile source URL must include {z}, {x}, and {y} tokens, or {quadkey} for Bing Maps.");
                     return;
                 }
 
@@ -246,7 +248,8 @@ namespace Land_Readjustment_Tool.UI.Forms
             {
                 lblDownloadStatus.Text = "Tile download failed.";
                 btnImport.Enabled = false;
-                ShowValidationMessage($"Failed to download tiles: {ex.Message}");
+                ShowValidationMessage(
+                    $"Failed to download tiles: {XyzTileErrorMessageBuilder.AddUserGuidance(ex.Message)}");
             }
             finally
             {
@@ -554,12 +557,10 @@ namespace Land_Readjustment_Tool.UI.Forms
             }
 
             XyzTileSourceCatalogItem selectedSource = SelectedTileSource;
-            if (!ContainsTileToken(selectedSource.UrlTemplate, "z") ||
-                !ContainsTileToken(selectedSource.UrlTemplate, "x") ||
-                !ContainsTileToken(selectedSource.UrlTemplate, "y"))
+            if (!HasUsableTileTokens(selectedSource.UrlTemplate))
             {
                 ShowValidationMessage(
-                    "The selected tile source URL must include {z}, {x}, and {y} tokens.");
+                    "The selected tile source URL must include {z}, {x}, and {y} tokens, or {quadkey} for Bing Maps.");
                 return false;
             }
 
@@ -711,7 +712,7 @@ namespace Land_Readjustment_Tool.UI.Forms
 
         /// <summary>
         /// Builds the layer name used after a successful tile download.
-        /// Format: <c>GSat [84.1E 27.3N] Z16 2026-05-04 14:30</c>
+        /// Format: <c>GSat [84.1E 27.3N] Z16</c>
         /// Center is the midpoint of the downloaded bbox.
         /// </summary>
         private static string BuildDownloadedLayerName(
@@ -729,8 +730,7 @@ namespace Land_Readjustment_Tool.UI.Forms
                 : $"{Math.Abs(centerLat):F1}S";
 
             string abbrev = AbbreviateSourceName(sourceName);
-            DateTime now = DateTime.Now;
-            return $"{abbrev} [{lonPart} {latPart}] Z{request.ZoomLevel} {now:yyyy-MM-dd HH:mm}";
+            return $"{abbrev} [{lonPart} {latPart}] Z{request.ZoomLevel}";
         }
 
         /// <summary>
@@ -1021,6 +1021,14 @@ namespace Land_Readjustment_Tool.UI.Forms
         {
             return urlTemplate.Contains($"{{{token}}}", StringComparison.OrdinalIgnoreCase) ||
                    urlTemplate.Contains($"${{{token}}}", StringComparison.OrdinalIgnoreCase);
+        }
+
+        private static bool HasUsableTileTokens(string urlTemplate)
+        {
+            return ContainsTileToken(urlTemplate, "quadkey") ||
+                   (ContainsTileToken(urlTemplate, "z") &&
+                    ContainsTileToken(urlTemplate, "x") &&
+                    ContainsTileToken(urlTemplate, "y"));
         }
 
         private static XyzTileSourceImportRequest CreateImportRequestFromDownloadedTiles(

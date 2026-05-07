@@ -160,12 +160,10 @@ namespace Land_Readjustment_Tool.UI.Forms
                     return false;
                 }
 
-                if (!ContainsTileToken(url, "z") ||
-                    !ContainsTileToken(url, "x") ||
-                    !ContainsTileToken(url, "y"))
+                if (!HasUsableTileTokens(url))
                 {
                     ShowValidationMessage(
-                        $"Tile source '{name}' must include {{z}}, {{x}}, and {{y}} in the URL.");
+                        $"Tile source '{name}' must include {{z}}, {{x}}, and {{y}} in the URL, or {{quadkey}} for Bing Maps.");
                     return false;
                 }
 
@@ -216,6 +214,14 @@ namespace Land_Readjustment_Tool.UI.Forms
         {
             return urlTemplate.Contains($"{{{token}}}", StringComparison.OrdinalIgnoreCase) ||
                    urlTemplate.Contains($"${{{token}}}", StringComparison.OrdinalIgnoreCase);
+        }
+
+        private static bool HasUsableTileTokens(string urlTemplate)
+        {
+            return ContainsTileToken(urlTemplate, "quadkey") ||
+                   (ContainsTileToken(urlTemplate, "z") &&
+                    ContainsTileToken(urlTemplate, "x") &&
+                    ContainsTileToken(urlTemplate, "y"));
         }
 
         private bool IsDesignMode()

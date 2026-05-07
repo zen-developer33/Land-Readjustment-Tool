@@ -277,7 +277,7 @@ namespace Land_Readjustment_Tool.UI.Forms
             _borderColorPanel.Location = new Point(110, 76);
             _borderColorPanel.Margin = new Padding(0);
             _borderColorPanel.Name = "_borderColorPanel";
-            _borderColorPanel.Size = new Size(294, 38);
+            _borderColorPanel.Size = new Size(315, 38);
             _borderColorPanel.TabIndex = 5;
             _borderColorPanel.WrapContents = false;
             // 
@@ -322,7 +322,7 @@ namespace Land_Readjustment_Tool.UI.Forms
             _lineTypePanel.Location = new Point(110, 114);
             _lineTypePanel.Margin = new Padding(0);
             _lineTypePanel.Name = "_lineTypePanel";
-            _lineTypePanel.Size = new Size(294, 38);
+            _lineTypePanel.Size = new Size(315, 38);
             _lineTypePanel.TabIndex = 7;
             _lineTypePanel.WrapContents = false;
             // 
@@ -343,7 +343,7 @@ namespace Land_Readjustment_Tool.UI.Forms
             _lblLineTypeScale.Location = new Point(141, 8);
             _lblLineTypeScale.Margin = new Padding(3, 8, 6, 0);
             _lblLineTypeScale.Name = "_lblLineTypeScale";
-            _lblLineTypeScale.Size = new Size(43, 20);
+            _lblLineTypeScale.Size = new Size(44, 20);
             _lblLineTypeScale.TabIndex = 1;
             _lblLineTypeScale.Text = "Scale";
             // 
@@ -351,9 +351,8 @@ namespace Land_Readjustment_Tool.UI.Forms
             // 
             _numLineTypeScale.DecimalPlaces = 1;
             _numLineTypeScale.Increment = new decimal(new int[] { 1, 0, 0, 65536 });
-            _numLineTypeScale.Location = new Point(193, 4);
+            _numLineTypeScale.Location = new Point(191, 4);
             _numLineTypeScale.Margin = new Padding(0, 4, 0, 4);
-            _numLineTypeScale.Maximum = new decimal(new int[] { 100, 0, 0, 0 });
             _numLineTypeScale.Minimum = new decimal(new int[] { 1, 0, 0, 65536 });
             _numLineTypeScale.Name = "_numLineTypeScale";
             _numLineTypeScale.Size = new Size(70, 27);
@@ -425,7 +424,7 @@ namespace Land_Readjustment_Tool.UI.Forms
             _statePanel.Location = new Point(110, 228);
             _statePanel.Margin = new Padding(0);
             _statePanel.Name = "_statePanel";
-            _statePanel.Size = new Size(294, 39);
+            _statePanel.Size = new Size(315, 39);
             _statePanel.TabIndex = 13;
             // 
             // _chkVisible

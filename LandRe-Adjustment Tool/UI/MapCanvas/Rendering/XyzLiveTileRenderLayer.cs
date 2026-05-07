@@ -1,4 +1,5 @@
 using Land_Readjustment_Tool.Core.Entities.Canvas;
+using Land_Readjustment_Tool.Services.Raster;
 using Land_Readjustment_Tool.UI.MapCanvas.Core;
 using Land_Readjustment_Tool.UI.MapCanvas.Models.Shapes;
 using OSGeo.GDAL;
@@ -14,6 +15,20 @@ using System.Xml;
 
 namespace Land_Readjustment_Tool.UI.MapCanvas.Rendering
 {
+    internal sealed class LiveTileFetchStatusChangedEventArgs : EventArgs
+    {
+        public LiveTileFetchStatusChangedEventArgs(
+            bool isFetching,
+            int pendingTileCount)
+        {
+            IsFetching = isFetching;
+            PendingTileCount = Math.Max(0, pendingTileCount);
+        }
+
+        public bool IsFetching { get; }
+        public int PendingTileCount { get; }
+    }
+
     /// <summary>
     /// Renders a live XYZ/TMS tile layer by fetching tiles on demand from the internet.
     /// Uses an LRU memory cache (512 tiles), a persistent disk cache, a bounded
@@ -33,6 +48,7 @@ namespace Land_Readjustment_Tool.UI.MapCanvas.Rendering
         private const int MaxConcurrentFetches = 6;
         private const int DebounceMilliseconds = 50;
         private const int MaxSupportedZoom = 22;
+        private const int BingLiveMaxFetchZoom = 14;
         private const int ProjectedTileMeshSubdivisions = 4;
         private const int MinFreshTileZoom = 0;
         private const int MaxMosaicMeshSubdivisions = 32;
@@ -47,6 +63,10 @@ namespace Land_Readjustment_Tool.UI.MapCanvas.Rendering
         private static readonly HttpClient SharedHttpClient = CreateSharedHttpClient();
         private static readonly SemaphoreSlim FetchSemaphore =
             new SemaphoreSlim(MaxConcurrentFetches, MaxConcurrentFetches);
+        private static readonly object FetchStatusSync = new();
+        private static int _activeFetchTileCount;
+
+        internal static event EventHandler<LiveTileFetchStatusChangedEventArgs>? FetchStatusChanged;
 
         // ── Per-instance synchronization ───────────────────────────────────────
         /// <summary>
@@ -75,6 +95,7 @@ namespace Land_Readjustment_Tool.UI.MapCanvas.Rendering
         private readonly string _urlTemplate;
         private readonly string _diskCacheRoot;
         private readonly int _maxSourceZoom;
+        private readonly bool _allowParentPlaceholders;
 
         // ── Tile-ready callback ────────────────────────────────────────────────
         private readonly Action? _invalidateCallback;
@@ -115,6 +136,7 @@ namespace Land_Readjustment_Tool.UI.MapCanvas.Rendering
             CoordinateTransformation projectToWebMercator,
             bool projectIsWebMercator,
             int maxSourceZoom,
+            bool allowParentPlaceholders,
             Action? invalidateCallback)
         {
             LayerId = layer.Id;
@@ -131,7 +153,10 @@ namespace Land_Readjustment_Tool.UI.MapCanvas.Rendering
             _webMercatorToProject = webMercatorToProject;
             _projectToWebMercator = projectToWebMercator;
             _projectIsWebMercator = projectIsWebMercator;
-            _maxSourceZoom = Math.Clamp(maxSourceZoom, 0, MaxSupportedZoom);
+            _maxSourceZoom = GetEffectiveMaxSourceZoom(
+                urlTemplate,
+                Math.Clamp(maxSourceZoom, 0, MaxSupportedZoom));
+            _allowParentPlaceholders = allowParentPlaceholders;
             _invalidateCallback = invalidateCallback;
             _debounceTimer = new System.Threading.Timer(
                 OnDebounceElapsed,
@@ -254,6 +279,7 @@ namespace Land_Readjustment_Tool.UI.MapCanvas.Rendering
                 projectToWebMercator,
                 projectIsWebMercator,
                 maxSourceZoom,
+                ShouldAllowParentPlaceholders(urlTemplate),
                 invalidateCallback);
         }
 
@@ -356,7 +382,10 @@ namespace Land_Readjustment_Tool.UI.MapCanvas.Rendering
             // penalised for the timer-system call.
             if (!_disposed)
             {
-                if (!lastInteractive && lastViewportAllowed && !drawnAny)
+                if (_allowParentPlaceholders &&
+                    !lastInteractive &&
+                    lastViewportAllowed &&
+                    !drawnAny)
                 {
                     QueueBootstrapFetch(fetchWebMercatorBounds, fetchZoom);
                 }
@@ -699,11 +728,13 @@ namespace Land_Readjustment_Tool.UI.MapCanvas.Rendering
                             continue;
                         }
 
-                        if (TryGetParentPlaceholder(
+                        if (_allowParentPlaceholders &&
+                            TryGetParentPlaceholder(
                                 key,
                                 maxLevelsUp: 4,
                                 out Bitmap? parentBitmap,
-                                out RectangleF parentSource))
+                                out RectangleF parentSource) &&
+                            parentBitmap != null)
                         {
                             DrawMosaicBitmapRegion(
                                 mosaicGraphics,
@@ -980,7 +1011,8 @@ namespace Land_Readjustment_Tool.UI.MapCanvas.Rendering
 
                     if (!_tileCache.TryGetValue(key, out Bitmap? bitmap))
                     {
-                        if (TryDrawParentTileFallback(
+                        if (_allowParentPlaceholders &&
+                            TryDrawParentTileFallback(
                                 graphics,
                                 engine,
                                 key,
@@ -1409,6 +1441,7 @@ namespace Land_Readjustment_Tool.UI.MapCanvas.Rendering
             IEnumerable<Task> tasks =
                 missing.Select(key => FetchAndCacheTileAsync(key, cancellationToken));
 
+            ReportFetchStatus(tileCountDelta: missing.Count);
             try
             {
                 await Task.WhenAll(tasks).ConfigureAwait(false);
@@ -1421,6 +1454,10 @@ namespace Land_Readjustment_Tool.UI.MapCanvas.Rendering
             {
                 System.Diagnostics.Debug.WriteLine(
                     $"[XyzLiveTileRenderLayer] Tile batch error: {ex.Message}");
+            }
+            finally
+            {
+                ReportFetchStatus(tileCountDelta: -missing.Count);
             }
         }
 
@@ -2199,10 +2236,51 @@ namespace Land_Readjustment_Tool.UI.MapCanvas.Rendering
         // ── URL construction ───────────────────────────────────────────────────
 
         private string BuildTileUrl(TileKey key) =>
-            _urlTemplate
-                .Replace("${z}", key.Z.ToString(CultureInfo.InvariantCulture), StringComparison.Ordinal)
-                .Replace("${x}", key.X.ToString(CultureInfo.InvariantCulture), StringComparison.Ordinal)
-                .Replace("${y}", key.Y.ToString(CultureInfo.InvariantCulture), StringComparison.Ordinal);
+            BuildTileUrl(_urlTemplate, key.Z, key.X, key.Y);
+
+        private static string BuildTileUrl(
+            string urlTemplate,
+            int zoom,
+            int tileX,
+            int tileY)
+        {
+            string url = urlTemplate;
+            if (ContainsTileToken(url, "quadkey"))
+            {
+                string quadkey = QuadkeyConverter.TileXYToQuadkey(
+                    tileX,
+                    tileY,
+                    zoom);
+                url = ReplaceTileToken(url, "quadkey", quadkey);
+            }
+
+            return ReplaceTileToken(
+                ReplaceTileToken(
+                    ReplaceTileToken(
+                        url,
+                        "z",
+                        zoom.ToString(CultureInfo.InvariantCulture)),
+                    "x",
+                    tileX.ToString(CultureInfo.InvariantCulture)),
+                "y",
+                tileY.ToString(CultureInfo.InvariantCulture));
+        }
+
+        private static bool ContainsTileToken(string urlTemplate, string token)
+        {
+            return urlTemplate.Contains($"${{{token}}}", StringComparison.OrdinalIgnoreCase) ||
+                   urlTemplate.Contains($"{{{token}}}", StringComparison.OrdinalIgnoreCase);
+        }
+
+        private static string ReplaceTileToken(
+            string value,
+            string token,
+            string replacement)
+        {
+            return value
+                .Replace($"${{{token}}}", replacement, StringComparison.OrdinalIgnoreCase)
+                .Replace($"{{{token}}}", replacement, StringComparison.OrdinalIgnoreCase);
+        }
 
         // ── Static initialization helpers ──────────────────────────────────────
 
@@ -2389,9 +2467,62 @@ namespace Land_Readjustment_Tool.UI.MapCanvas.Rendering
 
         private static string BuildDiskCacheRoot(string urlTemplate)
         {
-            byte[] hash = SHA256.HashData(Encoding.UTF8.GetBytes(urlTemplate));
+            string cacheIdentity = BuildDiskCacheIdentity(urlTemplate);
+            byte[] hash = SHA256.HashData(Encoding.UTF8.GetBytes(cacheIdentity));
             string prefix = Convert.ToHexString(hash, 0, 8).ToLowerInvariant();
             return Path.Combine(Path.GetTempPath(), "replot-live-tiles", prefix);
+        }
+
+        private static string BuildDiskCacheIdentity(string urlTemplate)
+        {
+            string normalized = urlTemplate.Trim();
+            string zoomPolicy = IsBingTileSource(normalized)
+                ? $"bing-overzoom-max-z{BingLiveMaxFetchZoom}"
+                : "exact-web-mercator-live-cache-v1";
+
+            return $"{normalized}|{zoomPolicy}";
+        }
+
+        private static bool ShouldAllowParentPlaceholders(string urlTemplate)
+        {
+            // Live imagery layers must not mix parent/lower-zoom tiles into the
+            // current viewport mosaic. Different zoom levels can be cut from
+            // different imagery, which makes Bing/Esri basemaps look block-shifted.
+            return false;
+        }
+
+        private static int GetEffectiveMaxSourceZoom(
+            string urlTemplate,
+            int requestedMaxZoom)
+        {
+            int clampedMaxZoom = Math.Clamp(requestedMaxZoom, 0, MaxSupportedZoom);
+            return IsBingTileSource(urlTemplate)
+                ? Math.Min(clampedMaxZoom, BingLiveMaxFetchZoom)
+                : clampedMaxZoom;
+        }
+
+        private static bool IsBingTileSource(string urlTemplate)
+        {
+            return urlTemplate.Contains(
+                       "virtualearth.net",
+                       StringComparison.OrdinalIgnoreCase) ||
+                   ContainsTileToken(urlTemplate, "quadkey");
+        }
+
+        private static void ReportFetchStatus(int tileCountDelta)
+        {
+            LiveTileFetchStatusChangedEventArgs status;
+            lock (FetchStatusSync)
+            {
+                _activeFetchTileCount = Math.Max(
+                    0,
+                    _activeFetchTileCount + tileCountDelta);
+                status = new LiveTileFetchStatusChangedEventArgs(
+                    _activeFetchTileCount > 0,
+                    _activeFetchTileCount);
+            }
+
+            FetchStatusChanged?.Invoke(null, status);
         }
 
         private static RectangleD BuildWorldBounds(
