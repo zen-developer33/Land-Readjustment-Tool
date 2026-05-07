@@ -244,15 +244,7 @@ namespace Land_Readjustment_Tool
             _liveTileFetchStatus.Visible = true;
             _liveTileFetchStatus.Image = _liveTileStaticGlobe;
 
-            int coordinateIndex = statusCanvas.Items.IndexOf(lblCanvasCoordinates);
-            if (coordinateIndex >= 0)
-            {
-                statusCanvas.Items.Insert(coordinateIndex, _liveTileFetchStatus);
-            }
-            else
-            {
-                statusCanvas.Items.Add(_liveTileFetchStatus);
-            }
+            PlaceLiveTileFetchStatusLeftOfCoordinates();
 
             _liveTileFetchTimer.Interval = 110;
             _liveTileFetchTimer.Tick += (_, _) =>
@@ -267,6 +259,25 @@ namespace Land_Readjustment_Tool
                 _liveTileFetchStatus.Image =
                     _liveTileFetchFrames[_liveTileFetchFrameIndex];
             };
+        }
+
+        private void PlaceLiveTileFetchStatusLeftOfCoordinates()
+        {
+            if (statusCanvas.Items.Contains(_liveTileFetchStatus))
+            {
+                statusCanvas.Items.Remove(_liveTileFetchStatus);
+            }
+
+            int coordinateIndex = statusCanvas.Items.IndexOf(lblCanvasCoordinates);
+            if (coordinateIndex >= 0)
+            {
+                // Right-aligned StatusStrip items are arranged right-to-left.
+                // Inserting after the coordinate item renders the globe to its left.
+                statusCanvas.Items.Insert(coordinateIndex + 1, _liveTileFetchStatus);
+                return;
+            }
+
+            statusCanvas.Items.Add(_liveTileFetchStatus);
         }
 
         private static List<Image> CreateEarthSpinnerFrames()
@@ -4848,6 +4859,7 @@ namespace Land_Readjustment_Tool
 
             _liveTileFetchStatus.Text = string.Empty;
             _liveTileFetchStatus.Visible = true;
+            PlaceLiveTileFetchStatusLeftOfCoordinates();
 
             if (e.IsFetching)
             {

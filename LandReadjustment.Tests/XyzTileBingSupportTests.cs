@@ -144,10 +144,10 @@ public sealed class XyzTileBingSupportTests : IDisposable
     }
 
     [Theory]
-    [InlineData("http://ecn.t3.tiles.virtualearth.net/tiles/a${quadkey}.jpeg?g=1", false)]
-    [InlineData("https://services.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/${z}/${y}/${x}", false)]
-    [InlineData("https://tile.openstreetmap.org/${z}/${x}/${y}.png", false)]
-    public void LiveTileRendererShouldAllowParentPlaceholders_DisablesCrossZoomFallbackForLiveSources(
+    [InlineData("http://ecn.t3.tiles.virtualearth.net/tiles/a${quadkey}.jpeg?g=1", true)]
+    [InlineData("https://services.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/${z}/${y}/${x}", true)]
+    [InlineData("https://tile.openstreetmap.org/${z}/${x}/${y}.png", true)]
+    public void LiveTileRendererShouldAllowParentPlaceholders_AllowsCompleteCachedParentFallback(
         string urlTemplate,
         bool expected)
     {

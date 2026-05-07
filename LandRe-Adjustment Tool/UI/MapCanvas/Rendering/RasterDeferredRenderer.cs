@@ -47,7 +47,7 @@ namespace Land_Readjustment_Tool.UI.MapCanvas.Rendering
             }
         }
 
-        public void RenderNow(
+        public bool RenderNow(
             Size canvasSize,
             IReadOnlyList<IRasterRenderLayer> rasterLayers,
             MapCanvasEngine engine,
@@ -60,22 +60,22 @@ namespace Land_Readjustment_Tool.UI.MapCanvas.Rendering
                 cancellationToken);
 
             if (renderResult == null)
-                return;
+                return false;
 
             bool swapped = false;
             try
             {
                 if (cancellationToken.IsCancellationRequested)
-                    return;
+                    return false;
 
                 lock (_sync)
                 {
                     if (cancellationToken.IsCancellationRequested)
-                        return;
+                        return false;
 
                     if (_disposed)
                     {
-                        return;
+                        return false;
                     }
 
                     ResizeCore(ClampSize(canvasSize));
@@ -89,6 +89,7 @@ namespace Land_Readjustment_Tool.UI.MapCanvas.Rendering
                     _zoomStartView = null;
                     RetireBitmap(previousCache);
                     RetireLayerCaches(previousLayerCaches);
+                    return true;
                 }
             }
             finally
@@ -160,7 +161,7 @@ namespace Land_Readjustment_Tool.UI.MapCanvas.Rendering
             }
         }
 
-        public Task RenderAsync(
+        public Task<bool> RenderAsync(
             Size canvasSize,
             IReadOnlyList<IRasterRenderLayer> rasterLayers,
             MapCanvasEngine engine,
@@ -416,6 +417,12 @@ namespace Land_Readjustment_Tool.UI.MapCanvas.Rendering
                             {
                                 graphics.DrawImageUnscaled(layerBitmap, 0, 0);
                                 layerCaches[rasterLayer.LayerId] = layerBitmap;
+                            }
+                            else if (rasterLayer is XyzLiveTileRenderLayer)
+                            {
+                                compositeBitmap.Dispose();
+                                DisposeLayerCaches(layerCaches);
+                                return null;
                             }
                         }
                         finally

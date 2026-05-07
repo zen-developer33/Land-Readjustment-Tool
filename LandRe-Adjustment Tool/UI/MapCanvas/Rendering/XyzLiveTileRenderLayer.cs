@@ -120,6 +120,7 @@ namespace Land_Readjustment_Tool.UI.MapCanvas.Rendering
 
         private bool _lastRenderInteractive;
         private bool _lastViewportAllowed;
+        private bool _internetFetchSuspended;
 
         // ── Dispose guard ──────────────────────────────────────────────────────
         private volatile bool _disposed;
@@ -297,6 +298,7 @@ namespace Land_Readjustment_Tool.UI.MapCanvas.Rendering
             int fetchZoom = 0;
             bool lastInteractive = interactive;
             bool lastViewportAllowed = false;
+            bool fetchSuspended = false;
 
             lock (_renderSync)
             {
@@ -311,6 +313,7 @@ namespace Land_Readjustment_Tool.UI.MapCanvas.Rendering
 
                 _lastRenderInteractive = interactive;
                 _lastViewportAllowed = false;
+                fetchSuspended = _internetFetchSuspended;
 
                 if (interactive && !_viewportCts.IsCancellationRequested)
                 {
@@ -380,7 +383,7 @@ namespace Land_Readjustment_Tool.UI.MapCanvas.Rendering
 
             // Arm the debounce timer outside the lock so the render thread is not
             // penalised for the timer-system call.
-            if (!_disposed)
+            if (!_disposed && !fetchSuspended)
             {
                 if (_allowParentPlaceholders &&
                     !lastInteractive &&
@@ -636,6 +639,39 @@ namespace Land_Readjustment_Tool.UI.MapCanvas.Rendering
             oldCts.Dispose();
         }
 
+        public void SetInternetFetchingSuspended(bool suspended)
+        {
+            if (_disposed)
+            {
+                return;
+            }
+
+            CancellationTokenSource? oldCts = null;
+            lock (_renderSync)
+            {
+                if (_internetFetchSuspended == suspended)
+                {
+                    return;
+                }
+
+                _internetFetchSuspended = suspended;
+                if (suspended)
+                {
+                    _debounceTimer.Change(Timeout.Infinite, Timeout.Infinite);
+                    oldCts = _viewportCts;
+                    _viewportCts = new CancellationTokenSource();
+                    _lastRenderInteractive = true;
+                    _lastViewportAllowed = false;
+                }
+            }
+
+            if (oldCts != null)
+            {
+                oldCts.Cancel();
+                oldCts.Dispose();
+            }
+        }
+
         public void Dispose()
         {
             if (_disposed)
@@ -682,6 +718,7 @@ namespace Land_Readjustment_Tool.UI.MapCanvas.Rendering
 
             int mosaicWidth = columns * TilePixelSize;
             int mosaicHeight = rows * TilePixelSize;
+            bool allCellsCovered = true;
             using Bitmap mosaic = new(
                 mosaicWidth,
                 mosaicHeight,
@@ -715,9 +752,9 @@ namespace Land_Readjustment_Tool.UI.MapCanvas.Rendering
                             TilePixelSize,
                             TilePixelSize);
 
-                        if (_tileCache.TryGetValue(key, out Bitmap? bitmap))
+                        if (TryGetCachedTileBitmap(key, out Bitmap? bitmap) &&
+                            bitmap != null)
                         {
-                            TouchTile(key);
                             DrawMosaicBitmapRegion(
                                 mosaicGraphics,
                                 bitmap,
@@ -743,12 +780,15 @@ namespace Land_Readjustment_Tool.UI.MapCanvas.Rendering
                                 parentSource,
                                 smooth: true);
                             hasPixels = true;
+                            continue;
                         }
+
+                        allCellsCovered = false;
                     }
                 }
             }
 
-            if (!hasPixels)
+            if (!hasPixels || !allCellsCovered)
             {
                 return false;
             }
@@ -1201,12 +1241,12 @@ namespace Land_Readjustment_Tool.UI.MapCanvas.Rendering
                     parentZoom,
                     missingKey.X / factor,
                     missingKey.Y / factor);
-                if (!_tileCache.TryGetValue(parentKey, out Bitmap? parentBitmap))
+                if (!TryGetCachedTileBitmap(parentKey, out Bitmap? parentBitmap) ||
+                    parentBitmap == null)
                 {
                     continue;
                 }
 
-                TouchTile(parentKey);
                 float sourceWidth = parentBitmap.Width / (float)factor;
                 float sourceHeight = parentBitmap.Height / (float)factor;
                 int offsetX = missingKey.X % factor;
@@ -1286,6 +1326,12 @@ namespace Land_Readjustment_Tool.UI.MapCanvas.Rendering
             lock (_renderSync)
             {
                 if (_disposed)
+                {
+                    newCts.Dispose();
+                    return;
+                }
+
+                if (_internetFetchSuspended)
                 {
                     newCts.Dispose();
                     return;
@@ -1418,7 +1464,7 @@ namespace Land_Readjustment_Tool.UI.MapCanvas.Rendering
                         }
 
                         TileKey key = new TileKey(zoom, x, y);
-                        if (!_tileCache.ContainsKey(key) &&
+                        if (!TryGetCachedTileBitmap(key, out _) &&
                             !_noDataTiles.Contains(key) &&
                             _pendingFetches.Add(key))
                         {
@@ -2125,6 +2171,52 @@ namespace Land_Readjustment_Tool.UI.MapCanvas.Rendering
             _tileLru.AddLast(node);
         }
 
+        private bool TryGetCachedTileBitmap(TileKey key, out Bitmap? bitmap)
+        {
+            if (_tileCache.TryGetValue(key, out bitmap))
+            {
+                TouchTile(key);
+                return true;
+            }
+
+            if (_noDataTiles.Contains(key))
+            {
+                bitmap = null;
+                return false;
+            }
+
+            byte[]? bytes = TryReadDiskCache(key);
+            if (bytes == null || bytes.Length == 0)
+            {
+                bitmap = null;
+                return false;
+            }
+
+            Bitmap? decoded = DecodeTileBitmap(bytes);
+            if (decoded == null)
+            {
+                bitmap = null;
+                return false;
+            }
+
+            if (IsLikelyNoDataTile(decoded))
+            {
+                decoded.Dispose();
+                TryDeleteDiskCache(key);
+                _noDataTiles.Add(key);
+                bitmap = null;
+                return false;
+            }
+
+            _tileCache[key] = decoded;
+            _noDataTiles.Remove(key);
+            LinkedListNode<TileKey> node = _tileLru.AddLast(key);
+            _tileLruNodes[key] = node;
+            TrimTileCache();
+            bitmap = decoded;
+            return true;
+        }
+
         private void TrimTileCache()
         {
             while (_tileCache.Count > MaxCachedTiles && _tileLru.First != null)
@@ -2485,10 +2577,9 @@ namespace Land_Readjustment_Tool.UI.MapCanvas.Rendering
 
         private static bool ShouldAllowParentPlaceholders(string urlTemplate)
         {
-            // Live imagery layers must not mix parent/lower-zoom tiles into the
-            // current viewport mosaic. Different zoom levels can be cut from
-            // different imagery, which makes Bing/Esri basemaps look block-shifted.
-            return false;
+            // Parent tiles are only accepted when they cover the whole missing
+            // visible mosaic; partial parent/exact mixes are rejected by the draw path.
+            return true;
         }
 
         private static int GetEffectiveMaxSourceZoom(
