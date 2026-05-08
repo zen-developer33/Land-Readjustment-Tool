@@ -16,7 +16,7 @@ namespace Land_Readjustment_Tool.Migrations
         protected override void BuildModel(ModelBuilder modelBuilder)
         {
 #pragma warning disable 612, 618
-            modelBuilder.HasAnnotation("ProductVersion", "10.0.3");
+            modelBuilder.HasAnnotation("ProductVersion", "10.0.7");
 
             modelBuilder.Entity("Land_Readjustment_Tool.Core.Entities.Canvas.CanvasLayer", b =>
                 {
@@ -49,6 +49,9 @@ namespace Land_Readjustment_Tool.Migrations
 
                     b.Property<string>("HatchPattern")
                         .HasColumnType("TEXT");
+
+                    b.Property<double>("HatchScale")
+                        .HasColumnType("REAL");
 
                     b.Property<DateTime?>("ImportedDate")
                         .HasColumnType("TEXT");
@@ -988,10 +991,6 @@ namespace Land_Readjustment_Tool.Migrations
                     b.Property<bool>("CanvasGridVisible")
                         .HasColumnType("INTEGER");
 
-                    b.Property<string>("CanvasZoomBehavior")
-                        .IsRequired()
-                        .HasColumnType("TEXT");
-
                     b.Property<double?>("CanvasViewportCenterX")
                         .HasColumnType("REAL");
 
@@ -1006,6 +1005,10 @@ namespace Land_Readjustment_Tool.Migrations
 
                     b.Property<double?>("CanvasViewportZoomScale")
                         .HasColumnType("REAL");
+
+                    b.Property<string>("CanvasZoomBehavior")
+                        .IsRequired()
+                        .HasColumnType("TEXT");
 
                     b.Property<int?>("CoordinateSystemId")
                         .HasColumnType("INTEGER");

@@ -8,6 +8,7 @@ using System.Drawing.Drawing2D;
 using System.Drawing.Imaging;
 using System.Globalization;
 using System.Net;
+using System.Net.NetworkInformation;
 using System.Runtime.InteropServices;
 using System.Security.Cryptography;
 using System.Text;
@@ -15,17 +16,37 @@ using System.Xml;
 
 namespace Land_Readjustment_Tool.UI.MapCanvas.Rendering
 {
+    internal enum LiveTileFetchStatusKind
+    {
+        Idle,
+        Fetching,
+        Disconnected
+    }
+
     internal sealed class LiveTileFetchStatusChangedEventArgs : EventArgs
     {
         public LiveTileFetchStatusChangedEventArgs(
             bool isFetching,
             int pendingTileCount)
+            : this(
+                isFetching
+                    ? LiveTileFetchStatusKind.Fetching
+                    : LiveTileFetchStatusKind.Idle,
+                pendingTileCount)
         {
-            IsFetching = isFetching;
+        }
+
+        public LiveTileFetchStatusChangedEventArgs(
+            LiveTileFetchStatusKind statusKind,
+            int pendingTileCount)
+        {
+            StatusKind = statusKind;
             PendingTileCount = Math.Max(0, pendingTileCount);
         }
 
-        public bool IsFetching { get; }
+        public LiveTileFetchStatusKind StatusKind { get; }
+        public bool IsFetching => StatusKind == LiveTileFetchStatusKind.Fetching;
+        public bool IsDisconnected => StatusKind == LiveTileFetchStatusKind.Disconnected;
         public int PendingTileCount { get; }
     }
 
@@ -48,6 +69,8 @@ namespace Land_Readjustment_Tool.UI.MapCanvas.Rendering
         private const int MaxConcurrentFetches = 6;
         private const int DebounceMilliseconds = 50;
         private const int FetchCompleteQuietMilliseconds = 500;
+        private const int InternetProbeTimeoutMilliseconds = 2500;
+        private const int InternetConnectivityCacheMilliseconds = 6000;
         private const int MaxSupportedZoom = 22;
         private const int BingLiveMaxFetchZoom = 14;
         private const int ProjectedTileMeshSubdivisions = 4;
@@ -65,10 +88,18 @@ namespace Land_Readjustment_Tool.UI.MapCanvas.Rendering
         private static readonly SemaphoreSlim FetchSemaphore =
             new SemaphoreSlim(MaxConcurrentFetches, MaxConcurrentFetches);
         private static readonly object FetchStatusSync = new();
+        private static readonly object InternetConnectivitySync = new();
         private static readonly System.Threading.Timer FetchCompleteQuietTimer =
             new(OnFetchCompleteQuietElapsed, state: null, Timeout.Infinite, Timeout.Infinite);
+        private static readonly Uri[] InternetProbeUris =
+        [
+            new("https://www.msftconnecttest.com/connecttest.txt"),
+            new("https://www.google.com/generate_204")
+        ];
         private static int _activeFetchTileCount;
         private static bool _fetchStatusReportedFetching;
+        private static DateTime _lastInternetConnectivityCheckUtc = DateTime.MinValue;
+        private static bool _lastInternetConnectivityAvailable = true;
 
         internal static event EventHandler<LiveTileFetchStatusChangedEventArgs>? FetchStatusChanged;
 
@@ -91,9 +122,10 @@ namespace Land_Readjustment_Tool.UI.MapCanvas.Rendering
         private readonly Dictionary<TileKey, Bitmap> _tileCache = [];
         private readonly LinkedList<TileKey> _tileLru = [];
         private readonly Dictionary<TileKey, LinkedListNode<TileKey>> _tileLruNodes = [];
-        private readonly HashSet<TileKey> _pendingFetches = [];
+        private readonly Dictionary<TileKey, int> _pendingFetches = [];
         private readonly HashSet<TileKey> _noDataTiles = [];
         private readonly Dictionary<TileKey, RectangleD> _projectTileBoundsCache = [];
+        private int _pendingFetchGeneration;
 
         // ── Tile source ────────────────────────────────────────────────────────
         private readonly string _urlTemplate;
@@ -473,6 +505,8 @@ namespace Land_Readjustment_Tool.UI.MapCanvas.Rendering
             Size canvasSize,
             CancellationToken cancellationToken)
         {
+            cancellationToken.ThrowIfCancellationRequested();
+
             // Allocate or resize the offscreen bitmap to match the canvas.
             if (_compositeBitmap == null ||
                 _compositeBitmap.Width != canvasSize.Width ||
@@ -510,6 +544,8 @@ namespace Land_Readjustment_Tool.UI.MapCanvas.Rendering
                         cg, engine, visibleWorldBounds, tileRange, cancellationToken);
                 }
 
+                cancellationToken.ThrowIfCancellationRequested();
+
                 // Store the viewport reference so interactive frames can remap it.
                 if (drawnAny)
                 {
@@ -528,6 +564,7 @@ namespace Land_Readjustment_Tool.UI.MapCanvas.Rendering
                     graphics.CompositingQuality = CompositingQuality.HighQuality;
                     graphics.InterpolationMode = InterpolationMode.HighQualityBicubic;
                     graphics.PixelOffsetMode = PixelOffsetMode.HighQuality;
+                    cancellationToken.ThrowIfCancellationRequested();
                     graphics.DrawImageUnscaled(_compositeBitmap, 0, 0);
                 }
                 finally
@@ -637,6 +674,8 @@ namespace Land_Readjustment_Tool.UI.MapCanvas.Rendering
                 _viewportCts = new CancellationTokenSource();
                 _lastRenderInteractive = true;
                 _lastViewportAllowed = false;
+                _pendingFetches.Clear();
+                _pendingFetchGeneration++;
             }
 
             oldCts.Cancel();
@@ -666,6 +705,8 @@ namespace Land_Readjustment_Tool.UI.MapCanvas.Rendering
                     _viewportCts = new CancellationTokenSource();
                     _lastRenderInteractive = true;
                     _lastViewportAllowed = false;
+                    _pendingFetches.Clear();
+                    _pendingFetchGeneration++;
                 }
             }
 
@@ -797,19 +838,25 @@ namespace Land_Readjustment_Tool.UI.MapCanvas.Rendering
                 return false;
             }
 
+            cancellationToken.ThrowIfCancellationRequested();
+
             return DrawMosaicSurface(
                 graphics,
                 engine,
                 mosaic,
-                GetWebMercatorTileRangeBounds(tileRange));
+                GetWebMercatorTileRangeBounds(tileRange),
+                cancellationToken);
         }
 
         private bool DrawMosaicSurface(
             Graphics graphics,
             MapCanvasEngine engine,
             Bitmap mosaic,
-            RectangleD webMercatorBounds)
+            RectangleD webMercatorBounds,
+            CancellationToken cancellationToken)
         {
+            cancellationToken.ThrowIfCancellationRequested();
+
             RectangleF source = new(0, 0, mosaic.Width, mosaic.Height);
             if (_projectIsWebMercator)
             {
@@ -832,15 +879,19 @@ namespace Land_Readjustment_Tool.UI.MapCanvas.Rendering
                 graphics,
                 engine,
                 mosaic,
-                webMercatorBounds);
+                webMercatorBounds,
+                cancellationToken);
         }
 
         private bool DrawWarpedMosaicSurface(
             Graphics graphics,
             MapCanvasEngine engine,
             Bitmap mosaic,
-            RectangleD webMercatorBounds)
+            RectangleD webMercatorBounds,
+            CancellationToken cancellationToken)
         {
+            cancellationToken.ThrowIfCancellationRequested();
+
             Size canvasSize = engine.CanvasSize;
             if (canvasSize.Width <= 0 || canvasSize.Height <= 0)
             {
@@ -869,6 +920,7 @@ namespace Land_Readjustment_Tool.UI.MapCanvas.Rendering
             try
             {
                 Marshal.Copy(sourceData.Scan0, sourcePixels, 0, sourcePixels.Length);
+                cancellationToken.ThrowIfCancellationRequested();
                 FillWarpedMosaicPixels(
                     sourcePixels,
                     sourceStride,
@@ -879,7 +931,9 @@ namespace Land_Readjustment_Tool.UI.MapCanvas.Rendering
                     warped.Width,
                     warped.Height,
                     engine,
-                    webMercatorBounds);
+                    webMercatorBounds,
+                    cancellationToken);
+                cancellationToken.ThrowIfCancellationRequested();
                 Marshal.Copy(targetPixels, 0, targetData.Scan0, targetPixels.Length);
             }
             finally
@@ -895,6 +949,7 @@ namespace Land_Readjustment_Tool.UI.MapCanvas.Rendering
                 graphics.CompositingQuality = CompositingQuality.HighSpeed;
                 graphics.InterpolationMode = InterpolationMode.NearestNeighbor;
                 graphics.PixelOffsetMode = PixelOffsetMode.None;
+                cancellationToken.ThrowIfCancellationRequested();
                 graphics.DrawImageUnscaled(warped, 0, 0);
             }
             finally
@@ -915,7 +970,8 @@ namespace Land_Readjustment_Tool.UI.MapCanvas.Rendering
             int targetWidth,
             int targetHeight,
             MapCanvasEngine engine,
-            RectangleD webMercatorBounds)
+            RectangleD webMercatorBounds,
+            CancellationToken cancellationToken)
         {
             const int cellSize = 24;
             double sourceMinX = MinX(webMercatorBounds);
@@ -927,6 +983,8 @@ namespace Land_Readjustment_Tool.UI.MapCanvas.Rendering
 
             for (int cellTop = 0; cellTop < targetHeight; cellTop += cellSize)
             {
+                cancellationToken.ThrowIfCancellationRequested();
+
                 int cellBottom = Math.Min(targetHeight, cellTop + cellSize);
                 for (int cellLeft = 0; cellLeft < targetWidth; cellLeft += cellSize)
                 {
@@ -944,6 +1002,8 @@ namespace Land_Readjustment_Tool.UI.MapCanvas.Rendering
 
                     for (int y = cellTop; y < cellBottom; y++)
                     {
+                        cancellationToken.ThrowIfCancellationRequested();
+
                         double v = (y - cellTop + 0.5) * invHeight;
                         double leftX = Lerp(wm00.X, wm01.X, v);
                         double leftY = Lerp(wm00.Y, wm01.Y, v);
@@ -1401,6 +1461,17 @@ namespace Land_Readjustment_Tool.UI.MapCanvas.Rendering
             RectangleD webMercatorBounds,
             int desiredZoom)
         {
+            CancellationToken cancellationToken;
+            lock (_renderSync)
+            {
+                if (_disposed || _internetFetchSuspended)
+                {
+                    return;
+                }
+
+                cancellationToken = _viewportCts.Token;
+            }
+
             int bootstrapZoom = SelectBootstrapZoom(
                 webMercatorBounds,
                 desiredZoom);
@@ -1412,7 +1483,7 @@ namespace Land_Readjustment_Tool.UI.MapCanvas.Rendering
             _ = FetchMissingTilesAsync(
                 webMercatorBounds,
                 bootstrapZoom,
-                CancellationToken.None,
+                cancellationToken,
                 MaxBootstrapTilesPerFrame);
         }
 
@@ -1455,9 +1526,11 @@ namespace Land_Readjustment_Tool.UI.MapCanvas.Rendering
             }
 
             List<TileKey> missing = [];
+            int pendingGeneration;
 
             lock (_renderSync)
             {
+                pendingGeneration = _pendingFetchGeneration;
                 for (int y = tileRange.MinY; y <= tileRange.MaxY; y++)
                 {
                     for (int x = tileRange.MinX; x <= tileRange.MaxX; x++)
@@ -1470,8 +1543,9 @@ namespace Land_Readjustment_Tool.UI.MapCanvas.Rendering
                         TileKey key = new TileKey(zoom, x, y);
                         if (!TryGetCachedTileBitmap(key, out _) &&
                             !_noDataTiles.Contains(key) &&
-                            _pendingFetches.Add(key))
+                            !_pendingFetches.ContainsKey(key))
                         {
+                            _pendingFetches[key] = pendingGeneration;
                             missing.Add(key);
                         }
                     }
@@ -1485,11 +1559,39 @@ namespace Land_Readjustment_Tool.UI.MapCanvas.Rendering
 
             if (missing.Count == 0 || cancellationToken.IsCancellationRequested)
             {
+                if (cancellationToken.IsCancellationRequested)
+                {
+                    RemovePendingFetches(missing, pendingGeneration);
+                }
+
+                return;
+            }
+
+            bool internetAvailable;
+            try
+            {
+                internetAvailable = await HasInternetConnectionAsync(cancellationToken)
+                    .ConfigureAwait(false);
+            }
+            catch (OperationCanceledException)
+            {
+                RemovePendingFetches(missing, pendingGeneration);
+                return;
+            }
+
+            if (!internetAvailable)
+            {
+                RemovePendingFetches(missing, pendingGeneration);
+                ReportFetchDisconnected();
                 return;
             }
 
             IEnumerable<Task> tasks =
-                missing.Select(key => FetchAndCacheTileAsync(key, cancellationToken));
+                missing.Select(key =>
+                    FetchAndCacheTileAsync(
+                        key,
+                        pendingGeneration,
+                        cancellationToken));
 
             ReportFetchStatus(tileCountDelta: missing.Count);
             try
@@ -1511,8 +1613,100 @@ namespace Land_Readjustment_Tool.UI.MapCanvas.Rendering
             }
         }
 
+        private void RemovePendingFetches(
+            IEnumerable<TileKey> keys,
+            int pendingGeneration)
+        {
+            lock (_renderSync)
+            {
+                foreach (TileKey key in keys)
+                {
+                    if (_pendingFetches.TryGetValue(
+                            key,
+                            out int registeredGeneration) &&
+                        registeredGeneration == pendingGeneration)
+                    {
+                        _pendingFetches.Remove(key);
+                    }
+                }
+            }
+        }
+
+        private static async Task<bool> HasInternetConnectionAsync(CancellationToken cancellationToken)
+        {
+            if (!NetworkInterface.GetIsNetworkAvailable())
+            {
+                UpdateInternetConnectivityCache(false);
+                return false;
+            }
+
+            DateTime nowUtc = DateTime.UtcNow;
+            lock (InternetConnectivitySync)
+            {
+                if ((nowUtc - _lastInternetConnectivityCheckUtc).TotalMilliseconds <
+                    InternetConnectivityCacheMilliseconds)
+                {
+                    return _lastInternetConnectivityAvailable;
+                }
+            }
+
+            foreach (Uri probeUri in InternetProbeUris)
+            {
+                cancellationToken.ThrowIfCancellationRequested();
+
+                using CancellationTokenSource timeoutCts =
+                    CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
+                timeoutCts.CancelAfter(InternetProbeTimeoutMilliseconds);
+
+                try
+                {
+                    using HttpRequestMessage request = new(HttpMethod.Get, probeUri);
+                    request.Headers.CacheControl = new()
+                    {
+                        NoCache = true
+                    };
+
+                    using HttpResponseMessage response =
+                        await SharedHttpClient
+                            .SendAsync(
+                                request,
+                                HttpCompletionOption.ResponseHeadersRead,
+                                timeoutCts.Token)
+                            .ConfigureAwait(false);
+
+                    bool available = (int)response.StatusCode < 500;
+                    if (available)
+                    {
+                        UpdateInternetConnectivityCache(true);
+                        return true;
+                    }
+                }
+                catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
+                {
+                    throw;
+                }
+                catch
+                {
+                    // Try the next connectivity endpoint before deciding the machine is offline.
+                }
+            }
+
+            UpdateInternetConnectivityCache(false);
+            return false;
+        }
+
+        private static void UpdateInternetConnectivityCache(bool available)
+        {
+            lock (InternetConnectivitySync)
+            {
+                _lastInternetConnectivityAvailable = available;
+                _lastInternetConnectivityCheckUtc = DateTime.UtcNow;
+            }
+        }
+
         private async Task FetchAndCacheTileAsync(
             TileKey key,
+            int pendingGeneration,
             CancellationToken cancellationToken)
         {
             Bitmap? bitmap = null;
@@ -1631,7 +1825,13 @@ namespace Land_Readjustment_Tool.UI.MapCanvas.Rendering
             {
                 lock (_renderSync)
                 {
-                    _pendingFetches.Remove(key);
+                    if (_pendingFetches.TryGetValue(
+                            key,
+                            out int registeredGeneration) &&
+                        registeredGeneration == pendingGeneration)
+                    {
+                        _pendingFetches.Remove(key);
+                    }
                 }
             }
         }
@@ -2265,6 +2465,7 @@ namespace Land_Readjustment_Tool.UI.MapCanvas.Rendering
             _tileLru.Clear();
             _tileLruNodes.Clear();
             _pendingFetches.Clear();
+            _pendingFetchGeneration++;
             _noDataTiles.Clear();
             _projectTileBoundsCache.Clear();
 
@@ -2641,6 +2842,28 @@ namespace Land_Readjustment_Tool.UI.MapCanvas.Rendering
             {
                 FetchStatusChanged?.Invoke(null, status);
             }
+        }
+
+        private static void ReportFetchDisconnected()
+        {
+            LiveTileFetchStatusChangedEventArgs status;
+            lock (FetchStatusSync)
+            {
+                FetchCompleteQuietTimer.Change(
+                    Timeout.Infinite,
+                    Timeout.Infinite);
+
+                if (_activeFetchTileCount == 0)
+                {
+                    _fetchStatusReportedFetching = false;
+                }
+
+                status = new LiveTileFetchStatusChangedEventArgs(
+                    LiveTileFetchStatusKind.Disconnected,
+                    pendingTileCount: 0);
+            }
+
+            FetchStatusChanged?.Invoke(null, status);
         }
 
         private static void OnFetchCompleteQuietElapsed(object? state)

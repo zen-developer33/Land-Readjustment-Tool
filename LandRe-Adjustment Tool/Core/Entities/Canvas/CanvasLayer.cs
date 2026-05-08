@@ -59,6 +59,9 @@ namespace Land_Readjustment_Tool.Core.Entities.Canvas
         // e.g. "ANSI31", "ANSI32" — only used when
         // FillStyle = "Hatched"
 
+        public double HatchScale { get; set; } = 1.0;
+        // AutoCAD-style hatch pattern scale.
+
         // ── TEXT / LABEL STYLE ──────────────────────
         public bool ShowLabels { get; set; } = false;
         public string? LabelFontName { get; set; }

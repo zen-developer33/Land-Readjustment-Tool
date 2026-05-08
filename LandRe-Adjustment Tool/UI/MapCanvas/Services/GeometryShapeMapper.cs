@@ -28,8 +28,8 @@ namespace Land_Readjustment_Tool.UI.MapCanvas.Services
             canvasObject.ObjectType = ResolveObjectType(shape);
             canvasObject.Shape = ToGeometry(shape);
             canvasObject.IsVisible = shape.IsVisible;
-            canvasObject.BorderColorOverride = ColorToHtml(shape.BorderColor);
-            canvasObject.FillColorOverride = ColorToHtml(shape.FillColor);
+            canvasObject.BorderColorOverride = ResolveColorOverride(shape, "BorderColorOverride", target?.BorderColorOverride);
+            canvasObject.FillColorOverride = ResolveColorOverride(shape, "FillColorOverride", target?.FillColorOverride);
             canvasObject.LabelText = ResolveLabelText(shape);
             canvasObject.ObjectDescription = GetPropertyAsString(shape, "Description");
 
@@ -91,11 +91,13 @@ namespace Land_Readjustment_Tool.UI.MapCanvas.Services
             if (!string.IsNullOrWhiteSpace(canvasObject.BorderColorOverride))
             {
                 shape.BorderColor = ParseColorOrDefault(canvasObject.BorderColorOverride, shape.BorderColor);
+                shape.Properties["BorderColorOverride"] = canvasObject.BorderColorOverride;
             }
 
             if (!string.IsNullOrWhiteSpace(canvasObject.FillColorOverride))
             {
                 shape.FillColor = ParseColorOrDefault(canvasObject.FillColorOverride, shape.FillColor);
+                shape.Properties["FillColorOverride"] = canvasObject.FillColorOverride;
             }
 
             if (!string.IsNullOrWhiteSpace(canvasObject.LabelText))
@@ -396,6 +398,27 @@ namespace Land_Readjustment_Tool.UI.MapCanvas.Services
         private static string? ColorToHtml(Color color)
         {
             return ColorTranslator.ToHtml(Color.FromArgb(255, color.R, color.G, color.B));
+        }
+
+        private static string? ResolveColorOverride(
+            IShape shape,
+            string propertyKey,
+            string? existingOverride)
+        {
+            if (!shape.Properties.TryGetValue(propertyKey, out object? value))
+            {
+                return existingOverride;
+            }
+
+            if (value is Color color)
+            {
+                return ColorToHtml(color);
+            }
+
+            string? html = value?.ToString();
+            return string.IsNullOrWhiteSpace(html)
+                ? null
+                : html;
         }
 
         private static Color ParseColorOrDefault(string html, Color fallback)

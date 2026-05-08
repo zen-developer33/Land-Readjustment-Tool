@@ -219,6 +219,7 @@ namespace Land_Readjustment_Tool.Services.Canvas
                 FillTransparency = source.FillTransparency,
                 FillStyle = source.FillStyle,
                 HatchPattern = source.HatchPattern,
+                HatchScale = source.HatchScale,
                 ShowLabels = source.ShowLabels,
                 LabelFontName = source.LabelFontName,
                 LabelFontSize = source.LabelFontSize,

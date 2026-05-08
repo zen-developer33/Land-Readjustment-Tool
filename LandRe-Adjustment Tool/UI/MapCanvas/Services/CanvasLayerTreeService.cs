@@ -19,6 +19,8 @@ namespace Land_Readjustment_Tool.UI.MapCanvas.Services
         public const string ExternalGroupKey = "OtherExternalLayers";
         public const string RoadCenterlineLayerType = "RoadCenterline";
         public const string LineLayerType = "Line";
+        public const string PolygonLayerType = "Polygon";
+        public const string DrawingMarkupLayerType = "DrawingMarkup";
 
         private readonly ICanvasLayerRepository _canvasLayerRepository;
 
@@ -44,7 +46,8 @@ namespace Land_Readjustment_Tool.UI.MapCanvas.Services
             new(ReplottedParcelsGroupKey, "Private", "PrivateReplotParcel", "#D99BCA", "#F0B2D1", 35, 1.2, "Solid", "Replotted Parcels"),
             new(ReplottedParcelsGroupKey, "Public/Facilities/Community Spaces", "PublicFacility", "#8FCDE4", "#B7DDF0", 35, 1.2, "Solid", null),
             new(ReplottedParcelsGroupKey, "Open Spaces/Parks", "OpenSpace", "#6FAF72", "#A8E7AA", 35, 1.2, "Solid", null),
-            new(ReplottedParcelsGroupKey, "Service/Sales Plot", "ServiceSalesPlot", "#E09A5B", "#F6C766", 35, 1.2, "Solid", null)
+            new(ReplottedParcelsGroupKey, "Service/Sales Plot", "ServiceSalesPlot", "#E09A5B", "#F6C766", 35, 1.2, "Solid", null),
+            new(DrawingMarkupGroupKey, "Features", DrawingMarkupLayerType, "#000000", null, 100, 1.3, "Solid", null)
         ];
 
         private static readonly IReadOnlyDictionary<string, string> DefaultLayerNameToGroup =
@@ -149,7 +152,9 @@ namespace Land_Readjustment_Tool.UI.MapCanvas.Services
                 "OpenSpace" => ReplottedParcelsGroupKey,
                 "ServiceSalesPlot" => ReplottedParcelsGroupKey,
                 "Annotation" => DrawingMarkupGroupKey,
+                DrawingMarkupLayerType => DrawingMarkupGroupKey,
                 LineLayerType => DrawingMarkupGroupKey,
+                PolygonLayerType => DrawingMarkupGroupKey,
                 _ => ExternalGroupKey
             };
         }

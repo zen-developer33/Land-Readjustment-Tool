@@ -7,12 +7,23 @@ namespace Land_Readjustment_Tool.UI.Forms
     public sealed partial class frmLayerPropertyManager : Form
     {
         public CanvasLayer Layer { get; }
+        private readonly IHatchPatternService _hatchPatternService;
         private readonly bool _isRasterLayer;
         private readonly bool _isLineLayer;
+        private string _selectedHatchPatternKey = string.Empty;
 
         public frmLayerPropertyManager(CanvasLayer layer)
+            : this(layer, new HatchPatternService())
+        {
+        }
+
+        public frmLayerPropertyManager(
+            CanvasLayer layer,
+            IHatchPatternService hatchPatternService)
         {
             Layer = layer ?? throw new ArgumentNullException(nameof(layer));
+            _hatchPatternService = hatchPatternService
+                ?? throw new ArgumentNullException(nameof(hatchPatternService));
             _isRasterLayer = IsRasterLayer(layer);
             _isLineLayer = CanvasLayerTreeService.IsLineLayer(layer);
 
@@ -40,7 +51,10 @@ namespace Land_Readjustment_Tool.UI.Forms
 
             SetComboText(_cboFillStyle, string.IsNullOrWhiteSpace(Layer.FillStyle) ? "None" : Layer.FillStyle);
             _pnlFillColor.BackColor = ParseColorOrDefault(Layer.FillColor, Color.White);
-            SetComboText(_cboHatch, Layer.HatchPattern ?? string.Empty);
+            _selectedHatchPatternKey = _hatchPatternService
+                .GetPatternOrDefault(Layer.HatchPattern)
+                .Key;
+            _numHatchScale.Value = ClampDecimal((decimal)NormalizeHatchScale(Layer.HatchScale), _numHatchScale);
             _trkTransparency.Value = Math.Max(0, Math.Min(100, Layer.FillTransparency));
             _txtTransparencyValue.Text = _trkTransparency.Value.ToString();
             UpdateFillControlState();
@@ -70,7 +84,7 @@ namespace Land_Readjustment_Tool.UI.Forms
             if (!_isRasterLayer)
             {
                 Text = "Polygon Layer Properties";
-                _lblBorderColor.Text = "Outline Color";
+                _lblBorderColor.Text = "Border Color";
                 return;
             }
 
@@ -98,8 +112,8 @@ namespace Land_Readjustment_Tool.UI.Forms
             SetControlVisible(_cboFillStyle, false);
             SetControlVisible(_lblFillColor, false);
             SetControlVisible(_fillColorPanel, false);
-            SetControlVisible(_lblHatch, false);
-            SetControlVisible(_cboHatch, false);
+            SetControlVisible(_lblHatchPattern, false);
+            SetControlVisible(_hatchPatternPanel, false);
             _fillLayout.SetRow(_lblTransparency, 0);
             _fillLayout.SetRow(_transparencyLayout, 0);
 
@@ -127,6 +141,11 @@ namespace Land_Readjustment_Tool.UI.Forms
             PickColor(_pnlFillColor);
         }
 
+        private void btnHatchPattern_Click(object? sender, EventArgs e)
+        {
+            ShowHatchPicker();
+        }
+
         private void pnlLabelColor_Click(object? sender, EventArgs e)
         {
             PickColor(_pnlLabelColor);
@@ -147,6 +166,8 @@ namespace Land_Readjustment_Tool.UI.Forms
 
             ColorDialogCustomColorsStore.SaveFrom(_colorDialog);
             _pnlLinePreview.Invalidate();
+            _pnlFillColor.Invalidate();
+            _pnlHatchPatternPreview.Invalidate();
         }
 
         private void btnFont_Click(object? sender, EventArgs e)
@@ -165,6 +186,8 @@ namespace Land_Readjustment_Tool.UI.Forms
         private void cboFillStyle_SelectedIndexChanged(object? sender, EventArgs e)
         {
             UpdateFillControlState();
+            _pnlFillColor.Invalidate();
+            _pnlHatchPatternPreview.Invalidate();
         }
 
         private void cboLineStyle_SelectedIndexChanged(object? sender, EventArgs e)
@@ -200,9 +223,35 @@ namespace Land_Readjustment_Tool.UI.Forms
             e.Graphics.DrawLine(pen, previewRect.Left, y, previewRect.Right, y);
         }
 
+        private void pnlHatchPatternPreview_Paint(object? sender, PaintEventArgs e)
+        {
+            if (!IsHatchedFill())
+                return;
+
+            Rectangle previewRect = Rectangle.Inflate(_pnlHatchPatternPreview.ClientRectangle, -2, -2);
+            if (previewRect.Width <= 0 || previewRect.Height <= 0)
+                return;
+
+            _hatchPatternService.DrawPreview(
+                e.Graphics,
+                previewRect,
+                _selectedHatchPatternKey,
+                _pnlFillColor.BackColor,
+                Color.White,
+                _trkTransparency.Value,
+                (double)_numHatchScale.Value,
+                _pnlHatchPatternPreview.Parent?.BackColor ?? Color.White);
+        }
+
+        private void numHatchScale_ValueChanged(object? sender, EventArgs e)
+        {
+            _pnlHatchPatternPreview.Invalidate();
+        }
+
         private void trkTransparency_ValueChanged(object? sender, EventArgs e)
         {
             _txtTransparencyValue.Text = _trkTransparency.Value.ToString();
+            _pnlHatchPatternPreview.Invalidate();
         }
 
         private void txtTransparencyValue_Leave(object? sender, EventArgs e)
@@ -231,13 +280,25 @@ namespace Land_Readjustment_Tool.UI.Forms
             }
 
             bool hasFill = !string.Equals(_cboFillStyle.Text, "None", StringComparison.OrdinalIgnoreCase);
-            bool isHatched = string.Equals(_cboFillStyle.Text, "Hatched", StringComparison.OrdinalIgnoreCase);
+            bool isHatched = IsHatchedFill();
 
             _pnlFillColor.Enabled = canEdit && hasFill;
             _btnFillColor.Enabled = canEdit && hasFill;
-            _cboHatch.Enabled = canEdit && isHatched;
             _trkTransparency.Enabled = canEdit && hasFill;
             _txtTransparencyValue.Enabled = canEdit && hasFill;
+            _lblFillColor.Text = isHatched ? "Hatch Color" : "Fill Color";
+            _btnFillColor.Text = "Change...";
+
+            bool showHatchPattern = hasFill && isHatched;
+            SetControlVisible(_lblHatchPattern, showHatchPattern);
+            SetControlVisible(_hatchPatternPanel, showHatchPattern);
+            _pnlHatchPatternPreview.Enabled = canEdit && showHatchPattern;
+            _btnHatchPattern.Enabled = canEdit && showHatchPattern;
+            _numHatchScale.Enabled = canEdit && showHatchPattern;
+            SetFillRowHeight(2, showHatchPattern ? 38F : 0F);
+
+            if (isHatched && string.IsNullOrWhiteSpace(_selectedHatchPatternKey))
+                _selectedHatchPatternKey = _hatchPatternService.GetPatterns()[0].Key;
         }
 
         private void ConfigureLockedControlState()
@@ -258,7 +319,7 @@ namespace Land_Readjustment_Tool.UI.Forms
             _cboFillStyle.Enabled = canEdit;
             _pnlFillColor.Enabled = canEdit;
             _btnFillColor.Enabled = canEdit;
-            _cboHatch.Enabled = canEdit;
+            _numHatchScale.Enabled = canEdit;
             _trkTransparency.Enabled = canEdit;
             _txtTransparencyValue.Enabled = canEdit;
 
@@ -302,6 +363,7 @@ namespace Land_Readjustment_Tool.UI.Forms
                     Layer.FillStyle = "None";
                     Layer.FillColor = null;
                     Layer.HatchPattern = null;
+                    Layer.HatchScale = 1.0;
                     Layer.FillTransparency = 100;
                 }
                 else
@@ -311,9 +373,12 @@ namespace Land_Readjustment_Tool.UI.Forms
                         ? null
                         : ColorTranslator.ToHtml(_pnlFillColor.BackColor);
                     Layer.HatchPattern = string.Equals(Layer.FillStyle, "Hatched", StringComparison.OrdinalIgnoreCase) &&
-                                         !string.IsNullOrWhiteSpace(_cboHatch.Text)
-                        ? _cboHatch.Text.Trim()
+                                         !string.IsNullOrWhiteSpace(_selectedHatchPatternKey)
+                        ? _selectedHatchPatternKey.Trim()
                         : null;
+                    Layer.HatchScale = string.Equals(Layer.FillStyle, "Hatched", StringComparison.OrdinalIgnoreCase)
+                        ? NormalizeHatchScale((double)_numHatchScale.Value)
+                        : 1.0;
                 }
 
                 Layer.ShowLabels = _chkShowLabels.Checked;
@@ -328,6 +393,28 @@ namespace Land_Readjustment_Tool.UI.Forms
             }
 
             return true;
+        }
+
+        private void ShowHatchPicker()
+        {
+            using frmHatchPatternPicker picker = new(
+                _hatchPatternService,
+                _selectedHatchPatternKey,
+                _pnlFillColor.BackColor,
+                Color.White,
+                _trkTransparency.Value,
+                (double)_numHatchScale.Value);
+
+            if (picker.ShowDialog(this) != DialogResult.OK)
+                return;
+
+            _selectedHatchPatternKey = picker.SelectedPatternKey;
+            _pnlHatchPatternPreview.Invalidate();
+        }
+
+        private bool IsHatchedFill()
+        {
+            return string.Equals(_cboFillStyle.Text, "Hatched", StringComparison.OrdinalIgnoreCase);
         }
 
         /// <summary>
@@ -371,24 +458,32 @@ namespace Land_Readjustment_Tool.UI.Forms
             return Math.Clamp(scale, 0.1, 100.0);
         }
 
+        private static double NormalizeHatchScale(double scale)
+        {
+            if (double.IsNaN(scale) || double.IsInfinity(scale) || scale <= 0)
+                return 1.0;
+
+            return Math.Clamp(scale, 0.1, 20.0);
+        }
+
         private static void ApplyPenLineStyle(Pen pen, string? lineStyle, float lineTypeScale)
         {
             float scale = Math.Clamp(lineTypeScale, 0.1f, 100f);
-            switch (lineStyle?.Trim())
+            switch (NormalizeLineStyleKey(lineStyle))
             {
-                case "Dashed":
+                case "DASHED":
                     pen.DashStyle = System.Drawing.Drawing2D.DashStyle.Custom;
                     pen.DashPattern = [4f * scale, 2f * scale];
                     break;
-                case "Dotted":
+                case "DOTTED":
                     pen.DashStyle = System.Drawing.Drawing2D.DashStyle.Custom;
                     pen.DashPattern = [1f * scale, 2f * scale];
                     break;
-                case "DashDot":
+                case "DASHDOT":
                     pen.DashStyle = System.Drawing.Drawing2D.DashStyle.Custom;
                     pen.DashPattern = [4f * scale, 2f * scale, 1f * scale, 2f * scale];
                     break;
-                case "Centerline":
+                case "CENTERLINE":
                     pen.DashStyle = System.Drawing.Drawing2D.DashStyle.Custom;
                     pen.DashPattern = [8f * scale, 3f * scale, 2f * scale, 3f * scale];
                     break;
@@ -398,10 +493,35 @@ namespace Land_Readjustment_Tool.UI.Forms
             }
         }
 
+        private static string NormalizeLineStyleKey(string? lineStyle)
+        {
+            string normalized = (lineStyle ?? string.Empty)
+                .Replace("-", string.Empty, StringComparison.Ordinal)
+                .Replace(" ", string.Empty, StringComparison.Ordinal)
+                .Trim()
+                .ToUpperInvariant();
+
+            return normalized switch
+            {
+                "DASH" => "DASHED",
+                "DOT" => "DOTTED",
+                _ => normalized
+            };
+        }
+
         private static void SetControlVisible(Control control, bool visible)
         {
             control.Visible = visible;
             control.Enabled = visible;
+        }
+
+        private void SetFillRowHeight(int rowIndex, float height)
+        {
+            if (rowIndex < 0 || rowIndex >= _fillLayout.RowStyles.Count)
+                return;
+
+            _fillLayout.RowStyles[rowIndex].SizeType = SizeType.Absolute;
+            _fillLayout.RowStyles[rowIndex].Height = height;
         }
 
         private static void SetComboText(ComboBox comboBox, string value)

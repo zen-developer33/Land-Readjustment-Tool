@@ -7,6 +7,7 @@ using Land_Readjustment_Tool.Services.Canvas;
 using Land_Readjustment_Tool.Services.Project;
 using Land_Readjustment_Tool.Services.Raster;
 using Land_Readjustment_Tool.UI.Forms;
+using Land_Readjustment_Tool.UI.MapCanvas.Services;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Win32;
 using System.Runtime.InteropServices;
@@ -224,6 +225,7 @@ namespace Land_Readjustment_Tool
             services.AddSingleton<IProjectScopedFactory, ProjectScopedFactory>();
             services.AddSingleton<CanvasLayerCommandService>();
             services.AddSingleton<CanvasLayerBoundsService>();
+            services.AddSingleton<IHatchPatternService, HatchPatternService>();
             services.AddSingleton<IProjectRasterCrsResolver, ProjectRasterCrsResolver>();
             services.AddSingleton<IRasterDatasetImporter, GdalRasterDatasetImporter>();
             services.AddSingleton<IRasterLayerImportService, RasterLayerImportService>();

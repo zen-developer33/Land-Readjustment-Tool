@@ -1,5 +1,7 @@
+using Land_Readjustment_Tool.Core.Entities.Canvas;
 using Land_Readjustment_Tool.UI.MapCanvas.Core;
 using Land_Readjustment_Tool.UI.MapCanvas.Models.Shapes;
+using Land_Readjustment_Tool.UI.MapCanvas.Services;
 using System.Drawing.Drawing2D;
 using System.Drawing.Text;
 using System.Runtime.InteropServices;
@@ -21,6 +23,8 @@ namespace Land_Readjustment_Tool.UI.MapCanvas.Rendering
         private readonly Font _axisFont = new("Arial", 9.0f, FontStyle.Regular);
         private readonly MapCanvasEngine _engine;
         private readonly MapCanvasRenderOrderService _renderOrderService;
+        private readonly CanvasVectorRenderer _vectorRenderer = new();
+        private readonly VectorDeferredRenderer _vectorDeferredRenderer = new();
         private double _lastAdaptiveMinorSize;
         private MapCanvasRenderSettings _settings;
         private IReadOnlyList<IRasterRenderLayer> _rasterLayers = [];
@@ -64,6 +68,27 @@ namespace Land_Readjustment_Tool.UI.MapCanvas.Rendering
                 ?? throw new ArgumentNullException(nameof(rasterLayers));
         }
 
+        public void UpdateVectorLayers(IEnumerable<CanvasLayer>? layers)
+        {
+            _vectorRenderer.UpdateLayers(layers);
+            _vectorDeferredRenderer.Invalidate();
+        }
+
+        public void UpdateVectorLayer(CanvasLayer layer)
+        {
+            _vectorRenderer.UpdateLayer(layer);
+            _vectorDeferredRenderer.Invalidate();
+        }
+
+        public void UpdateVectorFeatures(IEnumerable<CanvasFeature>? features)
+        {
+            _vectorRenderer.UpdateFeatures(features);
+            _vectorDeferredRenderer.Invalidate();
+        }
+
+        public RectangleD? GetVectorFeatureBounds() =>
+            _vectorRenderer.GetFeatureBounds();
+
         /// <summary>
         /// Renders the full canvas frame for the current viewport state.
         /// </summary>
@@ -81,7 +106,11 @@ namespace Land_Readjustment_Tool.UI.MapCanvas.Rendering
             Graphics graphics,
             RasterRenderFrame? rasterFrame,
             bool interactiveRaster,
-            Rectangle? zoomWindowRectangle)
+            RasterRenderFrame? vectorFrame,
+            bool interactiveVector,
+            Rectangle? zoomWindowRectangle,
+            IShape? previewShape = null,
+            CanvasLayer? previewLayer = null)
         {
             ArgumentNullException.ThrowIfNull(graphics);
 
@@ -106,9 +135,21 @@ namespace Land_Readjustment_Tool.UI.MapCanvas.Rendering
                         break;
 
                     case MapCanvasRenderStage.VectorContent:
+                        ConfigureVectorContentGraphics(graphics);
+                        RenderVectorContent(
+                            graphics,
+                            viewport,
+                            vectorFrame,
+                            interactiveVector);
+                        break;
 
                     case MapCanvasRenderStage.InteractionOverlay:
                         ConfigureVectorGraphics(graphics);
+                        _vectorRenderer.RenderPreview(
+                            graphics,
+                            _engine,
+                            previewShape,
+                            previewLayer);
                         RenderInteractionOverlay(
                             graphics,
                             viewport,
@@ -116,6 +157,39 @@ namespace Land_Readjustment_Tool.UI.MapCanvas.Rendering
                         break;
                 }
             }
+        }
+
+        public void ResizeVectorCache(Size canvasSize)
+        {
+            _vectorDeferredRenderer.Resize(canvasSize);
+        }
+
+        public void InvalidateVectorCache()
+        {
+            _vectorDeferredRenderer.Invalidate();
+        }
+
+        public bool RefreshVectorCache(Size canvasSize)
+        {
+            return _vectorDeferredRenderer.RenderNow(
+                canvasSize,
+                _vectorRenderer,
+                _engine);
+        }
+
+        public void BeginVectorPan(Size canvasSize)
+        {
+            _vectorDeferredRenderer.BeginPan(canvasSize);
+        }
+
+        public bool TryGetVectorCacheFrame(out RasterRenderFrame frame)
+        {
+            return _vectorDeferredRenderer.TryGetCacheFrame(out frame);
+        }
+
+        public bool TryGetVectorPanFrame(PointF totalPanDelta, out RasterRenderFrame frame)
+        {
+            return _vectorDeferredRenderer.TryGetPanFrame(totalPanDelta, out frame);
         }
 
         /// <summary>
@@ -166,7 +240,10 @@ namespace Land_Readjustment_Tool.UI.MapCanvas.Rendering
                 RasterRenderFrame frame = rasterFrame.Value;
                 try
                 {
-                    DrawRasterFrame(graphics, frame);
+                    DrawCachedFrame(
+                        graphics,
+                        frame,
+                        InterpolationMode.HighQualityBicubic);
                 }
                 finally
                 {
@@ -186,6 +263,43 @@ namespace Land_Readjustment_Tool.UI.MapCanvas.Rendering
                     interactiveRaster,
                     cachedOnly: false);
             }
+        }
+
+        private void RenderVectorContent(
+            Graphics graphics,
+            MapCanvasRenderViewport viewport,
+            RasterRenderFrame? vectorFrame,
+            bool interactiveVector)
+        {
+            if (vectorFrame.HasValue)
+            {
+                RasterRenderFrame frame = vectorFrame.Value;
+                try
+                {
+                    DrawCachedFrame(
+                        graphics,
+                        frame,
+                        InterpolationMode.NearestNeighbor);
+                }
+                finally
+                {
+                    frame.Dispose();
+                }
+
+                return;
+            }
+
+            if (interactiveVector)
+            {
+                return;
+            }
+
+            _vectorRenderer.Render(
+                graphics,
+                _engine,
+                viewport.VisibleWorldBounds,
+                useLevelOfDetail: _vectorRenderer.FeatureCount > 20_000,
+                canvasSize: Size.Round(viewport.VisibleScreenBounds.Size));
         }
 
         /// <summary>
@@ -246,9 +360,10 @@ namespace Land_Readjustment_Tool.UI.MapCanvas.Rendering
         /// </summary>
         /// <param name="graphics">Target graphics surface.</param>
         /// <param name="rasterFrame">Cached raster bitmap and its screen destination.</param>
-        private static void DrawRasterFrame(
+        private static void DrawCachedFrame(
             Graphics graphics,
-            RasterRenderFrame rasterFrame)
+            RasterRenderFrame rasterFrame,
+            InterpolationMode interpolationMode)
         {
             lock (rasterFrame.SyncRoot)
             {
@@ -266,7 +381,7 @@ namespace Land_Readjustment_Tool.UI.MapCanvas.Rendering
                 try
                 {
                     graphics.SmoothingMode = SmoothingMode.None;
-                    graphics.InterpolationMode = InterpolationMode.HighQualityBicubic;
+                    graphics.InterpolationMode = interpolationMode;
                     graphics.PixelOffsetMode = PixelOffsetMode.None;
                     graphics.CompositingQuality = CompositingQuality.HighSpeed;
                     graphics.DrawImage(
@@ -398,6 +513,8 @@ namespace Land_Readjustment_Tool.UI.MapCanvas.Rendering
         {
             _gridFont.Dispose();
             _axisFont.Dispose();
+            _vectorRenderer.Dispose();
+            _vectorDeferredRenderer.Dispose();
         }
 
         /// <summary>
@@ -422,6 +539,15 @@ namespace Land_Readjustment_Tool.UI.MapCanvas.Rendering
             graphics.PixelOffsetMode = PixelOffsetMode.None;
             graphics.CompositingQuality = CompositingQuality.HighSpeed;
             graphics.TextRenderingHint = TextRenderingHint.SingleBitPerPixel;
+        }
+
+        private static void ConfigureVectorContentGraphics(Graphics graphics)
+        {
+            graphics.SmoothingMode = SmoothingMode.AntiAlias;
+            graphics.InterpolationMode = InterpolationMode.HighQualityBicubic;
+            graphics.PixelOffsetMode = PixelOffsetMode.Half;
+            graphics.CompositingQuality = CompositingQuality.HighQuality;
+            graphics.TextRenderingHint = TextRenderingHint.ClearTypeGridFit;
         }
 
         /// <summary>

@@ -146,23 +146,32 @@ namespace Land_Readjustment_Tool
             mapCanvasControlMain = new MapCanvasControl();
             tsCanvasTools = new ToolStrip();
             tsmExpandCollapseLeftPanel = new ToolStripButton();
-            toolStripLabel1 = new ToolStripLabel();
-            tsmExpandCollapseRightPanel = new ToolStripButton();
             toolStripSeparator10 = new ToolStripSeparator();
+            mnuSelectTool = new ToolStripButton();
+            mnuDrawLine = new ToolStripButton();
+            mnuDrawPolyline = new ToolStripButton();
+            mnuDrawPolygon = new ToolStripButton();
+            mnuDrawRectangle = new ToolStripButton();
+            mnuDrawCircle = new ToolStripButton();
+            toolStripSeparator17 = new ToolStripSeparator();
+            lblCurrentDrawingLayer = new ToolStripLabel();
+            cboCurrentDrawingLayer = new ToolStripComboBox();
+            toolStripLabel1 = new ToolStripLabel();
             toolStripSeparator11 = new ToolStripSeparator();
+            tsmExpandCollapseRightPanel = new ToolStripButton();
             grpParcelObjProp = new GroupBox();
             dgvParcelObjProperty = new DataGridView();
             statusCanvas = new StatusStrip();
             lblProjectName = new ToolStripStatusLabel();
             tsStatusSep1 = new ToolStripSeparator();
             lblActiveTool = new ToolStripStatusLabel();
-            tsStatusSep2 = new ToolStripSeparator();
-            lblStatusMessage = new ToolStripStatusLabel();
             lblStatusSpacer = new ToolStripStatusLabel();
             lblOperationProgressStatus = new ToolStripStatusLabel();
             hostProgressBarHost = new StatusProgressBar();
             lblScale = new ToolStripStatusLabel();
             lblCanvasCoordinates = new ToolStripStatusLabel();
+            tsStatusSep2 = new ToolStripSeparator();
+            lblStatusMessage = new ToolStripStatusLabel();
             mnuNewProject = new ToolStripButton();
             mnuOpenProject = new ToolStripButton();
             mnuSaveProject = new ToolStripButton();
@@ -1179,10 +1188,10 @@ namespace Land_Readjustment_Tool
             tsCanvasTools.Font = new Font("Segoe UI", 9F);
             tsCanvasTools.GripStyle = ToolStripGripStyle.Hidden;
             tsCanvasTools.ImageScalingSize = new Size(20, 20);
-            tsCanvasTools.Items.AddRange(new ToolStripItem[] { tsmExpandCollapseLeftPanel, toolStripLabel1, tsmExpandCollapseRightPanel, toolStripSeparator10, toolStripSeparator11 });
+            tsCanvasTools.Items.AddRange(new ToolStripItem[] { tsmExpandCollapseLeftPanel, toolStripSeparator10, mnuSelectTool, mnuDrawLine, mnuDrawPolyline, mnuDrawPolygon, mnuDrawRectangle, mnuDrawCircle, toolStripSeparator17, lblCurrentDrawingLayer, cboCurrentDrawingLayer, toolStripLabel1, toolStripSeparator11, tsmExpandCollapseRightPanel });
             tsCanvasTools.Location = new Point(0, 0);
             tsCanvasTools.Name = "tsCanvasTools";
-            tsCanvasTools.Size = new Size(905, 27);
+            tsCanvasTools.Size = new Size(905, 28);
             tsCanvasTools.TabIndex = 1;
             tsCanvasTools.Text = "toolStrip2";
             // 
@@ -1195,14 +1204,113 @@ namespace Land_Readjustment_Tool
             tsmExpandCollapseLeftPanel.Image = Properties.Resources.icons8_close_left_pane_50;
             tsmExpandCollapseLeftPanel.ImageTransparentColor = Color.Magenta;
             tsmExpandCollapseLeftPanel.Name = "tsmExpandCollapseLeftPanel";
-            tsmExpandCollapseLeftPanel.Size = new Size(29, 24);
+            tsmExpandCollapseLeftPanel.Size = new Size(29, 25);
             tsmExpandCollapseLeftPanel.Text = "Collapse Left Panel";
             tsmExpandCollapseLeftPanel.Click += tsmExpandCollapseLeftPanel_Click;
+            // 
+            // toolStripSeparator10
+            // 
+            toolStripSeparator10.Name = "toolStripSeparator10";
+            toolStripSeparator10.Size = new Size(6, 28);
+            // 
+            // mnuSelectTool
+            // 
+            mnuSelectTool.Checked = true;
+            mnuSelectTool.CheckOnClick = true;
+            mnuSelectTool.CheckState = CheckState.Checked;
+            mnuSelectTool.DisplayStyle = ToolStripItemDisplayStyle.Image;
+            mnuSelectTool.Image = Properties.Resources.icons8_select_cursor_24;
+            mnuSelectTool.ImageTransparentColor = Color.Magenta;
+            mnuSelectTool.Name = "mnuSelectTool";
+            mnuSelectTool.Size = new Size(29, 25);
+            mnuSelectTool.Text = "Select";
+            mnuSelectTool.Click += mnuSelectTool_Click;
+            // 
+            // mnuDrawLine
+            // 
+            mnuDrawLine.CheckOnClick = true;
+            mnuDrawLine.DisplayStyle = ToolStripItemDisplayStyle.Image;
+            mnuDrawLine.Image = Properties.Resources.icons8_line_24;
+            mnuDrawLine.ImageTransparentColor = Color.Magenta;
+            mnuDrawLine.Name = "mnuDrawLine";
+            mnuDrawLine.Size = new Size(29, 25);
+            mnuDrawLine.Text = "Draw Line";
+            mnuDrawLine.Click += mnuDrawLine_Click;
+            // 
+            // mnuDrawPolyline
+            // 
+            mnuDrawPolyline.CheckOnClick = true;
+            mnuDrawPolyline.DisplayStyle = ToolStripItemDisplayStyle.Image;
+            mnuDrawPolyline.Image = Properties.Resources.icons8_polyline_24;
+            mnuDrawPolyline.ImageTransparentColor = Color.Magenta;
+            mnuDrawPolyline.Name = "mnuDrawPolyline";
+            mnuDrawPolyline.Size = new Size(29, 25);
+            mnuDrawPolyline.Text = "Draw Polyline";
+            mnuDrawPolyline.Click += mnuDrawPolyline_Click;
+            // 
+            // mnuDrawPolygon
+            // 
+            mnuDrawPolygon.CheckOnClick = true;
+            mnuDrawPolygon.DisplayStyle = ToolStripItemDisplayStyle.Image;
+            mnuDrawPolygon.Image = Properties.Resources.icons8_polygon_24__1_;
+            mnuDrawPolygon.ImageTransparentColor = Color.Magenta;
+            mnuDrawPolygon.Name = "mnuDrawPolygon";
+            mnuDrawPolygon.Size = new Size(29, 25);
+            mnuDrawPolygon.Text = "Draw Polygon";
+            mnuDrawPolygon.Click += mnuDrawPolygon_Click;
+            // 
+            // mnuDrawRectangle
+            // 
+            mnuDrawRectangle.CheckOnClick = true;
+            mnuDrawRectangle.DisplayStyle = ToolStripItemDisplayStyle.Image;
+            mnuDrawRectangle.Image = Properties.Resources.icons8_polygon_24__1_;
+            mnuDrawRectangle.ImageTransparentColor = Color.Magenta;
+            mnuDrawRectangle.Name = "mnuDrawRectangle";
+            mnuDrawRectangle.Size = new Size(29, 25);
+            mnuDrawRectangle.Text = "Draw Rectangle";
+            mnuDrawRectangle.Click += mnuDrawRectangle_Click;
+            // 
+            // mnuDrawCircle
+            // 
+            mnuDrawCircle.CheckOnClick = true;
+            mnuDrawCircle.DisplayStyle = ToolStripItemDisplayStyle.Image;
+            mnuDrawCircle.Image = Properties.Resources.icons8_radius_24;
+            mnuDrawCircle.ImageTransparentColor = Color.Magenta;
+            mnuDrawCircle.Name = "mnuDrawCircle";
+            mnuDrawCircle.Size = new Size(29, 25);
+            mnuDrawCircle.Text = "Draw Circle";
+            mnuDrawCircle.Click += mnuDrawCircle_Click;
+            // 
+            // toolStripSeparator17
+            // 
+            toolStripSeparator17.Name = "toolStripSeparator17";
+            toolStripSeparator17.Size = new Size(6, 28);
+            // 
+            // lblCurrentDrawingLayer
+            // 
+            lblCurrentDrawingLayer.Name = "lblCurrentDrawingLayer";
+            lblCurrentDrawingLayer.Size = new Size(96, 25);
+            lblCurrentDrawingLayer.Text = "Current Layer";
+            // 
+            // cboCurrentDrawingLayer
+            // 
+            cboCurrentDrawingLayer.DropDownStyle = ComboBoxStyle.DropDownList;
+            cboCurrentDrawingLayer.FlatStyle = FlatStyle.Standard;
+            cboCurrentDrawingLayer.Name = "cboCurrentDrawingLayer";
+            cboCurrentDrawingLayer.Size = new Size(180, 28);
+            cboCurrentDrawingLayer.ToolTipText = "Current drawing/markup layer";
+            cboCurrentDrawingLayer.SelectedIndexChanged += cboCurrentDrawingLayer_SelectedIndexChanged;
             // 
             // toolStripLabel1
             // 
             toolStripLabel1.Name = "toolStripLabel1";
-            toolStripLabel1.Size = new Size(0, 24);
+            toolStripLabel1.Size = new Size(0, 25);
+            // 
+            // toolStripSeparator11
+            // 
+            toolStripSeparator11.Alignment = ToolStripItemAlignment.Right;
+            toolStripSeparator11.Name = "toolStripSeparator11";
+            toolStripSeparator11.Size = new Size(6, 28);
             // 
             // tsmExpandCollapseRightPanel
             // 
@@ -1214,20 +1322,9 @@ namespace Land_Readjustment_Tool
             tsmExpandCollapseRightPanel.Image = Properties.Resources.icons8_close_right_pane_50;
             tsmExpandCollapseRightPanel.ImageTransparentColor = Color.Magenta;
             tsmExpandCollapseRightPanel.Name = "tsmExpandCollapseRightPanel";
-            tsmExpandCollapseRightPanel.Size = new Size(29, 24);
+            tsmExpandCollapseRightPanel.Size = new Size(29, 25);
             tsmExpandCollapseRightPanel.Text = "Collapse Right Panel";
             tsmExpandCollapseRightPanel.Click += tsmExpandCollapseRightPanel_Click;
-            // 
-            // toolStripSeparator10
-            // 
-            toolStripSeparator10.Name = "toolStripSeparator10";
-            toolStripSeparator10.Size = new Size(6, 27);
-            // 
-            // toolStripSeparator11
-            // 
-            toolStripSeparator11.Alignment = ToolStripItemAlignment.Right;
-            toolStripSeparator11.Name = "toolStripSeparator11";
-            toolStripSeparator11.Size = new Size(6, 27);
             // 
             // grpParcelObjProp
             // 
@@ -1261,7 +1358,7 @@ namespace Land_Readjustment_Tool
             statusCanvas.BackColor = SystemColors.ControlLightLight;
             statusCanvas.ForeColor = SystemColors.ControlText;
             statusCanvas.ImageScalingSize = new Size(20, 20);
-            statusCanvas.Items.AddRange(new ToolStripItem[] { lblProjectName, tsStatusSep1, lblActiveTool, tsStatusSep2, lblStatusMessage, lblStatusSpacer, lblOperationProgressStatus, hostProgressBarHost, lblScale, lblCanvasCoordinates });
+            statusCanvas.Items.AddRange(new ToolStripItem[] { lblProjectName, tsStatusSep1, lblActiveTool, lblStatusSpacer, lblOperationProgressStatus, hostProgressBarHost, lblScale, lblCanvasCoordinates });
             statusCanvas.LayoutStyle = ToolStripLayoutStyle.HorizontalStackWithOverflow;
             statusCanvas.Location = new Point(0, 623);
             statusCanvas.Name = "statusCanvas";
@@ -1291,25 +1388,9 @@ namespace Land_Readjustment_Tool
             lblActiveTool.AutoSize = false;
             lblActiveTool.Margin = new Padding(4, 3, 6, 2);
             lblActiveTool.Name = "lblActiveTool";
-            lblActiveTool.Size = new Size(170, 37);
+            lblActiveTool.Size = new Size(250, 37);
             lblActiveTool.Text = "Active Tool: Select";
             lblActiveTool.TextAlign = ContentAlignment.MiddleLeft;
-            // 
-            // tsStatusSep2
-            // 
-            tsStatusSep2.Name = "tsStatusSep2";
-            tsStatusSep2.Size = new Size(6, 38);
-            // 
-            // lblStatusMessage
-            // 
-            lblStatusMessage.AutoSize = false;
-            lblStatusMessage.BorderSides = ToolStripStatusLabelBorderSides.Right;
-            lblStatusMessage.ForeColor = SystemColors.ControlText;
-            lblStatusMessage.Margin = new Padding(4, 3, 0, 2);
-            lblStatusMessage.Name = "lblStatusMessage";
-            lblStatusMessage.Size = new Size(220, 37);
-            lblStatusMessage.Text = "Status: Ready";
-            lblStatusMessage.TextAlign = ContentAlignment.MiddleLeft;
             // 
             // lblStatusSpacer
             // 
@@ -1323,7 +1404,7 @@ namespace Land_Readjustment_Tool
             lblOperationProgressStatus.BorderSides = ToolStripStatusLabelBorderSides.Left;
             lblOperationProgressStatus.ForeColor = SystemColors.ControlText;
             lblOperationProgressStatus.Name = "lblOperationProgressStatus";
-            lblOperationProgressStatus.Size = new Size(210, 36);
+            lblOperationProgressStatus.Size = new Size(500, 36);
             lblOperationProgressStatus.TextAlign = ContentAlignment.MiddleRight;
             lblOperationProgressStatus.Visible = false;
             // 
@@ -1357,6 +1438,22 @@ namespace Land_Readjustment_Tool
             lblCanvasCoordinates.Size = new Size(148, 33);
             lblCanvasCoordinates.Text = "E: 0.0000    N: 0.0000";
             lblCanvasCoordinates.TextAlign = ContentAlignment.MiddleRight;
+            // 
+            // tsStatusSep2
+            // 
+            tsStatusSep2.Name = "tsStatusSep2";
+            tsStatusSep2.Size = new Size(6, 38);
+            // 
+            // lblStatusMessage
+            // 
+            lblStatusMessage.AutoSize = false;
+            lblStatusMessage.BorderSides = ToolStripStatusLabelBorderSides.Right;
+            lblStatusMessage.ForeColor = SystemColors.ControlText;
+            lblStatusMessage.Margin = new Padding(4, 3, 0, 2);
+            lblStatusMessage.Name = "lblStatusMessage";
+            lblStatusMessage.Size = new Size(220, 37);
+            lblStatusMessage.Text = "Status: Ready";
+            lblStatusMessage.TextAlign = ContentAlignment.MiddleLeft;
             // 
             // mnuNewProject
             // 
@@ -1746,6 +1843,15 @@ namespace Land_Readjustment_Tool
         private ToolStripButton tsmExpandCollapseRightPanel;
         private ToolStripSeparator toolStripSeparator10;
         private ToolStripSeparator toolStripSeparator11;
+        private ToolStripButton mnuSelectTool;
+        private ToolStripButton mnuDrawLine;
+        private ToolStripButton mnuDrawPolyline;
+        private ToolStripButton mnuDrawPolygon;
+        private ToolStripButton mnuDrawRectangle;
+        private ToolStripButton mnuDrawCircle;
+        private ToolStripSeparator toolStripSeparator17;
+        private ToolStripLabel lblCurrentDrawingLayer;
+        private ToolStripComboBox cboCurrentDrawingLayer;
         private StatusStrip statusCanvas;
         private ToolStripStatusLabel lblProjectName;
         private ToolStripSeparator tsStatusSep1;

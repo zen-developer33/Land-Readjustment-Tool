@@ -16,6 +16,7 @@ namespace Land_Readjustment_Tool.UI.Forms
         private FlowLayoutPanel _statePanel = null!;
         private FlowLayoutPanel _borderColorPanel = null!;
         private FlowLayoutPanel _fillColorPanel = null!;
+        private FlowLayoutPanel _hatchPatternPanel = null!;
         private FlowLayoutPanel _labelColorPanel = null!;
         private FlowLayoutPanel _footerPanel = null!;
         private TableLayoutPanel _fontPanel = null!;
@@ -30,7 +31,8 @@ namespace Land_Readjustment_Tool.UI.Forms
         private Label _lblState = null!;
         private Label _lblFillStyle = null!;
         private Label _lblFillColor = null!;
-        private Label _lblHatch = null!;
+        private Label _lblHatchPattern = null!;
+        private Label _lblHatchScale = null!;
         private Label _lblTransparency = null!;
         private TextBox _txtTransparencyValue = null!;
         private Label _lblLabels = null!;
@@ -50,7 +52,8 @@ namespace Land_Readjustment_Tool.UI.Forms
         private CheckBox _chkLocked = null!;
         private ComboBox _cboFillStyle = null!;
         private Panel _pnlFillColor = null!;
-        private ComboBox _cboHatch = null!;
+        private Panel _pnlHatchPatternPreview = null!;
+        private NumericUpDown _numHatchScale = null!;
         private TrackBar _trkTransparency = null!;
         private CheckBox _chkShowLabels = null!;
         private TextBox _txtFontName = null!;
@@ -60,6 +63,7 @@ namespace Land_Readjustment_Tool.UI.Forms
         private ComboBox _cboLabelField = null!;
         private Button _btnBorderColor = null!;
         private Button _btnFillColor = null!;
+        private Button _btnHatchPattern = null!;
         private Button _btnLabelColor = null!;
         private Button _btnOk = null!;
         private Button _btnCancel = null!;
@@ -108,8 +112,12 @@ namespace Land_Readjustment_Tool.UI.Forms
             _fillColorPanel = new FlowLayoutPanel();
             _pnlFillColor = new Panel();
             _btnFillColor = new Button();
-            _lblHatch = new Label();
-            _cboHatch = new ComboBox();
+            _lblHatchPattern = new Label();
+            _hatchPatternPanel = new FlowLayoutPanel();
+            _pnlHatchPatternPreview = new Panel();
+            _btnHatchPattern = new Button();
+            _lblHatchScale = new Label();
+            _numHatchScale = new NumericUpDown();
             _lblTransparency = new Label();
             _transparencyLayout = new TableLayoutPanel();
             _trkTransparency = new TrackBar();
@@ -146,6 +154,8 @@ namespace Land_Readjustment_Tool.UI.Forms
             _tabFill.SuspendLayout();
             _fillLayout.SuspendLayout();
             _fillColorPanel.SuspendLayout();
+            _hatchPatternPanel.SuspendLayout();
+            ((System.ComponentModel.ISupportInitialize)_numHatchScale).BeginInit();
             _transparencyLayout.SuspendLayout();
             ((System.ComponentModel.ISupportInitialize)_trkTransparency).BeginInit();
             _tabLabel.SuspendLayout();
@@ -470,8 +480,8 @@ namespace Land_Readjustment_Tool.UI.Forms
             _fillLayout.Controls.Add(_cboFillStyle, 1, 0);
             _fillLayout.Controls.Add(_lblFillColor, 0, 1);
             _fillLayout.Controls.Add(_fillColorPanel, 1, 1);
-            _fillLayout.Controls.Add(_lblHatch, 0, 2);
-            _fillLayout.Controls.Add(_cboHatch, 1, 2);
+            _fillLayout.Controls.Add(_lblHatchPattern, 0, 2);
+            _fillLayout.Controls.Add(_hatchPatternPanel, 1, 2);
             _fillLayout.Controls.Add(_lblTransparency, 0, 3);
             _fillLayout.Controls.Add(_transparencyLayout, 1, 3);
             _fillLayout.Dock = DockStyle.Fill;
@@ -480,8 +490,8 @@ namespace Land_Readjustment_Tool.UI.Forms
             _fillLayout.RowCount = 8;
             _fillLayout.RowStyles.Add(new RowStyle(SizeType.Absolute, 38F));
             _fillLayout.RowStyles.Add(new RowStyle(SizeType.Absolute, 38F));
-            _fillLayout.RowStyles.Add(new RowStyle(SizeType.Absolute, 38F));
             _fillLayout.RowStyles.Add(new RowStyle(SizeType.Absolute, 46F));
+            _fillLayout.RowStyles.Add(new RowStyle(SizeType.Absolute, 38F));
             _fillLayout.RowStyles.Add(new RowStyle(SizeType.Absolute, 38F));
             _fillLayout.RowStyles.Add(new RowStyle(SizeType.Absolute, 38F));
             _fillLayout.RowStyles.Add(new RowStyle(SizeType.Absolute, 38F));
@@ -554,32 +564,82 @@ namespace Land_Readjustment_Tool.UI.Forms
             _btnFillColor.UseVisualStyleBackColor = true;
             _btnFillColor.Click += btnFillColor_Click;
             // 
-            // _lblHatch
+            // _lblHatchPattern
             // 
-            _lblHatch.Dock = DockStyle.Fill;
-            _lblHatch.Location = new Point(3, 76);
-            _lblHatch.Name = "_lblHatch";
-            _lblHatch.Size = new Size(104, 38);
-            _lblHatch.TabIndex = 4;
-            _lblHatch.Text = "Hatch";
-            _lblHatch.TextAlign = ContentAlignment.MiddleLeft;
+            _lblHatchPattern.Dock = DockStyle.Fill;
+            _lblHatchPattern.Location = new Point(3, 76);
+            _lblHatchPattern.Name = "_lblHatchPattern";
+            _lblHatchPattern.Size = new Size(104, 46);
+            _lblHatchPattern.TabIndex = 4;
+            _lblHatchPattern.Text = "Hatch Pattern";
+            _lblHatchPattern.TextAlign = ContentAlignment.MiddleLeft;
             // 
-            // _cboHatch
+            // _hatchPatternPanel
             // 
-            _cboHatch.Dock = DockStyle.Left;
-            _cboHatch.Items.AddRange(new object[] { "ANSI31", "ANSI32", "ANSI33", "ANSI34", "AR-BRSTD", "DOTS", "EARTH" });
-            _cboHatch.Location = new Point(110, 80);
-            _cboHatch.Margin = new Padding(0, 4, 0, 4);
-            _cboHatch.Name = "_cboHatch";
-            _cboHatch.Size = new Size(210, 28);
-            _cboHatch.TabIndex = 5;
+            _hatchPatternPanel.Controls.Add(_pnlHatchPatternPreview);
+            _hatchPatternPanel.Controls.Add(_btnHatchPattern);
+            _hatchPatternPanel.Controls.Add(_lblHatchScale);
+            _hatchPatternPanel.Controls.Add(_numHatchScale);
+            _hatchPatternPanel.Dock = DockStyle.Fill;
+            _hatchPatternPanel.Location = new Point(110, 76);
+            _hatchPatternPanel.Margin = new Padding(0);
+            _hatchPatternPanel.Name = "_hatchPatternPanel";
+            _hatchPatternPanel.Size = new Size(315, 46);
+            _hatchPatternPanel.TabIndex = 5;
+            _hatchPatternPanel.WrapContents = false;
+            // 
+            // _pnlHatchPatternPreview
+            // 
+            _pnlHatchPatternPreview.BackColor = Color.White;
+            _pnlHatchPatternPreview.BorderStyle = BorderStyle.FixedSingle;
+            _pnlHatchPatternPreview.Location = new Point(0, 4);
+            _pnlHatchPatternPreview.Margin = new Padding(0, 4, 8, 0);
+            _pnlHatchPatternPreview.Name = "_pnlHatchPatternPreview";
+            _pnlHatchPatternPreview.Size = new Size(36, 29);
+            _pnlHatchPatternPreview.TabIndex = 0;
+            _pnlHatchPatternPreview.Paint += pnlHatchPatternPreview_Paint;
+            // 
+            // _btnHatchPattern
+            // 
+            _btnHatchPattern.AutoSize = true;
+            _btnHatchPattern.Location = new Point(47, 3);
+            _btnHatchPattern.Name = "_btnHatchPattern";
+            _btnHatchPattern.Size = new Size(80, 30);
+            _btnHatchPattern.TabIndex = 1;
+            _btnHatchPattern.Text = "Patterns...";
+            _btnHatchPattern.UseVisualStyleBackColor = true;
+            _btnHatchPattern.Click += btnHatchPattern_Click;
+            // 
+            // _lblHatchScale
+            // 
+            _lblHatchScale.AutoSize = true;
+            _lblHatchScale.Location = new Point(133, 8);
+            _lblHatchScale.Margin = new Padding(3, 8, 6, 0);
+            _lblHatchScale.Name = "_lblHatchScale";
+            _lblHatchScale.Size = new Size(44, 20);
+            _lblHatchScale.TabIndex = 2;
+            _lblHatchScale.Text = "Scale";
+            // 
+            // _numHatchScale
+            // 
+            _numHatchScale.DecimalPlaces = 1;
+            _numHatchScale.Increment = new decimal(new int[] { 1, 0, 0, 65536 });
+            _numHatchScale.Location = new Point(183, 4);
+            _numHatchScale.Margin = new Padding(0, 4, 0, 4);
+            _numHatchScale.Maximum = new decimal(new int[] { 20, 0, 0, 0 });
+            _numHatchScale.Minimum = new decimal(new int[] { 1, 0, 0, 65536 });
+            _numHatchScale.Name = "_numHatchScale";
+            _numHatchScale.Size = new Size(68, 27);
+            _numHatchScale.TabIndex = 3;
+            _numHatchScale.Value = new decimal(new int[] { 10, 0, 0, 65536 });
+            _numHatchScale.ValueChanged += numHatchScale_ValueChanged;
             // 
             // _lblTransparency
             // 
             _lblTransparency.Dock = DockStyle.Fill;
-            _lblTransparency.Location = new Point(3, 114);
+            _lblTransparency.Location = new Point(3, 122);
             _lblTransparency.Name = "_lblTransparency";
-            _lblTransparency.Size = new Size(104, 46);
+            _lblTransparency.Size = new Size(104, 38);
             _lblTransparency.TabIndex = 6;
             _lblTransparency.Text = "Transparency";
             _lblTransparency.TextAlign = ContentAlignment.MiddleLeft;
@@ -592,12 +652,12 @@ namespace Land_Readjustment_Tool.UI.Forms
             _transparencyLayout.Controls.Add(_trkTransparency, 0, 0);
             _transparencyLayout.Controls.Add(_txtTransparencyValue, 1, 0);
             _transparencyLayout.Dock = DockStyle.Fill;
-            _transparencyLayout.Location = new Point(110, 114);
+            _transparencyLayout.Location = new Point(110, 122);
             _transparencyLayout.Margin = new Padding(0);
             _transparencyLayout.Name = "_transparencyLayout";
             _transparencyLayout.RowCount = 1;
             _transparencyLayout.RowStyles.Add(new RowStyle(SizeType.Percent, 100F));
-            _transparencyLayout.Size = new Size(315, 46);
+            _transparencyLayout.Size = new Size(315, 38);
             _transparencyLayout.TabIndex = 7;
             // 
             // _trkTransparency
@@ -606,7 +666,7 @@ namespace Land_Readjustment_Tool.UI.Forms
             _trkTransparency.Location = new Point(3, 3);
             _trkTransparency.Maximum = 100;
             _trkTransparency.Name = "_trkTransparency";
-            _trkTransparency.Size = new Size(165, 40);
+            _trkTransparency.Size = new Size(165, 32);
             _trkTransparency.TabIndex = 0;
             _trkTransparency.TickFrequency = 10;
             _trkTransparency.ValueChanged += trkTransparency_ValueChanged;
@@ -895,6 +955,9 @@ namespace Land_Readjustment_Tool.UI.Forms
             _fillLayout.ResumeLayout(false);
             _fillColorPanel.ResumeLayout(false);
             _fillColorPanel.PerformLayout();
+            _hatchPatternPanel.ResumeLayout(false);
+            _hatchPatternPanel.PerformLayout();
+            ((System.ComponentModel.ISupportInitialize)_numHatchScale).EndInit();
             _transparencyLayout.ResumeLayout(false);
             _transparencyLayout.PerformLayout();
             ((System.ComponentModel.ISupportInitialize)_trkTransparency).EndInit();

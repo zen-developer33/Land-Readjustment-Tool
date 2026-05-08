@@ -42,6 +42,7 @@ namespace Land_Readjustment_Tool
         private readonly RasterImportFileManagementService _rasterImportFileManagementService;
         private readonly IXyzTileSourceService _xyzTileSourceService;
         private readonly XyzTilePreDownloadService _xyzTilePreDownloadService;
+        private readonly IHatchPatternService _hatchPatternService;
         private readonly ProjectOpenService _projectOpenService;
         private readonly ProjectSaveAsService _projectSaveAsService;
         #endregion
@@ -91,7 +92,11 @@ namespace Land_Readjustment_Tool
         private readonly System.Windows.Forms.Timer _liveTileFetchTimer = new();
         private readonly List<Image> _liveTileFetchFrames = [];
         private Image? _liveTileStaticGlobe;
+        private Image? _liveTileDisconnectedGlobe;
         private int _liveTileFetchFrameIndex;
+        private bool _suppressCurrentDrawingLayerSelectionChanged;
+        private CanvasLayer? _currentDrawingLayer;
+        private MapCanvasTool _currentCanvasTool = MapCanvasTool.Select;
 
         private sealed class LayerTreeNodeState
         {
@@ -100,6 +105,16 @@ namespace Land_Readjustment_Tool
             public string? GroupKey { get; init; }
             public CanvasLayer? Layer { get; set; }
             public bool IsOnlineBasemap { get; set; }
+        }
+
+        private sealed class DrawingLayerComboItem(CanvasLayer layer)
+        {
+            public CanvasLayer Layer { get; } = layer;
+
+            public override string ToString()
+            {
+                return Layer.Name;
+            }
         }
 
         // Keeps designer/local fallback working without DI container.
@@ -139,6 +154,7 @@ namespace Land_Readjustment_Tool
                     new GdalRasterDatasetImporter()),
                 new RasterImportFileManagementService(projectScopedFactory),
                 new XyzTileSourceService(),
+                new HatchPatternService(),
                 new ProjectOpenService(sessionFactory, projectScopedFactory),
                 new ProjectSaveAsService(backupService, sessionFactory),
                 startupFilePath)
@@ -156,6 +172,7 @@ namespace Land_Readjustment_Tool
             IRasterLayerImportService rasterLayerImportService,
             RasterImportFileManagementService rasterImportFileManagementService,
             IXyzTileSourceService xyzTileSourceService,
+            IHatchPatternService hatchPatternService,
             ProjectOpenService projectOpenService,
             ProjectSaveAsService projectSaveAsService,
             string? startupFilePath = null)
@@ -171,6 +188,7 @@ namespace Land_Readjustment_Tool
             _rasterImportFileManagementService = rasterImportFileManagementService ?? throw new ArgumentNullException(nameof(rasterImportFileManagementService));
             _xyzTileSourceService = xyzTileSourceService ?? throw new ArgumentNullException(nameof(xyzTileSourceService));
             _xyzTilePreDownloadService = new XyzTilePreDownloadService();
+            _hatchPatternService = hatchPatternService ?? throw new ArgumentNullException(nameof(hatchPatternService));
             _projectOpenService = projectOpenService ?? throw new ArgumentNullException(nameof(projectOpenService));
             _projectSaveAsService = projectSaveAsService ?? throw new ArgumentNullException(nameof(projectSaveAsService));
 
@@ -184,6 +202,7 @@ namespace Land_Readjustment_Tool
             XyzLiveTileRenderLayer.FetchStatusChanged += XyzLiveTileRenderLayer_FetchStatusChanged;
             FormClosed += frmMain_FormClosed;
             mapCanvasControlMain.StatusChanged += MapCanvasControlMain_StatusChanged;
+            mapCanvasControlMain.ShapeCompleted += MapCanvasControlMain_ShapeCompleted;
             ConfigureLayerTree();
             ConfigureLayerPropertiesPanel();
             MapCanvasControlMain_StatusChanged("E: --    N: --", "Ready", 0);
@@ -228,6 +247,9 @@ namespace Land_Readjustment_Tool
             _liveTileStaticGlobe =
                 LoadStatusIconImage("globe.gif") ??
                 CreateEarthSpinnerFrame(0, 12);
+            _liveTileDisconnectedGlobe =
+                LoadStatusIconImage("globe_disconnected.gif") ??
+                _liveTileStaticGlobe;
             _liveTileFetchFrames.AddRange(
                 LoadEarthSpinnerFramesFromGif() ?? CreateEarthSpinnerFrames());
 
@@ -614,6 +636,13 @@ namespace Land_Readjustment_Tool
             }
 
             _liveTileFetchFrames.Clear();
+            Image? disconnectedGlobe = _liveTileDisconnectedGlobe;
+            if (!ReferenceEquals(disconnectedGlobe, _liveTileStaticGlobe))
+            {
+                disconnectedGlobe?.Dispose();
+            }
+
+            _liveTileDisconnectedGlobe = null;
             _liveTileStaticGlobe?.Dispose();
             _liveTileStaticGlobe = null;
         }
@@ -749,6 +778,7 @@ namespace Land_Readjustment_Tool
             mnuZoomOut.Enabled = true;
             mnuZoomExtent.Enabled = true;
             mnuZoomWindow.Enabled = true;
+            SetDrawingToolButtonsEnabled(true);
             toolStripComboBox1.Enabled = true;
         }
 
@@ -788,7 +818,20 @@ namespace Land_Readjustment_Tool
             mnuZoomOut.Enabled = false;
             mnuZoomExtent.Enabled = false;
             mnuZoomWindow.Enabled = false;
+            SetDrawingToolButtonsEnabled(false);
             toolStripComboBox1.Enabled = false;
+        }
+
+        private void SetDrawingToolButtonsEnabled(bool enabled)
+        {
+            mnuSelectTool.Enabled = enabled;
+            mnuDrawLine.Enabled = enabled;
+            mnuDrawPolyline.Enabled = enabled;
+            mnuDrawPolygon.Enabled = enabled;
+            mnuDrawRectangle.Enabled = enabled;
+            mnuDrawCircle.Enabled = enabled;
+            lblCurrentDrawingLayer.Enabled = enabled;
+            cboCurrentDrawingLayer.Enabled = enabled;
         }
 
         // -- NEW PROJECT ------------------------------
@@ -2704,12 +2747,22 @@ namespace Land_Readjustment_Tool
 
         private void mnuPan_Click(object sender, EventArgs e)
         {
+            if (mnuPan.Checked)
+            {
+                mnuSelectTool.Checked = false;
+                mnuDrawLine.Checked = false;
+                mnuDrawPolyline.Checked = false;
+                mnuDrawPolygon.Checked = false;
+                mnuDrawRectangle.Checked = false;
+                mnuDrawCircle.Checked = false;
+            }
             mapCanvasControlMain.SetPanToolActive(mnuPan.Checked);
         }
 
         private void mnuZoomIn_Click(object sender, EventArgs e)
         {
             mnuPan.Checked = false;
+            ActivateCanvasTool(MapCanvasTool.Select);
             mapCanvasControlMain.SetPanToolActive(false);
             mapCanvasControlMain.ZoomIn();
         }
@@ -2717,6 +2770,7 @@ namespace Land_Readjustment_Tool
         private void mnuZoomOut_Click(object sender, EventArgs e)
         {
             mnuPan.Checked = false;
+            ActivateCanvasTool(MapCanvasTool.Select);
             mapCanvasControlMain.SetPanToolActive(false);
             mapCanvasControlMain.ZoomOut();
         }
@@ -2724,6 +2778,7 @@ namespace Land_Readjustment_Tool
         private void mnuZoomExtent_Click(object sender, EventArgs e)
         {
             mnuPan.Checked = false;
+            ActivateCanvasTool(MapCanvasTool.Select);
             mapCanvasControlMain.SetPanToolActive(false);
             mapCanvasControlMain.ZoomExtents();
         }
@@ -2731,7 +2786,298 @@ namespace Land_Readjustment_Tool
         private void mnuZoomWindow_Click(object sender, EventArgs e)
         {
             mnuPan.Checked = false;
+            ActivateCanvasTool(MapCanvasTool.Select);
             mapCanvasControlMain.BeginZoomWindow();
+        }
+
+        private void mnuSelectTool_Click(object sender, EventArgs e)
+        {
+            ActivateCanvasTool(MapCanvasTool.Select);
+        }
+
+        private async void mnuDrawLine_Click(object sender, EventArgs e)
+        {
+            await ActivateCanvasDrawingToolAsync(MapCanvasTool.Line);
+        }
+
+        private async void mnuDrawPolyline_Click(object sender, EventArgs e)
+        {
+            await ActivateCanvasDrawingToolAsync(MapCanvasTool.Polyline);
+        }
+
+        private async void mnuDrawPolygon_Click(object sender, EventArgs e)
+        {
+            await ActivateCanvasDrawingToolAsync(MapCanvasTool.Polygon);
+        }
+
+        private async void mnuDrawRectangle_Click(object sender, EventArgs e)
+        {
+            await ActivateCanvasDrawingToolAsync(MapCanvasTool.Rectangle);
+        }
+
+        private async void mnuDrawCircle_Click(object sender, EventArgs e)
+        {
+            await ActivateCanvasDrawingToolAsync(MapCanvasTool.Circle);
+        }
+
+        private void ActivateCanvasTool(MapCanvasTool tool)
+        {
+            if (tool != MapCanvasTool.Select)
+            {
+                _ = ActivateCanvasDrawingToolAsync(tool);
+                return;
+            }
+
+            ApplyCanvasToolSelection(tool);
+            _currentCanvasTool = tool;
+            mapCanvasControlMain.SetActiveTool(tool, GetSelectedCurrentDrawingLayer());
+            UpdateActiveTool("Select");
+        }
+
+        private async Task ActivateCanvasDrawingToolAsync(MapCanvasTool tool)
+        {
+            try
+            {
+                CanvasLayer? layer = await ResolveCurrentDrawingLayerForToolAsync(tool);
+                ApplyCanvasToolSelection(tool);
+                _currentCanvasTool = tool;
+                mapCanvasControlMain.SetActiveTool(tool, layer);
+                UpdateActiveTool($"Draw {tool}");
+            }
+            catch (Exception ex)
+            {
+                MessageBox.Show(
+                    $"Failed to activate the drawing tool:\n{ex.Message}",
+                    "Drawing Tool",
+                    MessageBoxButtons.OK,
+                    MessageBoxIcon.Error);
+                ActivateCanvasTool(MapCanvasTool.Select);
+            }
+        }
+
+        private void ApplyCanvasToolSelection(MapCanvasTool tool)
+        {
+            mnuPan.Checked = false;
+            mnuSelectTool.Checked = tool == MapCanvasTool.Select;
+            mnuDrawLine.Checked = tool == MapCanvasTool.Line;
+            mnuDrawPolyline.Checked = tool == MapCanvasTool.Polyline;
+            mnuDrawPolygon.Checked = tool == MapCanvasTool.Polygon;
+            mnuDrawRectangle.Checked = tool == MapCanvasTool.Rectangle;
+            mnuDrawCircle.Checked = tool == MapCanvasTool.Circle;
+        }
+
+        private async Task<CanvasLayer?> ResolveCurrentDrawingLayerForToolAsync(
+            MapCanvasTool tool)
+        {
+            CanvasLayer? selectedLayer = GetSelectedCurrentDrawingLayer();
+            if (IsEditableDrawingLayer(selectedLayer))
+            {
+                _currentDrawingLayer = selectedLayer;
+                return selectedLayer;
+            }
+
+            CanvasLayer? matchingLayer = GetDrawingMarkupLayersFromTree()
+                .Where(IsEditableDrawingLayer)
+                .OrderBy(layer => GetPreferredDrawingLayerRank(layer))
+                .ThenBy(layer => layer.DisplayOrder)
+                .ThenBy(layer => layer.Name)
+                .FirstOrDefault();
+
+            if (matchingLayer != null)
+            {
+                SelectCurrentDrawingLayerById(matchingLayer.Id);
+                return matchingLayer;
+            }
+
+            return await CreateDefaultDrawingLayerAsync();
+        }
+
+        private async Task<CanvasLayer> CreateDefaultDrawingLayerAsync()
+        {
+            if (!AppServices.HasContext)
+            {
+                throw new InvalidOperationException("Open a project before drawing.");
+            }
+
+            ICanvasLayerRepository layerRepository =
+                _projectScopedFactory.CreateCanvasLayerRepository(AppServices.Context.Session);
+            IReadOnlyList<CanvasLayer> layers = await layerRepository.GetAllOrderedAsync();
+            string layerName = BuildUniqueLayerName(
+                GetDefaultDrawingLayerName(),
+                layers);
+
+            string drawingColor = GetCanvasContrastDrawingColorHex();
+            CanvasLayer newLayer = new()
+            {
+                Name = layerName,
+                LayerType = CanvasLayerTreeService.DrawingMarkupLayerType,
+                IsVisible = true,
+                IsLocked = false,
+                IsSelectable = true,
+                IsPrintable = true,
+                DisplayOrder = layers.Count == 0
+                    ? 0
+                    : layers.Max(layer => layer.DisplayOrder) + 1,
+                BorderColor = drawingColor,
+                LineWeight = 1.3,
+                LineStyle = "Solid",
+                LineTypeScale = 1.0,
+                FillColor = null,
+                FillTransparency = 100,
+                FillStyle = "None",
+                LabelColor = "#000000",
+                PointSymbol = "Circle",
+                PointSize = 5.0,
+                CreatedDate = DateTime.Now,
+                LastModifiedDate = DateTime.Now,
+                Description = $"Drawing/markup layer: {layerName}"
+            };
+
+            CanvasLayer savedLayer = await layerRepository.AddAsync(newLayer);
+            await RefreshLayerTreeAsync();
+            SelectCurrentDrawingLayerById(savedLayer.Id);
+            MarkProjectModifiedIfOpen();
+            return GetSelectedCurrentDrawingLayer() ?? savedLayer;
+        }
+
+        private async Task<bool> EnsureAutomaticDrawingLayerContrastAsync(
+            IReadOnlyList<CanvasLayerTreeGroup> layerGroups)
+        {
+            if (!AppServices.HasContext)
+            {
+                return false;
+            }
+
+            string drawingColor = GetCanvasContrastDrawingColorHex();
+            ICanvasLayerRepository layerRepository =
+                _projectScopedFactory.CreateCanvasLayerRepository(AppServices.Context.Session);
+            bool changed = false;
+
+            foreach (CanvasLayer layer in layerGroups
+                         .Where(group => string.Equals(group.Key, DrawingMarkupGroupKey, StringComparison.OrdinalIgnoreCase))
+                         .SelectMany(group => group.Layers))
+            {
+                if (!IsAutomaticDrawingLayer(layer) ||
+                    string.Equals(layer.BorderColor, drawingColor, StringComparison.OrdinalIgnoreCase))
+                {
+                    continue;
+                }
+
+                layer.BorderColor = drawingColor;
+                layer.LastModifiedDate = DateTime.Now;
+                await layerRepository.UpdateAsync(layer);
+                changed = true;
+            }
+
+            return changed;
+        }
+
+        private static bool IsAutomaticDrawingLayer(CanvasLayer layer)
+        {
+            return string.Equals(
+                       layer.Description,
+                       $"Default layer: {layer.Name}",
+                       StringComparison.OrdinalIgnoreCase) ||
+                   (layer.Description?.StartsWith(
+                       "Drawing/markup layer:",
+                       StringComparison.OrdinalIgnoreCase) == true);
+        }
+
+        private string GetCanvasContrastDrawingColorHex()
+        {
+            return IsDarkCanvasColor(mapCanvasControlMain.BackColor)
+                ? "#FFFFFF"
+                : "#000000";
+        }
+
+        private static bool IsDarkCanvasColor(Color color)
+        {
+            double luminance = (0.299 * color.R + 0.587 * color.G + 0.114 * color.B) / 255.0;
+            return luminance < 0.45;
+        }
+
+        private static string GetDefaultDrawingLayerName() => "Features";
+
+        private static string BuildUniqueLayerName(
+            string preferredName,
+            IReadOnlyList<CanvasLayer> existingLayers)
+        {
+            if (!existingLayers.Any(layer => string.Equals(layer.Name, preferredName, StringComparison.OrdinalIgnoreCase)))
+            {
+                return preferredName;
+            }
+
+            int suffix = 2;
+            string candidate;
+            do
+            {
+                candidate = $"{preferredName} {suffix++}";
+            }
+            while (existingLayers.Any(layer => string.Equals(layer.Name, candidate, StringComparison.OrdinalIgnoreCase)));
+
+            return candidate;
+        }
+
+        private static bool IsEditableDrawingLayer(CanvasLayer? layer)
+        {
+            return layer != null &&
+                   !layer.IsLocked &&
+                   !IsRasterLayer(layer);
+        }
+
+        private static int GetPreferredDrawingLayerRank(CanvasLayer layer)
+        {
+            return string.Equals(layer.Name, GetDefaultDrawingLayerName(), StringComparison.OrdinalIgnoreCase)
+                ? 0
+                : 1;
+        }
+
+        private CanvasLayer? GetSelectedCurrentDrawingLayer()
+        {
+            return cboCurrentDrawingLayer.SelectedItem is DrawingLayerComboItem item
+                ? item.Layer
+                : _currentDrawingLayer;
+        }
+
+        private void SelectCurrentDrawingLayerById(int layerId)
+        {
+            for (int index = 0; index < cboCurrentDrawingLayer.Items.Count; index++)
+            {
+                if (cboCurrentDrawingLayer.Items[index] is DrawingLayerComboItem item &&
+                    item.Layer.Id == layerId)
+                {
+                    bool previousSuppression = _suppressCurrentDrawingLayerSelectionChanged;
+                    _suppressCurrentDrawingLayerSelectionChanged = true;
+                    try
+                    {
+                        cboCurrentDrawingLayer.SelectedIndex = index;
+                        _currentDrawingLayer = item.Layer;
+                    }
+                    finally
+                    {
+                        _suppressCurrentDrawingLayerSelectionChanged = previousSuppression;
+                    }
+
+                    return;
+                }
+            }
+        }
+
+        private async void cboCurrentDrawingLayer_SelectedIndexChanged(object sender, EventArgs e)
+        {
+            if (_suppressCurrentDrawingLayerSelectionChanged)
+            {
+                return;
+            }
+
+            _currentDrawingLayer = GetSelectedCurrentDrawingLayer();
+            if (_currentCanvasTool == MapCanvasTool.Select)
+            {
+                mapCanvasControlMain.SetActiveTool(_currentCanvasTool, _currentDrawingLayer);
+                return;
+            }
+
+            await ActivateCanvasDrawingToolAsync(_currentCanvasTool);
         }
 
         private void mnuAreaConverterTool_Click(object sender, EventArgs e)
@@ -3201,7 +3547,7 @@ namespace Land_Readjustment_Tool
             g.SmoothingMode = System.Drawing.Drawing2D.SmoothingMode.None;
         }
 
-        private static void DrawVectorLayerSwatch(
+        private void DrawVectorLayerSwatch(
             Graphics g,
             Rectangle rect,
             CanvasLayer layer,
@@ -3227,8 +3573,21 @@ namespace Land_Readjustment_Tool
                 Math.Max(1, rect.Width - 1),
                 Math.Max(1, rect.Height - 1));
 
-            using (SolidBrush fillBrush = new(fillColor))
+            if (string.Equals(layer.FillStyle, "Hatched", StringComparison.OrdinalIgnoreCase))
             {
+                _hatchPatternService.DrawPreview(
+                    g,
+                    symbolRect,
+                    layer.HatchPattern,
+                    rawFillColor,
+                    backgroundColor,
+                    layer.FillTransparency,
+                    layer.HatchScale,
+                    backgroundColor);
+            }
+            else
+            {
+                using SolidBrush fillBrush = new(fillColor);
                 g.FillRectangle(fillBrush, symbolRect);
             }
 
@@ -3241,6 +3600,7 @@ namespace Land_Readjustment_Tool
             {
                 Alignment = System.Drawing.Drawing2D.PenAlignment.Inset
             };
+            ApplyPenLineStyle(outlinePen, layer.LineStyle, (float)layer.LineTypeScale);
             g.DrawRectangle(outlinePen, symbolRect);
         }
 
@@ -3251,10 +3611,16 @@ namespace Land_Readjustment_Tool
             Color backgroundColor)
         {
             Color lineColor = ParseColorOrDefault(layer.BorderColor, Color.Black);
-            DrawCenteredLineSymbol(g, rect, lineColor, (float)layer.LineWeight, layer.LineStyle);
+            DrawCenteredLineSymbol(
+                g,
+                rect,
+                lineColor,
+                (float)layer.LineWeight,
+                layer.LineStyle,
+                (float)layer.LineTypeScale);
         }
 
-        private static void DrawRoadsGroupSwatch(
+        private void DrawRoadsGroupSwatch(
             Graphics g,
             Rectangle rect,
             TreeNode roadsNode,
@@ -3296,7 +3662,8 @@ namespace Land_Readjustment_Tool
                     centerlineRect,
                     lineColor,
                     (float)centerline.LineWeight,
-                    centerline.LineStyle);
+                    centerline.LineStyle,
+                    (float)centerline.LineTypeScale);
             }
         }
 
@@ -3305,7 +3672,8 @@ namespace Land_Readjustment_Tool
             Rectangle rect,
             Color lineColor,
             float lineWeight,
-            string? lineStyle)
+            string? lineStyle,
+            float lineTypeScale)
         {
             float y = rect.Top + (rect.Height - 1) / 2f;
             float width = Math.Clamp(lineWeight, 1.0f, Math.Max(1.0f, rect.Height / 2.0f));
@@ -3315,7 +3683,7 @@ namespace Land_Readjustment_Tool
                 EndCap = System.Drawing.Drawing2D.LineCap.Flat
             };
 
-            ApplyPenLineStyle(pen, lineStyle);
+            ApplyPenLineStyle(pen, lineStyle, lineTypeScale);
             g.SmoothingMode = System.Drawing.Drawing2D.SmoothingMode.AntiAlias;
             g.DrawLine(pen, rect.Left, y, rect.Right, y);
             g.SmoothingMode = System.Drawing.Drawing2D.SmoothingMode.None;
@@ -3336,33 +3704,55 @@ namespace Land_Readjustment_Tool
                 EndCap = System.Drawing.Drawing2D.LineCap.Flat
             };
 
-            ApplyPenLineStyle(pen, lineStyle);
+            ApplyPenLineStyle(pen, lineStyle, 1.0f);
             g.SmoothingMode = System.Drawing.Drawing2D.SmoothingMode.AntiAlias;
             g.DrawLine(pen, rect.Left, y, rect.Right, y);
             g.SmoothingMode = System.Drawing.Drawing2D.SmoothingMode.None;
         }
 
-        private static void ApplyPenLineStyle(Pen pen, string? lineStyle)
+        private static void ApplyPenLineStyle(Pen pen, string? lineStyle, float lineTypeScale)
         {
-            switch (lineStyle?.Trim())
+            float scale = Math.Clamp(lineTypeScale, 0.1f, 100f);
+            switch (NormalizeLineStyleKey(lineStyle))
             {
-                case "Dashed":
-                    pen.DashStyle = System.Drawing.Drawing2D.DashStyle.Dash;
-                    break;
-                case "Dotted":
-                    pen.DashStyle = System.Drawing.Drawing2D.DashStyle.Dot;
-                    break;
-                case "DashDot":
-                    pen.DashStyle = System.Drawing.Drawing2D.DashStyle.DashDot;
-                    break;
-                case "Centerline":
+                case "DASHED":
                     pen.DashStyle = System.Drawing.Drawing2D.DashStyle.Custom;
-                    pen.DashPattern = [8f, 3f, 2f, 3f];
+                    pen.DashPattern = [4f * scale, 2f * scale];
+                    break;
+                case "DOTTED":
+                    pen.DashStyle = System.Drawing.Drawing2D.DashStyle.Custom;
+                    pen.DashPattern = [1f * scale, 2f * scale];
+                    break;
+                case "DASHDOT":
+                    pen.DashStyle = System.Drawing.Drawing2D.DashStyle.Custom;
+                    pen.DashPattern = [4f * scale, 2f * scale, 1f * scale, 2f * scale];
+                    break;
+                case "CENTERLINE":
+                    pen.DashStyle = System.Drawing.Drawing2D.DashStyle.Custom;
+                    pen.DashPattern = [8f * scale, 3f * scale, 2f * scale, 3f * scale];
                     break;
                 default:
                     pen.DashStyle = System.Drawing.Drawing2D.DashStyle.Solid;
                     break;
             }
+        }
+
+        private static string NormalizeLineStyleKey(string? lineStyle)
+        {
+            return (lineStyle ?? string.Empty)
+                .Replace("-", string.Empty, StringComparison.Ordinal)
+                .Replace(" ", string.Empty, StringComparison.Ordinal)
+                .Trim()
+                .ToUpperInvariant() switch
+            {
+                "DASH" => "DASHED",
+                "DOT" => "DOTTED",
+                _ => (lineStyle ?? string.Empty)
+                    .Replace("-", string.Empty, StringComparison.Ordinal)
+                    .Replace(" ", string.Empty, StringComparison.Ordinal)
+                    .Trim()
+                    .ToUpperInvariant()
+            };
         }
 
         private void ConfigureRasterGroupContextMenuItems()
@@ -3509,7 +3899,7 @@ namespace Land_Readjustment_Tool
                 }
                 else
                 {
-                    mapCanvasControlMain.RequestRender();
+                    mapCanvasControlMain.UpdateVectorLayer(updatedLayer);
                 }
 
                 SetCanvasCommandStatus(updatedLayer.IsVisible
@@ -3583,7 +3973,7 @@ namespace Land_Readjustment_Tool
                     UpdateRasterCanvasLayersFromTree();
 
                 if (vectorStackDirty)
-                    mapCanvasControlMain.RequestRender();
+                    UpdateVectorCanvasLayersFromTree();
 
                 SetCanvasCommandStatus(newVisibility
                     ? $"Layer group shown: {groupNode.Text}"
@@ -3996,6 +4386,57 @@ namespace Land_Readjustment_Tool
                 HideOperationProgress();
             }
         }
+
+        private async Task RefreshVectorCanvasFeaturesAsync()
+        {
+            if (!AppServices.HasContext)
+            {
+                mapCanvasControlMain.SetVectorFeatures([]);
+                return;
+            }
+
+            CanvasFeatureService featureService =
+                _projectScopedFactory.CreateCanvasFeatureService(AppServices.Context.Session);
+            IReadOnlyList<CanvasFeature> features =
+                await featureService.GetAllAsync();
+            mapCanvasControlMain.SetVectorFeatures(features);
+        }
+
+        private async void MapCanvasControlMain_ShapeCompleted(IShape shape)
+        {
+            if (!AppServices.HasContext)
+            {
+                return;
+            }
+
+            try
+            {
+                CanvasLayer? drawingLayer = GetSelectedCurrentDrawingLayer() ?? _currentDrawingLayer;
+                if (drawingLayer != null)
+                {
+                    shape.LayerName = drawingLayer.Name;
+                    shape.Properties[CanvasFeatureService.CanvasLayerIdPropertyKey] = drawingLayer.Id;
+                }
+
+                CanvasFeatureService featureService =
+                    _projectScopedFactory.CreateCanvasFeatureService(AppServices.Context.Session);
+                CanvasFeature feature = await featureService.SaveShapeAsync(
+                    shape,
+                    shape.LayerName);
+                MarkProjectModifiedIfOpen();
+                await RefreshVectorCanvasFeaturesAsync();
+                SetCanvasCommandStatus($"Created {feature.CanvasObject.ObjectType}: {feature.Layer?.Name ?? shape.LayerName}");
+            }
+            catch (Exception ex)
+            {
+                MessageBox.Show(
+                    $"Failed to save the drawn feature: {ex.Message}",
+                    "Drawing Tools",
+                    MessageBoxButtons.OK,
+                    MessageBoxIcon.Error);
+            }
+        }
+
         private async Task RefreshLayerTreeAsync(
             bool rebuildRasterLayersAfterCrsChange = false)
         {
@@ -4013,6 +4454,7 @@ namespace Land_Readjustment_Tool
                 PopulateLayerTree(
                     layerGroups,
                     rebuildRasterLayersAfterCrsChange);
+                await RefreshVectorCanvasFeaturesAsync();
             }
             catch (Exception ex)
             {
@@ -4095,6 +4537,7 @@ namespace Land_Readjustment_Tool
             }
 
             UpdateRasterCanvasLayersFromTree(rebuildRasterLayersAfterCrsChange);
+            UpdateVectorCanvasLayersFromTree();
         }
 
         private void ResetLayerTree()
@@ -4161,6 +4604,8 @@ namespace Land_Readjustment_Tool
             }
 
             UpdateRasterCanvasLayersFromTree();
+            UpdateVectorCanvasLayersFromTree();
+            mapCanvasControlMain.SetVectorFeatures([]);
         }
 
         private void PopulateLayerProperties(CanvasLayer layer)
@@ -4173,14 +4618,7 @@ namespace Land_Readjustment_Tool
 
         private void SetCanvasCommandStatus(string status)
         {
-            string cleanedStatus = string.IsNullOrWhiteSpace(status)
-                ? "Ready"
-                : status
-                    .Replace("Mode:", string.Empty, StringComparison.OrdinalIgnoreCase)
-                    .Replace("Canvas:", string.Empty, StringComparison.OrdinalIgnoreCase)
-                    .Trim();
-
-            lblStatusMessage.Text = $"Status: {cleanedStatus}";
+            lblStatusMessage.Text = string.Empty;
         }
 
         private async Task PersistProjectUiStateAsync()
@@ -4539,7 +4977,7 @@ namespace Land_Readjustment_Tool
             CanvasLayer editableLayer =
                 _layerCommandService.CreateEditableCopy(nodeState.Layer);
 
-            using var frm = new frmLayerPropertyManager(editableLayer);
+            using var frm = new frmLayerPropertyManager(editableLayer, _hatchPatternService);
             PositionLayerPropertyManager(frm);
 
             if (frm.ShowDialog(this) != DialogResult.OK)
@@ -4576,7 +5014,7 @@ namespace Land_Readjustment_Tool
                 }
                 else
                 {
-                    mapCanvasControlMain.RequestRender();
+                    mapCanvasControlMain.UpdateVectorLayer(updatedLayer);
                     SetCanvasCommandStatus($"Layer properties updated: {updatedLayer.Name}");
                 }
 
@@ -4670,6 +5108,128 @@ namespace Land_Readjustment_Tool
                 orderedRasterLayers,
                 projectFolderPath,
                 _currentProjectRasterSrsDefinition);
+        }
+
+        private void UpdateVectorCanvasLayersFromTree()
+        {
+            List<CanvasLayer> vectorLayers = [];
+
+            foreach (TreeNode rootNode in treeViewLayers.Nodes)
+            {
+                foreach (TreeNode layerNode in EnumerateLayerNodes(rootNode))
+                {
+                    CanvasLayer? layer = GetLayerFromNode(layerNode);
+                    if (layer != null && !IsRasterLayer(layer))
+                    {
+                        vectorLayers.Add(layer);
+                    }
+                }
+            }
+
+            mapCanvasControlMain.SetVectorLayers(
+                vectorLayers
+                    .OrderBy(layer => layer.DisplayOrder)
+                    .ThenBy(layer => layer.Name)
+                    .ToList());
+
+            RefreshCurrentDrawingLayerCombo();
+        }
+
+        private void RefreshCurrentDrawingLayerCombo()
+        {
+            int? previousLayerId = GetSelectedCurrentDrawingLayer()?.Id ??
+                                   _currentDrawingLayer?.Id;
+            List<CanvasLayer> drawingLayers = GetDrawingMarkupLayersFromTree()
+                .Where(layer => !IsRasterLayer(layer))
+                .OrderBy(layer => layer.DisplayOrder)
+                .ThenBy(layer => layer.Name)
+                .ToList();
+
+            _suppressCurrentDrawingLayerSelectionChanged = true;
+            try
+            {
+                cboCurrentDrawingLayer.Items.Clear();
+                foreach (CanvasLayer layer in drawingLayers)
+                {
+                    cboCurrentDrawingLayer.Items.Add(new DrawingLayerComboItem(layer));
+                }
+
+                int selectedIndex = -1;
+                if (previousLayerId.HasValue)
+                {
+                    selectedIndex = FindCurrentDrawingLayerComboIndex(previousLayerId.Value);
+                }
+
+                if (selectedIndex < 0 &&
+                    drawingLayers.Count > 0)
+                {
+                    selectedIndex = 0;
+                }
+
+                cboCurrentDrawingLayer.SelectedIndex = selectedIndex;
+                _currentDrawingLayer = selectedIndex >= 0 &&
+                                       cboCurrentDrawingLayer.Items[selectedIndex] is DrawingLayerComboItem selectedItem
+                    ? selectedItem.Layer
+                    : null;
+            }
+            finally
+            {
+                _suppressCurrentDrawingLayerSelectionChanged = false;
+            }
+        }
+
+        private int FindCurrentDrawingLayerComboIndex(int layerId)
+        {
+            for (int index = 0; index < cboCurrentDrawingLayer.Items.Count; index++)
+            {
+                if (cboCurrentDrawingLayer.Items[index] is DrawingLayerComboItem item &&
+                    item.Layer.Id == layerId)
+                {
+                    return index;
+                }
+            }
+
+            return -1;
+        }
+
+        private List<CanvasLayer> GetDrawingMarkupLayersFromTree()
+        {
+            List<CanvasLayer> layers = [];
+            foreach (TreeNode rootNode in treeViewLayers.Nodes)
+            {
+                foreach (TreeNode groupNode in EnumerateGroupNodes(rootNode, DrawingMarkupGroupKey))
+                {
+                    foreach (TreeNode layerNode in EnumerateLayerNodes(groupNode))
+                    {
+                        CanvasLayer? layer = GetLayerFromNode(layerNode);
+                        if (layer != null)
+                        {
+                            layers.Add(layer);
+                        }
+                    }
+                }
+            }
+
+            return layers;
+        }
+
+        private static IEnumerable<TreeNode> EnumerateGroupNodes(
+            TreeNode node,
+            string groupKey)
+        {
+            if (node.Tag is LayerTreeNodeState nodeState &&
+                string.Equals(nodeState.GroupKey, groupKey, StringComparison.OrdinalIgnoreCase))
+            {
+                yield return node;
+            }
+
+            foreach (TreeNode childNode in node.Nodes)
+            {
+                foreach (TreeNode descendantNode in EnumerateGroupNodes(childNode, groupKey))
+                {
+                    yield return descendantNode;
+                }
+            }
         }
 
         private async Task RefreshCurrentProjectRasterSrsDefinitionAsync()
@@ -4905,7 +5465,6 @@ namespace Land_Readjustment_Tool
         {
             lblCanvasCoordinates.Text = coordinates;
             UpdateActiveTool(mode);
-            SetCanvasCommandStatus(mode);
             UpdateScaleLabel(zoomScale);
         }
 
@@ -4940,7 +5499,14 @@ namespace Land_Readjustment_Tool
             _liveTileFetchStatus.Visible = true;
             PlaceLiveTileFetchStatusLeftOfCoordinates();
 
-            if (e.IsFetching)
+            if (e.IsDisconnected)
+            {
+                _liveTileFetchTimer.Stop();
+                _liveTileFetchFrameIndex = 0;
+                _liveTileFetchStatus.Image =
+                    _liveTileDisconnectedGlobe ?? _liveTileStaticGlobe;
+            }
+            else if (e.IsFetching)
             {
                 if (_liveTileFetchFrames.Count > 0)
                 {
@@ -4974,6 +5540,10 @@ namespace Land_Readjustment_Tool
                 _ when mode.Contains("Pan", StringComparison.OrdinalIgnoreCase) => "Pan",
                 _ when mode.Contains("Zoom Window", StringComparison.OrdinalIgnoreCase) => "Zoom Window",
                 _ when mode.Contains("Zoom", StringComparison.OrdinalIgnoreCase) => "Zoom",
+                _ when mode.Contains("Draw", StringComparison.OrdinalIgnoreCase) =>
+                    mode
+                        .Replace("Mode:", string.Empty, StringComparison.OrdinalIgnoreCase)
+                        .Trim(),
                 _ => "Select"
             };
             lblActiveTool.Text = $"Active Tool: {toolName}";

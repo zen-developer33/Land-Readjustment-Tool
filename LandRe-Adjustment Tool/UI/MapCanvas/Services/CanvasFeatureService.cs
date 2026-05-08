@@ -9,6 +9,7 @@ namespace Land_Readjustment_Tool.UI.MapCanvas.Services
     /// </summary>
     public sealed class CanvasFeatureService
     {
+        public const string CanvasLayerIdPropertyKey = "CanvasLayerId";
         private readonly ICanvasObjectRepository _canvasObjectRepository;
         private readonly ICanvasLayerRepository _canvasLayerRepository;
 
@@ -24,6 +25,13 @@ namespace Land_Readjustment_Tool.UI.MapCanvas.Services
             CancellationToken ct = default)
         {
             List<CanvasObject> objects = await _canvasObjectRepository.GetAllVisibleAsync(ct);
+            return objects.Select(MapFeature).ToList();
+        }
+
+        public async Task<IReadOnlyList<CanvasFeature>> GetAllAsync(
+            CancellationToken ct = default)
+        {
+            List<CanvasObject> objects = await _canvasObjectRepository.GetAllAsync(ct);
             return objects.Select(MapFeature).ToList();
         }
 
@@ -45,7 +53,7 @@ namespace Land_Readjustment_Tool.UI.MapCanvas.Services
         {
             ArgumentNullException.ThrowIfNull(shape);
 
-            CanvasLayer layer = await EnsureLayerAsync(layerName, ct);
+            CanvasLayer layer = await ResolveTargetLayerAsync(shape, layerName, ct);
             CanvasObject? existing = await _canvasObjectRepository.GetByIdAsync(shape.Id, ct);
             CanvasObject entity = GeometryShapeMapper.ToCanvasObject(shape, layer.Id, existing);
 
@@ -71,7 +79,26 @@ namespace Land_Readjustment_Tool.UI.MapCanvas.Services
             await _canvasObjectRepository.DeleteAsync(shapeId, ct);
         }
 
+        private async Task<CanvasLayer> ResolveTargetLayerAsync(
+            IShape shape,
+            string layerName,
+            CancellationToken ct)
+        {
+            if (shape.Properties.TryGetValue(CanvasLayerIdPropertyKey, out object? layerIdValue) &&
+                TryToInt(layerIdValue, out int layerId))
+            {
+                CanvasLayer? layerById = await _canvasLayerRepository.GetByIDAsync(layerId, ct);
+                if (layerById != null)
+                {
+                    return layerById;
+                }
+            }
+
+            return await EnsureLayerAsync(shape, layerName, ct);
+        }
+
         private async Task<CanvasLayer> EnsureLayerAsync(
+            IShape shape,
             string layerName,
             CancellationToken ct)
         {
@@ -96,7 +123,7 @@ namespace Land_Readjustment_Tool.UI.MapCanvas.Services
             CanvasLayer newLayer = new()
             {
                 Name = normalizedName,
-                LayerType = "Reference",
+                LayerType = ResolveLayerType(shape),
                 IsVisible = true,
                 IsLocked = false,
                 IsSelectable = true,
@@ -115,6 +142,17 @@ namespace Land_Readjustment_Tool.UI.MapCanvas.Services
             };
 
             return await _canvasLayerRepository.AddAsync(newLayer, ct);
+        }
+
+        private static string ResolveLayerType(IShape shape)
+        {
+            return CanvasLayerTreeService.DrawingMarkupLayerType;
+        }
+
+        private static bool TryToInt(object? value, out int result)
+        {
+            result = 0;
+            return value != null && int.TryParse(value.ToString(), out result);
         }
 
         private static CanvasFeature MapFeature(CanvasObject canvasObject)

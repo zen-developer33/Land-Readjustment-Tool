@@ -6,6 +6,7 @@ using Land_Readjustment_Tool.Core.Entities.Canvas;
 using Land_Readjustment_Tool.UI.MapCanvas.Core;
 using Land_Readjustment_Tool.UI.MapCanvas.Models.Shapes;
 using Land_Readjustment_Tool.UI.MapCanvas.Rendering;
+using Land_Readjustment_Tool.UI.MapCanvas.Services;
 
 namespace Land_Readjustment_Tool.UI.CustomControls
 {
@@ -22,6 +23,7 @@ namespace Land_Readjustment_Tool.UI.CustomControls
         private MapCanvasRenderSettings _renderSettings;
 
         public event Action<string, string, double>? StatusChanged;
+        public event Action<IShape>? ShapeCompleted;
 
         private bool _panToolActive;
         private bool _isPanning;
@@ -43,6 +45,11 @@ namespace Land_Readjustment_Tool.UI.CustomControls
         private bool _blockPanUntilZoomSettle;
         private bool _holdZoomStartFrameUntilRasterRefresh;
         private bool _suppressStaleRasterFrameUntilFreshRender;
+        private MapCanvasTool _activeTool = MapCanvasTool.Select;
+        private readonly List<PointD> _drawingVertices = [];
+        private IShape? _previewShape;
+        private string _activeDrawingLayerName = "Features";
+        private CanvasLayer? _activeDrawingLayer;
         private readonly System.Windows.Forms.Timer _zoomingStatusTimer = new()
         {
             Interval = ZoomSettleIntervalMs
@@ -99,6 +106,7 @@ namespace Land_Readjustment_Tool.UI.CustomControls
             canvasSurface.MouseMove += canvasSurface_MouseMove;
             canvasSurface.MouseUp += canvasSurface_MouseUp;
             canvasSurface.MouseLeave += canvasSurface_MouseLeave;
+            canvasSurface.KeyDown += canvasSurface_KeyDown;
         }
 
         /// <summary>
@@ -152,6 +160,99 @@ namespace Land_Readjustment_Tool.UI.CustomControls
             // Snapping will be added when geometry editing returns to the new canvas.
         }
 
+        public void SetVectorLayers(IEnumerable<CanvasLayer>? layers)
+        {
+            CanvasLayer[] vectorLayers = layers?.ToArray() ?? [];
+            _renderer.UpdateVectorLayers(vectorLayers);
+            RefreshActiveDrawingLayer(vectorLayers);
+            UpdateWorldBounds();
+            RefreshVectorCacheForCurrentViewImmediately();
+            RequestRender();
+        }
+
+        public void UpdateVectorLayer(CanvasLayer layer)
+        {
+            _renderer.UpdateVectorLayer(layer);
+            if (_activeDrawingLayer?.Id == layer.Id ||
+                string.Equals(_activeDrawingLayerName, layer.Name, StringComparison.OrdinalIgnoreCase))
+            {
+                _activeDrawingLayer = layer;
+                _activeDrawingLayerName = layer.Name;
+            }
+
+            RefreshVectorCacheForCurrentViewImmediately();
+            RequestRender();
+        }
+
+        public void SetVectorFeatures(IEnumerable<CanvasFeature>? features)
+        {
+            _renderer.UpdateVectorFeatures(features);
+            UpdateWorldBounds();
+            RefreshVectorCacheForCurrentViewImmediately();
+            RequestRender();
+        }
+
+        public void SetActiveTool(MapCanvasTool tool, string? layerName = null)
+        {
+            SetActiveTool(tool, null, layerName);
+        }
+
+        public void SetActiveTool(MapCanvasTool tool, CanvasLayer? layer)
+        {
+            SetActiveTool(tool, layer, layer?.Name);
+        }
+
+        private void SetActiveTool(
+            MapCanvasTool tool,
+            CanvasLayer? layer,
+            string? layerName)
+        {
+            _activeTool = tool;
+            _panToolActive = false;
+            _zoomWindowActive = false;
+            _isSelectingZoomWindow = false;
+            _drawingVertices.Clear();
+            _previewShape = null;
+
+            if (layer != null)
+            {
+                _activeDrawingLayer = layer;
+                _activeDrawingLayerName = layer.Name;
+            }
+
+            if (!string.IsNullOrWhiteSpace(layerName))
+            {
+                _activeDrawingLayerName = layerName.Trim();
+                if (_activeDrawingLayer != null &&
+                    !string.Equals(_activeDrawingLayer.Name, _activeDrawingLayerName, StringComparison.OrdinalIgnoreCase))
+                {
+                    _activeDrawingLayer = null;
+                }
+            }
+
+            UpdateCanvasCursor();
+            UpdateStatusBar();
+            RequestRender();
+        }
+
+        private void RefreshActiveDrawingLayer(IReadOnlyList<CanvasLayer> vectorLayers)
+        {
+            CanvasLayer? activeLayer = _activeDrawingLayer?.Id > 0
+                ? vectorLayers.FirstOrDefault(layer => layer.Id == _activeDrawingLayer.Id)
+                : null;
+
+            activeLayer ??= vectorLayers.FirstOrDefault(layer =>
+                string.Equals(layer.Name, _activeDrawingLayerName, StringComparison.OrdinalIgnoreCase));
+
+            if (activeLayer == null)
+            {
+                return;
+            }
+
+            _activeDrawingLayer = activeLayer;
+            _activeDrawingLayerName = activeLayer.Name;
+        }
+
         public void ZoomIn()
         {
             if (IsCanvasInteractionLocked)
@@ -187,6 +288,7 @@ namespace Land_Readjustment_Tool.UI.CustomControls
 
             _engine.ZoomToExtents();
             RefreshRasterCacheForCurrentViewAsync();
+            RefreshVectorCacheForCurrentViewImmediately();
             RequestRender();
         }
 
@@ -201,6 +303,7 @@ namespace Land_Readjustment_Tool.UI.CustomControls
 
             _engine.ZoomToExtents(worldBounds);
             RefreshRasterCacheForCurrentViewAsync();
+            RefreshVectorCacheForCurrentViewImmediately();
             RequestRender();
         }
 
@@ -233,6 +336,7 @@ namespace Land_Readjustment_Tool.UI.CustomControls
                 new PointD(viewportState.CenterX, viewportState.CenterY),
                 viewportState.ZoomScale);
             RefreshRasterCacheForCurrentViewAsync();
+            RefreshVectorCacheForCurrentViewImmediately();
             RequestRender();
             return true;
         }
@@ -255,6 +359,7 @@ namespace Land_Readjustment_Tool.UI.CustomControls
 
             _engine.ZoomToExtents(bounds);
             RefreshRasterCacheForCurrentViewAsync();
+            RefreshVectorCacheForCurrentViewImmediately();
             RequestRender();
             return true;
         }
@@ -272,6 +377,12 @@ namespace Land_Readjustment_Tool.UI.CustomControls
             }
 
             _panToolActive = active;
+            if (active)
+            {
+                _activeTool = MapCanvasTool.Select;
+                _drawingVertices.Clear();
+                _previewShape = null;
+            }
             _zoomWindowActive = false;
             _isSelectingZoomWindow = false;
             UpdateCanvasCursor();
@@ -287,6 +398,9 @@ namespace Land_Readjustment_Tool.UI.CustomControls
 
             _zoomWindowActive = true;
             _panToolActive = false;
+            _activeTool = MapCanvasTool.Select;
+            _drawingVertices.Clear();
+            _previewShape = null;
             _isPanning = false;
             UpdateCanvasCursor();
             UpdateStatusBar();
@@ -497,7 +611,9 @@ namespace Land_Readjustment_Tool.UI.CustomControls
 
             _engine.UpdateCanvasSize(canvasSurface.Size);
             _rasterDeferredRenderer.Resize(canvasSurface.Size);
+            _renderer.ResizeVectorCache(canvasSurface.Size);
             RefreshRasterCacheForCurrentViewAsync();
+            RefreshVectorCacheForCurrentViewImmediately();
             RequestRender();
         }
 
@@ -507,7 +623,11 @@ namespace Land_Readjustment_Tool.UI.CustomControls
                 e.Graphics,
                 GetRasterRenderFrame(),
                 ShouldDeferDirectRasterRendering,
-                GetZoomWindowRectangle());
+                GetVectorRenderFrame(),
+                ShouldDeferDirectVectorRendering,
+                GetZoomWindowRectangle(),
+                _previewShape,
+                _activeDrawingLayer);
         }
 
         private void canvasSurface_MouseWheel(object? sender, MouseEventArgs e)
@@ -535,11 +655,13 @@ namespace Land_Readjustment_Tool.UI.CustomControls
             if (_renderSettings.ZoomBehavior != MapCanvasZoomBehavior.StandardScaleSteps)
             {
                 _engine.ZoomAtPoint(screenPoint, normalZoomFactor);
+                _renderer.InvalidateVectorCache();
                 return;
             }
 
             double targetZoomScale = GetNextStandardZoomScale(_engine.ZoomScale, zoomIn);
             _engine.ZoomAtPointToScale(screenPoint, targetZoomScale);
+            _renderer.InvalidateVectorCache();
         }
 
         private static double GetNextStandardZoomScale(double currentZoomScale, bool zoomIn)
@@ -622,6 +744,13 @@ namespace Land_Readjustment_Tool.UI.CustomControls
                 return;
             }
 
+            if (_activeTool != MapCanvasTool.Select &&
+                e.Button is MouseButtons.Left or MouseButtons.Right)
+            {
+                HandleDrawingMouseDown(e);
+                return;
+            }
+
             if (_zoomWindowActive && e.Button == MouseButtons.Left)
             {
                 _isSelectingZoomWindow = true;
@@ -646,6 +775,8 @@ namespace Land_Readjustment_Tool.UI.CustomControls
                     canvasSurface.Size,
                     _rasterRenderLayers,
                     _engine);
+                RefreshVectorCacheForCurrentViewImmediately();
+                _renderer.BeginVectorPan(canvasSurface.Size);
                 canvasSurface.Capture = true;
                 UpdateCanvasCursor();
                 UpdateStatusBar();
@@ -696,6 +827,7 @@ namespace Land_Readjustment_Tool.UI.CustomControls
             }
 
             _currentMouseWorld = _engine.ScreenToWorld(e.Location);
+            UpdateDrawingPreview(e.Location);
             UpdateStatusBar();
         }
 
@@ -716,6 +848,7 @@ namespace Land_Readjustment_Tool.UI.CustomControls
                 {
                     ZoomToScreenRectangle(rectangle.Value);
                     RefreshRasterCacheForCurrentViewAsync();
+                    RefreshVectorCacheForCurrentViewImmediately();
                 }
 
                 UpdateCanvasCursor();
@@ -733,6 +866,7 @@ namespace Land_Readjustment_Tool.UI.CustomControls
                 SetLiveTileInternetFetchingSuspended(false);
                 _suppressStaleRasterFrameUntilFreshRender = true;
                 RefreshRasterCacheForCurrentViewAsync();
+                RefreshVectorCacheForCurrentViewImmediately();
                 UpdateCanvasCursor();
                 RequestRender();
             }
@@ -744,6 +878,132 @@ namespace Land_Readjustment_Tool.UI.CustomControls
             {
                 UpdateStatusBar();
             }
+        }
+
+        private void canvasSurface_KeyDown(object? sender, KeyEventArgs e)
+        {
+            if (e.KeyCode != Keys.Escape)
+            {
+                return;
+            }
+
+            CancelDrawing();
+            e.Handled = true;
+        }
+
+        private void HandleDrawingMouseDown(MouseEventArgs e)
+        {
+            PointD worldPoint = _engine.ScreenToWorld(e.Location);
+
+            if (e.Button == MouseButtons.Right)
+            {
+                CompleteMultiPointDrawing();
+                return;
+            }
+
+            switch (_activeTool)
+            {
+                case MapCanvasTool.Line:
+                case MapCanvasTool.Rectangle:
+                case MapCanvasTool.Circle:
+                    HandleTwoPointDrawing(worldPoint);
+                    break;
+                case MapCanvasTool.Polyline:
+                case MapCanvasTool.Polygon:
+                    _drawingVertices.Add(worldPoint);
+                    UpdateDrawingPreview(e.Location);
+                    break;
+            }
+        }
+
+        private void HandleTwoPointDrawing(PointD worldPoint)
+        {
+            if (_drawingVertices.Count == 0)
+            {
+                _drawingVertices.Add(worldPoint);
+                _previewShape = null;
+                RequestRender();
+                return;
+            }
+
+            IShape? completedShape = _activeTool switch
+            {
+                MapCanvasTool.Line => new LineShape(_drawingVertices[0], worldPoint),
+                MapCanvasTool.Rectangle => new RectangleShape(_drawingVertices[0], worldPoint),
+                MapCanvasTool.Circle => new CircleShape(_drawingVertices[0], worldPoint),
+                _ => null
+            };
+
+            CompleteShape(completedShape);
+        }
+
+        private void CompleteMultiPointDrawing()
+        {
+            int minimumVertices = _activeTool == MapCanvasTool.Polygon ? 3 : 2;
+            if (_drawingVertices.Count < minimumVertices)
+            {
+                CancelDrawing();
+                return;
+            }
+
+            CompleteShape(new PolylineShape(
+                _drawingVertices.ToArray(),
+                _activeTool == MapCanvasTool.Polygon));
+        }
+
+        private void UpdateDrawingPreview(Point screenPoint)
+        {
+            if (_activeTool == MapCanvasTool.Select ||
+                _drawingVertices.Count == 0)
+            {
+                return;
+            }
+
+            PointD worldPoint = _engine.ScreenToWorld(screenPoint);
+            _previewShape = _activeTool switch
+            {
+                MapCanvasTool.Line => new LineShape(_drawingVertices[0], worldPoint),
+                MapCanvasTool.Rectangle => new RectangleShape(_drawingVertices[0], worldPoint),
+                MapCanvasTool.Circle => new CircleShape(_drawingVertices[0], worldPoint),
+                MapCanvasTool.Polyline => new PolylineShape(
+                    _drawingVertices.Concat([worldPoint]),
+                    isClosed: false),
+                MapCanvasTool.Polygon => new PolylineShape(
+                    _drawingVertices.Concat([worldPoint]),
+                    isClosed: true),
+                _ => null
+            };
+
+            if (_previewShape != null)
+            {
+                _previewShape.LayerName = _activeDrawingLayerName;
+            }
+
+            RequestRender();
+        }
+
+        private void CompleteShape(IShape? shape)
+        {
+            if (shape == null)
+            {
+                CancelDrawing();
+                return;
+            }
+
+            shape.LayerName = _activeDrawingLayerName;
+            _drawingVertices.Clear();
+            _previewShape = null;
+            ShapeCompleted?.Invoke(shape);
+            UpdateStatusBar();
+            RequestRender();
+        }
+
+        private void CancelDrawing()
+        {
+            _drawingVertices.Clear();
+            _previewShape = null;
+            UpdateStatusBar();
+            RequestRender();
         }
 
         private Rectangle? GetZoomWindowRectangle()
@@ -784,6 +1044,10 @@ namespace Land_Readjustment_Tool.UI.CustomControls
             {
                 canvasSurface.Cursor = Cursors.Cross;
             }
+            else if (_activeTool != MapCanvasTool.Select)
+            {
+                canvasSurface.Cursor = Cursors.Cross;
+            }
             else if (_panToolActive || _isPanning)
             {
                 canvasSurface.Cursor = Cursors.Hand;
@@ -808,6 +1072,13 @@ namespace Land_Readjustment_Tool.UI.CustomControls
             if (_isZooming && _zoomDirection != null)
             {
                 return $"Mode: Zooming {_zoomDirection}";
+            }
+
+            if (_activeTool != MapCanvasTool.Select)
+            {
+                return _drawingVertices.Count == 0
+                    ? $"Mode: Draw {_activeTool}"
+                    : $"Mode: Draw {_activeTool} ({_drawingVertices.Count})";
             }
 
             if (_isSelectingZoomWindow || _zoomWindowActive)
@@ -836,6 +1107,9 @@ namespace Land_Readjustment_Tool.UI.CustomControls
             IsInteractiveNavigation ||
             (_rasterCacheRefreshPending &&
              !_suppressStaleRasterFrameUntilFreshRender);
+
+        private bool ShouldDeferDirectVectorRendering =>
+            _isPanning;
 
         private RasterRenderFrame? GetRasterRenderFrame()
         {
@@ -873,11 +1147,32 @@ namespace Land_Readjustment_Tool.UI.CustomControls
             return null;
         }
 
+        private RasterRenderFrame? GetVectorRenderFrame()
+        {
+            if (_isPanning &&
+                _renderer.TryGetVectorPanFrame(
+                    _totalPanDelta,
+                    out RasterRenderFrame panFrame))
+            {
+                return panFrame;
+            }
+
+            if (!_isZooming &&
+                !_isSelectingZoomWindow &&
+                _renderer.TryGetVectorCacheFrame(out RasterRenderFrame cacheFrame))
+            {
+                return cacheFrame;
+            }
+
+            return null;
+        }
+
         private void ZoomingStatusTimer_Tick(object? sender, EventArgs e)
         {
             _zoomingStatusTimer.Stop();
             SetLiveTileInternetFetchingSuspended(false);
             RefreshRasterCacheForCurrentViewAsync(endZoomWhenComplete: true);
+            RefreshVectorCacheForCurrentViewImmediately();
             UpdateStatusBar();
             RequestRender();
         }
@@ -897,6 +1192,7 @@ namespace Land_Readjustment_Tool.UI.CustomControls
                     canvasSurface.Size,
                     _rasterRenderLayers,
                     _engine);
+                _renderer.InvalidateVectorCache();
             }
 
             _isZooming = true;
@@ -967,6 +1263,7 @@ namespace Land_Readjustment_Tool.UI.CustomControls
                 _suppressStaleRasterFrameUntilFreshRender = false;
                 canvasSurface.Capture = false;
                 _rasterDeferredRenderer.Invalidate();
+                _renderer.InvalidateVectorCache();
             }
 
             if (_isSelectingZoomWindow)
@@ -1033,10 +1330,38 @@ namespace Land_Readjustment_Tool.UI.CustomControls
             }
         }
 
+        private void RefreshVectorCacheForCurrentViewImmediately()
+        {
+            if (IsDisposed || Disposing)
+            {
+                return;
+            }
+
+            try
+            {
+                _renderer.RefreshVectorCache(canvasSurface.Size);
+            }
+            catch (ObjectDisposedException)
+            {
+                // The canvas was disposed while a vector cache frame was being refreshed.
+            }
+            catch (Exception ex)
+            {
+                System.Diagnostics.Debug.WriteLine(
+                    $"Vector cache refresh failed: {ex.Message}");
+            }
+        }
+
         private async void RefreshRasterCacheForCurrentViewAsync(bool endZoomWhenComplete = false)
         {
             if (IsDisposed || Disposing)
             {
+                return;
+            }
+
+            if (IsInteractiveNavigation && !endZoomWhenComplete)
+            {
+                CancelPendingRasterRender();
                 return;
             }
 
@@ -1136,24 +1461,44 @@ namespace Land_Readjustment_Tool.UI.CustomControls
 
         private void UpdateRasterWorldBounds()
         {
+            UpdateWorldBounds();
+        }
+
+        private void UpdateWorldBounds()
+        {
             List<IRasterRenderLayer> extentLayers = _rasterRenderLayers
                 .Where(layer => layer is not XyzLiveTileRenderLayer)
                 .ToList();
 
-            if (extentLayers.Count == 0)
+            RectangleD? vectorBounds = _renderer.GetVectorFeatureBounds();
+
+            if (extentLayers.Count == 0 && !vectorBounds.HasValue)
             {
                 _engine.SetWorldBounds(MapCanvasEngine.DefaultWorldBounds);
                 return;
             }
 
-            double minX = extentLayers.Min(layer =>
-                Math.Min(layer.WorldBounds.Left, layer.WorldBounds.Right));
-            double maxX = extentLayers.Max(layer =>
-                Math.Max(layer.WorldBounds.Left, layer.WorldBounds.Right));
-            double minY = extentLayers.Min(layer =>
-                Math.Min(layer.WorldBounds.Top, layer.WorldBounds.Bottom));
-            double maxY = extentLayers.Max(layer =>
-                Math.Max(layer.WorldBounds.Top, layer.WorldBounds.Bottom));
+            double minX = double.MaxValue;
+            double maxX = double.MinValue;
+            double minY = double.MaxValue;
+            double maxY = double.MinValue;
+
+            foreach (IRasterRenderLayer layer in extentLayers)
+            {
+                minX = Math.Min(minX, Math.Min(layer.WorldBounds.Left, layer.WorldBounds.Right));
+                maxX = Math.Max(maxX, Math.Max(layer.WorldBounds.Left, layer.WorldBounds.Right));
+                minY = Math.Min(minY, Math.Min(layer.WorldBounds.Top, layer.WorldBounds.Bottom));
+                maxY = Math.Max(maxY, Math.Max(layer.WorldBounds.Top, layer.WorldBounds.Bottom));
+            }
+
+            if (vectorBounds.HasValue)
+            {
+                RectangleD bounds = vectorBounds.Value;
+                minX = Math.Min(minX, bounds.Left);
+                maxX = Math.Max(maxX, bounds.Right);
+                minY = Math.Min(minY, bounds.Top);
+                maxY = Math.Max(maxY, bounds.Bottom);
+            }
 
             _engine.SetWorldBounds(
                 new RectangleD(minX, minY, maxX - minX, maxY - minY));
