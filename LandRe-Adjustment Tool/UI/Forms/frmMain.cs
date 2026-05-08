@@ -1106,6 +1106,11 @@ namespace Land_Readjustment_Tool
                     MapCanvasSettingsService.FromProjectSettings(settings));
                 mapCanvasControlMain.ApplySnapEnabled(settings.SnapEnabled);
 
+                // Update layer colors to be theme-aware
+                if (showRefreshProgress)
+                    SetOperationProgress(45, "Updating layer colors for theme");
+                await UpdateLayerColorsForCanvasThemeAsync(bgColor);
+
                 if (_workspaceCanvas != null && !_workspaceCanvas.IsDisposed)
                 {
                     if (showRefreshProgress)
@@ -3024,14 +3029,16 @@ namespace Land_Readjustment_Tool
         {
             string[] palette =
             {
-                "#D32F2F",
-                "#1976D2",
-                "#388E3C",
-                "#F57C00",
-                "#7B1FA2",
-                "#0097A7",
-                "#C2185B",
-                "#5D4037"
+                "#D32F2F",    // Medium red
+                "#1976D2",    // Medium blue
+                "#388E3C",    // Medium green
+                "#F57C00",    // Medium orange
+                "#7B1FA2",    // Medium purple
+                "#0097A7",    // Medium cyan
+                "#C2185B",    // Medium pink
+                "#5D4037",    // Dark brown
+                "#F0F0F0",    // Very light gray (will adjust to black on light canvas)
+                "#0A0A0A"     // Very dark (will adjust to white on dark canvas)
             };
 
             return palette[Random.Shared.Next(palette.Length)];
@@ -4472,6 +4479,68 @@ namespace Land_Readjustment_Tool
                     "Add Drawing Layer",
                     MessageBoxButtons.OK,
                     MessageBoxIcon.Error);
+            }
+        }
+
+        /// <summary>
+        /// Updates all layer colors to be theme-aware based on the canvas background color.
+        /// When canvas theme changes, layer colors are adjusted for visibility and contrast.
+        /// </summary>
+        private async Task UpdateLayerColorsForCanvasThemeAsync(Color canvasBackgroundColor)
+        {
+            if (!AppServices.HasContext) return;
+
+            try
+            {
+                var repository = _projectScopedFactory.CreateCanvasLayerRepository(
+                    AppServices.Context.Session);
+                var layers = await repository.GetAllOrderedAsync();
+
+                if (layers.Count == 0) return;
+
+                bool colorsUpdated = false;
+
+                // Update each layer's colors based on canvas theme
+                foreach (var layer in layers)
+                {
+                    string adjustedBorderColor = CanvasThemeColorService.AdjustHexColorForCanvasTheme(
+                        canvasBackgroundColor, layer.BorderColor ?? "#000000");
+                    string adjustedFillColor = CanvasThemeColorService.AdjustHexColorForCanvasTheme(
+                        canvasBackgroundColor, layer.FillColor ?? "#FFFFFF");
+                    string adjustedLabelColor = CanvasThemeColorService.AdjustHexColorForCanvasTheme(
+                        canvasBackgroundColor, layer.LabelColor ?? "#000000");
+
+                    // Only update if colors changed
+                    if (adjustedBorderColor != layer.BorderColor ||
+                        adjustedFillColor != layer.FillColor ||
+                        adjustedLabelColor != layer.LabelColor)
+                    {
+                        layer.BorderColor = adjustedBorderColor;
+                        layer.FillColor = adjustedFillColor;
+                        layer.LabelColor = adjustedLabelColor;
+                        layer.LastModifiedDate = DateTime.Now;
+
+                        await repository.UpdateAsync(layer);
+                        colorsUpdated = true;
+                    }
+                }
+
+                // If any colors were updated, refresh everything
+                if (colorsUpdated)
+                {
+                    // Reload layers and refresh tree view (which shows swatches and properties)
+                    var updatedLayers = await repository.GetAllOrderedAsync();
+                    await RefreshLayerTreeAsync();
+                    
+                    // Refresh canvas with updated colors
+                    mapCanvasControlMain.SetVectorLayers(updatedLayers);
+                    mapCanvasControlMain.RequestRender();
+                }
+            }
+            catch (Exception ex)
+            {
+                System.Diagnostics.Debug.WriteLine(
+                    $"UpdateLayerColorsForCanvasTheme failed: {ex.Message}");
             }
         }
 

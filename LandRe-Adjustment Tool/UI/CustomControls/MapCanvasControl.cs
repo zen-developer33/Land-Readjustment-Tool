@@ -1158,7 +1158,7 @@ namespace Land_Readjustment_Tool.UI.CustomControls
             List<CanvasFeature> selectedFeatures = _vectorFeatures
                 .Where(IsSelectableDrawingFeature)
                 .Where(feature => isWindowSelection
-                    ? ContainsRectangle(worldRectangle, feature.Shape.GetBoundingBox())
+                    ? ContainsSelectionGeometry(worldRectangle, feature.Shape)
                     : IntersectsSelectionRectangle(worldRectangle, feature.Shape))
                 .ToList();
 
@@ -1174,13 +1174,16 @@ namespace Land_Readjustment_Tool.UI.CustomControls
 
         private void SelectObjectByClick(Point screenPoint, bool additiveSelection)
         {
+            PointD worldPoint = _engine.ScreenToWorld(new PointD(screenPoint.X, screenPoint.Y));
+            double worldTolerance = _engine.ScreenToWorldDistance(ObjectSelectionTolerancePixels);
+
             CanvasFeature? hitFeature = _vectorFeatures
                 .Where(IsSelectableDrawingFeature)
                 .Reverse()
                 .FirstOrDefault(feature => IsScreenPointNearShape(
                     feature.Shape,
-                    screenPoint,
-                    ObjectSelectionTolerancePixels));
+                    worldPoint,
+                    worldTolerance));
 
             if (!additiveSelection)
             {
@@ -1287,14 +1290,6 @@ namespace Land_Readjustment_Tool.UI.CustomControls
             return new RectangleD(left, bottom, right - left, top - bottom);
         }
 
-        private static bool ContainsRectangle(RectangleD outer, RectangleD inner)
-        {
-            return inner.Left >= outer.Left &&
-                   inner.Right <= outer.Right &&
-                   inner.Top >= outer.Top &&
-                   inner.Bottom <= outer.Bottom;
-        }
-
         private static bool IntersectsSelectionRectangle(RectangleD selectionBounds, IShape shape)
         {
             NtsGeometry shapeGeometry = CreateSelectionGeometry(shape);
@@ -1313,6 +1308,26 @@ namespace Land_Readjustment_Tool.UI.CustomControls
                 ]);
 
             return shapeGeometry.Intersects(selectionPolygon);
+        }
+
+        private static bool ContainsSelectionGeometry(RectangleD selectionBounds, IShape shape)
+        {
+            NtsGeometry shapeGeometry = CreateSelectionGeometry(shape);
+            if (shapeGeometry.IsEmpty)
+            {
+                return false;
+            }
+
+            NtsPolygon selectionPolygon = SelectionGeometryFactory.CreatePolygon(
+                [
+                    new NtsCoordinate(selectionBounds.Left, selectionBounds.Top),
+                    new NtsCoordinate(selectionBounds.Right, selectionBounds.Top),
+                    new NtsCoordinate(selectionBounds.Right, selectionBounds.Bottom),
+                    new NtsCoordinate(selectionBounds.Left, selectionBounds.Bottom),
+                    new NtsCoordinate(selectionBounds.Left, selectionBounds.Top)
+                ]);
+
+            return selectionPolygon.Covers(shapeGeometry);
         }
 
         private static NtsGeometry CreateSelectionGeometry(IShape shape)
@@ -1428,35 +1443,18 @@ namespace Land_Readjustment_Tool.UI.CustomControls
 
         private bool IsScreenPointNearShape(
             IShape shape,
-            Point screenPoint,
-            int tolerancePixels)
+            PointD worldPoint,
+            double toleranceWorld)
         {
-            if (shape is PolylineShape { Vertices.Count: 1 } pointPolyline)
-            {
-                return Distance(
-                    ToScreenPoint(pointPolyline.Vertices[0]),
-                    screenPoint) <= tolerancePixels;
-            }
-
-            if (shape is CircleShape pointCircle &&
-                pointCircle.GetRadius() <= _engine.ScreenToWorldDistance(tolerancePixels))
-            {
-                return Distance(
-                    ToScreenPoint(pointCircle.Center),
-                    screenPoint) <= tolerancePixels;
-            }
-
-            using GraphicsPath? outlinePath = CreateScreenOutlinePath(shape);
-            if (outlinePath == null)
+            NtsGeometry shapeGeometry = CreateSelectionGeometry(shape);
+            if (shapeGeometry.IsEmpty)
             {
                 return false;
             }
 
-            using Pen hitPen = new(Color.Black, Math.Max(1, tolerancePixels * 2))
-            {
-                Alignment = PenAlignment.Center
-            };
-            return outlinePath.IsOutlineVisible(screenPoint, hitPen);
+            NtsGeometry hitArea = SelectionGeometryFactory.CreatePoint(
+                new NtsCoordinate(worldPoint.X, worldPoint.Y)).Buffer(toleranceWorld, quadrantSegments: 16);
+            return shapeGeometry.Intersects(hitArea);
         }
 
         private GraphicsPath? CreateScreenOutlinePath(IShape shape)

@@ -827,6 +827,15 @@ namespace Land_Readjustment_Tool.UI.MapCanvas.Rendering
                 size,
                 size);
 
+            if (isSelected)
+            {
+                using Pen selectionPen = new(Color.FromArgb(0, 122, 204), Math.Max(1.5f, style.LineWidth + 0.75f))
+                {
+                    Alignment = PenAlignment.Center
+                };
+                graphics.DrawEllipse(selectionPen, RectangleF.Inflate(markerRect, 4.0f, 4.0f));
+            }
+
             PointMarkerRenderer.Draw(
                 graphics,
                 markerRect,
