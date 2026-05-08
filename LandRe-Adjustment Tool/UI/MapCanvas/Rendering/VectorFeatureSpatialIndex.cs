@@ -9,11 +9,15 @@ namespace Land_Readjustment_Tool.UI.MapCanvas.Rendering
     {
         private STRtree<CanvasFeature> _spatialIndex = new();
         private bool _hasEntries;
+        private int _entryCount;
+
+        public int EntryCount => _entryCount;
 
         public void Rebuild(IEnumerable<CanvasFeature> features)
         {
             STRtree<CanvasFeature> spatialIndex = new();
             bool hasEntries = false;
+            int entryCount = 0;
 
             foreach (CanvasFeature feature in features)
             {
@@ -24,6 +28,7 @@ namespace Land_Readjustment_Tool.UI.MapCanvas.Rendering
 
                 spatialIndex.Insert(envelope, feature);
                 hasEntries = true;
+                entryCount++;
             }
 
             if (hasEntries)
@@ -33,6 +38,7 @@ namespace Land_Readjustment_Tool.UI.MapCanvas.Rendering
 
             _spatialIndex = spatialIndex;
             _hasEntries = hasEntries;
+            _entryCount = entryCount;
         }
 
         public IReadOnlyList<CanvasFeature> Query(RectangleD worldBounds)

@@ -81,48 +81,49 @@ namespace Land_Readjustment_Tool.UI.MapCanvas.Services
 
         private static Bitmap CreatePatternTile(string patternKey, Color hatchColor, float hatchScale)
         {
-            int scaledTileSize = Math.Max(4, (int)Math.Round(TileSize * hatchScale));
-            Bitmap tile = new(scaledTileSize, scaledTileSize);
+            Bitmap tile = new(TileSize, TileSize);
 
             using Graphics graphics = Graphics.FromImage(tile);
             graphics.Clear(Color.Transparent);
             graphics.SmoothingMode = SmoothingMode.AntiAlias;
-            graphics.ScaleTransform(hatchScale, hatchScale);
 
-            using Pen pen = new(hatchColor, 1.35f)
+            using Pen pen = new(hatchColor, 0.75f)
             {
                 StartCap = LineCap.Flat,
                 EndCap = LineCap.Flat
             };
 
+            int ScaleSpacing(int spacing) =>
+                Math.Max(3, (int)Math.Round(spacing * hatchScale));
+
             switch (patternKey.ToUpperInvariant())
             {
                 case "ANSI32":
-                    DrawDiagonalLines(graphics, pen, spacing: 9, forward: true);
-                    DrawDiagonalLines(graphics, pen, spacing: 9, forward: false);
+                    DrawDiagonalLines(graphics, pen, spacing: ScaleSpacing(9), forward: true);
+                    DrawDiagonalLines(graphics, pen, spacing: ScaleSpacing(9), forward: false);
                     break;
                 case "ANSI33":
-                    DrawDiagonalLines(graphics, pen, spacing: 6, forward: true);
+                    DrawDiagonalLines(graphics, pen, spacing: ScaleSpacing(6), forward: true);
                     break;
                 case "ANSI34":
-                    DrawDiagonalLines(graphics, pen, spacing: 14, forward: true);
+                    DrawDiagonalLines(graphics, pen, spacing: ScaleSpacing(14), forward: true);
                     break;
                 case "HORIZONTAL":
-                    DrawHorizontalLines(graphics, pen, spacing: 8);
+                    DrawHorizontalLines(graphics, pen, spacing: ScaleSpacing(8));
                     break;
                 case "VERTICAL":
-                    DrawVerticalLines(graphics, pen, spacing: 8);
+                    DrawVerticalLines(graphics, pen, spacing: ScaleSpacing(8));
                     break;
                 case "CROSS":
-                    DrawHorizontalLines(graphics, pen, spacing: 9);
-                    DrawVerticalLines(graphics, pen, spacing: 9);
+                    DrawHorizontalLines(graphics, pen, spacing: ScaleSpacing(9));
+                    DrawVerticalLines(graphics, pen, spacing: ScaleSpacing(9));
                     break;
                 case "DIAGONAL-CROSS":
-                    DrawDiagonalLines(graphics, pen, spacing: 10, forward: true);
-                    DrawDiagonalLines(graphics, pen, spacing: 10, forward: false);
+                    DrawDiagonalLines(graphics, pen, spacing: ScaleSpacing(10), forward: true);
+                    DrawDiagonalLines(graphics, pen, spacing: ScaleSpacing(10), forward: false);
                     break;
                 case "DOTS":
-                    DrawDots(graphics, hatchColor, spacing: 8, radius: 1.3f);
+                    DrawDots(graphics, hatchColor, spacing: ScaleSpacing(8), radius: 1.3f);
                     break;
                 case "SAND":
                     DrawSand(graphics, hatchColor);
@@ -152,7 +153,7 @@ namespace Land_Readjustment_Tool.UI.MapCanvas.Services
                     DrawWood(graphics, pen);
                     break;
                 default:
-                    DrawDiagonalLines(graphics, pen, spacing: 10, forward: true);
+                    DrawDiagonalLines(graphics, pen, spacing: ScaleSpacing(10), forward: true);
                     break;
             }
 

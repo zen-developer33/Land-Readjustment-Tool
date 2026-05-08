@@ -46,7 +46,7 @@ namespace Land_Readjustment_Tool.UI.Forms
             MinimizeBox = false;
             MaximizeBox = false;
             ShowInTaskbar = false;
-            ClientSize = new Size(720, 520);
+            ClientSize = new Size(560, 420);
             Font = new Font("Segoe UI", 9F);
 
             _patternLayout.Dock = DockStyle.Fill;
@@ -166,9 +166,9 @@ namespace Land_Readjustment_Tool.UI.Forms
                 _transparency = transparency;
                 _hatchScale = hatchScale;
 
-                Width = 214;
-                Height = 118;
-                Margin = new Padding(7);
+                Width = 164;
+                Height = 104;
+                Margin = new Padding(6);
                 Cursor = Cursors.Hand;
                 TabStop = true;
                 SetStyle(
@@ -193,7 +193,7 @@ namespace Land_Readjustment_Tool.UI.Forms
                     : Color.White);
                 e.Graphics.FillRectangle(backgroundBrush, ClientRectangle);
 
-                Rectangle previewRect = new(14, 12, Width - 28, 54);
+                Rectangle previewRect = new(12, 10, Width - 24, 46);
                 _hatchPatternService.DrawPreview(
                     e.Graphics,
                     previewRect,
@@ -207,7 +207,7 @@ namespace Land_Readjustment_Tool.UI.Forms
                 using Pen previewBorderPen = new(Color.FromArgb(122, 128, 138));
                 e.Graphics.DrawRectangle(previewBorderPen, previewRect);
 
-                Rectangle textRect = new(12, 72, Width - 24, 22);
+                Rectangle textRect = new(10, 62, Width - 20, 22);
                 TextRenderer.DrawText(
                     e.Graphics,
                     Pattern.Name,
@@ -218,7 +218,7 @@ namespace Land_Readjustment_Tool.UI.Forms
                     TextFormatFlags.VerticalCenter |
                     TextFormatFlags.EndEllipsis);
 
-                Rectangle descriptionRect = new(12, 93, Width - 24, 18);
+                Rectangle descriptionRect = new(10, 83, Width - 20, 18);
                 TextRenderer.DrawText(
                     e.Graphics,
                     Pattern.Description,

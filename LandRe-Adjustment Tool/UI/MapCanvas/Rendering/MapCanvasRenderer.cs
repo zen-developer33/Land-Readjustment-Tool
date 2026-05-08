@@ -28,6 +28,7 @@ namespace Land_Readjustment_Tool.UI.MapCanvas.Rendering
         private double _lastAdaptiveMinorSize;
         private MapCanvasRenderSettings _settings;
         private IReadOnlyList<IRasterRenderLayer> _rasterLayers = [];
+        private bool _debugOverlayRequested;
 
         /// <summary>
         /// Creates a renderer for drawing the map canvas using the supplied engine and settings.
@@ -110,9 +111,11 @@ namespace Land_Readjustment_Tool.UI.MapCanvas.Rendering
             bool interactiveVector,
             Rectangle? zoomWindowRectangle,
             IShape? previewShape = null,
-            CanvasLayer? previewLayer = null)
+            CanvasLayer? previewLayer = null,
+            bool showDebugOverlay = false)
         {
             ArgumentNullException.ThrowIfNull(graphics);
+            _debugOverlayRequested = showDebugOverlay;
 
             graphics.Clear(_settings.BackgroundColor);
             MapCanvasRenderViewport viewport = CreateViewport(graphics);
@@ -190,6 +193,20 @@ namespace Land_Readjustment_Tool.UI.MapCanvas.Rendering
         public bool TryGetVectorPanFrame(PointF totalPanDelta, out RasterRenderFrame frame)
         {
             return _vectorDeferredRenderer.TryGetPanFrame(totalPanDelta, out frame);
+        }
+
+        public bool IsDebugOverlayRequested => _debugOverlayRequested;
+
+        public MapCanvasRendererDebugState GetDebugState()
+        {
+            return new MapCanvasRendererDebugState
+            {
+                RasterLayerCount = _rasterLayers.Count,
+                VisibleRasterLayerCount = _rasterLayers.Count(layer => layer.IsVisible),
+                VectorLayerCount = _vectorRenderer.LayerCount,
+                VectorStats = _vectorRenderer.LastRenderStats,
+                VectorCache = _vectorDeferredRenderer.GetDebugState()
+            };
         }
 
         /// <summary>
@@ -545,7 +562,7 @@ namespace Land_Readjustment_Tool.UI.MapCanvas.Rendering
         {
             graphics.SmoothingMode = SmoothingMode.AntiAlias;
             graphics.InterpolationMode = InterpolationMode.HighQualityBicubic;
-            graphics.PixelOffsetMode = PixelOffsetMode.Half;
+            graphics.PixelOffsetMode = PixelOffsetMode.HighQuality;
             graphics.CompositingQuality = CompositingQuality.HighQuality;
             graphics.TextRenderingHint = TextRenderingHint.ClearTypeGridFit;
         }

@@ -1,5 +1,6 @@
 using System.Drawing.Drawing2D;
 using System.Drawing.Imaging;
+using System.Diagnostics;
 using System.Threading;
 using Land_Readjustment_Tool.UI.MapCanvas.Core;
 using Land_Readjustment_Tool.UI.MapCanvas.Models.Shapes;
@@ -23,6 +24,7 @@ namespace Land_Readjustment_Tool.UI.MapCanvas.Rendering
         private readonly List<Bitmap> _retiredBitmaps = [];
         private int _activeFrameLeases;
         private bool _disposed;
+        private double _lastRefreshElapsedMs;
 
         public void Invalidate()
         {
@@ -53,6 +55,7 @@ namespace Land_Readjustment_Tool.UI.MapCanvas.Rendering
             MapCanvasEngine engine,
             CancellationToken cancellationToken = default)
         {
+            Stopwatch stopwatch = Stopwatch.StartNew();
             RasterRenderResult? renderResult = RenderBitmap(
                 canvasSize,
                 rasterLayers,
@@ -87,6 +90,7 @@ namespace Land_Readjustment_Tool.UI.MapCanvas.Rendering
                     _cacheValid = true;
                     _panBufferValid = false;
                     _zoomStartView = null;
+                    _lastRefreshElapsedMs = stopwatch.Elapsed.TotalMilliseconds;
                     RetireBitmap(previousCache);
                     RetireLayerCaches(previousLayerCaches);
                     return true;
@@ -98,6 +102,22 @@ namespace Land_Readjustment_Tool.UI.MapCanvas.Rendering
                 {
                     renderResult.Dispose();
                 }
+            }
+        }
+
+        public DeferredRendererDebugState GetDebugState()
+        {
+            lock (_sync)
+            {
+                return new DeferredRendererDebugState(
+                    _cacheValid,
+                    _panBufferValid,
+                    _zoomStartView.HasValue,
+                    _canvasSize,
+                    _layerCaches.Count,
+                    _activeFrameLeases,
+                    _retiredBitmaps.Count,
+                    _lastRefreshElapsedMs);
             }
         }
 

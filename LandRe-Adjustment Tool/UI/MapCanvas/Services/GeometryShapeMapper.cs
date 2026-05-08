@@ -278,9 +278,9 @@ namespace Land_Readjustment_Tool.UI.MapCanvas.Services
 
         private static IShape CreatePointShape(NtsPoint point)
         {
-            PointD center = new(point.X, point.Y);
-            PointD radiusPoint = new(point.X + 1.0, point.Y);
-            return new CircleShape(center, radiusPoint);
+            PolylineShape shape = new([new PointD(point.X, point.Y)], isClosed: false);
+            shape.Properties["ObjectType"] = "Point";
+            return shape;
         }
 
         private static IShape CreateLineShape(string objectType, LineString line)
@@ -357,6 +357,12 @@ namespace Land_Readjustment_Tool.UI.MapCanvas.Services
 
         private static string ResolveObjectType(IShape shape)
         {
+            if (shape.Properties.TryGetValue("ObjectType", out object? objectType) &&
+                !string.IsNullOrWhiteSpace(objectType?.ToString()))
+            {
+                return objectType.ToString()!.Trim();
+            }
+
             return shape switch
             {
                 PolylineShape polyline when polyline.IsClosed => "Polygon",

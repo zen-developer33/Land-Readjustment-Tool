@@ -148,11 +148,13 @@ namespace Land_Readjustment_Tool
             tsmExpandCollapseLeftPanel = new ToolStripButton();
             toolStripSeparator10 = new ToolStripSeparator();
             mnuSelectTool = new ToolStripButton();
+            mnuDrawPoint = new ToolStripButton();
             mnuDrawLine = new ToolStripButton();
             mnuDrawPolyline = new ToolStripButton();
             mnuDrawPolygon = new ToolStripButton();
             mnuDrawRectangle = new ToolStripButton();
             mnuDrawCircle = new ToolStripButton();
+            mnuCanvasDebugOverlay = new ToolStripButton();
             toolStripSeparator17 = new ToolStripSeparator();
             lblCurrentDrawingLayer = new ToolStripLabel();
             cboCurrentDrawingLayer = new ToolStripComboBox();
@@ -1188,7 +1190,7 @@ namespace Land_Readjustment_Tool
             tsCanvasTools.Font = new Font("Segoe UI", 9F);
             tsCanvasTools.GripStyle = ToolStripGripStyle.Hidden;
             tsCanvasTools.ImageScalingSize = new Size(20, 20);
-            tsCanvasTools.Items.AddRange(new ToolStripItem[] { tsmExpandCollapseLeftPanel, toolStripSeparator10, mnuSelectTool, mnuDrawLine, mnuDrawPolyline, mnuDrawPolygon, mnuDrawRectangle, mnuDrawCircle, toolStripSeparator17, lblCurrentDrawingLayer, cboCurrentDrawingLayer, toolStripLabel1, toolStripSeparator11, tsmExpandCollapseRightPanel });
+            tsCanvasTools.Items.AddRange(new ToolStripItem[] { tsmExpandCollapseLeftPanel, toolStripSeparator10, mnuSelectTool, mnuDrawPoint, mnuDrawLine, mnuDrawPolyline, mnuDrawPolygon, mnuDrawRectangle, mnuDrawCircle, toolStripSeparator17, lblCurrentDrawingLayer, cboCurrentDrawingLayer, mnuCanvasDebugOverlay, toolStripLabel1, toolStripSeparator11, tsmExpandCollapseRightPanel });
             tsCanvasTools.Location = new Point(0, 0);
             tsCanvasTools.Name = "tsCanvasTools";
             tsCanvasTools.Size = new Size(905, 28);
@@ -1225,6 +1227,17 @@ namespace Land_Readjustment_Tool
             mnuSelectTool.Size = new Size(29, 25);
             mnuSelectTool.Text = "Select";
             mnuSelectTool.Click += mnuSelectTool_Click;
+            // 
+            // mnuDrawPoint
+            // 
+            mnuDrawPoint.CheckOnClick = true;
+            mnuDrawPoint.DisplayStyle = ToolStripItemDisplayStyle.Text;
+            mnuDrawPoint.ImageTransparentColor = Color.Magenta;
+            mnuDrawPoint.Name = "mnuDrawPoint";
+            mnuDrawPoint.Size = new Size(46, 25);
+            mnuDrawPoint.Text = "Point";
+            mnuDrawPoint.ToolTipText = "Draw Point";
+            mnuDrawPoint.Click += mnuDrawPoint_Click;
             // 
             // mnuDrawLine
             // 
@@ -1280,6 +1293,17 @@ namespace Land_Readjustment_Tool
             mnuDrawCircle.Size = new Size(29, 25);
             mnuDrawCircle.Text = "Draw Circle";
             mnuDrawCircle.Click += mnuDrawCircle_Click;
+            // 
+            // mnuCanvasDebugOverlay
+            // 
+            mnuCanvasDebugOverlay.CheckOnClick = true;
+            mnuCanvasDebugOverlay.DisplayStyle = ToolStripItemDisplayStyle.Text;
+            mnuCanvasDebugOverlay.ImageTransparentColor = Color.Magenta;
+            mnuCanvasDebugOverlay.Name = "mnuCanvasDebugOverlay";
+            mnuCanvasDebugOverlay.Size = new Size(61, 25);
+            mnuCanvasDebugOverlay.Text = "Debug";
+            mnuCanvasDebugOverlay.ToolTipText = "Show map canvas debug overlay";
+            mnuCanvasDebugOverlay.Click += mnuCanvasDebugOverlay_Click;
             // 
             // toolStripSeparator17
             // 
@@ -1583,7 +1607,7 @@ namespace Land_Readjustment_Tool
             // mnuPan
             // 
             mnuPan.DisplayStyle = ToolStripItemDisplayStyle.Image;
-            mnuPan.Image = Properties.Resources.icons8_hand_502;
+            mnuPan.Image = Properties.Resources.pngegg;
             mnuPan.ImageTransparentColor = Color.Magenta;
             mnuPan.Name = "mnuPan";
             mnuPan.Size = new Size(29, 25);
@@ -1844,11 +1868,13 @@ namespace Land_Readjustment_Tool
         private ToolStripSeparator toolStripSeparator10;
         private ToolStripSeparator toolStripSeparator11;
         private ToolStripButton mnuSelectTool;
+        private ToolStripButton mnuDrawPoint;
         private ToolStripButton mnuDrawLine;
         private ToolStripButton mnuDrawPolyline;
         private ToolStripButton mnuDrawPolygon;
         private ToolStripButton mnuDrawRectangle;
         private ToolStripButton mnuDrawCircle;
+        private ToolStripButton mnuCanvasDebugOverlay;
         private ToolStripSeparator toolStripSeparator17;
         private ToolStripLabel lblCurrentDrawingLayer;
         private ToolStripComboBox cboCurrentDrawingLayer;

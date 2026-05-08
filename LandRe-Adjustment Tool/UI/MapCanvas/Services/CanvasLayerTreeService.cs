@@ -19,6 +19,8 @@ namespace Land_Readjustment_Tool.UI.MapCanvas.Services
         public const string ExternalGroupKey = "OtherExternalLayers";
         public const string RoadCenterlineLayerType = "RoadCenterline";
         public const string LineLayerType = "Line";
+        public const string PointLayerType = "Point";
+        public const string PolylineLayerType = "Polyline";
         public const string PolygonLayerType = "Polygon";
         public const string DrawingMarkupLayerType = "DrawingMarkup";
 
@@ -46,8 +48,7 @@ namespace Land_Readjustment_Tool.UI.MapCanvas.Services
             new(ReplottedParcelsGroupKey, "Private", "PrivateReplotParcel", "#D99BCA", "#F0B2D1", 35, 1.2, "Solid", "Replotted Parcels"),
             new(ReplottedParcelsGroupKey, "Public/Facilities/Community Spaces", "PublicFacility", "#8FCDE4", "#B7DDF0", 35, 1.2, "Solid", null),
             new(ReplottedParcelsGroupKey, "Open Spaces/Parks", "OpenSpace", "#6FAF72", "#A8E7AA", 35, 1.2, "Solid", null),
-            new(ReplottedParcelsGroupKey, "Service/Sales Plot", "ServiceSalesPlot", "#E09A5B", "#F6C766", 35, 1.2, "Solid", null),
-            new(DrawingMarkupGroupKey, "Features", DrawingMarkupLayerType, "#000000", null, 100, 1.3, "Solid", null)
+            new(ReplottedParcelsGroupKey, "Service/Sales Plot", "ServiceSalesPlot", "#E09A5B", "#F6C766", 35, 1.2, "Solid", null)
         ];
 
         private static readonly IReadOnlyDictionary<string, string> DefaultLayerNameToGroup =
@@ -153,6 +154,8 @@ namespace Land_Readjustment_Tool.UI.MapCanvas.Services
                 "ServiceSalesPlot" => ReplottedParcelsGroupKey,
                 "Annotation" => DrawingMarkupGroupKey,
                 DrawingMarkupLayerType => DrawingMarkupGroupKey,
+                PointLayerType => DrawingMarkupGroupKey,
+                PolylineLayerType => DrawingMarkupGroupKey,
                 LineLayerType => DrawingMarkupGroupKey,
                 PolygonLayerType => DrawingMarkupGroupKey,
                 _ => ExternalGroupKey
@@ -201,7 +204,7 @@ namespace Land_Readjustment_Tool.UI.MapCanvas.Services
                         ? "None"
                         : "Solid",
                     LabelColor = "#000000",
-                    PointSymbol = "Circle",
+                    PointSymbol = "Dot",
                     PointSize = 5.0,
                     CreatedDate = DateTime.Now,
                     LastModifiedDate = DateTime.Now,
@@ -228,6 +231,11 @@ namespace Land_Readjustment_Tool.UI.MapCanvas.Services
                      StringComparison.OrdinalIgnoreCase));
 
             if (!isManagedDefault)
+            {
+                return false;
+            }
+
+            if (string.Equals(definition.GroupKey, DrawingMarkupGroupKey, StringComparison.OrdinalIgnoreCase))
             {
                 return false;
             }
@@ -281,7 +289,24 @@ namespace Land_Readjustment_Tool.UI.MapCanvas.Services
         public static bool IsLineLayer(CanvasLayer layer)
         {
             return string.Equals(layer.LayerType, LineLayerType, StringComparison.OrdinalIgnoreCase) ||
+                   string.Equals(layer.LayerType, DrawingMarkupLayerType, StringComparison.OrdinalIgnoreCase) ||
+                   string.Equals(layer.LayerType, PolylineLayerType, StringComparison.OrdinalIgnoreCase) ||
                    string.Equals(layer.LayerType, RoadCenterlineLayerType, StringComparison.OrdinalIgnoreCase);
+        }
+
+        public static bool IsPointLayer(CanvasLayer layer)
+        {
+            return string.Equals(layer.LayerType, PointLayerType, StringComparison.OrdinalIgnoreCase);
+        }
+
+        public static bool IsPolygonLayer(CanvasLayer layer)
+        {
+            return string.Equals(layer.LayerType, PolygonLayerType, StringComparison.OrdinalIgnoreCase);
+        }
+
+        public static bool IsDrawingMarkupLayer(CanvasLayer layer)
+        {
+            return string.Equals(GetGroupKey(layer), DrawingMarkupGroupKey, StringComparison.OrdinalIgnoreCase);
         }
 
         public static bool IsRoadsGroupKey(string? groupKey)

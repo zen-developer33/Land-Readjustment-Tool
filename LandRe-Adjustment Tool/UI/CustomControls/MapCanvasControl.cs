@@ -1,5 +1,10 @@
 using System.Drawing;
+using System.Drawing.Drawing2D;
+using System.ComponentModel;
+using System.Diagnostics;
+using System.Globalization;
 using System.IO;
+using System.Runtime.InteropServices;
 using System.Threading;
 using System.Windows.Forms;
 using Land_Readjustment_Tool.Core.Entities.Canvas;
@@ -13,17 +18,25 @@ namespace Land_Readjustment_Tool.UI.CustomControls
     public partial class MapCanvasControl : UserControl
     {
         private const int ZoomSettleIntervalMs = 50;
+        private const int ObjectSelectionTolerancePixels = 8;
         private const double ScreenPixelsPerMetre = 96.0 / 0.0254;
+        private const bool DefaultShowDebugOverlay = false;
         private static readonly double[] StandardScaleDenominators = BuildStandardScaleDenominators();
+
+        [DllImport("user32.dll", SetLastError = true, CharSet = CharSet.Auto)]
+        private static extern IntPtr LoadCursorFromFile(string path);
 
         private readonly MapCanvasEngine _engine;
         private readonly MapCanvasRenderer _renderer;
         private readonly RasterDeferredRenderer _rasterDeferredRenderer = new();
         private readonly List<IRasterRenderLayer> _rasterRenderLayers = [];
+        private readonly Font _debugOverlayFont = new("Consolas", 8.25f, FontStyle.Regular);
         private MapCanvasRenderSettings _renderSettings;
 
         public event Action<string, string, double>? StatusChanged;
         public event Action<IShape>? ShapeCompleted;
+        public event Action? SelectToolRequested;
+        public event Action<IReadOnlyList<Guid>>? SelectedObjectsDeleteRequested;
 
         private bool _panToolActive;
         private bool _isPanning;
@@ -42,14 +55,27 @@ namespace Land_Readjustment_Tool.UI.CustomControls
         private int _rasterRenderGeneration;
         private bool _rasterCacheRefreshPending;
         private volatile bool _liveTileRefreshPending;
+        private bool _showDebugOverlay = DefaultShowDebugOverlay;
+        private long _debugFrameNumber;
+        private double _lastDebugFrameElapsedMs;
+        private double _averageDebugFrameElapsedMs;
         private bool _blockPanUntilZoomSettle;
         private bool _holdZoomStartFrameUntilRasterRefresh;
         private bool _suppressStaleRasterFrameUntilFreshRender;
         private MapCanvasTool _activeTool = MapCanvasTool.Select;
         private readonly List<PointD> _drawingVertices = [];
+        private List<CanvasFeature> _vectorFeatures = [];
+        private List<CanvasLayer> _vectorLayers = [];
+        private readonly HashSet<Guid> _selectedShapeIds = [];
+        private bool _isSelectingObjects;
+        private Point _objectSelectionStart;
+        private Point _objectSelectionCurrent;
         private IShape? _previewShape;
         private string _activeDrawingLayerName = "Features";
         private CanvasLayer? _activeDrawingLayer;
+        private Cursor? _panCursor;
+        private readonly ContextMenuStrip _objectSelectionContextMenu = new();
+        private readonly ToolStripMenuItem _mnuDeleteSelectedObjects = new("Delete Selected Object(s)");
         private readonly System.Windows.Forms.Timer _zoomingStatusTimer = new()
         {
             Interval = ZoomSettleIntervalMs
@@ -63,6 +89,8 @@ namespace Land_Readjustment_Tool.UI.CustomControls
             _renderSettings = MapCanvasRenderSettings.CreateLightDefaults();
             _renderer = new MapCanvasRenderer(_engine, _renderSettings);
             _zoomingStatusTimer.Tick += ZoomingStatusTimer_Tick;
+            _mnuDeleteSelectedObjects.Click += (_, _) => RequestDeleteSelectedObjects();
+            _objectSelectionContextMenu.Items.Add(_mnuDeleteSelectedObjects);
             WireInteractionEvents();
             UpdateStatusBar();
         }
@@ -160,9 +188,27 @@ namespace Land_Readjustment_Tool.UI.CustomControls
             // Snapping will be added when geometry editing returns to the new canvas.
         }
 
+        [Browsable(false)]
+        [DesignerSerializationVisibility(DesignerSerializationVisibility.Hidden)]
+        public bool ShowDebugOverlay
+        {
+            get => _showDebugOverlay;
+            set
+            {
+                if (_showDebugOverlay == value)
+                {
+                    return;
+                }
+
+                _showDebugOverlay = value;
+                RequestRender();
+            }
+        }
+
         public void SetVectorLayers(IEnumerable<CanvasLayer>? layers)
         {
             CanvasLayer[] vectorLayers = layers?.ToArray() ?? [];
+            _vectorLayers = vectorLayers.ToList();
             _renderer.UpdateVectorLayers(vectorLayers);
             RefreshActiveDrawingLayer(vectorLayers);
             UpdateWorldBounds();
@@ -186,7 +232,13 @@ namespace Land_Readjustment_Tool.UI.CustomControls
 
         public void SetVectorFeatures(IEnumerable<CanvasFeature>? features)
         {
-            _renderer.UpdateVectorFeatures(features);
+            _vectorFeatures = features?.ToList() ?? [];
+            foreach (CanvasFeature feature in _vectorFeatures)
+            {
+                feature.Shape.IsSelected = _selectedShapeIds.Contains(feature.Shape.Id);
+            }
+
+            _renderer.UpdateVectorFeatures(_vectorFeatures);
             UpdateWorldBounds();
             RefreshVectorCacheForCurrentViewImmediately();
             RequestRender();
@@ -211,6 +263,7 @@ namespace Land_Readjustment_Tool.UI.CustomControls
             _panToolActive = false;
             _zoomWindowActive = false;
             _isSelectingZoomWindow = false;
+            _isSelectingObjects = false;
             _drawingVertices.Clear();
             _previewShape = null;
 
@@ -619,15 +672,37 @@ namespace Land_Readjustment_Tool.UI.CustomControls
 
         private void canvasSurface_Paint(object? sender, PaintEventArgs e)
         {
+            Stopwatch frameStopwatch = Stopwatch.StartNew();
+            RasterRenderFrame? rasterFrame = GetRasterRenderFrame(out CanvasFrameSource rasterFrameSource);
+            RasterRenderFrame? vectorFrame = GetVectorRenderFrame(out CanvasFrameSource vectorFrameSource);
+
+            if (rasterFrameSource == CanvasFrameSource.None &&
+                !ShouldDeferDirectRasterRendering)
+            {
+                rasterFrameSource = CanvasFrameSource.Direct;
+            }
+
+            if (vectorFrameSource == CanvasFrameSource.None &&
+                !ShouldDeferDirectVectorRendering)
+            {
+                vectorFrameSource = CanvasFrameSource.Direct;
+            }
+
             _renderer.Render(
                 e.Graphics,
-                GetRasterRenderFrame(),
+                rasterFrame,
                 ShouldDeferDirectRasterRendering,
-                GetVectorRenderFrame(),
+                vectorFrame,
                 ShouldDeferDirectVectorRendering,
                 GetZoomWindowRectangle(),
                 _previewShape,
-                _activeDrawingLayer);
+                _activeDrawingLayer,
+                _showDebugOverlay);
+
+            DrawObjectSelectionRectangle(e.Graphics);
+            frameStopwatch.Stop();
+            UpdateDebugFrameTiming(frameStopwatch.Elapsed.TotalMilliseconds);
+            DrawDebugOverlayIfNeeded(e.Graphics, rasterFrameSource, vectorFrameSource);
         }
 
         private void canvasSurface_MouseWheel(object? sender, MouseEventArgs e)
@@ -760,6 +835,14 @@ namespace Land_Readjustment_Tool.UI.CustomControls
                 return;
             }
 
+            if (_activeTool == MapCanvasTool.Select &&
+                e.Button == MouseButtons.Right &&
+                _selectedShapeIds.Count > 0)
+            {
+                _objectSelectionContextMenu.Show(canvasSurface, e.Location);
+                return;
+            }
+
             if (isPanGesture)
             {
                 CancelPendingRasterRender();
@@ -780,6 +863,16 @@ namespace Land_Readjustment_Tool.UI.CustomControls
                 canvasSurface.Capture = true;
                 UpdateCanvasCursor();
                 UpdateStatusBar();
+                return;
+            }
+
+            if (_activeTool == MapCanvasTool.Select && e.Button == MouseButtons.Left)
+            {
+                _isSelectingObjects = true;
+                _objectSelectionStart = e.Location;
+                _objectSelectionCurrent = e.Location;
+                canvasSurface.Capture = true;
+                RequestRender();
             }
         }
 
@@ -822,6 +915,14 @@ namespace Land_Readjustment_Tool.UI.CustomControls
                     _totalPanDelta.Y + dy);
                 _engine.PanByScreenDelta(dx, dy);
                 _lastPanPoint = e.Location;
+                RequestRender();
+                return;
+            }
+
+            if (_isSelectingObjects)
+            {
+                _currentMouseWorld = _engine.ScreenToWorld(e.Location);
+                _objectSelectionCurrent = e.Location;
                 RequestRender();
                 return;
             }
@@ -869,6 +970,16 @@ namespace Land_Readjustment_Tool.UI.CustomControls
                 RefreshVectorCacheForCurrentViewImmediately();
                 UpdateCanvasCursor();
                 RequestRender();
+                return;
+            }
+
+            if (_isSelectingObjects && e.Button == MouseButtons.Left)
+            {
+                _isSelectingObjects = false;
+                canvasSurface.Capture = false;
+                _objectSelectionCurrent = e.Location;
+                ApplyObjectSelectionFromMouseUp(e.Location);
+                RequestRender();
             }
         }
 
@@ -882,12 +993,27 @@ namespace Land_Readjustment_Tool.UI.CustomControls
 
         private void canvasSurface_KeyDown(object? sender, KeyEventArgs e)
         {
+            if (e.KeyCode == Keys.Delete && _selectedShapeIds.Count > 0)
+            {
+                RequestDeleteSelectedObjects();
+                e.Handled = true;
+                return;
+            }
+
             if (e.KeyCode != Keys.Escape)
             {
                 return;
             }
 
             CancelDrawing();
+            _isSelectingObjects = false;
+            canvasSurface.Capture = false;
+            ClearSelectedObjects();
+            if (_activeTool != MapCanvasTool.Select)
+            {
+                SelectToolRequested?.Invoke();
+            }
+
             e.Handled = true;
         }
 
@@ -903,6 +1029,11 @@ namespace Land_Readjustment_Tool.UI.CustomControls
 
             switch (_activeTool)
             {
+                case MapCanvasTool.Point:
+                    PolylineShape pointShape = new([worldPoint], isClosed: false);
+                    pointShape.Properties["ObjectType"] = "Point";
+                    CompleteShape(pointShape);
+                    break;
                 case MapCanvasTool.Line:
                 case MapCanvasTool.Rectangle:
                 case MapCanvasTool.Circle:
@@ -1006,6 +1137,294 @@ namespace Land_Readjustment_Tool.UI.CustomControls
             RequestRender();
         }
 
+        private void ApplyObjectSelectionFromMouseUp(Point mouseUpLocation)
+        {
+            Rectangle selectionRectangle = CreateScreenRectangle(_objectSelectionStart, mouseUpLocation);
+            if (selectionRectangle.Width <= 4 && selectionRectangle.Height <= 4)
+            {
+                SelectObjectByClick(mouseUpLocation);
+                return;
+            }
+
+            bool isWindowSelection = mouseUpLocation.X >= _objectSelectionStart.X;
+            RectangleD worldRectangle = CreateWorldRectangle(selectionRectangle);
+            List<CanvasFeature> selectedFeatures = _vectorFeatures
+                .Where(IsSelectableDrawingFeature)
+                .Where(feature => isWindowSelection
+                    ? ContainsRectangle(worldRectangle, feature.Shape.GetBoundingBox())
+                    : worldRectangle.IntersectsWith(feature.Shape.GetBoundingBox()))
+                .ToList();
+
+            ReplaceSelectedObjects(selectedFeatures);
+        }
+
+        private void SelectObjectByClick(Point screenPoint)
+        {
+            CanvasFeature? hitFeature = _vectorFeatures
+                .Where(IsSelectableDrawingFeature)
+                .Reverse()
+                .FirstOrDefault(feature => IsScreenPointNearShape(
+                    feature.Shape,
+                    screenPoint,
+                    ObjectSelectionTolerancePixels));
+
+            ReplaceSelectedObjects(hitFeature == null ? [] : [hitFeature]);
+        }
+
+        private void ReplaceSelectedObjects(IEnumerable<CanvasFeature> selectedFeatures)
+        {
+            _selectedShapeIds.Clear();
+            foreach (CanvasFeature feature in selectedFeatures)
+            {
+                _selectedShapeIds.Add(feature.Shape.Id);
+            }
+
+            ApplySelectedShapeFlags();
+            RefreshVectorCacheForCurrentViewImmediately();
+            UpdateStatusBar();
+        }
+
+        private void ClearSelectedObjects()
+        {
+            if (_selectedShapeIds.Count == 0)
+                return;
+
+            _selectedShapeIds.Clear();
+            ApplySelectedShapeFlags();
+            RefreshVectorCacheForCurrentViewImmediately();
+        }
+
+        private void ApplySelectedShapeFlags()
+        {
+            foreach (CanvasFeature feature in _vectorFeatures)
+            {
+                feature.Shape.IsSelected = _selectedShapeIds.Contains(feature.Shape.Id);
+            }
+        }
+
+        private void RequestDeleteSelectedObjects()
+        {
+            if (_selectedShapeIds.Count == 0)
+                return;
+
+            SelectedObjectsDeleteRequested?.Invoke(_selectedShapeIds.ToArray());
+        }
+
+        public void ClearSelectionAfterDelete()
+        {
+            _selectedShapeIds.Clear();
+            ApplySelectedShapeFlags();
+            RequestRender();
+        }
+
+        private bool IsSelectableDrawingFeature(CanvasFeature feature)
+        {
+            return feature.Shape.IsVisible &&
+                   feature.Layer?.IsVisible != false &&
+                   feature.Layer?.IsLocked != true &&
+                   feature.Layer != null &&
+                   CanvasLayerTreeService.IsDrawingMarkupLayer(feature.Layer);
+        }
+
+        private RectangleD CreateWorldRectangle(Rectangle screenRectangle)
+        {
+            PointD first = _engine.ScreenToWorld(new Point(screenRectangle.Left, screenRectangle.Top));
+            PointD second = _engine.ScreenToWorld(new Point(screenRectangle.Right, screenRectangle.Bottom));
+            double left = Math.Min(first.X, second.X);
+            double right = Math.Max(first.X, second.X);
+            double bottom = Math.Min(first.Y, second.Y);
+            double top = Math.Max(first.Y, second.Y);
+            return new RectangleD(left, bottom, right - left, top - bottom);
+        }
+
+        private static bool ContainsRectangle(RectangleD outer, RectangleD inner)
+        {
+            return inner.Left >= outer.Left &&
+                   inner.Right <= outer.Right &&
+                   inner.Bottom >= outer.Bottom &&
+                   inner.Top <= outer.Top;
+        }
+
+        private bool IsScreenPointNearShape(
+            IShape shape,
+            Point screenPoint,
+            int tolerancePixels)
+        {
+            if (shape is PolylineShape { Vertices.Count: 1 } pointPolyline)
+            {
+                return Distance(
+                    ToScreenPoint(pointPolyline.Vertices[0]),
+                    screenPoint) <= tolerancePixels;
+            }
+
+            if (shape is CircleShape pointCircle &&
+                pointCircle.GetRadius() <= _engine.ScreenToWorldDistance(tolerancePixels))
+            {
+                return Distance(
+                    ToScreenPoint(pointCircle.Center),
+                    screenPoint) <= tolerancePixels;
+            }
+
+            using GraphicsPath? outlinePath = CreateScreenOutlinePath(shape);
+            if (outlinePath == null)
+            {
+                return false;
+            }
+
+            using Pen hitPen = new(Color.Black, Math.Max(1, tolerancePixels * 2))
+            {
+                Alignment = PenAlignment.Center
+            };
+            return outlinePath.IsOutlineVisible(screenPoint, hitPen);
+        }
+
+        private GraphicsPath? CreateScreenOutlinePath(IShape shape)
+        {
+            GraphicsPath path = new();
+            try
+            {
+                switch (shape)
+                {
+                    case LineShape line:
+                        path.AddLine(ToScreenPointF(line.Start), ToScreenPointF(line.End));
+                        break;
+
+                    case PolylineShape polyline when polyline.Vertices.Count >= 2:
+                        PointF[] points = polyline.Vertices
+                            .Select(ToScreenPointF)
+                            .ToArray();
+                        path.AddLines(points);
+                        if (polyline.IsClosed && points.Length > 2)
+                        {
+                            path.CloseFigure();
+                        }
+                        break;
+
+                    case RectangleShape rectangle:
+                        path.AddRectangle(CreateScreenRectangle(
+                            ToScreenPointF(rectangle.Start),
+                            ToScreenPointF(rectangle.End)));
+                        break;
+
+                    case CircleShape circle:
+                        PointF center = ToScreenPointF(circle.Center);
+                        PointF edge = ToScreenPointF(circle.RadiusPoint);
+                        float radius = Distance(center, edge);
+                        if (radius <= 0)
+                        {
+                            path.Dispose();
+                            return null;
+                        }
+
+                        path.AddEllipse(
+                            center.X - radius,
+                            center.Y - radius,
+                            radius * 2.0f,
+                            radius * 2.0f);
+                        break;
+
+                    case EllipseShape ellipse:
+                        path.AddEllipse(CreateScreenRectangle(
+                            ToScreenPointF(ellipse.Start),
+                            ToScreenPointF(ellipse.End)));
+                        break;
+
+                    default:
+                        path.Dispose();
+                        return null;
+                }
+
+                if (path.PointCount == 0)
+                {
+                    path.Dispose();
+                    return null;
+                }
+
+                return path;
+            }
+            catch
+            {
+                path.Dispose();
+                return null;
+            }
+        }
+
+        private Point ToScreenPoint(PointD worldPoint)
+        {
+            PointD screenPoint = _engine.WorldToScreen(worldPoint);
+            return new Point(
+                (int)Math.Round(screenPoint.X),
+                (int)Math.Round(screenPoint.Y));
+        }
+
+        private PointF ToScreenPointF(PointD worldPoint)
+        {
+            PointD screenPoint = _engine.WorldToScreen(worldPoint);
+            return new PointF(
+                (float)screenPoint.X,
+                (float)screenPoint.Y);
+        }
+
+        private static RectangleF CreateScreenRectangle(PointF first, PointF second)
+        {
+            float left = Math.Min(first.X, second.X);
+            float top = Math.Min(first.Y, second.Y);
+            float right = Math.Max(first.X, second.X);
+            float bottom = Math.Max(first.Y, second.Y);
+            return RectangleF.FromLTRB(left, top, right, bottom);
+        }
+
+        private static double Distance(Point first, Point second)
+        {
+            double dx = first.X - second.X;
+            double dy = first.Y - second.Y;
+            return Math.Sqrt(dx * dx + dy * dy);
+        }
+
+        private static float Distance(PointF first, PointF second)
+        {
+            float dx = first.X - second.X;
+            float dy = first.Y - second.Y;
+            return MathF.Sqrt(dx * dx + dy * dy);
+        }
+
+        private static Rectangle CreateScreenRectangle(Point first, Point second)
+        {
+            int left = Math.Min(first.X, second.X);
+            int top = Math.Min(first.Y, second.Y);
+            int right = Math.Max(first.X, second.X);
+            int bottom = Math.Max(first.Y, second.Y);
+            return Rectangle.FromLTRB(left, top, right, bottom);
+        }
+
+        private void DrawObjectSelectionRectangle(Graphics graphics)
+        {
+            if (!_isSelectingObjects)
+                return;
+
+            Rectangle rect = CreateScreenRectangle(_objectSelectionStart, _objectSelectionCurrent);
+            if (rect.Width <= 0 || rect.Height <= 0)
+                return;
+
+            bool isWindowSelection = _objectSelectionCurrent.X >= _objectSelectionStart.X;
+            Color borderColor = isWindowSelection
+                ? Color.FromArgb(0, 120, 215)
+                : Color.FromArgb(0, 170, 80);
+            Color fillColor = isWindowSelection
+                ? Color.FromArgb(36, 0, 120, 215)
+                : Color.FromArgb(32, 0, 170, 80);
+
+            using SolidBrush fillBrush = new(fillColor);
+            using Pen borderPen = new(borderColor, 1.4f);
+            if (!isWindowSelection)
+            {
+                borderPen.DashStyle = System.Drawing.Drawing2D.DashStyle.Dash;
+            }
+
+            graphics.FillRectangle(fillBrush, rect);
+            graphics.DrawRectangle(borderPen, rect);
+        }
+
         private Rectangle? GetZoomWindowRectangle()
         {
             if (!_isSelectingZoomWindow)
@@ -1040,7 +1459,11 @@ namespace Land_Readjustment_Tool.UI.CustomControls
 
         private void UpdateCanvasCursor()
         {
-            if (_zoomWindowActive)
+            if (_isPanning || _panToolActive)
+            {
+                canvasSurface.Cursor = GetPanCursor();
+            }
+            else if (_zoomWindowActive)
             {
                 canvasSurface.Cursor = Cursors.Cross;
             }
@@ -1048,14 +1471,51 @@ namespace Land_Readjustment_Tool.UI.CustomControls
             {
                 canvasSurface.Cursor = Cursors.Cross;
             }
-            else if (_panToolActive || _isPanning)
-            {
-                canvasSurface.Cursor = Cursors.Hand;
-            }
             else
             {
                 canvasSurface.Cursor = Cursors.Default;
             }
+        }
+
+        private Cursor GetPanCursor()
+        {
+            if (_panCursor != null)
+                return _panCursor;
+
+            string[] candidatePaths =
+            [
+                Path.Combine(AppContext.BaseDirectory, "Resources", "Cursors", "pan.cur"),
+                Path.GetFullPath(Path.Combine(
+                    AppContext.BaseDirectory,
+                    "..",
+                    "..",
+                    "..",
+                    "Resources",
+                    "Cursors",
+                    "pan.cur"))
+            ];
+
+            foreach (string path in candidatePaths)
+            {
+                if (!File.Exists(path))
+                    continue;
+
+                try
+                {
+                    IntPtr cursorHandle = LoadCursorFromFile(path);
+                    if (cursorHandle != IntPtr.Zero)
+                    {
+                        _panCursor = new Cursor(cursorHandle);
+                        return _panCursor;
+                    }
+                }
+                catch
+                {
+                    break;
+                }
+            }
+
+            return Cursors.Hand;
         }
 
         private void UpdateStatusBar()
@@ -1111,13 +1571,16 @@ namespace Land_Readjustment_Tool.UI.CustomControls
         private bool ShouldDeferDirectVectorRendering =>
             _isPanning;
 
-        private RasterRenderFrame? GetRasterRenderFrame()
+        private RasterRenderFrame? GetRasterRenderFrame(out CanvasFrameSource source)
         {
+            source = CanvasFrameSource.None;
+
             if (_isPanning &&
                 _rasterDeferredRenderer.TryGetPanFrame(
                     _totalPanDelta,
                     out RasterRenderFrame panFrame))
             {
+                source = CanvasFrameSource.PanCache;
                 return panFrame;
             }
 
@@ -1126,6 +1589,7 @@ namespace Land_Readjustment_Tool.UI.CustomControls
                     _engine,
                     out RasterRenderFrame zoomFrame))
             {
+                source = CanvasFrameSource.ZoomCache;
                 return zoomFrame;
             }
 
@@ -1134,6 +1598,7 @@ namespace Land_Readjustment_Tool.UI.CustomControls
                     _engine,
                     out RasterRenderFrame heldZoomFrame))
             {
+                source = CanvasFrameSource.HeldZoomCache;
                 return heldZoomFrame;
             }
 
@@ -1141,19 +1606,23 @@ namespace Land_Readjustment_Tool.UI.CustomControls
                 _rasterDeferredRenderer.TryGetCacheFrame(
                     out RasterRenderFrame cacheFrame))
             {
+                source = CanvasFrameSource.Cache;
                 return cacheFrame;
             }
 
             return null;
         }
 
-        private RasterRenderFrame? GetVectorRenderFrame()
+        private RasterRenderFrame? GetVectorRenderFrame(out CanvasFrameSource source)
         {
+            source = CanvasFrameSource.None;
+
             if (_isPanning &&
                 _renderer.TryGetVectorPanFrame(
                     _totalPanDelta,
                     out RasterRenderFrame panFrame))
             {
+                source = CanvasFrameSource.PanCache;
                 return panFrame;
             }
 
@@ -1161,10 +1630,157 @@ namespace Land_Readjustment_Tool.UI.CustomControls
                 !_isSelectingZoomWindow &&
                 _renderer.TryGetVectorCacheFrame(out RasterRenderFrame cacheFrame))
             {
+                source = CanvasFrameSource.Cache;
                 return cacheFrame;
             }
 
             return null;
+        }
+
+        private void UpdateDebugFrameTiming(double elapsedMs)
+        {
+            _debugFrameNumber++;
+            _lastDebugFrameElapsedMs = elapsedMs;
+            _averageDebugFrameElapsedMs = _averageDebugFrameElapsedMs <= 0
+                ? elapsedMs
+                : (_averageDebugFrameElapsedMs * 0.90) + (elapsedMs * 0.10);
+        }
+
+        private void DrawDebugOverlayIfNeeded(
+            Graphics graphics,
+            CanvasFrameSource rasterFrameSource,
+            CanvasFrameSource vectorFrameSource)
+        {
+            if (!_renderer.IsDebugOverlayRequested)
+            {
+                return;
+            }
+
+            MapCanvasRendererDebugState rendererState = _renderer.GetDebugState();
+            DeferredRendererDebugState rasterState = _rasterDeferredRenderer.GetDebugState();
+            VectorRenderStats vectorStats = rendererState.VectorStats;
+            RectangleD viewport = _engine.GetVisibleWorldBounds();
+            double scaleDenominator = _engine.ZoomScale > 0
+                ? ScreenPixelsPerMetre / _engine.ZoomScale
+                : 0.0;
+
+            List<string> lines =
+            [
+                $"MAP DEBUG  frame #{_debugFrameNumber}  {_lastDebugFrameElapsedMs:0.0} ms  avg {_averageDebugFrameElapsedMs:0.0} ms  fps {GetFramesPerSecond():0}",
+                $"View  zoom {_engine.ZoomScale:0.###}  scale 1:{scaleDenominator:0}  size {canvasSurface.Width}x{canvasSurface.Height}",
+                $"World X {viewport.Left:0.###}..{viewport.Right:0.###}  Y {viewport.Top:0.###}..{viewport.Bottom:0.###}  W/H {viewport.Width:0.###}/{viewport.Height:0.###}",
+                $"Raster layers {rendererState.VisibleRasterLayerCount}/{rendererState.RasterLayerCount}  draw {rasterFrameSource}  cache {(rasterState.CacheValid ? "valid" : "cold")}  pan {(rasterState.PanBufferValid ? "ready" : "no")}  zoom {(rasterState.ZoomFrameAvailable ? "held" : "no")}  refresh {rasterState.LastRefreshElapsedMs:0.0} ms  pending {_rasterCacheRefreshPending}",
+                $"Vector layers {rendererState.VectorLayerCount}  features {vectorStats.TotalFeatureCount}  STRtree {vectorStats.SpatialIndexEntryCount}  draw {vectorFrameSource}  cache {(rendererState.VectorCache.CacheValid ? "valid" : "cold")}  pan {(rendererState.VectorCache.PanBufferValid ? "ready" : "no")}  refresh {rendererState.VectorCache.LastRefreshElapsedMs:0.0} ms",
+                $"Vector query {vectorStats.QueryCandidateCount} in {vectorStats.QueryElapsedMs:0.00} ms  rendered {vectorStats.RenderedFeatureCount}  hidden {vectorStats.HiddenSkippedCount}  LOD {(vectorStats.LevelOfDetailEnabled ? "on" : "off")} skipped {vectorStats.LodSkippedCount} min {vectorStats.MinimumVisibleWorldSize:0.###}",
+                $"Interaction tool {_activeTool}  pan {_isPanning}  zoom {_isZooming} {_zoomDirection ?? ""}  raster deferred {ShouldDeferDirectRasterRendering}  vector deferred {ShouldDeferDirectVectorRendering}  live pending {_liveTileRefreshPending}"
+            ];
+
+            string watch = BuildDebugWatchLine(
+                rasterFrameSource,
+                vectorFrameSource,
+                rendererState,
+                rasterState);
+            if (!string.IsNullOrWhiteSpace(watch))
+            {
+                lines.Add(watch);
+            }
+
+            DrawDebugOverlayPanel(graphics, lines);
+        }
+
+        private double GetFramesPerSecond()
+        {
+            return _averageDebugFrameElapsedMs > 0
+                ? 1000.0 / _averageDebugFrameElapsedMs
+                : 0.0;
+        }
+
+        private string BuildDebugWatchLine(
+            CanvasFrameSource rasterFrameSource,
+            CanvasFrameSource vectorFrameSource,
+            MapCanvasRendererDebugState rendererState,
+            DeferredRendererDebugState rasterState)
+        {
+            List<string> items = [];
+            VectorRenderStats vectorStats = rendererState.VectorStats;
+
+            if (_lastDebugFrameElapsedMs > 33.0)
+            {
+                items.Add("slow frame");
+            }
+
+            if (_isPanning &&
+                (rasterFrameSource != CanvasFrameSource.PanCache ||
+                 vectorFrameSource != CanvasFrameSource.PanCache))
+            {
+                items.Add("pan cache miss");
+            }
+
+            if (rendererState.VisibleRasterLayerCount > 0 &&
+                !rasterState.CacheValid &&
+                !_rasterCacheRefreshPending)
+            {
+                items.Add("raster cache cold");
+            }
+
+            if (vectorStats.TotalFeatureCount > 0 &&
+                vectorStats.QueryCandidateCount == vectorStats.TotalFeatureCount)
+            {
+                items.Add("viewport query includes all vectors");
+            }
+
+            if (vectorStats.QueryElapsedMs > 8.0)
+            {
+                items.Add("slow vector query");
+            }
+
+            return items.Count == 0
+                ? "Watch: OK"
+                : $"Watch: {string.Join(", ", items)}";
+        }
+
+        private void DrawDebugOverlayPanel(Graphics graphics, IReadOnlyList<string> lines)
+        {
+            if (lines.Count == 0)
+            {
+                return;
+            }
+
+            const int padding = 8;
+            const int margin = 8;
+            int lineHeight = Math.Max(14, TextRenderer.MeasureText("0", _debugOverlayFont).Height);
+            int panelWidth = Math.Min(
+                Math.Max(420, canvasSurface.ClientSize.Width - margin * 2),
+                980);
+            int panelHeight = padding * 2 + lineHeight * lines.Count;
+            int panelX = margin;
+            int panelY = Math.Max(margin, canvasSurface.ClientSize.Height - panelHeight - margin);
+            Rectangle panelBounds = new(panelX, panelY, panelWidth, panelHeight);
+
+            using SolidBrush backgroundBrush = new(Color.FromArgb(218, 24, 28, 34));
+            using Pen borderPen = new(Color.FromArgb(170, 0, 170, 255), 1.0f);
+            graphics.FillRectangle(backgroundBrush, panelBounds);
+            graphics.DrawRectangle(borderPen, panelBounds);
+
+            Color textColor = Color.FromArgb(236, 244, 248);
+            for (int i = 0; i < lines.Count; i++)
+            {
+                Rectangle textBounds = new(
+                    panelX + padding,
+                    panelY + padding + i * lineHeight,
+                    panelWidth - padding * 2,
+                    lineHeight);
+                TextRenderer.DrawText(
+                    graphics,
+                    lines[i],
+                    _debugOverlayFont,
+                    textBounds,
+                    textColor,
+                    TextFormatFlags.Left |
+                    TextFormatFlags.VerticalCenter |
+                    TextFormatFlags.EndEllipsis |
+                    TextFormatFlags.NoPadding);
+            }
         }
 
         private void ZoomingStatusTimer_Tick(object? sender, EventArgs e)

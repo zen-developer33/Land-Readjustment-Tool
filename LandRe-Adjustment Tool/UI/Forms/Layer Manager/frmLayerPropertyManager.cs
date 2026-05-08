@@ -1,5 +1,6 @@
 using Land_Readjustment_Tool.Core.Entities.Canvas;
 using Land_Readjustment_Tool.UI.Helpers;
+using Land_Readjustment_Tool.UI.MapCanvas.Rendering;
 using Land_Readjustment_Tool.UI.MapCanvas.Services;
 
 namespace Land_Readjustment_Tool.UI.Forms
@@ -10,7 +11,10 @@ namespace Land_Readjustment_Tool.UI.Forms
         private readonly IHatchPatternService _hatchPatternService;
         private readonly bool _isRasterLayer;
         private readonly bool _isLineLayer;
+        private readonly bool _isDrawingMarkupLayer;
+        private readonly bool _allowRename;
         private string _selectedHatchPatternKey = string.Empty;
+        private string _selectedPointMarkerKey = "Dot";
 
         public frmLayerPropertyManager(CanvasLayer layer)
             : this(layer, new HatchPatternService())
@@ -20,12 +24,22 @@ namespace Land_Readjustment_Tool.UI.Forms
         public frmLayerPropertyManager(
             CanvasLayer layer,
             IHatchPatternService hatchPatternService)
+            : this(layer, hatchPatternService, allowRename: false)
+        {
+        }
+
+        public frmLayerPropertyManager(
+            CanvasLayer layer,
+            IHatchPatternService hatchPatternService,
+            bool allowRename)
         {
             Layer = layer ?? throw new ArgumentNullException(nameof(layer));
             _hatchPatternService = hatchPatternService
                 ?? throw new ArgumentNullException(nameof(hatchPatternService));
             _isRasterLayer = IsRasterLayer(layer);
             _isLineLayer = CanvasLayerTreeService.IsLineLayer(layer);
+            _isDrawingMarkupLayer = CanvasLayerTreeService.IsDrawingMarkupLayer(layer);
+            _allowRename = allowRename;
 
             InitializeComponent();
             NumericUpDownSelectAllBehavior.AttachTo(this);
@@ -41,13 +55,16 @@ namespace Land_Readjustment_Tool.UI.Forms
         private void LoadLayer()
         {
             _txtName.Text = Layer.Name;
-            _txtLayerKind.Text = GetLayerKindText(Layer);
+            SetComboText(_cboLayerKind, GetLayerKindText(Layer));
             _pnlBorderColor.BackColor = ParseColorOrDefault(Layer.BorderColor, Color.Black);
             SetComboText(_cboLineStyle, Layer.LineStyle);
             _numLineTypeScale.Value = ClampDecimal((decimal)NormalizeLineTypeScale(Layer.LineTypeScale), _numLineTypeScale);
-            _numLineWeight.Value = ClampDecimal((decimal)Layer.LineWeight, _numLineWeight);
+            _chkNoBorder.Checked = Layer.LineWeight <= 0;
+            _numLineWeight.Value = ClampDecimal((decimal)Math.Max(Layer.LineWeight, 0.01), _numLineWeight);
+            _numPointSize.Value = ClampDecimal((decimal)Math.Clamp(Layer.PointSize, 1.0, 48.0), _numPointSize);
             _chkVisible.Checked = Layer.IsVisible;
             _chkLocked.Checked = Layer.IsLocked;
+            _selectedPointMarkerKey = PointMarkerRenderer.Normalize(Layer.PointSymbol);
 
             SetComboText(_cboFillStyle, string.IsNullOrWhiteSpace(Layer.FillStyle) ? "None" : Layer.FillStyle);
             _pnlFillColor.BackColor = ParseColorOrDefault(Layer.FillColor, Color.White);
@@ -58,6 +75,7 @@ namespace Land_Readjustment_Tool.UI.Forms
             _trkTransparency.Value = Math.Max(0, Math.Min(100, Layer.FillTransparency));
             _txtTransparencyValue.Text = _trkTransparency.Value.ToString();
             UpdateFillControlState();
+            UpdateLayerKindPresentation();
 
             _chkShowLabels.Checked = Layer.ShowLabels;
             _txtFontName.Text = string.IsNullOrWhiteSpace(Layer.LabelFontName)
@@ -73,7 +91,7 @@ namespace Land_Readjustment_Tool.UI.Forms
         /// </summary>
         private void ConfigureApplicableControls()
         {
-            if (_isLineLayer)
+            if (_isLineLayer && !_isDrawingMarkupLayer)
             {
                 Text = "Line Layer Properties";
                 _lblBorderColor.Text = "Line Color";
@@ -96,9 +114,11 @@ namespace Land_Readjustment_Tool.UI.Forms
             _tabs.TabPages.Remove(_tabLabel);
 
             SetControlVisible(_lblLayerKind, true);
-            SetControlVisible(_txtLayerKind, true);
+            SetControlVisible(_cboLayerKind, true);
             SetControlVisible(_lblBorderColor, false);
             SetControlVisible(_borderColorPanel, false);
+            SetControlVisible(_lblPointMarker, false);
+            SetControlVisible(_pointMarkerPanel, false);
             SetControlVisible(_lblLineStyle, false);
             SetControlVisible(_lineTypePanel, false);
             SetControlVisible(_lblLinePreview, false);
@@ -146,6 +166,38 @@ namespace Land_Readjustment_Tool.UI.Forms
             ShowHatchPicker();
         }
 
+        private void btnPointMarker_Click(object? sender, EventArgs e)
+        {
+            using frmPointMarkerPicker picker = new(
+                _selectedPointMarkerKey,
+                _pnlBorderColor.BackColor);
+
+            if (picker.ShowDialog(this) != DialogResult.OK)
+                return;
+
+            _selectedPointMarkerKey = picker.SelectedMarkerKey;
+            _pnlPointMarkerPreview.Invalidate();
+        }
+
+        private void cboLayerKind_SelectedIndexChanged(object? sender, EventArgs e)
+        {
+            UpdateLayerKindPresentation();
+            UpdateFillControlState();
+            _pnlLinePreview.Invalidate();
+            _pnlPointMarkerPreview.Invalidate();
+        }
+
+        private void chkNoBorder_CheckedChanged(object? sender, EventArgs e)
+        {
+            ConfigureLockedControlState();
+            _pnlLinePreview.Invalidate();
+        }
+
+        private void numPointSize_ValueChanged(object? sender, EventArgs e)
+        {
+            _pnlPointMarkerPreview.Invalidate();
+        }
+
         private void pnlLabelColor_Click(object? sender, EventArgs e)
         {
             PickColor(_pnlLabelColor);
@@ -168,6 +220,7 @@ namespace Land_Readjustment_Tool.UI.Forms
             _pnlLinePreview.Invalidate();
             _pnlFillColor.Invalidate();
             _pnlHatchPatternPreview.Invalidate();
+            _pnlPointMarkerPreview.Invalidate();
         }
 
         private void btnFont_Click(object? sender, EventArgs e)
@@ -212,6 +265,18 @@ namespace Land_Readjustment_Tool.UI.Forms
             if (previewRect.Width <= 0 || previewRect.Height <= 0)
                 return;
 
+            if (_chkNoBorder.Checked)
+            {
+                TextRenderer.DrawText(
+                    e.Graphics,
+                    "No Border",
+                    Font,
+                    _pnlLinePreview.ClientRectangle,
+                    Color.FromArgb(91, 97, 110),
+                    TextFormatFlags.HorizontalCenter | TextFormatFlags.VerticalCenter);
+                return;
+            }
+
             using Pen pen = new(_pnlBorderColor.BackColor, Math.Max(1f, (float)_numLineWeight.Value))
             {
                 StartCap = System.Drawing.Drawing2D.LineCap.Flat,
@@ -221,6 +286,21 @@ namespace Land_Readjustment_Tool.UI.Forms
             e.Graphics.SmoothingMode = System.Drawing.Drawing2D.SmoothingMode.AntiAlias;
             int y = previewRect.Top + previewRect.Height / 2;
             e.Graphics.DrawLine(pen, previewRect.Left, y, previewRect.Right, y);
+        }
+
+        private void pnlPointMarkerPreview_Paint(object? sender, PaintEventArgs e)
+        {
+            e.Graphics.Clear(_pnlPointMarkerPreview.BackColor);
+            Rectangle previewRect = Rectangle.Inflate(_pnlPointMarkerPreview.ClientRectangle, -5, -4);
+            if (previewRect.Width <= 0 || previewRect.Height <= 0)
+                return;
+
+            PointMarkerRenderer.Draw(
+                e.Graphics,
+                previewRect,
+                _selectedPointMarkerKey,
+                _pnlBorderColor.BackColor,
+                1.5f);
         }
 
         private void pnlHatchPatternPreview_Paint(object? sender, PaintEventArgs e)
@@ -305,16 +385,23 @@ namespace Land_Readjustment_Tool.UI.Forms
         {
             bool canEdit = !_chkLocked.Checked;
 
-            _txtName.Enabled = canEdit;
-            _txtLayerKind.Enabled = false;
+            _txtName.ReadOnly = !_allowRename;
+            _txtName.Enabled = canEdit && _allowRename;
+            _cboLayerKind.Enabled = canEdit && _isDrawingMarkupLayer;
             _chkVisible.Enabled = canEdit;
 
-            _pnlBorderColor.Enabled = canEdit;
-            _btnBorderColor.Enabled = canEdit;
-            _lineTypePanel.Enabled = canEdit;
-            _cboLineStyle.Enabled = canEdit;
-            _numLineTypeScale.Enabled = canEdit;
-            _numLineWeight.Enabled = canEdit;
+            bool isPoint = IsSelectedPointLayerType();
+            bool hasBorder = !_chkNoBorder.Checked;
+            _pnlBorderColor.Enabled = canEdit && (hasBorder || isPoint);
+            _btnBorderColor.Enabled = canEdit && (hasBorder || isPoint);
+            _chkNoBorder.Enabled = canEdit && !isPoint;
+            _lineTypePanel.Enabled = canEdit && hasBorder && !isPoint;
+            _cboLineStyle.Enabled = canEdit && hasBorder && !isPoint;
+            _numLineTypeScale.Enabled = canEdit && hasBorder && !isPoint;
+            _numLineWeight.Enabled = canEdit && hasBorder && !isPoint;
+            _pnlPointMarkerPreview.Enabled = canEdit && isPoint;
+            _btnPointMarker.Enabled = canEdit && isPoint;
+            _numPointSize.Enabled = canEdit && isPoint;
 
             _cboFillStyle.Enabled = canEdit;
             _pnlFillColor.Enabled = canEdit;
@@ -331,6 +418,7 @@ namespace Land_Readjustment_Tool.UI.Forms
             _cboLabelField.Enabled = canEdit;
 
             _chkLocked.Enabled = true;
+            UpdateLayerKindPresentation();
             UpdateFillControlState();
         }
 
@@ -350,15 +438,31 @@ namespace Land_Readjustment_Tool.UI.Forms
             Layer.IsVisible = _chkVisible.Checked;
             Layer.IsLocked = _chkLocked.Checked;
             Layer.FillTransparency = _trkTransparency.Value;
+            if (_allowRename && !string.IsNullOrWhiteSpace(_txtName.Text))
+            {
+                Layer.Name = _txtName.Text.Trim();
+            }
 
             if (!_isRasterLayer)
             {
+                if (_isDrawingMarkupLayer)
+                {
+                    Layer.LayerType = NormalizeDrawingLayerType(_cboLayerKind.Text);
+                }
+
                 Layer.BorderColor = ColorTranslator.ToHtml(_pnlBorderColor.BackColor);
                 Layer.LineStyle = string.IsNullOrWhiteSpace(_cboLineStyle.Text) ? "Solid" : _cboLineStyle.Text.Trim();
                 Layer.LineTypeScale = NormalizeLineTypeScale((double)_numLineTypeScale.Value);
-                Layer.LineWeight = (double)_numLineWeight.Value;
+                Layer.LineWeight = _chkNoBorder.Checked ? 0 : (double)_numLineWeight.Value;
+                Layer.PointSymbol = PointMarkerRenderer.Normalize(_selectedPointMarkerKey);
+                Layer.PointSize = (double)_numPointSize.Value;
 
-                if (_isLineLayer)
+                bool selectedPolyline =
+                    string.Equals(NormalizeDrawingLayerType(_cboLayerKind.Text), CanvasLayerTreeService.PolylineLayerType, StringComparison.OrdinalIgnoreCase);
+                bool selectedPoint =
+                    string.Equals(NormalizeDrawingLayerType(_cboLayerKind.Text), CanvasLayerTreeService.PointLayerType, StringComparison.OrdinalIgnoreCase);
+
+                if ((!_isDrawingMarkupLayer && _isLineLayer) || selectedPolyline || selectedPoint)
                 {
                     Layer.FillStyle = "None";
                     Layer.FillColor = null;
@@ -445,9 +549,76 @@ namespace Land_Readjustment_Tool.UI.Forms
             if (IsRasterLayer(layer))
                 return "Raster";
 
-            return CanvasLayerTreeService.IsLineLayer(layer)
-                ? "Line"
-                : "Polygon";
+            if (CanvasLayerTreeService.IsPointLayer(layer))
+                return CanvasLayerTreeService.PointLayerType;
+
+            if (CanvasLayerTreeService.IsLineLayer(layer))
+                return CanvasLayerTreeService.PolylineLayerType;
+
+            return CanvasLayerTreeService.PolygonLayerType;
+        }
+
+        private void UpdateLayerKindPresentation()
+        {
+            if (_isRasterLayer)
+                return;
+
+            string layerType = NormalizeDrawingLayerType(_cboLayerKind.Text);
+            bool isPoint = string.Equals(layerType, CanvasLayerTreeService.PointLayerType, StringComparison.OrdinalIgnoreCase);
+            bool isPolyline = string.Equals(layerType, CanvasLayerTreeService.PolylineLayerType, StringComparison.OrdinalIgnoreCase);
+            bool isPolygon = string.Equals(layerType, CanvasLayerTreeService.PolygonLayerType, StringComparison.OrdinalIgnoreCase);
+
+            Text = _isDrawingMarkupLayer
+                ? "Drawing Layer Properties"
+                : isPolyline ? "Line Layer Properties" : "Polygon Layer Properties";
+            _lblBorderColor.Text = isPoint
+                ? "Point Color"
+                : isPolyline ? "Line Color" : "Border Color";
+
+            SetControlVisible(_chkNoBorder, !isPoint);
+            SetControlVisible(_lblLineStyle, !isPoint);
+            SetControlVisible(_lineTypePanel, !isPoint);
+            SetControlVisible(_lblLinePreview, !isPoint);
+            SetControlVisible(_pnlLinePreview, !isPoint);
+            SetControlVisible(_lblLineWeight, !isPoint);
+            SetControlVisible(_numLineWeight, !isPoint);
+            SetGeneralRowHeight(3, isPoint ? 0F : 38F);
+            SetGeneralRowHeight(4, isPoint ? 0F : 38F);
+            SetGeneralRowHeight(5, isPoint ? 0F : 38F);
+
+            SetControlVisible(_lblPointMarker, isPoint);
+            SetControlVisible(_pointMarkerPanel, isPoint);
+            SetGeneralRowHeight(6, isPoint ? 38F : 0F);
+
+            if (_tabs.TabPages.Contains(_tabFill) && !isPolygon)
+            {
+                _tabs.TabPages.Remove(_tabFill);
+            }
+            else if (!_tabs.TabPages.Contains(_tabFill) && isPolygon && (!_isLineLayer || _isDrawingMarkupLayer))
+            {
+                int insertIndex = Math.Min(1, _tabs.TabPages.Count);
+                _tabs.TabPages.Insert(insertIndex, _tabFill);
+            }
+        }
+
+        private static string NormalizeDrawingLayerType(string? layerType)
+        {
+            return layerType?.Trim().ToLowerInvariant() switch
+            {
+                "point" => CanvasLayerTreeService.PointLayerType,
+                "line" => CanvasLayerTreeService.PolylineLayerType,
+                "polyline" => CanvasLayerTreeService.PolylineLayerType,
+                "polygon" => CanvasLayerTreeService.PolygonLayerType,
+                _ => CanvasLayerTreeService.PolylineLayerType
+            };
+        }
+
+        private bool IsSelectedPointLayerType()
+        {
+            return string.Equals(
+                NormalizeDrawingLayerType(_cboLayerKind.Text),
+                CanvasLayerTreeService.PointLayerType,
+                StringComparison.OrdinalIgnoreCase);
         }
 
         private static double NormalizeLineTypeScale(double scale)
@@ -522,6 +693,15 @@ namespace Land_Readjustment_Tool.UI.Forms
 
             _fillLayout.RowStyles[rowIndex].SizeType = SizeType.Absolute;
             _fillLayout.RowStyles[rowIndex].Height = height;
+        }
+
+        private void SetGeneralRowHeight(int rowIndex, float height)
+        {
+            if (rowIndex < 0 || rowIndex >= _generalLayout.RowStyles.Count)
+                return;
+
+            _generalLayout.RowStyles[rowIndex].SizeType = SizeType.Absolute;
+            _generalLayout.RowStyles[rowIndex].Height = height;
         }
 
         private static void SetComboText(ComboBox comboBox, string value)

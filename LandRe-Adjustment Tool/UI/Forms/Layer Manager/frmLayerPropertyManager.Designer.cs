@@ -28,6 +28,7 @@ namespace Land_Readjustment_Tool.UI.Forms
         private Label _lblLineTypeScale = null!;
         private Label _lblLinePreview = null!;
         private Label _lblLineWeight = null!;
+        private Label _lblPointMarker = null!;
         private Label _lblState = null!;
         private Label _lblFillStyle = null!;
         private Label _lblFillColor = null!;
@@ -42,12 +43,18 @@ namespace Land_Readjustment_Tool.UI.Forms
         private Label _lblLabelField = null!;
 
         private TextBox _txtName = null!;
-        private TextBox _txtLayerKind = null!;
+        private ComboBox _cboLayerKind = null!;
         private Panel _pnlBorderColor = null!;
+        private CheckBox _chkNoBorder = null!;
         private ComboBox _cboLineStyle = null!;
         private NumericUpDown _numLineTypeScale = null!;
         private Panel _pnlLinePreview = null!;
         private NumericUpDown _numLineWeight = null!;
+        private FlowLayoutPanel _pointMarkerPanel = null!;
+        private Panel _pnlPointMarkerPreview = null!;
+        private Button _btnPointMarker = null!;
+        private Label _lblPointSize = null!;
+        private NumericUpDown _numPointSize = null!;
         private CheckBox _chkVisible = null!;
         private CheckBox _chkLocked = null!;
         private ComboBox _cboFillStyle = null!;
@@ -86,11 +93,12 @@ namespace Land_Readjustment_Tool.UI.Forms
             _lblName = new Label();
             _txtName = new TextBox();
             _lblLayerKind = new Label();
-            _txtLayerKind = new TextBox();
+            _cboLayerKind = new ComboBox();
             _lblBorderColor = new Label();
             _borderColorPanel = new FlowLayoutPanel();
             _pnlBorderColor = new Panel();
             _btnBorderColor = new Button();
+            _chkNoBorder = new CheckBox();
             _lblLineStyle = new Label();
             _lineTypePanel = new FlowLayoutPanel();
             _cboLineStyle = new ComboBox();
@@ -100,6 +108,12 @@ namespace Land_Readjustment_Tool.UI.Forms
             _pnlLinePreview = new Panel();
             _lblLineWeight = new Label();
             _numLineWeight = new NumericUpDown();
+            _lblPointMarker = new Label();
+            _pointMarkerPanel = new FlowLayoutPanel();
+            _pnlPointMarkerPreview = new Panel();
+            _btnPointMarker = new Button();
+            _lblPointSize = new Label();
+            _numPointSize = new NumericUpDown();
             _lblState = new Label();
             _statePanel = new FlowLayoutPanel();
             _chkVisible = new CheckBox();
@@ -150,6 +164,7 @@ namespace Land_Readjustment_Tool.UI.Forms
             _lineTypePanel.SuspendLayout();
             ((System.ComponentModel.ISupportInitialize)_numLineTypeScale).BeginInit();
             ((System.ComponentModel.ISupportInitialize)_numLineWeight).BeginInit();
+            ((System.ComponentModel.ISupportInitialize)_numPointSize).BeginInit();
             _statePanel.SuspendLayout();
             _tabFill.SuspendLayout();
             _fillLayout.SuspendLayout();
@@ -201,7 +216,7 @@ namespace Land_Readjustment_Tool.UI.Forms
             _generalLayout.Controls.Add(_lblName, 0, 0);
             _generalLayout.Controls.Add(_txtName, 1, 0);
             _generalLayout.Controls.Add(_lblLayerKind, 0, 1);
-            _generalLayout.Controls.Add(_txtLayerKind, 1, 1);
+            _generalLayout.Controls.Add(_cboLayerKind, 1, 1);
             _generalLayout.Controls.Add(_lblBorderColor, 0, 2);
             _generalLayout.Controls.Add(_borderColorPanel, 1, 2);
             _generalLayout.Controls.Add(_lblLineStyle, 0, 3);
@@ -210,12 +225,14 @@ namespace Land_Readjustment_Tool.UI.Forms
             _generalLayout.Controls.Add(_pnlLinePreview, 1, 4);
             _generalLayout.Controls.Add(_lblLineWeight, 0, 5);
             _generalLayout.Controls.Add(_numLineWeight, 1, 5);
-            _generalLayout.Controls.Add(_lblState, 0, 6);
-            _generalLayout.Controls.Add(_statePanel, 1, 6);
+            _generalLayout.Controls.Add(_lblPointMarker, 0, 6);
+            _generalLayout.Controls.Add(_pointMarkerPanel, 1, 6);
+            _generalLayout.Controls.Add(_lblState, 0, 7);
+            _generalLayout.Controls.Add(_statePanel, 1, 7);
             _generalLayout.Dock = DockStyle.Fill;
             _generalLayout.Location = new Point(12, 12);
             _generalLayout.Name = "_generalLayout";
-            _generalLayout.RowCount = 9;
+            _generalLayout.RowCount = 10;
             _generalLayout.RowStyles.Add(new RowStyle(SizeType.Absolute, 38F));
             _generalLayout.RowStyles.Add(new RowStyle(SizeType.Absolute, 38F));
             _generalLayout.RowStyles.Add(new RowStyle(SizeType.Absolute, 38F));
@@ -259,15 +276,17 @@ namespace Land_Readjustment_Tool.UI.Forms
             _lblLayerKind.Text = "Layer Type";
             _lblLayerKind.TextAlign = ContentAlignment.MiddleLeft;
             // 
-            // _txtLayerKind
+            // _cboLayerKind
             // 
-            _txtLayerKind.Dock = DockStyle.Left;
-            _txtLayerKind.Location = new Point(110, 42);
-            _txtLayerKind.Margin = new Padding(0, 4, 0, 4);
-            _txtLayerKind.Name = "_txtLayerKind";
-            _txtLayerKind.ReadOnly = true;
-            _txtLayerKind.Size = new Size(209, 27);
-            _txtLayerKind.TabIndex = 3;
+            _cboLayerKind.Dock = DockStyle.Left;
+            _cboLayerKind.DropDownStyle = ComboBoxStyle.DropDownList;
+            _cboLayerKind.Items.AddRange(new object[] { "Point", "Polyline", "Polygon" });
+            _cboLayerKind.Location = new Point(110, 42);
+            _cboLayerKind.Margin = new Padding(0, 4, 0, 4);
+            _cboLayerKind.Name = "_cboLayerKind";
+            _cboLayerKind.Size = new Size(209, 28);
+            _cboLayerKind.TabIndex = 3;
+            _cboLayerKind.SelectedIndexChanged += cboLayerKind_SelectedIndexChanged;
             // 
             // _lblBorderColor
             // 
@@ -283,6 +302,7 @@ namespace Land_Readjustment_Tool.UI.Forms
             // 
             _borderColorPanel.Controls.Add(_pnlBorderColor);
             _borderColorPanel.Controls.Add(_btnBorderColor);
+            _borderColorPanel.Controls.Add(_chkNoBorder);
             _borderColorPanel.Dock = DockStyle.Fill;
             _borderColorPanel.Location = new Point(110, 76);
             _borderColorPanel.Margin = new Padding(0);
@@ -312,6 +332,18 @@ namespace Land_Readjustment_Tool.UI.Forms
             _btnBorderColor.Text = "Change...";
             _btnBorderColor.UseVisualStyleBackColor = true;
             _btnBorderColor.Click += btnBorderColor_Click;
+            // 
+            // _chkNoBorder
+            // 
+            _chkNoBorder.AutoSize = true;
+            _chkNoBorder.Location = new Point(131, 8);
+            _chkNoBorder.Margin = new Padding(3, 8, 0, 0);
+            _chkNoBorder.Name = "_chkNoBorder";
+            _chkNoBorder.Size = new Size(95, 24);
+            _chkNoBorder.TabIndex = 2;
+            _chkNoBorder.Text = "No Border";
+            _chkNoBorder.UseVisualStyleBackColor = true;
+            _chkNoBorder.CheckedChanged += chkNoBorder_CheckedChanged;
             // 
             // _lblLineStyle
             // 
@@ -416,13 +448,83 @@ namespace Land_Readjustment_Tool.UI.Forms
             _numLineWeight.Value = new decimal(new int[] { 1, 0, 0, 131072 });
             _numLineWeight.ValueChanged += numLineWeight_ValueChanged;
             // 
+            // _lblPointMarker
+            // 
+            _lblPointMarker.Dock = DockStyle.Fill;
+            _lblPointMarker.Location = new Point(3, 228);
+            _lblPointMarker.Name = "_lblPointMarker";
+            _lblPointMarker.Size = new Size(104, 38);
+            _lblPointMarker.TabIndex = 12;
+            _lblPointMarker.Text = "Marker";
+            _lblPointMarker.TextAlign = ContentAlignment.MiddleLeft;
+            // 
+            // _pointMarkerPanel
+            // 
+            _pointMarkerPanel.Controls.Add(_pnlPointMarkerPreview);
+            _pointMarkerPanel.Controls.Add(_btnPointMarker);
+            _pointMarkerPanel.Controls.Add(_lblPointSize);
+            _pointMarkerPanel.Controls.Add(_numPointSize);
+            _pointMarkerPanel.Dock = DockStyle.Fill;
+            _pointMarkerPanel.Location = new Point(110, 228);
+            _pointMarkerPanel.Margin = new Padding(0);
+            _pointMarkerPanel.Name = "_pointMarkerPanel";
+            _pointMarkerPanel.Size = new Size(315, 38);
+            _pointMarkerPanel.TabIndex = 13;
+            _pointMarkerPanel.WrapContents = false;
+            // 
+            // _pnlPointMarkerPreview
+            // 
+            _pnlPointMarkerPreview.BackColor = Color.White;
+            _pnlPointMarkerPreview.BorderStyle = BorderStyle.FixedSingle;
+            _pnlPointMarkerPreview.Location = new Point(0, 4);
+            _pnlPointMarkerPreview.Margin = new Padding(0, 4, 8, 0);
+            _pnlPointMarkerPreview.Name = "_pnlPointMarkerPreview";
+            _pnlPointMarkerPreview.Size = new Size(36, 29);
+            _pnlPointMarkerPreview.TabIndex = 0;
+            _pnlPointMarkerPreview.Paint += pnlPointMarkerPreview_Paint;
+            // 
+            // _btnPointMarker
+            // 
+            _btnPointMarker.AutoSize = true;
+            _btnPointMarker.Location = new Point(47, 3);
+            _btnPointMarker.Name = "_btnPointMarker";
+            _btnPointMarker.Size = new Size(74, 30);
+            _btnPointMarker.TabIndex = 1;
+            _btnPointMarker.Text = "Marker...";
+            _btnPointMarker.UseVisualStyleBackColor = true;
+            _btnPointMarker.Click += btnPointMarker_Click;
+            // 
+            // _lblPointSize
+            // 
+            _lblPointSize.AutoSize = true;
+            _lblPointSize.Location = new Point(127, 8);
+            _lblPointSize.Margin = new Padding(3, 8, 6, 0);
+            _lblPointSize.Name = "_lblPointSize";
+            _lblPointSize.Size = new Size(36, 20);
+            _lblPointSize.TabIndex = 2;
+            _lblPointSize.Text = "Size";
+            // 
+            // _numPointSize
+            // 
+            _numPointSize.DecimalPlaces = 1;
+            _numPointSize.Increment = new decimal(new int[] { 5, 0, 0, 65536 });
+            _numPointSize.Location = new Point(169, 4);
+            _numPointSize.Margin = new Padding(0, 4, 0, 4);
+            _numPointSize.Maximum = new decimal(new int[] { 48, 0, 0, 0 });
+            _numPointSize.Minimum = new decimal(new int[] { 1, 0, 0, 0 });
+            _numPointSize.Name = "_numPointSize";
+            _numPointSize.Size = new Size(68, 27);
+            _numPointSize.TabIndex = 3;
+            _numPointSize.Value = new decimal(new int[] { 5, 0, 0, 0 });
+            _numPointSize.ValueChanged += numPointSize_ValueChanged;
+            // 
             // _lblState
             // 
             _lblState.Dock = DockStyle.Fill;
-            _lblState.Location = new Point(3, 228);
+            _lblState.Location = new Point(3, 267);
             _lblState.Name = "_lblState";
             _lblState.Size = new Size(104, 39);
-            _lblState.TabIndex = 12;
+            _lblState.TabIndex = 14;
             _lblState.Text = "State";
             _lblState.TextAlign = ContentAlignment.MiddleLeft;
             // 
@@ -431,11 +533,11 @@ namespace Land_Readjustment_Tool.UI.Forms
             _statePanel.Controls.Add(_chkVisible);
             _statePanel.Controls.Add(_chkLocked);
             _statePanel.Dock = DockStyle.Fill;
-            _statePanel.Location = new Point(110, 228);
+            _statePanel.Location = new Point(110, 267);
             _statePanel.Margin = new Padding(0);
             _statePanel.Name = "_statePanel";
             _statePanel.Size = new Size(315, 39);
-            _statePanel.TabIndex = 13;
+            _statePanel.TabIndex = 15;
             // 
             // _chkVisible
             // 
@@ -949,6 +1051,7 @@ namespace Land_Readjustment_Tool.UI.Forms
             _lineTypePanel.PerformLayout();
             ((System.ComponentModel.ISupportInitialize)_numLineTypeScale).EndInit();
             ((System.ComponentModel.ISupportInitialize)_numLineWeight).EndInit();
+            ((System.ComponentModel.ISupportInitialize)_numPointSize).EndInit();
             _statePanel.ResumeLayout(false);
             _statePanel.PerformLayout();
             _tabFill.ResumeLayout(false);

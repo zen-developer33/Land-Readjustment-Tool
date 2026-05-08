@@ -137,7 +137,7 @@ namespace Land_Readjustment_Tool.UI.MapCanvas.Services
                 LineTypeScale = 1.0,
                 LabelColor = "#000000",
                 FillStyle = "Solid",
-                PointSymbol = "Circle",
+                PointSymbol = "Dot",
                 PointSize = 5.0
             };
 
@@ -146,7 +146,17 @@ namespace Land_Readjustment_Tool.UI.MapCanvas.Services
 
         private static string ResolveLayerType(IShape shape)
         {
-            return CanvasLayerTreeService.DrawingMarkupLayerType;
+            if (shape.Properties.TryGetValue("ObjectType", out object? objectType) &&
+                string.Equals(objectType?.ToString(), "Point", StringComparison.OrdinalIgnoreCase))
+            {
+                return CanvasLayerTreeService.PointLayerType;
+            }
+
+            return shape switch
+            {
+                LineShape or PolylineShape { IsClosed: false } => CanvasLayerTreeService.PolylineLayerType,
+                _ => CanvasLayerTreeService.PolygonLayerType
+            };
         }
 
         private static bool TryToInt(object? value, out int result)
