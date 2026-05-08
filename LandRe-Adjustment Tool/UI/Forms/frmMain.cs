@@ -3020,6 +3020,23 @@ namespace Land_Readjustment_Tool
                 : "#000000";
         }
 
+        private static string GetRandomDrawingMarkupColorHex()
+        {
+            string[] palette =
+            {
+                "#D32F2F",
+                "#1976D2",
+                "#388E3C",
+                "#F57C00",
+                "#7B1FA2",
+                "#0097A7",
+                "#C2185B",
+                "#5D4037"
+            };
+
+            return palette[Random.Shared.Next(palette.Length)];
+        }
+
         private static bool IsDarkCanvasColor(Color color)
         {
             double luminance = (0.299 * color.R + 0.587 * color.G + 0.114 * color.B) / 255.0;
@@ -4403,27 +4420,28 @@ namespace Land_Readjustment_Tool
                 int nextDisplayOrder = existingLayers.Count == 0
                     ? 0
                     : existingLayers.Max(layer => layer.DisplayOrder) + 1;
+                string drawingColor = GetRandomDrawingMarkupColorHex();
 
                 CanvasLayer newLayer = new()
                 {
                     Name = layerName,
-                    LayerType = CanvasLayerTreeService.PolylineLayerType,
+                    LayerType = CanvasLayerTreeService.PointLayerType,
                     IsVisible = true,
                     IsLocked = false,
                     IsSelectable = true,
                     IsPrintable = true,
                     DisplayOrder = nextDisplayOrder,
-                    BorderColor = "#000000",
+                    BorderColor = drawingColor,
                     LineWeight = 1.3,
                     LineStyle = "Solid",
                     LineTypeScale = 1.0,
-                    FillStyle = "None",
-                    FillColor = null,
-                    FillTransparency = 100,
+                    FillStyle = "Solid",
+                    FillColor = drawingColor,
+                    FillTransparency = 0,
                     HatchScale = 1.0,
                     PointSymbol = "Dot",
                     PointSize = 5.0,
-                    LabelColor = "#000000",
+                    LabelColor = drawingColor,
                     CreatedDate = DateTime.Now,
                     LastModifiedDate = DateTime.Now,
                     Description = $"Drawing/markup layer: {layerName}"

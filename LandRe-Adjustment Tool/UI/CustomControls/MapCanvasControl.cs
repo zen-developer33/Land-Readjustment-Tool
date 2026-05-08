@@ -12,6 +12,11 @@ using Land_Readjustment_Tool.UI.MapCanvas.Core;
 using Land_Readjustment_Tool.UI.MapCanvas.Models.Shapes;
 using Land_Readjustment_Tool.UI.MapCanvas.Rendering;
 using Land_Readjustment_Tool.UI.MapCanvas.Services;
+using NtsCoordinate = NetTopologySuite.Geometries.Coordinate;
+using NtsGeometry = NetTopologySuite.Geometries.Geometry;
+using NtsGeometryFactory = NetTopologySuite.Geometries.GeometryFactory;
+using NtsPolygon = NetTopologySuite.Geometries.Polygon;
+using NtsPrecisionModel = NetTopologySuite.Geometries.PrecisionModel;
 
 namespace Land_Readjustment_Tool.UI.CustomControls
 {
@@ -22,6 +27,7 @@ namespace Land_Readjustment_Tool.UI.CustomControls
         private const double ScreenPixelsPerMetre = 96.0 / 0.0254;
         private const bool DefaultShowDebugOverlay = false;
         private static readonly double[] StandardScaleDenominators = BuildStandardScaleDenominators();
+        private static readonly NtsGeometryFactory SelectionGeometryFactory = new(new NtsPrecisionModel(), 0);
 
         [DllImport("user32.dll", SetLastError = true, CharSet = CharSet.Auto)]
         private static extern IntPtr LoadCursorFromFile(string path);
@@ -978,7 +984,8 @@ namespace Land_Readjustment_Tool.UI.CustomControls
                 _isSelectingObjects = false;
                 canvasSurface.Capture = false;
                 _objectSelectionCurrent = e.Location;
-                ApplyObjectSelectionFromMouseUp(e.Location);
+                bool additiveSelection = (ModifierKeys & Keys.Control) == Keys.Control;
+                ApplyObjectSelectionFromMouseUp(e.Location, additiveSelection);
                 RequestRender();
             }
         }
@@ -1137,12 +1144,12 @@ namespace Land_Readjustment_Tool.UI.CustomControls
             RequestRender();
         }
 
-        private void ApplyObjectSelectionFromMouseUp(Point mouseUpLocation)
+        private void ApplyObjectSelectionFromMouseUp(Point mouseUpLocation, bool additiveSelection)
         {
             Rectangle selectionRectangle = CreateScreenRectangle(_objectSelectionStart, mouseUpLocation);
             if (selectionRectangle.Width <= 4 && selectionRectangle.Height <= 4)
             {
-                SelectObjectByClick(mouseUpLocation);
+                SelectObjectByClick(mouseUpLocation, additiveSelection);
                 return;
             }
 
@@ -1152,13 +1159,20 @@ namespace Land_Readjustment_Tool.UI.CustomControls
                 .Where(IsSelectableDrawingFeature)
                 .Where(feature => isWindowSelection
                     ? ContainsRectangle(worldRectangle, feature.Shape.GetBoundingBox())
-                    : worldRectangle.IntersectsWith(feature.Shape.GetBoundingBox()))
+                    : IntersectsSelectionRectangle(worldRectangle, feature.Shape))
                 .ToList();
 
-            ReplaceSelectedObjects(selectedFeatures);
+            if (additiveSelection)
+            {
+                AddSelectedObjects(selectedFeatures);
+            }
+            else
+            {
+                ReplaceSelectedObjects(selectedFeatures);
+            }
         }
 
-        private void SelectObjectByClick(Point screenPoint)
+        private void SelectObjectByClick(Point screenPoint, bool additiveSelection)
         {
             CanvasFeature? hitFeature = _vectorFeatures
                 .Where(IsSelectableDrawingFeature)
@@ -1168,7 +1182,25 @@ namespace Land_Readjustment_Tool.UI.CustomControls
                     screenPoint,
                     ObjectSelectionTolerancePixels));
 
-            ReplaceSelectedObjects(hitFeature == null ? [] : [hitFeature]);
+            if (!additiveSelection)
+            {
+                ReplaceSelectedObjects(hitFeature == null ? [] : [hitFeature]);
+                return;
+            }
+
+            if (hitFeature == null)
+            {
+                return;
+            }
+
+            if (!_selectedShapeIds.Add(hitFeature.Shape.Id))
+            {
+                _selectedShapeIds.Remove(hitFeature.Shape.Id);
+            }
+
+            ApplySelectedShapeFlags();
+            RefreshVectorCacheForCurrentViewImmediately();
+            UpdateStatusBar();
         }
 
         private void ReplaceSelectedObjects(IEnumerable<CanvasFeature> selectedFeatures)
@@ -1177,6 +1209,24 @@ namespace Land_Readjustment_Tool.UI.CustomControls
             foreach (CanvasFeature feature in selectedFeatures)
             {
                 _selectedShapeIds.Add(feature.Shape.Id);
+            }
+
+            ApplySelectedShapeFlags();
+            RefreshVectorCacheForCurrentViewImmediately();
+            UpdateStatusBar();
+        }
+
+        private void AddSelectedObjects(IEnumerable<CanvasFeature> selectedFeatures)
+        {
+            bool changed = false;
+            foreach (CanvasFeature feature in selectedFeatures)
+            {
+                changed |= _selectedShapeIds.Add(feature.Shape.Id);
+            }
+
+            if (!changed)
+            {
+                return;
             }
 
             ApplySelectedShapeFlags();
@@ -1243,6 +1293,137 @@ namespace Land_Readjustment_Tool.UI.CustomControls
                    inner.Right <= outer.Right &&
                    inner.Top >= outer.Top &&
                    inner.Bottom <= outer.Bottom;
+        }
+
+        private static bool IntersectsSelectionRectangle(RectangleD selectionBounds, IShape shape)
+        {
+            NtsGeometry shapeGeometry = CreateSelectionGeometry(shape);
+            if (shapeGeometry.IsEmpty)
+            {
+                return false;
+            }
+
+            NtsPolygon selectionPolygon = SelectionGeometryFactory.CreatePolygon(
+                [
+                    new NtsCoordinate(selectionBounds.Left, selectionBounds.Top),
+                    new NtsCoordinate(selectionBounds.Right, selectionBounds.Top),
+                    new NtsCoordinate(selectionBounds.Right, selectionBounds.Bottom),
+                    new NtsCoordinate(selectionBounds.Left, selectionBounds.Bottom),
+                    new NtsCoordinate(selectionBounds.Left, selectionBounds.Top)
+                ]);
+
+            return shapeGeometry.Intersects(selectionPolygon);
+        }
+
+        private static NtsGeometry CreateSelectionGeometry(IShape shape)
+        {
+            return shape switch
+            {
+                LineShape line => SelectionGeometryFactory.CreateLineString(
+                    [
+                        new NtsCoordinate(line.Start.X, line.Start.Y),
+                        new NtsCoordinate(line.End.X, line.End.Y)
+                    ]),
+                PolylineShape polyline => CreateSelectionGeometryFromPolyline(polyline),
+                RectangleShape rectangle => CreateSelectionPolygonFromRectangle(rectangle.Start, rectangle.End),
+                CircleShape circle => SelectionGeometryFactory.CreatePoint(
+                    new NtsCoordinate(circle.Center.X, circle.Center.Y)).Buffer(circle.GetRadius(), quadrantSegments: 24),
+                EllipseShape ellipse => CreateSelectionPolygonFromEllipse(ellipse.Start, ellipse.End),
+                TextShape text => SelectionGeometryFactory.CreatePoint(
+                    new NtsCoordinate(text.Position.X, text.Position.Y)),
+                _ => CreateSelectionPolygonFromBounds(shape.GetBoundingBox())
+            };
+        }
+
+        private static NtsGeometry CreateSelectionGeometryFromPolyline(PolylineShape polyline)
+        {
+            if (polyline.Vertices.Count == 0)
+            {
+                return SelectionGeometryFactory.CreateGeometryCollection();
+            }
+
+            if (polyline.Vertices.Count == 1)
+            {
+                PointD vertex = polyline.Vertices[0];
+                return SelectionGeometryFactory.CreatePoint(new NtsCoordinate(vertex.X, vertex.Y));
+            }
+
+            NtsCoordinate[] coordinates = polyline.Vertices
+                .Select(vertex => new NtsCoordinate(vertex.X, vertex.Y))
+                .ToArray();
+
+            if (polyline.IsClosed && coordinates.Length >= 3)
+            {
+                return SelectionGeometryFactory.CreatePolygon(CloseRing(coordinates));
+            }
+
+            return SelectionGeometryFactory.CreateLineString(coordinates);
+        }
+
+        private static NtsPolygon CreateSelectionPolygonFromRectangle(PointD start, PointD end)
+        {
+            return SelectionGeometryFactory.CreatePolygon([
+                new NtsCoordinate(Math.Min(start.X, end.X), Math.Min(start.Y, end.Y)),
+                new NtsCoordinate(Math.Max(start.X, end.X), Math.Min(start.Y, end.Y)),
+                new NtsCoordinate(Math.Max(start.X, end.X), Math.Max(start.Y, end.Y)),
+                new NtsCoordinate(Math.Min(start.X, end.X), Math.Max(start.Y, end.Y)),
+                new NtsCoordinate(Math.Min(start.X, end.X), Math.Min(start.Y, end.Y))
+            ]);
+        }
+
+        private static NtsPolygon CreateSelectionPolygonFromEllipse(PointD start, PointD end)
+        {
+            double minX = Math.Min(start.X, end.X);
+            double minY = Math.Min(start.Y, end.Y);
+            double maxX = Math.Max(start.X, end.X);
+            double maxY = Math.Max(start.Y, end.Y);
+            double centerX = (minX + maxX) / 2.0;
+            double centerY = (minY + maxY) / 2.0;
+            double radiusX = (maxX - minX) / 2.0;
+            double radiusY = (maxY - minY) / 2.0;
+
+            const int segments = 72;
+            NtsCoordinate[] ring = new NtsCoordinate[segments + 1];
+
+            for (int i = 0; i < segments; i++)
+            {
+                double theta = 2.0 * Math.PI * i / segments;
+                ring[i] = new NtsCoordinate(
+                    centerX + radiusX * Math.Cos(theta),
+                    centerY + radiusY * Math.Sin(theta));
+            }
+
+            ring[segments] = new NtsCoordinate(ring[0].X, ring[0].Y);
+            return SelectionGeometryFactory.CreatePolygon(ring);
+        }
+
+        private static NtsPolygon CreateSelectionPolygonFromBounds(RectangleD bounds)
+        {
+            return SelectionGeometryFactory.CreatePolygon([
+                new NtsCoordinate(bounds.Left, bounds.Top),
+                new NtsCoordinate(bounds.Right, bounds.Top),
+                new NtsCoordinate(bounds.Right, bounds.Bottom),
+                new NtsCoordinate(bounds.Left, bounds.Bottom),
+                new NtsCoordinate(bounds.Left, bounds.Top)
+            ]);
+        }
+
+        private static NtsCoordinate[] CloseRing(NtsCoordinate[] coordinates)
+        {
+            if (coordinates.Length == 0)
+            {
+                return coordinates;
+            }
+
+            if (coordinates[0].Equals2D(coordinates[^1]))
+            {
+                return coordinates;
+            }
+
+            NtsCoordinate[] closed = new NtsCoordinate[coordinates.Length + 1];
+            Array.Copy(coordinates, closed, coordinates.Length);
+            closed[^1] = new NtsCoordinate(coordinates[0].X, coordinates[0].Y);
+            return closed;
         }
 
         private bool IsScreenPointNearShape(
