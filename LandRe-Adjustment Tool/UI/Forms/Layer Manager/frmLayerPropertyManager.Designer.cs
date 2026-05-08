@@ -164,6 +164,7 @@ namespace Land_Readjustment_Tool.UI.Forms
             _lineTypePanel.SuspendLayout();
             ((System.ComponentModel.ISupportInitialize)_numLineTypeScale).BeginInit();
             ((System.ComponentModel.ISupportInitialize)_numLineWeight).BeginInit();
+            _pointMarkerPanel.SuspendLayout();
             ((System.ComponentModel.ISupportInitialize)_numPointSize).BeginInit();
             _statePanel.SuspendLayout();
             _tabFill.SuspendLayout();
@@ -339,7 +340,7 @@ namespace Land_Readjustment_Tool.UI.Forms
             _chkNoBorder.Location = new Point(131, 8);
             _chkNoBorder.Margin = new Padding(3, 8, 0, 0);
             _chkNoBorder.Name = "_chkNoBorder";
-            _chkNoBorder.Size = new Size(95, 24);
+            _chkNoBorder.Size = new Size(100, 24);
             _chkNoBorder.TabIndex = 2;
             _chkNoBorder.Text = "No Border";
             _chkNoBorder.UseVisualStyleBackColor = true;
@@ -453,7 +454,7 @@ namespace Land_Readjustment_Tool.UI.Forms
             _lblPointMarker.Dock = DockStyle.Fill;
             _lblPointMarker.Location = new Point(3, 228);
             _lblPointMarker.Name = "_lblPointMarker";
-            _lblPointMarker.Size = new Size(104, 38);
+            _lblPointMarker.Size = new Size(104, 39);
             _lblPointMarker.TabIndex = 12;
             _lblPointMarker.Text = "Marker";
             _lblPointMarker.TextAlign = ContentAlignment.MiddleLeft;
@@ -468,7 +469,7 @@ namespace Land_Readjustment_Tool.UI.Forms
             _pointMarkerPanel.Location = new Point(110, 228);
             _pointMarkerPanel.Margin = new Padding(0);
             _pointMarkerPanel.Name = "_pointMarkerPanel";
-            _pointMarkerPanel.Size = new Size(315, 38);
+            _pointMarkerPanel.Size = new Size(315, 39);
             _pointMarkerPanel.TabIndex = 13;
             _pointMarkerPanel.WrapContents = false;
             // 
@@ -523,7 +524,7 @@ namespace Land_Readjustment_Tool.UI.Forms
             _lblState.Dock = DockStyle.Fill;
             _lblState.Location = new Point(3, 267);
             _lblState.Name = "_lblState";
-            _lblState.Size = new Size(104, 39);
+            _lblState.Size = new Size(104, 37);
             _lblState.TabIndex = 14;
             _lblState.Text = "State";
             _lblState.TextAlign = ContentAlignment.MiddleLeft;
@@ -536,7 +537,7 @@ namespace Land_Readjustment_Tool.UI.Forms
             _statePanel.Location = new Point(110, 267);
             _statePanel.Margin = new Padding(0);
             _statePanel.Name = "_statePanel";
-            _statePanel.Size = new Size(315, 39);
+            _statePanel.Size = new Size(315, 37);
             _statePanel.TabIndex = 15;
             // 
             // _chkVisible
@@ -1051,6 +1052,8 @@ namespace Land_Readjustment_Tool.UI.Forms
             _lineTypePanel.PerformLayout();
             ((System.ComponentModel.ISupportInitialize)_numLineTypeScale).EndInit();
             ((System.ComponentModel.ISupportInitialize)_numLineWeight).EndInit();
+            _pointMarkerPanel.ResumeLayout(false);
+            _pointMarkerPanel.PerformLayout();
             ((System.ComponentModel.ISupportInitialize)_numPointSize).EndInit();
             _statePanel.ResumeLayout(false);
             _statePanel.PerformLayout();

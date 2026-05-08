@@ -12,8 +12,8 @@ namespace Land_Readjustment_Tool.UI.MapCanvas.Rendering
     {
         private const double MaxGdiCoordinate = 1_000_000.0;
         private const float HatchLineWidthPx = 0.65f;
-        private const float SelectionLineWidthPx = 3.0f;
-        private static readonly Color SelectionStrokeColor = Color.FromArgb(255, 255, 202, 40);
+        private const float SelectionLineWidthPx = 2.0f;
+        private static readonly Color SelectionStrokeColor = Color.FromArgb(0, 122, 204);
         private readonly PenCache _penCache = new();
         private readonly BrushCache _brushCache = new();
         private readonly Font _labelFont = new("Segoe UI", 8.0f, FontStyle.Regular);
@@ -581,12 +581,17 @@ namespace Land_Readjustment_Tool.UI.MapCanvas.Rendering
                 return;
             }
 
-            if (style.FillColor.A > 0)
+            if (context.IsPreview)
+            {
+                return;
+            }
+
+            if (style.FillColor.A > 0 && style.FillMode != FillMode.Hatched)
             {
                 graphics.FillPath(context.GetSolidBrush(style.FillColor), path);
             }
 
-            if (style.FillMode == FillMode.Hatched)
+            if (style.FillMode == FillMode.Hatched && !context.IsPreview)
             {
                 DrawHatchPattern(graphics, path, bounds, style);
             }
@@ -628,10 +633,8 @@ namespace Land_Readjustment_Tool.UI.MapCanvas.Rendering
 
         private static Color ResolveHatchColor(VectorShapeStyle style)
         {
-            Color baseColor = style.HasStroke
-                ? style.StrokeColor
-                : Color.FromArgb(255, style.FillColor.R, style.FillColor.G, style.FillColor.B);
-
+            // Use fill color for hatch pattern, with high opacity for visibility
+            Color baseColor = Color.FromArgb(255, style.FillColor.R, style.FillColor.G, style.FillColor.B);
             return Color.FromArgb(220, baseColor.R, baseColor.G, baseColor.B);
         }
 

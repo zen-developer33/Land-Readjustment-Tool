@@ -1241,8 +1241,8 @@ namespace Land_Readjustment_Tool.UI.CustomControls
         {
             return inner.Left >= outer.Left &&
                    inner.Right <= outer.Right &&
-                   inner.Bottom >= outer.Bottom &&
-                   inner.Top <= outer.Top;
+                   inner.Top >= outer.Top &&
+                   inner.Bottom <= outer.Bottom;
         }
 
         private bool IsScreenPointNearShape(
@@ -1407,12 +1407,10 @@ namespace Land_Readjustment_Tool.UI.CustomControls
                 return;
 
             bool isWindowSelection = _objectSelectionCurrent.X >= _objectSelectionStart.X;
-            Color borderColor = isWindowSelection
-                ? Color.FromArgb(0, 120, 215)
-                : Color.FromArgb(0, 170, 80);
+            Color borderColor = Color.FromArgb(0, 122, 204);
             Color fillColor = isWindowSelection
-                ? Color.FromArgb(36, 0, 120, 215)
-                : Color.FromArgb(32, 0, 170, 80);
+                ? Color.FromArgb(36, 0, 122, 204)
+                : Color.FromArgb(32, 0, 122, 204);
 
             using SolidBrush fillBrush = new(fillColor);
             using Pen borderPen = new(borderColor, 1.4f);
