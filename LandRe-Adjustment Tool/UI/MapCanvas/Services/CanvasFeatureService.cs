@@ -154,7 +154,7 @@ namespace Land_Readjustment_Tool.UI.MapCanvas.Services
 
             return shape switch
             {
-                LineShape or PolylineShape { IsClosed: false } => CanvasLayerTreeService.PolylineLayerType,
+                LineShape or PolylineShape { IsClosed: false } or ArcShape => CanvasLayerTreeService.PolylineLayerType,
                 _ => CanvasLayerTreeService.PolygonLayerType
             };
         }

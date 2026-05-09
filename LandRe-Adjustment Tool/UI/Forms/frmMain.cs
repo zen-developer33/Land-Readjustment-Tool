@@ -208,6 +208,8 @@ namespace Land_Readjustment_Tool
             mapCanvasControlMain.SelectToolRequested += () => ActivateCanvasTool(MapCanvasTool.Select);
             mapCanvasControlMain.SelectedObjectsDeleteRequested += MapCanvasControlMain_SelectedObjectsDeleteRequested;
             mnuCanvasDebugOverlay.Checked = mapCanvasControlMain.ShowDebugOverlay;
+            mnuOSnapToggle.Checked = mapCanvasControlMain.SnapEnabled;
+            mnuOrthoToggle.Checked = mapCanvasControlMain.OrthoModeEnabled;
             ConfigureLayerTree();
             ConfigureLayerPropertiesPanel();
             MapCanvasControlMain_StatusChanged("E: --    N: --", "Ready", 0);
@@ -1132,6 +1134,9 @@ namespace Land_Readjustment_Tool
                     settings.SnapEnabled,
                     settings.SnapTolerancePx,
                     settings.SnapGlyphSizePx);
+                mnuOSnapToggle.Checked = settings.SnapEnabled;
+                mapCanvasControlMain.OrthoModeEnabled = settings.OrthoEnabled;
+                mnuOrthoToggle.Checked = settings.OrthoEnabled;
 
                 // Update layer colors to be theme-aware
                 if (showRefreshProgress)
@@ -1151,6 +1156,7 @@ namespace Land_Readjustment_Tool
                         settings.SnapEnabled,
                         settings.SnapTolerancePx,
                         settings.SnapGlyphSizePx);
+                    _workspaceCanvas.OrthoModeEnabled = settings.OrthoEnabled;
                 }
 
                 if (updateRasterProjection)
@@ -2871,6 +2877,52 @@ namespace Land_Readjustment_Tool
             SetCanvasCommandStatus(mnuCanvasDebugOverlay.Checked
                 ? "Canvas debug overlay enabled"
                 : "Canvas debug overlay disabled");
+        }
+
+        private void mnuOSnapToggle_Click(object sender, EventArgs e)
+        {
+            SetObjectSnapMode(mnuOSnapToggle.Checked);
+        }
+
+        private void mnuOrthoToggle_Click(object sender, EventArgs e)
+        {
+            SetOrthoMode(mnuOrthoToggle.Checked);
+        }
+
+        private void SetObjectSnapMode(bool enabled)
+        {
+            mnuOSnapToggle.Checked = enabled;
+            mapCanvasControlMain.ApplySnapEnabled(enabled);
+            SetCanvasCommandStatus(enabled
+                ? "Object snap enabled"
+                : "Object snap disabled");
+        }
+
+        private void SetOrthoMode(bool enabled)
+        {
+            mnuOrthoToggle.Checked = enabled;
+            mapCanvasControlMain.OrthoModeEnabled = enabled;
+            SetCanvasCommandStatus(enabled
+                ? "Ortho mode enabled"
+                : "Ortho mode disabled");
+        }
+
+        protected override bool ProcessCmdKey(ref Message msg, Keys keyData)
+        {
+            Keys keyCode = keyData & Keys.KeyCode;
+            if (keyCode == Keys.F3)
+            {
+                SetObjectSnapMode(!mnuOSnapToggle.Checked);
+                return true;
+            }
+
+            if (keyCode == Keys.F8)
+            {
+                SetOrthoMode(!mnuOrthoToggle.Checked);
+                return true;
+            }
+
+            return base.ProcessCmdKey(ref msg, keyData);
         }
 
         private void ActivateCanvasTool(MapCanvasTool tool)

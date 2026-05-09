@@ -35,6 +35,7 @@ namespace Land_Readjustment_Tool.UI.Forms.Project
             tabMapCanvas = new TabPage();
             grpSnap = new GroupBox();
             chkSnapEnabled = new CheckBox();
+            chkOrthoEnabled = new CheckBox();
             lblSnapTolerance = new Label();
             nudSnapTolerance = new NumericUpDown();
             lblSnapUnit = new Label();
@@ -84,6 +85,9 @@ namespace Land_Readjustment_Tool.UI.Forms.Project
             btnRestoreDefaults = new Button();
             btnApply = new Button();
             btnCancel = new Button();
+            chkNorthMarker = new CheckBox();
+            grpGraphics = new GroupBox();
+            chkAntiAliasing = new CheckBox();
             tabSettings.SuspendLayout();
             tabCoordinates.SuspendLayout();
             grpCRS.SuspendLayout();
@@ -107,6 +111,7 @@ namespace Land_Readjustment_Tool.UI.Forms.Project
             grpPrint.SuspendLayout();
             ((System.ComponentModel.ISupportInitialize)nudPrintScale).BeginInit();
             pnlFooter.SuspendLayout();
+            grpGraphics.SuspendLayout();
             SuspendLayout();
             // 
             // tabSettings
@@ -296,6 +301,7 @@ namespace Land_Readjustment_Tool.UI.Forms.Project
             // 
             // tabMapCanvas
             // 
+            tabMapCanvas.Controls.Add(grpGraphics);
             tabMapCanvas.Controls.Add(grpSnap);
             tabMapCanvas.Controls.Add(grpOther);
             tabMapCanvas.Controls.Add(grpCanvasTheme);
@@ -310,6 +316,7 @@ namespace Land_Readjustment_Tool.UI.Forms.Project
             // grpSnap
             // 
             grpSnap.Controls.Add(chkSnapEnabled);
+            grpSnap.Controls.Add(chkOrthoEnabled);
             grpSnap.Controls.Add(lblSnapTolerance);
             grpSnap.Controls.Add(nudSnapTolerance);
             grpSnap.Controls.Add(lblSnapUnit);
@@ -317,26 +324,35 @@ namespace Land_Readjustment_Tool.UI.Forms.Project
             grpSnap.Controls.Add(nudSnapGlyphSize);
             grpSnap.Controls.Add(lblSnapGlyphUnit);
             grpSnap.Font = new Font("Segoe UI", 9F, FontStyle.Bold, GraphicsUnit.Point, 0);
-            grpSnap.Location = new Point(8, 275);
+            grpSnap.Location = new Point(8, 190);
             grpSnap.Name = "grpSnap";
-            grpSnap.Size = new Size(536, 92);
+            grpSnap.Size = new Size(267, 182);
             grpSnap.TabIndex = 10;
             grpSnap.TabStop = false;
-            grpSnap.Text = "Snap";
+            grpSnap.Text = "Snap and Ortho";
             // 
             // chkSnapEnabled
             // 
             chkSnapEnabled.Font = new Font("Segoe UI", 9F);
             chkSnapEnabled.Location = new Point(10, 26);
             chkSnapEnabled.Name = "chkSnapEnabled";
-            chkSnapEnabled.Size = new Size(150, 27);
+            chkSnapEnabled.Size = new Size(119, 27);
             chkSnapEnabled.TabIndex = 4;
             chkSnapEnabled.Text = "Enable Snap";
+            // 
+            // chkOrthoEnabled
+            // 
+            chkOrthoEnabled.Font = new Font("Segoe UI", 9F);
+            chkOrthoEnabled.Location = new Point(10, 137);
+            chkOrthoEnabled.Name = "chkOrthoEnabled";
+            chkOrthoEnabled.Size = new Size(150, 27);
+            chkOrthoEnabled.TabIndex = 13;
+            chkOrthoEnabled.Text = "Enable Ortho";
             // 
             // lblSnapTolerance
             // 
             lblSnapTolerance.Font = new Font("Segoe UI", 9F);
-            lblSnapTolerance.Location = new Point(168, 29);
+            lblSnapTolerance.Location = new Point(30, 57);
             lblSnapTolerance.Name = "lblSnapTolerance";
             lblSnapTolerance.Size = new Size(79, 21);
             lblSnapTolerance.TabIndex = 7;
@@ -346,7 +362,7 @@ namespace Land_Readjustment_Tool.UI.Forms.Project
             // 
             nudSnapTolerance.DecimalPlaces = 1;
             nudSnapTolerance.Font = new Font("Segoe UI", 9F);
-            nudSnapTolerance.Location = new Point(253, 26);
+            nudSnapTolerance.Location = new Point(115, 54);
             nudSnapTolerance.Maximum = new decimal(new int[] { 50, 0, 0, 0 });
             nudSnapTolerance.Minimum = new decimal(new int[] { 1, 0, 0, 0 });
             nudSnapTolerance.Name = "nudSnapTolerance";
@@ -359,16 +375,16 @@ namespace Land_Readjustment_Tool.UI.Forms.Project
             lblSnapUnit.AutoSize = true;
             lblSnapUnit.Font = new Font("Segoe UI", 9F);
             lblSnapUnit.ForeColor = SystemColors.GrayText;
-            lblSnapUnit.Location = new Point(329, 29);
+            lblSnapUnit.Location = new Point(191, 57);
             lblSnapUnit.Name = "lblSnapUnit";
-            lblSnapUnit.Size = new Size(24, 20);
+            lblSnapUnit.Size = new Size(25, 20);
             lblSnapUnit.TabIndex = 8;
             lblSnapUnit.Text = "px";
             // 
             // lblSnapGlyphSize
             // 
             lblSnapGlyphSize.Font = new Font("Segoe UI", 9F);
-            lblSnapGlyphSize.Location = new Point(168, 57);
+            lblSnapGlyphSize.Location = new Point(30, 89);
             lblSnapGlyphSize.Name = "lblSnapGlyphSize";
             lblSnapGlyphSize.Size = new Size(79, 21);
             lblSnapGlyphSize.TabIndex = 10;
@@ -378,7 +394,7 @@ namespace Land_Readjustment_Tool.UI.Forms.Project
             // 
             nudSnapGlyphSize.DecimalPlaces = 1;
             nudSnapGlyphSize.Font = new Font("Segoe UI", 9F);
-            nudSnapGlyphSize.Location = new Point(253, 54);
+            nudSnapGlyphSize.Location = new Point(115, 86);
             nudSnapGlyphSize.Maximum = new decimal(new int[] { 32, 0, 0, 0 });
             nudSnapGlyphSize.Minimum = new decimal(new int[] { 6, 0, 0, 0 });
             nudSnapGlyphSize.Name = "nudSnapGlyphSize";
@@ -391,23 +407,24 @@ namespace Land_Readjustment_Tool.UI.Forms.Project
             lblSnapGlyphUnit.AutoSize = true;
             lblSnapGlyphUnit.Font = new Font("Segoe UI", 9F);
             lblSnapGlyphUnit.ForeColor = SystemColors.GrayText;
-            lblSnapGlyphUnit.Location = new Point(329, 57);
+            lblSnapGlyphUnit.Location = new Point(191, 89);
             lblSnapGlyphUnit.Name = "lblSnapGlyphUnit";
-            lblSnapGlyphUnit.Size = new Size(24, 20);
+            lblSnapGlyphUnit.Size = new Size(25, 20);
             lblSnapGlyphUnit.TabIndex = 12;
             lblSnapGlyphUnit.Text = "px";
             // 
             // grpOther
             // 
+            grpOther.Controls.Add(chkNorthMarker);
             grpOther.Controls.Add(chkOriginAxisMarkerVisible);
             grpOther.Controls.Add(chkGridVisible);
             grpOther.Font = new Font("Segoe UI", 9F, FontStyle.Bold, GraphicsUnit.Point, 0);
-            grpOther.Location = new Point(8, 189);
+            grpOther.Location = new Point(281, 11);
             grpOther.Name = "grpOther";
-            grpOther.Size = new Size(536, 80);
+            grpOther.Size = new Size(263, 173);
             grpOther.TabIndex = 9;
             grpOther.TabStop = false;
-            grpOther.Text = "Other";
+            grpOther.Text = "UI Layers";
             // 
             // chkOriginAxisMarkerVisible
             // 
@@ -426,6 +443,7 @@ namespace Land_Readjustment_Tool.UI.Forms.Project
             chkGridVisible.Size = new Size(150, 27);
             chkGridVisible.TabIndex = 3;
             chkGridVisible.Text = "Show Grid Lines";
+            // 
             // grpCanvasTheme
             // 
             grpCanvasTheme.Controls.Add(lblCanvasTheme);
@@ -441,7 +459,7 @@ namespace Land_Readjustment_Tool.UI.Forms.Project
             grpCanvasTheme.Font = new Font("Segoe UI", 9F, FontStyle.Bold);
             grpCanvasTheme.Location = new Point(8, 8);
             grpCanvasTheme.Name = "grpCanvasTheme";
-            grpCanvasTheme.Size = new Size(536, 176);
+            grpCanvasTheme.Size = new Size(267, 176);
             grpCanvasTheme.TabIndex = 0;
             grpCanvasTheme.TabStop = false;
             grpCanvasTheme.Text = "Canvas Theme";
@@ -463,7 +481,7 @@ namespace Land_Readjustment_Tool.UI.Forms.Project
             cmbCanvasTheme.Items.AddRange(new object[] { "Light", "Dark", "Custom" });
             cmbCanvasTheme.Location = new Point(126, 24);
             cmbCanvasTheme.Name = "cmbCanvasTheme";
-            cmbCanvasTheme.Size = new Size(145, 28);
+            cmbCanvasTheme.Size = new Size(135, 28);
             cmbCanvasTheme.TabIndex = 0;
             cmbCanvasTheme.SelectedIndexChanged += cmbCanvasTheme_SelectedIndexChanged;
             // 
@@ -848,6 +866,35 @@ namespace Land_Readjustment_Tool.UI.Forms.Project
             btnCancel.Text = "OK";
             btnCancel.Click += btnCancel_Click;
             // 
+            // chkNorthMarker
+            // 
+            chkNorthMarker.Font = new Font("Segoe UI", 9F);
+            chkNorthMarker.Location = new Point(10, 82);
+            chkNorthMarker.Name = "chkNorthMarker";
+            chkNorthMarker.Size = new Size(197, 27);
+            chkNorthMarker.TabIndex = 10;
+            chkNorthMarker.Text = "Show North Marker";
+            // 
+            // grpGraphics
+            // 
+            grpGraphics.Controls.Add(chkAntiAliasing);
+            grpGraphics.Font = new Font("Segoe UI", 9F, FontStyle.Bold, GraphicsUnit.Point, 0);
+            grpGraphics.Location = new Point(281, 190);
+            grpGraphics.Name = "grpGraphics";
+            grpGraphics.Size = new Size(263, 182);
+            grpGraphics.TabIndex = 14;
+            grpGraphics.TabStop = false;
+            grpGraphics.Text = "Graphics";
+            // 
+            // chkAntiAliasing
+            // 
+            chkAntiAliasing.Font = new Font("Segoe UI", 9F);
+            chkAntiAliasing.Location = new Point(10, 26);
+            chkAntiAliasing.Name = "chkAntiAliasing";
+            chkAntiAliasing.Size = new Size(119, 27);
+            chkAntiAliasing.TabIndex = 14;
+            chkAntiAliasing.Text = "Anti-Aliasing";
+            // 
             // frmProjectSettings
             // 
             AutoScaleDimensions = new SizeF(8F, 20F);
@@ -875,7 +922,6 @@ namespace Land_Readjustment_Tool.UI.Forms.Project
             ((System.ComponentModel.ISupportInitialize)nudSnapTolerance).EndInit();
             ((System.ComponentModel.ISupportInitialize)nudSnapGlyphSize).EndInit();
             grpOther.ResumeLayout(false);
-            grpOther.PerformLayout();
             grpCanvasTheme.ResumeLayout(false);
             grpCanvasTheme.PerformLayout();
             tabParcel.ResumeLayout(false);
@@ -892,6 +938,7 @@ namespace Land_Readjustment_Tool.UI.Forms.Project
             grpPrint.PerformLayout();
             ((System.ComponentModel.ISupportInitialize)nudPrintScale).EndInit();
             pnlFooter.ResumeLayout(false);
+            grpGraphics.ResumeLayout(false);
             ResumeLayout(false);
         }
 
@@ -937,6 +984,7 @@ namespace Land_Readjustment_Tool.UI.Forms.Project
         private GroupBox grpSnap;
         private CheckBox chkGridVisible;
         private CheckBox chkSnapEnabled;
+        private CheckBox chkOrthoEnabled;
         private Label lblSnapTolerance;
         private NumericUpDown nudSnapTolerance;
         private Label lblSnapUnit;
@@ -967,5 +1015,8 @@ namespace Land_Readjustment_Tool.UI.Forms.Project
         private NumericUpDown nudPrintScale;
         private GroupBox grpOther;
         private CheckBox chkOriginAxisMarkerVisible;
+        private CheckBox chkNorthMarker;
+        private GroupBox grpGraphics;
+        private CheckBox chkAntiAliasing;
     }
 }

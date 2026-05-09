@@ -263,6 +263,7 @@ namespace Land_Readjustment_Tool.UI.Forms.Project
             chkSnapEnabled.Checked = s.SnapEnabled;
             nudSnapTolerance.Value = (decimal)s.SnapTolerancePx;
             nudSnapGlyphSize.Value = (decimal)s.SnapGlyphSizePx;
+            chkOrthoEnabled.Checked = s.OrthoEnabled;
             SelectZoomBehavior(s.CanvasZoomBehavior);
 
             // ── PARCEL NUMBERING ─────────────────────
@@ -307,6 +308,7 @@ namespace Land_Readjustment_Tool.UI.Forms.Project
             s.SnapEnabled = chkSnapEnabled.Checked;
             s.SnapTolerancePx = (double)nudSnapTolerance.Value;
             s.SnapGlyphSizePx = (double)nudSnapGlyphSize.Value;
+            s.OrthoEnabled = chkOrthoEnabled.Checked;
             s.CanvasZoomBehavior = GetSelectedZoomBehavior();
 
             s.ParcelNumberFormat =
@@ -660,6 +662,7 @@ namespace Land_Readjustment_Tool.UI.Forms.Project
             chkSnapEnabled.Checked = true;
             nudSnapTolerance.Value = ClampToRange(nudSnapTolerance, 8m);
             nudSnapGlyphSize.Value = ClampToRange(nudSnapGlyphSize, 14m);
+            chkOrthoEnabled.Checked = false;
             SelectZoomBehavior(MapCanvasZoomBehavior.Normal.ToString());
 
             // Parcel settings

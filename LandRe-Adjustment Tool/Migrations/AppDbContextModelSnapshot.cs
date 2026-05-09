@@ -1089,6 +1089,9 @@ namespace Land_Readjustment_Tool.Migrations
                     b.Property<string>("ParcelNumberPrefix")
                         .HasColumnType("TEXT");
 
+                    b.Property<bool>("OrthoEnabled")
+                        .HasColumnType("INTEGER");
+
                     b.Property<bool>("SnapEnabled")
                         .HasColumnType("INTEGER");
 

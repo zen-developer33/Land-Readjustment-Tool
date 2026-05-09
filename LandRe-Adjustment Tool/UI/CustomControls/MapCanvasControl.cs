@@ -94,6 +94,7 @@ namespace Land_Readjustment_Tool.UI.CustomControls
         private bool _holdZoomStartFrameUntilRasterRefresh;
         private bool _suppressStaleRasterFrameUntilFreshRender;
         private bool _snapEnabled = true;
+        private bool _orthoModeEnabled;
         private double _snapPickTolerancePixels = DefaultSnapPickTolerancePixels;
         private float _snapGlyphSizePixels = DefaultSnapGlyphSizePixels;
         private SnapPoint? _currentSnapPoint;
@@ -247,6 +248,32 @@ namespace Land_Readjustment_Tool.UI.CustomControls
             }
 
             RequestRender();
+        }
+
+        [Browsable(false)]
+        [DesignerSerializationVisibility(DesignerSerializationVisibility.Hidden)]
+        public bool SnapEnabled => _snapEnabled;
+
+        [Browsable(false)]
+        [DesignerSerializationVisibility(DesignerSerializationVisibility.Hidden)]
+        public bool OrthoModeEnabled
+        {
+            get => _orthoModeEnabled;
+            set
+            {
+                if (_orthoModeEnabled == value)
+                {
+                    return;
+                }
+
+                _orthoModeEnabled = value;
+                if (_drawingVertices.Count > 0)
+                {
+                    RequestRender();
+                }
+
+                UpdateStatusBar();
+            }
         }
 
         [Browsable(false)]
@@ -1128,9 +1155,32 @@ namespace Land_Readjustment_Tool.UI.CustomControls
 
         private PointD GetCurrentDrawingWorldPoint(Point screenPoint)
         {
-            return _snapEnabled && _currentSnapPoint != null
+            PointD worldPoint = _snapEnabled && _currentSnapPoint != null
                 ? _currentSnapPoint.Position
                 : _engine.ScreenToWorld(screenPoint);
+
+            return ShouldApplyOrthoConstraint()
+                ? ApplyOrthoConstraint(_drawingVertices[^1], worldPoint)
+                : worldPoint;
+        }
+
+        private bool ShouldApplyOrthoConstraint()
+        {
+            return _orthoModeEnabled &&
+                   _currentSnapPoint == null &&
+                   _drawingVertices.Count > 0 &&
+                   (_activeTool == MapCanvasTool.Line ||
+                    ((_activeTool == MapCanvasTool.Polyline || _activeTool == MapCanvasTool.Polygon) &&
+                     _polylineSegmentMode == PolylineSegmentDrawingMode.Line));
+        }
+
+        private static PointD ApplyOrthoConstraint(PointD anchor, PointD candidate)
+        {
+            double dx = candidate.X - anchor.X;
+            double dy = candidate.Y - anchor.Y;
+            return Math.Abs(dx) >= Math.Abs(dy)
+                ? new PointD(candidate.X, anchor.Y)
+                : new PointD(anchor.X, candidate.Y);
         }
 
         private void HandleTwoPointDrawing(PointD worldPoint)
@@ -1385,7 +1435,19 @@ namespace Land_Readjustment_Tool.UI.CustomControls
             }
 
             PointD start = _drawingVertices[0];
-            CompleteShape(new RectangleShape(start, new PointD(start.X + length, start.Y + breadth)));
+            PointD reference = _currentMouseWorld ?? start;
+
+            double dx = reference.X - start.X;
+            double dy = reference.Y - start.Y;
+
+            double xSign = dx < 0.0 ? -1.0 : 1.0;
+            double ySign = dy < 0.0 ? -1.0 : 1.0;
+
+            PointD end = new(
+                start.X + Math.Abs(length) * xSign,
+                start.Y + Math.Abs(breadth) * ySign);
+
+            CompleteShape(new RectangleShape(start, end));
         }
 
         private void PromptCircleValue()
@@ -1764,14 +1826,16 @@ namespace Land_Readjustment_Tool.UI.CustomControls
                 yield return new SnapPoint(SnapType.Intersection, intersection, null);
             }
 
+            if (_activeTool is MapCanvasTool.Polyline or MapCanvasTool.Polygon)
+            {
+                yield break;
+            }
+
             IShape? previewShape = _activeTool switch
             {
                 MapCanvasTool.Line when _drawingVertices.Count == 1 => new LineShape(_drawingVertices[0], mouseWorld),
                 MapCanvasTool.Rectangle when _drawingVertices.Count == 1 => new RectangleShape(_drawingVertices[0], mouseWorld),
                 MapCanvasTool.Arc when _drawingVertices.Count > 0 => CreateArcPreview(mouseWorld),
-                MapCanvasTool.Polyline or MapCanvasTool.Polygon when _drawingVertices.Count > 0 => CreateMultiPointPreview(
-                    mouseWorld,
-                    _activeTool == MapCanvasTool.Polygon),
                 _ => null
             };
 
@@ -2171,6 +2235,10 @@ namespace Land_Readjustment_Tool.UI.CustomControls
                         new NtsCoordinate(line.End.X, line.End.Y)
                     ]),
                 PolylineShape polyline => CreateSelectionGeometryFromPolyline(polyline),
+                ArcShape arc => SelectionGeometryFactory.CreateLineString(
+                    arc.SamplePoints(96)
+                        .Select(point => new NtsCoordinate(point.X, point.Y))
+                        .ToArray()),
                 RectangleShape rectangle => CreateSelectionPolygonFromRectangle(rectangle.Start, rectangle.End),
                 CircleShape circle => SelectionGeometryFactory.CreatePoint(
                     new NtsCoordinate(circle.Center.X, circle.Center.Y)).Buffer(circle.GetRadius(), quadrantSegments: 24),
@@ -2680,7 +2748,7 @@ namespace Land_Readjustment_Tool.UI.CustomControls
                 $"Raster layers {rendererState.VisibleRasterLayerCount}/{rendererState.RasterLayerCount}  draw {rasterFrameSource}  cache {(rasterState.CacheValid ? "valid" : "cold")}  pan {(rasterState.PanBufferValid ? "ready" : "no")}  zoom {(rasterState.ZoomFrameAvailable ? "held" : "no")}  refresh {rasterState.LastRefreshElapsedMs:0.0} ms  pending {_rasterCacheRefreshPending}",
                 $"Vector layers {rendererState.VectorLayerCount}  features {vectorStats.TotalFeatureCount}  STRtree {vectorStats.SpatialIndexEntryCount}  draw {vectorFrameSource}  cache {(rendererState.VectorCache.CacheValid ? "valid" : "cold")}  pan {(rendererState.VectorCache.PanBufferValid ? "ready" : "no")}  refresh {rendererState.VectorCache.LastRefreshElapsedMs:0.0} ms",
                 $"Vector query {vectorStats.QueryCandidateCount} in {vectorStats.QueryElapsedMs:0.00} ms  rendered {vectorStats.RenderedFeatureCount}  hidden {vectorStats.HiddenSkippedCount}  LOD {(vectorStats.LevelOfDetailEnabled ? "on" : "off")} skipped {vectorStats.LodSkippedCount} min {vectorStats.MinimumVisibleWorldSize:0.###}",
-                $"Snap {(_snapEnabled ? "on" : "off")}  glyph {_snapGlyphSizePixels:0.#} px  tolerance {_snapPickTolerancePixels:0.#} px  query features {_lastSnapQueryFeatureCount}  candidates {_lastSnapCandidateCount}  {_lastSnapQueryElapsedMs:0.00} ms  current {_currentSnapPoint?.Type.ToString() ?? "none"}",
+                $"Snap {(_snapEnabled ? "on" : "off")}  Ortho {(_orthoModeEnabled ? "on" : "off")}  glyph {_snapGlyphSizePixels:0.#} px  tolerance {_snapPickTolerancePixels:0.#} px  query features {_lastSnapQueryFeatureCount}  candidates {_lastSnapCandidateCount}  {_lastSnapQueryElapsedMs:0.00} ms  current {_currentSnapPoint?.Type.ToString() ?? "none"}",
                 $"Interaction tool {_activeTool}  pan {_isPanning}  zoom {_isZooming} {_zoomDirection ?? ""}  raster deferred {ShouldDeferDirectRasterRendering}  vector deferred {ShouldDeferDirectVectorRendering}  live pending {_liveTileRefreshPending}"
             ];
 

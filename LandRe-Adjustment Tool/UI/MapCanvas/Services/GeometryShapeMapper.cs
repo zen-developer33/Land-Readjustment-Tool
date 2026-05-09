@@ -287,7 +287,8 @@ namespace Land_Readjustment_Tool.UI.MapCanvas.Services
             }
 
             if (objectType.Equals("Arc", StringComparison.OrdinalIgnoreCase) &&
-                TryCreateArcFromMetadata(metadataJson, out ArcShape? arc))
+                (TryCreateArcFromMetadata(metadataJson, out ArcShape? arc) ||
+                 TryCreateArcFromApproximatedGeometry(geometry, out arc)))
             {
                 return arc;
             }
@@ -543,6 +544,30 @@ namespace Land_Readjustment_Tool.UI.MapCanvas.Services
             {
                 return false;
             }
+        }
+
+        private static bool TryCreateArcFromApproximatedGeometry(
+            Geometry geometry,
+            out ArcShape? arc)
+        {
+            arc = null;
+            Geometry simplified = ReduceGeometry(geometry);
+            if (simplified is not LineString line ||
+                line.Coordinates.Length < 3)
+            {
+                return false;
+            }
+
+            Coordinate[] coordinates = line.Coordinates;
+            Coordinate start = coordinates[0];
+            Coordinate through = coordinates[coordinates.Length / 2];
+            Coordinate end = coordinates[^1];
+
+            arc = ArcShape.FromThreePoints(
+                new PointD(start.X, start.Y),
+                new PointD(through.X, through.Y),
+                new PointD(end.X, end.Y));
+            return arc != null;
         }
 
         private static bool TryCreateCircleFromPolygon(

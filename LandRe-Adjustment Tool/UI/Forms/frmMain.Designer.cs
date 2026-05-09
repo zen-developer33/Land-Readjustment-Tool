@@ -160,7 +160,9 @@ namespace Land_Readjustment_Tool
             cboCurrentDrawingLayer = new ToolStripComboBox();
             mnuCanvasDebugOverlay = new ToolStripButton();
             toolStripLabel1 = new ToolStripLabel();
+            mnuOrthoToggle = new ToolStripButton();
             toolStripSeparator11 = new ToolStripSeparator();
+            mnuOSnapToggle = new ToolStripButton();
             tsmExpandCollapseRightPanel = new ToolStripButton();
             grpParcelObjProp = new GroupBox();
             dgvParcelObjProperty = new DataGridView();
@@ -1191,7 +1193,7 @@ namespace Land_Readjustment_Tool
             tsCanvasTools.Font = new Font("Segoe UI", 9F);
             tsCanvasTools.GripStyle = ToolStripGripStyle.Hidden;
             tsCanvasTools.ImageScalingSize = new Size(20, 20);
-            tsCanvasTools.Items.AddRange(new ToolStripItem[] { tsmExpandCollapseLeftPanel, toolStripSeparator10, mnuSelectTool, mnuDrawPoint, mnuDrawLine, mnuDrawPolyline, mnuDrawPolygon, mnuDrawRectangle, mnuDrawCircle, mnuDrawArc, toolStripSeparator17, lblCurrentDrawingLayer, cboCurrentDrawingLayer, mnuCanvasDebugOverlay, toolStripLabel1, toolStripSeparator11, tsmExpandCollapseRightPanel });
+            tsCanvasTools.Items.AddRange(new ToolStripItem[] { tsmExpandCollapseLeftPanel, toolStripSeparator10, mnuSelectTool, mnuDrawPoint, mnuDrawLine, mnuDrawPolyline, mnuDrawPolygon, mnuDrawRectangle, mnuDrawCircle, mnuDrawArc, toolStripSeparator17, lblCurrentDrawingLayer, cboCurrentDrawingLayer, mnuCanvasDebugOverlay, toolStripLabel1, tsmExpandCollapseRightPanel, mnuOrthoToggle, toolStripSeparator11, mnuOSnapToggle });
             tsCanvasTools.Location = new Point(0, 0);
             tsCanvasTools.Name = "tsCanvasTools";
             tsCanvasTools.Size = new Size(905, 28);
@@ -1343,11 +1345,37 @@ namespace Land_Readjustment_Tool
             toolStripLabel1.Name = "toolStripLabel1";
             toolStripLabel1.Size = new Size(0, 25);
             // 
+            // mnuOrthoToggle
+            // 
+            mnuOrthoToggle.Alignment = ToolStripItemAlignment.Right;
+            mnuOrthoToggle.CheckOnClick = true;
+            mnuOrthoToggle.DisplayStyle = ToolStripItemDisplayStyle.Text;
+            mnuOrthoToggle.ImageTransparentColor = Color.Magenta;
+            mnuOrthoToggle.Name = "mnuOrthoToggle";
+            mnuOrthoToggle.Size = new Size(76, 25);
+            mnuOrthoToggle.Text = "Ortho(F8)";
+            mnuOrthoToggle.ToolTipText = "Ortho Mode (F8)";
+            mnuOrthoToggle.Click += mnuOrthoToggle_Click;
+            // 
             // toolStripSeparator11
             // 
             toolStripSeparator11.Alignment = ToolStripItemAlignment.Right;
             toolStripSeparator11.Name = "toolStripSeparator11";
             toolStripSeparator11.Size = new Size(6, 28);
+            // 
+            // mnuOSnapToggle
+            // 
+            mnuOSnapToggle.Alignment = ToolStripItemAlignment.Right;
+            mnuOSnapToggle.Checked = true;
+            mnuOSnapToggle.CheckOnClick = true;
+            mnuOSnapToggle.CheckState = CheckState.Checked;
+            mnuOSnapToggle.DisplayStyle = ToolStripItemDisplayStyle.Text;
+            mnuOSnapToggle.ImageTransparentColor = Color.Magenta;
+            mnuOSnapToggle.Name = "mnuOSnapToggle";
+            mnuOSnapToggle.Size = new Size(86, 25);
+            mnuOSnapToggle.Text = "OSnap (F3)";
+            mnuOSnapToggle.ToolTipText = "Object Snap (F3)";
+            mnuOSnapToggle.Click += mnuOSnapToggle_Click;
             // 
             // tsmExpandCollapseRightPanel
             // 
@@ -1889,6 +1917,8 @@ namespace Land_Readjustment_Tool
         private ToolStripButton mnuDrawCircle;
         private ToolStripButton mnuDrawArc;
         private ToolStripButton mnuCanvasDebugOverlay;
+        private ToolStripButton mnuOSnapToggle;
+        private ToolStripButton mnuOrthoToggle;
         private ToolStripSeparator toolStripSeparator17;
         private ToolStripLabel lblCurrentDrawingLayer;
         private ToolStripComboBox cboCurrentDrawingLayer;

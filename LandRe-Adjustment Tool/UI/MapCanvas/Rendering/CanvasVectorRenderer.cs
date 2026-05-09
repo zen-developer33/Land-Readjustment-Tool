@@ -178,8 +178,7 @@ namespace Land_Readjustment_Tool.UI.MapCanvas.Rendering
             VectorRenderContext context = new(
                 _penCache,
                 _brushCache,
-                engine.ZoomScale,
-                isPreview: true);
+                engine.ZoomScale);
 
             DrawShape(graphics, engine, previewShape, ResolveStyle(previewShape, previewLayer), context);
 
@@ -221,11 +220,9 @@ namespace Land_Readjustment_Tool.UI.MapCanvas.Rendering
                 textSize.Width + 8.0f,
                 textSize.Height + 4.0f);
 
-            graphics.FillRectangle(
-                context.GetSolidBrush(Color.FromArgb(0, 122, 204)),
-                labelBounds);
+            graphics.FillRectangle(context.GetSolidBrush(Color.White), labelBounds);
             graphics.DrawRectangle(
-                context.GetPen(Color.FromArgb(20, 20, 20), 1.0f),
+                context.GetPen(Color.FromArgb(90, 90, 90), 1.0f),
                 labelBounds.X,
                 labelBounds.Y,
                 labelBounds.Width,
@@ -233,7 +230,7 @@ namespace Land_Readjustment_Tool.UI.MapCanvas.Rendering
             graphics.DrawString(
                 radiusText,
                 _previewFont,
-                context.GetSolidBrush(Color.White),
+                context.GetSolidBrush(Color.FromArgb(32, 32, 32)),
                 labelBounds.X + 4.0f,
                 labelBounds.Y + 2.0f);
         }
@@ -380,7 +377,7 @@ namespace Land_Readjustment_Tool.UI.MapCanvas.Rendering
 
             bool shouldStroke = style.HasStroke || shape.IsSelected;
             float width = shape.IsSelected
-                ? Math.Max(SelectionLineWidthPx, style.LineWidth + 1.75f)
+                ? SelectionLineWidthPx
                 : Math.Max(0.25f, style.LineWidth);
             Color stroke = shape.IsSelected ? SelectionStrokeColor : style.StrokeColor;
             DashStyle dashStyle = shape.IsSelected ? DashStyle.Dash : style.DashStyle;
@@ -400,6 +397,9 @@ namespace Land_Readjustment_Tool.UI.MapCanvas.Rendering
                 case CircleShape circle:
                     DrawCircle(graphics, engine, circle, style, context, pen);
                     break;
+                case ArcShape arc:
+                    DrawArc(graphics, engine, arc, pen);
+                    break;
                 case EllipseShape ellipse:
                     DrawEllipse(graphics, engine, ellipse, style, context, pen);
                     break;
@@ -409,6 +409,61 @@ namespace Land_Readjustment_Tool.UI.MapCanvas.Rendering
                 default:
                     shape.Draw(graphics, engine.WorldToScreen, context.IsPreview);
                     break;
+            }
+        }
+
+        private static void DrawArc(
+            Graphics graphics,
+            MapCanvasEngine engine,
+            ArcShape arc,
+            Pen? pen)
+        {
+            if (pen == null ||
+                arc.Radius <= 0.0 ||
+                !double.IsFinite(arc.Radius))
+            {
+                return;
+            }
+
+            PointF center = ToScreenPointF(engine.WorldToScreen(arc.Center));
+            PointF radiusPoint = ToScreenPointF(engine.WorldToScreen(
+                new PointD(arc.Center.X + arc.Radius, arc.Center.Y)));
+            float radius = Distance(center, radiusPoint);
+            if (!IsValidPoint(center) ||
+                radius <= 0.5f ||
+                !float.IsFinite(radius))
+            {
+                return;
+            }
+
+            RectangleF bounds = new(
+                center.X - radius,
+                center.Y - radius,
+                radius * 2.0f,
+                radius * 2.0f);
+            if (!IsValidRectangle(bounds))
+            {
+                return;
+            }
+
+            float startAngleDegrees = (float)(-arc.StartAngleRadians * 180.0 / Math.PI);
+            float sweepAngleDegrees = (float)(-arc.SweepAngleRadians * 180.0 / Math.PI);
+            if (!float.IsFinite(startAngleDegrees) ||
+                !float.IsFinite(sweepAngleDegrees) ||
+                Math.Abs(sweepAngleDegrees) < 0.001f)
+            {
+                return;
+            }
+
+            GraphicsState state = graphics.Save();
+            try
+            {
+                graphics.SmoothingMode = SmoothingMode.AntiAlias;
+                graphics.DrawArc(pen, bounds, startAngleDegrees, sweepAngleDegrees);
+            }
+            finally
+            {
+                graphics.Restore(state);
             }
         }
 

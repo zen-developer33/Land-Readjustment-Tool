@@ -69,6 +69,9 @@ namespace Land_Readjustment_Tool.Core.Entities.Project
         // Snap glyph size in screen pixels
         public double SnapGlyphSizePx { get; set; } = 14.0;
 
+        // Enable orthogonal drawing mode by default for the project
+        public bool OrthoEnabled { get; set; } = false;
+
         // Canvas zoom behavior: "Normal" or "StandardScaleSteps".
         [Required]
         public string CanvasZoomBehavior { get; set; } = "Normal";

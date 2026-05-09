@@ -135,17 +135,37 @@ namespace Land_Readjustment_Tool.UI.MapCanvas.Models.Shapes
 
         public override void Draw(Graphics g, Func<PointD, PointD> worldToScreen, bool isPreview = false)
         {
-            PointF[] points = SamplePoints(64)
-                .Select(worldToScreen)
-                .Select(point => new PointF((float)point.X, (float)point.Y))
-                .ToArray();
-            if (points.Length < 2)
+            PointD centerScreenD = worldToScreen(Center);
+            PointD radiusScreenD = worldToScreen(new PointD(Center.X + Radius, Center.Y));
+            float centerX = (float)centerScreenD.X;
+            float centerY = (float)centerScreenD.Y;
+            float radius = (float)Distance(
+                new PointD(centerScreenD.X, centerScreenD.Y),
+                new PointD(radiusScreenD.X, radiusScreenD.Y));
+            if (!float.IsFinite(centerX) ||
+                !float.IsFinite(centerY) ||
+                !float.IsFinite(radius) ||
+                radius <= 0.5f)
+            {
+                return;
+            }
+
+            RectangleF bounds = new(
+                centerX - radius,
+                centerY - radius,
+                radius * 2.0f,
+                radius * 2.0f);
+            float startAngleDegrees = (float)(-StartAngleRadians * 180.0 / Math.PI);
+            float sweepAngleDegrees = (float)(-SweepAngleRadians * 180.0 / Math.PI);
+            if (!float.IsFinite(startAngleDegrees) ||
+                !float.IsFinite(sweepAngleDegrees) ||
+                Math.Abs(sweepAngleDegrees) < 0.001f)
             {
                 return;
             }
 
             using Pen pen = new(isPreview ? Color.LightGray : BorderColor, isPreview ? 1.5f : 0.25f);
-            g.DrawLines(pen, points);
+            g.DrawArc(pen, bounds, startAngleDegrees, sweepAngleDegrees);
         }
 
         public override IShape Clone() => new ArcShape(this);
