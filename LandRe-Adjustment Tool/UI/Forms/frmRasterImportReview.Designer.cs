@@ -90,12 +90,12 @@ namespace Land_Readjustment_Tool.UI.Forms
             // picPreview
             // 
             picPreview.BackColor = Color.WhiteSmoke;
+            picPreview.BorderStyle = BorderStyle.FixedSingle;
             picPreview.Dock = DockStyle.Fill;
             picPreview.Location = new Point(0, 0);
             picPreview.Margin = new Padding(3, 4, 3, 4);
             picPreview.Name = "picPreview";
             picPreview.Size = new Size(310, 327);
-            picPreview.SizeMode = PictureBoxSizeMode.Zoom;
             picPreview.TabIndex = 0;
             picPreview.TabStop = false;
             // 

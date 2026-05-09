@@ -33,6 +33,8 @@ namespace Land_Readjustment_Tool.UI.Forms.Project
             cmbTraditionalUnit = new ComboBox();
             lblAreaNote = new Label();
             tabMapCanvas = new TabPage();
+            grpGraphics = new GroupBox();
+            chkAntiAliasing = new CheckBox();
             grpSnap = new GroupBox();
             chkSnapEnabled = new CheckBox();
             chkOrthoEnabled = new CheckBox();
@@ -43,6 +45,7 @@ namespace Land_Readjustment_Tool.UI.Forms.Project
             nudSnapGlyphSize = new NumericUpDown();
             lblSnapGlyphUnit = new Label();
             grpOther = new GroupBox();
+            chkNorthMarker = new CheckBox();
             chkOriginAxisMarkerVisible = new CheckBox();
             chkGridVisible = new CheckBox();
             grpCanvasTheme = new GroupBox();
@@ -85,9 +88,6 @@ namespace Land_Readjustment_Tool.UI.Forms.Project
             btnRestoreDefaults = new Button();
             btnApply = new Button();
             btnCancel = new Button();
-            chkNorthMarker = new CheckBox();
-            grpGraphics = new GroupBox();
-            chkAntiAliasing = new CheckBox();
             tabSettings.SuspendLayout();
             tabCoordinates.SuspendLayout();
             grpCRS.SuspendLayout();
@@ -95,6 +95,7 @@ namespace Land_Readjustment_Tool.UI.Forms.Project
             tabArea.SuspendLayout();
             grpAreaUnit.SuspendLayout();
             tabMapCanvas.SuspendLayout();
+            grpGraphics.SuspendLayout();
             grpSnap.SuspendLayout();
             ((System.ComponentModel.ISupportInitialize)nudSnapTolerance).BeginInit();
             ((System.ComponentModel.ISupportInitialize)nudSnapGlyphSize).BeginInit();
@@ -111,7 +112,6 @@ namespace Land_Readjustment_Tool.UI.Forms.Project
             grpPrint.SuspendLayout();
             ((System.ComponentModel.ISupportInitialize)nudPrintScale).BeginInit();
             pnlFooter.SuspendLayout();
-            grpGraphics.SuspendLayout();
             SuspendLayout();
             // 
             // tabSettings
@@ -313,6 +313,26 @@ namespace Land_Readjustment_Tool.UI.Forms.Project
             tabMapCanvas.Text = "Map Canvas";
             tabMapCanvas.UseVisualStyleBackColor = true;
             // 
+            // grpGraphics
+            // 
+            grpGraphics.Controls.Add(chkAntiAliasing);
+            grpGraphics.Font = new Font("Segoe UI", 9F, FontStyle.Bold, GraphicsUnit.Point, 0);
+            grpGraphics.Location = new Point(281, 190);
+            grpGraphics.Name = "grpGraphics";
+            grpGraphics.Size = new Size(263, 182);
+            grpGraphics.TabIndex = 14;
+            grpGraphics.TabStop = false;
+            grpGraphics.Text = "Graphics";
+            // 
+            // chkAntiAliasing
+            // 
+            chkAntiAliasing.Font = new Font("Segoe UI", 9F);
+            chkAntiAliasing.Location = new Point(10, 26);
+            chkAntiAliasing.Name = "chkAntiAliasing";
+            chkAntiAliasing.Size = new Size(119, 27);
+            chkAntiAliasing.TabIndex = 14;
+            chkAntiAliasing.Text = "Anti-Aliasing";
+            // 
             // grpSnap
             // 
             grpSnap.Controls.Add(chkSnapEnabled);
@@ -425,6 +445,15 @@ namespace Land_Readjustment_Tool.UI.Forms.Project
             grpOther.TabIndex = 9;
             grpOther.TabStop = false;
             grpOther.Text = "UI Layers";
+            // 
+            // chkNorthMarker
+            // 
+            chkNorthMarker.Font = new Font("Segoe UI", 9F);
+            chkNorthMarker.Location = new Point(10, 82);
+            chkNorthMarker.Name = "chkNorthMarker";
+            chkNorthMarker.Size = new Size(197, 27);
+            chkNorthMarker.TabIndex = 10;
+            chkNorthMarker.Text = "Show North Marker";
             // 
             // chkOriginAxisMarkerVisible
             // 
@@ -866,35 +895,6 @@ namespace Land_Readjustment_Tool.UI.Forms.Project
             btnCancel.Text = "OK";
             btnCancel.Click += btnCancel_Click;
             // 
-            // chkNorthMarker
-            // 
-            chkNorthMarker.Font = new Font("Segoe UI", 9F);
-            chkNorthMarker.Location = new Point(10, 82);
-            chkNorthMarker.Name = "chkNorthMarker";
-            chkNorthMarker.Size = new Size(197, 27);
-            chkNorthMarker.TabIndex = 10;
-            chkNorthMarker.Text = "Show North Marker";
-            // 
-            // grpGraphics
-            // 
-            grpGraphics.Controls.Add(chkAntiAliasing);
-            grpGraphics.Font = new Font("Segoe UI", 9F, FontStyle.Bold, GraphicsUnit.Point, 0);
-            grpGraphics.Location = new Point(281, 190);
-            grpGraphics.Name = "grpGraphics";
-            grpGraphics.Size = new Size(263, 182);
-            grpGraphics.TabIndex = 14;
-            grpGraphics.TabStop = false;
-            grpGraphics.Text = "Graphics";
-            // 
-            // chkAntiAliasing
-            // 
-            chkAntiAliasing.Font = new Font("Segoe UI", 9F);
-            chkAntiAliasing.Location = new Point(10, 26);
-            chkAntiAliasing.Name = "chkAntiAliasing";
-            chkAntiAliasing.Size = new Size(119, 27);
-            chkAntiAliasing.TabIndex = 14;
-            chkAntiAliasing.Text = "Anti-Aliasing";
-            // 
             // frmProjectSettings
             // 
             AutoScaleDimensions = new SizeF(8F, 20F);
@@ -917,6 +917,7 @@ namespace Land_Readjustment_Tool.UI.Forms.Project
             tabArea.ResumeLayout(false);
             grpAreaUnit.ResumeLayout(false);
             tabMapCanvas.ResumeLayout(false);
+            grpGraphics.ResumeLayout(false);
             grpSnap.ResumeLayout(false);
             grpSnap.PerformLayout();
             ((System.ComponentModel.ISupportInitialize)nudSnapTolerance).EndInit();
@@ -938,7 +939,6 @@ namespace Land_Readjustment_Tool.UI.Forms.Project
             grpPrint.PerformLayout();
             ((System.ComponentModel.ISupportInitialize)nudPrintScale).EndInit();
             pnlFooter.ResumeLayout(false);
-            grpGraphics.ResumeLayout(false);
             ResumeLayout(false);
         }
 

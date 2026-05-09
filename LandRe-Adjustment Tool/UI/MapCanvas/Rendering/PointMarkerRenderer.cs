@@ -51,9 +51,6 @@ namespace Land_Readjustment_Tool.UI.MapCanvas.Rendering
                 size,
                 size);
 
-            SmoothingMode oldSmoothing = graphics.SmoothingMode;
-            graphics.SmoothingMode = SmoothingMode.AntiAlias;
-
             using Pen pen = new(color, Math.Max(1f, lineWeight))
             {
                 StartCap = LineCap.Round,
@@ -98,7 +95,6 @@ namespace Land_Readjustment_Tool.UI.MapCanvas.Rendering
                     break;
             }
 
-            graphics.SmoothingMode = oldSmoothing;
         }
 
         private static void DrawPlus(Graphics graphics, Pen pen, RectangleF rect)

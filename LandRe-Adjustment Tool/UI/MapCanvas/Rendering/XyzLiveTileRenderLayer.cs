@@ -562,8 +562,8 @@ namespace Land_Readjustment_Tool.UI.MapCanvas.Rendering
                 {
                     graphics.CompositingMode = CompositingMode.SourceOver;
                     graphics.CompositingQuality = CompositingQuality.HighQuality;
-                    graphics.InterpolationMode = InterpolationMode.HighQualityBicubic;
-                    graphics.PixelOffsetMode = PixelOffsetMode.HighQuality;
+                    graphics.InterpolationMode = InterpolationMode.NearestNeighbor;
+                    graphics.PixelOffsetMode = PixelOffsetMode.None;
                     cancellationToken.ThrowIfCancellationRequested();
                     graphics.DrawImageUnscaled(_compositeBitmap, 0, 0);
                 }
@@ -1067,9 +1067,7 @@ namespace Land_Readjustment_Tool.UI.MapCanvas.Rendering
             bool smooth)
         {
             InterpolationMode savedInterpolation = graphics.InterpolationMode;
-            graphics.InterpolationMode = smooth
-                ? InterpolationMode.HighQualityBicubic
-                : InterpolationMode.NearestNeighbor;
+            graphics.InterpolationMode = InterpolationMode.NearestNeighbor;
 
             try
             {
@@ -1337,7 +1335,7 @@ namespace Land_Readjustment_Tool.UI.MapCanvas.Rendering
             RectangleF source)
         {
             InterpolationMode savedMode = graphics.InterpolationMode;
-            graphics.InterpolationMode = InterpolationMode.HighQualityBicubic;
+            graphics.InterpolationMode = InterpolationMode.NearestNeighbor;
 
             try
             {
@@ -2171,7 +2169,7 @@ namespace Land_Readjustment_Tool.UI.MapCanvas.Rendering
             PixelOffsetMode oldPixelOffset = graphics.PixelOffsetMode;
             InterpolationMode oldInterpolation = graphics.InterpolationMode;
             graphics.PixelOffsetMode = PixelOffsetMode.None;
-            graphics.InterpolationMode = InterpolationMode.HighQualityBicubic;
+            graphics.InterpolationMode = InterpolationMode.NearestNeighbor;
 
             try
             {
@@ -2214,9 +2212,7 @@ namespace Land_Readjustment_Tool.UI.MapCanvas.Rendering
             Rectangle dest = CreateIntegerDestinationRectangle(destination);
 
             InterpolationMode oldInterpolation = graphics.InterpolationMode;
-            graphics.InterpolationMode = isPlaceholder
-                ? InterpolationMode.HighQualityBicubic
-                : InterpolationMode.NearestNeighbor;
+            graphics.InterpolationMode = InterpolationMode.NearestNeighbor;
 
             try
             {

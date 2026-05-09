@@ -194,54 +194,41 @@ namespace Land_Readjustment_Tool.UI.MapCanvas.Rendering
             CircleShape circle,
             VectorRenderContext context)
         {
+            if (circle.Properties.TryGetValue("SuppressPreviewHelpers", out object? suppressHelpersObj) &&
+                suppressHelpersObj is bool suppressHelpers &&
+                suppressHelpers)
+            {
+                return;
+            }
+
             PointF center = ToScreenPointF(engine.WorldToScreen(circle.Center));
+
+            if (circle.Properties.TryGetValue("DiameterEndpoints", out object? diameterEndpointsObj) &&
+                diameterEndpointsObj is PointD[] diameterEndpoints &&
+                diameterEndpoints.Length == 2)
+            {
+                DrawDiameterPreview(
+                    graphics,
+                    context,
+                    diameterEndpoints[0],
+                    diameterEndpoints[1],
+                    center,
+                    engine);
+                return;
+            }
 
             // If preview shape has a CenterDiameterEndpoint property, draw a
             // diameter preview (center -> endpoint) and display the diameter
             // value. Otherwise draw the usual radius preview.
             if (circle.Properties.TryGetValue("CenterDiameterEndpoint", out object? endpointObj) && endpointObj is PointD endpointWorld)
             {
-                PointF edge = ToScreenPointF(engine.WorldToScreen(endpointWorld));
-                if (!IsValidPoint(center) || !IsValidPoint(edge) || Distance(center, edge) < 2.0f)
-                {
-                    return;
-                }
-
-                using GraphicsPath path = new();
-                path.AddLine(center, edge);
-                graphics.DrawPath(
-                    context.GetPen(Color.FromArgb(232, 224, 172, 36), 1.1f, DashStyle.Dash),
-                    path);
-
-                // Diameter in world units is the distance between center and endpoint
-                double dx = circle.Center.X - endpointWorld.X;
-                double dy = circle.Center.Y - endpointWorld.Y;
-                double diameter = Math.Sqrt(dx * dx + dy * dy);
-
-                string diameterText = diameter.ToString("0.###", CultureInfo.CurrentCulture);
-                SizeF textSize = graphics.MeasureString(diameterText, _previewFont);
-                PointF midpoint = new(
-                    (center.X + edge.X) / 2.0f,
-                    (center.Y + edge.Y) / 2.0f);
-                RectangleF labelBounds = new(
-                    midpoint.X - textSize.Width / 2.0f - 4.0f,
-                    midpoint.Y - textSize.Height / 2.0f - 2.0f,
-                    textSize.Width + 8.0f,
-                    textSize.Height + 4.0f);
-
-                graphics.FillRectangle(context.GetSolidBrush(Color.White), labelBounds);
-                graphics.DrawRectangle(
-                    context.GetPen(Color.FromArgb(90, 90, 90), 1.0f),
-                    labelBounds.X,
-                    labelBounds.Y,
-                    labelBounds.Width,
-                    labelBounds.Height);
-                graphics.DrawString(
-                    diameterText,
-                    _previewFont,
-                    context.GetSolidBrush(Color.FromArgb(32, 32, 32)),
-                    labelBounds.X + 4.0f,
-                    labelBounds.Y + 2.0f);
+                DrawDiameterPreview(
+                    graphics,
+                    context,
+                    circle.Center,
+                    endpointWorld,
+                    center,
+                    engine);
                 return;
             }
 
@@ -282,6 +269,57 @@ namespace Land_Readjustment_Tool.UI.MapCanvas.Rendering
                 context.GetSolidBrush(Color.FromArgb(32, 32, 32)),
                 labelBoundsDefault.X + 4.0f,
                 labelBoundsDefault.Y + 2.0f);
+        }
+
+        private void DrawDiameterPreview(
+            Graphics graphics,
+            VectorRenderContext context,
+            PointD startWorld,
+            PointD endWorld,
+            PointF? center,
+            MapCanvasEngine engine)
+        {
+            PointF start = ToScreenPointF(engine.WorldToScreen(startWorld));
+            PointF end = ToScreenPointF(engine.WorldToScreen(endWorld));
+            if (!IsValidPoint(start) || !IsValidPoint(end) || Distance(start, end) < 2.0f)
+            {
+                return;
+            }
+
+            using GraphicsPath path = new();
+            path.AddLine(start, end);
+            graphics.DrawPath(
+                context.GetPen(Color.FromArgb(232, 224, 172, 36), 1.1f, DashStyle.Dash),
+                path);
+
+            double dx = startWorld.X - endWorld.X;
+            double dy = startWorld.Y - endWorld.Y;
+            double diameter = Math.Sqrt(dx * dx + dy * dy);
+
+            string diameterText = diameter.ToString("0.###", CultureInfo.CurrentCulture);
+            SizeF textSize = graphics.MeasureString(diameterText, _previewFont);
+            PointF midpoint = new(
+                (start.X + end.X) / 2.0f,
+                (start.Y + end.Y) / 2.0f);
+            RectangleF labelBounds = new(
+                midpoint.X - textSize.Width / 2.0f - 4.0f,
+                midpoint.Y - textSize.Height / 2.0f - 2.0f,
+                textSize.Width + 8.0f,
+                textSize.Height + 4.0f);
+
+            graphics.FillRectangle(context.GetSolidBrush(Color.White), labelBounds);
+            graphics.DrawRectangle(
+                context.GetPen(Color.FromArgb(90, 90, 90), 1.0f),
+                labelBounds.X,
+                labelBounds.Y,
+                labelBounds.Width,
+                labelBounds.Height);
+            graphics.DrawString(
+                diameterText,
+                _previewFont,
+                context.GetSolidBrush(Color.FromArgb(32, 32, 32)),
+                labelBounds.X + 4.0f,
+                labelBounds.Y + 2.0f);
         }
 
         private static bool IsRenderable(
@@ -507,7 +545,6 @@ namespace Land_Readjustment_Tool.UI.MapCanvas.Rendering
             GraphicsState state = graphics.Save();
             try
             {
-                graphics.SmoothingMode = SmoothingMode.AntiAlias;
                 graphics.DrawArc(pen, bounds, startAngleDegrees, sweepAngleDegrees);
             }
             finally
@@ -715,7 +752,6 @@ namespace Land_Readjustment_Tool.UI.MapCanvas.Rendering
             try
             {
                 graphics.SetClip(clipPath, CombineMode.Intersect);
-                graphics.SmoothingMode = SmoothingMode.AntiAlias;
 
                 using Pen hatchPen = new(hatchColor, HatchLineWidthPx)
                 {

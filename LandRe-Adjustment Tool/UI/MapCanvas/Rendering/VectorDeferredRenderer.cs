@@ -51,6 +51,7 @@ namespace Land_Readjustment_Tool.UI.MapCanvas.Rendering
             Size canvasSize,
             CanvasVectorRenderer vectorRenderer,
             MapCanvasEngine engine,
+            bool antiAliasingEnabled,
             CancellationToken cancellationToken = default)
         {
             ArgumentNullException.ThrowIfNull(vectorRenderer);
@@ -67,7 +68,10 @@ namespace Land_Readjustment_Tool.UI.MapCanvas.Rendering
             {
                 using Graphics graphics = Graphics.FromImage(bitmap);
                 graphics.Clear(Color.Transparent);
-                ConfigureVectorCacheQuality(graphics, vectorRenderer.FeatureCount);
+                ConfigureVectorCacheQuality(
+                    graphics,
+                    vectorRenderer.FeatureCount,
+                    antiAliasingEnabled);
 
                 if (!cancellationToken.IsCancellationRequested)
                 {
@@ -284,8 +288,21 @@ namespace Land_Readjustment_Tool.UI.MapCanvas.Rendering
             _retiredBitmaps.Clear();
         }
 
-        private static void ConfigureVectorCacheQuality(Graphics graphics, int featureCount)
+        private static void ConfigureVectorCacheQuality(
+            Graphics graphics,
+            int featureCount,
+            bool antiAliasingEnabled)
         {
+            if (!antiAliasingEnabled)
+            {
+                graphics.SmoothingMode = SmoothingMode.None;
+                graphics.PixelOffsetMode = PixelOffsetMode.HighSpeed;
+                graphics.CompositingQuality = CompositingQuality.HighSpeed;
+                graphics.InterpolationMode = InterpolationMode.NearestNeighbor;
+                graphics.CompositingMode = CompositingMode.SourceOver;
+                return;
+            }
+
             if (featureCount <= 1_000)
             {
                 graphics.SmoothingMode = SmoothingMode.AntiAlias;

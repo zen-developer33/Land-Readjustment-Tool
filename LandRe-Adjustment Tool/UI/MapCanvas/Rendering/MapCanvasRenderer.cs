@@ -177,7 +177,8 @@ namespace Land_Readjustment_Tool.UI.MapCanvas.Rendering
             return _vectorDeferredRenderer.RenderNow(
                 canvasSize,
                 _vectorRenderer,
-                _engine);
+                _engine,
+                _settings.AntiAliasingEnabled);
         }
 
         public void BeginVectorPan(Size canvasSize)
@@ -260,7 +261,7 @@ namespace Land_Readjustment_Tool.UI.MapCanvas.Rendering
                     DrawCachedFrame(
                         graphics,
                         frame,
-                        InterpolationMode.HighQualityBicubic);
+                            InterpolationMode.NearestNeighbor);
                 }
                 finally
                 {
@@ -379,7 +380,7 @@ namespace Land_Readjustment_Tool.UI.MapCanvas.Rendering
                 "N",
                 _axisFont,
                 textBrush,
-                new PointF(centerX, bottom + 3.0f),
+                tip,
                 format);
         }
 

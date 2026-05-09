@@ -205,6 +205,7 @@ namespace Land_Readjustment_Tool.UI.CustomControls
             _renderer.UpdateSettings(_renderSettings);
             BackColor = _renderSettings.BackgroundColor;
             canvasSurface.BackColor = _renderSettings.BackgroundColor;
+            RefreshVectorCacheForCurrentViewImmediately();
             RequestRender();
         }
 
@@ -1649,6 +1650,16 @@ namespace Land_Readjustment_Tool.UI.CustomControls
             {
                 previewCircle.Properties["CenterDiameterEndpoint"] = worldPoint;
             }
+            else if (_previewShape is CircleShape diameterCircle &&
+                     _circleDrawingMode == CircleDrawingMode.TwoPointDiameter)
+            {
+                diameterCircle.Properties["DiameterEndpoints"] = new[] { _drawingVertices[0], worldPoint };
+            }
+            else if (_previewShape is CircleShape threePointCircle &&
+                     _circleDrawingMode == CircleDrawingMode.ThreePoint)
+            {
+                threePointCircle.Properties["SuppressPreviewHelpers"] = true;
+            }
             if (_previewShape != null)
             {
                 _previewShape.LayerName = _activeDrawingLayerName;
@@ -1663,7 +1674,7 @@ namespace Land_Readjustment_Tool.UI.CustomControls
             {
                 return _drawingVertices.Count switch
                 {
-                    1 => new LineShape(_drawingVertices[0], worldPoint),
+                    1 => CreateTwoPointDiameterCircle(_drawingVertices[0], worldPoint),
                     >= 2 => CreateThreePointCircle(_drawingVertices[0], _drawingVertices[1], worldPoint),
                     _ => null
                 };
