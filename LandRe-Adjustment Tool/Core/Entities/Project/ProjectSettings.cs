@@ -66,6 +66,9 @@ namespace Land_Readjustment_Tool.Core.Entities.Project
         // Snap detection radius in pixels
         public double SnapTolerancePx { get; set; } = 8.0;
 
+        // Snap glyph size in screen pixels
+        public double SnapGlyphSizePx { get; set; } = 14.0;
+
         // Canvas zoom behavior: "Normal" or "StandardScaleSteps".
         [Required]
         public string CanvasZoomBehavior { get; set; } = "Normal";

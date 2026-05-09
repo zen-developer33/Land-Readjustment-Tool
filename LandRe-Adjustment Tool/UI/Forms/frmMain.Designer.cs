@@ -154,10 +154,11 @@ namespace Land_Readjustment_Tool
             mnuDrawPolygon = new ToolStripButton();
             mnuDrawRectangle = new ToolStripButton();
             mnuDrawCircle = new ToolStripButton();
-            mnuCanvasDebugOverlay = new ToolStripButton();
+            mnuDrawArc = new ToolStripButton();
             toolStripSeparator17 = new ToolStripSeparator();
             lblCurrentDrawingLayer = new ToolStripLabel();
             cboCurrentDrawingLayer = new ToolStripComboBox();
+            mnuCanvasDebugOverlay = new ToolStripButton();
             toolStripLabel1 = new ToolStripLabel();
             toolStripSeparator11 = new ToolStripSeparator();
             tsmExpandCollapseRightPanel = new ToolStripButton();
@@ -1190,7 +1191,7 @@ namespace Land_Readjustment_Tool
             tsCanvasTools.Font = new Font("Segoe UI", 9F);
             tsCanvasTools.GripStyle = ToolStripGripStyle.Hidden;
             tsCanvasTools.ImageScalingSize = new Size(20, 20);
-            tsCanvasTools.Items.AddRange(new ToolStripItem[] { tsmExpandCollapseLeftPanel, toolStripSeparator10, mnuSelectTool, mnuDrawPoint, mnuDrawLine, mnuDrawPolyline, mnuDrawPolygon, mnuDrawRectangle, mnuDrawCircle, toolStripSeparator17, lblCurrentDrawingLayer, cboCurrentDrawingLayer, mnuCanvasDebugOverlay, toolStripLabel1, toolStripSeparator11, tsmExpandCollapseRightPanel });
+            tsCanvasTools.Items.AddRange(new ToolStripItem[] { tsmExpandCollapseLeftPanel, toolStripSeparator10, mnuSelectTool, mnuDrawPoint, mnuDrawLine, mnuDrawPolyline, mnuDrawPolygon, mnuDrawRectangle, mnuDrawCircle, mnuDrawArc, toolStripSeparator17, lblCurrentDrawingLayer, cboCurrentDrawingLayer, mnuCanvasDebugOverlay, toolStripLabel1, toolStripSeparator11, tsmExpandCollapseRightPanel });
             tsCanvasTools.Location = new Point(0, 0);
             tsCanvasTools.Name = "tsCanvasTools";
             tsCanvasTools.Size = new Size(905, 28);
@@ -1294,16 +1295,16 @@ namespace Land_Readjustment_Tool
             mnuDrawCircle.Text = "Draw Circle";
             mnuDrawCircle.Click += mnuDrawCircle_Click;
             // 
-            // mnuCanvasDebugOverlay
+            // mnuDrawArc
             // 
-            mnuCanvasDebugOverlay.CheckOnClick = true;
-            mnuCanvasDebugOverlay.DisplayStyle = ToolStripItemDisplayStyle.Text;
-            mnuCanvasDebugOverlay.ImageTransparentColor = Color.Magenta;
-            mnuCanvasDebugOverlay.Name = "mnuCanvasDebugOverlay";
-            mnuCanvasDebugOverlay.Size = new Size(61, 25);
-            mnuCanvasDebugOverlay.Text = "Debug";
-            mnuCanvasDebugOverlay.ToolTipText = "Show map canvas debug overlay";
-            mnuCanvasDebugOverlay.Click += mnuCanvasDebugOverlay_Click;
+            mnuDrawArc.CheckOnClick = true;
+            mnuDrawArc.DisplayStyle = ToolStripItemDisplayStyle.Text;
+            mnuDrawArc.ImageTransparentColor = Color.Magenta;
+            mnuDrawArc.Name = "mnuDrawArc";
+            mnuDrawArc.Size = new Size(35, 25);
+            mnuDrawArc.Text = "Arc";
+            mnuDrawArc.ToolTipText = "Draw 3-Point Arc";
+            mnuDrawArc.Click += mnuDrawArc_Click;
             // 
             // toolStripSeparator17
             // 
@@ -1324,6 +1325,18 @@ namespace Land_Readjustment_Tool
             cboCurrentDrawingLayer.Size = new Size(180, 28);
             cboCurrentDrawingLayer.ToolTipText = "Current drawing/markup layer";
             cboCurrentDrawingLayer.SelectedIndexChanged += cboCurrentDrawingLayer_SelectedIndexChanged;
+            cboCurrentDrawingLayer.Click += cboCurrentDrawingLayer_Click;
+            // 
+            // mnuCanvasDebugOverlay
+            // 
+            mnuCanvasDebugOverlay.CheckOnClick = true;
+            mnuCanvasDebugOverlay.DisplayStyle = ToolStripItemDisplayStyle.Text;
+            mnuCanvasDebugOverlay.ImageTransparentColor = Color.Magenta;
+            mnuCanvasDebugOverlay.Name = "mnuCanvasDebugOverlay";
+            mnuCanvasDebugOverlay.Size = new Size(58, 25);
+            mnuCanvasDebugOverlay.Text = "Debug";
+            mnuCanvasDebugOverlay.ToolTipText = "Show map canvas debug overlay";
+            mnuCanvasDebugOverlay.Click += mnuCanvasDebugOverlay_Click;
             // 
             // toolStripLabel1
             // 
@@ -1874,6 +1887,7 @@ namespace Land_Readjustment_Tool
         private ToolStripButton mnuDrawPolygon;
         private ToolStripButton mnuDrawRectangle;
         private ToolStripButton mnuDrawCircle;
+        private ToolStripButton mnuDrawArc;
         private ToolStripButton mnuCanvasDebugOverlay;
         private ToolStripSeparator toolStripSeparator17;
         private ToolStripLabel lblCurrentDrawingLayer;

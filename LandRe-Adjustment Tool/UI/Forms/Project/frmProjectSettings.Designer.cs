@@ -33,13 +33,17 @@ namespace Land_Readjustment_Tool.UI.Forms.Project
             cmbTraditionalUnit = new ComboBox();
             lblAreaNote = new Label();
             tabMapCanvas = new TabPage();
+            grpSnap = new GroupBox();
+            chkSnapEnabled = new CheckBox();
+            lblSnapTolerance = new Label();
+            nudSnapTolerance = new NumericUpDown();
+            lblSnapUnit = new Label();
+            lblSnapGlyphSize = new Label();
+            nudSnapGlyphSize = new NumericUpDown();
+            lblSnapGlyphUnit = new Label();
             grpOther = new GroupBox();
             chkOriginAxisMarkerVisible = new CheckBox();
-            nudSnapTolerance = new NumericUpDown();
-            lblSnapTolerance = new Label();
             chkGridVisible = new CheckBox();
-            chkSnapEnabled = new CheckBox();
-            lblSnapUnit = new Label();
             grpCanvasTheme = new GroupBox();
             lblCanvasTheme = new Label();
             cmbCanvasTheme = new ComboBox();
@@ -87,8 +91,10 @@ namespace Land_Readjustment_Tool.UI.Forms.Project
             tabArea.SuspendLayout();
             grpAreaUnit.SuspendLayout();
             tabMapCanvas.SuspendLayout();
-            grpOther.SuspendLayout();
+            grpSnap.SuspendLayout();
             ((System.ComponentModel.ISupportInitialize)nudSnapTolerance).BeginInit();
+            ((System.ComponentModel.ISupportInitialize)nudSnapGlyphSize).BeginInit();
+            grpOther.SuspendLayout();
             grpCanvasTheme.SuspendLayout();
             tabParcel.SuspendLayout();
             grpParcelNum.SuspendLayout();
@@ -290,6 +296,7 @@ namespace Land_Readjustment_Tool.UI.Forms.Project
             // 
             // tabMapCanvas
             // 
+            tabMapCanvas.Controls.Add(grpSnap);
             tabMapCanvas.Controls.Add(grpOther);
             tabMapCanvas.Controls.Add(grpCanvasTheme);
             tabMapCanvas.Location = new Point(4, 31);
@@ -300,18 +307,104 @@ namespace Land_Readjustment_Tool.UI.Forms.Project
             tabMapCanvas.Text = "Map Canvas";
             tabMapCanvas.UseVisualStyleBackColor = true;
             // 
+            // grpSnap
+            // 
+            grpSnap.Controls.Add(chkSnapEnabled);
+            grpSnap.Controls.Add(lblSnapTolerance);
+            grpSnap.Controls.Add(nudSnapTolerance);
+            grpSnap.Controls.Add(lblSnapUnit);
+            grpSnap.Controls.Add(lblSnapGlyphSize);
+            grpSnap.Controls.Add(nudSnapGlyphSize);
+            grpSnap.Controls.Add(lblSnapGlyphUnit);
+            grpSnap.Font = new Font("Segoe UI", 9F, FontStyle.Bold, GraphicsUnit.Point, 0);
+            grpSnap.Location = new Point(8, 275);
+            grpSnap.Name = "grpSnap";
+            grpSnap.Size = new Size(536, 92);
+            grpSnap.TabIndex = 10;
+            grpSnap.TabStop = false;
+            grpSnap.Text = "Snap";
+            // 
+            // chkSnapEnabled
+            // 
+            chkSnapEnabled.Font = new Font("Segoe UI", 9F);
+            chkSnapEnabled.Location = new Point(10, 26);
+            chkSnapEnabled.Name = "chkSnapEnabled";
+            chkSnapEnabled.Size = new Size(150, 27);
+            chkSnapEnabled.TabIndex = 4;
+            chkSnapEnabled.Text = "Enable Snap";
+            // 
+            // lblSnapTolerance
+            // 
+            lblSnapTolerance.Font = new Font("Segoe UI", 9F);
+            lblSnapTolerance.Location = new Point(168, 29);
+            lblSnapTolerance.Name = "lblSnapTolerance";
+            lblSnapTolerance.Size = new Size(79, 21);
+            lblSnapTolerance.TabIndex = 7;
+            lblSnapTolerance.Text = "Tolerance";
+            // 
+            // nudSnapTolerance
+            // 
+            nudSnapTolerance.DecimalPlaces = 1;
+            nudSnapTolerance.Font = new Font("Segoe UI", 9F);
+            nudSnapTolerance.Location = new Point(253, 26);
+            nudSnapTolerance.Maximum = new decimal(new int[] { 50, 0, 0, 0 });
+            nudSnapTolerance.Minimum = new decimal(new int[] { 1, 0, 0, 0 });
+            nudSnapTolerance.Name = "nudSnapTolerance";
+            nudSnapTolerance.Size = new Size(70, 27);
+            nudSnapTolerance.TabIndex = 5;
+            nudSnapTolerance.Value = new decimal(new int[] { 8, 0, 0, 0 });
+            // 
+            // lblSnapUnit
+            // 
+            lblSnapUnit.AutoSize = true;
+            lblSnapUnit.Font = new Font("Segoe UI", 9F);
+            lblSnapUnit.ForeColor = SystemColors.GrayText;
+            lblSnapUnit.Location = new Point(329, 29);
+            lblSnapUnit.Name = "lblSnapUnit";
+            lblSnapUnit.Size = new Size(24, 20);
+            lblSnapUnit.TabIndex = 8;
+            lblSnapUnit.Text = "px";
+            // 
+            // lblSnapGlyphSize
+            // 
+            lblSnapGlyphSize.Font = new Font("Segoe UI", 9F);
+            lblSnapGlyphSize.Location = new Point(168, 57);
+            lblSnapGlyphSize.Name = "lblSnapGlyphSize";
+            lblSnapGlyphSize.Size = new Size(79, 21);
+            lblSnapGlyphSize.TabIndex = 10;
+            lblSnapGlyphSize.Text = "Glyph Size";
+            // 
+            // nudSnapGlyphSize
+            // 
+            nudSnapGlyphSize.DecimalPlaces = 1;
+            nudSnapGlyphSize.Font = new Font("Segoe UI", 9F);
+            nudSnapGlyphSize.Location = new Point(253, 54);
+            nudSnapGlyphSize.Maximum = new decimal(new int[] { 32, 0, 0, 0 });
+            nudSnapGlyphSize.Minimum = new decimal(new int[] { 6, 0, 0, 0 });
+            nudSnapGlyphSize.Name = "nudSnapGlyphSize";
+            nudSnapGlyphSize.Size = new Size(70, 27);
+            nudSnapGlyphSize.TabIndex = 11;
+            nudSnapGlyphSize.Value = new decimal(new int[] { 14, 0, 0, 0 });
+            // 
+            // lblSnapGlyphUnit
+            // 
+            lblSnapGlyphUnit.AutoSize = true;
+            lblSnapGlyphUnit.Font = new Font("Segoe UI", 9F);
+            lblSnapGlyphUnit.ForeColor = SystemColors.GrayText;
+            lblSnapGlyphUnit.Location = new Point(329, 57);
+            lblSnapGlyphUnit.Name = "lblSnapGlyphUnit";
+            lblSnapGlyphUnit.Size = new Size(24, 20);
+            lblSnapGlyphUnit.TabIndex = 12;
+            lblSnapGlyphUnit.Text = "px";
+            // 
             // grpOther
             // 
             grpOther.Controls.Add(chkOriginAxisMarkerVisible);
-            grpOther.Controls.Add(nudSnapTolerance);
-            grpOther.Controls.Add(lblSnapTolerance);
             grpOther.Controls.Add(chkGridVisible);
-            grpOther.Controls.Add(chkSnapEnabled);
-            grpOther.Controls.Add(lblSnapUnit);
             grpOther.Font = new Font("Segoe UI", 9F, FontStyle.Bold, GraphicsUnit.Point, 0);
             grpOther.Location = new Point(8, 189);
             grpOther.Name = "grpOther";
-            grpOther.Size = new Size(536, 123);
+            grpOther.Size = new Size(536, 80);
             grpOther.TabIndex = 9;
             grpOther.TabStop = false;
             grpOther.Text = "Other";
@@ -325,26 +418,6 @@ namespace Land_Readjustment_Tool.UI.Forms.Project
             chkOriginAxisMarkerVisible.TabIndex = 9;
             chkOriginAxisMarkerVisible.Text = "Show Origin/Axis Marker";
             // 
-            // nudSnapTolerance
-            // 
-            nudSnapTolerance.DecimalPlaces = 1;
-            nudSnapTolerance.Location = new Point(277, 83);
-            nudSnapTolerance.Maximum = new decimal(new int[] { 50, 0, 0, 0 });
-            nudSnapTolerance.Minimum = new decimal(new int[] { 1, 0, 0, 0 });
-            nudSnapTolerance.Name = "nudSnapTolerance";
-            nudSnapTolerance.Size = new Size(70, 27);
-            nudSnapTolerance.TabIndex = 5;
-            nudSnapTolerance.Value = new decimal(new int[] { 1, 0, 0, 0 });
-            // 
-            // lblSnapTolerance
-            // 
-            lblSnapTolerance.Font = new Font("Segoe UI", 9F);
-            lblSnapTolerance.Location = new Point(143, 85);
-            lblSnapTolerance.Name = "lblSnapTolerance";
-            lblSnapTolerance.Size = new Size(128, 21);
-            lblSnapTolerance.TabIndex = 7;
-            lblSnapTolerance.Text = "Snap Tolerance:";
-            // 
             // chkGridVisible
             // 
             chkGridVisible.Font = new Font("Segoe UI", 9F);
@@ -353,27 +426,6 @@ namespace Land_Readjustment_Tool.UI.Forms.Project
             chkGridVisible.Size = new Size(150, 27);
             chkGridVisible.TabIndex = 3;
             chkGridVisible.Text = "Show Grid Lines";
-            // 
-            // chkSnapEnabled
-            // 
-            chkSnapEnabled.Font = new Font("Segoe UI", 9F);
-            chkSnapEnabled.Location = new Point(10, 84);
-            chkSnapEnabled.Name = "chkSnapEnabled";
-            chkSnapEnabled.Size = new Size(150, 27);
-            chkSnapEnabled.TabIndex = 4;
-            chkSnapEnabled.Text = "Enable Snap";
-            // 
-            // lblSnapUnit
-            // 
-            lblSnapUnit.AutoSize = true;
-            lblSnapUnit.Font = new Font("Segoe UI", 9F);
-            lblSnapUnit.ForeColor = SystemColors.GrayText;
-            lblSnapUnit.Location = new Point(353, 85);
-            lblSnapUnit.Name = "lblSnapUnit";
-            lblSnapUnit.Size = new Size(47, 20);
-            lblSnapUnit.TabIndex = 8;
-            lblSnapUnit.Text = "pixels";
-            // 
             // grpCanvasTheme
             // 
             grpCanvasTheme.Controls.Add(lblCanvasTheme);
@@ -818,9 +870,12 @@ namespace Land_Readjustment_Tool.UI.Forms.Project
             tabArea.ResumeLayout(false);
             grpAreaUnit.ResumeLayout(false);
             tabMapCanvas.ResumeLayout(false);
+            grpSnap.ResumeLayout(false);
+            grpSnap.PerformLayout();
+            ((System.ComponentModel.ISupportInitialize)nudSnapTolerance).EndInit();
+            ((System.ComponentModel.ISupportInitialize)nudSnapGlyphSize).EndInit();
             grpOther.ResumeLayout(false);
             grpOther.PerformLayout();
-            ((System.ComponentModel.ISupportInitialize)nudSnapTolerance).EndInit();
             grpCanvasTheme.ResumeLayout(false);
             grpCanvasTheme.PerformLayout();
             tabParcel.ResumeLayout(false);
@@ -879,11 +934,15 @@ namespace Land_Readjustment_Tool.UI.Forms.Project
         private Panel pnlGridColor;
         private Button btnPickGridColor;
         private Label lblGridColorHex;
+        private GroupBox grpSnap;
         private CheckBox chkGridVisible;
         private CheckBox chkSnapEnabled;
         private Label lblSnapTolerance;
         private NumericUpDown nudSnapTolerance;
         private Label lblSnapUnit;
+        private Label lblSnapGlyphSize;
+        private NumericUpDown nudSnapGlyphSize;
+        private Label lblSnapGlyphUnit;
         private GroupBox grpParcelNum;
         private Label lblParcelFormat;
         private ComboBox cmbParcelFormat;

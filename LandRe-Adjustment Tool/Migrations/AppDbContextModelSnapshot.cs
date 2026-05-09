@@ -151,6 +151,9 @@ namespace Land_Readjustment_Tool.Migrations
                     b.Property<int?>("FillTransparencyOverride")
                         .HasColumnType("INTEGER");
 
+                    b.Property<string>("GeometryMetadataJson")
+                        .HasColumnType("TEXT");
+
                     b.Property<bool>("IsLocked")
                         .ValueGeneratedOnAdd()
                         .HasColumnType("INTEGER")
@@ -1088,6 +1091,9 @@ namespace Land_Readjustment_Tool.Migrations
 
                     b.Property<bool>("SnapEnabled")
                         .HasColumnType("INTEGER");
+
+                    b.Property<double>("SnapGlyphSizePx")
+                        .HasColumnType("REAL");
 
                     b.Property<double>("SnapTolerancePx")
                         .HasColumnType("REAL");

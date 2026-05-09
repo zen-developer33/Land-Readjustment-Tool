@@ -35,6 +35,11 @@ namespace Land_Readjustment_Tool.Core.Entities.Canvas
         // Stores actual coordinates in SQLite
         // Polygon, Polyline, Point etc.
 
+        public string? GeometryMetadataJson { get; set; }
+        // Stores semantic CAD geometry parameters that NTS/WKT cannot preserve,
+        // e.g. circle center/radius or arc angles. Shape remains the linearized
+        // geometry used for database queries and interchange.
+
         // ── DISPLAY OVERRIDES ───────────────────────
         // These override layer defaults per object
         public string? BorderColorOverride { get; set; }

@@ -222,7 +222,16 @@ namespace Land_Readjustment_Tool.UI.MapCanvas.Rendering
                 using Graphics graphics = Graphics.FromImage(_panBuffer);
                 graphics.Clear(Color.Transparent);
                 graphics.CompositingMode = CompositingMode.SourceOver;
-                graphics.DrawImageUnscaled(_rasterCache, 0, 0);
+                ConfigureRasterQuality(graphics);
+                if (TryCalculateZoomDestination(engine, out RectangleF zoomDestination))
+                {
+                    graphics.DrawImage(_rasterCache, zoomDestination);
+                }
+                else
+                {
+                    graphics.DrawImageUnscaled(_rasterCache, 0, 0);
+                }
+
                 _panBufferValid = true;
             }
         }
@@ -316,29 +325,7 @@ namespace Land_Readjustment_Tool.UI.MapCanvas.Rendering
                     return false;
                 }
 
-                RasterViewSnapshot start = _zoomStartView.Value;
-                if (start.ZoomScale <= 0)
-                {
-                    frame = default;
-                    return false;
-                }
-
-                double scale = engine.ZoomScale / start.ZoomScale;
-                if (double.IsNaN(scale) || double.IsInfinity(scale) || scale <= 0)
-                {
-                    frame = default;
-                    return false;
-                }
-
-                float left = (float)((start.ViewOriginWorld.X - engine.ViewOriginWorld.X) * engine.ZoomScale);
-                float top = (float)(
-                    start.CanvasSize.Height * (1.0 - scale) -
-                    ((start.ViewOriginWorld.Y - engine.ViewOriginWorld.Y) * engine.ZoomScale));
-                float scaledWidth = (float)(_rasterCache.Width * scale);
-                float scaledHeight = (float)(_rasterCache.Height * scale);
-
-                RectangleF destination = new(left, top, scaledWidth, scaledHeight);
-                if (!IsValidDestination(destination))
+                if (!TryCalculateZoomDestination(engine, out RectangleF destination))
                 {
                     frame = default;
                     return false;
@@ -349,6 +336,41 @@ namespace Land_Readjustment_Tool.UI.MapCanvas.Rendering
                     destination);
                 return true;
             }
+        }
+
+        private bool TryCalculateZoomDestination(
+            MapCanvasEngine engine,
+            out RectangleF destination)
+        {
+            destination = default;
+
+            if (_rasterCache == null ||
+                !_zoomStartView.HasValue)
+            {
+                return false;
+            }
+
+            RasterViewSnapshot start = _zoomStartView.Value;
+            if (start.ZoomScale <= 0)
+            {
+                return false;
+            }
+
+            double scale = engine.ZoomScale / start.ZoomScale;
+            if (double.IsNaN(scale) || double.IsInfinity(scale) || scale <= 0)
+            {
+                return false;
+            }
+
+            float left = (float)((start.ViewOriginWorld.X - engine.ViewOriginWorld.X) * engine.ZoomScale);
+            float top = (float)(
+                start.CanvasSize.Height * (1.0 - scale) -
+                ((start.ViewOriginWorld.Y - engine.ViewOriginWorld.Y) * engine.ZoomScale));
+            float scaledWidth = (float)(_rasterCache.Width * scale);
+            float scaledHeight = (float)(_rasterCache.Height * scale);
+
+            destination = new RectangleF(left, top, scaledWidth, scaledHeight);
+            return IsValidDestination(destination);
         }
 
         public void Dispose()

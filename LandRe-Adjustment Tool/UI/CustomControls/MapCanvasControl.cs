@@ -10,6 +10,7 @@ using System.Windows.Forms;
 using Land_Readjustment_Tool.Core.Entities.Canvas;
 using Land_Readjustment_Tool.UI.MapCanvas.Core;
 using Land_Readjustment_Tool.UI.MapCanvas.Models.Shapes;
+using Land_Readjustment_Tool.UI.MapCanvas.Models.Snapping;
 using Land_Readjustment_Tool.UI.MapCanvas.Rendering;
 using Land_Readjustment_Tool.UI.MapCanvas.Services;
 using NtsCoordinate = NetTopologySuite.Geometries.Coordinate;
@@ -22,8 +23,31 @@ namespace Land_Readjustment_Tool.UI.CustomControls
 {
     public partial class MapCanvasControl : UserControl
     {
+        private enum ArcDrawingMode
+        {
+            ThreePoint,
+            CenterStartEnd
+        }
+
+        private enum CircleDrawingMode
+        {
+            CenterRadius,
+            CenterDiameter,
+            TwoPointDiameter,
+            ThreePoint
+        }
+
+        private enum PolylineSegmentDrawingMode
+        {
+            Line,
+            ThreePointArc
+        }
+
         private const int ZoomSettleIntervalMs = 50;
         private const int ObjectSelectionTolerancePixels = 8;
+        private const int SnapQueryBoxPixels = 20;
+        private const double DefaultSnapPickTolerancePixels = 8.0;
+        private const float DefaultSnapGlyphSizePixels = 14.0f;
         private const double ScreenPixelsPerMetre = 96.0 / 0.0254;
         private const bool DefaultShowDebugOverlay = false;
         private static readonly double[] StandardScaleDenominators = BuildStandardScaleDenominators();
@@ -35,6 +59,7 @@ namespace Land_Readjustment_Tool.UI.CustomControls
         private readonly MapCanvasEngine _engine;
         private readonly MapCanvasRenderer _renderer;
         private readonly RasterDeferredRenderer _rasterDeferredRenderer = new();
+        private readonly MapCanvasSnapManager _snapManager = new();
         private readonly List<IRasterRenderLayer> _rasterRenderLayers = [];
         private readonly Font _debugOverlayFont = new("Consolas", 8.25f, FontStyle.Regular);
         private MapCanvasRenderSettings _renderSettings;
@@ -68,7 +93,18 @@ namespace Land_Readjustment_Tool.UI.CustomControls
         private bool _blockPanUntilZoomSettle;
         private bool _holdZoomStartFrameUntilRasterRefresh;
         private bool _suppressStaleRasterFrameUntilFreshRender;
+        private bool _snapEnabled = true;
+        private double _snapPickTolerancePixels = DefaultSnapPickTolerancePixels;
+        private float _snapGlyphSizePixels = DefaultSnapGlyphSizePixels;
+        private SnapPoint? _currentSnapPoint;
+        private int _lastSnapQueryFeatureCount;
+        private int _lastSnapCandidateCount;
+        private double _lastSnapQueryElapsedMs;
         private MapCanvasTool _activeTool = MapCanvasTool.Select;
+        private ArcDrawingMode _arcDrawingMode = ArcDrawingMode.ThreePoint;
+        private CircleDrawingMode _circleDrawingMode = CircleDrawingMode.CenterRadius;
+        private PolylineSegmentDrawingMode _polylineSegmentMode = PolylineSegmentDrawingMode.Line;
+        private PointD? _pendingPolylineArcThroughPoint;
         private readonly List<PointD> _drawingVertices = [];
         private List<CanvasFeature> _vectorFeatures = [];
         private List<CanvasLayer> _vectorLayers = [];
@@ -81,6 +117,7 @@ namespace Land_Readjustment_Tool.UI.CustomControls
         private CanvasLayer? _activeDrawingLayer;
         private Cursor? _panCursor;
         private readonly ContextMenuStrip _objectSelectionContextMenu = new();
+        private readonly ContextMenuStrip _drawingOptionsContextMenu = new();
         private readonly ToolStripMenuItem _mnuDeleteSelectedObjects = new("Delete Selected Object(s)");
         private readonly System.Windows.Forms.Timer _zoomingStatusTimer = new()
         {
@@ -97,6 +134,7 @@ namespace Land_Readjustment_Tool.UI.CustomControls
             _zoomingStatusTimer.Tick += ZoomingStatusTimer_Tick;
             _mnuDeleteSelectedObjects.Click += (_, _) => RequestDeleteSelectedObjects();
             _objectSelectionContextMenu.Items.Add(_mnuDeleteSelectedObjects);
+            _drawingOptionsContextMenu.Closed += (_, _) => canvasSurface.Focus();
             WireInteractionEvents();
             UpdateStatusBar();
         }
@@ -111,6 +149,10 @@ namespace Land_Readjustment_Tool.UI.CustomControls
             {
                 _renderSettings = MapCanvasRenderSettings.CreateFromProjectSettings(projectSettings);
                 ApplyRenderSettings(_renderSettings);
+                ApplySnapSettings(
+                    projectSettings.SnapEnabled,
+                    projectSettings.SnapTolerancePx,
+                    projectSettings.SnapGlyphSizePx);
             }
         }
 
@@ -191,7 +233,20 @@ namespace Land_Readjustment_Tool.UI.CustomControls
 
         public void ApplySnapEnabled(bool enabled)
         {
-            // Snapping will be added when geometry editing returns to the new canvas.
+            ApplySnapSettings(enabled, _snapPickTolerancePixels, _snapGlyphSizePixels);
+        }
+
+        public void ApplySnapSettings(bool enabled, double tolerancePixels, double glyphSizePixels)
+        {
+            _snapEnabled = enabled;
+            _snapPickTolerancePixels = Math.Clamp(tolerancePixels, 1.0, 50.0);
+            _snapGlyphSizePixels = (float)Math.Clamp(glyphSizePixels, 6.0, 32.0);
+            if (!enabled)
+            {
+                ClearCurrentSnapPoint();
+            }
+
+            RequestRender();
         }
 
         [Browsable(false)]
@@ -706,6 +761,8 @@ namespace Land_Readjustment_Tool.UI.CustomControls
                 _showDebugOverlay);
 
             DrawObjectSelectionRectangle(e.Graphics);
+            DrawSnapGlyph(e.Graphics);
+            DrawCircleDiameterPreview(e.Graphics);
             frameStopwatch.Stop();
             UpdateDebugFrameTiming(frameStopwatch.Elapsed.TotalMilliseconds);
             DrawDebugOverlayIfNeeded(e.Graphics, rasterFrameSource, vectorFrameSource);
@@ -933,7 +990,8 @@ namespace Land_Readjustment_Tool.UI.CustomControls
                 return;
             }
 
-            _currentMouseWorld = _engine.ScreenToWorld(e.Location);
+            UpdateCurrentSnapPoint(e.Location);
+            _currentMouseWorld = _currentSnapPoint?.Position ?? _engine.ScreenToWorld(e.Location);
             UpdateDrawingPreview(e.Location);
             UpdateStatusBar();
         }
@@ -994,6 +1052,7 @@ namespace Land_Readjustment_Tool.UI.CustomControls
         {
             if (!_isPanning && !_isSelectingZoomWindow)
             {
+                ClearCurrentSnapPoint();
                 UpdateStatusBar();
             }
         }
@@ -1026,11 +1085,12 @@ namespace Land_Readjustment_Tool.UI.CustomControls
 
         private void HandleDrawingMouseDown(MouseEventArgs e)
         {
-            PointD worldPoint = _engine.ScreenToWorld(e.Location);
+            UpdateCurrentSnapPoint(e.Location);
+            PointD worldPoint = GetCurrentDrawingWorldPoint(e.Location);
 
             if (e.Button == MouseButtons.Right)
             {
-                CompleteMultiPointDrawing();
+                ShowDrawingOptionsMenu(e.Location);
                 return;
             }
 
@@ -1043,15 +1103,34 @@ namespace Land_Readjustment_Tool.UI.CustomControls
                     break;
                 case MapCanvasTool.Line:
                 case MapCanvasTool.Rectangle:
-                case MapCanvasTool.Circle:
                     HandleTwoPointDrawing(worldPoint);
+                    break;
+                case MapCanvasTool.Circle:
+                    if (_circleDrawingMode == CircleDrawingMode.ThreePoint)
+                    {
+                        HandleThreePointCircleDrawing(worldPoint);
+                    }
+                    else
+                    {
+                        HandleTwoPointDrawing(worldPoint);
+                    }
+
+                    break;
+                case MapCanvasTool.Arc:
+                    HandleArcDrawing(worldPoint);
                     break;
                 case MapCanvasTool.Polyline:
                 case MapCanvasTool.Polygon:
-                    _drawingVertices.Add(worldPoint);
-                    UpdateDrawingPreview(e.Location);
+                    HandlePolylineOrPolygonDrawing(worldPoint, e.Location);
                     break;
             }
+        }
+
+        private PointD GetCurrentDrawingWorldPoint(Point screenPoint)
+        {
+            return _snapEnabled && _currentSnapPoint != null
+                ? _currentSnapPoint.Position
+                : _engine.ScreenToWorld(screenPoint);
         }
 
         private void HandleTwoPointDrawing(PointD worldPoint)
@@ -1068,17 +1147,398 @@ namespace Land_Readjustment_Tool.UI.CustomControls
             {
                 MapCanvasTool.Line => new LineShape(_drawingVertices[0], worldPoint),
                 MapCanvasTool.Rectangle => new RectangleShape(_drawingVertices[0], worldPoint),
-                MapCanvasTool.Circle => new CircleShape(_drawingVertices[0], worldPoint),
+                MapCanvasTool.Circle when _circleDrawingMode != CircleDrawingMode.ThreePoint => CreateCircleShape(_drawingVertices[0], worldPoint),
                 _ => null
             };
 
             CompleteShape(completedShape);
         }
 
+        private void HandleArcDrawing(PointD worldPoint)
+        {
+            _drawingVertices.Add(worldPoint);
+            if (_drawingVertices.Count < 3)
+            {
+                RequestRender();
+                return;
+            }
+
+            ArcShape? arc = _arcDrawingMode == ArcDrawingMode.CenterStartEnd
+                ? ArcShape.FromCenterStartEnd(_drawingVertices[0], _drawingVertices[1], _drawingVertices[2])
+                : ArcShape.FromThreePoints(_drawingVertices[0], _drawingVertices[1], _drawingVertices[2]);
+            CompleteShape(arc);
+        }
+
+        private void HandleThreePointCircleDrawing(PointD worldPoint)
+        {
+            _drawingVertices.Add(worldPoint);
+            if (_drawingVertices.Count < 3)
+            {
+                RequestRender();
+                return;
+            }
+
+            CompleteShape(CreateThreePointCircle(
+                _drawingVertices[0],
+                _drawingVertices[1],
+                _drawingVertices[2]));
+        }
+
+        private void HandlePolylineOrPolygonDrawing(PointD worldPoint, Point screenPoint)
+        {
+            if (_polylineSegmentMode == PolylineSegmentDrawingMode.Line ||
+                _drawingVertices.Count == 0)
+            {
+                _drawingVertices.Add(worldPoint);
+                _pendingPolylineArcThroughPoint = null;
+                UpdateDrawingPreview(screenPoint);
+                return;
+            }
+
+            if (!_pendingPolylineArcThroughPoint.HasValue)
+            {
+                _pendingPolylineArcThroughPoint = worldPoint;
+                UpdateDrawingPreview(screenPoint);
+                return;
+            }
+
+            ArcShape? arc = ArcShape.FromThreePoints(
+                _drawingVertices[^1],
+                _pendingPolylineArcThroughPoint.Value,
+                worldPoint);
+            if (arc == null)
+            {
+                _drawingVertices.Add(worldPoint);
+            }
+            else
+            {
+                foreach (PointD point in arc.SamplePoints(24).Skip(1))
+                {
+                    _drawingVertices.Add(point);
+                }
+            }
+
+            _pendingPolylineArcThroughPoint = null;
+            UpdateDrawingPreview(screenPoint);
+        }
+
+        private IShape? CreateCircleShape(PointD firstPoint, PointD secondPoint)
+        {
+            return _circleDrawingMode switch
+            {
+                CircleDrawingMode.CenterRadius => new CircleShape(firstPoint, secondPoint),
+                CircleDrawingMode.CenterDiameter => CreateCenterDiameterCircle(firstPoint, secondPoint),
+                CircleDrawingMode.TwoPointDiameter => CreateTwoPointDiameterCircle(firstPoint, secondPoint),
+                _ => null
+            };
+        }
+
+        private static CircleShape? CreateCenterDiameterCircle(PointD center, PointD diameterPoint)
+        {
+            PointD radiusPoint = new(
+                center.X + (diameterPoint.X - center.X) / 2.0,
+                center.Y + (diameterPoint.Y - center.Y) / 2.0);
+            return SameWorldPoint(center, radiusPoint)
+                ? null
+                : new CircleShape(center, radiusPoint);
+        }
+
+        private static CircleShape? CreateTwoPointDiameterCircle(PointD firstPoint, PointD secondPoint)
+        {
+            if (SameWorldPoint(firstPoint, secondPoint))
+            {
+                return null;
+            }
+
+            PointD center = new(
+                (firstPoint.X + secondPoint.X) / 2.0,
+                (firstPoint.Y + secondPoint.Y) / 2.0);
+            return new CircleShape(center, secondPoint);
+        }
+
+        private static CircleShape? CreateThreePointCircle(PointD first, PointD second, PointD third)
+        {
+            ArcShape? arc = ArcShape.FromThreePoints(first, second, third);
+            return arc == null
+                ? null
+                : new CircleShape(arc.Center, new PointD(arc.Center.X + arc.Radius, arc.Center.Y));
+        }
+
+        private void ShowDrawingOptionsMenu(Point location)
+        {
+            _drawingOptionsContextMenu.Items.Clear();
+
+            switch (_activeTool)
+            {
+                case MapCanvasTool.Arc:
+                    AddDrawingOption("3 Point Arc", _arcDrawingMode == ArcDrawingMode.ThreePoint, () => SetArcDrawingMode(ArcDrawingMode.ThreePoint));
+                    AddDrawingOption("Center, Start, End", _arcDrawingMode == ArcDrawingMode.CenterStartEnd, () => SetArcDrawingMode(ArcDrawingMode.CenterStartEnd));
+                    break;
+
+                case MapCanvasTool.Circle:
+                    AddDrawingOption("Center + Radius", _circleDrawingMode == CircleDrawingMode.CenterRadius, () => SetCircleDrawingMode(CircleDrawingMode.CenterRadius));
+                    AddDrawingOption("Center + Diameter", _circleDrawingMode == CircleDrawingMode.CenterDiameter, () => SetCircleDrawingMode(CircleDrawingMode.CenterDiameter));
+                    AddDrawingOption("2 Point Diameter", _circleDrawingMode == CircleDrawingMode.TwoPointDiameter, () => SetCircleDrawingMode(CircleDrawingMode.TwoPointDiameter));
+                    AddDrawingOption("3 Point Circle", _circleDrawingMode == CircleDrawingMode.ThreePoint, () => SetCircleDrawingMode(CircleDrawingMode.ThreePoint));
+                    if (_drawingVertices.Count > 0 &&
+                        _circleDrawingMode is CircleDrawingMode.CenterRadius or CircleDrawingMode.CenterDiameter)
+                    {
+                        _drawingOptionsContextMenu.Items.Add(new ToolStripSeparator());
+                        AddDrawingCommand("Enter Value...", PromptCircleValue);
+                    }
+
+                    break;
+
+                case MapCanvasTool.Rectangle:
+                    if (_drawingVertices.Count > 0)
+                    {
+                        AddDrawingCommand("Enter Length and Breadth...", PromptRectangleSize);
+                    }
+
+                    break;
+
+                case MapCanvasTool.Polyline:
+                case MapCanvasTool.Polygon:
+                    AddDrawingOption("Line Segment", _polylineSegmentMode == PolylineSegmentDrawingMode.Line, () => SetPolylineSegmentMode(PolylineSegmentDrawingMode.Line));
+                    AddDrawingOption("3 Point Arc Segment", _polylineSegmentMode == PolylineSegmentDrawingMode.ThreePointArc, () => SetPolylineSegmentMode(PolylineSegmentDrawingMode.ThreePointArc));
+                    if (CanCompleteMultiPointDrawing())
+                    {
+                        _drawingOptionsContextMenu.Items.Add(new ToolStripSeparator());
+                        AddDrawingCommand("Finish", CompleteMultiPointDrawing);
+                    }
+
+                    break;
+            }
+
+            if (_drawingVertices.Count > 0 || _pendingPolylineArcThroughPoint.HasValue)
+            {
+                if (_drawingOptionsContextMenu.Items.Count > 0)
+                {
+                    _drawingOptionsContextMenu.Items.Add(new ToolStripSeparator());
+                }
+
+                AddDrawingCommand("Cancel", CancelDrawing);
+            }
+
+            if (_drawingOptionsContextMenu.Items.Count > 0)
+            {
+                _drawingOptionsContextMenu.Show(canvasSurface, location);
+            }
+        }
+
+        private void AddDrawingOption(string text, bool isChecked, Action action)
+        {
+            ToolStripMenuItem item = new(text)
+            {
+                Checked = isChecked
+            };
+            item.Click += (_, _) => action();
+            _drawingOptionsContextMenu.Items.Add(item);
+        }
+
+        private void AddDrawingCommand(string text, Action action)
+        {
+            ToolStripMenuItem item = new(text);
+            item.Click += (_, _) => action();
+            _drawingOptionsContextMenu.Items.Add(item);
+        }
+
+        private void SetArcDrawingMode(ArcDrawingMode mode)
+        {
+            _arcDrawingMode = mode;
+            if (_drawingVertices.Count > 1)
+            {
+                CancelDrawing();
+            }
+            else
+            {
+                RequestRender();
+            }
+        }
+
+        private void SetCircleDrawingMode(CircleDrawingMode mode)
+        {
+            _circleDrawingMode = mode;
+            if (_drawingVertices.Count > 0)
+            {
+                CancelDrawing();
+            }
+            else
+            {
+                RequestRender();
+            }
+        }
+
+        private void SetPolylineSegmentMode(PolylineSegmentDrawingMode mode)
+        {
+            _polylineSegmentMode = mode;
+            _pendingPolylineArcThroughPoint = null;
+            RequestRender();
+        }
+
+        private void PromptRectangleSize()
+        {
+            if (_drawingVertices.Count == 0 ||
+                !TryPromptTwoValues("Rectangle Size", "Length", "Breadth", out double length, out double breadth))
+            {
+                return;
+            }
+
+            PointD start = _drawingVertices[0];
+            CompleteShape(new RectangleShape(start, new PointD(start.X + length, start.Y + breadth)));
+        }
+
+        private void PromptCircleValue()
+        {
+            if (_drawingVertices.Count == 0)
+            {
+                return;
+            }
+
+            string label = _circleDrawingMode == CircleDrawingMode.CenterDiameter
+                ? "Diameter"
+                : "Radius";
+            if (!TryPromptOneValue("Circle Value", label, out double value) || value <= 0.0)
+            {
+                return;
+            }
+
+            PointD center = _drawingVertices[0];
+            double radius = _circleDrawingMode == CircleDrawingMode.CenterDiameter
+                ? value / 2.0
+                : value;
+            CompleteShape(new CircleShape(center, new PointD(center.X + radius, center.Y)));
+        }
+
+        private bool TryPromptOneValue(
+            string title,
+            string label,
+            out double value)
+        {
+            value = 0.0;
+            using Form form = CreateValuePromptForm(title, 240, 126);
+            Label inputLabel = new()
+            {
+                Text = label,
+                AutoSize = true,
+                Location = new Point(12, 16)
+            };
+            TextBox inputBox = new()
+            {
+                Location = new Point(86, 12),
+                Width = 126
+            };
+            form.Controls.Add(inputLabel);
+            form.Controls.Add(inputBox);
+            AddPromptButtons(form);
+            form.Shown += (_, _) => inputBox.Focus();
+
+            if (form.ShowDialog(FindForm()) != DialogResult.OK)
+            {
+                return false;
+            }
+
+            return TryParsePromptDouble(inputBox.Text, out value);
+        }
+
+        private bool TryPromptTwoValues(
+            string title,
+            string firstLabel,
+            string secondLabel,
+            out double firstValue,
+            out double secondValue)
+        {
+            firstValue = 0.0;
+            secondValue = 0.0;
+            using Form form = CreateValuePromptForm(title, 278, 158);
+            Label firstInputLabel = new()
+            {
+                Text = firstLabel,
+                AutoSize = true,
+                Location = new Point(12, 16)
+            };
+            TextBox firstInputBox = new()
+            {
+                Location = new Point(104, 12),
+                Width = 136
+            };
+            Label secondInputLabel = new()
+            {
+                Text = secondLabel,
+                AutoSize = true,
+                Location = new Point(12, 48)
+            };
+            TextBox secondInputBox = new()
+            {
+                Location = new Point(104, 44),
+                Width = 136
+            };
+            form.Controls.AddRange([firstInputLabel, firstInputBox, secondInputLabel, secondInputBox]);
+            AddPromptButtons(form);
+            form.Shown += (_, _) => firstInputBox.Focus();
+
+            if (form.ShowDialog(FindForm()) != DialogResult.OK)
+            {
+                return false;
+            }
+
+            return TryParsePromptDouble(firstInputBox.Text, out firstValue) &&
+                   TryParsePromptDouble(secondInputBox.Text, out secondValue);
+        }
+
+        private static Form CreateValuePromptForm(string title, int width, int height)
+        {
+            return new Form
+            {
+                Text = title,
+                FormBorderStyle = FormBorderStyle.FixedDialog,
+                StartPosition = FormStartPosition.CenterParent,
+                MinimizeBox = false,
+                MaximizeBox = false,
+                ShowInTaskbar = false,
+                ClientSize = new Size(width, height)
+            };
+        }
+
+        private static void AddPromptButtons(Form form)
+        {
+            Button okButton = new()
+            {
+                Text = "OK",
+                DialogResult = DialogResult.OK,
+                Size = new Size(76, 28),
+                Location = new Point(form.ClientSize.Width - 168, form.ClientSize.Height - 42)
+            };
+            Button cancelButton = new()
+            {
+                Text = "Cancel",
+                DialogResult = DialogResult.Cancel,
+                Size = new Size(76, 28),
+                Location = new Point(form.ClientSize.Width - 86, form.ClientSize.Height - 42)
+            };
+            form.AcceptButton = okButton;
+            form.CancelButton = cancelButton;
+            form.Controls.Add(okButton);
+            form.Controls.Add(cancelButton);
+        }
+
+        private static bool TryParsePromptDouble(string text, out double value)
+        {
+            return double.TryParse(
+                       text,
+                       NumberStyles.Float,
+                       CultureInfo.CurrentCulture,
+                       out value) ||
+                   double.TryParse(
+                       text,
+                       NumberStyles.Float,
+                       CultureInfo.InvariantCulture,
+                       out value);
+        }
+
         private void CompleteMultiPointDrawing()
         {
-            int minimumVertices = _activeTool == MapCanvasTool.Polygon ? 3 : 2;
-            if (_drawingVertices.Count < minimumVertices)
+            if (!CanCompleteMultiPointDrawing())
             {
                 CancelDrawing();
                 return;
@@ -1089,6 +1549,15 @@ namespace Land_Readjustment_Tool.UI.CustomControls
                 _activeTool == MapCanvasTool.Polygon));
         }
 
+        private bool CanCompleteMultiPointDrawing()
+        {
+            int minimumVertices = _activeTool == MapCanvasTool.Polygon ? 3 : 2;
+            return (_activeTool == MapCanvasTool.Polyline ||
+                    _activeTool == MapCanvasTool.Polygon) &&
+                   _drawingVertices.Count >= minimumVertices &&
+                   !_pendingPolylineArcThroughPoint.HasValue;
+        }
+
         private void UpdateDrawingPreview(Point screenPoint)
         {
             if (_activeTool == MapCanvasTool.Select ||
@@ -1097,18 +1566,15 @@ namespace Land_Readjustment_Tool.UI.CustomControls
                 return;
             }
 
-            PointD worldPoint = _engine.ScreenToWorld(screenPoint);
+            PointD worldPoint = GetCurrentDrawingWorldPoint(screenPoint);
             _previewShape = _activeTool switch
             {
                 MapCanvasTool.Line => new LineShape(_drawingVertices[0], worldPoint),
                 MapCanvasTool.Rectangle => new RectangleShape(_drawingVertices[0], worldPoint),
-                MapCanvasTool.Circle => new CircleShape(_drawingVertices[0], worldPoint),
-                MapCanvasTool.Polyline => new PolylineShape(
-                    _drawingVertices.Concat([worldPoint]),
-                    isClosed: false),
-                MapCanvasTool.Polygon => new PolylineShape(
-                    _drawingVertices.Concat([worldPoint]),
-                    isClosed: true),
+                MapCanvasTool.Circle => CreateCirclePreview(worldPoint),
+                MapCanvasTool.Arc => CreateArcPreview(worldPoint),
+                MapCanvasTool.Polyline => CreateMultiPointPreview(worldPoint, isClosed: false),
+                MapCanvasTool.Polygon => CreateMultiPointPreview(worldPoint, isClosed: true),
                 _ => null
             };
 
@@ -1118,6 +1584,61 @@ namespace Land_Readjustment_Tool.UI.CustomControls
             }
 
             RequestRender();
+        }
+
+        private IShape? CreateCirclePreview(PointD worldPoint)
+        {
+            if (_circleDrawingMode == CircleDrawingMode.ThreePoint)
+            {
+                return _drawingVertices.Count switch
+                {
+                    1 => new LineShape(_drawingVertices[0], worldPoint),
+                    >= 2 => CreateThreePointCircle(_drawingVertices[0], _drawingVertices[1], worldPoint),
+                    _ => null
+                };
+            }
+
+            return CreateCircleShape(_drawingVertices[0], worldPoint);
+        }
+
+        private IShape? CreateArcPreview(PointD worldPoint)
+        {
+            return _drawingVertices.Count switch
+            {
+                1 => new LineShape(_drawingVertices[0], worldPoint),
+                >= 2 when _arcDrawingMode == ArcDrawingMode.CenterStartEnd => ArcShape.FromCenterStartEnd(
+                    _drawingVertices[0],
+                    _drawingVertices[1],
+                    worldPoint),
+                >= 2 => ArcShape.FromThreePoints(
+                    _drawingVertices[0],
+                    _drawingVertices[1],
+                    worldPoint),
+                _ => null
+            };
+        }
+
+        private IShape CreateMultiPointPreview(PointD worldPoint, bool isClosed)
+        {
+            if (_polylineSegmentMode == PolylineSegmentDrawingMode.ThreePointArc &&
+                _drawingVertices.Count > 0 &&
+                _pendingPolylineArcThroughPoint.HasValue)
+            {
+                ArcShape? arc = ArcShape.FromThreePoints(
+                    _drawingVertices[^1],
+                    _pendingPolylineArcThroughPoint.Value,
+                    worldPoint);
+                if (arc != null)
+                {
+                    return new PolylineShape(
+                        _drawingVertices.Concat(arc.SamplePoints(24).Skip(1)),
+                        isClosed);
+                }
+            }
+
+            return new PolylineShape(
+                _drawingVertices.Concat([worldPoint]),
+                isClosed);
         }
 
         private void CompleteShape(IShape? shape)
@@ -1130,7 +1651,9 @@ namespace Land_Readjustment_Tool.UI.CustomControls
 
             shape.LayerName = _activeDrawingLayerName;
             _drawingVertices.Clear();
+            _pendingPolylineArcThroughPoint = null;
             _previewShape = null;
+            _currentSnapPoint = null;
             ShapeCompleted?.Invoke(shape);
             UpdateStatusBar();
             RequestRender();
@@ -1139,9 +1662,317 @@ namespace Land_Readjustment_Tool.UI.CustomControls
         private void CancelDrawing()
         {
             _drawingVertices.Clear();
+            _pendingPolylineArcThroughPoint = null;
             _previewShape = null;
+            _currentSnapPoint = null;
             UpdateStatusBar();
             RequestRender();
+        }
+
+        private void ClearCurrentSnapPoint()
+        {
+            if (_currentSnapPoint == null &&
+                _lastSnapCandidateCount == 0 &&
+                _lastSnapQueryFeatureCount == 0)
+            {
+                return;
+            }
+
+            _currentSnapPoint = null;
+            _lastSnapCandidateCount = 0;
+            _lastSnapQueryFeatureCount = 0;
+            _lastSnapQueryElapsedMs = 0.0;
+            RequestRender();
+        }
+
+        private void UpdateCurrentSnapPoint(Point screenPoint)
+        {
+            if (!_snapEnabled ||
+                _activeTool == MapCanvasTool.Select ||
+                IsInteractiveNavigation ||
+                IsPanBlockedByZoomDebounce)
+            {
+                ClearCurrentSnapPoint();
+                return;
+            }
+
+            Stopwatch stopwatch = Stopwatch.StartNew();
+            int queryRadius = Math.Max(
+                SnapQueryBoxPixels,
+                (int)Math.Ceiling(_snapPickTolerancePixels));
+            Rectangle screenQuery = new(
+                screenPoint.X - queryRadius,
+                screenPoint.Y - queryRadius,
+                queryRadius * 2,
+                queryRadius * 2);
+            RectangleD worldQuery = CreateWorldRectangle(screenQuery);
+            PointD mouseWorld = _engine.ScreenToWorld(screenPoint);
+
+            List<IShape> nearbyShapes = _vectorFeatures
+                .Where(IsSnapCandidateFeature)
+                .Select(feature => feature.Shape)
+                .Where(shape => ShapeIntersectsWorldQuery(shape, worldQuery))
+                .Take(250)
+                .ToList();
+
+            PointD? fromPoint = _drawingVertices.Count > 0 ? _drawingVertices[^1] : null;
+            List<SnapPoint> candidates = _snapManager
+                .GetSnapCandidates(
+                    nearbyShapes,
+                    BuildInProgressSnapPoints(mouseWorld),
+                    fromPoint)
+                .Where(snapPoint => ScreenQueryContainsSnapPoint(screenQuery, snapPoint))
+                .Where(snapPoint => !IsSuppressedPreviewSnapPoint(snapPoint))
+                .ToList();
+
+            SnapPoint? previousSnapPoint = _currentSnapPoint;
+            _currentSnapPoint = _snapManager.FindNearestSnapPointFromList(
+                candidates,
+                screenPoint,
+                _engine,
+                _snapPickTolerancePixels);
+
+            stopwatch.Stop();
+            _lastSnapQueryFeatureCount = nearbyShapes.Count;
+            _lastSnapCandidateCount = candidates.Count;
+            _lastSnapQueryElapsedMs = stopwatch.Elapsed.TotalMilliseconds;
+
+            if (!SameSnapPoint(previousSnapPoint, _currentSnapPoint))
+            {
+                RequestRender();
+            }
+        }
+
+        private IEnumerable<SnapPoint> BuildInProgressSnapPoints(PointD mouseWorld)
+        {
+            for (int index = 0; index < _drawingVertices.Count; index++)
+            {
+                yield return new SnapPoint(SnapType.Endpoint, _drawingVertices[index], null);
+                if (index > 0)
+                {
+                    PointD previous = _drawingVertices[index - 1];
+                    PointD current = _drawingVertices[index];
+                    yield return new SnapPoint(
+                        SnapType.Midpoint,
+                        new PointD((previous.X + current.X) / 2.0, (previous.Y + current.Y) / 2.0),
+                        null);
+                }
+            }
+
+            foreach (PointD intersection in _snapManager.GetPolylineSelfIntersections(_drawingVertices))
+            {
+                yield return new SnapPoint(SnapType.Intersection, intersection, null);
+            }
+
+            IShape? previewShape = _activeTool switch
+            {
+                MapCanvasTool.Line when _drawingVertices.Count == 1 => new LineShape(_drawingVertices[0], mouseWorld),
+                MapCanvasTool.Rectangle when _drawingVertices.Count == 1 => new RectangleShape(_drawingVertices[0], mouseWorld),
+                MapCanvasTool.Arc when _drawingVertices.Count > 0 => CreateArcPreview(mouseWorld),
+                MapCanvasTool.Polyline or MapCanvasTool.Polygon when _drawingVertices.Count > 0 => CreateMultiPointPreview(
+                    mouseWorld,
+                    _activeTool == MapCanvasTool.Polygon),
+                _ => null
+            };
+
+            if (previewShape == null)
+            {
+                yield break;
+            }
+
+            foreach (SnapPoint snapPoint in previewShape.GetSnapPoints())
+            {
+                if (!SameWorldPoint(snapPoint.Position, mouseWorld))
+                {
+                    yield return snapPoint;
+                }
+            }
+        }
+
+        private bool IsSuppressedPreviewSnapPoint(SnapPoint snapPoint)
+        {
+            return _activeTool == MapCanvasTool.Circle &&
+                   _drawingVertices.Count > 0 &&
+                   snapPoint.Type == SnapType.Quadrant &&
+                   ReferenceEquals(snapPoint.ParentShape, _previewShape);
+        }
+
+        private bool ScreenQueryContainsSnapPoint(Rectangle screenQuery, SnapPoint snapPoint)
+        {
+            PointD screen = _engine.WorldToScreen(snapPoint.Position);
+            return screenQuery.Contains(
+                new Point(
+                    (int)Math.Round(screen.X),
+                    (int)Math.Round(screen.Y)));
+        }
+
+        private static bool IsSnapCandidateFeature(CanvasFeature feature)
+        {
+            return feature.Shape.IsVisible &&
+                   feature.Layer?.IsVisible != false &&
+                   feature.Layer?.IsLocked != true;
+        }
+
+        private static bool ShapeIntersectsWorldQuery(IShape shape, RectangleD worldQuery)
+        {
+            RectangleD bounds = shape.GetBoundingBox();
+            if (bounds.Width == 0.0 && bounds.Height == 0.0)
+            {
+                return worldQuery.Contains(new PointD(bounds.X, bounds.Y));
+            }
+
+            return bounds.IntersectsWith(worldQuery);
+        }
+
+        private static bool SameSnapPoint(SnapPoint? first, SnapPoint? second)
+        {
+            if (first == null || second == null)
+            {
+                return first == null && second == null;
+            }
+
+            return first.Type == second.Type &&
+                   SameWorldPoint(first.Position, second.Position);
+        }
+
+        private static bool SameWorldPoint(PointD first, PointD second)
+        {
+            return Math.Abs(first.X - second.X) <= 1e-9 &&
+                   Math.Abs(first.Y - second.Y) <= 1e-9;
+        }
+
+        private void DrawSnapGlyph(Graphics graphics)
+        {
+            if (_currentSnapPoint == null)
+            {
+                return;
+            }
+
+            PointD screen = _engine.WorldToScreen(_currentSnapPoint.Position);
+            if (!double.IsFinite(screen.X) || !double.IsFinite(screen.Y))
+            {
+                return;
+            }
+
+            float size = _snapGlyphSizePixels;
+            float half = size / 2f;
+            PointF center = new((float)screen.X, (float)screen.Y);
+            Color snapColor = Color.FromArgb(255, 146, 0);
+            using Pen pen = new(snapColor, 1.8f)
+            {
+                LineJoin = LineJoin.Miter
+            };
+            using SolidBrush fillBrush = new(Color.FromArgb(34, snapColor));
+
+            switch (_currentSnapPoint.Type)
+            {
+                case SnapType.Endpoint:
+                    RectangleF endpointRect = new(center.X - half, center.Y - half, size, size);
+                    graphics.FillRectangle(fillBrush, endpointRect);
+                    graphics.DrawRectangle(
+                        pen,
+                        endpointRect.X,
+                        endpointRect.Y,
+                        endpointRect.Width,
+                        endpointRect.Height);
+                    break;
+
+                case SnapType.Midpoint:
+                    PointF[] triangle =
+                    [
+                        new(center.X, center.Y - half),
+                        new(center.X + half, center.Y + half),
+                        new(center.X - half, center.Y + half)
+                    ];
+                    graphics.FillPolygon(fillBrush, triangle);
+                    graphics.DrawPolygon(pen, triangle);
+                    break;
+
+                case SnapType.Center:
+                    RectangleF circleRect = new(center.X - half, center.Y - half, size, size);
+                    graphics.FillEllipse(fillBrush, circleRect);
+                    graphics.DrawEllipse(pen, circleRect);
+                    break;
+
+                case SnapType.Quadrant:
+                    PointF[] diamond =
+                    [
+                        new(center.X, center.Y - half),
+                        new(center.X + half, center.Y),
+                        new(center.X, center.Y + half),
+                        new(center.X - half, center.Y)
+                    ];
+                    graphics.FillPolygon(fillBrush, diamond);
+                    graphics.DrawPolygon(pen, diamond);
+                    break;
+
+                case SnapType.Intersection:
+                    graphics.DrawLine(pen, center.X - half, center.Y - half, center.X - half, center.Y + half);
+                    graphics.DrawLine(pen, center.X - half, center.Y + half, center.X + half, center.Y + half);
+                    break;
+
+                case SnapType.Perpendicular:
+                    graphics.DrawLine(pen, center.X - half, center.Y + half, center.X + half, center.Y + half);
+                    graphics.DrawLine(pen, center.X - half, center.Y + half, center.X - half, center.Y - half);
+                    graphics.DrawLine(pen, center.X - half, center.Y, center.X + half, center.Y);
+                    break;
+            }
+        }
+
+        private void DrawCircleDiameterPreview(Graphics graphics)
+        {
+            if (_activeTool != MapCanvasTool.Circle ||
+                _circleDrawingMode != CircleDrawingMode.CenterDiameter ||
+                _drawingVertices.Count == 0 ||
+                _previewShape == null)
+            {
+                return;
+            }
+
+            if (_previewShape is not CircleShape circle)
+            {
+                return;
+            }
+
+            // Draw a preview line from center to the current preview point and show diameter value at midpoint
+            if (_currentMouseWorld == null)
+            {
+                return;
+            }
+
+            PointF screenCenter = ToScreenPointF(circle.Center);
+            PointF screenEdge = ToScreenPointF(_currentMouseWorld.Value);
+
+            if (!double.IsFinite(screenCenter.X) || !double.IsFinite(screenCenter.Y) ||
+                !double.IsFinite(screenEdge.X) || !double.IsFinite(screenEdge.Y))
+            {
+                return;
+            }
+
+            using Pen previewPen = new(Color.FromArgb(200, 0, 120, 215), 1.5f);
+            previewPen.DashStyle = DashStyle.Dash;
+            graphics.DrawLine(previewPen, screenCenter, screenEdge);
+
+            // Diameter value (world units) = 2 * radius
+            double worldRadius = Math.Sqrt(
+                (circle.Center.X - _currentMouseWorld.Value.X) * (circle.Center.X - _currentMouseWorld.Value.X) +
+                (circle.Center.Y - _currentMouseWorld.Value.Y) * (circle.Center.Y - _currentMouseWorld.Value.Y));
+            double diameter = worldRadius * 2.0;
+
+            string text = diameter.ToString("0.##", CultureInfo.InvariantCulture);
+            using Font font = _debugOverlayFont;
+            SizeF textSize = graphics.MeasureString(text, font);
+
+            // Midpoint of the preview line (center -> edge)
+            PointF mid = new PointF((screenCenter.X + screenEdge.X) / 2f, (screenCenter.Y + screenEdge.Y) / 2f);
+
+            RectangleF textBg = new RectangleF(mid.X - textSize.Width / 2f - 4f, mid.Y - textSize.Height / 2f - 2f, textSize.Width + 8f, textSize.Height + 4f);
+            using Brush bg = new SolidBrush(Color.FromArgb(200, Color.White));
+            using Pen border = new(Color.FromArgb(160, 0, 0, 0));
+            graphics.FillRectangle(bg, textBg);
+            graphics.DrawRectangle(border, Rectangle.Round(textBg));
+            using Brush textBrush = new SolidBrush(Color.FromArgb(220, 0, 0, 0));
+            graphics.DrawString(text, font, textBrush, new PointF(textBg.Left + 4f, textBg.Top + 2f));
         }
 
         private void ApplyObjectSelectionFromMouseUp(Point mouseUpLocation, bool additiveSelection)
@@ -1849,6 +2680,7 @@ namespace Land_Readjustment_Tool.UI.CustomControls
                 $"Raster layers {rendererState.VisibleRasterLayerCount}/{rendererState.RasterLayerCount}  draw {rasterFrameSource}  cache {(rasterState.CacheValid ? "valid" : "cold")}  pan {(rasterState.PanBufferValid ? "ready" : "no")}  zoom {(rasterState.ZoomFrameAvailable ? "held" : "no")}  refresh {rasterState.LastRefreshElapsedMs:0.0} ms  pending {_rasterCacheRefreshPending}",
                 $"Vector layers {rendererState.VectorLayerCount}  features {vectorStats.TotalFeatureCount}  STRtree {vectorStats.SpatialIndexEntryCount}  draw {vectorFrameSource}  cache {(rendererState.VectorCache.CacheValid ? "valid" : "cold")}  pan {(rendererState.VectorCache.PanBufferValid ? "ready" : "no")}  refresh {rendererState.VectorCache.LastRefreshElapsedMs:0.0} ms",
                 $"Vector query {vectorStats.QueryCandidateCount} in {vectorStats.QueryElapsedMs:0.00} ms  rendered {vectorStats.RenderedFeatureCount}  hidden {vectorStats.HiddenSkippedCount}  LOD {(vectorStats.LevelOfDetailEnabled ? "on" : "off")} skipped {vectorStats.LodSkippedCount} min {vectorStats.MinimumVisibleWorldSize:0.###}",
+                $"Snap {(_snapEnabled ? "on" : "off")}  glyph {_snapGlyphSizePixels:0.#} px  tolerance {_snapPickTolerancePixels:0.#} px  query features {_lastSnapQueryFeatureCount}  candidates {_lastSnapCandidateCount}  {_lastSnapQueryElapsedMs:0.00} ms  current {_currentSnapPoint?.Type.ToString() ?? "none"}",
                 $"Interaction tool {_activeTool}  pan {_isPanning}  zoom {_isZooming} {_zoomDirection ?? ""}  raster deferred {ShouldDeferDirectRasterRendering}  vector deferred {ShouldDeferDirectVectorRendering}  live pending {_liveTileRefreshPending}"
             ];
 

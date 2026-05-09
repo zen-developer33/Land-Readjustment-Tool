@@ -8,6 +8,7 @@ namespace Land_Readjustment_Tool.UI.MapCanvas.Core
         Polyline,
         Polygon,
         Rectangle,
-        Circle
+        Circle,
+        Arc
     }
 }

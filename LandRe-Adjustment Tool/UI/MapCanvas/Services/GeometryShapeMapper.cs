@@ -1,5 +1,6 @@
 using System.Drawing;
 using System.Reflection;
+using System.Text.Json;
 using Land_Readjustment_Tool.Core.Entities.Canvas;
 using Land_Readjustment_Tool.UI.MapCanvas.Models.Shapes;
 using NetTopologySuite.Geometries;
@@ -27,6 +28,7 @@ namespace Land_Readjustment_Tool.UI.MapCanvas.Services
             canvasObject.CanvasLayerId = layerId;
             canvasObject.ObjectType = ResolveObjectType(shape);
             canvasObject.Shape = ToGeometry(shape);
+            canvasObject.GeometryMetadataJson = CreateGeometryMetadataJson(shape);
             canvasObject.IsVisible = shape.IsVisible;
             canvasObject.BorderColorOverride = ResolveColorOverride(shape, "BorderColorOverride", target?.BorderColorOverride);
             canvasObject.FillColorOverride = ResolveColorOverride(shape, "FillColorOverride", target?.FillColorOverride);
@@ -82,7 +84,11 @@ namespace Land_Readjustment_Tool.UI.MapCanvas.Services
             ArgumentNullException.ThrowIfNull(canvasObject);
             ArgumentNullException.ThrowIfNull(canvasObject.Shape);
 
-            IShape shape = CreateShapeFromGeometry(canvasObject.ObjectType, canvasObject.Shape, canvasObject.LabelText);
+            IShape shape = CreateShapeFromGeometry(
+                canvasObject.ObjectType,
+                canvasObject.Shape,
+                canvasObject.LabelText,
+                canvasObject.GeometryMetadataJson);
 
             SetShapeId(shape, canvasObject.Id);
             shape.LayerName = canvasObject.CanvasLayer?.Name ?? shape.LayerName;
@@ -160,6 +166,7 @@ namespace Land_Readjustment_Tool.UI.MapCanvas.Services
                 PolylineShape polyline => CreateGeometryFromPolyline(polyline),
                 RectangleShape rectangle => CreatePolygonFromRectangle(rectangle),
                 CircleShape circle => CreatePolygonFromCircle(circle),
+                ArcShape arc => CreateLineStringFromArc(arc),
                 EllipseShape ellipse => CreatePolygonFromEllipse(ellipse),
                 TextShape text => GeometryFactory.CreatePoint(
                     new Coordinate(text.Position.X, text.Position.Y)),
@@ -215,6 +222,14 @@ namespace Land_Readjustment_Tool.UI.MapCanvas.Services
             return (Polygon)GeometryFactory.CreatePoint(center).Buffer(radius, quadrantSegments: 24);
         }
 
+        private static LineString CreateLineStringFromArc(ArcShape arc)
+        {
+            Coordinate[] coordinates = arc.SamplePoints(96)
+                .Select(point => new Coordinate(point.X, point.Y))
+                .ToArray();
+            return GeometryFactory.CreateLineString(coordinates);
+        }
+
         private static Polygon CreatePolygonFromEllipse(EllipseShape ellipse)
         {
             RectangleD bounds = ellipse.GetBoundingBox();
@@ -255,8 +270,28 @@ namespace Land_Readjustment_Tool.UI.MapCanvas.Services
         private static IShape CreateShapeFromGeometry(
             string objectType,
             Geometry geometry,
-            string? labelText)
+            string? labelText,
+            string? metadataJson)
         {
+            if (objectType.Equals("Circle", StringComparison.OrdinalIgnoreCase))
+            {
+                if (TryCreateCircleFromMetadata(metadataJson, out CircleShape? circle))
+                {
+                    return circle;
+                }
+
+                if (TryCreateCircleFromPolygon(geometry, out circle))
+                {
+                    return circle;
+                }
+            }
+
+            if (objectType.Equals("Arc", StringComparison.OrdinalIgnoreCase) &&
+                TryCreateArcFromMetadata(metadataJson, out ArcShape? arc))
+            {
+                return arc;
+            }
+
             Geometry simplified = ReduceGeometry(geometry);
 
             if (objectType.Equals("Text", StringComparison.OrdinalIgnoreCase) &&
@@ -370,6 +405,7 @@ namespace Land_Readjustment_Tool.UI.MapCanvas.Services
                 LineShape => "Line",
                 CircleShape => "Circle",
                 RectangleShape => "Polygon",
+                ArcShape => "Arc",
                 EllipseShape => "Polygon",
                 TextShape => "Text",
                 _ => "Polyline"
@@ -405,6 +441,148 @@ namespace Land_Readjustment_Tool.UI.MapCanvas.Services
         {
             return ColorTranslator.ToHtml(Color.FromArgb(255, color.R, color.G, color.B));
         }
+
+        private static string? CreateGeometryMetadataJson(IShape shape)
+        {
+            try
+            {
+                return shape switch
+                {
+                    CircleShape circle => JsonSerializer.Serialize(new CurveMetadata(
+                        "Circle",
+                        circle.Center.X,
+                        circle.Center.Y,
+                        circle.RadiusPoint.X,
+                        circle.RadiusPoint.Y,
+                        circle.GetRadius(),
+                        null,
+                        null)),
+                    ArcShape arc => JsonSerializer.Serialize(new CurveMetadata(
+                        "Arc",
+                        arc.Center.X,
+                        arc.Center.Y,
+                        null,
+                        null,
+                        arc.Radius,
+                        arc.StartAngleRadians,
+                        arc.SweepAngleRadians)),
+                    _ => null
+                };
+            }
+            catch
+            {
+                return null;
+            }
+        }
+
+        private static bool TryCreateCircleFromMetadata(
+            string? metadataJson,
+            out CircleShape? circle)
+        {
+            circle = null;
+            if (string.IsNullOrWhiteSpace(metadataJson))
+            {
+                return false;
+            }
+
+            try
+            {
+                CurveMetadata? metadata = JsonSerializer.Deserialize<CurveMetadata>(metadataJson);
+                if (metadata == null ||
+                    !metadata.ShapeType.Equals("Circle", StringComparison.OrdinalIgnoreCase) ||
+                    !metadata.Radius.HasValue ||
+                    metadata.Radius.Value <= 0.0)
+                {
+                    return false;
+                }
+
+                PointD center = new(metadata.CenterX, metadata.CenterY);
+                PointD radiusPoint = metadata.RadiusPointX.HasValue && metadata.RadiusPointY.HasValue
+                    ? new PointD(metadata.RadiusPointX.Value, metadata.RadiusPointY.Value)
+                    : new PointD(metadata.CenterX + metadata.Radius.Value, metadata.CenterY);
+                circle = new CircleShape(center, radiusPoint);
+                return true;
+            }
+            catch
+            {
+                return false;
+            }
+        }
+
+        private static bool TryCreateArcFromMetadata(
+            string? metadataJson,
+            out ArcShape? arc)
+        {
+            arc = null;
+            if (string.IsNullOrWhiteSpace(metadataJson))
+            {
+                return false;
+            }
+
+            try
+            {
+                CurveMetadata? metadata = JsonSerializer.Deserialize<CurveMetadata>(metadataJson);
+                if (metadata == null ||
+                    !metadata.ShapeType.Equals("Arc", StringComparison.OrdinalIgnoreCase) ||
+                    !metadata.Radius.HasValue ||
+                    !metadata.StartAngleRadians.HasValue ||
+                    !metadata.SweepAngleRadians.HasValue ||
+                    metadata.Radius.Value <= 0.0)
+                {
+                    return false;
+                }
+
+                arc = new ArcShape(
+                    new PointD(metadata.CenterX, metadata.CenterY),
+                    metadata.Radius.Value,
+                    metadata.StartAngleRadians.Value,
+                    metadata.SweepAngleRadians.Value);
+                return true;
+            }
+            catch
+            {
+                return false;
+            }
+        }
+
+        private static bool TryCreateCircleFromPolygon(
+            Geometry geometry,
+            out CircleShape? circle)
+        {
+            circle = null;
+            Geometry simplified = ReduceGeometry(geometry);
+            if (simplified is not Polygon polygon)
+            {
+                return false;
+            }
+
+            Envelope envelope = polygon.EnvelopeInternal;
+            double width = envelope.Width;
+            double height = envelope.Height;
+            if (width <= 0.0 ||
+                height <= 0.0 ||
+                Math.Abs(width - height) > Math.Max(width, height) * 0.02)
+            {
+                return false;
+            }
+
+            double radius = (width + height) / 4.0;
+            PointD center = new(
+                (envelope.MinX + envelope.MaxX) / 2.0,
+                (envelope.MinY + envelope.MaxY) / 2.0);
+            circle = new CircleShape(center, new PointD(center.X + radius, center.Y));
+            return true;
+        }
+
+        private sealed record CurveMetadata(
+            string ShapeType,
+            double CenterX,
+            double CenterY,
+            double? RadiusPointX,
+            double? RadiusPointY,
+            double? Radius,
+            double? StartAngleRadians,
+            double? SweepAngleRadians);
 
         private static string? ResolveColorOverride(
             IShape shape,

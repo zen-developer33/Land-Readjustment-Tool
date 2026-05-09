@@ -7,9 +7,9 @@ namespace Land_Readjustment_Tool.UI.MapCanvas.Models.Snapping
     {
         public SnapType Type { get; set; }
         public PointD Position { get; set; }
-        public IShape ParentShape { get; set; }
+        public IShape? ParentShape { get; set; }
 
-        public SnapPoint(SnapType type, PointD position, IShape parentShape)
+        public SnapPoint(SnapType type, PointD position, IShape? parentShape)
         {
             Type = type;
             Position = position;

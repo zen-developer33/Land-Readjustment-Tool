@@ -56,6 +56,10 @@ namespace Land_Readjustment_Tool.Services.Project
                 throw new InvalidOperationException(
                     "Snap tolerance must be greater than 0.");
 
+            if (settings.SnapGlyphSizePx <= 0)
+                throw new InvalidOperationException(
+                    "Snap glyph size must be greater than 0.");
+
             try
             {
                 _logger.LogInfo("Saving project settings.");

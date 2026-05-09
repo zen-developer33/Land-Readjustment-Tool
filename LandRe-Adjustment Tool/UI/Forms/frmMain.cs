@@ -290,6 +290,24 @@ namespace Land_Readjustment_Tool
 
         }
 
+        // Designer-referenced event handlers (minimal implementations)
+        private async void mnuDrawArc_Click(object sender, EventArgs e)
+        {
+            await ActivateCanvasDrawingToolAsync(MapCanvasTool.Arc);
+        }
+
+        private void cboCurrentDrawingLayer_Click(object sender, EventArgs e)
+        {
+            try
+            {
+                cboCurrentDrawingLayer.DroppedDown = true;
+            }
+            catch
+            {
+                // ignore UI errors
+            }
+        }
+
         private void PlaceLiveTileFetchStatusLeftOfCoordinates()
         {
             if (statusCanvas.Items.Contains(_liveTileFetchStatus))
@@ -836,8 +854,14 @@ namespace Land_Readjustment_Tool
             mnuDrawPolygon.Enabled = enabled;
             mnuDrawRectangle.Enabled = enabled;
             mnuDrawCircle.Enabled = enabled;
+            mnuDrawArc.Enabled = enabled;
             lblCurrentDrawingLayer.Enabled = enabled;
             cboCurrentDrawingLayer.Enabled = enabled;
+
+            if (enabled)
+            {
+                UpdateDrawingToolAvailability();
+            }
         }
 
         // -- NEW PROJECT ------------------------------
@@ -1104,7 +1128,10 @@ namespace Land_Readjustment_Tool
 
                 mapCanvasControlMain.ApplyRenderSettings(
                     MapCanvasSettingsService.FromProjectSettings(settings));
-                mapCanvasControlMain.ApplySnapEnabled(settings.SnapEnabled);
+                mapCanvasControlMain.ApplySnapSettings(
+                    settings.SnapEnabled,
+                    settings.SnapTolerancePx,
+                    settings.SnapGlyphSizePx);
 
                 // Update layer colors to be theme-aware
                 if (showRefreshProgress)
@@ -1120,8 +1147,10 @@ namespace Land_Readjustment_Tool
                     _workspaceCanvas.ApplyGridColor(gridColor);
                     _workspaceCanvas.ApplyGridVisible(
                         settings.CanvasGridVisible);
-                    _workspaceCanvas.ApplySnapEnabled(
-                        settings.SnapEnabled);
+                    _workspaceCanvas.ApplySnapSettings(
+                        settings.SnapEnabled,
+                        settings.SnapTolerancePx,
+                        settings.SnapGlyphSizePx);
                 }
 
                 if (updateRasterProjection)
@@ -2898,6 +2927,7 @@ namespace Land_Readjustment_Tool
             mnuDrawPolygon.Checked = tool == MapCanvasTool.Polygon;
             mnuDrawRectangle.Checked = tool == MapCanvasTool.Rectangle;
             mnuDrawCircle.Checked = tool == MapCanvasTool.Circle;
+            mnuDrawArc.Checked = tool == MapCanvasTool.Arc;
         }
 
         private async Task<CanvasLayer?> ResolveCurrentDrawingLayerForToolAsync(
@@ -3057,6 +3087,7 @@ namespace Land_Readjustment_Tool
                 MapCanvasTool.Point => "Point Markup",
                 MapCanvasTool.Line => "Line Markup",
                 MapCanvasTool.Polyline => "Polyline Markup",
+                MapCanvasTool.Arc => "Arc Markup",
                 MapCanvasTool.Rectangle => "Rectangle Markup",
                 MapCanvasTool.Polygon => "Polygon Markup",
                 MapCanvasTool.Circle => "Circle Markup",
@@ -3069,10 +3100,46 @@ namespace Land_Readjustment_Tool
             return tool switch
             {
                 MapCanvasTool.Point => CanvasLayerTreeService.PointLayerType,
-                MapCanvasTool.Line or MapCanvasTool.Polyline => CanvasLayerTreeService.PolylineLayerType,
+                MapCanvasTool.Line or MapCanvasTool.Polyline or MapCanvasTool.Arc => CanvasLayerTreeService.PolylineLayerType,
                 MapCanvasTool.Rectangle or MapCanvasTool.Polygon or MapCanvasTool.Circle => CanvasLayerTreeService.PolygonLayerType,
                 _ => CanvasLayerTreeService.PolylineLayerType
             };
+        }
+
+        private void UpdateDrawingToolAvailability()
+        {
+            bool enabled = cboCurrentDrawingLayer.Enabled;
+            CanvasLayer? selectedLayer = GetSelectedCurrentDrawingLayer();
+            bool allowAllForAutoLayerCreation = selectedLayer == null;
+
+            mnuDrawPoint.Enabled = enabled &&
+                                   (allowAllForAutoLayerCreation ||
+                                    IsDrawingLayerCompatibleWithTool(selectedLayer, MapCanvasTool.Point));
+            mnuDrawLine.Enabled = enabled &&
+                                  (allowAllForAutoLayerCreation ||
+                                   IsDrawingLayerCompatibleWithTool(selectedLayer, MapCanvasTool.Line));
+            mnuDrawPolyline.Enabled = enabled &&
+                                      (allowAllForAutoLayerCreation ||
+                                       IsDrawingLayerCompatibleWithTool(selectedLayer, MapCanvasTool.Polyline));
+            mnuDrawArc.Enabled = enabled &&
+                                (allowAllForAutoLayerCreation ||
+                                 IsDrawingLayerCompatibleWithTool(selectedLayer, MapCanvasTool.Arc));
+            mnuDrawPolygon.Enabled = enabled &&
+                                     (allowAllForAutoLayerCreation ||
+                                      IsDrawingLayerCompatibleWithTool(selectedLayer, MapCanvasTool.Polygon));
+            mnuDrawRectangle.Enabled = enabled &&
+                                       (allowAllForAutoLayerCreation ||
+                                        IsDrawingLayerCompatibleWithTool(selectedLayer, MapCanvasTool.Rectangle));
+            mnuDrawCircle.Enabled = enabled &&
+                                    (allowAllForAutoLayerCreation ||
+                                     IsDrawingLayerCompatibleWithTool(selectedLayer, MapCanvasTool.Circle));
+
+            if (_currentCanvasTool != MapCanvasTool.Select &&
+                selectedLayer != null &&
+                !IsDrawingLayerCompatibleWithTool(selectedLayer, _currentCanvasTool))
+            {
+                ActivateCanvasTool(MapCanvasTool.Select);
+            }
         }
 
         private static bool IsDrawingLayerCompatibleWithTool(CanvasLayer? layer, MapCanvasTool tool)
@@ -3158,6 +3225,7 @@ namespace Land_Readjustment_Tool
                         _suppressCurrentDrawingLayerSelectionChanged = previousSuppression;
                     }
 
+                    UpdateDrawingToolAvailability();
                     return;
                 }
             }
@@ -3171,6 +3239,7 @@ namespace Land_Readjustment_Tool
             }
 
             _currentDrawingLayer = GetSelectedCurrentDrawingLayer();
+            UpdateDrawingToolAvailability();
             if (_currentCanvasTool == MapCanvasTool.Select)
             {
                 mapCanvasControlMain.SetActiveTool(_currentCanvasTool, _currentDrawingLayer);
@@ -3955,6 +4024,16 @@ namespace Land_Readjustment_Tool
             }
 
             CanvasLayer? layer = GetLayerFromNode(node);
+            if (IsProtectedRePlotDefaultLayerNameNode(node, layer))
+            {
+                MessageBox.Show(
+                    "Layer Name cannot be changed",
+                    "Rename Layer",
+                    MessageBoxButtons.OK,
+                    MessageBoxIcon.Information);
+                return;
+            }
+
             if (layer?.IsLocked == true)
             {
                 ShowLayerLockedMessage(layer, "renamed");
@@ -3970,6 +4049,31 @@ namespace Land_Readjustment_Tool
             _layerRenameTextBox.Focus();
             _layerRenameTextBox.SelectAll();
             treeViewLayers.Invalidate();
+        }
+
+        private static bool IsProtectedRePlotDefaultLayerNameNode(
+            TreeNode? node,
+            CanvasLayer? layer)
+        {
+            if (node == null ||
+                layer == null ||
+                !CanvasLayerTreeService.IsProtectedDefaultLayer(layer))
+            {
+                return false;
+            }
+
+            for (TreeNode? current = node; current != null; current = current.Parent)
+            {
+                if (string.Equals(
+                        current.Name,
+                        $"{LayerGroupNodeNamePrefix}{RePlotRootNodeKey}",
+                        StringComparison.OrdinalIgnoreCase))
+                {
+                    return true;
+                }
+            }
+
+            return false;
         }
 
         private async void LayerRenameTextBox_KeyDown(object? sender, KeyEventArgs e)
@@ -4163,6 +4267,16 @@ namespace Land_Readjustment_Tool
             if (nodeState.Layer.IsLocked)
             {
                 ShowLayerLockedMessage(nodeState.Layer, "renamed");
+                return;
+            }
+
+            if (IsProtectedRePlotDefaultLayerNameNode(node, nodeState.Layer))
+            {
+                MessageBox.Show(
+                    "Layer Name cannot be changed",
+                    "Rename Layer",
+                    MessageBoxButtons.OK,
+                    MessageBoxIcon.Information);
                 return;
             }
 
@@ -5587,6 +5701,8 @@ namespace Land_Readjustment_Tool
             {
                 _suppressCurrentDrawingLayerSelectionChanged = false;
             }
+
+            UpdateDrawingToolAvailability();
         }
 
         private int FindCurrentDrawingLayerComboIndex(int layerId)
