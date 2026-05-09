@@ -1971,8 +1971,9 @@ namespace Land_Readjustment_Tool.UI.CustomControls
                     break;
 
                 case SnapType.Intersection:
-                    graphics.DrawLine(pen, center.X - half, center.Y - half, center.X - half, center.Y + half);
-                    graphics.DrawLine(pen, center.X - half, center.Y + half, center.X + half, center.Y + half);
+                    // Draw a centered cross for intersection snaps (like AutoCAD)
+                    graphics.DrawLine(pen, center.X - half, center.Y, center.X + half, center.Y);
+                    graphics.DrawLine(pen, center.X, center.Y - half, center.X, center.Y + half);
                     break;
 
                 case SnapType.Perpendicular:
@@ -2024,8 +2025,8 @@ namespace Land_Readjustment_Tool.UI.CustomControls
             double diameter = worldRadius * 2.0;
 
             string text = diameter.ToString("0.##", CultureInfo.InvariantCulture);
-            using Font font = _debugOverlayFont;
-            SizeF textSize = graphics.MeasureString(text, font);
+            Font font = _debugOverlayFont;
+            Size textSize = TextRenderer.MeasureText(text, font);
 
             // Midpoint of the preview line (center -> edge)
             PointF mid = new PointF((screenCenter.X + screenEdge.X) / 2f, (screenCenter.Y + screenEdge.Y) / 2f);
@@ -2036,7 +2037,15 @@ namespace Land_Readjustment_Tool.UI.CustomControls
             graphics.FillRectangle(bg, textBg);
             graphics.DrawRectangle(border, Rectangle.Round(textBg));
             using Brush textBrush = new SolidBrush(Color.FromArgb(220, 0, 0, 0));
-            graphics.DrawString(text, font, textBrush, new PointF(textBg.Left + 4f, textBg.Top + 2f));
+            TextRenderer.DrawText(
+                graphics,
+                text,
+                font,
+                Rectangle.Round(textBg),
+                Color.FromArgb(220, 0, 0, 0),
+                TextFormatFlags.HorizontalCenter |
+                TextFormatFlags.VerticalCenter |
+                TextFormatFlags.NoPadding);
         }
 
         private void ApplyObjectSelectionFromMouseUp(Point mouseUpLocation, bool additiveSelection)

@@ -60,6 +60,12 @@ namespace Land_Readjustment_Tool.Core.Entities.Project
         // Default unchecked as requested.
         public bool CanvasAxisMarkerVisible { get; set; } = false;
 
+        // Show north marker overlay on the canvas
+        public bool CanvasNorthMarkerVisible { get; set; } = false;
+
+        // Enable anti-aliased vector/reference drawing
+        public bool CanvasAntiAliasingEnabled { get; set; } = true;
+
         // Enable snap to geometry points
         public bool SnapEnabled { get; set; } = true;
 

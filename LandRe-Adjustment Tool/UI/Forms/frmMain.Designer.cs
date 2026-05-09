@@ -160,10 +160,10 @@ namespace Land_Readjustment_Tool
             cboCurrentDrawingLayer = new ToolStripComboBox();
             mnuCanvasDebugOverlay = new ToolStripButton();
             toolStripLabel1 = new ToolStripLabel();
+            tsmExpandCollapseRightPanel = new ToolStripButton();
             mnuOrthoToggle = new ToolStripButton();
             toolStripSeparator11 = new ToolStripSeparator();
             mnuOSnapToggle = new ToolStripButton();
-            tsmExpandCollapseRightPanel = new ToolStripButton();
             grpParcelObjProp = new GroupBox();
             dgvParcelObjProperty = new DataGridView();
             statusCanvas = new StatusStrip();
@@ -1193,7 +1193,7 @@ namespace Land_Readjustment_Tool
             tsCanvasTools.Font = new Font("Segoe UI", 9F);
             tsCanvasTools.GripStyle = ToolStripGripStyle.Hidden;
             tsCanvasTools.ImageScalingSize = new Size(20, 20);
-            tsCanvasTools.Items.AddRange(new ToolStripItem[] { tsmExpandCollapseLeftPanel, toolStripSeparator10, mnuSelectTool, mnuDrawPoint, mnuDrawLine, mnuDrawPolyline, mnuDrawPolygon, mnuDrawRectangle, mnuDrawCircle, mnuDrawArc, toolStripSeparator17, lblCurrentDrawingLayer, cboCurrentDrawingLayer, mnuCanvasDebugOverlay, toolStripLabel1, tsmExpandCollapseRightPanel, mnuOrthoToggle, toolStripSeparator11, mnuOSnapToggle });
+            tsCanvasTools.Items.AddRange(new ToolStripItem[] { tsmExpandCollapseLeftPanel, toolStripSeparator10, mnuSelectTool, mnuDrawPoint, mnuDrawLine, mnuDrawPolyline, mnuDrawRectangle, mnuDrawPolygon, mnuDrawCircle, mnuDrawArc, toolStripSeparator17, lblCurrentDrawingLayer, cboCurrentDrawingLayer, mnuCanvasDebugOverlay, toolStripLabel1, tsmExpandCollapseRightPanel, mnuOrthoToggle, toolStripSeparator11, mnuOSnapToggle });
             tsCanvasTools.Location = new Point(0, 0);
             tsCanvasTools.Name = "tsCanvasTools";
             tsCanvasTools.Size = new Size(905, 28);
@@ -1224,7 +1224,7 @@ namespace Land_Readjustment_Tool
             mnuSelectTool.CheckOnClick = true;
             mnuSelectTool.CheckState = CheckState.Checked;
             mnuSelectTool.DisplayStyle = ToolStripItemDisplayStyle.Image;
-            mnuSelectTool.Image = Properties.Resources.icons8_select_cursor_24;
+            mnuSelectTool.Image = Properties.Resources.SelectionCursorIcon;
             mnuSelectTool.ImageTransparentColor = Color.Magenta;
             mnuSelectTool.Name = "mnuSelectTool";
             mnuSelectTool.Size = new Size(29, 25);
@@ -1279,7 +1279,7 @@ namespace Land_Readjustment_Tool
             // 
             mnuDrawRectangle.CheckOnClick = true;
             mnuDrawRectangle.DisplayStyle = ToolStripItemDisplayStyle.Image;
-            mnuDrawRectangle.Image = Properties.Resources.icons8_polygon_24__1_;
+            mnuDrawRectangle.Image = Properties.Resources.icons8_rectangle_241;
             mnuDrawRectangle.ImageTransparentColor = Color.Magenta;
             mnuDrawRectangle.Name = "mnuDrawRectangle";
             mnuDrawRectangle.Size = new Size(29, 25);
@@ -1345,6 +1345,20 @@ namespace Land_Readjustment_Tool
             toolStripLabel1.Name = "toolStripLabel1";
             toolStripLabel1.Size = new Size(0, 25);
             // 
+            // tsmExpandCollapseRightPanel
+            // 
+            tsmExpandCollapseRightPanel.Alignment = ToolStripItemAlignment.Right;
+            tsmExpandCollapseRightPanel.Checked = true;
+            tsmExpandCollapseRightPanel.CheckOnClick = true;
+            tsmExpandCollapseRightPanel.CheckState = CheckState.Checked;
+            tsmExpandCollapseRightPanel.DisplayStyle = ToolStripItemDisplayStyle.Image;
+            tsmExpandCollapseRightPanel.Image = Properties.Resources.icons8_close_right_pane_50;
+            tsmExpandCollapseRightPanel.ImageTransparentColor = Color.Magenta;
+            tsmExpandCollapseRightPanel.Name = "tsmExpandCollapseRightPanel";
+            tsmExpandCollapseRightPanel.Size = new Size(29, 25);
+            tsmExpandCollapseRightPanel.Text = "Collapse Right Panel";
+            tsmExpandCollapseRightPanel.Click += tsmExpandCollapseRightPanel_Click;
+            // 
             // mnuOrthoToggle
             // 
             mnuOrthoToggle.Alignment = ToolStripItemAlignment.Right;
@@ -1376,20 +1390,6 @@ namespace Land_Readjustment_Tool
             mnuOSnapToggle.Text = "OSnap (F3)";
             mnuOSnapToggle.ToolTipText = "Object Snap (F3)";
             mnuOSnapToggle.Click += mnuOSnapToggle_Click;
-            // 
-            // tsmExpandCollapseRightPanel
-            // 
-            tsmExpandCollapseRightPanel.Alignment = ToolStripItemAlignment.Right;
-            tsmExpandCollapseRightPanel.Checked = true;
-            tsmExpandCollapseRightPanel.CheckOnClick = true;
-            tsmExpandCollapseRightPanel.CheckState = CheckState.Checked;
-            tsmExpandCollapseRightPanel.DisplayStyle = ToolStripItemDisplayStyle.Image;
-            tsmExpandCollapseRightPanel.Image = Properties.Resources.icons8_close_right_pane_50;
-            tsmExpandCollapseRightPanel.ImageTransparentColor = Color.Magenta;
-            tsmExpandCollapseRightPanel.Name = "tsmExpandCollapseRightPanel";
-            tsmExpandCollapseRightPanel.Size = new Size(29, 25);
-            tsmExpandCollapseRightPanel.Text = "Collapse Right Panel";
-            tsmExpandCollapseRightPanel.Click += tsmExpandCollapseRightPanel_Click;
             // 
             // grpParcelObjProp
             // 

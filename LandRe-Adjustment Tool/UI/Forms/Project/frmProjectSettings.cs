@@ -260,6 +260,8 @@ namespace Land_Readjustment_Tool.UI.Forms.Project
 
             chkGridVisible.Checked = s.CanvasGridVisible;
             chkOriginAxisMarkerVisible.Checked = s.CanvasAxisMarkerVisible;
+            chkNorthMarker.Checked = s.CanvasNorthMarkerVisible;
+            chkAntiAliasing.Checked = s.CanvasAntiAliasingEnabled;
             chkSnapEnabled.Checked = s.SnapEnabled;
             nudSnapTolerance.Value = (decimal)s.SnapTolerancePx;
             nudSnapGlyphSize.Value = (decimal)s.SnapGlyphSizePx;
@@ -305,6 +307,8 @@ namespace Land_Readjustment_Tool.UI.Forms.Project
                 ColorTranslator.ToHtml(pnlGridColor.BackColor);
             s.CanvasGridVisible = chkGridVisible.Checked;
             s.CanvasAxisMarkerVisible = chkOriginAxisMarkerVisible.Checked;
+            s.CanvasNorthMarkerVisible = chkNorthMarker.Checked;
+            s.CanvasAntiAliasingEnabled = chkAntiAliasing.Checked;
             s.SnapEnabled = chkSnapEnabled.Checked;
             s.SnapTolerancePx = (double)nudSnapTolerance.Value;
             s.SnapGlyphSizePx = (double)nudSnapGlyphSize.Value;
@@ -659,6 +663,8 @@ namespace Land_Readjustment_Tool.UI.Forms.Project
             UpdateCanvasColorLabels();
             chkGridVisible.Checked = false;
             chkOriginAxisMarkerVisible.Checked = false;
+            chkNorthMarker.Checked = false;
+            chkAntiAliasing.Checked = true;
             chkSnapEnabled.Checked = true;
             nudSnapTolerance.Value = ClampToRange(nudSnapTolerance, 8m);
             nudSnapGlyphSize.Value = ClampToRange(nudSnapGlyphSize, 14m);

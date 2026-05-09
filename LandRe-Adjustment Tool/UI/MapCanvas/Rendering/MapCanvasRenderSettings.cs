@@ -37,6 +37,8 @@ namespace Land_Readjustment_Tool.UI.MapCanvas.Rendering
         public bool ShowAxisLabels { get; set; } = true;
         public bool ShowCoordinateOverlay { get; set; } = true;
         public bool ShowOriginMarker { get; set; } = true;
+        public bool ShowNorthMarker { get; set; } = false;
+        public bool AntiAliasingEnabled { get; set; } = true;
         public MapCanvasZoomBehavior ZoomBehavior { get; set; } = MapCanvasZoomBehavior.Normal;
 
         /// <summary>
@@ -95,6 +97,8 @@ namespace Land_Readjustment_Tool.UI.MapCanvas.Rendering
                 ShowAxisLabels = projectSettings.CanvasAxisMarkerVisible,
                 ShowCoordinateOverlay = true,
                 ShowOriginMarker = projectSettings.CanvasAxisMarkerVisible,
+                ShowNorthMarker = projectSettings.CanvasNorthMarkerVisible,
+                AntiAliasingEnabled = projectSettings.CanvasAntiAliasingEnabled,
                 ZoomBehavior = ParseZoomBehavior(projectSettings.CanvasZoomBehavior),
             };
         }

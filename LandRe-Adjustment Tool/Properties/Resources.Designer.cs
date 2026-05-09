@@ -1093,6 +1093,16 @@ namespace Land_Readjustment_Tool.Properties {
         /// <summary>
         ///   Looks up a localized resource of type System.Drawing.Bitmap.
         /// </summary>
+        public static System.Drawing.Bitmap icons8_rectangle_241 {
+            get {
+                object obj = ResourceManager.GetObject("icons8-rectangle-241", resourceCulture);
+                return ((System.Drawing.Bitmap)(obj));
+            }
+        }
+        
+        /// <summary>
+        ///   Looks up a localized resource of type System.Drawing.Bitmap.
+        /// </summary>
         public static System.Drawing.Bitmap icons8_redo_24 {
             get {
                 object obj = ResourceManager.GetObject("icons8-redo-24", resourceCulture);
@@ -1627,6 +1637,16 @@ namespace Land_Readjustment_Tool.Properties {
             get {
                 object obj = ResourceManager.GetObject("search_icon", resourceCulture);
                 return ((byte[])(obj));
+            }
+        }
+        
+        /// <summary>
+        ///   Looks up a localized resource of type System.Drawing.Bitmap.
+        /// </summary>
+        public static System.Drawing.Bitmap SelectionCursorIcon {
+            get {
+                object obj = ResourceManager.GetObject("SelectionCursorIcon", resourceCulture);
+                return ((System.Drawing.Bitmap)(obj));
             }
         }
     }

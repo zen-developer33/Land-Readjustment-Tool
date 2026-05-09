@@ -339,6 +339,48 @@ namespace Land_Readjustment_Tool.UI.MapCanvas.Rendering
             {
                 RenderAxisAndOriginMarker(graphics, viewport);
             }
+
+            if (_settings.ShowNorthMarker)
+            {
+                RenderNorthMarker(graphics, viewport.VisibleScreenBounds);
+            }
+        }
+
+        private void RenderNorthMarker(Graphics graphics, RectangleF clientRect)
+        {
+            const float margin = 18.0f;
+            const float arrowHeight = 42.0f;
+            const float arrowHalfWidth = 10.0f;
+
+            float centerX = clientRect.Right - margin - arrowHalfWidth;
+            float top = clientRect.Top + margin;
+            float bottom = top + arrowHeight;
+
+            PointF tip = new(centerX, top);
+            PointF right = new(centerX + arrowHalfWidth, bottom);
+            PointF notch = new(centerX, bottom - 10.0f);
+            PointF left = new(centerX - arrowHalfWidth, bottom);
+
+            using GraphicsPath markerPath = new();
+            markerPath.AddPolygon([tip, right, notch, left]);
+
+            using SolidBrush fillBrush = new(Color.FromArgb(230, _settings.AxisMarkerColor));
+            using Pen borderPen = new(_settings.AxisLabelColor, 1.0f);
+            using SolidBrush textBrush = new(_settings.AxisLabelColor);
+            graphics.FillPath(fillBrush, markerPath);
+            graphics.DrawPath(borderPen, markerPath);
+
+            using StringFormat format = new()
+            {
+                Alignment = StringAlignment.Center,
+                LineAlignment = StringAlignment.Near
+            };
+            graphics.DrawString(
+                "N",
+                _axisFont,
+                textBrush,
+                new PointF(centerX, bottom + 3.0f),
+                format);
         }
 
         /// <summary>
@@ -539,13 +581,23 @@ namespace Land_Readjustment_Tool.UI.MapCanvas.Rendering
         /// </summary>
         /// <param name="graphics">Graphics context to configure.</param>
         // For vector content — grid, axis, overlays
-        private static void ConfigureVectorGraphics(Graphics graphics)
+        private void ConfigureVectorGraphics(Graphics graphics)
         {
-            graphics.SmoothingMode = SmoothingMode.AntiAlias;
-            graphics.InterpolationMode = InterpolationMode.HighQualityBicubic;
-            graphics.PixelOffsetMode = PixelOffsetMode.HighQuality;
-            graphics.CompositingQuality = CompositingQuality.HighQuality;
-            graphics.TextRenderingHint = TextRenderingHint.ClearTypeGridFit;
+            if (_settings.AntiAliasingEnabled)
+            {
+                graphics.SmoothingMode = SmoothingMode.AntiAlias;
+                graphics.InterpolationMode = InterpolationMode.HighQualityBicubic;
+                graphics.PixelOffsetMode = PixelOffsetMode.HighQuality;
+                graphics.CompositingQuality = CompositingQuality.HighQuality;
+                graphics.TextRenderingHint = TextRenderingHint.ClearTypeGridFit;
+                return;
+            }
+
+            graphics.SmoothingMode = SmoothingMode.None;
+            graphics.InterpolationMode = InterpolationMode.NearestNeighbor;
+            graphics.PixelOffsetMode = PixelOffsetMode.None;
+            graphics.CompositingQuality = CompositingQuality.HighSpeed;
+            graphics.TextRenderingHint = TextRenderingHint.SingleBitPerPixelGridFit;
         }
 
         // For raster content — tiles, bitmaps
@@ -558,13 +610,9 @@ namespace Land_Readjustment_Tool.UI.MapCanvas.Rendering
             graphics.TextRenderingHint = TextRenderingHint.SingleBitPerPixel;
         }
 
-        private static void ConfigureVectorContentGraphics(Graphics graphics)
+        private void ConfigureVectorContentGraphics(Graphics graphics)
         {
-            graphics.SmoothingMode = SmoothingMode.AntiAlias;
-            graphics.InterpolationMode = InterpolationMode.HighQualityBicubic;
-            graphics.PixelOffsetMode = PixelOffsetMode.HighQuality;
-            graphics.CompositingQuality = CompositingQuality.HighQuality;
-            graphics.TextRenderingHint = TextRenderingHint.ClearTypeGridFit;
+            ConfigureVectorGraphics(graphics);
         }
 
         /// <summary>

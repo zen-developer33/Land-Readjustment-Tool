@@ -62,6 +62,8 @@ namespace Land_Readjustment_Tool.UI.MapCanvas.Services
             settings.ShowAxisLines = projectSettings.CanvasAxisMarkerVisible;
             settings.ShowOriginMarker = projectSettings.CanvasAxisMarkerVisible;
             settings.ShowAxisLabels = projectSettings.CanvasAxisMarkerVisible;
+            settings.ShowNorthMarker = projectSettings.CanvasNorthMarkerVisible;
+            settings.AntiAliasingEnabled = projectSettings.CanvasAntiAliasingEnabled;
             settings.ZoomBehavior = ParseZoomBehavior(projectSettings.CanvasZoomBehavior);
 
             return settings;
