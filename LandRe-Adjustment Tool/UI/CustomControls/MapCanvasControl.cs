@@ -789,7 +789,8 @@ namespace Land_Readjustment_Tool.UI.CustomControls
 
             DrawObjectSelectionRectangle(e.Graphics);
             DrawSnapGlyph(e.Graphics);
-            DrawCircleDiameterPreview(e.Graphics);
+            // Diameter preview drawing is handled by the vector renderer when the
+            // preview shape contains the CenterDiameterEndpoint property.
             frameStopwatch.Stop();
             UpdateDebugFrameTiming(frameStopwatch.Elapsed.TotalMilliseconds);
             DrawDebugOverlayIfNeeded(e.Graphics, rasterFrameSource, vectorFrameSource);
@@ -1640,6 +1641,14 @@ namespace Land_Readjustment_Tool.UI.CustomControls
                 _ => null
             };
 
+            // If we're in Center+Diameter mode, attach the raw diameter endpoint
+            // to the preview shape so the renderer can draw a diameter preview
+            // (and display the diameter value) instead of a radius value.
+            if (_previewShape is CircleShape previewCircle &&
+                _circleDrawingMode == CircleDrawingMode.CenterDiameter)
+            {
+                previewCircle.Properties["CenterDiameterEndpoint"] = worldPoint;
+            }
             if (_previewShape != null)
             {
                 _previewShape.LayerName = _activeDrawingLayerName;
@@ -1921,18 +1930,17 @@ namespace Land_Readjustment_Tool.UI.CustomControls
             float size = _snapGlyphSizePixels;
             float half = size / 2f;
             PointF center = new((float)screen.X, (float)screen.Y);
-            Color snapColor = Color.FromArgb(255, 146, 0);
-            using Pen pen = new(snapColor, 1.8f)
+            // Use one contrasting goldish-green outline color with no fill.
+            Color strokeColor = Color.FromArgb(255, 120, 185, 20);
+            using Pen pen = new(strokeColor, 2.35f)
             {
                 LineJoin = LineJoin.Miter
             };
-            using SolidBrush fillBrush = new(Color.FromArgb(34, snapColor));
 
             switch (_currentSnapPoint.Type)
             {
                 case SnapType.Endpoint:
                     RectangleF endpointRect = new(center.X - half, center.Y - half, size, size);
-                    graphics.FillRectangle(fillBrush, endpointRect);
                     graphics.DrawRectangle(
                         pen,
                         endpointRect.X,
@@ -1948,13 +1956,11 @@ namespace Land_Readjustment_Tool.UI.CustomControls
                         new(center.X + half, center.Y + half),
                         new(center.X - half, center.Y + half)
                     ];
-                    graphics.FillPolygon(fillBrush, triangle);
                     graphics.DrawPolygon(pen, triangle);
                     break;
 
                 case SnapType.Center:
                     RectangleF circleRect = new(center.X - half, center.Y - half, size, size);
-                    graphics.FillEllipse(fillBrush, circleRect);
                     graphics.DrawEllipse(pen, circleRect);
                     break;
 
@@ -1966,14 +1972,13 @@ namespace Land_Readjustment_Tool.UI.CustomControls
                         new(center.X, center.Y + half),
                         new(center.X - half, center.Y)
                     ];
-                    graphics.FillPolygon(fillBrush, diamond);
                     graphics.DrawPolygon(pen, diamond);
                     break;
 
                 case SnapType.Intersection:
-                    // Draw a centered cross for intersection snaps (like AutoCAD)
-                    graphics.DrawLine(pen, center.X - half, center.Y, center.X + half, center.Y);
-                    graphics.DrawLine(pen, center.X, center.Y - half, center.X, center.Y + half);
+                    // Draw a diagonal cross for intersection snaps.
+                    graphics.DrawLine(pen, center.X - half, center.Y - half, center.X + half, center.Y + half);
+                    graphics.DrawLine(pen, center.X - half, center.Y + half, center.X + half, center.Y - half);
                     break;
 
                 case SnapType.Perpendicular:

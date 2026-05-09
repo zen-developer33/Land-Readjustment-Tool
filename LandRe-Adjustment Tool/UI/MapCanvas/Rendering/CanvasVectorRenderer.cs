@@ -195,44 +195,93 @@ namespace Land_Readjustment_Tool.UI.MapCanvas.Rendering
             VectorRenderContext context)
         {
             PointF center = ToScreenPointF(engine.WorldToScreen(circle.Center));
-            PointF edge = ToScreenPointF(engine.WorldToScreen(circle.RadiusPoint));
-            if (!IsValidPoint(center) ||
-                !IsValidPoint(edge) ||
-                Distance(center, edge) < 2.0f)
+
+            // If preview shape has a CenterDiameterEndpoint property, draw a
+            // diameter preview (center -> endpoint) and display the diameter
+            // value. Otherwise draw the usual radius preview.
+            if (circle.Properties.TryGetValue("CenterDiameterEndpoint", out object? endpointObj) && endpointObj is PointD endpointWorld)
+            {
+                PointF edge = ToScreenPointF(engine.WorldToScreen(endpointWorld));
+                if (!IsValidPoint(center) || !IsValidPoint(edge) || Distance(center, edge) < 2.0f)
+                {
+                    return;
+                }
+
+                using GraphicsPath path = new();
+                path.AddLine(center, edge);
+                graphics.DrawPath(
+                    context.GetPen(Color.FromArgb(232, 224, 172, 36), 1.1f, DashStyle.Dash),
+                    path);
+
+                // Diameter in world units is the distance between center and endpoint
+                double dx = circle.Center.X - endpointWorld.X;
+                double dy = circle.Center.Y - endpointWorld.Y;
+                double diameter = Math.Sqrt(dx * dx + dy * dy);
+
+                string diameterText = diameter.ToString("0.###", CultureInfo.CurrentCulture);
+                SizeF textSize = graphics.MeasureString(diameterText, _previewFont);
+                PointF midpoint = new(
+                    (center.X + edge.X) / 2.0f,
+                    (center.Y + edge.Y) / 2.0f);
+                RectangleF labelBounds = new(
+                    midpoint.X - textSize.Width / 2.0f - 4.0f,
+                    midpoint.Y - textSize.Height / 2.0f - 2.0f,
+                    textSize.Width + 8.0f,
+                    textSize.Height + 4.0f);
+
+                graphics.FillRectangle(context.GetSolidBrush(Color.White), labelBounds);
+                graphics.DrawRectangle(
+                    context.GetPen(Color.FromArgb(90, 90, 90), 1.0f),
+                    labelBounds.X,
+                    labelBounds.Y,
+                    labelBounds.Width,
+                    labelBounds.Height);
+                graphics.DrawString(
+                    diameterText,
+                    _previewFont,
+                    context.GetSolidBrush(Color.FromArgb(32, 32, 32)),
+                    labelBounds.X + 4.0f,
+                    labelBounds.Y + 2.0f);
+                return;
+            }
+
+            // Default radius preview
+            PointF edgeDefault = ToScreenPointF(engine.WorldToScreen(circle.RadiusPoint));
+            if (!IsValidPoint(center) || !IsValidPoint(edgeDefault) || Distance(center, edgeDefault) < 2.0f)
             {
                 return;
             }
 
-            using GraphicsPath path = new();
-            path.AddLine(center, edge);
+            using GraphicsPath pathDefault = new();
+            pathDefault.AddLine(center, edgeDefault);
             graphics.DrawPath(
                 context.GetPen(Color.FromArgb(232, 224, 172, 36), 1.1f, DashStyle.Dash),
-                path);
+                pathDefault);
 
             string radiusText = circle.GetRadius().ToString("0.###", CultureInfo.CurrentCulture);
-            SizeF textSize = graphics.MeasureString(radiusText, _previewFont);
-            PointF midpoint = new(
-                (center.X + edge.X) / 2.0f,
-                (center.Y + edge.Y) / 2.0f);
-            RectangleF labelBounds = new(
-                midpoint.X - textSize.Width / 2.0f - 4.0f,
-                midpoint.Y - textSize.Height / 2.0f - 2.0f,
-                textSize.Width + 8.0f,
-                textSize.Height + 4.0f);
+            SizeF textSizeDefault = graphics.MeasureString(radiusText, _previewFont);
+            PointF midpointDefault = new(
+                (center.X + edgeDefault.X) / 2.0f,
+                (center.Y + edgeDefault.Y) / 2.0f);
+            RectangleF labelBoundsDefault = new(
+                midpointDefault.X - textSizeDefault.Width / 2.0f - 4.0f,
+                midpointDefault.Y - textSizeDefault.Height / 2.0f - 2.0f,
+                textSizeDefault.Width + 8.0f,
+                textSizeDefault.Height + 4.0f);
 
-            graphics.FillRectangle(context.GetSolidBrush(Color.White), labelBounds);
+            graphics.FillRectangle(context.GetSolidBrush(Color.White), labelBoundsDefault);
             graphics.DrawRectangle(
                 context.GetPen(Color.FromArgb(90, 90, 90), 1.0f),
-                labelBounds.X,
-                labelBounds.Y,
-                labelBounds.Width,
-                labelBounds.Height);
+                labelBoundsDefault.X,
+                labelBoundsDefault.Y,
+                labelBoundsDefault.Width,
+                labelBoundsDefault.Height);
             graphics.DrawString(
                 radiusText,
                 _previewFont,
                 context.GetSolidBrush(Color.FromArgb(32, 32, 32)),
-                labelBounds.X + 4.0f,
-                labelBounds.Y + 2.0f);
+                labelBoundsDefault.X + 4.0f,
+                labelBoundsDefault.Y + 2.0f);
         }
 
         private static bool IsRenderable(
