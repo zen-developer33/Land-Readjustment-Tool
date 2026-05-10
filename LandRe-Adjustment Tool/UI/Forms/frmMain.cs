@@ -68,7 +68,7 @@ namespace Land_Readjustment_Tool
         private const string DrawingMarkupGroupKey = CanvasLayerTreeService.DrawingMarkupGroupKey;
         private const string RasterLayerGroupKey = CanvasLayerTreeService.RasterGroupKey;
         private const int LayerNodeCheckBoxSize = 14;
-        private const int LayerNodeCheckBoxGap = 6;
+        private const int LayerNodeCheckBoxGap = 10;
         private const int LayerNodeColorBoxSize = 18;
         private const int LayerNodeColorBoxGap = 4;
         private readonly ContextMenuStrip _layerContextMenu = new();

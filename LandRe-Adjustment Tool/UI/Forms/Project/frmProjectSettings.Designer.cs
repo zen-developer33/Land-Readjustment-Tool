@@ -326,12 +326,14 @@ namespace Land_Readjustment_Tool.UI.Forms.Project
             // 
             // chkAntiAliasing
             // 
+            chkAntiAliasing.CheckAlign = ContentAlignment.TopLeft;
             chkAntiAliasing.Font = new Font("Segoe UI", 9F);
             chkAntiAliasing.Location = new Point(10, 26);
             chkAntiAliasing.Name = "chkAntiAliasing";
-            chkAntiAliasing.Size = new Size(119, 27);
+            chkAntiAliasing.Size = new Size(247, 55);
             chkAntiAliasing.TabIndex = 14;
-            chkAntiAliasing.Text = "Anti-Aliasing";
+            chkAntiAliasing.Text = "Anti-Aliasing for smooth vector rendering";
+            chkAntiAliasing.TextAlign = ContentAlignment.TopLeft;
             // 
             // grpSnap
             // 

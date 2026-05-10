@@ -117,7 +117,7 @@ namespace Land_Readjustment_Tool.UI.Forms
             buttonPanel.Controls.Add(btnImport);
             buttonPanel.Controls.Add(btnCancel);
             buttonPanel.FlowDirection = FlowDirection.RightToLeft;
-            buttonPanel.Location = new Point(335, 568);
+            buttonPanel.Location = new Point(335, 596);
             buttonPanel.Margin = new Padding(3, 4, 3, 4);
             buttonPanel.Name = "buttonPanel";
             buttonPanel.Size = new Size(479, 45);
@@ -397,7 +397,7 @@ namespace Land_Readjustment_Tool.UI.Forms
             mainLayout.RowStyles.Add(new RowStyle(SizeType.Percent, 100F));
             mainLayout.RowStyles.Add(new RowStyle(SizeType.Absolute, 53F));
             mainLayout.RowStyles.Add(new RowStyle(SizeType.Absolute, 27F));
-            mainLayout.Size = new Size(831, 633);
+            mainLayout.Size = new Size(831, 661);
             mainLayout.TabIndex = 0;
             mainLayout.Paint += mainLayout_Paint;
             // 
@@ -411,7 +411,7 @@ namespace Land_Readjustment_Tool.UI.Forms
             grpSourceProjection.Margin = new Padding(3, 4, 3, 4);
             grpSourceProjection.Name = "grpSourceProjection";
             grpSourceProjection.Padding = new Padding(3, 4, 3, 4);
-            grpSourceProjection.Size = new Size(479, 231);
+            grpSourceProjection.Size = new Size(479, 259);
             grpSourceProjection.TabIndex = 5;
             grpSourceProjection.TabStop = false;
             grpSourceProjection.Text = "Source CRS and projection";
@@ -438,7 +438,7 @@ namespace Land_Readjustment_Tool.UI.Forms
             projectionLayout.RowStyles.Add(new RowStyle(SizeType.Absolute, 37F));
             projectionLayout.RowStyles.Add(new RowStyle(SizeType.Absolute, 91F));
             projectionLayout.RowStyles.Add(new RowStyle(SizeType.Percent, 100F));
-            projectionLayout.Size = new Size(473, 203);
+            projectionLayout.Size = new Size(473, 231);
             projectionLayout.TabIndex = 0;
             // 
             // rdoDetectedCrs
@@ -520,7 +520,7 @@ namespace Land_Readjustment_Tool.UI.Forms
             AutoScaleDimensions = new SizeF(8F, 20F);
             AutoScaleMode = AutoScaleMode.Font;
             CancelButton = btnCancel;
-            ClientSize = new Size(831, 633);
+            ClientSize = new Size(831, 661);
             Controls.Add(mainLayout);
             FormBorderStyle = FormBorderStyle.FixedDialog;
             Margin = new Padding(3, 4, 3, 4);
