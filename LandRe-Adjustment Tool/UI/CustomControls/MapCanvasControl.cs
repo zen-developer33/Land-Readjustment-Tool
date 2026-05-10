@@ -1272,6 +1272,9 @@ namespace Land_Readjustment_Tool.UI.CustomControls
 
             _pendingPolylineArcThroughPoint = null;
             UpdateDrawingPreview(screenPoint);
+
+            // After finishing the arc segment, reset the polyline segment mode to default
+            SetPolylineSegmentMode(PolylineSegmentDrawingMode.Line);
         }
 
         private IShape? CreateCircleShape(PointD firstPoint, PointD secondPoint)
@@ -1736,6 +1739,12 @@ namespace Land_Readjustment_Tool.UI.CustomControls
             _pendingPolylineArcThroughPoint = null;
             _previewShape = null;
             _currentSnapPoint = null;
+
+            // Reset drawing modes to defaults immediately after finishing a shape
+            SetArcDrawingMode(ArcDrawingMode.ThreePoint);
+            SetCircleDrawingMode(CircleDrawingMode.CenterRadius);
+            SetPolylineSegmentMode(PolylineSegmentDrawingMode.Line);
+
             ShapeCompleted?.Invoke(shape);
             UpdateStatusBar();
             RequestRender();

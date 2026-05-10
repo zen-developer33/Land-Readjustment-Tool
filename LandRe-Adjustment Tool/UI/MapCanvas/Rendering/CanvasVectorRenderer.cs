@@ -386,6 +386,7 @@ namespace Land_Readjustment_Tool.UI.MapCanvas.Rendering
 
             double lineWeight = layer?.LineWeight ?? canvasObject?.LineWeightOverride ?? 1.0;
             string lineStyle = layer?.LineStyle ?? canvasObject?.LineStyleOverride ?? "Solid";
+            double lineTypeScale = layer?.LineTypeScale ?? 1.0;
             bool hasStroke = lineWeight > 0 && stroke.A > 0;
             bool isPointStyle = layer != null && CanvasLayerTreeService.IsPointLayer(layer);
 
@@ -397,6 +398,7 @@ namespace Land_Readjustment_Tool.UI.MapCanvas.Rendering
                 (float)Math.Max(0, lineWeight),
                 hasStroke,
                 ResolveDashStyle(lineStyle),
+                (float)Math.Clamp(lineTypeScale, 0.1, 100.0),
                 fillMode,
                 string.IsNullOrWhiteSpace(layer?.HatchPattern) ? "ANSI31" : layer.HatchPattern.Trim(),
                 (float)Math.Clamp(layer?.HatchScale ?? 1.0, 0.15, 25.0),
@@ -470,6 +472,12 @@ namespace Land_Readjustment_Tool.UI.MapCanvas.Rendering
             DashStyle dashStyle = shape.IsSelected ? DashStyle.Dash : style.DashStyle;
             Pen? pen = shouldStroke ? context.GetPen(stroke, width, dashStyle) : null;
 
+            // Apply LineTypeScale to custom dash patterns
+            if (pen != null && !shape.IsSelected && style.LineTypeScale != 1.0f)
+            {
+                ApplyLineTypeScaleToPen(pen, dashStyle, style.LineTypeScale);
+            }
+
             switch (shape)
             {
                 case PolylineShape polyline:
@@ -496,6 +504,25 @@ namespace Land_Readjustment_Tool.UI.MapCanvas.Rendering
                 default:
                     shape.Draw(graphics, engine.WorldToScreen, context.IsPreview);
                     break;
+            }
+        }
+
+        private static void ApplyLineTypeScaleToPen(Pen pen, DashStyle dashStyle, float scale)
+        {
+            scale = Math.Clamp(scale, 0.1f, 100f);
+            switch (dashStyle)
+            {
+                case DashStyle.Dash:
+                    pen.DashPattern = [4f * scale, 2f * scale];
+                    break;
+                case DashStyle.Dot:
+                    pen.DashPattern = [1f * scale, 2f * scale];
+                    break;
+                case DashStyle.DashDot:
+                    pen.DashPattern = [4f * scale, 2f * scale, 1f * scale, 2f * scale];
+                    break;
+                // Note: DashDotDot would be [4f * scale, 2f * scale, 1f * scale, 2f * scale, 1f * scale, 2f * scale]
+                // but GDI+ DashStyle enum doesn't have DashDotDot built-in
             }
         }
 
@@ -1138,6 +1165,7 @@ namespace Land_Readjustment_Tool.UI.MapCanvas.Rendering
             float LineWidth,
             bool HasStroke,
             DashStyle DashStyle,
+            float LineTypeScale,
             FillMode FillMode,
             string HatchPattern,
             float HatchScale,

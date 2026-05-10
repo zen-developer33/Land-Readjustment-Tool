@@ -387,7 +387,8 @@ namespace Land_Readjustment_Tool.UI.Forms
 
             _txtName.ReadOnly = !_allowRename;
             _txtName.Enabled = canEdit && _allowRename;
-            _cboLayerKind.Enabled = canEdit && _isDrawingMarkupLayer;
+            // Layer type can only be changed for NEW drawing layers, not existing ones
+            _cboLayerKind.Enabled = canEdit && _isDrawingMarkupLayer && _allowRename;
             _chkVisible.Enabled = canEdit;
 
             bool isPoint = IsSelectedPointLayerType();

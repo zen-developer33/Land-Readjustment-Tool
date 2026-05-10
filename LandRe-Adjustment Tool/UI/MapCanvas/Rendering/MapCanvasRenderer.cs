@@ -1,4 +1,5 @@
 using Land_Readjustment_Tool.Core.Entities.Canvas;
+using Land_Readjustment_Tool.Services.Canvas;
 using Land_Readjustment_Tool.UI.MapCanvas.Core;
 using Land_Readjustment_Tool.UI.MapCanvas.Models.Shapes;
 using Land_Readjustment_Tool.UI.MapCanvas.Services;
@@ -349,39 +350,75 @@ namespace Land_Readjustment_Tool.UI.MapCanvas.Rendering
 
         private void RenderNorthMarker(Graphics graphics, RectangleF clientRect)
         {
-            const float margin = 18.0f;
-            const float arrowHeight = 42.0f;
-            const float arrowHalfWidth = 10.0f;
+            const float margin = 12.0f;
+            const float size = 40.0f; // overall control size (diameter)
+            float padding = 6.0f;
 
-            float centerX = clientRect.Right - margin - arrowHalfWidth;
-            float top = clientRect.Top + margin;
-            float bottom = top + arrowHeight;
+            float centerX = clientRect.Right - margin - size / 2.0f;
+            float centerY = clientRect.Top + margin + size / 2.0f;
 
-            PointF tip = new(centerX, top);
-            PointF right = new(centerX + arrowHalfWidth, bottom);
-            PointF notch = new(centerX, bottom - 10.0f);
-            PointF left = new(centerX - arrowHalfWidth, bottom);
+            // Theme-aware colors
+            Color canvasBg = _settings.BackgroundColor;
+            Color accent = CanvasThemeColorService.AdjustColorForCanvasTheme(canvasBg, _settings.AccentColor);
+            Color border = CanvasThemeColorService.AdjustColorForCanvasTheme(canvasBg, _settings.OverlayBorderColor);
+            Color label = CanvasThemeColorService.AdjustColorForCanvasTheme(canvasBg, _settings.OverlayTextColor);
 
-            using GraphicsPath markerPath = new();
-            markerPath.AddPolygon([tip, right, notch, left]);
+            RectangleF outer = new(
+                centerX - size / 2.0f,
+                centerY - size / 2.0f,
+                size,
+                size);
 
-            using SolidBrush fillBrush = new(Color.FromArgb(230, _settings.AxisMarkerColor));
-            using Pen borderPen = new(_settings.AxisLabelColor, 1.0f);
-            using SolidBrush textBrush = new(_settings.AxisLabelColor);
-            graphics.FillPath(fillBrush, markerPath);
-            graphics.DrawPath(borderPen, markerPath);
+            // subtle drop shadow
+            using SolidBrush shadowBrush = new(Color.FromArgb(48, 0, 0, 0));
+            RectangleF shadow = outer;
+            shadow.Offset(1.5f, 2.0f);
+            graphics.FillEllipse(shadowBrush, shadow);
 
+            // background plate
+            Color plateColor = _settings.OverlayBackgroundColor;
+            plateColor = Color.FromArgb(220, plateColor.R, plateColor.G, plateColor.B);
+            using SolidBrush plate = new(plateColor);
+            using Pen plateBorder = new(border, 1.0f);
+            graphics.FillEllipse(plate, outer);
+            graphics.DrawEllipse(plateBorder, outer);
+
+            // draw north arrow (triangle) pointing up
+            float arrowHeight = size * 0.48f;
+            float arrowHalf = size * 0.18f;
+            PointF tip = new(centerX, centerY - arrowHeight / 2.0f - padding / 2.0f);
+            PointF left = new(centerX - arrowHalf, centerY + arrowHeight / 2.0f - padding / 2.0f);
+            PointF right = new(centerX + arrowHalf, centerY + arrowHeight / 2.0f - padding / 2.0f);
+
+            using GraphicsPath arrow = new();
+            arrow.AddPolygon(new[] { tip, right, left });
+
+            using SolidBrush arrowFill = new(accent);
+            using Pen arrowBorder = new(Color.FromArgb(200, border), 1.0f);
+            graphics.FillPath(arrowFill, arrow);
+            graphics.DrawPath(arrowBorder, arrow);
+
+            // small stem below arrow
+            float stemWidth = arrowHalf * 0.45f;
+            float stemHeight = size * 0.12f;
+            RectangleF stem = new(
+                centerX - stemWidth / 2.0f,
+                centerY + arrowHeight / 2.0f - padding / 2.0f,
+                stemWidth,
+                stemHeight);
+            using SolidBrush stemBrush = new(accent);
+            graphics.FillRectangle(stemBrush, stem);
+            graphics.DrawRectangle(arrowBorder, Rectangle.Round(stem));
+
+            // label 'N' above the tip
             using StringFormat format = new()
             {
                 Alignment = StringAlignment.Center,
                 LineAlignment = StringAlignment.Near
             };
-            graphics.DrawString(
-                "N",
-                _axisFont,
-                textBrush,
-                tip,
-                format);
+            using SolidBrush textBrush = new(label);
+            PointF textPoint = new(tip.X, tip.Y - 4.0f);
+            graphics.DrawString("N", _axisFont, textBrush, textPoint, format);
         }
 
         /// <summary>

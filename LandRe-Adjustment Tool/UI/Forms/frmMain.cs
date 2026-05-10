@@ -72,6 +72,7 @@ namespace Land_Readjustment_Tool
         private const int LayerNodeColorBoxSize = 18;
         private const int LayerNodeColorBoxGap = 4;
         private readonly ContextMenuStrip _layerContextMenu = new();
+        
         private readonly ToolStripMenuItem _mnuZoomToLayer = new("Zoom To Layer");
         private readonly ToolStripMenuItem _mnuRenameLayer = new("Rename");
         private readonly ToolStripMenuItem _mnuDeleteLayer = new("Delete");
@@ -539,8 +540,8 @@ namespace Land_Readjustment_Tool
 
         private static void EnableDoubleBuffering(Control control)
         {
-            if (SystemInformation.TerminalServerSession)
-            {
+            if (SystemInformation.TerminalServerSession) 
+            { 
                 return;
             }
 
@@ -3039,9 +3040,9 @@ namespace Land_Readjustment_Tool
                 LineWeight = 1.3,
                 LineStyle = "Solid",
                 LineTypeScale = 1.0,
-                FillColor = layerType == CanvasLayerTreeService.PolygonLayerType ? drawingColor : null,
-                FillTransparency = layerType == CanvasLayerTreeService.PolygonLayerType ? 70 : 100,
-                FillStyle = layerType == CanvasLayerTreeService.PolygonLayerType ? "Solid" : "None",
+                FillColor = null,
+                FillTransparency = 100,
+                FillStyle = "None",
                 LabelColor = "#000000",
                 PointSymbol = "Dot",
                 PointSize = 5.0,
