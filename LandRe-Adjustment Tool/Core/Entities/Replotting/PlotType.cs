@@ -47,6 +47,6 @@ namespace Land_Readjustment_Tool.Core.Entities.Replotting
         public DateTime CreatedDate { get; set; }
 
         // Navigation properties
-        public ICollection<ReplottedParcel> ReplottedParcels { get; set; } = [];
+        public ICollection<ReplottedParcel> ReplottedParcels { get; set; } = new List<ReplottedParcel>();
     }
 }

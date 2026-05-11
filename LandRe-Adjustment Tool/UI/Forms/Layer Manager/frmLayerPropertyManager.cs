@@ -182,6 +182,7 @@ namespace Land_Readjustment_Tool.UI.Forms
         private void cboLayerKind_SelectedIndexChanged(object? sender, EventArgs e)
         {
             UpdateLayerKindPresentation();
+            ConfigureLockedControlState();
             UpdateFillControlState();
             _pnlLinePreview.Invalidate();
             _pnlPointMarkerPreview.Invalidate();

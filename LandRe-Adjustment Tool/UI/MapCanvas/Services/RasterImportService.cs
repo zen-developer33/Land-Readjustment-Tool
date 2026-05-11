@@ -865,7 +865,7 @@ namespace Land_Readjustment_Tool.UI.MapCanvas.Services
 
             RasterCrsInfo crsInfo = RasterCrsInfo.FromWkt(projectionWkt);
 
-            List<RasterBandMetadata> bands = [];
+            List<RasterBandMetadata> bands = new List<RasterBandMetadata>();
             for (int bandIndex = 1; bandIndex <= dataset.RasterCount; bandIndex++)
             {
                 using Band band = dataset.GetRasterBand(bandIndex);
@@ -1285,7 +1285,7 @@ namespace Land_Readjustment_Tool.UI.MapCanvas.Services
             using SqliteCommand infoCommand = connection.CreateCommand();
             infoCommand.CommandText = $"PRAGMA index_info({QuoteSqliteIdentifier(indexName)})";
 
-            List<string> actualColumns = [];
+            List<string> actualColumns = new List<string>();
             using SqliteDataReader infoReader = infoCommand.ExecuteReader();
             while (infoReader.Read())
             {

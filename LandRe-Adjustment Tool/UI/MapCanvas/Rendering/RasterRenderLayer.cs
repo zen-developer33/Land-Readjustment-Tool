@@ -27,11 +27,11 @@ namespace Land_Readjustment_Tool.UI.MapCanvas.Rendering
         private readonly double[] _inverseGeoTransform;
         private readonly RasterBandSelection _bandSelection;
         private readonly RasterTileDiskCache _tileDiskCache;
-        private readonly Dictionary<RasterTileCacheKey, Bitmap> _tileCache = [];
-        private readonly LinkedList<RasterTileCacheKey> _tileLru = [];
-        private readonly Dictionary<RasterTileCacheKey, LinkedListNode<RasterTileCacheKey>> _tileLruNodes = [];
-        private readonly Dictionary<int, RasterTileIndex> _tileIndexes = [];
-        private readonly Dictionary<int, RasterOverviewInfo> _overviewInfos = [];
+        private readonly Dictionary<RasterTileCacheKey, Bitmap> _tileCache = new Dictionary<RasterTileCacheKey, Bitmap>();
+        private readonly LinkedList<RasterTileCacheKey> _tileLru = new LinkedList<RasterTileCacheKey>();
+        private readonly Dictionary<RasterTileCacheKey, LinkedListNode<RasterTileCacheKey>> _tileLruNodes = new Dictionary<RasterTileCacheKey, LinkedListNode<RasterTileCacheKey>>();
+        private readonly Dictionary<int, RasterTileIndex> _tileIndexes = new Dictionary<int, RasterTileIndex>();
+        private readonly Dictionary<int, RasterOverviewInfo> _overviewInfos = new Dictionary<int, RasterOverviewInfo>();
         private readonly object _renderSync = new();
         private ImageAttributes? _opacityImageAttributes;
 
@@ -1320,7 +1320,7 @@ namespace Land_Readjustment_Tool.UI.MapCanvas.Rendering
             private const string CacheRootFolderName = "RePlotRasterTileCache";
             private const string CacheFormatVersion = "raster-tile-cache-v3";
             private readonly string _cacheFolder;
-            private readonly ConcurrentDictionary<RasterTileCacheKey, byte> _pendingWrites = [];
+            private readonly ConcurrentDictionary<RasterTileCacheKey, byte> _pendingWrites = new ConcurrentDictionary<RasterTileCacheKey, byte>();
 
             private RasterTileDiskCache(string cacheFolder)
             {

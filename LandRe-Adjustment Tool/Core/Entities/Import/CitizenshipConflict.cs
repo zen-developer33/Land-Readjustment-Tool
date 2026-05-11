@@ -32,6 +32,6 @@ namespace Land_Readjustment_Tool.Core.Entities.Import
 
         // Navigation properties
         public ImportSession ImportSession { get; set; } = null!;
-        public ICollection<CitizenshipConflictRecord> ConflictingRecords { get; set; } = [];
+        public ICollection<CitizenshipConflictRecord> ConflictingRecords { get; set; } = new List<CitizenshipConflictRecord>();
     }
 }

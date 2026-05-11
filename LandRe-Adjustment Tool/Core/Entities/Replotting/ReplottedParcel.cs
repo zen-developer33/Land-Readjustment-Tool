@@ -57,15 +57,15 @@ namespace Land_Readjustment_Tool.Core.Entities.Replotting
         public CanvasObject? CanvasObject { get; set; }
         public ICollection<ReplottedParcelOwner>
             ReplottedParcelOwners
-        { get; set; } = [];
+        { get; set; } = new List<ReplottedParcelOwner>();
         public ICollection<OriginalToReplottedMap>
             OriginalToReplottedMaps
-        { get; set; } = [];
+        { get; set; } = new List<OriginalToReplottedMap>();
         public ICollection<ParcelFrontage>
             ParcelFrontages
-        { get; set; } = [];
+        { get; set; } = new List<ParcelFrontage>();
         public ICollection<ParcelContributionSummary>
             ParcelContributionSummaries
-        { get; set; } = [];
+        { get; set; } = new List<ParcelContributionSummary>();
     }
 }

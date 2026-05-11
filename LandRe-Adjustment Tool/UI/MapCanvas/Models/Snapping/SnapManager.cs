@@ -10,7 +10,7 @@ namespace Land_Readjustment_Tool.UI.MapCanvas.Models.Snapping
             IEnumerable<SnapPoint> extraSnapPoints,
             PointD? fromPoint)
         {
-            List<SnapPoint> candidates = [];
+            List<SnapPoint> candidates = new List<SnapPoint>();
 
             foreach (IShape shape in nearbyShapes)
             {
@@ -59,7 +59,7 @@ namespace Land_Readjustment_Tool.UI.MapCanvas.Models.Snapping
 
         public IEnumerable<SnapPoint> GetIntersectionSnapPoints(IReadOnlyList<IShape> shapes)
         {
-            List<SnapPoint> result = [];
+            List<SnapPoint> result = new List<SnapPoint>();
 
             for (int i = 0; i < shapes.Count; i++)
             {
@@ -76,7 +76,7 @@ namespace Land_Readjustment_Tool.UI.MapCanvas.Models.Snapping
             PointD fromPoint,
             IEnumerable<IShape> shapes)
         {
-            List<SnapPoint> result = [];
+            List<SnapPoint> result = new List<SnapPoint>();
 
             foreach (IShape shape in shapes)
             {
@@ -105,7 +105,7 @@ namespace Land_Readjustment_Tool.UI.MapCanvas.Models.Snapping
 
         public IEnumerable<PointD> GetPolylineSelfIntersections(IReadOnlyList<PointD> vertices)
         {
-            List<PointD> result = [];
+            List<PointD> result = new List<PointD>();
 
             for (int i = 0; i < vertices.Count - 1; i++)
             {
@@ -128,7 +128,7 @@ namespace Land_Readjustment_Tool.UI.MapCanvas.Models.Snapping
 
         private IEnumerable<SnapPoint> GetShapePairIntersections(IShape shapeA, IShape shapeB)
         {
-            List<SnapPoint> result = [];
+            List<SnapPoint> result = new List<SnapPoint>();
             List<(PointD a, PointD b)> segmentsA = GetSegments(shapeA);
             List<(PointD a, PointD b)> segmentsB = GetSegments(shapeB);
 
@@ -175,7 +175,7 @@ namespace Land_Readjustment_Tool.UI.MapCanvas.Models.Snapping
 
         private static List<(PointD a, PointD b)> GetSegments(IShape shape)
         {
-            List<(PointD a, PointD b)> segments = [];
+            List<(PointD a, PointD b)> segments = new List<(PointD a, PointD b)>();
 
             switch (shape)
             {
@@ -184,6 +184,27 @@ namespace Land_Readjustment_Tool.UI.MapCanvas.Models.Snapping
                     break;
 
                 case PolylineShape { Vertices.Count: > 1 } polyline:
+                    if (polyline.Segments.Count > 0)
+                    {
+                        foreach (PolylineShape.PolylineSegment segment in polyline.Segments)
+                        {
+                            if (segment.Kind == PolylineShape.PolylineSegmentKind.Arc && segment.Arc != null)
+                            {
+                                PointD[] arcPoints = segment.Arc.SamplePoints(64).ToArray();
+                                for (int i = 0; i < arcPoints.Length - 1; i++)
+                                {
+                                    segments.Add((arcPoints[i], arcPoints[i + 1]));
+                                }
+                            }
+                            else
+                            {
+                                segments.Add((segment.Start, segment.End));
+                            }
+                        }
+
+                        break;
+                    }
+
                     for (int i = 0; i < polyline.Vertices.Count - 1; i++)
                     {
                         segments.Add((polyline.Vertices[i], polyline.Vertices[i + 1]));
@@ -217,10 +238,10 @@ namespace Land_Readjustment_Tool.UI.MapCanvas.Models.Snapping
                     break;
 
                 case ArcShape arc:
-                    PointD[] arcPoints = arc.SamplePoints(96).ToArray();
-                    for (int i = 0; i < arcPoints.Length - 1; i++)
+                    PointD[] sampledArcPoints = arc.SamplePoints(96).ToArray();
+                    for (int i = 0; i < sampledArcPoints.Length - 1; i++)
                     {
-                        segments.Add((arcPoints[i], arcPoints[i + 1]));
+                        segments.Add((sampledArcPoints[i], sampledArcPoints[i + 1]));
                     }
 
                     break;
@@ -329,7 +350,7 @@ namespace Land_Readjustment_Tool.UI.MapCanvas.Models.Snapping
             PointD lineEnd,
             CircleShape circle)
         {
-            List<SnapPoint> result = [];
+            List<SnapPoint> result = new List<SnapPoint>();
             double radius = circle.GetRadius();
             double x1 = lineStart.X - circle.Center.X;
             double y1 = lineStart.Y - circle.Center.Y;

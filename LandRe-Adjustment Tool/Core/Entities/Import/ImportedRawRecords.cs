@@ -60,6 +60,6 @@ namespace Land_Readjustment_Tool.Core.Entities.Import
 
         // Navigation properties
         public ImportSession ImportSession { get; set; } = null!;
-        public ICollection<ValidationError> ValidationErrors { get; set; } = [];
+        public ICollection<ValidationError> ValidationErrors { get; set; } = new List<ValidationError>();
     }
 }

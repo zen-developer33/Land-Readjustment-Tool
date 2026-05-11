@@ -187,6 +187,21 @@ namespace Land_Readjustment_Tool.UI.MapCanvas.Services
                 return GeometryFactory.CreatePoint(new Coordinate(v.X, v.Y));
             }
 
+            if (polyline.Segments.Count > 0)
+            {
+                List<Coordinate> sampledCoordinates = polyline.GetGeometryPoints(24)
+                    .Select(v => new Coordinate(v.X, v.Y))
+                    .ToList();
+
+                if (polyline.IsClosed && sampledCoordinates.Count >= 3)
+                {
+                    CloseRing(sampledCoordinates);
+                    return GeometryFactory.CreatePolygon(sampledCoordinates.ToArray());
+                }
+
+                return GeometryFactory.CreateLineString(sampledCoordinates.ToArray());
+            }
+
             List<Coordinate> coordinates = polyline.Vertices
                 .Select(v => new Coordinate(v.X, v.Y))
                 .ToList();
@@ -291,6 +306,13 @@ namespace Land_Readjustment_Tool.UI.MapCanvas.Services
                  TryCreateArcFromApproximatedGeometry(geometry, out arc)))
             {
                 return arc;
+            }
+
+            if ((objectType.Equals("Polyline", StringComparison.OrdinalIgnoreCase) ||
+                 objectType.Equals("Polygon", StringComparison.OrdinalIgnoreCase)) &&
+                TryCreatePolylineFromMetadata(metadataJson, out PolylineShape? polyline))
+            {
+                return polyline;
             }
 
             Geometry simplified = ReduceGeometry(geometry);
@@ -467,6 +489,7 @@ namespace Land_Readjustment_Tool.UI.MapCanvas.Services
                         arc.Radius,
                         arc.StartAngleRadians,
                         arc.SweepAngleRadians)),
+                    PolylineShape polyline => CreatePolylineMetadataJson(polyline),
                     _ => null
                 };
             }
@@ -474,6 +497,56 @@ namespace Land_Readjustment_Tool.UI.MapCanvas.Services
             {
                 return null;
             }
+        }
+
+        private static string? CreatePolylineMetadataJson(PolylineShape polyline)
+        {
+            if (polyline.Segments.Count == 0)
+            {
+                return null;
+            }
+
+            List<PolylineSegmentMetadata> segments = new();
+            foreach (PolylineShape.PolylineSegment segment in polyline.Segments)
+            {
+                if (segment.Kind == PolylineShape.PolylineSegmentKind.Arc && segment.Arc != null)
+                {
+                    segments.Add(new PolylineSegmentMetadata(
+                        "Arc",
+                        segment.Start.X,
+                        segment.Start.Y,
+                        segment.End.X,
+                        segment.End.Y,
+                        segment.Arc.Center.X,
+                        segment.Arc.Center.Y,
+                        segment.Arc.Radius,
+                        segment.Arc.StartAngleRadians,
+                        segment.Arc.SweepAngleRadians));
+                    continue;
+                }
+
+                segments.Add(new PolylineSegmentMetadata(
+                    "Line",
+                    segment.Start.X,
+                    segment.Start.Y,
+                    segment.End.X,
+                    segment.End.Y,
+                    null,
+                    null,
+                    null,
+                    null,
+                    null));
+            }
+
+            if (segments.Count == 0)
+            {
+                return null;
+            }
+
+            return JsonSerializer.Serialize(new PolylineCurveMetadata(
+                polyline.IsClosed ? "Polygon" : "Polyline",
+                polyline.IsClosed,
+                segments));
         }
 
         private static bool TryCreateCircleFromMetadata(
@@ -570,6 +643,86 @@ namespace Land_Readjustment_Tool.UI.MapCanvas.Services
             return arc != null;
         }
 
+        private static bool TryCreatePolylineFromMetadata(
+            string? metadataJson,
+            out PolylineShape? polyline)
+        {
+            polyline = null;
+            if (string.IsNullOrWhiteSpace(metadataJson))
+            {
+                return false;
+            }
+
+            try
+            {
+                PolylineCurveMetadata? metadata = JsonSerializer.Deserialize<PolylineCurveMetadata>(metadataJson);
+                if (metadata == null ||
+                    metadata.Segments == null ||
+                    metadata.Segments.Count == 0 ||
+                    (!metadata.ShapeType.Equals("Polyline", StringComparison.OrdinalIgnoreCase) &&
+                     !metadata.ShapeType.Equals("Polygon", StringComparison.OrdinalIgnoreCase)))
+                {
+                    return false;
+                }
+
+                List<PointD> vertices = new();
+                List<PolylineShape.PolylineSegment> segments = new();
+
+                foreach (PolylineSegmentMetadata segment in metadata.Segments)
+                {
+                    PointD start = new(segment.StartX, segment.StartY);
+                    PointD end = new(segment.EndX, segment.EndY);
+
+                    if (vertices.Count == 0 || !SameWorldPoint(vertices[^1], start))
+                    {
+                        vertices.Add(start);
+                    }
+
+                    PolylineShape.PolylineSegmentKind kind =
+                        segment.Kind.Equals("Arc", StringComparison.OrdinalIgnoreCase)
+                            ? PolylineShape.PolylineSegmentKind.Arc
+                            : PolylineShape.PolylineSegmentKind.Line;
+
+                    ArcShape? arc = null;
+                    if (kind == PolylineShape.PolylineSegmentKind.Arc &&
+                        segment.CenterX.HasValue &&
+                        segment.CenterY.HasValue &&
+                        segment.Radius.HasValue &&
+                        segment.StartAngleRadians.HasValue &&
+                        segment.SweepAngleRadians.HasValue &&
+                        segment.Radius.Value > 0.0)
+                    {
+                        arc = new ArcShape(
+                            new PointD(segment.CenterX.Value, segment.CenterY.Value),
+                            segment.Radius.Value,
+                            segment.StartAngleRadians.Value,
+                            segment.SweepAngleRadians.Value);
+                    }
+
+                    if (kind == PolylineShape.PolylineSegmentKind.Arc && arc == null)
+                    {
+                        kind = PolylineShape.PolylineSegmentKind.Line;
+                    }
+
+                    segments.Add(new PolylineShape.PolylineSegment(kind, start, end, arc));
+
+                    if (!SameWorldPoint(vertices[^1], end))
+                    {
+                        vertices.Add(end);
+                    }
+                }
+
+                bool isClosed = metadata.IsClosed ||
+                                metadata.ShapeType.Equals("Polygon", StringComparison.OrdinalIgnoreCase);
+                polyline = new PolylineShape(vertices, segments, isClosed);
+                return polyline.Vertices.Count >= 2;
+            }
+            catch
+            {
+                return false;
+            }
+        }
+
         private static bool TryCreateCircleFromPolygon(
             Geometry geometry,
             out CircleShape? circle)
@@ -605,6 +758,23 @@ namespace Land_Readjustment_Tool.UI.MapCanvas.Services
             double CenterY,
             double? RadiusPointX,
             double? RadiusPointY,
+            double? Radius,
+            double? StartAngleRadians,
+            double? SweepAngleRadians);
+
+        private sealed record PolylineCurveMetadata(
+            string ShapeType,
+            bool IsClosed,
+            List<PolylineSegmentMetadata> Segments);
+
+        private sealed record PolylineSegmentMetadata(
+            string Kind,
+            double StartX,
+            double StartY,
+            double EndX,
+            double EndY,
+            double? CenterX,
+            double? CenterY,
             double? Radius,
             double? StartAngleRadians,
             double? SweepAngleRadians);
@@ -672,6 +842,12 @@ namespace Land_Readjustment_Tool.UI.MapCanvas.Services
         private static bool NearlyEqual(double a, double b)
         {
             return Math.Abs(a - b) <= 0.0000001;
+        }
+
+        private static bool SameWorldPoint(PointD first, PointD second)
+        {
+            return NearlyEqual(first.X, second.X) &&
+                   NearlyEqual(first.Y, second.Y);
         }
     }
 }

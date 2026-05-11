@@ -67,9 +67,9 @@ namespace Land_Readjustment_Tool.Core.Entities.LandData
         public LandOwner LandOwner { get; set; } = null!;
         public MalpotReference? MalpotReference { get; set; }
         public CanvasObject? CanvasObject { get; set; }
-        public ICollection<ParcelFrontage> ParcelFrontages { get; set; } = [];
-        public ICollection<ParcelContribution> ParcelContributions { get; set; } = [];
+        public ICollection<ParcelFrontage> ParcelFrontages { get; set; } = new List<ParcelFrontage>();
+        public ICollection<ParcelContribution> ParcelContributions { get; set; } = new List<ParcelContribution>();
         public ParcelContributionSummary? ParcelContributionSummary { get; set; }
-        public ICollection<OriginalToReplottedMap> OriginalToReplottedMaps { get; set; } = [];
+        public ICollection<OriginalToReplottedMap> OriginalToReplottedMaps { get; set; } = new List<OriginalToReplottedMap>();
     }
 }

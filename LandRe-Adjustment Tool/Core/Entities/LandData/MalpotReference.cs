@@ -20,6 +20,6 @@ namespace Land_Readjustment_Tool.Core.Entities.LandData
 
         // Navigation properties
         public LandOwner LandOwner { get; set; } = null!;
-        public ICollection<BaselineParcel> BaselineParcels { get; set; } = [];
+        public ICollection<BaselineParcel> BaselineParcels { get; set; } = new List<BaselineParcel>();
     }
 }

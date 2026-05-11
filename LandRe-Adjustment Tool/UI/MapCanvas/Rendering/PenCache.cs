@@ -4,7 +4,7 @@ namespace Land_Readjustment_Tool.UI.MapCanvas.Rendering
 {
     public sealed class PenCache : IDisposable
     {
-        private readonly Dictionary<PenKey, Pen> _pens = [];
+        private readonly Dictionary<PenKey, Pen> _pens = new Dictionary<PenKey, Pen>();
 
         public Pen Get(Color color, float width, DashStyle dashStyle = DashStyle.Solid)
         {

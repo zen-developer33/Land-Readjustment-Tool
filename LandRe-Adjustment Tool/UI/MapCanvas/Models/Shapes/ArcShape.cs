@@ -5,8 +5,6 @@ namespace Land_Readjustment_Tool.UI.MapCanvas.Models.Shapes
 {
     public sealed class ArcShape : Shape, ISnapProvider
     {
-        private const int BoundsSampleCount = 96;
-
         public PointD Center { get; set; }
         public double Radius { get; set; }
         public double StartAngleRadians { get; set; }
@@ -77,7 +75,7 @@ namespace Land_Readjustment_Tool.UI.MapCanvas.Models.Shapes
             return new ArcShape(center, radius, startAngle, sweep);
         }
 
-        public static ArcShape? FromCenterStartEnd(PointD center, PointD start, PointD end)
+        public static ArcShape? FromCenterStartEnd(PointD center, PointD start, PointD end, bool? clockwise = null)
         {
             double radius = Distance(center, start);
             if (radius <= 0.0 || !double.IsFinite(radius))
@@ -93,8 +91,26 @@ namespace Land_Readjustment_Tool.UI.MapCanvas.Models.Shapes
 
             double startAngle = Math.Atan2(start.Y - center.Y, start.X - center.X);
             double endAngle = Math.Atan2(end.Y - center.Y, end.X - center.X);
-            double sweep = NormalizePositive(endAngle - startAngle);
-            if (sweep <= 1e-9)
+
+            double ccwSweep = NormalizePositive(endAngle - startAngle);
+            double cwSweep = ccwSweep - Math.PI * 2.0;   // always negative
+
+            double sweep;
+            if (clockwise == true)
+            {
+                sweep = cwSweep;
+            }
+            else if (clockwise == false)
+            {
+                sweep = ccwSweep;
+            }
+            else
+            {
+                // Choose the shorter arc (prefer CCW when equal)
+                sweep = Math.Abs(cwSweep) < ccwSweep - 1e-9 ? cwSweep : ccwSweep;
+            }
+
+            if (Math.Abs(sweep) <= 1e-9)
             {
                 return null;
             }
@@ -125,11 +141,28 @@ namespace Land_Readjustment_Tool.UI.MapCanvas.Models.Shapes
 
         public override RectangleD GetBoundingBox()
         {
-            List<PointD> points = SamplePoints(BoundsSampleCount).ToList();
-            double minX = points.Min(point => point.X);
-            double maxX = points.Max(point => point.X);
-            double minY = points.Min(point => point.Y);
-            double maxY = points.Max(point => point.Y);
+            // Seed with the two endpoints, then add any axis-extremum that lies on the arc.
+            double minX = Math.Min(StartPoint.X, EndPoint.X);
+            double maxX = Math.Max(StartPoint.X, EndPoint.X);
+            double minY = Math.Min(StartPoint.Y, EndPoint.Y);
+            double maxY = Math.Max(StartPoint.Y, EndPoint.Y);
+
+            double[] extremaAngles = [0.0, Math.PI / 2.0, Math.PI, Math.PI * 1.5];
+            foreach (double angle in extremaAngles)
+            {
+                if (!AngleLiesOnSweep(angle, StartAngleRadians, SweepAngleRadians))
+                {
+                    continue;
+                }
+
+                double x = Center.X + Radius * Math.Cos(angle);
+                double y = Center.Y + Radius * Math.Sin(angle);
+                minX = Math.Min(minX, x);
+                maxX = Math.Max(maxX, x);
+                minY = Math.Min(minY, y);
+                maxY = Math.Max(maxY, y);
+            }
+
             return new RectangleD(minX, minY, maxX - minX, maxY - minY);
         }
 
@@ -189,13 +222,13 @@ namespace Land_Readjustment_Tool.UI.MapCanvas.Models.Shapes
             yield return new SnapPoint(SnapType.Endpoint, EndPoint, this);
             yield return new SnapPoint(SnapType.Center, Center, this);
 
-            double[] quadrantAngles =
-            [
+            double[] quadrantAngles = new[]
+            {
                 0.0,
                 Math.PI / 2.0,
                 Math.PI,
                 Math.PI * 1.5
-            ];
+            };
 
             foreach (double angle in quadrantAngles)
             {
@@ -210,6 +243,67 @@ namespace Land_Readjustment_Tool.UI.MapCanvas.Models.Shapes
                 }
             }
         }
+
+        public static ArcShape? FromTangentStartEnd(PointD start, PointD prev, PointD end)
+        {
+            double vx = start.X - prev.X;
+            double vy = start.Y - prev.Y;
+            double vlen = Math.Sqrt(vx * vx + vy * vy);
+            if (vlen < 1e-9)
+            {
+                return null;
+            }
+
+            // Normal to the tangent at start (points toward circle center offset)
+            double nx = -vy;
+            double ny = vx;
+
+            // Midpoint of chord from start to end
+            double mx = (start.X + end.X) / 2.0;
+            double my = (start.Y + end.Y) / 2.0;
+
+            // Perpendicular to chord
+            double bx = -(end.Y - start.Y);
+            double by = (end.X - start.X);
+
+            // Solve for t and s in: start + t * n = mid + s * b
+            double a11 = nx;
+            double a12 = -bx;
+            double a21 = ny;
+            double a22 = -by;
+            double rhsx = mx - start.X;
+            double rhsy = my - start.Y;
+            double det = a11 * a22 - a12 * a21;
+            if (Math.Abs(det) < 1e-12)
+            {
+                return null;
+            }
+
+            double t = (rhsx * a22 - a12 * rhsy) / det;
+            double centerX = start.X + t * nx;
+            double centerY = start.Y + t * ny;
+            PointD center = new(centerX, centerY);
+            double radius = Distance(center, start);
+            if (radius <= 0.0 || !double.IsFinite(radius))
+            {
+                return null;
+            }
+
+            double startAngle = Math.Atan2(start.Y - center.Y, start.X - center.X);
+            double endAngle = Math.Atan2(end.Y - center.Y, end.X - center.X);
+
+            double tIncX = -Math.Sin(startAngle);
+            double tIncY = Math.Cos(startAngle);
+            double dot = tIncX * vx + tIncY * vy;
+            double sweep = dot >= 0
+                ? NormalizePositive(endAngle - startAngle)
+                : -NormalizePositive(startAngle - endAngle);
+
+            return new ArcShape(center, radius, startAngle, sweep);
+        }
+
+        public static bool AngleLiesOnSweepPublic(double angle, double startAngle, double sweepAngle)
+            => AngleLiesOnSweep(angle, startAngle, sweepAngle);
 
         private static bool AngleLiesOnSweep(double angle, double startAngle, double sweepAngle)
         {

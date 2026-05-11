@@ -40,7 +40,8 @@ namespace Land_Readjustment_Tool.UI.CustomControls
         private enum PolylineSegmentDrawingMode
         {
             Line,
-            ThreePointArc
+            TangentArc,     // Arc auto-tangent to the previous segment direction
+            ThreePointArc   // Arc through an explicit through-point picked by the user
         }
 
         private const int ZoomSettleIntervalMs = 50;
@@ -60,9 +61,12 @@ namespace Land_Readjustment_Tool.UI.CustomControls
         private readonly MapCanvasRenderer _renderer;
         private readonly RasterDeferredRenderer _rasterDeferredRenderer = new();
         private readonly MapCanvasSnapManager _snapManager = new();
-        private readonly List<IRasterRenderLayer> _rasterRenderLayers = [];
+        private readonly List<IRasterRenderLayer> _rasterRenderLayers = new List<IRasterRenderLayer>();
         private readonly Font _debugOverlayFont = new("Consolas", 8.25f, FontStyle.Regular);
         private MapCanvasRenderSettings _renderSettings;
+        private readonly CanvasCommandService _commandService = new();
+
+        public CanvasCommandService CommandService => _commandService;
 
         public event Action<string, string, double>? StatusChanged;
         public event Action<IShape>? ShapeCompleted;
@@ -105,11 +109,15 @@ namespace Land_Readjustment_Tool.UI.CustomControls
         private ArcDrawingMode _arcDrawingMode = ArcDrawingMode.ThreePoint;
         private CircleDrawingMode _circleDrawingMode = CircleDrawingMode.CenterRadius;
         private PolylineSegmentDrawingMode _polylineSegmentMode = PolylineSegmentDrawingMode.Line;
+        private bool _polylineArcAwaitingCenter;
+        private bool _polylineArcAwaitingEnd;
+        private PointD? _polylineArcCenterPoint;
         private PointD? _pendingPolylineArcThroughPoint;
-        private readonly List<PointD> _drawingVertices = [];
-        private List<CanvasFeature> _vectorFeatures = [];
-        private List<CanvasLayer> _vectorLayers = [];
-        private readonly HashSet<Guid> _selectedShapeIds = [];
+        private readonly List<PointD> _drawingVertices = new List<PointD>();
+        private readonly List<PolylineShape.PolylineSegment> _drawingSegments = new List<PolylineShape.PolylineSegment>();
+        private List<CanvasFeature> _vectorFeatures = new List<CanvasFeature>();
+        private List<CanvasLayer> _vectorLayers = new List<CanvasLayer>();
+        private readonly HashSet<Guid> _selectedShapeIds = new HashSet<Guid>();
         private bool _isSelectingObjects;
         private Point _objectSelectionStart;
         private Point _objectSelectionCurrent;
@@ -233,6 +241,18 @@ namespace Land_Readjustment_Tool.UI.CustomControls
             RequestRender();
         }
 
+        public MapCanvasRenderSettings GetRenderSettings()
+        {
+            return _renderSettings;
+        }
+
+        public void ApplyNorthMarkerVisible(bool visible)
+        {
+            _renderSettings.ShowNorthMarker = visible;
+            _renderer.UpdateSettings(_renderSettings);
+            RequestRender();
+        }
+
         public void ApplySnapEnabled(bool enabled)
         {
             ApplySnapSettings(enabled, _snapPickTolerancePixels, _snapGlyphSizePixels);
@@ -268,10 +288,8 @@ namespace Land_Readjustment_Tool.UI.CustomControls
                 }
 
                 _orthoModeEnabled = value;
-                if (_drawingVertices.Count > 0)
-                {
-                    RequestRender();
-                }
+                // Always refresh the display when ortho mode changes so previews update
+                RequestRender();
 
                 UpdateStatusBar();
             }
@@ -429,6 +447,28 @@ namespace Land_Readjustment_Tool.UI.CustomControls
             }
 
             _engine.ZoomToExtents();
+            RefreshRasterCacheForCurrentViewAsync();
+            RefreshVectorCacheForCurrentViewImmediately();
+            RequestRender();
+        }
+
+        /// <summary>
+        /// Zooms to a specific scale factor (e.g., 0.5 = 50%, 1.0 = 100%, 2.0 = 200%)
+        /// </summary>
+        public void ZoomToScale(double scaleFactor)
+        {
+            if (IsCanvasInteractionLocked || scaleFactor <= 0)
+            {
+                return;
+            }
+
+            // Get current view center
+            double centerX = _engine.ViewOriginWorld.X + (Width / 2.0) / _engine.ZoomScale;
+            double centerY = _engine.ViewOriginWorld.Y + (Height / 2.0) / _engine.ZoomScale;
+            PointD centerWorld = new(centerX, centerY);
+
+            // Set viewport with new zoom scale while maintaining center
+            _engine.SetViewport(centerWorld, scaleFactor);
             RefreshRasterCacheForCurrentViewAsync();
             RefreshVectorCacheForCurrentViewImmediately();
             RequestRender();
@@ -877,7 +917,7 @@ namespace Land_Readjustment_Tool.UI.CustomControls
         private static double[] BuildStandardScaleDenominators()
         {
             double[] baseSteps = [1.0, 1.25, 2.0, 2.5, 4.0, 5.0, 7.5];
-            List<double> values = [];
+            List<double> values = new List<double>();
 
             for (int exponent = -6; exponent <= 12; exponent++)
             {
@@ -1020,7 +1060,14 @@ namespace Land_Readjustment_Tool.UI.CustomControls
             }
 
             UpdateCurrentSnapPoint(e.Location);
-            _currentMouseWorld = _currentSnapPoint?.Position ?? _engine.ScreenToWorld(e.Location);
+            if (_activeTool != MapCanvasTool.Select && _drawingVertices.Count > 0)
+            {
+                _currentMouseWorld = GetCurrentDrawingWorldPoint(e.Location);
+            }
+            else
+            {
+                _currentMouseWorld = _currentSnapPoint?.Position ?? _engine.ScreenToWorld(e.Location);
+            }
             UpdateDrawingPreview(e.Location);
             UpdateStatusBar();
         }
@@ -1095,6 +1142,23 @@ namespace Land_Readjustment_Tool.UI.CustomControls
                 return;
             }
 
+            if (e.KeyCode == Keys.Enter || e.KeyCode == Keys.Return)
+            {
+                if (CanCompleteMultiPointDrawing())
+                {
+                    CompleteMultiPointDrawing();
+                    e.Handled = true;
+                }
+                return;
+            }
+
+            if (e.KeyCode == Keys.Back)
+            {
+                UndoLastDrawingVertex();
+                e.Handled = true;
+                return;
+            }
+
             if (e.KeyCode != Keys.Escape)
             {
                 return;
@@ -1157,29 +1221,72 @@ namespace Land_Readjustment_Tool.UI.CustomControls
 
         private PointD GetCurrentDrawingWorldPoint(Point screenPoint)
         {
-            PointD worldPoint = _snapEnabled && _currentSnapPoint != null
-                ? _currentSnapPoint.Position
-                : _engine.ScreenToWorld(screenPoint);
+            PointD mouseWorld = _engine.ScreenToWorld(screenPoint);
 
-            return ShouldApplyOrthoConstraint()
-                ? ApplyOrthoConstraint(_drawingVertices[^1], worldPoint)
-                : worldPoint;
+            if (!_snapEnabled || _currentSnapPoint == null)
+            {
+                return ShouldApplyOrthoConstraint()
+                    ? ApplyOrthoConstraint(_drawingVertices[^1], mouseWorld)
+                    : mouseWorld;
+            }
+
+            PointD snapWorld = _currentSnapPoint.Position;
+
+            if (!ShouldApplyOrthoConstraint())
+            {
+                return snapWorld;
+            }
+
+            PointD anchor = _drawingVertices[^1];
+            PointD orthoPoint = ApplyOrthoConstraint(anchor, mouseWorld);
+            return IsOrthoCompatibleSnap(anchor, mouseWorld, snapWorld)
+                ? snapWorld
+                : orthoPoint;
         }
 
         private bool ShouldApplyOrthoConstraint()
         {
             return _orthoModeEnabled &&
-                   _currentSnapPoint == null &&
                    _drawingVertices.Count > 0 &&
                    (_activeTool == MapCanvasTool.Line ||
+                    _activeTool == MapCanvasTool.Rectangle ||
                     ((_activeTool == MapCanvasTool.Polyline || _activeTool == MapCanvasTool.Polygon) &&
                      _polylineSegmentMode == PolylineSegmentDrawingMode.Line));
         }
 
-        private static PointD ApplyOrthoConstraint(PointD anchor, PointD candidate)
+        private bool IsOrthoCompatibleSnap(PointD anchor, PointD mouseWorld, PointD snapWorld)
+        {
+            double dx = mouseWorld.X - anchor.X;
+            double dy = mouseWorld.Y - anchor.Y;
+            bool isHorizontal = Math.Abs(dx) >= Math.Abs(dy);
+            double tolerance = _engine.ScreenToWorldDistance(_snapPickTolerancePixels);
+
+            // If the snap is exactly on the anchor, consider it compatible —
+            // don't reject it just because the mouse moved some distance.
+            if (SameWorldPoint(anchor, snapWorld))
+            {
+                return true;
+            }
+
+            return isHorizontal
+                ? Math.Abs(snapWorld.Y - anchor.Y) <= tolerance
+                : Math.Abs(snapWorld.X - anchor.X) <= tolerance;
+        }
+
+        private PointD ApplyOrthoConstraint(PointD anchor, PointD candidate)
         {
             double dx = candidate.X - anchor.X;
             double dy = candidate.Y - anchor.Y;
+
+            // Rectangle in ortho mode: constrain to a square by using the larger delta for both axes
+            if (_activeTool == MapCanvasTool.Rectangle)
+            {
+                double sideMagnitude = Math.Max(Math.Abs(dx), Math.Abs(dy));
+                double sideX = Math.Sign(dx) * sideMagnitude;
+                double sideY = Math.Sign(dy) * sideMagnitude;
+                return new PointD(anchor.X + sideX, anchor.Y + sideY);
+            }
+
             return Math.Abs(dx) >= Math.Abs(dy)
                 ? new PointD(candidate.X, anchor.Y)
                 : new PointD(anchor.X, candidate.Y);
@@ -1238,43 +1345,64 @@ namespace Land_Readjustment_Tool.UI.CustomControls
 
         private void HandlePolylineOrPolygonDrawing(PointD worldPoint, Point screenPoint)
         {
+            if (_polylineArcAwaitingCenter)
+            {
+                _polylineArcCenterPoint = worldPoint;
+                _polylineArcAwaitingCenter = false;
+                _polylineArcAwaitingEnd = true;
+                UpdateDrawingPreview(screenPoint);
+                return;
+            }
+
+            if (_polylineArcAwaitingEnd && _polylineArcCenterPoint.HasValue)
+            {
+                AddPolylineCenterArcSegment(_polylineArcCenterPoint.Value, _drawingVertices[^1], worldPoint);
+                _polylineArcAwaitingEnd = false;
+                _polylineArcCenterPoint = null;
+                UpdateDrawingPreview(screenPoint);
+                return;
+            }
+
             if (_polylineSegmentMode == PolylineSegmentDrawingMode.Line ||
                 _drawingVertices.Count == 0)
             {
-                _drawingVertices.Add(worldPoint);
+                AddPolylineLineSegment(worldPoint);
+                UpdateDrawingPreview(screenPoint);
+                return;
+            }
+
+            if (_polylineSegmentMode == PolylineSegmentDrawingMode.ThreePointArc)
+            {
+                if (!_pendingPolylineArcThroughPoint.HasValue)
+                {
+                    // First click: store the through-point, wait for end-point
+                    _pendingPolylineArcThroughPoint = worldPoint;
+                    UpdateDrawingPreview(screenPoint);
+                    UpdateStatusBar();
+                    return;
+                }
+
+                // Second click: complete the arc through the stored through-point
+                AddPolylineThreePointArcSegment(
+                    _drawingVertices[^1],
+                    _pendingPolylineArcThroughPoint.Value,
+                    worldPoint);
                 _pendingPolylineArcThroughPoint = null;
                 UpdateDrawingPreview(screenPoint);
                 return;
             }
 
-            if (!_pendingPolylineArcThroughPoint.HasValue)
+            // TangentArc mode: auto-tangent from the previous segment direction
+            if (_drawingVertices.Count >= 2)
             {
-                _pendingPolylineArcThroughPoint = worldPoint;
-                UpdateDrawingPreview(screenPoint);
-                return;
-            }
-
-            ArcShape? arc = ArcShape.FromThreePoints(
-                _drawingVertices[^1],
-                _pendingPolylineArcThroughPoint.Value,
-                worldPoint);
-            if (arc == null)
-            {
-                _drawingVertices.Add(worldPoint);
+                AddPolylineArcSegment(_drawingVertices[^1], GetTangentReferencePoint(), worldPoint);
             }
             else
             {
-                foreach (PointD point in arc.SamplePoints(24).Skip(1))
-                {
-                    _drawingVertices.Add(point);
-                }
+                AddPolylineLineSegment(worldPoint);
             }
 
-            _pendingPolylineArcThroughPoint = null;
             UpdateDrawingPreview(screenPoint);
-
-            // After finishing the arc segment, reset the polyline segment mode to default
-            SetPolylineSegmentMode(PolylineSegmentDrawingMode.Line);
         }
 
         private IShape? CreateCircleShape(PointD firstPoint, PointD secondPoint)
@@ -1323,62 +1451,110 @@ namespace Land_Readjustment_Tool.UI.CustomControls
         {
             _drawingOptionsContextMenu.Items.Clear();
 
+            bool drawingStarted = _drawingVertices.Count > 0 ||
+                                  _polylineArcAwaitingCenter ||
+                                  _polylineArcAwaitingEnd ||
+                                  _pendingPolylineArcThroughPoint.HasValue;
+
+            // --- Section 1: Creation Methods ---
             switch (_activeTool)
             {
                 case MapCanvasTool.Arc:
+                    AddSectionHeader("Creation Method");
                     AddDrawingOption("3 Point Arc", _arcDrawingMode == ArcDrawingMode.ThreePoint, () => SetArcDrawingMode(ArcDrawingMode.ThreePoint));
                     AddDrawingOption("Center, Start, End", _arcDrawingMode == ArcDrawingMode.CenterStartEnd, () => SetArcDrawingMode(ArcDrawingMode.CenterStartEnd));
                     break;
 
                 case MapCanvasTool.Circle:
+                    AddSectionHeader("Creation Method");
                     AddDrawingOption("Center + Radius", _circleDrawingMode == CircleDrawingMode.CenterRadius, () => SetCircleDrawingMode(CircleDrawingMode.CenterRadius));
                     AddDrawingOption("Center + Diameter", _circleDrawingMode == CircleDrawingMode.CenterDiameter, () => SetCircleDrawingMode(CircleDrawingMode.CenterDiameter));
                     AddDrawingOption("2 Point Diameter", _circleDrawingMode == CircleDrawingMode.TwoPointDiameter, () => SetCircleDrawingMode(CircleDrawingMode.TwoPointDiameter));
                     AddDrawingOption("3 Point Circle", _circleDrawingMode == CircleDrawingMode.ThreePoint, () => SetCircleDrawingMode(CircleDrawingMode.ThreePoint));
-                    if (_drawingVertices.Count > 0 &&
-                        _circleDrawingMode is CircleDrawingMode.CenterRadius or CircleDrawingMode.CenterDiameter)
-                    {
-                        _drawingOptionsContextMenu.Items.Add(new ToolStripSeparator());
-                        AddDrawingCommand("Enter Value...", PromptCircleValue);
-                    }
-
-                    break;
-
-                case MapCanvasTool.Rectangle:
-                    if (_drawingVertices.Count > 0)
-                    {
-                        AddDrawingCommand("Enter Length and Breadth...", PromptRectangleSize);
-                    }
-
                     break;
 
                 case MapCanvasTool.Polyline:
                 case MapCanvasTool.Polygon:
+                    AddSectionHeader("Segment Type");
                     AddDrawingOption("Line Segment", _polylineSegmentMode == PolylineSegmentDrawingMode.Line, () => SetPolylineSegmentMode(PolylineSegmentDrawingMode.Line));
-                    AddDrawingOption("3 Point Arc Segment", _polylineSegmentMode == PolylineSegmentDrawingMode.ThreePointArc, () => SetPolylineSegmentMode(PolylineSegmentDrawingMode.ThreePointArc));
-                    if (CanCompleteMultiPointDrawing())
-                    {
-                        _drawingOptionsContextMenu.Items.Add(new ToolStripSeparator());
-                        AddDrawingCommand("Finish", CompleteMultiPointDrawing);
-                    }
-
+                    AddDrawingOption("Tangent Arc", _polylineSegmentMode == PolylineSegmentDrawingMode.TangentArc, () => SetPolylineSegmentMode(PolylineSegmentDrawingMode.TangentArc));
+                    AddDrawingOption("3-Point Arc", _polylineSegmentMode == PolylineSegmentDrawingMode.ThreePointArc, () => SetPolylineSegmentMode(PolylineSegmentDrawingMode.ThreePointArc));
                     break;
             }
 
-            if (_drawingVertices.Count > 0 || _pendingPolylineArcThroughPoint.HasValue)
+            // --- Section 2: Enter Input (only when drawing has started) ---
+            switch (_activeTool)
             {
-                if (_drawingOptionsContextMenu.Items.Count > 0)
-                {
+                case MapCanvasTool.Line when drawingStarted:
                     _drawingOptionsContextMenu.Items.Add(new ToolStripSeparator());
+                    AddSectionHeader("Enter Input");
+                    AddDrawingCommand("Length and Angle...", PromptStandaloneLineLengthAndAngle);
+                    break;
+
+                case MapCanvasTool.Rectangle when drawingStarted:
+                    _drawingOptionsContextMenu.Items.Add(new ToolStripSeparator());
+                    AddSectionHeader("Enter Input");
+                    AddDrawingCommand("Width and Height...", PromptRectangleSize);
+                    break;
+
+                case MapCanvasTool.Circle when drawingStarted &&
+                    _circleDrawingMode is CircleDrawingMode.CenterRadius or CircleDrawingMode.CenterDiameter:
+                    _drawingOptionsContextMenu.Items.Add(new ToolStripSeparator());
+                    AddSectionHeader("Enter Input");
+                    AddDrawingCommand(_circleDrawingMode == CircleDrawingMode.CenterRadius
+                        ? "Radius..."
+                        : "Diameter...", PromptCircleValue);
+                    break;
+
+                case MapCanvasTool.Polyline when drawingStarted:
+                case MapCanvasTool.Polygon when drawingStarted:
+                    if (_polylineSegmentMode == PolylineSegmentDrawingMode.Line ||
+                        _polylineSegmentMode == PolylineSegmentDrawingMode.TangentArc ||
+                        _polylineArcAwaitingCenter || _polylineArcAwaitingEnd)
+                    {
+                        _drawingOptionsContextMenu.Items.Add(new ToolStripSeparator());
+                        AddSectionHeader("Enter Input");
+                        if (_polylineSegmentMode == PolylineSegmentDrawingMode.Line)
+                            AddDrawingCommand("Length and Angle...", PromptPolylineLineLengthAndAngle);
+                        else
+                            AddDrawingCommand("Arc Center and End...", BeginPolylineArcCenterEndInput);
+                    }
+                    break;
+            }
+
+            // --- Section 3: Finish / Undo / Cancel (only when drawing has started) ---
+            if (drawingStarted)
+            {
+                _drawingOptionsContextMenu.Items.Add(new ToolStripSeparator());
+
+                if (CanCompleteMultiPointDrawing())
+                    AddDrawingCommand("Finish  [Enter]", CompleteMultiPointDrawing);
+
+                if (_drawingVertices.Count > 1 ||
+                    _drawingSegments.Count > 0 ||
+                    _polylineArcAwaitingCenter ||
+                    _polylineArcAwaitingEnd)
+                {
+                    AddDrawingCommand("Undo Last Point  [Backspace]", UndoLastDrawingVertex);
                 }
 
-                AddDrawingCommand("Cancel", CancelDrawing);
+                AddDrawingCommand("Cancel  [Esc]", CancelDrawing);
             }
 
             if (_drawingOptionsContextMenu.Items.Count > 0)
             {
                 _drawingOptionsContextMenu.Show(canvasSurface, location);
             }
+        }
+
+        private void AddSectionHeader(string text)
+        {
+            ToolStripMenuItem header = new(text)
+            {
+                Enabled = false,
+                Font = new Font(SystemFonts.MenuFont ?? SystemFonts.DefaultFont, FontStyle.Bold)
+            };
+            _drawingOptionsContextMenu.Items.Add(header);
         }
 
         private void AddDrawingOption(string text, bool isChecked, Action action)
@@ -1427,8 +1603,152 @@ namespace Land_Readjustment_Tool.UI.CustomControls
         private void SetPolylineSegmentMode(PolylineSegmentDrawingMode mode)
         {
             _polylineSegmentMode = mode;
+            _polylineArcAwaitingCenter = false;
+            _polylineArcAwaitingEnd = false;
+            _polylineArcCenterPoint = null;
             _pendingPolylineArcThroughPoint = null;
+            UpdateStatusBar();
             RequestRender();
+        }
+
+        private void BeginPolylineArcCenterEndInput()
+        {
+            if (_drawingVertices.Count == 0)
+            {
+                return;
+            }
+
+            _polylineArcAwaitingCenter = true;
+            _polylineArcAwaitingEnd = false;
+            _polylineArcCenterPoint = null;
+            RequestRender();
+        }
+
+        private void AddPolylineLineSegment(PointD endPoint)
+        {
+            if (_drawingVertices.Count == 0)
+            {
+                _drawingVertices.Add(endPoint);
+                return;
+            }
+
+            PointD startPoint = _drawingVertices[^1];
+            _drawingSegments.Add(new PolylineShape.PolylineSegment(
+                PolylineShape.PolylineSegmentKind.Line,
+                startPoint,
+                endPoint));
+            _drawingVertices.Add(endPoint);
+        }
+
+        // Returns the tangent-reference point for FromTangentStartEnd.
+        // When the last drawn segment is an arc, the reference is derived from the
+        // arc's endpoint tangent so the new arc continues smoothly. Otherwise falls
+        // back to the second-to-last vertex (line predecessor).
+        private PointD GetTangentReferencePoint()
+        {
+            if (_drawingSegments.Count > 0 &&
+                _drawingSegments[^1].Kind == PolylineShape.PolylineSegmentKind.Arc &&
+                _drawingSegments[^1].Arc != null)
+            {
+                ArcShape lastArc = _drawingSegments[^1].Arc!;
+                double endAngle = lastArc.StartAngleRadians + lastArc.SweepAngleRadians;
+                double sign = lastArc.SweepAngleRadians >= 0.0 ? 1.0 : -1.0;
+                PointD arcEnd = _drawingVertices[^1];
+                double tx = -sign * Math.Sin(endAngle);
+                double ty =  sign * Math.Cos(endAngle);
+                return new PointD(arcEnd.X - tx, arcEnd.Y - ty);
+            }
+
+            return _drawingVertices[^2];
+        }
+
+        private void AddPolylineArcSegment(PointD startPoint, PointD tangentReferencePoint, PointD endPoint)
+        {
+            ArcShape? arc = ArcShape.FromTangentStartEnd(startPoint, tangentReferencePoint, endPoint);
+            if (arc == null)
+            {
+                AddPolylineLineSegment(endPoint);
+                return;
+            }
+
+            _drawingSegments.Add(new PolylineShape.PolylineSegment(
+                PolylineShape.PolylineSegmentKind.Arc,
+                arc.StartPoint,
+                arc.EndPoint,
+                arc));
+            _drawingVertices.Add(endPoint);
+        }
+
+        private void AddPolylineCenterArcSegment(PointD centerPoint, PointD startPoint, PointD endPoint)
+        {
+            ArcShape? arc = ArcShape.FromCenterStartEnd(centerPoint, startPoint, endPoint);
+            if (arc == null)
+            {
+                AddPolylineLineSegment(endPoint);
+                return;
+            }
+
+            _drawingSegments.Add(new PolylineShape.PolylineSegment(
+                PolylineShape.PolylineSegmentKind.Arc,
+                arc.StartPoint,
+                arc.EndPoint,
+                arc));
+            _drawingVertices.Add(endPoint);
+        }
+
+        private void AddPolylineThreePointArcSegment(PointD startPoint, PointD throughPoint, PointD endPoint)
+        {
+            ArcShape? arc = ArcShape.FromThreePoints(startPoint, throughPoint, endPoint);
+            if (arc == null)
+            {
+                AddPolylineLineSegment(endPoint);
+                return;
+            }
+
+            _drawingSegments.Add(new PolylineShape.PolylineSegment(
+                PolylineShape.PolylineSegmentKind.Arc,
+                arc.StartPoint,
+                arc.EndPoint,
+                arc));
+            _drawingVertices.Add(endPoint);
+        }
+
+        private void PromptPolylineLineLengthAndAngle()
+        {
+            if (_drawingVertices.Count == 0 ||
+                !TryPromptTwoValues("Line Segment", "Length", "Angle (deg)", out double length, out double angleDegrees))
+            {
+                return;
+            }
+
+            PointD start = _drawingVertices[^1];
+            double radians = angleDegrees * Math.PI / 180.0;
+            PointD end = new(
+                start.X + length * Math.Cos(radians),
+                start.Y + length * Math.Sin(radians));
+
+            _polylineArcAwaitingCenter = false;
+            _polylineArcAwaitingEnd = false;
+            _polylineArcCenterPoint = null;
+            AddPolylineLineSegment(end);
+            UpdateDrawingPreview(PointToClient(Cursor.Position));
+        }
+
+        private void PromptStandaloneLineLengthAndAngle()
+        {
+            if (_drawingVertices.Count == 0 ||
+                !TryPromptTwoValues("Line", "Length", "Angle (deg)", out double length, out double angleDegrees))
+            {
+                return;
+            }
+
+            PointD start = _drawingVertices[0];
+            double radians = angleDegrees * Math.PI / 180.0;
+            PointD end = new(
+                start.X + length * Math.Cos(radians),
+                start.Y + length * Math.Sin(radians));
+
+            CompleteShape(new LineShape(start, end));
         }
 
         private void PromptRectangleSize()
@@ -1540,7 +1860,7 @@ namespace Land_Readjustment_Tool.UI.CustomControls
                 Location = new Point(104, 44),
                 Width = 136
             };
-            form.Controls.AddRange([firstInputLabel, firstInputBox, secondInputLabel, secondInputBox]);
+            form.Controls.AddRange(new Control[] { firstInputLabel, firstInputBox, secondInputLabel, secondInputBox });
             AddPromptButtons(form);
             form.Shown += (_, _) => firstInputBox.Focus();
 
@@ -1613,6 +1933,7 @@ namespace Land_Readjustment_Tool.UI.CustomControls
 
             CompleteShape(new PolylineShape(
                 _drawingVertices.ToArray(),
+                _drawingSegments.ToArray(),
                 _activeTool == MapCanvasTool.Polygon));
         }
 
@@ -1622,6 +1943,8 @@ namespace Land_Readjustment_Tool.UI.CustomControls
             return (_activeTool == MapCanvasTool.Polyline ||
                     _activeTool == MapCanvasTool.Polygon) &&
                    _drawingVertices.Count >= minimumVertices &&
+                   !_polylineArcAwaitingCenter &&
+                   !_polylineArcAwaitingEnd &&
                    !_pendingPolylineArcThroughPoint.HasValue;
         }
 
@@ -1705,25 +2028,109 @@ namespace Land_Readjustment_Tool.UI.CustomControls
 
         private IShape CreateMultiPointPreview(PointD worldPoint, bool isClosed)
         {
-            if (_polylineSegmentMode == PolylineSegmentDrawingMode.ThreePointArc &&
-                _drawingVertices.Count > 0 &&
-                _pendingPolylineArcThroughPoint.HasValue)
+            List<PointD> points = new List<PointD>(_drawingVertices);
+            List<PolylineShape.PolylineSegment> segments = new List<PolylineShape.PolylineSegment>(_drawingSegments);
+
+            if (_polylineArcAwaitingCenter && points.Count > 0)
             {
-                ArcShape? arc = ArcShape.FromThreePoints(
-                    _drawingVertices[^1],
-                    _pendingPolylineArcThroughPoint.Value,
+                points.Add(worldPoint);
+                return new PolylineShape(points, segments, isClosed);
+            }
+
+            if (_polylineArcAwaitingEnd &&
+                points.Count > 0 &&
+                _polylineArcCenterPoint.HasValue)
+            {
+                ArcShape? arc = ArcShape.FromCenterStartEnd(
+                    _polylineArcCenterPoint.Value,
+                    points[^1],
                     worldPoint);
                 if (arc != null)
                 {
-                    return new PolylineShape(
-                        _drawingVertices.Concat(arc.SamplePoints(24).Skip(1)),
-                        isClosed);
+                    segments.Add(new PolylineShape.PolylineSegment(
+                        PolylineShape.PolylineSegmentKind.Arc,
+                        arc.StartPoint,
+                        arc.EndPoint,
+                        arc));
+                    points.Add(worldPoint);
+                    return new PolylineShape(points, segments, isClosed);
                 }
             }
 
-            return new PolylineShape(
-                _drawingVertices.Concat([worldPoint]),
-                isClosed);
+            if (_polylineSegmentMode == PolylineSegmentDrawingMode.Line && points.Count > 0)
+            {
+                segments.Add(new PolylineShape.PolylineSegment(
+                    PolylineShape.PolylineSegmentKind.Line,
+                    points[^1],
+                    worldPoint));
+                points.Add(worldPoint);
+                return new PolylineShape(points, segments, isClosed);
+            }
+
+            if (_polylineSegmentMode == PolylineSegmentDrawingMode.ThreePointArc && points.Count > 0)
+            {
+                if (_pendingPolylineArcThroughPoint.HasValue)
+                {
+                    // Through-point is locked; preview the live arc from start → through → mouse
+                    ArcShape? arc = ArcShape.FromThreePoints(
+                        points[^1],
+                        _pendingPolylineArcThroughPoint.Value,
+                        worldPoint);
+                    if (arc != null)
+                    {
+                        segments.Add(new PolylineShape.PolylineSegment(
+                            PolylineShape.PolylineSegmentKind.Arc,
+                            arc.StartPoint,
+                            arc.EndPoint,
+                            arc));
+                    }
+                    else
+                    {
+                        segments.Add(new PolylineShape.PolylineSegment(
+                            PolylineShape.PolylineSegmentKind.Line,
+                            points[^1],
+                            worldPoint));
+                    }
+                }
+                else
+                {
+                    // Through-point not yet picked — show rubber-band line to mouse
+                    segments.Add(new PolylineShape.PolylineSegment(
+                        PolylineShape.PolylineSegmentKind.Line,
+                        points[^1],
+                        worldPoint));
+                }
+
+                points.Add(worldPoint);
+                return new PolylineShape(points, segments, isClosed);
+            }
+
+            // TangentArc mode
+            if (points.Count >= 2)
+            {
+                ArcShape? arc = ArcShape.FromTangentStartEnd(points[^1], GetTangentReferencePoint(), worldPoint);
+                if (arc != null)
+                {
+                    segments.Add(new PolylineShape.PolylineSegment(
+                        PolylineShape.PolylineSegmentKind.Arc,
+                        arc.StartPoint,
+                        arc.EndPoint,
+                        arc));
+                }
+                else
+                {
+                    segments.Add(new PolylineShape.PolylineSegment(
+                        PolylineShape.PolylineSegmentKind.Line,
+                        points[^1],
+                        worldPoint));
+                }
+
+                points.Add(worldPoint);
+                return new PolylineShape(points, segments, isClosed);
+            }
+
+            points.Add(worldPoint);
+            return new PolylineShape(points, segments, isClosed);
         }
 
         private void CompleteShape(IShape? shape)
@@ -1736,15 +2143,14 @@ namespace Land_Readjustment_Tool.UI.CustomControls
 
             shape.LayerName = _activeDrawingLayerName;
             _drawingVertices.Clear();
+            _drawingSegments.Clear();
+            _polylineSegmentMode = PolylineSegmentDrawingMode.Line;
+            _polylineArcAwaitingCenter = false;
+            _polylineArcAwaitingEnd = false;
+            _polylineArcCenterPoint = null;
             _pendingPolylineArcThroughPoint = null;
             _previewShape = null;
             _currentSnapPoint = null;
-
-            // Reset drawing modes to defaults immediately after finishing a shape
-            SetArcDrawingMode(ArcDrawingMode.ThreePoint);
-            SetCircleDrawingMode(CircleDrawingMode.CenterRadius);
-            SetPolylineSegmentMode(PolylineSegmentDrawingMode.Line);
-
             ShapeCompleted?.Invoke(shape);
             UpdateStatusBar();
             RequestRender();
@@ -1753,11 +2159,60 @@ namespace Land_Readjustment_Tool.UI.CustomControls
         private void CancelDrawing()
         {
             _drawingVertices.Clear();
+            _drawingSegments.Clear();
+            _polylineArcAwaitingCenter = false;
+            _polylineArcAwaitingEnd = false;
+            _polylineArcCenterPoint = null;
             _pendingPolylineArcThroughPoint = null;
             _previewShape = null;
             _currentSnapPoint = null;
             UpdateStatusBar();
             RequestRender();
+        }
+
+        private void UndoLastDrawingVertex()
+        {
+            if (_polylineArcAwaitingEnd)
+            {
+                _polylineArcAwaitingEnd = false;
+                _polylineArcCenterPoint = null;
+                UpdateStatusBar();
+                RequestRender();
+                return;
+            }
+
+            if (_polylineArcAwaitingCenter)
+            {
+                _polylineArcAwaitingCenter = false;
+                UpdateStatusBar();
+                RequestRender();
+                return;
+            }
+
+            if (_pendingPolylineArcThroughPoint.HasValue)
+            {
+                _pendingPolylineArcThroughPoint = null;
+                UpdateStatusBar();
+                RequestRender();
+                return;
+            }
+
+            if (_drawingSegments.Count > 0)
+            {
+                _drawingSegments.RemoveAt(_drawingSegments.Count - 1);
+                if (_drawingVertices.Count > 1)
+                    _drawingVertices.RemoveAt(_drawingVertices.Count - 1);
+                UpdateStatusBar();
+                RequestRender();
+                return;
+            }
+
+            if (_drawingVertices.Count > 0)
+            {
+                _drawingVertices.RemoveAt(_drawingVertices.Count - 1);
+                UpdateStatusBar();
+                RequestRender();
+            }
         }
 
         private void ClearCurrentSnapPoint()
@@ -1836,6 +2291,7 @@ namespace Land_Readjustment_Tool.UI.CustomControls
 
         private IEnumerable<SnapPoint> BuildInProgressSnapPoints(PointD mouseWorld)
         {
+            // --- Committed vertex endpoint / midpoint snaps ---
             for (int index = 0; index < _drawingVertices.Count; index++)
             {
                 yield return new SnapPoint(SnapType.Endpoint, _drawingVertices[index], null);
@@ -1850,36 +2306,46 @@ namespace Land_Readjustment_Tool.UI.CustomControls
                 }
             }
 
+            // --- Self-intersection snaps on committed vertices ---
             foreach (PointD intersection in _snapManager.GetPolylineSelfIntersections(_drawingVertices))
             {
                 yield return new SnapPoint(SnapType.Intersection, intersection, null);
             }
 
-            if (_activeTool is MapCanvasTool.Polyline or MapCanvasTool.Polygon)
+            // --- Snap points from committed arc segments (center, midpoint, quadrants) ---
+            foreach (PolylineShape.PolylineSegment segment in _drawingSegments)
             {
-                yield break;
-            }
+                if (segment.Kind != PolylineShape.PolylineSegmentKind.Arc || segment.Arc == null)
+                    continue;
 
-            IShape? previewShape = _activeTool switch
-            {
-                MapCanvasTool.Line when _drawingVertices.Count == 1 => new LineShape(_drawingVertices[0], mouseWorld),
-                MapCanvasTool.Rectangle when _drawingVertices.Count == 1 => new RectangleShape(_drawingVertices[0], mouseWorld),
-                MapCanvasTool.Arc when _drawingVertices.Count > 0 => CreateArcPreview(mouseWorld),
-                _ => null
-            };
+                ArcShape arc = segment.Arc;
+                yield return new SnapPoint(SnapType.Center, arc.Center, null);
+                yield return new SnapPoint(SnapType.Midpoint, arc.MidPoint, null);
 
-            if (previewShape == null)
-            {
-                yield break;
-            }
-
-            foreach (SnapPoint snapPoint in previewShape.GetSnapPoints())
-            {
-                if (!SameWorldPoint(snapPoint.Position, mouseWorld))
+                double[] quadrantAngles = [0.0, Math.PI / 2.0, Math.PI, Math.PI * 1.5];
+                foreach (double angle in quadrantAngles)
                 {
-                    yield return snapPoint;
+                    if (ArcShape.AngleLiesOnSweepPublic(angle, arc.StartAngleRadians, arc.SweepAngleRadians))
+                    {
+                        yield return new SnapPoint(
+                            SnapType.Quadrant,
+                            new PointD(
+                                arc.Center.X + arc.Radius * Math.Cos(angle),
+                                arc.Center.Y + arc.Radius * Math.Sin(angle)),
+                            null);
+                    }
                 }
             }
+
+            // --- Pending 3-point arc through-point (locked in, awaiting end-point click) ---
+            if (_pendingPolylineArcThroughPoint.HasValue)
+            {
+                yield return new SnapPoint(SnapType.Endpoint, _pendingPolylineArcThroughPoint.Value, null);
+            }
+
+            // NOTE: Preview (rubber-band) shapes do NOT contribute snap points.
+            // Only the committed/finished portions of the in-progress shape are snappable,
+            // so the live cursor doesn't snap to its own moving geometry.
         }
 
         private bool IsSuppressedPreviewSnapPoint(SnapPoint snapPoint)
@@ -1932,6 +2398,13 @@ namespace Land_Readjustment_Tool.UI.CustomControls
         {
             return Math.Abs(first.X - second.X) <= 1e-9 &&
                    Math.Abs(first.Y - second.Y) <= 1e-9;
+        }
+
+        private static double DistanceWorld(PointD first, PointD second)
+        {
+            double dx = second.X - first.X;
+            double dy = second.Y - first.Y;
+            return Math.Sqrt(dx * dx + dy * dy);
         }
 
         private void DrawSnapGlyph(Graphics graphics)
@@ -2002,9 +2475,9 @@ namespace Land_Readjustment_Tool.UI.CustomControls
                     break;
 
                 case SnapType.Perpendicular:
+                    // Simple L: vertical bar on the left, horizontal bar at the bottom.
+                    graphics.DrawLine(pen, center.X - half, center.Y - half, center.X - half, center.Y + half);
                     graphics.DrawLine(pen, center.X - half, center.Y + half, center.X + half, center.Y + half);
-                    graphics.DrawLine(pen, center.X - half, center.Y + half, center.X - half, center.Y - half);
-                    graphics.DrawLine(pen, center.X - half, center.Y, center.X + half, center.Y);
                     break;
             }
         }
@@ -2296,6 +2769,20 @@ namespace Land_Readjustment_Tool.UI.CustomControls
                 return SelectionGeometryFactory.CreatePoint(new NtsCoordinate(vertex.X, vertex.Y));
             }
 
+            if (polyline.Segments.Count > 0)
+            {
+                NtsCoordinate[] sampledCoordinates = polyline.GetGeometryPoints(24)
+                    .Select(vertex => new NtsCoordinate(vertex.X, vertex.Y))
+                    .ToArray();
+
+                if (polyline.IsClosed && sampledCoordinates.Length >= 3)
+                {
+                    return SelectionGeometryFactory.CreatePolygon(CloseRing(sampledCoordinates));
+                }
+
+                return SelectionGeometryFactory.CreateLineString(sampledCoordinates);
+            }
+
             NtsCoordinate[] coordinates = polyline.Vertices
                 .Select(vertex => new NtsCoordinate(vertex.X, vertex.Y))
                 .ToArray();
@@ -2519,10 +3006,12 @@ namespace Land_Readjustment_Tool.UI.CustomControls
                 return;
 
             bool isWindowSelection = _objectSelectionCurrent.X >= _objectSelectionStart.X;
-            Color borderColor = Color.FromArgb(0, 122, 204);
+            Color borderColor = isWindowSelection
+                ? Color.FromArgb(33, 148, 204)   // window: AutoCAD blue
+                : Color.FromArgb(30, 168, 50);   // crossing: AutoCAD green
             Color fillColor = isWindowSelection
-                ? Color.FromArgb(36, 0, 122, 204)
-                : Color.FromArgb(32, 0, 122, 204);
+                ? Color.FromArgb(40, 33, 148, 204)
+                : Color.FromArgb(40, 30, 168, 50);
 
             using SolidBrush fillBrush = new(fillColor);
             using Pen borderPen = new(borderColor, 1.4f);
@@ -2630,19 +3119,19 @@ namespace Land_Readjustment_Tool.UI.CustomControls
 
         private void UpdateStatusBar()
         {
-            string coordinatesText = _currentMouseWorld.HasValue? $"E: {_currentMouseWorld.Value.X:F4}    N: {_currentMouseWorld.Value.Y:F4}" : "E: --    N: --"; 
+            string coordinatesText = _currentMouseWorld.HasValue
+                ? $"E: {_currentMouseWorld.Value.X:F4}    N: {_currentMouseWorld.Value.Y:F4}"
+                : "E: --    N: --";
 
             string modeText = GetModeText();
-
+            _commandService.SetPrompt(GetCommandPromptText());
             StatusChanged?.Invoke(coordinatesText, modeText, _engine.ZoomScale);
         }
 
         private string GetModeText()
         {
             if (_isZooming && _zoomDirection != null)
-            {
                 return $"Mode: Zooming {_zoomDirection}";
-            }
 
             if (_activeTool != MapCanvasTool.Select)
             {
@@ -2652,16 +3141,85 @@ namespace Land_Readjustment_Tool.UI.CustomControls
             }
 
             if (_isSelectingZoomWindow || _zoomWindowActive)
-            {
                 return "Mode: Zoom Window";
-            }
 
             if (_isPanning || _panToolActive)
-            {
                 return "Mode: Pan";
-            }
 
             return "Mode: Ready";
+        }
+
+        private string GetCommandPromptText()
+        {
+            if (_activeTool == MapCanvasTool.Select || _activeTool == MapCanvasTool.Point)
+                return "Ready";
+
+            switch (_activeTool)
+            {
+                case MapCanvasTool.Line:
+                    return _drawingVertices.Count == 0
+                        ? "Line: Click first point"
+                        : "Line: Click end point  [Right-click for options]";
+
+                case MapCanvasTool.Rectangle:
+                    return _drawingVertices.Count == 0
+                        ? "Rectangle: Click first corner"
+                        : "Rectangle: Click opposite corner  [Right-click for options]";
+
+                case MapCanvasTool.Circle:
+                    return _circleDrawingMode switch
+                    {
+                        CircleDrawingMode.CenterRadius => _drawingVertices.Count == 0
+                            ? "Circle: Click center point"
+                            : "Circle: Click or enter radius point  [Right-click for options]",
+                        CircleDrawingMode.CenterDiameter => _drawingVertices.Count == 0
+                            ? "Circle: Click center point"
+                            : "Circle: Click diameter end point  [Right-click for options]",
+                        CircleDrawingMode.TwoPointDiameter => _drawingVertices.Count == 0
+                            ? "Circle (2-pt): Click first diameter end"
+                            : "Circle (2-pt): Click second diameter end",
+                        CircleDrawingMode.ThreePoint => _drawingVertices.Count == 0
+                            ? "Circle (3-pt): Click first point"
+                            : _drawingVertices.Count == 1
+                                ? "Circle (3-pt): Click second point"
+                                : "Circle (3-pt): Click third point",
+                        _ => "Circle: Click to draw"
+                    };
+
+                case MapCanvasTool.Arc:
+                    return _arcDrawingMode switch
+                    {
+                        ArcDrawingMode.ThreePoint => _drawingVertices.Count == 0
+                            ? "Arc (3-pt): Click start point"
+                            : _drawingVertices.Count == 1
+                                ? "Arc (3-pt): Click through point"
+                                : "Arc (3-pt): Click end point",
+                        ArcDrawingMode.CenterStartEnd => _drawingVertices.Count == 0
+                            ? "Arc: Click center point"
+                            : _drawingVertices.Count == 1
+                                ? "Arc: Click start point"
+                                : "Arc: Click end point",
+                        _ => "Arc: Click to draw"
+                    };
+
+                case MapCanvasTool.Polyline:
+                case MapCanvasTool.Polygon:
+                    if (_polylineArcAwaitingCenter)
+                        return $"{_activeTool}: Click arc center point  [Backspace to cancel]";
+                    if (_polylineArcAwaitingEnd)
+                        return $"{_activeTool}: Click arc end point  [Backspace to cancel]";
+                    if (_drawingVertices.Count == 0)
+                        return $"{_activeTool}: Click first point";
+                    if (_polylineSegmentMode == PolylineSegmentDrawingMode.ThreePointArc)
+                        return _pendingPolylineArcThroughPoint.HasValue
+                            ? $"{_activeTool} (3-pt Arc): Click end point  [Backspace to undo]"
+                            : $"{_activeTool} (3-pt Arc): Click through point  [Right-click: options / Finish / Cancel]";
+                    if (_polylineSegmentMode == PolylineSegmentDrawingMode.TangentArc)
+                        return $"{_activeTool} (Tangent Arc): Click end point  [Right-click: options / Finish / Cancel]";
+                    return $"{_activeTool}: Click next point  [Right-click: options / Finish / Cancel]";
+            }
+
+            return "Ready";
         }
 
         private bool IsCanvasInteractionLocked => false;
@@ -2812,7 +3370,7 @@ namespace Land_Readjustment_Tool.UI.CustomControls
             MapCanvasRendererDebugState rendererState,
             DeferredRendererDebugState rasterState)
         {
-            List<string> items = [];
+            List<string> items = new List<string>();
             VectorRenderStats vectorStats = rendererState.VectorStats;
 
             if (_lastDebugFrameElapsedMs > 33.0)

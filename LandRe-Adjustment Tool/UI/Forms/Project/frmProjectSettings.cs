@@ -119,11 +119,11 @@ namespace Land_Readjustment_Tool.UI.Forms.Project
                 BindCrsDropdown(_crsList);
                 BindDatumDropdown(_datumList);
 
-                if (!string.Equals(_settings.CanvasBackgroundColor, "#FFFFFF", StringComparison.OrdinalIgnoreCase) ||
-                    !string.Equals(_settings.CanvasGridColor, "#CCCCCC", StringComparison.OrdinalIgnoreCase))
+                if (string.IsNullOrWhiteSpace(_settings.CanvasBackgroundColor) ||
+                    string.IsNullOrWhiteSpace(_settings.CanvasGridColor))
                 {
-                    _settings.CanvasBackgroundColor = "#FFFFFF";
-                    _settings.CanvasGridColor = "#CCCCCC";
+                    _settings.CanvasBackgroundColor ??= "#FFFFFF";
+                    _settings.CanvasGridColor ??= "#CCCCCC";
                     await _service.SaveAsync(_settings);
                 }
 

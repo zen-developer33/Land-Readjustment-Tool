@@ -35,6 +35,6 @@ namespace Land_Readjustment_Tool.Core.Entities.Layout
 
         // Navigation properties
         public CanvasObject? CanvasObject { get; set; }
-        public ICollection<ReplottedParcel> ReplottedParcels { get; set; } = [];
+        public ICollection<ReplottedParcel> ReplottedParcels { get; set; } = new List<ReplottedParcel>();
     }
 }

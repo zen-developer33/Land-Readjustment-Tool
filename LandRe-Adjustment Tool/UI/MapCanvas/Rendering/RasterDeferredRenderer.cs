@@ -17,11 +17,11 @@ namespace Land_Readjustment_Tool.UI.MapCanvas.Rendering
         private Bitmap? _panBuffer;
         private Size _canvasSize;
         private RasterViewSnapshot? _zoomStartView;
-        private Dictionary<int, Bitmap> _layerCaches = [];
+        private Dictionary<int, Bitmap> _layerCaches = new Dictionary<int, Bitmap>();
         private bool _cacheValid;
         private bool _panBufferValid;
         private readonly object _sync = new();
-        private readonly List<Bitmap> _retiredBitmaps = [];
+        private readonly List<Bitmap> _retiredBitmaps = new List<Bitmap>();
         private int _activeFrameLeases;
         private bool _disposed;
         private double _lastRefreshElapsedMs;

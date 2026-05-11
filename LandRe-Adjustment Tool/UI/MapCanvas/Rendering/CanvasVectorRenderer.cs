@@ -19,7 +19,7 @@ namespace Land_Readjustment_Tool.UI.MapCanvas.Rendering
         private readonly Font _labelFont = new("Segoe UI", 8.0f, FontStyle.Regular);
         private readonly Font _previewFont = new("Segoe UI", 8.0f, FontStyle.Bold);
         private readonly VectorFeatureSpatialIndex _featureSpatialIndex = new();
-        private IReadOnlyList<CanvasFeature> _features = [];
+        private IReadOnlyList<CanvasFeature> _features = Array.Empty<CanvasFeature>();
         private IReadOnlyDictionary<int, CanvasLayer> _layersById =
             new Dictionary<int, CanvasLayer>();
         private VectorRenderStats _lastRenderStats = VectorRenderStats.Empty;
@@ -513,13 +513,13 @@ namespace Land_Readjustment_Tool.UI.MapCanvas.Rendering
             switch (dashStyle)
             {
                 case DashStyle.Dash:
-                    pen.DashPattern = [4f * scale, 2f * scale];
+                    pen.DashPattern = new float[] { 4f * scale, 2f * scale };
                     break;
                 case DashStyle.Dot:
-                    pen.DashPattern = [1f * scale, 2f * scale];
+                    pen.DashPattern = new float[] { 1f * scale, 2f * scale };
                     break;
                 case DashStyle.DashDot:
-                    pen.DashPattern = [4f * scale, 2f * scale, 1f * scale, 2f * scale];
+                    pen.DashPattern = new float[] { 4f * scale, 2f * scale, 1f * scale, 2f * scale };
                     break;
                 // Note: DashDotDot would be [4f * scale, 2f * scale, 1f * scale, 2f * scale, 1f * scale, 2f * scale]
                 // but GDI+ DashStyle enum doesn't have DashDotDot built-in
@@ -599,19 +599,24 @@ namespace Land_Readjustment_Tool.UI.MapCanvas.Rendering
                 return;
             }
 
-            PointF[] points = polyline.Vertices
-                .Select(point => ToScreenPointF(engine.WorldToScreen(point)))
-                .ToArray();
-
-            if (!points.All(IsValidPoint))
+            using GraphicsPath path = polyline.CreateScreenPath(engine.WorldToScreen);
+            if (path.PointCount == 0)
             {
                 return;
             }
 
-            if (polyline.IsClosed && points.Length >= 3 && style.FillMode != FillMode.None)
+            RectangleF bounds = path.GetBounds();
+            if (!IsValidRectangle(bounds) ||
+                Math.Abs(bounds.Left) > MaxGdiCoordinate ||
+                Math.Abs(bounds.Top) > MaxGdiCoordinate ||
+                Math.Abs(bounds.Right) > MaxGdiCoordinate ||
+                Math.Abs(bounds.Bottom) > MaxGdiCoordinate)
             {
-                using GraphicsPath path = new();
-                path.AddPolygon(points);
+                return;
+            }
+
+            if (polyline.IsClosed && style.FillMode != FillMode.None)
+            {
                 FillClosedPath(graphics, path, path.GetBounds(), style, context);
             }
 
@@ -620,12 +625,7 @@ namespace Land_Readjustment_Tool.UI.MapCanvas.Rendering
                 return;
             }
 
-            graphics.DrawLines(pen, points);
-
-            if (polyline.IsClosed && points.Length > 2)
-            {
-                graphics.DrawLine(pen, points[^1], points[0]);
-            }
+            graphics.DrawPath(pen, path);
         }
 
         private static void DrawLine(
@@ -809,6 +809,7 @@ namespace Land_Readjustment_Tool.UI.MapCanvas.Rendering
         {
             return hatchPattern.Trim().ToUpperInvariant() switch
             {
+                "ANSI31" => 4.0f,
                 "ANSI33" => 6.0f,
                 "ANSI34" => 14.0f,
                 "DOTS" or "SAND" => 8.0f,
@@ -822,6 +823,7 @@ namespace Land_Readjustment_Tool.UI.MapCanvas.Rendering
         {
             return hatchPattern.Trim().ToUpperInvariant() switch
             {
+                "ANSI31" => [HatchStroke.ForwardDiagonal],
                 "ANSI32" or "DIAGONAL-CROSS" => [HatchStroke.ForwardDiagonal, HatchStroke.BackwardDiagonal],
                 "HORIZONTAL" => [HatchStroke.Horizontal],
                 "VERTICAL" => [HatchStroke.Vertical],

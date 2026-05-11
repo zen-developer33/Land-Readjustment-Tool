@@ -63,7 +63,7 @@ namespace Land_Readjustment_Tool.Services.Raster
                 "Preparing tile download"));
 
             using SemaphoreSlim throttler = new(MaxConcurrentDownloads);
-            List<Task> inFlight = [];
+            List<Task> inFlight = new List<Task>();
 
             for (int tileY = tileRange.MinTileY; tileY <= tileRange.MaxTileY; tileY++)
             {

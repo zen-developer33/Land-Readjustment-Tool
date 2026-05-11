@@ -72,7 +72,7 @@ namespace Land_Readjustment_Tool
         private const int LayerNodeColorBoxSize = 18;
         private const int LayerNodeColorBoxGap = 4;
         private readonly ContextMenuStrip _layerContextMenu = new();
-        
+
         private readonly ToolStripMenuItem _mnuZoomToLayer = new("Zoom To Layer");
         private readonly ToolStripMenuItem _mnuRenameLayer = new("Rename");
         private readonly ToolStripMenuItem _mnuDeleteLayer = new("Delete");
@@ -93,7 +93,7 @@ namespace Land_Readjustment_Tool
         private frmXyzTileImportOptions? _xyzTileImportOptionsForm;
         private readonly ToolStripStatusLabel _liveTileFetchStatus = new();
         private readonly System.Windows.Forms.Timer _liveTileFetchTimer = new();
-        private readonly List<Image> _liveTileFetchFrames = [];
+        private readonly List<Image> _liveTileFetchFrames = new List<Image>();
         private Image? _liveTileStaticGlobe;
         private Image? _liveTileDisconnectedGlobe;
         private int _liveTileFetchFrameIndex;
@@ -205,6 +205,11 @@ namespace Land_Readjustment_Tool
             XyzLiveTileRenderLayer.FetchStatusChanged += XyzLiveTileRenderLayer_FetchStatusChanged;
             FormClosed += frmMain_FormClosed;
             mapCanvasControlMain.StatusChanged += MapCanvasControlMain_StatusChanged;
+            mapCanvasControlMain.CommandService.PromptChanged += prompt =>
+            {
+                if (!IsDisposed && !Disposing)
+                    lblStatusMessage.Text = prompt;
+            };
             mapCanvasControlMain.ShapeCompleted += MapCanvasControlMain_ShapeCompleted;
             mapCanvasControlMain.SelectToolRequested += () => ActivateCanvasTool(MapCanvasTool.Select);
             mapCanvasControlMain.SelectedObjectsDeleteRequested += MapCanvasControlMain_SelectedObjectsDeleteRequested;
@@ -540,8 +545,8 @@ namespace Land_Readjustment_Tool
 
         private static void EnableDoubleBuffering(Control control)
         {
-            if (SystemInformation.TerminalServerSession) 
-            { 
+            if (SystemInformation.TerminalServerSession)
+            {
                 return;
             }
 
@@ -2908,6 +2913,22 @@ namespace Land_Readjustment_Tool
                 : "Ortho mode disabled");
         }
 
+        private void SetGridVisibility(bool visible)
+        {
+            mapCanvasControlMain.ApplyGridVisible(visible);
+            SetCanvasCommandStatus(visible
+                ? "Grid display enabled"
+                : "Grid display disabled");
+        }
+
+        private void SetNorthMarkerVisibility(bool visible)
+        {
+            mapCanvasControlMain.ApplyNorthMarkerVisible(visible);
+            SetCanvasCommandStatus(visible
+                ? "North marker enabled"
+                : "North marker disabled");
+        }
+
         protected override bool ProcessCmdKey(ref Message msg, Keys keyData)
         {
             Keys keyCode = keyData & Keys.KeyCode;
@@ -4609,9 +4630,9 @@ namespace Land_Readjustment_Tool
                     LineWeight = 1.3,
                     LineStyle = "Solid",
                     LineTypeScale = 1.0,
-                    FillStyle = "Solid",
-                    FillColor = drawingColor,
-                    FillTransparency = 0,
+                    FillColor = null,
+                    FillTransparency = 100,
+                    FillStyle = "None",
                     HatchScale = 1.0,
                     PointSymbol = "Dot",
                     PointSize = 5.0,
@@ -4698,7 +4719,7 @@ namespace Land_Readjustment_Tool
                     // Reload layers and refresh tree view (which shows swatches and properties)
                     var updatedLayers = await repository.GetAllOrderedAsync();
                     await RefreshLayerTreeAsync();
-                    
+
                     // Refresh canvas with updated colors
                     mapCanvasControlMain.SetVectorLayers(updatedLayers);
                     mapCanvasControlMain.RequestRender();
@@ -5181,7 +5202,8 @@ namespace Land_Readjustment_Tool
 
         private void SetCanvasCommandStatus(string status)
         {
-            lblStatusMessage.Text = string.Empty;
+            if (!string.IsNullOrWhiteSpace(status))
+                lblStatusMessage.Text = status;
         }
 
         private async Task PersistProjectUiStateAsync()
@@ -5649,7 +5671,7 @@ namespace Land_Readjustment_Tool
                 ? AppServices.Context.ProjectFolderPath
                 : null;
 
-            List<CanvasLayer> rasterLayers = [];
+            List<CanvasLayer> rasterLayers = new List<CanvasLayer>();
 
             foreach (TreeNode groupNode in treeViewLayers.Nodes)
             {
@@ -5690,7 +5712,7 @@ namespace Land_Readjustment_Tool
 
         private void UpdateVectorCanvasLayersFromTree()
         {
-            List<CanvasLayer> vectorLayers = [];
+            List<CanvasLayer> vectorLayers = new List<CanvasLayer>();
 
             foreach (TreeNode rootNode in treeViewLayers.Nodes)
             {
@@ -5774,7 +5796,7 @@ namespace Land_Readjustment_Tool
 
         private List<CanvasLayer> GetDrawingMarkupLayersFromTree()
         {
-            List<CanvasLayer> layers = [];
+            List<CanvasLayer> layers = new List<CanvasLayer>();
             foreach (TreeNode rootNode in treeViewLayers.Nodes)
             {
                 foreach (TreeNode groupNode in EnumerateGroupNodes(rootNode, DrawingMarkupGroupKey))
@@ -6159,7 +6181,7 @@ namespace Land_Readjustment_Tool
             private StatusProgressBar(InnerBar inner) : base(inner) { _inner = inner; }
 
             [System.ComponentModel.DesignerSerializationVisibility(System.ComponentModel.DesignerSerializationVisibility.Hidden)]
-            public int Value   { get => _inner.Value;   set => _inner.Value   = value; }
+            public int Value { get => _inner.Value; set => _inner.Value = value; }
             [System.ComponentModel.DesignerSerializationVisibility(System.ComponentModel.DesignerSerializationVisibility.Hidden)]
             public int Minimum { get => _inner.Minimum; set => _inner.Minimum = value; }
             [System.ComponentModel.DesignerSerializationVisibility(System.ComponentModel.DesignerSerializationVisibility.Hidden)]
@@ -6222,6 +6244,11 @@ namespace Land_Readjustment_Tool
         }
 
         private void statusCanvas_ItemClicked(object sender, ToolStripItemClickedEventArgs e)
+        {
+
+        }
+
+        private void hostProgressBarHost_Click(object sender, EventArgs e)
         {
 
         }

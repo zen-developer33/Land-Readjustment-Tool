@@ -301,7 +301,7 @@ namespace Land_Readjustment_Tool.UI.MapCanvas.Rendering
                 MinX(visibleWorldBounds) + Math.Abs(visibleWorldBounds.Width) / 2.0,
                 MinY(visibleWorldBounds) + Math.Abs(visibleWorldBounds.Height) / 2.0);
 
-            List<MbTilesVisibleTile> visibleTiles = [];
+            List<MbTilesVisibleTile> visibleTiles = new List<MbTilesVisibleTile>();
             foreach (MbTilesTileDescriptor descriptor in EnumerateTiles(tileRange))
             {
                 cancellationToken.ThrowIfCancellationRequested();
@@ -963,7 +963,7 @@ namespace Land_Readjustment_Tool.UI.MapCanvas.Rendering
         private static IReadOnlyList<MbTilesZoomInfo> ReadZoomInfos(
             SqliteConnection connection)
         {
-            List<MbTilesZoomInfo> zoomInfos = [];
+            List<MbTilesZoomInfo> zoomInfos = new List<MbTilesZoomInfo>();
             using SqliteCommand command = connection.CreateCommand();
             command.CommandText = $"""
                 SELECT zoom_level,
@@ -1108,7 +1108,7 @@ namespace Land_Readjustment_Tool.UI.MapCanvas.Rendering
                 new((MinX(sourceBounds) + MaxX(sourceBounds)) / 2.0, (MinY(sourceBounds) + MaxY(sourceBounds)) / 2.0)
             ];
 
-            List<PointD> transformedPoints = [];
+            List<PointD> transformedPoints = new List<PointD>();
             foreach (PointD sourcePoint in sourcePoints)
             {
                 if (!TryTransformPoint(

@@ -350,75 +350,77 @@ namespace Land_Readjustment_Tool.UI.MapCanvas.Rendering
 
         private void RenderNorthMarker(Graphics graphics, RectangleF clientRect)
         {
-            const float margin = 12.0f;
-            const float size = 40.0f; // overall control size (diameter)
-            float padding = 6.0f;
+            float minSide = Math.Min(clientRect.Width, clientRect.Height);
+            float size = Math.Max(32.0f, Math.Min(56.0f, minSide * 0.12f));
+            float margin = Math.Max(10.0f, size * 0.28f);
 
-            float centerX = clientRect.Right - margin - size / 2.0f;
-            float centerY = clientRect.Top + margin + size / 2.0f;
+            float left = clientRect.Right - margin - size;
+            float top = clientRect.Top + margin;
 
-            // Theme-aware colors
+            float minLeft = clientRect.Left + margin;
+            float minTop = clientRect.Top + margin;
+            if (left < minLeft)
+            {
+                left = minLeft;
+            }
+
+            if (top < minTop)
+            {
+                top = minTop;
+            }
+
+            RectangleF badge = new(left, top, size, size);
+            float centerX = badge.Left + badge.Width / 2.0f;
+            float centerY = badge.Top + badge.Height / 2.0f;
+
             Color canvasBg = _settings.BackgroundColor;
             Color accent = CanvasThemeColorService.AdjustColorForCanvasTheme(canvasBg, _settings.AccentColor);
             Color border = CanvasThemeColorService.AdjustColorForCanvasTheme(canvasBg, _settings.OverlayBorderColor);
-            Color label = CanvasThemeColorService.AdjustColorForCanvasTheme(canvasBg, _settings.OverlayTextColor);
+            Color plate = _settings.OverlayBackgroundColor;
+            plate = Color.FromArgb(210, plate.R, plate.G, plate.B);
 
-            RectangleF outer = new(
-                centerX - size / 2.0f,
-                centerY - size / 2.0f,
-                size,
-                size);
-
-            // subtle drop shadow
-            using SolidBrush shadowBrush = new(Color.FromArgb(48, 0, 0, 0));
-            RectangleF shadow = outer;
+            using SolidBrush shadowBrush = new(Color.FromArgb(40, 0, 0, 0));
+            RectangleF shadow = badge;
             shadow.Offset(1.5f, 2.0f);
             graphics.FillEllipse(shadowBrush, shadow);
 
-            // background plate
-            Color plateColor = _settings.OverlayBackgroundColor;
-            plateColor = Color.FromArgb(220, plateColor.R, plateColor.G, plateColor.B);
-            using SolidBrush plate = new(plateColor);
-            using Pen plateBorder = new(border, 1.0f);
-            graphics.FillEllipse(plate, outer);
-            graphics.DrawEllipse(plateBorder, outer);
+            using SolidBrush plateBrush = new(plate);
+            using Pen borderPen = new(border, 1.0f);
+            graphics.FillEllipse(plateBrush, badge);
+            graphics.DrawEllipse(borderPen, badge);
 
-            // draw north arrow (triangle) pointing up
-            float arrowHeight = size * 0.48f;
-            float arrowHalf = size * 0.18f;
-            PointF tip = new(centerX, centerY - arrowHeight / 2.0f - padding / 2.0f);
-            PointF left = new(centerX - arrowHalf, centerY + arrowHeight / 2.0f - padding / 2.0f);
-            PointF right = new(centerX + arrowHalf, centerY + arrowHeight / 2.0f - padding / 2.0f);
+            float arrowHeight = size * 0.55f;
+            float arrowWidth = size * 0.28f;
+            float tailHeight = size * 0.16f;
 
-            using GraphicsPath arrow = new();
-            arrow.AddPolygon(new[] { tip, right, left });
+            PointF tip = new(centerX, centerY - arrowHeight / 2.0f);
+            PointF leftWing = new(centerX - arrowWidth / 2.0f, centerY + arrowHeight / 2.0f);
+            PointF rightWing = new(centerX + arrowWidth / 2.0f, centerY + arrowHeight / 2.0f);
 
-            using SolidBrush arrowFill = new(accent);
-            using Pen arrowBorder = new(Color.FromArgb(200, border), 1.0f);
-            graphics.FillPath(arrowFill, arrow);
-            graphics.DrawPath(arrowBorder, arrow);
+            using GraphicsPath arrowPath = new();
+            arrowPath.AddPolygon(new[] { tip, rightWing, leftWing });
 
-            // small stem below arrow
-            float stemWidth = arrowHalf * 0.45f;
-            float stemHeight = size * 0.12f;
-            RectangleF stem = new(
-                centerX - stemWidth / 2.0f,
-                centerY + arrowHeight / 2.0f - padding / 2.0f,
-                stemWidth,
-                stemHeight);
-            using SolidBrush stemBrush = new(accent);
-            graphics.FillRectangle(stemBrush, stem);
-            graphics.DrawRectangle(arrowBorder, Rectangle.Round(stem));
+            using SolidBrush arrowBrush = new(accent);
+            using Pen arrowPen = new(Color.FromArgb(200, accent), 1.2f);
+            graphics.FillPath(arrowBrush, arrowPath);
+            graphics.DrawPath(arrowPen, arrowPath);
 
-            // label 'N' above the tip
+            RectangleF tail = new(
+                centerX - arrowWidth * 0.2f,
+                centerY + arrowHeight / 2.0f - tailHeight * 0.2f,
+                arrowWidth * 0.4f,
+                tailHeight);
+            graphics.FillRectangle(arrowBrush, tail);
+
+            using Font labelFont = new("Cambria", size * 0.28f, FontStyle.Bold);
+            using SolidBrush labelBrush = new(border);
             using StringFormat format = new()
             {
                 Alignment = StringAlignment.Center,
-                LineAlignment = StringAlignment.Near
+                LineAlignment = StringAlignment.Center
             };
-            using SolidBrush textBrush = new(label);
-            PointF textPoint = new(tip.X, tip.Y - 4.0f);
-            graphics.DrawString("N", _axisFont, textBrush, textPoint, format);
+            PointF labelPoint = new(centerX, badge.Top + size * 0.22f);
+            graphics.DrawString("N", labelFont, labelBrush, labelPoint, format);
         }
 
         /// <summary>

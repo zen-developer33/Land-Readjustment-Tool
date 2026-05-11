@@ -119,12 +119,12 @@ namespace Land_Readjustment_Tool.UI.MapCanvas.Rendering
         private readonly bool _projectIsWebMercator;
 
         // ── LRU tile cache ─────────────────────────────────────────────────────
-        private readonly Dictionary<TileKey, Bitmap> _tileCache = [];
-        private readonly LinkedList<TileKey> _tileLru = [];
-        private readonly Dictionary<TileKey, LinkedListNode<TileKey>> _tileLruNodes = [];
-        private readonly Dictionary<TileKey, int> _pendingFetches = [];
-        private readonly HashSet<TileKey> _noDataTiles = [];
-        private readonly Dictionary<TileKey, RectangleD> _projectTileBoundsCache = [];
+        private readonly Dictionary<TileKey, Bitmap> _tileCache = new Dictionary<TileKey, Bitmap>();
+        private readonly LinkedList<TileKey> _tileLru = new LinkedList<TileKey>();
+        private readonly Dictionary<TileKey, LinkedListNode<TileKey>> _tileLruNodes = new Dictionary<TileKey, LinkedListNode<TileKey>>();
+        private readonly Dictionary<TileKey, int> _pendingFetches = new Dictionary<TileKey, int>();
+        private readonly HashSet<TileKey> _noDataTiles = new HashSet<TileKey>();
+        private readonly Dictionary<TileKey, RectangleD> _projectTileBoundsCache = new Dictionary<TileKey, RectangleD>();
         private int _pendingFetchGeneration;
 
         // ── Tile source ────────────────────────────────────────────────────────
@@ -1523,7 +1523,7 @@ namespace Land_Readjustment_Tool.UI.MapCanvas.Rendering
                 return;
             }
 
-            List<TileKey> missing = [];
+            List<TileKey> missing = new List<TileKey>();
             int pendingGeneration;
 
             lock (_renderSync)
@@ -2112,6 +2112,7 @@ namespace Land_Readjustment_Tool.UI.MapCanvas.Rendering
             out PointF[] destination)
         {
             destination = [];
+            ;
 
             PointD topLeftWebMercator = new(
                 MinX(webMercatorBounds),

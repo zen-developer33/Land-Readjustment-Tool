@@ -87,6 +87,6 @@ namespace Land_Readjustment_Tool.Core.Entities.Canvas
         public string? Description { get; set; }
 
         // Navigation properties
-        public ICollection<CanvasObject> CanvasObjects { get; set; } = [];
+        public ICollection<CanvasObject> CanvasObjects { get; set; } = new List<CanvasObject>();
     }
 }

@@ -50,6 +50,6 @@ namespace Land_Readjustment_Tool.Core.Entities.Layout
 
         // Navigation properties
         public CanvasObject? CanvasObject { get; set; }
-        public ICollection<ParcelFrontage> ParcelFrontages { get; set; } = [];
+        public ICollection<ParcelFrontage> ParcelFrontages { get; set; } = new List<ParcelFrontage>();
     }
 }

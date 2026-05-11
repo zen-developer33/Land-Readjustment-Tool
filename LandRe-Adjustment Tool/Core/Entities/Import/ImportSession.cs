@@ -20,8 +20,8 @@ namespace Land_Readjustment_Tool.Core.Entities.Import
         public int? ReplacedBySessionID { get; set; }
         public string? Notes { get; set; }
         // Navigation properties    
-        public ICollection<ImportedRawRecord> ImportedRawRecords { get; set; } = [];
-        public ICollection<ValidationError> ValidationErrors { get; set; } = [];
-        public ICollection<CitizenshipConflict> CitizenshipConflicts { get; set; } = [];
+        public ICollection<ImportedRawRecord> ImportedRawRecords { get; set; } = new List<ImportedRawRecord>();
+        public ICollection<ValidationError> ValidationErrors { get; set; } = new List<ValidationError>();
+        public ICollection<CitizenshipConflict> CitizenshipConflicts { get; set; } = new List<CitizenshipConflict>();
     }
 }

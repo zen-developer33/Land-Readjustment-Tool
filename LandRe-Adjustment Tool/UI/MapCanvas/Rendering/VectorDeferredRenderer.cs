@@ -15,7 +15,7 @@ namespace Land_Readjustment_Tool.UI.MapCanvas.Rendering
     {
         private const int LevelOfDetailThreshold = 20_000;
         private readonly object _sync = new();
-        private readonly List<Bitmap> _retiredBitmaps = [];
+        private readonly List<Bitmap> _retiredBitmaps = new List<Bitmap>();
         private Bitmap? _vectorCache;
         private Bitmap? _panBuffer;
         private Size _canvasSize;

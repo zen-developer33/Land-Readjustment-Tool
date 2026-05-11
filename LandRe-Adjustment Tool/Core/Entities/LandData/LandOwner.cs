@@ -34,8 +34,8 @@ namespace Land_Readjustment_Tool.Core.Entities.LandData
         public DateTime LastModifiedDate { get; set; }
 
         //Navigation properties
-        public ICollection<MalpotReference> MalpotReferences { get; set; } = [];
-        public ICollection<BaselineParcel> BaselineParcels { get; set; } = [];
-        public ICollection<ReplottedParcelOwner> ReplottedParcelOwnerships { get; set; } = [];
+        public ICollection<MalpotReference> MalpotReferences { get; set; } = new List<MalpotReference>();
+        public ICollection<BaselineParcel> BaselineParcels { get; set; } = new List<BaselineParcel>();
+        public ICollection<ReplottedParcelOwner> ReplottedParcelOwnerships { get; set; } = new List<ReplottedParcelOwner>();
     }
 }

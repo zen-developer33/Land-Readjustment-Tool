@@ -62,6 +62,6 @@ namespace Land_Readjustment_Tool.Core.Entities.Contribution
         // Navigation properties
         public ICollection<ParcelContribution>
             ParcelContributions
-        { get; set; } = [];
+        { get; set; } = new List<ParcelContribution>();
     }
 }

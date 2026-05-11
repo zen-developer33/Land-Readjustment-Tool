@@ -151,8 +151,8 @@ namespace Land_Readjustment_Tool
             mnuDrawPoint = new ToolStripButton();
             mnuDrawLine = new ToolStripButton();
             mnuDrawPolyline = new ToolStripButton();
-            mnuDrawPolygon = new ToolStripButton();
             mnuDrawRectangle = new ToolStripButton();
+            mnuDrawPolygon = new ToolStripButton();
             mnuDrawCircle = new ToolStripButton();
             mnuDrawArc = new ToolStripButton();
             toolStripSeparator17 = new ToolStripSeparator();
@@ -170,13 +170,13 @@ namespace Land_Readjustment_Tool
             lblProjectName = new ToolStripStatusLabel();
             tsStatusSep1 = new ToolStripSeparator();
             lblActiveTool = new ToolStripStatusLabel();
-            lblStatusSpacer = new ToolStripStatusLabel();
-            lblOperationProgressStatus = new ToolStripStatusLabel();
+            lblStatusMessage = new ToolStripStatusLabel();
             hostProgressBarHost = new StatusProgressBar();
+            lblOperationProgressStatus = new ToolStripStatusLabel();
             lblScale = new ToolStripStatusLabel();
             lblCanvasCoordinates = new ToolStripStatusLabel();
+            lblStatusSpacer = new ToolStripStatusLabel();
             tsStatusSep2 = new ToolStripSeparator();
-            lblStatusMessage = new ToolStripStatusLabel();
             mnuNewProject = new ToolStripButton();
             mnuOpenProject = new ToolStripButton();
             mnuSaveProject = new ToolStripButton();
@@ -1179,14 +1179,12 @@ namespace Land_Readjustment_Tool
             // 
             // mapCanvasControlMain
             // 
-            mapCanvasControlMain.Anchor = AnchorStyles.Top | AnchorStyles.Bottom | AnchorStyles.Left | AnchorStyles.Right;
             mapCanvasControlMain.BackColor = Color.White;
-            mapCanvasControlMain.BorderStyle = BorderStyle.FixedSingle;
-            mapCanvasControlMain.Location = new Point(0, 30);
+            mapCanvasControlMain.Dock = DockStyle.Fill;
+            mapCanvasControlMain.Location = new Point(0, 28);
             mapCanvasControlMain.Name = "mapCanvasControlMain";
-            mapCanvasControlMain.Size = new Size(905, 522);
-            mapCanvasControlMain.TabIndex = 2;
-            mapCanvasControlMain.Load += mapCanvasControlMain_Load;
+            mapCanvasControlMain.Size = new Size(905, 527);
+            mapCanvasControlMain.TabIndex = 0;
             // 
             // tsCanvasTools
             // 
@@ -1264,17 +1262,6 @@ namespace Land_Readjustment_Tool
             mnuDrawPolyline.Text = "Draw Polyline";
             mnuDrawPolyline.Click += mnuDrawPolyline_Click;
             // 
-            // mnuDrawPolygon
-            // 
-            mnuDrawPolygon.CheckOnClick = true;
-            mnuDrawPolygon.DisplayStyle = ToolStripItemDisplayStyle.Image;
-            mnuDrawPolygon.Image = Properties.Resources.icons8_polygon_24__1_;
-            mnuDrawPolygon.ImageTransparentColor = Color.Magenta;
-            mnuDrawPolygon.Name = "mnuDrawPolygon";
-            mnuDrawPolygon.Size = new Size(29, 25);
-            mnuDrawPolygon.Text = "Draw Polygon";
-            mnuDrawPolygon.Click += mnuDrawPolygon_Click;
-            // 
             // mnuDrawRectangle
             // 
             mnuDrawRectangle.CheckOnClick = true;
@@ -1285,6 +1272,17 @@ namespace Land_Readjustment_Tool
             mnuDrawRectangle.Size = new Size(29, 25);
             mnuDrawRectangle.Text = "Draw Rectangle";
             mnuDrawRectangle.Click += mnuDrawRectangle_Click;
+            // 
+            // mnuDrawPolygon
+            // 
+            mnuDrawPolygon.CheckOnClick = true;
+            mnuDrawPolygon.DisplayStyle = ToolStripItemDisplayStyle.Image;
+            mnuDrawPolygon.Image = Properties.Resources.icons8_polygon_24__1_;
+            mnuDrawPolygon.ImageTransparentColor = Color.Magenta;
+            mnuDrawPolygon.Name = "mnuDrawPolygon";
+            mnuDrawPolygon.Size = new Size(29, 25);
+            mnuDrawPolygon.Text = "Draw Polygon";
+            mnuDrawPolygon.Click += mnuDrawPolygon_Click;
             // 
             // mnuDrawCircle
             // 
@@ -1316,8 +1314,8 @@ namespace Land_Readjustment_Tool
             // lblCurrentDrawingLayer
             // 
             lblCurrentDrawingLayer.Name = "lblCurrentDrawingLayer";
-            lblCurrentDrawingLayer.Size = new Size(96, 25);
-            lblCurrentDrawingLayer.Text = "Current Layer";
+            lblCurrentDrawingLayer.Size = new Size(89, 25);
+            lblCurrentDrawingLayer.Text = "Active Layer";
             // 
             // cboCurrentDrawingLayer
             // 
@@ -1423,7 +1421,7 @@ namespace Land_Readjustment_Tool
             statusCanvas.BackColor = SystemColors.ControlLightLight;
             statusCanvas.ForeColor = SystemColors.ControlText;
             statusCanvas.ImageScalingSize = new Size(20, 20);
-            statusCanvas.Items.AddRange(new ToolStripItem[] { lblProjectName, tsStatusSep1, lblActiveTool, lblStatusSpacer, lblOperationProgressStatus, hostProgressBarHost, lblScale, lblCanvasCoordinates });
+            statusCanvas.Items.AddRange(new ToolStripItem[] { lblProjectName, tsStatusSep1, lblActiveTool, lblStatusMessage, hostProgressBarHost, lblOperationProgressStatus, lblScale, lblCanvasCoordinates });
             statusCanvas.LayoutStyle = ToolStripLayoutStyle.HorizontalStackWithOverflow;
             statusCanvas.Location = new Point(0, 623);
             statusCanvas.Name = "statusCanvas";
@@ -1451,20 +1449,36 @@ namespace Land_Readjustment_Tool
             // lblActiveTool
             // 
             lblActiveTool.AutoSize = false;
-            lblActiveTool.Margin = new Padding(4, 3, 6, 2);
+            lblActiveTool.BorderSides = ToolStripStatusLabelBorderSides.Right;
+            lblActiveTool.Margin = new Padding(4, 3, 0, 2);
             lblActiveTool.Name = "lblActiveTool";
-            lblActiveTool.Size = new Size(250, 37);
+            lblActiveTool.Size = new Size(165, 37);
             lblActiveTool.Text = "Active Tool: Select";
             lblActiveTool.TextAlign = ContentAlignment.MiddleLeft;
             // 
-            // lblStatusSpacer
+            // lblStatusMessage
             // 
-            lblStatusSpacer.Name = "lblStatusSpacer";
-            lblStatusSpacer.Size = new Size(0, 32);
-            lblStatusSpacer.Spring = true;
+            lblStatusMessage.AutoSize = false;
+            lblStatusMessage.BorderSides = ToolStripStatusLabelBorderSides.Right;
+            lblStatusMessage.ForeColor = SystemColors.ControlText;
+            lblStatusMessage.Margin = new Padding(6, 3, 0, 2);
+            lblStatusMessage.Name = "lblStatusMessage";
+            lblStatusMessage.Size = new Size(400, 37);
+            lblStatusMessage.Spring = true;
+            lblStatusMessage.Text = "Ready";
+            lblStatusMessage.TextAlign = ContentAlignment.MiddleLeft;
+            // 
+            // hostProgressBarHost
+            // 
+            hostProgressBarHost.Alignment = ToolStripItemAlignment.Right;
+            hostProgressBarHost.Name = "hostProgressBarHost";
+            hostProgressBarHost.Size = new Size(154, 36);
+            hostProgressBarHost.Visible = false;
+            hostProgressBarHost.Click += hostProgressBarHost_Click;
             // 
             // lblOperationProgressStatus
             // 
+            lblOperationProgressStatus.Alignment = ToolStripItemAlignment.Right;
             lblOperationProgressStatus.AutoSize = false;
             lblOperationProgressStatus.BorderSides = ToolStripStatusLabelBorderSides.Left;
             lblOperationProgressStatus.ForeColor = SystemColors.ControlText;
@@ -1473,52 +1487,40 @@ namespace Land_Readjustment_Tool
             lblOperationProgressStatus.TextAlign = ContentAlignment.MiddleRight;
             lblOperationProgressStatus.Visible = false;
             // 
-            // hostProgressBarHost
-            // 
-            hostProgressBarHost.AccessibleName = "hostProgressBarHost";
-            hostProgressBarHost.AutoSize = false;
-            hostProgressBarHost.Margin = new Padding(4, 2, 8, 2);
-            hostProgressBarHost.Name = "hostProgressBarHost";
-            hostProgressBarHost.Size = new Size(154, 38);
-            hostProgressBarHost.Visible = false;
-            // 
             // lblScale
             // 
             lblScale.Alignment = ToolStripItemAlignment.Right;
+            lblScale.AutoSize = false;
             lblScale.BorderSides = ToolStripStatusLabelBorderSides.Left;
             lblScale.Margin = new Padding(0, 3, 4, 2);
             lblScale.Name = "lblScale";
-            lblScale.Size = new Size(81, 33);
+            lblScale.Size = new Size(100, 33);
             lblScale.Text = "Scale: 1:—";
             lblScale.TextAlign = ContentAlignment.MiddleRight;
             // 
             // lblCanvasCoordinates
             // 
             lblCanvasCoordinates.Alignment = ToolStripItemAlignment.Right;
+            lblCanvasCoordinates.AutoSize = false;
             lblCanvasCoordinates.BorderSides = ToolStripStatusLabelBorderSides.Left;
             lblCanvasCoordinates.BorderStyle = Border3DStyle.RaisedOuter;
             lblCanvasCoordinates.ForeColor = SystemColors.ControlText;
             lblCanvasCoordinates.Margin = new Padding(0, 3, 6, 2);
             lblCanvasCoordinates.Name = "lblCanvasCoordinates";
-            lblCanvasCoordinates.Size = new Size(148, 33);
+            lblCanvasCoordinates.Size = new Size(220, 33);
             lblCanvasCoordinates.Text = "E: 0.0000    N: 0.0000";
             lblCanvasCoordinates.TextAlign = ContentAlignment.MiddleRight;
+            // 
+            // lblStatusSpacer
+            // 
+            lblStatusSpacer.Name = "lblStatusSpacer";
+            lblStatusSpacer.Size = new Size(0, 32);
+            lblStatusSpacer.Spring = true;
             // 
             // tsStatusSep2
             // 
             tsStatusSep2.Name = "tsStatusSep2";
             tsStatusSep2.Size = new Size(6, 38);
-            // 
-            // lblStatusMessage
-            // 
-            lblStatusMessage.AutoSize = false;
-            lblStatusMessage.BorderSides = ToolStripStatusLabelBorderSides.Right;
-            lblStatusMessage.ForeColor = SystemColors.ControlText;
-            lblStatusMessage.Margin = new Padding(4, 3, 0, 2);
-            lblStatusMessage.Name = "lblStatusMessage";
-            lblStatusMessage.Size = new Size(220, 37);
-            lblStatusMessage.Text = "Status: Ready";
-            lblStatusMessage.TextAlign = ContentAlignment.MiddleLeft;
             // 
             // mnuNewProject
             // 

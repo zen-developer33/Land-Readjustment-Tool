@@ -4,8 +4,8 @@ namespace Land_Readjustment_Tool.UI.MapCanvas.Rendering
 {
     public sealed class BrushCache : IDisposable
     {
-        private readonly Dictionary<int, SolidBrush> _solidBrushes = [];
-        private readonly Dictionary<HatchBrushKey, HatchBrush> _hatchBrushes = [];
+        private readonly Dictionary<int, SolidBrush> _solidBrushes = new Dictionary<int, SolidBrush>();
+        private readonly Dictionary<HatchBrushKey, HatchBrush> _hatchBrushes = new Dictionary<HatchBrushKey, HatchBrush>();
 
         public SolidBrush GetSolid(Color color)
         {
