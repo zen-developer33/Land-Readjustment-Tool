@@ -1022,6 +1022,10 @@ namespace Land_Readjustment_Tool.Migrations
                         .IsRequired()
                         .HasColumnType("TEXT");
 
+                    b.Property<string>("CanvasGridMode")
+                        .IsRequired()
+                        .HasColumnType("TEXT");
+
                     b.Property<bool>("CanvasGridVisible")
                         .HasColumnType("INTEGER");
 

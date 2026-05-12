@@ -25,8 +25,6 @@ namespace Land_Readjustment_Tool.UI.Forms.Project
         }
 
         private const int DefaultCoordinateSystemId = 1;
-        private const string ZoomBehaviorNormalText = "Normal zoom";
-        private const string ZoomBehaviorStandardScaleStepsText = "Standard scale steps";
 
         // AutoCAD-like dark defaults (from current old renderer feel)
         private static readonly Color DarkThemeBackground = Color.FromArgb(34, 41, 51);
@@ -53,8 +51,6 @@ namespace Land_Readjustment_Tool.UI.Forms.Project
         private bool _suppressCanvasThemeEvents = false;
         private bool _settingsApplied = false;
         private bool _settingsModified = false;
-        private readonly Label lblZoomBehavior = new();
-        private readonly ComboBox cmbZoomBehavior = new();
 
         public event EventHandler<ProjectSettingsAppliedEventArgs>? SettingsApplied;
         public event EventHandler? SettingsChanged;
@@ -65,7 +61,6 @@ namespace Land_Readjustment_Tool.UI.Forms.Project
             IDatumTransformationRepository datumRepo)
         {
             InitializeComponent();
-            InitializeZoomBehaviorControls();
             NumericUpDownSelectAllBehavior.AttachTo(this);
             _service = service;
             _crsRepo = crsRepo;
@@ -259,6 +254,7 @@ namespace Land_Readjustment_Tool.UI.Forms.Project
             _suppressCanvasThemeEvents = false;
 
             chkGridVisible.Checked = s.CanvasGridVisible;
+            SelectGridMode(s.CanvasGridMode);
             chkOriginAxisMarkerVisible.Checked = s.CanvasAxisMarkerVisible;
             chkNorthMarker.Checked = s.CanvasNorthMarkerVisible;
             chkAntiAliasing.Checked = s.CanvasAntiAliasingEnabled;
@@ -306,6 +302,7 @@ namespace Land_Readjustment_Tool.UI.Forms.Project
             s.CanvasGridColor =
                 ColorTranslator.ToHtml(pnlGridColor.BackColor);
             s.CanvasGridVisible = chkGridVisible.Checked;
+            s.CanvasGridMode = GetSelectedGridMode();
             s.CanvasAxisMarkerVisible = chkOriginAxisMarkerVisible.Checked;
             s.CanvasNorthMarkerVisible = chkNorthMarker.Checked;
             s.CanvasAntiAliasingEnabled = chkAntiAliasing.Checked;
@@ -662,6 +659,7 @@ namespace Land_Readjustment_Tool.UI.Forms.Project
             ApplyThemePreset(CanvasThemeMode.Light);
             UpdateCanvasColorLabels();
             chkGridVisible.Checked = false;
+            SelectGridMode(ProjectSettings.GridModeMajorOnly);
             chkOriginAxisMarkerVisible.Checked = false;
             chkNorthMarker.Checked = false;
             chkAntiAliasing.Checked = true;
@@ -669,7 +667,7 @@ namespace Land_Readjustment_Tool.UI.Forms.Project
             nudSnapTolerance.Value = ClampToRange(nudSnapTolerance, 8m);
             nudSnapGlyphSize.Value = ClampToRange(nudSnapGlyphSize, 14m);
             chkOrthoEnabled.Checked = false;
-            SelectZoomBehavior(MapCanvasZoomBehavior.Normal.ToString());
+            SelectZoomBehavior(MapCanvasZoomBehavior.StandardScaleSteps.ToString());
 
             // Parcel settings
             cmbParcelFormat.SelectedItem = "Sequential";
@@ -873,45 +871,34 @@ namespace Land_Readjustment_Tool.UI.Forms.Project
             return value;
         }
 
-        private void InitializeZoomBehaviorControls()
+        private void SelectGridMode(string? mode)
         {
-            lblZoomBehavior.Font = new Font("Segoe UI", 9F);
-            lblZoomBehavior.Location = new Point(188, 30);
-            lblZoomBehavior.Name = "lblZoomBehavior";
-            lblZoomBehavior.Size = new Size(120, 22);
-            lblZoomBehavior.TabIndex = 10;
-            lblZoomBehavior.Text = "Zoom behavior:";
-
-            cmbZoomBehavior.DropDownStyle = ComboBoxStyle.DropDownList;
-            cmbZoomBehavior.Font = new Font("Segoe UI", 9F);
-            cmbZoomBehavior.FormattingEnabled = true;
-            cmbZoomBehavior.Items.AddRange(
-            [
-                ZoomBehaviorNormalText,
-                ZoomBehaviorStandardScaleStepsText
-            ]);
-            cmbZoomBehavior.Location = new Point(314, 26);
-            cmbZoomBehavior.Name = "cmbZoomBehavior";
-            cmbZoomBehavior.Size = new Size(202, 28);
-            cmbZoomBehavior.TabIndex = 11;
-
-            grpOther.Controls.Add(lblZoomBehavior);
-            grpOther.Controls.Add(cmbZoomBehavior);
-        }
-
-        private void SelectZoomBehavior(string? behavior)
-        {
-            cmbZoomBehavior.SelectedIndex = string.Equals(
-                behavior,
-                MapCanvasZoomBehavior.StandardScaleSteps.ToString(),
+            cmbGridMode.SelectedIndex = string.Equals(
+                mode,
+                ProjectSettings.GridModeMajorAndMinor,
                 StringComparison.OrdinalIgnoreCase)
                 ? 1
                 : 0;
         }
 
+        private string GetSelectedGridMode()
+        {
+            return cmbGridMode.SelectedIndex == 1
+                ? ProjectSettings.GridModeMajorAndMinor
+                : ProjectSettings.GridModeMajorOnly;
+        }
+
+        private void SelectZoomBehavior(string? behavior)
+        {
+            chkStandardZoomBehavior.Checked = !string.Equals(
+                behavior,
+                MapCanvasZoomBehavior.Normal.ToString(),
+                StringComparison.OrdinalIgnoreCase);
+        }
+
         private string GetSelectedZoomBehavior()
         {
-            return cmbZoomBehavior.SelectedIndex == 1
+            return chkStandardZoomBehavior.Checked
                 ? MapCanvasZoomBehavior.StandardScaleSteps.ToString()
                 : MapCanvasZoomBehavior.Normal.ToString();
         }

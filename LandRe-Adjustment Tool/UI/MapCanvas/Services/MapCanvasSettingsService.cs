@@ -59,6 +59,7 @@ namespace Land_Readjustment_Tool.UI.MapCanvas.Services
                 : Color.FromArgb(54, 70, 82);
 
             settings.ShowGrid = projectSettings.CanvasGridVisible;
+            settings.ShowMinorGridLines = ShouldShowMinorGridLines(projectSettings.CanvasGridMode);
             settings.ShowAxisLines = projectSettings.CanvasAxisMarkerVisible;
             settings.ShowOriginMarker = projectSettings.CanvasAxisMarkerVisible;
             settings.ShowAxisLabels = projectSettings.CanvasAxisMarkerVisible;
@@ -103,7 +104,15 @@ namespace Land_Readjustment_Tool.UI.MapCanvas.Services
         {
             return Enum.TryParse(value, ignoreCase: true, out MapCanvasZoomBehavior behavior)
                 ? behavior
-                : MapCanvasZoomBehavior.Normal;
+                : MapCanvasZoomBehavior.StandardScaleSteps;
+        }
+
+        private static bool ShouldShowMinorGridLines(string? gridMode)
+        {
+            return string.Equals(
+                gridMode,
+                ProjectSettings.GridModeMajorAndMinor,
+                StringComparison.OrdinalIgnoreCase);
         }
     }
 }

@@ -351,33 +351,51 @@ namespace Land_Readjustment_Tool.UI.MapCanvas.Rendering
         private void RenderNorthMarker(Graphics graphics, RectangleF clientRect)
         {
             float minSide = Math.Min(clientRect.Width, clientRect.Height);
-            float size    = Math.Max(32.0f, Math.Min(56.0f, minSide * 0.12f));
+            float size    = Math.Max(42.0f, Math.Min(72.0f, minSide * 0.12f));
             float margin  = Math.Max(10.0f, size * 0.28f);
 
             float centerX = clientRect.Right - margin - size * 0.5f;
             float top     = clientRect.Top + margin;
 
-            Color canvasBg   = _settings.BackgroundColor;
-            Color arrowColor = CanvasThemeColorService.AdjustColorForCanvasTheme(canvasBg, _settings.AccentColor);
-            Color labelColor = CanvasThemeColorService.AdjustColorForCanvasTheme(canvasBg, _settings.OverlayBorderColor);
+            Color canvasBg = _settings.BackgroundColor;
+            bool isDarkCanvas = CanvasThemeColorService.IsDarkCanvas(canvasBg);
+            Color lineColor = isDarkCanvas
+                ? Color.FromArgb(242, 248, 250)
+                : Color.FromArgb(18, 23, 28);
+            Color rightFillColor = isDarkCanvas
+                ? Color.FromArgb(78, 201, 176)
+                : Color.FromArgb(20, 24, 29);
+            Color leftFillColor = isDarkCanvas
+                ? Color.FromArgb(48, 60, 66)
+                : Color.FromArgb(245, 248, 250);
 
-            // Simple north-pointing filled triangle
-            float arrowH    = size * 0.62f;
-            float arrowHalf = size * 0.22f;
-
-            PointF tip   = new(centerX, top);
-            PointF wingL = new(centerX - arrowHalf, top + arrowH);
-            PointF wingR = new(centerX + arrowHalf, top + arrowH);
-
-            using SolidBrush arrowBrush = new(arrowColor);
-            graphics.FillPolygon(arrowBrush, new[] { tip, wingR, wingL });
-
-            // "N" label centred just below the arrow tip
-            using Font labelFont = new("Segoe UI", Math.Max(7f, size * 0.26f), FontStyle.Bold);
-            using SolidBrush labelBrush = new(labelColor);
+            float labelHeight = size * 0.34f;
+            using Font labelFont = new("Segoe UI", Math.Max(12f, size * 0.34f), FontStyle.Bold);
+            using SolidBrush labelBrush = new(lineColor);
             using StringFormat sf = new() { Alignment = StringAlignment.Center };
-            graphics.DrawString("N", labelFont, labelBrush,
-                new PointF(centerX, top + arrowH + size * 0.04f), sf);
+            graphics.DrawString("N", labelFont, labelBrush, new PointF(centerX, top), sf);
+
+            float arrowTop = top + labelHeight;
+            float arrowBottom = arrowTop + size * 0.82f;
+            float arrowHalf = size * 0.25f;
+            float spineBottom = arrowBottom - size * 0.18f;
+
+            PointF tip = new(centerX, arrowTop);
+            PointF spine = new(centerX, spineBottom);
+            PointF leftBase = new(centerX - arrowHalf, arrowBottom);
+            PointF rightBase = new(centerX + arrowHalf, arrowBottom);
+
+            using SolidBrush leftBrush = new(leftFillColor);
+            using SolidBrush rightBrush = new(rightFillColor);
+            using Pen outlinePen = new(lineColor, Math.Max(1.6f, size * 0.04f))
+            {
+                LineJoin = LineJoin.Miter
+            };
+
+            graphics.FillPolygon(leftBrush, new[] { tip, spine, leftBase });
+            graphics.FillPolygon(rightBrush, new[] { tip, rightBase, spine });
+            graphics.DrawPolygon(outlinePen, new[] { tip, rightBase, spine, leftBase });
+            graphics.DrawLine(outlinePen, tip, spine);
         }
 
         /// <summary>
@@ -694,6 +712,11 @@ namespace Land_Readjustment_Tool.UI.MapCanvas.Rendering
             for (double x = startX; x <= endX; x += adaptiveMinorSize)
             {
                 bool isMajor = IsMajorLine(x, adaptiveMajorSize);
+                if (!isMajor && !_settings.ShowMinorGridLines)
+                {
+                    continue;
+                }
+
                 Pen pen = isMajor ? majorPen : minorPen;
                 PointD screenStart = _engine.WorldToScreen(new PointD(x, worldBottom));
                 PointD screenEnd = _engine.WorldToScreen(new PointD(x, worldTop));
@@ -724,6 +747,11 @@ namespace Land_Readjustment_Tool.UI.MapCanvas.Rendering
             for (double y = startY; y <= endY; y += adaptiveMinorSize)
             {
                 bool isMajor = IsMajorLine(y, adaptiveMajorSize);
+                if (!isMajor && !_settings.ShowMinorGridLines)
+                {
+                    continue;
+                }
+
                 Pen pen = isMajor ? majorPen : minorPen;
                 PointD screenStart = _engine.WorldToScreen(new PointD(worldLeft, y));
                 PointD screenEnd = _engine.WorldToScreen(new PointD(worldRight, y));

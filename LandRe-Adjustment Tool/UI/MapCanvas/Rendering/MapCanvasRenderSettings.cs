@@ -32,6 +32,7 @@ namespace Land_Readjustment_Tool.UI.MapCanvas.Rendering
         public DashStyle ZoomWindowLineType { get; set; } = DashStyle.Solid;
 
         public bool ShowGrid { get; set; } = true;
+        public bool ShowMinorGridLines { get; set; } = false;
         public bool ShowGridLabels { get; set; } = true;
         public bool ShowAxisLines { get; set; } = true;
         public bool ShowAxisLabels { get; set; } = true;
@@ -39,7 +40,7 @@ namespace Land_Readjustment_Tool.UI.MapCanvas.Rendering
         public bool ShowOriginMarker { get; set; } = true;
         public bool ShowNorthMarker { get; set; } = false;
         public bool AntiAliasingEnabled { get; set; } = true;
-        public MapCanvasZoomBehavior ZoomBehavior { get; set; } = MapCanvasZoomBehavior.Normal;
+        public MapCanvasZoomBehavior ZoomBehavior { get; set; } = MapCanvasZoomBehavior.StandardScaleSteps;
 
         /// <summary>
         /// Creates render settings from project settings entity.
@@ -92,6 +93,7 @@ namespace Land_Readjustment_Tool.UI.MapCanvas.Rendering
                 ZoomWindowLineWidth = 1.0f,
                 ZoomWindowLineType = DashStyle.Dash,
                 ShowGrid = projectSettings.CanvasGridVisible,
+                ShowMinorGridLines = ShouldShowMinorGridLines(projectSettings.CanvasGridMode),
                 ShowGridLabels = true,
                 ShowAxisLines = projectSettings.CanvasAxisMarkerVisible,
                 ShowAxisLabels = projectSettings.CanvasAxisMarkerVisible,
@@ -125,6 +127,7 @@ namespace Land_Readjustment_Tool.UI.MapCanvas.Rendering
                 ZoomWindowLineWidth = 1.0f,
                 ZoomWindowLineType = DashStyle.Dash,
                 ShowGrid = true,
+                ShowMinorGridLines = false,
                 ShowGridLabels = true,
                 ShowAxisLines = true,
                 ShowAxisLabels = true,
@@ -155,6 +158,7 @@ namespace Land_Readjustment_Tool.UI.MapCanvas.Rendering
                 ZoomWindowLineWidth = 1.0f,
                 ZoomWindowLineType = DashStyle.Dash,
                 ShowGrid = true,
+                ShowMinorGridLines = false,
                 ShowGridLabels = true,
                 ShowAxisLines = true,
                 ShowAxisLabels = true,
@@ -177,7 +181,15 @@ namespace Land_Readjustment_Tool.UI.MapCanvas.Rendering
         {
             return Enum.TryParse(value, ignoreCase: true, out MapCanvasZoomBehavior behavior)
                 ? behavior
-                : MapCanvasZoomBehavior.Normal;
+                : MapCanvasZoomBehavior.StandardScaleSteps;
+        }
+
+        private static bool ShouldShowMinorGridLines(string? gridMode)
+        {
+            return string.Equals(
+                gridMode,
+                ProjectSettings.GridModeMajorAndMinor,
+                StringComparison.OrdinalIgnoreCase);
         }
     }
 }

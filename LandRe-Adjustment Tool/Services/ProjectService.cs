@@ -97,11 +97,12 @@ namespace Land_Readjustment_Tool.Services
                 CanvasBackgroundColor = "#FFFFFF",
                 CanvasGridColor = "#CCCCCC",
                 CanvasGridVisible = false,
+                CanvasGridMode = ProjectSettings.GridModeMajorOnly,
                 CanvasAxisMarkerVisible = false,
                 SnapEnabled = true,
                 SnapTolerancePx = 8.0,
                 SnapGlyphSizePx = 14.0,
-                CanvasZoomBehavior = "Normal",
+                CanvasZoomBehavior = "StandardScaleSteps",
 
                 // Parcel numbering
                 ParcelNumberFormat = "Sequential",

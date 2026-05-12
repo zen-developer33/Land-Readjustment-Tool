@@ -45,6 +45,9 @@ namespace Land_Readjustment_Tool.UI.Forms.Project
             nudSnapGlyphSize = new NumericUpDown();
             lblSnapGlyphUnit = new Label();
             grpOther = new GroupBox();
+            chkStandardZoomBehavior = new CheckBox();
+            cmbGridMode = new ComboBox();
+            lblGridMode = new Label();
             chkNorthMarker = new CheckBox();
             chkOriginAxisMarkerVisible = new CheckBox();
             chkGridVisible = new CheckBox();
@@ -437,6 +440,9 @@ namespace Land_Readjustment_Tool.UI.Forms.Project
             // 
             // grpOther
             // 
+            grpOther.Controls.Add(chkStandardZoomBehavior);
+            grpOther.Controls.Add(cmbGridMode);
+            grpOther.Controls.Add(lblGridMode);
             grpOther.Controls.Add(chkNorthMarker);
             grpOther.Controls.Add(chkOriginAxisMarkerVisible);
             grpOther.Controls.Add(chkGridVisible);
@@ -446,23 +452,54 @@ namespace Land_Readjustment_Tool.UI.Forms.Project
             grpOther.Size = new Size(263, 173);
             grpOther.TabIndex = 9;
             grpOther.TabStop = false;
-            grpOther.Text = "UI Layers";
+            grpOther.Text = "UI / UX";
+            // 
+            // chkStandardZoomBehavior
+            // 
+            chkStandardZoomBehavior.Checked = true;
+            chkStandardZoomBehavior.CheckState = CheckState.Checked;
+            chkStandardZoomBehavior.Font = new Font("Segoe UI", 9F);
+            chkStandardZoomBehavior.Location = new Point(10, 139);
+            chkStandardZoomBehavior.Name = "chkStandardZoomBehavior";
+            chkStandardZoomBehavior.Size = new Size(218, 27);
+            chkStandardZoomBehavior.TabIndex = 13;
+            chkStandardZoomBehavior.Text = "Use standard zoom steps";
+            // 
+            // cmbGridMode
+            // 
+            cmbGridMode.DropDownStyle = ComboBoxStyle.DropDownList;
+            cmbGridMode.Font = new Font("Segoe UI", 9F);
+            cmbGridMode.FormattingEnabled = true;
+            cmbGridMode.Items.AddRange(new object[] { "Major grid only", "Major and minor grids" });
+            cmbGridMode.Location = new Point(88, 53);
+            cmbGridMode.Name = "cmbGridMode";
+            cmbGridMode.Size = new Size(159, 28);
+            cmbGridMode.TabIndex = 12;
+            // 
+            // lblGridMode
+            // 
+            lblGridMode.Font = new Font("Segoe UI", 9F);
+            lblGridMode.Location = new Point(28, 57);
+            lblGridMode.Name = "lblGridMode";
+            lblGridMode.Size = new Size(63, 20);
+            lblGridMode.TabIndex = 11;
+            lblGridMode.Text = "Grid:";
             // 
             // chkNorthMarker
             // 
             chkNorthMarker.Font = new Font("Segoe UI", 9F);
-            chkNorthMarker.Location = new Point(10, 82);
+            chkNorthMarker.Location = new Point(10, 112);
             chkNorthMarker.Name = "chkNorthMarker";
-            chkNorthMarker.Size = new Size(197, 27);
+            chkNorthMarker.Size = new Size(218, 27);
             chkNorthMarker.TabIndex = 10;
             chkNorthMarker.Text = "Show North Marker";
             // 
             // chkOriginAxisMarkerVisible
             // 
             chkOriginAxisMarkerVisible.Font = new Font("Segoe UI", 9F);
-            chkOriginAxisMarkerVisible.Location = new Point(10, 55);
+            chkOriginAxisMarkerVisible.Location = new Point(10, 84);
             chkOriginAxisMarkerVisible.Name = "chkOriginAxisMarkerVisible";
-            chkOriginAxisMarkerVisible.Size = new Size(150, 27);
+            chkOriginAxisMarkerVisible.Size = new Size(218, 27);
             chkOriginAxisMarkerVisible.TabIndex = 9;
             chkOriginAxisMarkerVisible.Text = "Show Origin/Axis Marker";
             // 
@@ -471,7 +508,7 @@ namespace Land_Readjustment_Tool.UI.Forms.Project
             chkGridVisible.Font = new Font("Segoe UI", 9F);
             chkGridVisible.Location = new Point(10, 27);
             chkGridVisible.Name = "chkGridVisible";
-            chkGridVisible.Size = new Size(150, 27);
+            chkGridVisible.Size = new Size(218, 27);
             chkGridVisible.TabIndex = 3;
             chkGridVisible.Text = "Show Grid Lines";
             // 
@@ -1018,6 +1055,9 @@ namespace Land_Readjustment_Tool.UI.Forms.Project
         private GroupBox grpOther;
         private CheckBox chkOriginAxisMarkerVisible;
         private CheckBox chkNorthMarker;
+        private Label lblGridMode;
+        private ComboBox cmbGridMode;
+        private CheckBox chkStandardZoomBehavior;
         private GroupBox grpGraphics;
         private CheckBox chkAntiAliasing;
     }

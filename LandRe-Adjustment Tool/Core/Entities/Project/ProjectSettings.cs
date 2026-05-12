@@ -11,6 +11,9 @@ namespace Land_Readjustment_Tool.Core.Entities.Project
     [Table("tblProjectSettings")]
     public class ProjectSettings
     {
+        public const string GridModeMajorOnly = "MajorOnly";
+        public const string GridModeMajorAndMinor = "MajorAndMinor";
+
         [Key]
         public int Id { get; set; }
 
@@ -56,6 +59,10 @@ namespace Land_Readjustment_Tool.Core.Entities.Project
         // Show grid lines on canvas
         public bool CanvasGridVisible { get; set; } = false;
 
+        // Canvas grid detail: "MajorOnly" or "MajorAndMinor".
+        [Required]
+        public string CanvasGridMode { get; set; } = GridModeMajorOnly;
+
         // Show origin marker and axis lines on canvas
         // Default unchecked as requested.
         public bool CanvasAxisMarkerVisible { get; set; } = false;
@@ -80,7 +87,7 @@ namespace Land_Readjustment_Tool.Core.Entities.Project
 
         // Canvas zoom behavior: "Normal" or "StandardScaleSteps".
         [Required]
-        public string CanvasZoomBehavior { get; set; } = "Normal";
+        public string CanvasZoomBehavior { get; set; } = "StandardScaleSteps";
 
         // Last saved main canvas viewport. Null means use default project view.
         public double? CanvasViewportCenterX { get; set; }
