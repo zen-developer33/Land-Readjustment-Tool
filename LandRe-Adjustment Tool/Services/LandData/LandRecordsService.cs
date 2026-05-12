@@ -86,6 +86,8 @@ namespace Land_Readjustment_Tool.Services.LandData
             var parcels = _context.BaselineParcels
                 .AsNoTracking()
                 .Include(p => p.LandOwner)
+                .Include(p => p.CoOwners)
+                    .ThenInclude(c => c.LandOwner)
                 .Include(p => p.MalpotReference)
                 .OrderBy(p => p.MapSheetNo)
                 .ThenBy(p => p.ParcelNo)
@@ -99,6 +101,8 @@ namespace Land_Readjustment_Tool.Services.LandData
             var parcels = _context.BaselineParcels
                 .AsNoTracking()
                 .Include(p => p.LandOwner)
+                .Include(p => p.CoOwners)
+                    .ThenInclude(c => c.LandOwner)
                 .Include(p => p.MalpotReference)
                 .Where(p => p.LandOwnerId == ownerId)
                 .OrderBy(p => p.MapSheetNo)
@@ -367,6 +371,7 @@ namespace Land_Readjustment_Tool.Services.LandData
         {
             var entity = _context.BaselineParcels
                 .Include(p => p.MalpotReference)
+                .Include(p => p.CoOwners)
                 .FirstOrDefault(p => p.Id == parcel.ParcelId);
             if (entity == null)
                 return false;
@@ -406,6 +411,8 @@ namespace Land_Readjustment_Tool.Services.LandData
                 entity.MalpotReference = malpot;
                 entity.MalpotReferenceId = null;
             }
+
+            ReplaceParcelCoOwners(entity, parcel.JointCoOwners);
 
             _context.SaveChanges();
             CleanupOrphanMalpot(oldMalpotId);
@@ -520,6 +527,7 @@ namespace Land_Readjustment_Tool.Services.LandData
                     }
 
                     _context.BaselineParcels.Add(parcel);
+                    SaveCoOwnersForParcel(parcel, record.JointCoOwners);
                     existingCodes.Add(fullCode);
                     savedCount++;
                 }
@@ -626,6 +634,97 @@ namespace Land_Readjustment_Tool.Services.LandData
             }
 
             return createdId;
+        }
+
+        private void ReplaceParcelCoOwners(BaselineParcel parcel, IEnumerable<CoOwnerRecord>? coOwners)
+        {
+            var targetCoOwners = BuildCoOwnerEntries(parcel, coOwners).ToList();
+            var targetOwnerIds = targetCoOwners.Select(c => c.OwnerId).ToHashSet();
+
+            foreach (var existing in parcel.CoOwners.ToList())
+            {
+                if (!targetOwnerIds.Contains(existing.LandOwnerId))
+                {
+                    _context.BaselineParcelCoOwners.Remove(existing);
+                    parcel.CoOwners.Remove(existing);
+                    continue;
+                }
+
+                var target = targetCoOwners.First(c => c.OwnerId == existing.LandOwnerId);
+                existing.OwnershipSharePercent = target.SharePercent;
+            }
+
+            var existingOwnerIds = parcel.CoOwners.Select(c => c.LandOwnerId).ToHashSet();
+            foreach (var target in targetCoOwners.Where(c => !existingOwnerIds.Contains(c.OwnerId)))
+            {
+                parcel.CoOwners.Add(new BaselineParcelCoOwner
+                {
+                    BaselineParcel = parcel,
+                    BaselineParcelId = parcel.Id,
+                    LandOwnerId = target.OwnerId,
+                    OwnershipSharePercent = target.SharePercent,
+                    CreatedDate = DateTime.UtcNow
+                });
+            }
+        }
+
+        private void SaveCoOwnersForParcel(BaselineParcel parcel, IEnumerable<CoOwnerRecord>? coOwners)
+        {
+            foreach (var target in BuildCoOwnerEntries(parcel, coOwners))
+            {
+                parcel.CoOwners.Add(new BaselineParcelCoOwner
+                {
+                    BaselineParcel = parcel,
+                    BaselineParcelId = parcel.Id,
+                    LandOwnerId = target.OwnerId,
+                    OwnershipSharePercent = target.SharePercent,
+                    CreatedDate = DateTime.UtcNow
+                });
+            }
+        }
+
+        private IEnumerable<(int OwnerId, double? SharePercent)> BuildCoOwnerEntries(
+            BaselineParcel parcel,
+            IEnumerable<CoOwnerRecord>? coOwners)
+        {
+            if (coOwners == null)
+            {
+                yield break;
+            }
+
+            var ownerCache = _context.LandOwners.ToList();
+            var addedOwnerIds = new HashSet<int>();
+
+            foreach (var coOwner in coOwners)
+            {
+                if (string.IsNullOrWhiteSpace(coOwner.OwnerName))
+                {
+                    continue;
+                }
+
+                var owner = new LegacyLandOwner
+                {
+                    LandOwnersName = coOwner.OwnerName.Trim(),
+                    FatherSpouse = coOwner.FatherSpouse,
+                    Gender = coOwner.Gender,
+                    CitizenshipNumber = coOwner.CitizenshipNumber,
+                    CitizenshipIssuedDistrict = coOwner.CitizenshipIssuedDistrict,
+                    CitizenshipIssuedDate = coOwner.CitizenshipIssuedDate,
+                    PermanentAddress = coOwner.PermanentAddress,
+                    TemporaryAddress = coOwner.TemporaryAddress,
+                    ContactNumber = coOwner.ContactNumber,
+                    EmailID = coOwner.EmailID,
+                    CreatedDate = DateTime.UtcNow
+                };
+
+                var ownerId = SaveOrGetOwnerId(owner, ownerCache);
+                if (ownerId == parcel.LandOwnerId || !addedOwnerIds.Add(ownerId))
+                {
+                    continue;
+                }
+
+                yield return (ownerId, coOwner.OwnershipSharePercent);
+            }
         }
 
         private ImportSession CreateManualImportSession(string notes)
@@ -815,7 +914,29 @@ namespace Land_Readjustment_Tool.Services.LandData
                 ModifiedDate = parcel.LastModifiedDate,
                 IsValid = true,
                 ValidationErrors = null,
+                JointCoOwners = parcel.CoOwners
+                    .OrderBy(c => c.Id)
+                    .Select(MapCoOwner)
+                    .ToList(),
                 Owner = owner
+            };
+        }
+
+        private static CoOwnerRecord MapCoOwner(BaselineParcelCoOwner coOwner)
+        {
+            return new CoOwnerRecord
+            {
+                OwnerName = coOwner.LandOwner.FullName,
+                FatherSpouse = coOwner.LandOwner.FatherOrSpouseName,
+                Gender = coOwner.LandOwner.Gender,
+                CitizenshipNumber = coOwner.LandOwner.CitizenshipNumber,
+                CitizenshipIssuedDistrict = coOwner.LandOwner.CitizenshipIssueDistrict,
+                CitizenshipIssuedDate = coOwner.LandOwner.CitizenshipIssueDate,
+                PermanentAddress = coOwner.LandOwner.PermanentAddress,
+                TemporaryAddress = coOwner.LandOwner.TemporaryAddress,
+                ContactNumber = coOwner.LandOwner.ContactNumber,
+                EmailID = coOwner.LandOwner.Email,
+                OwnershipSharePercent = coOwner.OwnershipSharePercent
             };
         }
 

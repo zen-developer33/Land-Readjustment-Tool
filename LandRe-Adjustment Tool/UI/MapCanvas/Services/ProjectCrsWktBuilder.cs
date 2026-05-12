@@ -26,19 +26,19 @@ namespace Land_Readjustment_Tool.UI.MapCanvas.Services
                     $"Projection parameters are missing for {coordinateSystem.Code}.");
 
             if (!string.IsNullOrWhiteSpace(parameters.WktDefinition))
-                return parameters.WktDefinition;
+                return SanitizeForProj(parameters.WktDefinition);
 
             SpatialReference spatialReference = new(string.Empty);
             spatialReference.SetAxisMappingStrategy(
                 AxisMappingStrategy.OAMS_TRADITIONAL_GIS_ORDER);
 
             CheckOsr(
-                spatialReference.SetProjCS(coordinateSystem.Name),
+                spatialReference.SetProjCS(SanitizeForProj(coordinateSystem.Name)),
                 "set projected CRS name");
 
             string ellipsoidName = string.IsNullOrWhiteSpace(parameters.Ellipsoid)
                 ? "WGS 84"
-                : parameters.Ellipsoid;
+                : SanitizeForProj(parameters.Ellipsoid);
 
             double semiMajorAxis = parameters.SemiMajorAxis ?? 6378137.0;
             double inverseFlattening = parameters.InverseFlattening ?? 298.257223563;
@@ -50,8 +50,8 @@ namespace Land_Readjustment_Tool.UI.MapCanvas.Services
 
             CheckOsr(
                 spatialReference.SetGeogCS(
-                    $"{datumName} geographic",
-                    datumName,
+                    SanitizeForProj($"{datumName} geographic"),
+                    SanitizeForProj(datumName),
                     ellipsoidName,
                     semiMajorAxis,
                     inverseFlattening,
@@ -112,6 +112,19 @@ namespace Land_Readjustment_Tool.UI.MapCanvas.Services
                 "export CRS WKT");
 
             return wkt;
+        }
+
+        public static string SanitizeForProj(string value)
+        {
+            return value
+                .Replace('\u2010', '-')
+                .Replace('\u2011', '-')
+                .Replace('\u2012', '-')
+                .Replace('\u2013', '-')
+                .Replace('\u2014', '-')
+                .Replace('\u2015', '-')
+                .Replace('\u2212', '-')
+                .Replace('\u00A0', ' ');
         }
 
         private static void CheckOsr(int errorCode, string operation)

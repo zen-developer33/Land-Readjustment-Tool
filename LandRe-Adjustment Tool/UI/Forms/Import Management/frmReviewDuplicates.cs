@@ -22,6 +22,7 @@ namespace Land_Readjustment_Tool.Forms
 
         private bool _showMergedRows;
         private int _currentGroupIndex = -1;
+        private bool _suppressDuplicateGroupSelectionChanged;
 
         public bool ChangesWereMade { get; private set; }
 
@@ -47,6 +48,9 @@ namespace Land_Readjustment_Tool.Forms
             BindingList<BaselineLandParcelRecord> allRecords)
         {
             InitializeComponent();
+
+            // Prevent the parent GroupBox's Bold font from bleeding into row cells.
+            dgvGroupOwners.DefaultCellStyle.Font = new Font(dgvGroupOwners.Font.FontFamily, dgvGroupOwners.Font.Size, FontStyle.Regular);
 
             _deduplicationResult = deduplicationResult;
             _duplicateGroups = deduplicationResult.DuplicatesNeedingReview;
@@ -90,6 +94,8 @@ namespace Land_Readjustment_Tool.Forms
             dgvDuplicateGroups.ReadOnly = true;
             dgvDuplicateGroups.AutoSizeColumnsMode = DataGridViewAutoSizeColumnsMode.None;
             dgvDuplicateGroups.MultiSelect = true;
+            dgvDuplicateGroups.MouseUp -= dgvDuplicateGroups_MouseUp;
+            dgvDuplicateGroups.MouseUp += dgvDuplicateGroups_MouseUp;
             foreach (DataGridViewColumn col in dgvDuplicateGroups.Columns)
             {
                 col.AutoSizeMode = DataGridViewAutoSizeColumnMode.None;
@@ -100,6 +106,7 @@ namespace Land_Readjustment_Tool.Forms
             dgvGroupOwners.ReadOnly = true;
             dgvGroupOwners.AutoSizeColumnsMode = DataGridViewAutoSizeColumnsMode.None;
             dgvGroupOwners.MultiSelect = false;
+            dgvGroupOwners.SelectionMode = DataGridViewSelectionMode.FullRowSelect;
             foreach (DataGridViewColumn col in dgvGroupOwners.Columns)
             {
                 col.AutoSizeMode = DataGridViewAutoSizeColumnMode.None;
@@ -137,6 +144,7 @@ namespace Land_Readjustment_Tool.Forms
         private void LoadDuplicateGroups()
         {
             dgvDuplicateGroups.SelectionChanged -= dgvDuplicateGroups_SelectionChanged!;
+            _suppressDuplicateGroupSelectionChanged = true;
             dgvDuplicateGroups.SuspendLayout();
 
             try
@@ -204,8 +212,11 @@ namespace Land_Readjustment_Tool.Forms
             finally
             {
                 dgvDuplicateGroups.ResumeLayout();
+                _suppressDuplicateGroupSelectionChanged = false;
                 dgvDuplicateGroups.SelectionChanged += dgvDuplicateGroups_SelectionChanged!;
             }
+
+            LoadSelectedDuplicateGroupOwners();
         }
 
         private static string GetBestOwnerName(DuplicateGroup group)
@@ -242,27 +253,49 @@ namespace Land_Readjustment_Tool.Forms
 
         private void dgvDuplicateGroups_SelectionChanged(object sender, EventArgs e)
         {
-            if (dgvDuplicateGroups.SelectedRows.Count == 0)
+            if (_suppressDuplicateGroupSelectionChanged)
             {
                 return;
             }
 
-            var firstRow = dgvDuplicateGroups.SelectedRows.Cast<DataGridViewRow>().FirstOrDefault();
-            if (firstRow?.Tag is not int groupIndex || groupIndex < 0 || groupIndex >= _duplicateGroups.Count)
+            LoadSelectedDuplicateGroupOwners();
+        }
+
+        private void dgvDuplicateGroups_MouseUp(object? sender, MouseEventArgs e)
+        {
+            var hit = dgvDuplicateGroups.HitTest(e.X, e.Y);
+            if (hit.Type is DataGridViewHitTestType.TopLeftHeader or DataGridViewHitTestType.ColumnHeader)
             {
+                ClearDuplicateGroupSelection();
+            }
+        }
+
+        private void LoadSelectedDuplicateGroupOwners()
+        {
+            if (!TryGetSelectedDuplicateGroup(out var groupIndex))
+            {
+                ClearDuplicateGroupDetails();
                 return;
             }
 
             _currentGroupIndex = groupIndex;
             var ownerRows = GetOrCreateOwnerRows(groupIndex);
 
+            // Best owner goes to the top; all others follow in original order.
+            var sortedRows = ownerRows
+                .OrderByDescending(r => r.IsBestOwner)
+                .ToList();
+
+            var regularFont = new Font(dgvGroupOwners.Font.FontFamily, dgvGroupOwners.Font.Size, FontStyle.Regular);
+            var boldFont = new Font(dgvGroupOwners.Font.FontFamily, dgvGroupOwners.Font.Size, FontStyle.Bold);
+
             dgvGroupOwners.SuspendLayout();
             try
             {
                 dgvGroupOwners.Rows.Clear();
-                for (int i = 0; i < ownerRows.Count; i++)
+                for (int i = 0; i < sortedRows.Count; i++)
                 {
-                    var ownerRow = ownerRows[i];
+                    var ownerRow = sortedRows[i];
                     var rowIndex = dgvGroupOwners.Rows.Add();
                     var row = dgvGroupOwners.Rows[rowIndex];
 
@@ -274,6 +307,7 @@ namespace Land_Readjustment_Tool.Forms
                     row.Cells["colOwnerMapSheets"].Value = ownerRow.MapSheets;
 
                     row.DefaultCellStyle.BackColor = dgvGroupOwners.DefaultCellStyle.BackColor;
+                    row.DefaultCellStyle.Font = ownerRow.IsBestOwner ? boldFont : regularFont;
                 }
 
                 if (dgvGroupOwners.Rows.Count > 0)
@@ -287,6 +321,70 @@ namespace Land_Readjustment_Tool.Forms
             }
 
             lblGroupOwners.Text = $"Owners in Group ({_duplicateGroups[groupIndex].MatchType}):";
+        }
+
+        private bool TryGetSelectedDuplicateGroup(out int groupIndex)
+        {
+            if (TryGetGroupIndexFromRow(dgvDuplicateGroups.CurrentCell?.OwningRow, out groupIndex))
+            {
+                return true;
+            }
+
+            if (TryGetGroupIndexFromRow(dgvDuplicateGroups.CurrentRow, out groupIndex))
+            {
+                return true;
+            }
+
+            foreach (var row in dgvDuplicateGroups.SelectedRows.Cast<DataGridViewRow>().OrderBy(row => row.Index))
+            {
+                if (TryGetGroupIndexFromRow(row, out groupIndex))
+                {
+                    return true;
+                }
+            }
+
+            groupIndex = -1;
+            return false;
+        }
+
+        private bool TryGetGroupIndexFromRow(DataGridViewRow? row, out int groupIndex)
+        {
+            if (row is not null &&
+                row.Visible &&
+                !row.IsNewRow &&
+                row.Tag is int idx &&
+                idx >= 0 &&
+                idx < _duplicateGroups.Count)
+            {
+                groupIndex = idx;
+                return true;
+            }
+
+            groupIndex = -1;
+            return false;
+        }
+
+        private void ClearDuplicateGroupSelection()
+        {
+            _suppressDuplicateGroupSelectionChanged = true;
+            try
+            {
+                dgvDuplicateGroups.ClearSelection();
+                dgvDuplicateGroups.CurrentCell = null;
+            }
+            finally
+            {
+                _suppressDuplicateGroupSelectionChanged = false;
+            }
+
+            ClearDuplicateGroupDetails();
+        }
+
+        private void ClearDuplicateGroupDetails()
+        {
+            _currentGroupIndex = -1;
+            dgvGroupOwners.Rows.Clear();
+            lblGroupOwners.Text = "Owners in Group:";
         }
 
         private List<OwnerRowData> GetOrCreateOwnerRows(int groupIndex)
@@ -348,9 +446,9 @@ namespace Land_Readjustment_Tool.Forms
 
             return owner.ParcelIndices
                 .Where(index => index >= 0 && index < _allRecords.Count)
-                .Select(index => !string.IsNullOrWhiteSpace(_allRecords[index].ParcelNo)
-                    ? _allRecords[index].ParcelNo!
-                    : $"#{index + 1}")
+                .Select(index => _allRecords[index].ParcelNo)
+                .Where(value => !string.IsNullOrWhiteSpace(value))
+                .Select(value => value!)
                 .Distinct(StringComparer.OrdinalIgnoreCase)
                 .OrderBy(value => value, StringComparer.OrdinalIgnoreCase)
                 .ToList();

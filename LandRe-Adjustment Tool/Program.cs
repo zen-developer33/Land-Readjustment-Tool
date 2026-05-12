@@ -3,7 +3,10 @@
 using Land_Readjustment_Tool.Forms;
 using Land_Readjustment_Tool.Data;
 using Land_Readjustment_Tool.Services;
+using Land_Readjustment_Tool.Services.Assignment;
 using Land_Readjustment_Tool.Services.Canvas;
+using Land_Readjustment_Tool.Services.Import;
+using Land_Readjustment_Tool.Services.Import.Readers;
 using Land_Readjustment_Tool.Services.Project;
 using Land_Readjustment_Tool.Services.Raster;
 using Land_Readjustment_Tool.UI.Forms;
@@ -229,6 +232,12 @@ namespace Land_Readjustment_Tool
             services.AddSingleton<IProjectRasterCrsResolver, ProjectRasterCrsResolver>();
             services.AddSingleton<IRasterDatasetImporter, GdalRasterDatasetImporter>();
             services.AddSingleton<IRasterLayerImportService, RasterLayerImportService>();
+            services.AddSingleton<DxfBoundaryReader>();
+            services.AddSingleton<ShpBoundaryReader>();
+            services.AddSingleton<KmlBoundaryReader>();
+            services.AddSingleton<IBoundaryReaderFactory, BoundaryReaderFactory>();
+            services.AddSingleton<IBoundaryImportService, BoundaryImportService>();
+            services.AddSingleton<IProjectBoundaryAssignmentService, ProjectBoundaryAssignmentService>();
             services.AddSingleton<RasterImportFileManagementService>();
             services.AddSingleton<IXyzTileSourceService, XyzTileSourceService>();
             services.AddSingleton<RasterLayerProjectionService>();

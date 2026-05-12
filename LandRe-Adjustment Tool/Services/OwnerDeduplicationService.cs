@@ -137,9 +137,10 @@ namespace Land_Readjustment_Tool.Services
             // Anonymous owners are intentionally isolated.
             result.UniqueOwners.AddRange(anonymousOwners.Select(CloneOwner));
 
-            // Institutions: only exact normalized-name grouping.
+            // Institutions: group by canonical name that strips Nepali genitive particles
+            // so "श्री ५ को सरकार" and "श्री ५ सरकार" resolve to the same group.
             var institutionGroups = institutionOwners
-                .GroupBy(o => NormalizeString(o.LandOwnersName), StringComparer.OrdinalIgnoreCase)
+                .GroupBy(o => NormalizeInstitutionName(o.LandOwnersName), StringComparer.OrdinalIgnoreCase)
                 .ToList();
 
             foreach (var institutionGroup in institutionGroups)
@@ -1060,6 +1061,26 @@ namespace Land_Readjustment_Tool.Services
             var cleaned = new string(normalized.Where(c => char.IsLetterOrDigit(c) || char.IsWhiteSpace(c)).ToArray());
             var parts = cleaned.Split(' ', StringSplitOptions.RemoveEmptyEntries);
             return string.Join(" ", parts).ToUpperInvariant();
+        }
+
+        // Nepali genitive/case particles that appear between words in institution names
+        // but carry no disambiguating meaning (e.g. "को" in "श्री ५ को सरकार" vs "श्री ५ सरकार").
+        private static readonly HashSet<string> _nepaliGenitiveParticles =
+            new(StringComparer.OrdinalIgnoreCase) { "को", "का", "की", "के" };
+
+        private static string NormalizeInstitutionName(string? name)
+        {
+            var normalized = NormalizeString(name ?? string.Empty);
+            if (string.IsNullOrEmpty(normalized))
+                return normalized;
+
+            // Strip standalone genitive particles so name variants that differ only
+            // by "को/का/की/के" collapse to the same grouping key.
+            var parts = normalized.Split(' ', StringSplitOptions.RemoveEmptyEntries)
+                .Where(p => !_nepaliGenitiveParticles.Contains(p))
+                .ToArray();
+
+            return parts.Length > 0 ? string.Join(" ", parts) : normalized;
         }
 
         private static string NormalizeCitizenship(string input)

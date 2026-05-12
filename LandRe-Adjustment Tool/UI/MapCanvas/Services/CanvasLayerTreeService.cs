@@ -40,7 +40,7 @@ namespace Land_Readjustment_Tool.UI.MapCanvas.Services
         private static readonly IReadOnlyList<DefaultLayerDefinition> DefaultLayers =
         [
             // Colours follow the ArcMap-style palette used elsewhere in the app.
-            new(OriginalDataGroupKey, "Project Boundary", "ProjectBoundary", "#CF7C82", "#F6B3BA", 45, 2.0, "Solid", "Boundary"),
+            new(OriginalDataGroupKey, "Project Boundary", "ProjectBoundary", "#CF7C82", null, 0, 2.0, "Solid", "Boundary"),
             new(OriginalDataGroupKey, "Original Parcels", "BaselineParcel", "#8FCDE4", "#C8E8F4", 55, 1.4, "Solid", null),
             new(BlockLayoutGroupKey, "Blocks", "Block", "#D99A5A", "#F6C766", 35, 1.5, "Solid", null),
             new(RoadsGroupKey, "Road Parcel", "RoadParcel", "#D99A5A", "#F6C766", 20, 1.5, "Solid", "Proposed Roads"),
@@ -265,6 +265,27 @@ namespace Land_Readjustment_Tool.UI.MapCanvas.Services
 
             if (layer.LineTypeScale <= 0)
                 layer.LineTypeScale = 1.0;
+
+            if (string.Equals(definition.LayerType, "ProjectBoundary", StringComparison.OrdinalIgnoreCase))
+            {
+                if (!string.Equals(layer.FillStyle, "None", StringComparison.OrdinalIgnoreCase))
+                {
+                    layer.FillStyle = "None";
+                    changed = true;
+                }
+
+                if (!string.IsNullOrWhiteSpace(layer.FillColor))
+                {
+                    layer.FillColor = null;
+                    changed = true;
+                }
+
+                if (layer.FillTransparency != 0)
+                {
+                    layer.FillTransparency = 0;
+                    changed = true;
+                }
+            }
 
             if (changed)
                 layer.LastModifiedDate = DateTime.Now;

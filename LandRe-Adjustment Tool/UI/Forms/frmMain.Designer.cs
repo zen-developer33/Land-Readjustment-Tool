@@ -70,6 +70,8 @@ namespace Land_Readjustment_Tool
             ImportProjectBoundaryDXFDWGToolStripMenuItem = new ToolStripMenuItem();
             toolStripSeparator6 = new ToolStripSeparator();
             baseMapsToolStripMenuItem = new ToolStripMenuItem();
+            assignmentToolStripMenuItem = new ToolStripMenuItem();
+            projectBoundaryAssignmentToolStripMenuItem = new ToolStripMenuItem();
             importToolStripMenuItem = new ToolStripMenuItem();
             viewEditRecordToolStripMenuItem = new ToolStripMenuItem();
             landOwnerDataToolStripMenuItem = new ToolStripMenuItem();
@@ -384,7 +386,7 @@ namespace Land_Readjustment_Tool
             // 
             // dataToolStripMenuItem
             // 
-            dataToolStripMenuItem.DropDownItems.AddRange(new ToolStripItem[] { importDataToolStripMenuItem1, importToolStripMenuItem });
+            dataToolStripMenuItem.DropDownItems.AddRange(new ToolStripItem[] { importDataToolStripMenuItem1, assignmentToolStripMenuItem, importToolStripMenuItem });
             dataToolStripMenuItem.Name = "dataToolStripMenuItem";
             dataToolStripMenuItem.Size = new Size(147, 24);
             dataToolStripMenuItem.Text = "Data Management";
@@ -393,7 +395,7 @@ namespace Land_Readjustment_Tool
             // 
             importDataToolStripMenuItem1.DropDownItems.AddRange(new ToolStripItem[] { ImportParcelOwnerShipRecords, toolStripSeparator5, importCadastralDataDXFDWGShapefileToolStripMenuItem, ImportProjectBoundaryDXFDWGToolStripMenuItem, toolStripSeparator6, baseMapsToolStripMenuItem });
             importDataToolStripMenuItem1.Name = "importDataToolStripMenuItem1";
-            importDataToolStripMenuItem1.Size = new Size(145, 26);
+            importDataToolStripMenuItem1.Size = new Size(166, 26);
             importDataToolStripMenuItem1.Text = "Import";
             // 
             // ImportParcelOwnerShipRecords
@@ -419,7 +421,7 @@ namespace Land_Readjustment_Tool
             // 
             ImportProjectBoundaryDXFDWGToolStripMenuItem.Name = "ImportProjectBoundaryDXFDWGToolStripMenuItem";
             ImportProjectBoundaryDXFDWGToolStripMenuItem.Size = new Size(385, 26);
-            ImportProjectBoundaryDXFDWGToolStripMenuItem.Text = "Project Boundary (DXF/DWG)";
+            ImportProjectBoundaryDXFDWGToolStripMenuItem.Text = "Project Boundary (DXF/SHP/KML)";
             // 
             // toolStripSeparator6
             // 
@@ -432,11 +434,24 @@ namespace Land_Readjustment_Tool
             baseMapsToolStripMenuItem.Size = new Size(385, 26);
             baseMapsToolStripMenuItem.Text = "Import Raster (GeoTIFF, MBTiles, TIFF, PNG...)";
             // 
+            // assignmentToolStripMenuItem
+            // 
+            assignmentToolStripMenuItem.DropDownItems.AddRange(new ToolStripItem[] { projectBoundaryAssignmentToolStripMenuItem });
+            assignmentToolStripMenuItem.Name = "assignmentToolStripMenuItem";
+            assignmentToolStripMenuItem.Size = new Size(166, 26);
+            assignmentToolStripMenuItem.Text = "Assignment";
+            // 
+            // projectBoundaryAssignmentToolStripMenuItem
+            // 
+            projectBoundaryAssignmentToolStripMenuItem.Name = "projectBoundaryAssignmentToolStripMenuItem";
+            projectBoundaryAssignmentToolStripMenuItem.Size = new Size(210, 26);
+            projectBoundaryAssignmentToolStripMenuItem.Text = "Project Boundary";
+            // 
             // importToolStripMenuItem
             // 
             importToolStripMenuItem.DropDownItems.AddRange(new ToolStripItem[] { viewEditRecordToolStripMenuItem, landOwnerDataToolStripMenuItem });
             importToolStripMenuItem.Name = "importToolStripMenuItem";
-            importToolStripMenuItem.Size = new Size(145, 26);
+            importToolStripMenuItem.Size = new Size(166, 26);
             importToolStripMenuItem.Text = "Records";
             // 
             // viewEditRecordToolStripMenuItem
@@ -1809,6 +1824,8 @@ namespace Land_Readjustment_Tool
         private ToolStripMenuItem landOwnerDataToolStripMenuItem;
         private ToolStripMenuItem importDataToolStripMenuItem1;
         private ToolStripMenuItem importToolStripMenuItem;
+        private ToolStripMenuItem assignmentToolStripMenuItem;
+        private ToolStripMenuItem projectBoundaryAssignmentToolStripMenuItem;
         private ToolStripMenuItem contributionSettingsToolStripMenuItem;
         private ToolStripMenuItem calculateContributionToolStripMenuItem;
         private ToolStripMenuItem contributionSummaryToolStripMenuItem;

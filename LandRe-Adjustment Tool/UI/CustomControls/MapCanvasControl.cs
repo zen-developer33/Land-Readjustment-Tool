@@ -349,6 +349,31 @@ namespace Land_Readjustment_Tool.UI.CustomControls
             RequestRender();
         }
 
+        public void PreviewSelectCanvasObject(Guid canvasObjectId, bool zoomToObject)
+        {
+            CanvasFeature? feature = _vectorFeatures
+                .FirstOrDefault(item =>
+                    item.CanvasObject.Id == canvasObjectId ||
+                    item.Shape.Id == canvasObjectId);
+
+            ReplaceSelectedObjects(feature == null ? [] : [feature]);
+
+            if (feature != null &&
+                zoomToObject &&
+                TryNormalizeWorldBounds(feature.Shape.GetBoundingBox(), out RectangleD bounds))
+            {
+                ZoomToWorldBounds(bounds);
+            }
+
+            RequestRender();
+        }
+
+        public void ClearPreviewSelection()
+        {
+            ClearSelectedObjects();
+            RequestRender();
+        }
+
         public void SetActiveTool(MapCanvasTool tool, string? layerName = null)
         {
             SetActiveTool(tool, null, layerName);

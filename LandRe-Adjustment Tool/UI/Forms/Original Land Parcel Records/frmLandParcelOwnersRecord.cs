@@ -1444,7 +1444,8 @@ namespace Land_Readjustment_Tool.Forms.LandOwnersRecord_Managerment
                 AreaInBKD = record.AreaInBKD,
                 MothNo = record.MothNo,
                 PaanaNo = record.PaanaNo,
-                Remarks = record.Remarks
+                Remarks = record.Remarks,
+                JointCoOwners = record.JointCoOwners
             };
             _landRecordsService.UpdateParcel(parcel);
 
@@ -1475,7 +1476,23 @@ namespace Land_Readjustment_Tool.Forms.LandOwnersRecord_Managerment
                 AreaInBKD = parcel.AreaInBKD,
                 MothNo = parcel.MothNo,
                 PaanaNo = parcel.PaanaNo,
-                Remarks = parcel.Remarks
+                Remarks = parcel.Remarks,
+                JointCoOwners = parcel.JointCoOwners
+                    .Select(coOwner => new CoOwnerRecord
+                    {
+                        OwnerName = coOwner.OwnerName,
+                        FatherSpouse = coOwner.FatherSpouse,
+                        Gender = coOwner.Gender,
+                        CitizenshipNumber = coOwner.CitizenshipNumber,
+                        CitizenshipIssuedDistrict = coOwner.CitizenshipIssuedDistrict,
+                        CitizenshipIssuedDate = coOwner.CitizenshipIssuedDate,
+                        PermanentAddress = coOwner.PermanentAddress,
+                        TemporaryAddress = coOwner.TemporaryAddress,
+                        ContactNumber = coOwner.ContactNumber,
+                        EmailID = coOwner.EmailID,
+                        OwnershipSharePercent = coOwner.OwnershipSharePercent
+                    })
+                    .ToList()
             };
         }
 

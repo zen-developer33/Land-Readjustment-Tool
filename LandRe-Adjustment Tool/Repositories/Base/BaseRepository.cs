@@ -124,7 +124,8 @@ namespace Land_Readjustment_Tool.Repositories.Base
         {
             try
             {
-                // Attach only if not already tracked (safe for both paths).
+                DetachTrackedEntityWithSameKey(entity);
+
                 var entry = Context.Entry(entity);
                 if (entry.State == EntityState.Detached)
                     DbSet.Attach(entity);
@@ -146,6 +147,31 @@ namespace Land_Readjustment_Tool.Repositories.Base
                     $"UpdateAsync failed.", ex);
                 throw;
             }
+        }
+
+        private void DetachTrackedEntityWithSameKey(T entity)
+        {
+            var keyProperty = Context.Model
+                .FindEntityType(typeof(T))
+                ?.FindPrimaryKey()
+                ?.Properties
+                .FirstOrDefault();
+
+            if (keyProperty == null)
+                return;
+
+            object? keyValue = keyProperty.PropertyInfo?.GetValue(entity);
+            if (keyValue == null)
+                return;
+
+            var trackedEntry = Context.ChangeTracker
+                .Entries<T>()
+                .FirstOrDefault(entry =>
+                    !ReferenceEquals(entry.Entity, entity) &&
+                    Equals(entry.Property(keyProperty.Name).CurrentValue, keyValue));
+
+            if (trackedEntry != null)
+                trackedEntry.State = EntityState.Detached;
         }
 
         /// <summary>

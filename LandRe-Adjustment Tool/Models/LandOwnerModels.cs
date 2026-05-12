@@ -64,6 +64,10 @@ namespace Land_Readjustment_Tool.Models
         public bool IsValid { get; set; } = true;
         public string? ValidationErrors { get; set; }
 
+        // Additional joint owners beyond the primary LandOwner.
+        [NotMapped]
+        public List<CoOwnerRecord> JointCoOwners { get; set; } = new();
+
         // Navigation property
         public LandOwner? Owner { get; set; }
     }

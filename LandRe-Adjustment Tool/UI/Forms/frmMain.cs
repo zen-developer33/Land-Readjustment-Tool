@@ -2,14 +2,19 @@
 using Land_Readjustment_Tool.Core.Entities.Canvas;
 using Land_Readjustment_Tool.Core.Entities.Project;
 using Land_Readjustment_Tool.Core.Interfaces;
+using Land_Readjustment_Tool.Core.Models.Assignment;
+using Land_Readjustment_Tool.Core.Models.Import;
 using Land_Readjustment_Tool.Data;
 using Land_Readjustment_Tool.Forms;
 using Land_Readjustment_Tool.Forms.LandOwnersRecord_Managerment;
 using Land_Readjustment_Tool.Services;
+using Land_Readjustment_Tool.Services.Assignment;
 using Land_Readjustment_Tool.Services.Canvas;
+using Land_Readjustment_Tool.Services.Import;
 using Land_Readjustment_Tool.Services.Project;
 using Land_Readjustment_Tool.Services.Raster;
 using Land_Readjustment_Tool.UI.CustomControls;
+using Land_Readjustment_Tool.UI.Dialogs;
 using Land_Readjustment_Tool.UI.Forms;
 using Land_Readjustment_Tool.UI.Forms.Project;
 using Land_Readjustment_Tool.UI.Helpers;
@@ -18,10 +23,12 @@ using Land_Readjustment_Tool.UI.MapCanvas.Models.Shapes;
 using Land_Readjustment_Tool.UI.MapCanvas.Rendering;
 using Land_Readjustment_Tool.UI.MapCanvas.Services;
 using Microsoft.Data.Sqlite;
+using Microsoft.EntityFrameworkCore;
 using OSGeo.OSR;
 using System.Drawing.Drawing2D;
 using System.Drawing.Imaging;
 using System.Reflection;
+using NtsEnvelope = NetTopologySuite.Geometries.Envelope;
 using VisualStyles = System.Windows.Forms.VisualStyles;
 
 namespace Land_Readjustment_Tool
@@ -38,9 +45,13 @@ namespace Land_Readjustment_Tool
         private readonly CanvasLayerCommandService _layerCommandService;
         private readonly CanvasLayerBoundsService _layerBoundsService;
         private readonly RasterLayerProjectionService _rasterLayerProjectionService;
+        private readonly IProjectRasterCrsResolver _projectRasterCrsResolver;
         private readonly IRasterLayerImportService _rasterLayerImportService;
         private readonly RasterImportFileManagementService _rasterImportFileManagementService;
         private readonly IXyzTileSourceService _xyzTileSourceService;
+        private readonly IBoundaryReaderFactory _boundaryReaderFactory;
+        private readonly IBoundaryImportService _boundaryImportService;
+        private readonly IProjectBoundaryAssignmentService _projectBoundaryAssignmentService;
         private readonly XyzTilePreDownloadService _xyzTilePreDownloadService;
         private readonly IHatchPatternService _hatchPatternService;
         private readonly ProjectOpenService _projectOpenService;
@@ -148,6 +159,7 @@ namespace Land_Readjustment_Tool
                 projectScopedFactory,
                 new CanvasLayerCommandService(projectScopedFactory),
                 new CanvasLayerBoundsService(projectScopedFactory),
+                new ProjectRasterCrsResolver(projectScopedFactory),
                 new RasterLayerProjectionService(
                     projectScopedFactory,
                     new ProjectRasterCrsResolver(projectScopedFactory),
@@ -158,6 +170,18 @@ namespace Land_Readjustment_Tool
                     new GdalRasterDatasetImporter()),
                 new RasterImportFileManagementService(projectScopedFactory),
                 new XyzTileSourceService(),
+                new BoundaryReaderFactory(
+                    new Services.Import.Readers.DxfBoundaryReader(),
+                    new Services.Import.Readers.ShpBoundaryReader(),
+                    new Services.Import.Readers.KmlBoundaryReader()),
+                new BoundaryImportService(
+                    new BoundaryReaderFactory(
+                        new Services.Import.Readers.DxfBoundaryReader(),
+                        new Services.Import.Readers.ShpBoundaryReader(),
+                        new Services.Import.Readers.KmlBoundaryReader()),
+                    projectScopedFactory,
+                    new ProjectRasterCrsResolver(projectScopedFactory)),
+                new ProjectBoundaryAssignmentService(projectScopedFactory),
                 new HatchPatternService(),
                 new ProjectOpenService(sessionFactory, projectScopedFactory),
                 new ProjectSaveAsService(backupService, sessionFactory),
@@ -172,10 +196,14 @@ namespace Land_Readjustment_Tool
             IProjectScopedFactory projectScopedFactory,
             CanvasLayerCommandService layerCommandService,
             CanvasLayerBoundsService layerBoundsService,
+            IProjectRasterCrsResolver projectRasterCrsResolver,
             RasterLayerProjectionService rasterLayerProjectionService,
             IRasterLayerImportService rasterLayerImportService,
             RasterImportFileManagementService rasterImportFileManagementService,
             IXyzTileSourceService xyzTileSourceService,
+            IBoundaryReaderFactory boundaryReaderFactory,
+            IBoundaryImportService boundaryImportService,
+            IProjectBoundaryAssignmentService projectBoundaryAssignmentService,
             IHatchPatternService hatchPatternService,
             ProjectOpenService projectOpenService,
             ProjectSaveAsService projectSaveAsService,
@@ -187,10 +215,14 @@ namespace Land_Readjustment_Tool
             _projectScopedFactory = projectScopedFactory ?? throw new ArgumentNullException(nameof(projectScopedFactory));
             _layerCommandService = layerCommandService ?? throw new ArgumentNullException(nameof(layerCommandService));
             _layerBoundsService = layerBoundsService ?? throw new ArgumentNullException(nameof(layerBoundsService));
+            _projectRasterCrsResolver = projectRasterCrsResolver ?? throw new ArgumentNullException(nameof(projectRasterCrsResolver));
             _rasterLayerProjectionService = rasterLayerProjectionService ?? throw new ArgumentNullException(nameof(rasterLayerProjectionService));
             _rasterLayerImportService = rasterLayerImportService ?? throw new ArgumentNullException(nameof(rasterLayerImportService));
             _rasterImportFileManagementService = rasterImportFileManagementService ?? throw new ArgumentNullException(nameof(rasterImportFileManagementService));
             _xyzTileSourceService = xyzTileSourceService ?? throw new ArgumentNullException(nameof(xyzTileSourceService));
+            _boundaryReaderFactory = boundaryReaderFactory ?? throw new ArgumentNullException(nameof(boundaryReaderFactory));
+            _boundaryImportService = boundaryImportService ?? throw new ArgumentNullException(nameof(boundaryImportService));
+            _projectBoundaryAssignmentService = projectBoundaryAssignmentService ?? throw new ArgumentNullException(nameof(projectBoundaryAssignmentService));
             _xyzTilePreDownloadService = new XyzTilePreDownloadService();
             _hatchPatternService = hatchPatternService ?? throw new ArgumentNullException(nameof(hatchPatternService));
             _projectOpenService = projectOpenService ?? throw new ArgumentNullException(nameof(projectOpenService));
@@ -243,6 +275,8 @@ namespace Land_Readjustment_Tool
             mnuZoomExtent.Click += mnuZoomExtent_Click!;
             mnuZoomWindow.Click += mnuZoomWindow_Click!;
             baseMapsToolStripMenuItem.Click += importRasterToolStripMenuItem_Click!;
+            ImportProjectBoundaryDXFDWGToolStripMenuItem.Click += ImportProjectBoundaryToolStripMenuItem_Click!;
+            projectBoundaryAssignmentToolStripMenuItem.Click += ProjectBoundaryAssignmentToolStripMenuItem_Click!;
             _mnuImportXyzTiles.Click += importXyzTilesToolStripMenuItem_Click!;
             importDataToolStripMenuItem1.DropDownItems.Add(_mnuImportXyzTiles);
 
@@ -1545,6 +1579,220 @@ namespace Land_Readjustment_Tool
         private async void importXyzTilesToolStripMenuItem_Click(object? sender, EventArgs e)
         {
             await ShowXyzTileImportOptionsFormAsync();
+        }
+
+        private async void ImportProjectBoundaryToolStripMenuItem_Click(object? sender, EventArgs e)
+        {
+            if (!AppServices.HasContext)
+            {
+                MessageBox.Show(
+                    "Please open or create a project first.",
+                    "No Project Open",
+                    MessageBoxButtons.OK,
+                    MessageBoxIcon.Warning);
+                return;
+            }
+
+            using OpenFileDialog dialog = new()
+            {
+                Title = "Import Project Boundary",
+                Filter = "Boundary files (*.dxf;*.shp;*.kml;*.kmz)|*.dxf;*.shp;*.kml;*.kmz|DXF files (*.dxf)|*.dxf|Shapefiles (*.shp)|*.shp|KML/KMZ files (*.kml;*.kmz)|*.kml;*.kmz|All files (*.*)|*.*",
+                Multiselect = false,
+                RestoreDirectory = true
+            };
+
+            if (dialog.ShowDialog(this) != DialogResult.OK)
+                return;
+
+            try
+            {
+                if (_layerTreeService != null)
+                    await _layerTreeService.GetLayerTreeAsync();
+
+                using frmBoundaryImport importForm = new(
+                    AppServices.Context.Session,
+                    dialog.FileName,
+                    _boundaryReaderFactory,
+                    _boundaryImportService,
+                    _projectScopedFactory,
+                    _projectRasterCrsResolver);
+
+                if (importForm.ShowDialog(this) != DialogResult.OK)
+                    return;
+
+                AppServices.Context.MarkAsModified();
+                UpdateWindowTitle();
+                await RefreshLayerTreeAsync();
+
+                CanvasLayer? boundaryLayer = await AppServices.Context.Session
+                    .GetDbContext()
+                    .CanvasLayers
+                    .AsNoTracking()
+                    .FirstOrDefaultAsync(
+                        layer => layer.Name == "Project Boundary" ||
+                                 layer.LayerType == "ProjectBoundary");
+
+                if (boundaryLayer != null)
+                {
+                    SelectLayerNodeById(boundaryLayer.Id);
+                    await TryZoomToLayerAsync(boundaryLayer, showErrorDialog: false);
+                }
+
+                BoundaryImportResult? result = importForm.ImportResult;
+                SetCanvasCommandStatus(
+                    result == null
+                        ? "Project boundary imported."
+                        : $"Imported {result.ObjectsCreated} project boundary object(s).");
+            }
+            catch (InvalidOperationException ex)
+                when (ex.Message.Contains(
+                    "project coordinate system",
+                    StringComparison.OrdinalIgnoreCase))
+            {
+                MessageBox.Show(
+                    ex.Message,
+                    "Boundary Import",
+                    MessageBoxButtons.OK,
+                    MessageBoxIcon.Warning);
+                OpenProjectSettings();
+            }
+            catch (Exception ex)
+            {
+                LogProjectError("Boundary import failed.", ex);
+                MessageBox.Show(
+                    $"Failed to import project boundary: {GetMostUsefulExceptionMessage(ex)}",
+                    "Boundary Import",
+                    MessageBoxButtons.OK,
+                    MessageBoxIcon.Error);
+            }
+        }
+
+        private async void ProjectBoundaryAssignmentToolStripMenuItem_Click(object? sender, EventArgs e)
+        {
+            if (!AppServices.HasContext)
+            {
+                MessageBox.Show(
+                    "Please open or create a project first.",
+                    "No Project Open",
+                    MessageBoxButtons.OK,
+                    MessageBoxIcon.Warning);
+                return;
+            }
+
+            try
+            {
+                await RefreshVectorCanvasFeaturesAsync();
+
+                IReadOnlyList<ProjectBoundaryAssignmentCandidate> candidates =
+                    await _projectBoundaryAssignmentService.GetCandidatesAsync(
+                        AppServices.Context.Session);
+
+                using frmProjectBoundaryAssignment form = new(candidates);
+                form.CandidatePreviewRequested += PreviewAssignmentCandidateOnCanvas;
+
+                DialogResult dialogResult = form.ShowDialog(this);
+                form.CandidatePreviewRequested -= PreviewAssignmentCandidateOnCanvas;
+                mapCanvasControlMain.ClearPreviewSelection();
+
+                if (dialogResult != DialogResult.OK)
+                    return;
+
+                ProjectBoundaryAssignmentResult result;
+                if (form.RemoveProjectBoundaryRequested)
+                {
+                    result = await _projectBoundaryAssignmentService
+                        .RemoveProjectBoundaryAsync(AppServices.Context.Session);
+                }
+                else if (form.SelectedCandidateId.HasValue)
+                {
+                    result = await _projectBoundaryAssignmentService
+                        .AssignProjectBoundaryAsync(
+                            AppServices.Context.Session,
+                            form.SelectedCandidateId.Value,
+                            form.DeleteExistingBoundary);
+                }
+                else
+                {
+                    return;
+                }
+
+                if (!result.Success)
+                {
+                    MessageBox.Show(
+                        result.ErrorMessage ?? "Project Boundary assignment failed.",
+                        "Project Boundary Assignment",
+                        MessageBoxButtons.OK,
+                        MessageBoxIcon.Warning);
+                    return;
+                }
+
+                MarkProjectModifiedIfOpen();
+                await RefreshLayerTreeAsync();
+
+                CanvasLayer? boundaryLayer = await AppServices.Context.Session
+                    .GetDbContext()
+                    .CanvasLayers
+                    .AsNoTracking()
+                    .FirstOrDefaultAsync(
+                        layer => layer.Name == "Project Boundary" ||
+                                 layer.LayerType == "ProjectBoundary");
+
+                if (boundaryLayer != null)
+                    SelectLayerNodeById(boundaryLayer.Id);
+
+                if (result.BoundingBox != null && !result.BoundingBox.IsNull)
+                    mapCanvasControlMain.ZoomToWorldBounds(ToRectangleD(result.BoundingBox));
+
+                SetCanvasCommandStatus(
+                    form.RemoveProjectBoundaryRequested
+                        ? $"Removed {result.ObjectsRemoved} Project Boundary object(s)."
+                        : $"Assigned Project Boundary from drawing object. Removed {result.ObjectsRemoved} old object(s).");
+            }
+            catch (Exception ex)
+            {
+                LogProjectError("Project boundary assignment failed.", ex);
+                MessageBox.Show(
+                    $"Failed to assign Project Boundary: {GetMostUsefulExceptionMessage(ex)}",
+                    "Project Boundary Assignment",
+                    MessageBoxButtons.OK,
+                    MessageBoxIcon.Error);
+            }
+        }
+
+        private void PreviewAssignmentCandidateOnCanvas(Guid? canvasObjectId, bool zoomToObject)
+        {
+            if (!canvasObjectId.HasValue)
+            {
+                mapCanvasControlMain.ClearPreviewSelection();
+                return;
+            }
+
+            mapCanvasControlMain.PreviewSelectCanvasObject(
+                canvasObjectId.Value,
+                zoomToObject);
+        }
+
+        private static RectangleD ToRectangleD(NtsEnvelope envelope)
+        {
+            const double minimumExtent = 1.0;
+            double minX = envelope.MinX;
+            double minY = envelope.MinY;
+            double width = envelope.Width;
+            double height = envelope.Height;
+
+            if (width <= 0)
+            {
+                minX -= minimumExtent / 2.0;
+                width = minimumExtent;
+            }
+
+            if (height <= 0)
+            {
+                minY -= minimumExtent / 2.0;
+                height = minimumExtent;
+            }
+
+            return new RectangleD(minX, minY, width, height);
         }
 
         /// <summary>
