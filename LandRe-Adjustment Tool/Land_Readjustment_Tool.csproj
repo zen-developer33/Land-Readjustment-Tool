@@ -15,6 +15,7 @@
   <ItemGroup>
     <!-- Suppress the NuGet-generated GdalConfiguration.cs; we maintain our own copy. -->
     <Compile Remove="$(BaseIntermediateOutputPath)**/GDAL/**/GdalConfiguration.cs" />
+    <Compile Remove="obj\**\GDAL\**\GdalConfiguration.cs" />
     <Compile Remove="Canvas\**" />
     <Compile Remove="Custom Controls\**" />
     <Compile Remove="Forms\**" />
@@ -53,7 +54,7 @@
     <PackageReference Include="DockPanelSuite" Version="3.1.1" />
     <PackageReference Include="ExcelDataReader" Version="3.8.0" />
     <PackageReference Include="ExcelDataReader.DataSet" Version="3.8.0" />
-    <PackageReference Include="GDAL" Version="3.12.1" />
+    <PackageReference Include="GDAL" Version="3.12.1" ExcludeAssets="contentFiles" />
     <PackageReference Include="GDAL.Native" Version="3.12.1" />
     <PackageReference Include="Krypton.Toolkit" Version="105.26.4.110" />
     <PackageReference Include="Microsoft.Extensions.DependencyInjection" Version="10.0.7" />

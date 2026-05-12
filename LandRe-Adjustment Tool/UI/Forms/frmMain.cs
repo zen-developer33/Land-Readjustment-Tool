@@ -95,6 +95,8 @@ namespace Land_Readjustment_Tool
         private readonly ToolStripMenuItem _mnuToggleLayerVisibility = new("Hidden");
         private readonly ToolStripMenuItem _mnuToggleLayerLock = new("Locked");
         private readonly ToolStripMenuItem _mnuLayerProperties = new("Layer Properties");
+        private readonly ToolStripMenuItem _mnuCopyLayerObjectsToDefault = new("Copy Objects To");
+        private readonly ToolStripMenuItem _mnuMoveLayerObjectsToDefault = new("Move Objects To");
         private readonly ToolStripMenuItem _mnuAddDrawingLayer = new("Add Drawing Layer...");
         private readonly ToolStripMenuItem _mnuSetActiveLayer = new("Set Active Layer");
         private readonly ToolStripMenuItem _mnuAddRasterMap = new("Add Raster Map...");
@@ -113,6 +115,8 @@ namespace Land_Readjustment_Tool
         private Image? _liveTileDisconnectedGlobe;
         private int _liveTileFetchFrameIndex;
         private bool _suppressCurrentDrawingLayerSelectionChanged;
+        private bool _suppressCadastralAssignmentCanvasSelectionChanged;
+        private frmCadastralRecordAssignment? _cadastralRecordAssignmentForm;
         private CanvasLayer? _currentDrawingLayer;
         private MapCanvasTool _currentCanvasTool = MapCanvasTool.Select;
 
@@ -256,6 +260,8 @@ namespace Land_Readjustment_Tool
             mapCanvasControlMain.ShapeCompleted += MapCanvasControlMain_ShapeCompleted;
             mapCanvasControlMain.SelectToolRequested += () => ActivateCanvasTool(MapCanvasTool.Select);
             mapCanvasControlMain.SelectedObjectsDeleteRequested += MapCanvasControlMain_SelectedObjectsDeleteRequested;
+            mapCanvasControlMain.SelectedObjectsAssignParcelDataRequested += MapCanvasControlMain_SelectedObjectsAssignParcelDataRequested;
+            mapCanvasControlMain.SelectedCanvasObjectsChanged += MapCanvasControlMain_SelectedCanvasObjectsChanged;
             mnuCanvasDebugOverlay.Checked = mapCanvasControlMain.ShowDebugOverlay;
             mnuOSnapToggle.Checked = mapCanvasControlMain.SnapEnabled;
             mnuOrthoToggle.Checked = mapCanvasControlMain.OrthoModeEnabled;
@@ -1858,7 +1864,7 @@ namespace Land_Readjustment_Tool
             }
         }
 
-        private async void CadastralRecordsAssignmentToolStripMenuItem_Click(object? sender, EventArgs e)
+        private void CadastralRecordsAssignmentToolStripMenuItem_Click(object? sender, EventArgs e)
         {
             if (!AppServices.HasContext)
             {
@@ -1870,23 +1876,57 @@ namespace Land_Readjustment_Tool
                 return;
             }
 
-            using frmCadastralRecordAssignment form = new(
+            if (_cadastralRecordAssignmentForm is { IsDisposed: false })
+            {
+                _cadastralRecordAssignmentForm.Show();
+                _cadastralRecordAssignmentForm.BringToFront();
+                _cadastralRecordAssignmentForm.Focus();
+                ActivateCanvasTool(MapCanvasTool.Select);
+                return;
+            }
+
+            frmCadastralRecordAssignment form = new(
                 AppServices.Context.Session,
                 _cadastralRecordAssignmentService);
+            _cadastralRecordAssignmentForm = form;
             form.SelectedCanvasObjectChanged += PreviewAssignmentCandidateOnCanvas;
-            form.ShowDialog(this);
-            form.SelectedCanvasObjectChanged -= PreviewAssignmentCandidateOnCanvas;
+            form.AssignmentCommitted += CadastralRecordAssignmentForm_AssignmentCommitted;
+            form.FormClosed += CadastralRecordAssignmentForm_FormClosed;
+            form.Show(this);
+            ActivateCanvasTool(MapCanvasTool.Select);
+        }
 
-            if (!form.AssignmentChanged)
+        private async void CadastralRecordAssignmentForm_FormClosed(object? sender, FormClosedEventArgs e)
+        {
+            if (sender is not frmCadastralRecordAssignment form)
             {
                 mapCanvasControlMain.ClearPreviewSelection();
                 return;
             }
 
+            form.SelectedCanvasObjectChanged -= PreviewAssignmentCandidateOnCanvas;
+            form.AssignmentCommitted -= CadastralRecordAssignmentForm_AssignmentCommitted;
+            form.FormClosed -= CadastralRecordAssignmentForm_FormClosed;
+            if (ReferenceEquals(_cadastralRecordAssignmentForm, form))
+                _cadastralRecordAssignmentForm = null;
+
+            mapCanvasControlMain.ClearPreviewSelection();
+
+            if (form.AssignmentChanged)
+            {
+                MarkProjectModifiedIfOpen();
+                await RefreshVectorCanvasFeaturesAsync();
+                mapCanvasControlMain.RequestRender();
+                SetCanvasCommandStatus("Cadastral records assigned.");
+            }
+        }
+
+        private async void CadastralRecordAssignmentForm_AssignmentCommitted()
+        {
             MarkProjectModifiedIfOpen();
             await RefreshVectorCanvasFeaturesAsync();
             mapCanvasControlMain.RequestRender();
-            SetCanvasCommandStatus("Cadastral records assigned.");
+            SetCanvasCommandStatus("Cadastral record assignment updated.");
         }
 
         private void PreviewAssignmentCandidateOnCanvas(Guid? canvasObjectId, bool zoomToObject)
@@ -1897,9 +1937,29 @@ namespace Land_Readjustment_Tool
                 return;
             }
 
-            mapCanvasControlMain.PreviewSelectCanvasObject(
-                canvasObjectId.Value,
-                zoomToObject);
+            _suppressCadastralAssignmentCanvasSelectionChanged = true;
+            try
+            {
+                mapCanvasControlMain.PreviewSelectCanvasObject(
+                    canvasObjectId.Value,
+                    zoomToObject);
+            }
+            finally
+            {
+                _suppressCadastralAssignmentCanvasSelectionChanged = false;
+            }
+        }
+
+        private void MapCanvasControlMain_SelectedCanvasObjectsChanged(IReadOnlyList<Guid> selectedObjectIds)
+        {
+            if (_suppressCadastralAssignmentCanvasSelectionChanged ||
+                _cadastralRecordAssignmentForm is not { IsDisposed: false } form ||
+                selectedObjectIds.Count == 0)
+            {
+                return;
+            }
+
+            form.SelectCanvasObjectFromCanvas(selectedObjectIds[0]);
         }
 
         private static RectangleD ToRectangleD(NtsEnvelope envelope)
@@ -4166,8 +4226,9 @@ namespace Land_Readjustment_Tool
                 canReorderRaster &&
                 CanMoveRasterLayerInDisplayOrder(_contextLayerNode, 1);
             _mnuToggleLayerVisibility.Enabled = true;
-            _mnuToggleLayerLock.Enabled = true;
+            _mnuToggleLayerLock.Enabled = !isProtectedDefaultLayer && !IsCadastralCanvasLayer(layer);
             _mnuLayerProperties.Enabled = true;
+            ConfigureDefaultLayerTransferMenus(_contextLayerNode, layer);
         }
 
         private static Color BlendColor(Color source, Color target, float targetWeight)
@@ -4517,6 +4578,9 @@ namespace Land_Readjustment_Tool
                 _mnuRenameLayer,
                 _mnuDeleteLayer,
                 new ToolStripSeparator(),
+                _mnuCopyLayerObjectsToDefault,
+                _mnuMoveLayerObjectsToDefault,
+                new ToolStripSeparator(),
                 _mnuMoveLayerUp,
                 _mnuMoveLayerDown,
                 new ToolStripSeparator(),
@@ -4525,6 +4589,237 @@ namespace Land_Readjustment_Tool
                 new ToolStripSeparator(),
                 _mnuLayerProperties
             ]);
+        }
+
+        private void ConfigureDefaultLayerTransferMenus(
+            TreeNode? sourceNode,
+            CanvasLayer sourceLayer)
+        {
+            _mnuCopyLayerObjectsToDefault.DropDownItems.Clear();
+            _mnuMoveLayerObjectsToDefault.DropDownItems.Clear();
+
+            bool canTransfer = CanTransferObjectsFromLayer(sourceNode, sourceLayer);
+            if (canTransfer)
+            {
+                foreach (CanvasLayer targetLayer in GetDefaultTransferTargetLayers(sourceNode, sourceLayer))
+                {
+                    ToolStripMenuItem copyItem = new(targetLayer.Name)
+                    {
+                        Tag = targetLayer
+                    };
+                    copyItem.Click += async (_, _) =>
+                        await TransferLayerObjectsToDefaultLayerAsync(sourceLayer, targetLayer, copyObjects: true);
+
+                    ToolStripMenuItem moveItem = new(targetLayer.Name)
+                    {
+                        Tag = targetLayer
+                    };
+                    moveItem.Click += async (_, _) =>
+                        await TransferLayerObjectsToDefaultLayerAsync(sourceLayer, targetLayer, copyObjects: false);
+
+                    _mnuCopyLayerObjectsToDefault.DropDownItems.Add(copyItem);
+                    _mnuMoveLayerObjectsToDefault.DropDownItems.Add(moveItem);
+                }
+            }
+
+            bool hasTargets = _mnuCopyLayerObjectsToDefault.DropDownItems.Count > 0;
+            _mnuCopyLayerObjectsToDefault.Enabled = canTransfer && hasTargets;
+            _mnuMoveLayerObjectsToDefault.Enabled = canTransfer && hasTargets;
+        }
+
+        private bool CanTransferObjectsFromLayer(TreeNode? sourceNode, CanvasLayer sourceLayer)
+        {
+            if (!AppServices.HasContext ||
+                sourceNode == null ||
+                sourceLayer.IsLocked ||
+                IsRasterLayer(sourceLayer) ||
+                CanvasLayerTreeService.IsProtectedDefaultLayer(sourceLayer) ||
+                IsCadastralCanvasLayer(sourceLayer))
+            {
+                return false;
+            }
+
+            string? groupKey = GetLayerGroupKeyForNode(sourceNode);
+            return string.Equals(groupKey, DrawingMarkupGroupKey, StringComparison.OrdinalIgnoreCase) ||
+                   string.Equals(groupKey, CanvasLayerTreeService.ExternalGroupKey, StringComparison.OrdinalIgnoreCase);
+        }
+
+        private IEnumerable<CanvasLayer> GetDefaultTransferTargetLayers(
+            TreeNode? sourceNode,
+            CanvasLayer sourceLayer)
+        {
+            if (sourceNode == null)
+                yield break;
+
+            TreeNode? root = treeViewLayers.Nodes
+                .Cast<TreeNode>()
+                .FirstOrDefault(node => string.Equals(
+                    node.Name,
+                    $"{LayerGroupNodeNamePrefix}{RePlotRootNodeKey}",
+                    StringComparison.OrdinalIgnoreCase));
+
+            if (root == null)
+                yield break;
+
+            foreach (TreeNode layerNode in EnumerateLayerNodes(root))
+            {
+                CanvasLayer? targetLayer = GetLayerFromNode(layerNode);
+                if (targetLayer == null ||
+                    targetLayer.Id == sourceLayer.Id ||
+                    IsRasterLayer(targetLayer) ||
+                    !IsTransferTargetLayer(layerNode, targetLayer) ||
+                    !AreLayerTypesTransferCompatible(sourceLayer, targetLayer))
+                {
+                    continue;
+                }
+
+                yield return targetLayer;
+            }
+        }
+
+        private static bool IsTransferTargetLayer(TreeNode layerNode, CanvasLayer targetLayer)
+        {
+            string? groupKey = GetLayerGroupKeyForNode(layerNode);
+            return CanvasLayerTreeService.IsProtectedDefaultLayer(targetLayer) ||
+                   IsCadastralCanvasLayer(targetLayer) ||
+                   (CanvasLayerTreeService.IsRePlotDataGroupKey(groupKey) &&
+                    !string.Equals(groupKey, DrawingMarkupGroupKey, StringComparison.OrdinalIgnoreCase));
+        }
+
+        private static bool AreLayerTypesTransferCompatible(CanvasLayer sourceLayer, CanvasLayer targetLayer)
+        {
+            string sourceKind = NormalizeTransferLayerKind(sourceLayer);
+            string targetKind = NormalizeTransferLayerKind(targetLayer);
+
+            if (string.Equals(sourceKind, targetKind, StringComparison.OrdinalIgnoreCase))
+                return true;
+
+            return string.Equals(sourceKind, "Polyline", StringComparison.OrdinalIgnoreCase) &&
+                   string.Equals(targetKind, "Polyline", StringComparison.OrdinalIgnoreCase);
+        }
+
+        private static string NormalizeTransferLayerKind(CanvasLayer layer)
+        {
+            if (CanvasLayerTreeService.IsAnnotationLayer(layer))
+                return "Annotation";
+
+            if (CanvasLayerTreeService.IsPointLayer(layer))
+                return "Point";
+
+            if (CanvasLayerTreeService.IsLineLayer(layer))
+                return "Polyline";
+
+            if (IsRasterLayer(layer))
+                return "Raster";
+
+            return "Polygon";
+        }
+
+        private async Task TransferLayerObjectsToDefaultLayerAsync(
+            CanvasLayer sourceLayer,
+            CanvasLayer targetLayer,
+            bool copyObjects)
+        {
+            if (!AppServices.HasContext)
+                return;
+
+            string verb = copyObjects ? "copy" : "move";
+            DialogResult confirm = MessageBox.Show(
+                $"Do you want to {verb} all objects from '{sourceLayer.Name}' to '{targetLayer.Name}'?",
+                copyObjects ? "Copy Objects To Default Layer" : "Move Objects To Default Layer",
+                MessageBoxButtons.YesNo,
+                MessageBoxIcon.Question,
+                MessageBoxDefaultButton.Button2);
+
+            if (confirm != DialogResult.Yes)
+                return;
+
+            try
+            {
+                AppDbContext context = AppServices.Context.Session.GetDbContext();
+                List<CanvasObject> sourceObjects = copyObjects
+                    ? await context.CanvasObjects
+                        .AsNoTracking()
+                        .Where(item => item.CanvasLayerId == sourceLayer.Id)
+                        .ToListAsync()
+                    : await context.CanvasObjects
+                        .Where(item => item.CanvasLayerId == sourceLayer.Id)
+                        .ToListAsync();
+
+                if (sourceObjects.Count == 0)
+                {
+                    MessageBox.Show(
+                        $"Layer '{sourceLayer.Name}' has no objects to {verb}.",
+                        "Layer Objects",
+                        MessageBoxButtons.OK,
+                        MessageBoxIcon.Information);
+                    return;
+                }
+
+                DateTime now = DateTime.Now;
+                if (copyObjects)
+                {
+                    foreach (CanvasObject sourceObject in sourceObjects)
+                    {
+                        CanvasObject copy = CloneCanvasObjectForLayer(sourceObject, targetLayer.Id, now);
+                        await context.CanvasObjects.AddAsync(copy);
+                    }
+                }
+                else
+                {
+                    foreach (CanvasObject sourceObject in sourceObjects)
+                    {
+                        sourceObject.CanvasLayerId = targetLayer.Id;
+                        sourceObject.LastModifiedDate = now;
+                    }
+                }
+
+                await context.SaveChangesAsync();
+                MarkProjectModifiedIfOpen();
+                await RefreshMapCanvasAsync(copyObjects ? "Copying objects" : "Moving objects");
+                SetCanvasCommandStatus(copyObjects
+                    ? $"Copied {sourceObjects.Count} object(s) to {targetLayer.Name}"
+                    : $"Moved {sourceObjects.Count} object(s) to {targetLayer.Name}");
+            }
+            catch (Exception ex)
+            {
+                MessageBox.Show(
+                    $"Failed to {verb} layer objects: {ex.Message}",
+                    copyObjects ? "Copy Objects" : "Move Objects",
+                    MessageBoxButtons.OK,
+                    MessageBoxIcon.Error);
+            }
+        }
+
+        private static CanvasObject CloneCanvasObjectForLayer(
+            CanvasObject source,
+            int targetLayerId,
+            DateTime timestamp)
+        {
+            return new CanvasObject
+            {
+                Id = Guid.NewGuid(),
+                CanvasLayerId = targetLayerId,
+                ObjectType = source.ObjectType,
+                Shape = source.Shape.Copy(),
+                GeometryMetadataJson = source.GeometryMetadataJson,
+                BorderColorOverride = source.BorderColorOverride,
+                FillColorOverride = source.FillColorOverride,
+                FillTransparencyOverride = source.FillTransparencyOverride,
+                LineWeightOverride = source.LineWeightOverride,
+                LineStyleOverride = source.LineStyleOverride,
+                LabelText = source.LabelText,
+                ObjectDescription = source.ObjectDescription,
+                IsVisible = source.IsVisible,
+                IsLocked = false,
+                BaselineParcelId = null,
+                ReplottedParcelId = null,
+                RoadId = null,
+                BlockId = null,
+                SourceDxfHandle = source.SourceDxfHandle,
+                CreatedDate = timestamp,
+                LastModifiedDate = timestamp
+            };
         }
 
         private void BeginLayerRename(TreeNode? node)
@@ -4832,6 +5127,17 @@ namespace Land_Readjustment_Tool
             CanvasLayer? layer = GetLayerFromNode(node);
             if (layer == null)
             {
+                return;
+            }
+
+            if (CanvasLayerTreeService.IsProtectedDefaultLayer(layer) ||
+                IsCadastralCanvasLayer(layer))
+            {
+                MessageBox.Show(
+                    $"Layer '{layer.Name}' is managed by the application and must remain locked.",
+                    "Layer Lock",
+                    MessageBoxButtons.OK,
+                    MessageBoxIcon.Information);
                 return;
             }
 
@@ -5441,6 +5747,28 @@ namespace Land_Readjustment_Tool
 
             try
             {
+                AppDbContext context = AppServices.Context.Session.GetDbContext();
+                List<CanvasObject> selectedObjects = await context.CanvasObjects
+                    .AsNoTracking()
+                    .Include(item => item.CanvasLayer)
+                    .Where(item => shapeIds.Contains(item.Id))
+                    .ToListAsync();
+
+                CanvasObject? lockedObject = selectedObjects.FirstOrDefault(item =>
+                    item.CanvasLayer?.IsLocked == true ||
+                    (item.CanvasLayer != null &&
+                     (CanvasLayerTreeService.IsProtectedDefaultLayer(item.CanvasLayer) ||
+                      IsCadastralCanvasLayer(item.CanvasLayer))));
+                if (lockedObject != null)
+                {
+                    MessageBox.Show(
+                        $"Object deletion is blocked because layer '{lockedObject.CanvasLayer?.Name ?? "Unknown"}' is locked.\n\nMove or copy editable objects into default layers through the layer menu instead.",
+                        "Delete Drawing Object",
+                        MessageBoxButtons.OK,
+                        MessageBoxIcon.Information);
+                    return;
+                }
+
                 CanvasFeatureService featureService =
                     _projectScopedFactory.CreateCanvasFeatureService(AppServices.Context.Session);
 
@@ -5464,6 +5792,11 @@ namespace Land_Readjustment_Tool
                     MessageBoxButtons.OK,
                     MessageBoxIcon.Error);
             }
+        }
+
+        private void MapCanvasControlMain_SelectedObjectsAssignParcelDataRequested()
+        {
+            CadastralRecordsAssignmentToolStripMenuItem_Click(this, EventArgs.Empty);
         }
 
         private async Task RefreshLayerTreeAsync(
@@ -5839,6 +6172,21 @@ namespace Land_Readjustment_Tool
                    !string.IsNullOrWhiteSpace(state.GroupKey);
         }
 
+        private static string? GetLayerGroupKeyForNode(TreeNode? node)
+        {
+            for (TreeNode? current = node; current != null; current = current.Parent)
+            {
+                if (current.Tag is LayerTreeNodeState state &&
+                    !state.IsLayerNode &&
+                    !string.IsNullOrWhiteSpace(state.GroupKey))
+                {
+                    return state.GroupKey;
+                }
+            }
+
+            return null;
+        }
+
         private static bool IsRePlotDataGroupKey(string? groupKey)
         {
             return CanvasLayerTreeService.IsRePlotDataGroupKey(groupKey);
@@ -6064,10 +6412,10 @@ namespace Land_Readjustment_Tool
             if (frm.ShowDialog(this) != DialogResult.OK)
                 return;
 
-            if (nodeState.Layer.IsLocked && editableLayer.IsLocked)
+            if (CanvasLayerTreeService.IsProtectedDefaultLayer(nodeState.Layer) ||
+                IsCadastralCanvasLayer(nodeState.Layer))
             {
-                SetCanvasCommandStatus($"Layer locked: {nodeState.Layer.Name}");
-                return;
+                editableLayer.IsLocked = true;
             }
 
             try

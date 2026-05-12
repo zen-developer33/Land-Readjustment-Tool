@@ -113,6 +113,10 @@ namespace Land_Readjustment_Tool.Services.Import
                         ? null
                         : JsonSerializer.Serialize(parcel.Attributes),
                     BaselineParcelId = assignedParcel?.Id,
+                    FullUniqueParcelCode = assignedParcel?.FullUniqueParcelCode,
+                    RecordAreaSqm = assignedParcel?.OriginalAreaSqm,
+                    OwnerName = assignedParcel?.LandOwner?.FullName,
+                    LandUse = assignedParcel?.LandUse,
                     AssignmentStatus = assignedParcel == null
                         ? "Unassigned"
                         : "AutoAssigned",
@@ -239,7 +243,7 @@ namespace Land_Readjustment_Tool.Services.Import
                 Name = name,
                 LayerType = layerType,
                 IsVisible = true,
-                IsLocked = false,
+                IsLocked = true,
                 IsSelectable = true,
                 IsPrintable = true,
                 DisplayOrder = displayOrder,
@@ -254,6 +258,9 @@ namespace Land_Readjustment_Tool.Services.Import
 
         private static void ApplyImportedCadastralLayerDefaults(CanvasLayer layer)
         {
+            layer.IsLocked = true;
+            layer.IsSelectable = true;
+
             if (CanvasLayerTreeService.IsAnnotationLayer(layer))
             {
                 layer.BorderColor = string.IsNullOrWhiteSpace(layer.BorderColor)
@@ -409,7 +416,9 @@ namespace Land_Readjustment_Tool.Services.Import
             AppDbContext context,
             CancellationToken ct)
         {
-            List<BaselineParcel> parcels = await context.BaselineParcels.ToListAsync(ct);
+            List<BaselineParcel> parcels = await context.BaselineParcels
+                .Include(parcel => parcel.LandOwner)
+                .ToListAsync(ct);
             Dictionary<string, BaselineParcel> lookup = new(StringComparer.OrdinalIgnoreCase);
             foreach (BaselineParcel parcel in parcels)
             {

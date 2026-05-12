@@ -197,7 +197,7 @@ namespace Land_Readjustment_Tool.UI.MapCanvas.Services
                     Name = definition.Name,
                     LayerType = definition.LayerType,
                     IsVisible = true,
-                    IsLocked = false,
+                    IsLocked = true,
                     IsSelectable = true,
                     IsPrintable = true,
                     DisplayOrder = nextDisplayOrder++,
@@ -237,11 +237,6 @@ namespace Land_Readjustment_Tool.UI.MapCanvas.Services
                      $"Default layer: {definition.LegacyName}",
                      StringComparison.OrdinalIgnoreCase));
 
-            if (!isManagedDefault)
-            {
-                return false;
-            }
-
             if (string.Equals(definition.GroupKey, DrawingMarkupGroupKey, StringComparison.OrdinalIgnoreCase))
             {
                 return false;
@@ -258,6 +253,12 @@ namespace Land_Readjustment_Tool.UI.MapCanvas.Services
             if (!string.Equals(layer.LayerType, definition.LayerType, StringComparison.OrdinalIgnoreCase))
             {
                 layer.LayerType = definition.LayerType;
+                changed = true;
+            }
+
+            if (!layer.IsLocked)
+            {
+                layer.IsLocked = true;
                 changed = true;
             }
 

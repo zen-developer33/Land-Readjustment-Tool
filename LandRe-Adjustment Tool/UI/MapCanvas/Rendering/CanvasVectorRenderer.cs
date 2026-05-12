@@ -1,7 +1,11 @@
+using System.Collections.Concurrent;
 using System.Drawing.Drawing2D;
 using System.Globalization;
 using System.Diagnostics;
+using System.Reflection;
+using System.Text.Json;
 using Land_Readjustment_Tool.Core.Entities.Canvas;
+using Land_Readjustment_Tool.Core.Models.Import;
 using Land_Readjustment_Tool.UI.MapCanvas.Core;
 using Land_Readjustment_Tool.UI.MapCanvas.Models.Shapes;
 using Land_Readjustment_Tool.UI.MapCanvas.Services;
@@ -15,8 +19,6 @@ namespace Land_Readjustment_Tool.UI.MapCanvas.Rendering
         private const float HatchLineWidthPx = 0.65f;
         private const float SelectionLineWidthPx = 2.0f;
         private static readonly Color SelectionStrokeColor = Color.FromArgb(0, 122, 204);
-        private readonly PenCache _penCache = new();
-        private readonly BrushCache _brushCache = new();
         private readonly Font _labelFont = new("Segoe UI", 8.0f, FontStyle.Regular);
         private readonly Font _previewFont = new("Segoe UI", 8.0f, FontStyle.Bold);
         private readonly VectorFeatureSpatialIndex _featureSpatialIndex = new();
@@ -24,6 +26,7 @@ namespace Land_Readjustment_Tool.UI.MapCanvas.Rendering
         private IReadOnlyDictionary<int, CanvasLayer> _layersById =
             new Dictionary<int, CanvasLayer>();
         private VectorRenderStats _lastRenderStats = VectorRenderStats.Empty;
+        private readonly ConcurrentDictionary<Guid, PointD> _labelAnchorCache = new();
 
         public int FeatureCount => _features.Count;
 
@@ -35,6 +38,7 @@ namespace Land_Readjustment_Tool.UI.MapCanvas.Rendering
         {
             _features = features?.ToArray() ?? [];
             _featureSpatialIndex.Rebuild(_features);
+            _labelAnchorCache.Clear();
             _lastRenderStats = VectorRenderStats.Empty;
         }
 
@@ -111,9 +115,11 @@ namespace Land_Readjustment_Tool.UI.MapCanvas.Rendering
                     visibleWorldBounds.Width / canvasSize.Value.Width * 2.0;
             }
 
+            using PenCache penCache = new();
+            using BrushCache brushCache = new();
             VectorRenderContext context = new(
-                _penCache,
-                _brushCache,
+                penCache,
+                brushCache,
                 engine.ZoomScale);
 
             Stopwatch queryStopwatch = Stopwatch.StartNew();
@@ -143,7 +149,7 @@ namespace Land_Readjustment_Tool.UI.MapCanvas.Rendering
                     continue;
                 }
 
-                DrawShape(graphics, engine, feature.Shape, ResolveStyle(feature, layer), context);
+                DrawShape(graphics, engine, feature.Shape, ResolveStyle(feature, layer), context, feature);
                 DrawLabelIfNeeded(graphics, engine, visibleWorldBounds, feature, layer, context);
                 renderedCount++;
             }
@@ -176,9 +182,11 @@ namespace Land_Readjustment_Tool.UI.MapCanvas.Rendering
                 return;
             }
 
+            using PenCache penCache = new();
+            using BrushCache brushCache = new();
             VectorRenderContext context = new(
-                _penCache,
-                _brushCache,
+                penCache,
+                brushCache,
                 engine.ZoomScale,
                 isPreview: true);
 
@@ -458,7 +466,8 @@ namespace Land_Readjustment_Tool.UI.MapCanvas.Rendering
             MapCanvasEngine engine,
             IShape shape,
             VectorShapeStyle style,
-            VectorRenderContext context)
+            VectorRenderContext context,
+            CanvasFeature? feature = null)
         {
             if (style.IsPointStyle && shape is CircleShape pointCircle)
             {
@@ -466,16 +475,18 @@ namespace Land_Readjustment_Tool.UI.MapCanvas.Rendering
                 return;
             }
 
+            bool isCadastralParcelSelection = IsSelectedCadastralParcelFeature(feature, shape);
+            bool useDefaultSelectionStyle = shape.IsSelected && !isCadastralParcelSelection;
             bool shouldStroke = style.HasStroke || shape.IsSelected;
-            float width = shape.IsSelected
+            float width = useDefaultSelectionStyle
                 ? SelectionLineWidthPx
                 : Math.Max(0.25f, style.LineWidth);
-            Color stroke = shape.IsSelected ? SelectionStrokeColor : style.StrokeColor;
-            DashStyle dashStyle = shape.IsSelected ? DashStyle.Dash : style.DashStyle;
+            Color stroke = useDefaultSelectionStyle ? SelectionStrokeColor : style.StrokeColor;
+            DashStyle dashStyle = useDefaultSelectionStyle ? DashStyle.Dash : style.DashStyle;
             Pen? pen = shouldStroke ? context.GetPen(stroke, width, dashStyle) : null;
 
             // Apply LineTypeScale to custom dash patterns
-            if (pen != null && !shape.IsSelected && style.LineTypeScale != 1.0f)
+            if (pen != null && !useDefaultSelectionStyle && style.LineTypeScale != 1.0f)
             {
                 ApplyLineTypeScaleToPen(pen, dashStyle, style.LineTypeScale);
             }
@@ -483,13 +494,13 @@ namespace Land_Readjustment_Tool.UI.MapCanvas.Rendering
             switch (shape)
             {
                 case PolylineShape polyline:
-                    DrawPolyline(graphics, engine, polyline, style, context, pen);
+                    DrawPolyline(graphics, engine, polyline, style, context, pen, isCadastralParcelSelection);
                     break;
                 case LineShape line:
                     DrawLine(graphics, engine, line, pen);
                     break;
                 case RectangleShape rectangle:
-                    DrawRectangle(graphics, engine, rectangle, style, context, pen);
+                    DrawRectangle(graphics, engine, rectangle, style, context, pen, isCadastralParcelSelection);
                     break;
                 case CircleShape circle:
                     DrawCircle(graphics, engine, circle, style, context, pen);
@@ -588,7 +599,8 @@ namespace Land_Readjustment_Tool.UI.MapCanvas.Rendering
             PolylineShape polyline,
             VectorShapeStyle style,
             VectorRenderContext context,
-            Pen? pen)
+            Pen? pen,
+            bool drawParcelSelectionHighlight = false)
         {
             if (polyline.Vertices.Count == 1)
             {
@@ -625,6 +637,14 @@ namespace Land_Readjustment_Tool.UI.MapCanvas.Rendering
                 FillClosedPath(graphics, path, bounds, style, context);
             }
 
+            if (polyline.IsClosed &&
+                polyline.Vertices.Count > 2 &&
+                drawParcelSelectionHighlight &&
+                IsValidRectangle(bounds))
+            {
+                DrawCadastralParcelSelectionHighlight(graphics, path, bounds);
+            }
+
             if (pen == null)
             {
                 return;
@@ -656,7 +676,8 @@ namespace Land_Readjustment_Tool.UI.MapCanvas.Rendering
             RectangleShape rectangle,
             VectorShapeStyle style,
             VectorRenderContext context,
-            Pen? pen)
+            Pen? pen,
+            bool drawParcelSelectionHighlight = false)
         {
             PointF start = ToScreenPointF(engine.WorldToScreen(rectangle.Start));
             PointF end = ToScreenPointF(engine.WorldToScreen(rectangle.End));
@@ -671,11 +692,68 @@ namespace Land_Readjustment_Tool.UI.MapCanvas.Rendering
                 using GraphicsPath path = new();
                 path.AddRectangle(rect);
                 FillClosedPath(graphics, path, rect, style, context);
+
+                if (drawParcelSelectionHighlight)
+                {
+                    DrawCadastralParcelSelectionHighlight(graphics, path, rect);
+                }
+            }
+            else if (drawParcelSelectionHighlight)
+            {
+                using GraphicsPath path = new();
+                path.AddRectangle(rect);
+                DrawCadastralParcelSelectionHighlight(graphics, path, rect);
             }
 
             if (pen != null)
             {
                 graphics.DrawRectangle(pen, rect.X, rect.Y, rect.Width, rect.Height);
+            }
+        }
+
+        private static bool IsSelectedCadastralParcelFeature(CanvasFeature? feature, IShape shape)
+        {
+            return shape.IsSelected &&
+                   feature != null &&
+                   string.Equals(feature.CanvasObject.ObjectType, "Polygon", StringComparison.OrdinalIgnoreCase) &&
+                   !string.IsNullOrWhiteSpace(feature.CanvasObject.GeometryMetadataJson) &&
+                   feature.CanvasObject.GeometryMetadataJson.Contains("CadastralParcel", StringComparison.OrdinalIgnoreCase);
+        }
+
+        private static void DrawCadastralParcelSelectionHighlight(
+            Graphics graphics,
+            GraphicsPath path,
+            RectangleF bounds)
+        {
+            if (!IsValidRectangle(bounds))
+            {
+                return;
+            }
+
+            GraphicsState state = graphics.Save();
+            try
+            {
+                graphics.SetClip(path, CombineMode.Intersect);
+
+                using SolidBrush fillBrush = new(Color.FromArgb(42, 255, 193, 7));
+                graphics.FillPath(fillBrush, path);
+
+                float bufferWidth = Math.Clamp(
+                    Math.Min(bounds.Width, bounds.Height) * 0.18f,
+                    7.0f,
+                    18.0f);
+                using Pen bufferPen = new(Color.FromArgb(140, 255, 193, 7), bufferWidth)
+                {
+                    Alignment = PenAlignment.Center,
+                    LineJoin = LineJoin.Round,
+                    StartCap = LineCap.Round,
+                    EndCap = LineCap.Round
+                };
+                graphics.DrawPath(bufferPen, path);
+            }
+            finally
+            {
+                graphics.Restore(state);
             }
         }
 
@@ -764,214 +842,47 @@ namespace Land_Readjustment_Tool.UI.MapCanvas.Rendering
                 graphics.FillPath(context.GetSolidBrush(style.FillColor), path);
             }
 
-            if (style.FillMode == FillMode.Hatched && !context.IsPreview)
+            if (style.FillMode == FillMode.Hatched)
             {
-                DrawHatchPattern(graphics, path, bounds, style);
+                DrawHatchPattern(graphics, path, style, context);
             }
         }
 
         private static void DrawHatchPattern(
             Graphics graphics,
-            GraphicsPath clipPath,
-            RectangleF bounds,
-            VectorShapeStyle style)
+            GraphicsPath path,
+            VectorShapeStyle style,
+            VectorRenderContext context)
         {
-            float spacing = Math.Max(3.0f, ResolveHatchBaseSpacing(style.HatchPattern) * style.HatchScale);
-            RectangleF expandedBounds = RectangleF.Inflate(bounds, spacing * 2.0f, spacing * 2.0f);
-            Color hatchColor = ResolveHatchColor(style);
-
-            GraphicsState state = graphics.Save();
-            try
-            {
-                graphics.SetClip(clipPath, CombineMode.Intersect);
-
-                using Pen hatchPen = new(hatchColor, HatchLineWidthPx)
-                {
-                    Alignment = PenAlignment.Center,
-                    StartCap = LineCap.Flat,
-                    EndCap = LineCap.Flat
-                };
-
-                foreach (HatchStroke stroke in ResolveHatchStrokes(style.HatchPattern))
-                {
-                    DrawHatchStrokeFamily(graphics, hatchPen, expandedBounds, spacing, stroke);
-                }
-            }
-            finally
-            {
-                graphics.Restore(state);
-            }
+            HatchStyle hatchStyle = ResolveGdipHatchStyle(style.HatchPattern);
+            Color foreColor = ResolveHatchColor(style);
+            HatchBrush brush = context.GetHatchBrush(hatchStyle, foreColor, Color.Transparent);
+            graphics.FillPath(brush, path);
         }
+
+        private static HatchStyle ResolveGdipHatchStyle(string hatchPattern) =>
+            hatchPattern.Trim().ToUpperInvariant() switch
+            {
+                "ANSI31" => HatchStyle.ForwardDiagonal,
+                "ANSI32" or "DIAGONAL-CROSS" => HatchStyle.DiagonalCross,
+                "ANSI33" => HatchStyle.LightUpwardDiagonal,
+                "ANSI34" => HatchStyle.LightDownwardDiagonal,
+                "HORIZONTAL" => HatchStyle.Horizontal,
+                "VERTICAL" => HatchStyle.Vertical,
+                "CROSS" => HatchStyle.Cross,
+                "DOTS" or "SAND" => HatchStyle.DottedGrid,
+                "GRAVEL" or "CONCRETE" => HatchStyle.SmallGrid,
+                "BRICK" => HatchStyle.HorizontalBrick,
+                "NET" => HatchStyle.DiagonalCross,
+                "EARTH" => HatchStyle.Weave,
+                "WATER" or "WOOD" or "WAVE" => HatchStyle.Wave,
+                _ => HatchStyle.ForwardDiagonal
+            };
 
         private static Color ResolveHatchColor(VectorShapeStyle style)
         {
-            // Use fill color for hatch pattern, with high opacity for visibility
             Color baseColor = Color.FromArgb(255, style.FillColor.R, style.FillColor.G, style.FillColor.B);
             return Color.FromArgb(220, baseColor.R, baseColor.G, baseColor.B);
-        }
-
-        private static float ResolveHatchBaseSpacing(string hatchPattern)
-        {
-            return hatchPattern.Trim().ToUpperInvariant() switch
-            {
-                "ANSI31" => 4.0f,
-                "ANSI33" => 6.0f,
-                "ANSI34" => 14.0f,
-                "DOTS" or "SAND" => 8.0f,
-                "EARTH" or "GRAVEL" or "CONCRETE" => 10.0f,
-                "BRICK" or "WOOD" => 12.0f,
-                _ => 9.0f
-            };
-        }
-
-        private static IEnumerable<HatchStroke> ResolveHatchStrokes(string hatchPattern)
-        {
-            return hatchPattern.Trim().ToUpperInvariant() switch
-            {
-                "ANSI31" => [HatchStroke.ForwardDiagonal],
-                "ANSI32" or "DIAGONAL-CROSS" => [HatchStroke.ForwardDiagonal, HatchStroke.BackwardDiagonal],
-                "HORIZONTAL" => [HatchStroke.Horizontal],
-                "VERTICAL" => [HatchStroke.Vertical],
-                "CROSS" => [HatchStroke.Horizontal, HatchStroke.Vertical],
-                "DOTS" or "SAND" or "GRAVEL" or "CONCRETE" => [HatchStroke.Dots],
-                "BRICK" => [HatchStroke.Horizontal, HatchStroke.BrickVertical],
-                "NET" => [HatchStroke.ForwardDiagonal, HatchStroke.BackwardDiagonal],
-                "WATER" or "WOOD" => [HatchStroke.Wave],
-                _ => [HatchStroke.ForwardDiagonal]
-            };
-        }
-
-        private static void DrawHatchStrokeFamily(
-            Graphics graphics,
-            Pen pen,
-            RectangleF bounds,
-            float spacing,
-            HatchStroke stroke)
-        {
-            switch (stroke)
-            {
-                case HatchStroke.Horizontal:
-                    for (float y = bounds.Top; y <= bounds.Bottom; y += spacing)
-                    {
-                        graphics.DrawLine(pen, bounds.Left, y, bounds.Right, y);
-                    }
-                    break;
-
-                case HatchStroke.Vertical:
-                    for (float x = bounds.Left; x <= bounds.Right; x += spacing)
-                    {
-                        graphics.DrawLine(pen, x, bounds.Top, x, bounds.Bottom);
-                    }
-                    break;
-
-                case HatchStroke.ForwardDiagonal:
-                    DrawDiagonalHatches(graphics, pen, bounds, spacing, forward: true);
-                    break;
-
-                case HatchStroke.BackwardDiagonal:
-                    DrawDiagonalHatches(graphics, pen, bounds, spacing, forward: false);
-                    break;
-
-                case HatchStroke.Dots:
-                    DrawDotHatches(graphics, pen.Color, bounds, spacing);
-                    break;
-
-                case HatchStroke.BrickVertical:
-                    DrawBrickVerticals(graphics, pen, bounds, spacing);
-                    break;
-
-                case HatchStroke.Wave:
-                    DrawWaveHatches(graphics, pen, bounds, spacing);
-                    break;
-            }
-        }
-
-        private static void DrawDiagonalHatches(
-            Graphics graphics,
-            Pen pen,
-            RectangleF bounds,
-            float spacing,
-            bool forward)
-        {
-            float diagonal = bounds.Width + bounds.Height;
-            for (float offset = -bounds.Height; offset <= bounds.Width + bounds.Height; offset += spacing)
-            {
-                PointF start = forward
-                    ? new PointF(bounds.Left + offset, bounds.Bottom)
-                    : new PointF(bounds.Left + offset, bounds.Top);
-                PointF end = forward
-                    ? new PointF(bounds.Left + offset + diagonal, bounds.Bottom - diagonal)
-                    : new PointF(bounds.Left + offset + diagonal, bounds.Top + diagonal);
-                graphics.DrawLine(pen, start, end);
-            }
-        }
-
-        private static void DrawDotHatches(
-            Graphics graphics,
-            Color color,
-            RectangleF bounds,
-            float spacing)
-        {
-            float radius = 1.2f;
-            using SolidBrush dotBrush = new(color);
-            for (float y = bounds.Top; y <= bounds.Bottom; y += spacing)
-            {
-                for (float x = bounds.Left; x <= bounds.Right; x += spacing)
-                {
-                    graphics.FillEllipse(dotBrush, x - radius, y - radius, radius * 2.0f, radius * 2.0f);
-                }
-            }
-        }
-
-        private static void DrawBrickVerticals(
-            Graphics graphics,
-            Pen pen,
-            RectangleF bounds,
-            float spacing)
-        {
-            float rowHeight = spacing;
-            float brickWidth = spacing * 2.0f;
-            int row = 0;
-            for (float y = bounds.Top; y <= bounds.Bottom; y += rowHeight)
-            {
-                float offset = row % 2 == 0 ? 0 : brickWidth / 2.0f;
-                for (float x = bounds.Left - offset; x <= bounds.Right; x += brickWidth)
-                {
-                    graphics.DrawLine(pen, x, y, x, y + rowHeight);
-                }
-
-                row++;
-            }
-        }
-
-        private static void DrawWaveHatches(
-            Graphics graphics,
-            Pen pen,
-            RectangleF bounds,
-            float spacing)
-        {
-            for (float y = bounds.Top; y <= bounds.Bottom; y += spacing)
-            {
-                using GraphicsPath wavePath = new();
-                wavePath.StartFigure();
-                float x = bounds.Left;
-                wavePath.AddLine(x, y, x, y);
-                while (x < bounds.Right)
-                {
-                    wavePath.AddBezier(
-                        x,
-                        y,
-                        x + spacing * 0.25f,
-                        y - spacing * 0.25f,
-                        x + spacing * 0.75f,
-                        y + spacing * 0.25f,
-                        x + spacing,
-                        y);
-                    x += spacing;
-                }
-
-                graphics.DrawPath(pen, wavePath);
-            }
         }
 
         private static void DrawPointMarker(
@@ -1074,92 +985,280 @@ namespace Land_Readjustment_Tool.UI.MapCanvas.Rendering
                 position.Y - size.Height / 2.0f);
         }
 
-        private static PointD ResolveLabelAnchor(
+        private PointD ResolveLabelAnchor(
             CanvasFeature feature,
             RectangleD visibleWorldBounds)
         {
+            Guid cacheKey = feature.CanvasObject.Id;
+
+            // Re-use the cached interior point when it falls inside the current viewport.
+            if (cacheKey != Guid.Empty && _labelAnchorCache.TryGetValue(cacheKey, out PointD cached))
+            {
+                if (visibleWorldBounds.Contains(cached))
+                    return cached;
+                return ClampAnchorToViewport(feature.Shape.GetBoundingBox(), visibleWorldBounds);
+            }
+
             Geometry? geometry = feature.CanvasObject.Shape;
             if (geometry != null && !geometry.IsEmpty)
             {
                 try
                 {
-                    Geometry visibleGeometry = geometry;
-                    if (!IsGeometryFullyVisible(geometry.EnvelopeInternal, visibleWorldBounds))
-                    {
-                        Geometry viewport = CreateViewportGeometry(visibleWorldBounds);
-                        visibleGeometry = geometry.Intersection(viewport);
-                    }
-
-                    if (!visibleGeometry.IsEmpty)
-                    {
-                        NetTopologySuite.Geometries.Point point = visibleGeometry.PointOnSurface;
-                        return new PointD(point.X, point.Y);
-                    }
+                    NetTopologySuite.Geometries.Point point = geometry.PointOnSurface;
+                    PointD anchor = new(point.X, point.Y);
+                    if (cacheKey != Guid.Empty)
+                        _labelAnchorCache.TryAdd(cacheKey, anchor);
+                    if (visibleWorldBounds.Contains(anchor))
+                        return anchor;
                 }
                 catch
                 {
-                    // Fall back to the visible bounding-box center below.
+                    // Fall back to the visible bounding-box centre below.
                 }
             }
 
-            RectangleD bounds = feature.Shape.GetBoundingBox();
+            return ClampAnchorToViewport(feature.Shape.GetBoundingBox(), visibleWorldBounds);
+        }
+
+        private static PointD ClampAnchorToViewport(RectangleD bounds, RectangleD visibleWorldBounds)
+        {
             double left = Math.Max(bounds.Left, visibleWorldBounds.Left);
             double right = Math.Min(bounds.Right, visibleWorldBounds.Right);
             double bottom = Math.Max(bounds.Bottom, visibleWorldBounds.Bottom);
             double top = Math.Min(bounds.Top, visibleWorldBounds.Top);
 
             if (right <= left || top <= bottom)
-            {
-                return new PointD(
-                    bounds.X + bounds.Width / 2.0,
-                    bounds.Y + bounds.Height / 2.0);
-            }
+                return new PointD(bounds.X + bounds.Width / 2.0, bounds.Y + bounds.Height / 2.0);
 
-            return new PointD(
-                left + (right - left) / 2.0,
-                bottom + (top - bottom) / 2.0);
-        }
-
-        private static bool IsGeometryFullyVisible(
-            Envelope envelope,
-            RectangleD visibleWorldBounds)
-        {
-            return envelope.MinX >= visibleWorldBounds.Left &&
-                   envelope.MaxX <= visibleWorldBounds.Right &&
-                   envelope.MinY >= visibleWorldBounds.Bottom &&
-                   envelope.MaxY <= visibleWorldBounds.Top;
-        }
-
-        private static Geometry CreateViewportGeometry(RectangleD visibleWorldBounds)
-        {
-            GeometryFactory factory = new(new PrecisionModel(), 0);
-            Coordinate[] ring =
-            [
-                new(visibleWorldBounds.Left, visibleWorldBounds.Bottom),
-                new(visibleWorldBounds.Right, visibleWorldBounds.Bottom),
-                new(visibleWorldBounds.Right, visibleWorldBounds.Top),
-                new(visibleWorldBounds.Left, visibleWorldBounds.Top),
-                new(visibleWorldBounds.Left, visibleWorldBounds.Bottom)
-            ];
-            return factory.CreatePolygon(ring);
+            return new PointD(left + (right - left) / 2.0, bottom + (top - bottom) / 2.0);
         }
 
         private static string? ResolveLabelText(CanvasFeature feature, CanvasLayer layer)
         {
+            if (!string.IsNullOrWhiteSpace(layer.LabelField))
+            {
+                return ResolveLabelFieldValue(feature, layer.LabelField.Trim());
+            }
+
             if (!string.IsNullOrWhiteSpace(feature.CanvasObject.LabelText))
             {
                 return feature.CanvasObject.LabelText;
             }
 
-            if (!string.IsNullOrWhiteSpace(layer.LabelField) &&
-                feature.Shape.Properties.TryGetValue(layer.LabelField, out object? value))
-            {
-                return value?.ToString();
-            }
-
-            return feature.Shape.Properties.TryGetValue("LabelText", out object? fallback)
+            return TryGetShapeProperty(feature, "LabelText", out object? fallback)
                 ? fallback?.ToString()
                 : null;
+        }
+
+        private static string? ResolveLabelFieldValue(CanvasFeature feature, string labelField)
+        {
+            if (string.IsNullOrWhiteSpace(labelField))
+                return null;
+
+            CanvasObject canvasObject = feature.CanvasObject;
+            CadastralCanvasMetadata? metadata = ReadCadastralMetadata(canvasObject.GeometryMetadataJson);
+            string normalized = NormalizeLabelField(labelField);
+
+            object? value = normalized switch
+            {
+                "labeltext" => canvasObject.LabelText,
+                "objectdescription" or "description" => canvasObject.ObjectDescription,
+                "objecttype" => canvasObject.ObjectType,
+                "layername" or "canvaslayer" => feature.Layer?.Name ?? canvasObject.CanvasLayer?.Name ?? feature.Shape.LayerName,
+                "id" or "canvasobjectid" => canvasObject.Id,
+                "baselineparcelid" => canvasObject.BaselineParcelId ?? metadata?.BaselineParcelId,
+                "parcelno" or "parcelnumber" or "plotnumber" or "plotno" => ResolveFirst(
+                    metadata?.ParcelNo,
+                    GetPropertyValue(canvasObject.BaselineParcel, "ParcelNo"),
+                    canvasObject.LabelText),
+                "mapsheetno" or "mapsheet" or "sheetno" => ResolveFirst(
+                    metadata?.MapSheetNo,
+                    GetPropertyValue(canvasObject.BaselineParcel, "MapSheetNo")),
+                "mapsheetparcelno" or "fulluniqueparcelcode" or "uniqueparcelcode" => ResolveFirst(
+                    metadata?.FullUniqueParcelCode,
+                    GetPropertyValue(canvasObject.BaselineParcel, "FullUniqueParcelCode"),
+                    CombineMapSheetAndParcel(metadata)),
+                "ownername" or "landowner" or "landownersname" => ResolveFirst(
+                    metadata?.OwnerName,
+                    GetPropertyValue(canvasObject.BaselineParcel?.LandOwner, "FullName")),
+                "landuse" => ResolveFirst(
+                    metadata?.LandUse,
+                    GetPropertyValue(canvasObject.BaselineParcel, "LandUse")),
+                "areasqm" or "originalareasqm" or "recordareasqm" => ResolveFirst(
+                    metadata?.RecordAreaSqm,
+                    GetPropertyValue(canvasObject.BaselineParcel, "OriginalAreaSqm"),
+                    GetAttributeValue(metadata, labelField)),
+                "effectiveareasqm" => GetPropertyValue(canvasObject.BaselineParcel, "EffectiveAreaSqm"),
+                "calculatedareasqm" or "geometryareasqm" or "geometryarea" => ResolveFirst(
+                    metadata?.CalculatedAreaSqm,
+                    Math.Abs(canvasObject.Shape?.Area ?? feature.Shape.GetBoundingBox().Width * feature.Shape.GetBoundingBox().Height)),
+                "assignmentstatus" or "status" => metadata?.AssignmentStatus,
+                "sourcelayer" => metadata?.SourceLayer,
+                "sourcefilename" or "sourcefile" => metadata?.SourceFileName,
+                "sourceformat" => metadata?.SourceFormat,
+                "matchedtext" => metadata?.MatchedText,
+                _ => ResolveFirst(
+                    GetAttributeValue(metadata, labelField),
+                    GetPropertyValue(canvasObject.BaselineParcel, labelField),
+                    GetPropertyValue(canvasObject.BaselineParcel?.LandOwner, labelField),
+                    TryGetShapeProperty(feature, labelField, out object? shapeValue) ? shapeValue : null)
+            };
+
+            return FormatLabelValue(value);
+        }
+
+        private static string? CombineMapSheetAndParcel(CadastralCanvasMetadata? metadata)
+        {
+            if (metadata == null ||
+                string.IsNullOrWhiteSpace(metadata.MapSheetNo) ||
+                string.IsNullOrWhiteSpace(metadata.ParcelNo))
+            {
+                return null;
+            }
+
+            return $"{metadata.MapSheetNo}-{metadata.ParcelNo}";
+        }
+
+        private static string NormalizeLabelField(string value)
+        {
+            return value
+                .Replace(" ", string.Empty)
+                .Replace("_", string.Empty)
+                .Replace("-", string.Empty)
+                .Trim()
+                .ToLowerInvariant();
+        }
+
+        private static object? ResolveFirst(params object?[] values)
+        {
+            foreach (object? value in values)
+            {
+                if (value == null)
+                    continue;
+
+                if (value is string text && string.IsNullOrWhiteSpace(text))
+                    continue;
+
+                return value;
+            }
+
+            return null;
+        }
+
+        private static string? FormatLabelValue(object? value)
+        {
+            return value switch
+            {
+                null => null,
+                string text => string.IsNullOrWhiteSpace(text) ? null : text.Trim(),
+                double number => number.ToString("0.##", CultureInfo.InvariantCulture),
+                float number => number.ToString("0.##", CultureInfo.InvariantCulture),
+                decimal number => number.ToString("0.##", CultureInfo.InvariantCulture),
+                int number => number.ToString(CultureInfo.InvariantCulture),
+                long number => number.ToString(CultureInfo.InvariantCulture),
+                Guid guid => guid.ToString(),
+                DateTime date => date.ToString("yyyy-MM-dd", CultureInfo.InvariantCulture),
+                JsonElement element => FormatJsonElement(element),
+                _ => value.ToString()
+            };
+        }
+
+        private static string? FormatJsonElement(JsonElement element)
+        {
+            return element.ValueKind switch
+            {
+                JsonValueKind.String => element.GetString(),
+                JsonValueKind.Number when element.TryGetDouble(out double number) =>
+                    number.ToString("0.##", CultureInfo.InvariantCulture),
+                JsonValueKind.True => "True",
+                JsonValueKind.False => "False",
+                JsonValueKind.Null or JsonValueKind.Undefined => null,
+                _ => element.ToString()
+            };
+        }
+
+        private static object? GetPropertyValue(object? source, string propertyName)
+        {
+            if (source == null || string.IsNullOrWhiteSpace(propertyName))
+                return null;
+
+            PropertyInfo? property = source
+                .GetType()
+                .GetProperty(
+                    propertyName,
+                    BindingFlags.Public | BindingFlags.Instance | BindingFlags.IgnoreCase);
+
+            return property?.GetValue(source);
+        }
+
+        private static bool TryGetShapeProperty(
+            CanvasFeature feature,
+            string propertyName,
+            out object? value)
+        {
+            if (feature.Shape.Properties.TryGetValue(propertyName, out value))
+                return true;
+
+            foreach (var item in feature.Shape.Properties)
+            {
+                if (string.Equals(item.Key, propertyName, StringComparison.OrdinalIgnoreCase))
+                {
+                    value = item.Value;
+                    return true;
+                }
+            }
+
+            value = null;
+            return false;
+        }
+
+        private static object? GetAttributeValue(
+            CadastralCanvasMetadata? metadata,
+            string fieldName)
+        {
+            if (metadata == null || string.IsNullOrWhiteSpace(metadata.AttributesJson))
+                return null;
+
+            try
+            {
+                using JsonDocument document = JsonDocument.Parse(metadata.AttributesJson);
+                if (document.RootElement.ValueKind != JsonValueKind.Object)
+                    return null;
+
+                foreach (JsonProperty property in document.RootElement.EnumerateObject())
+                {
+                    if (string.Equals(property.Name, fieldName, StringComparison.OrdinalIgnoreCase) ||
+                        string.Equals(NormalizeLabelField(property.Name), NormalizeLabelField(fieldName), StringComparison.OrdinalIgnoreCase))
+                    {
+                        return property.Value.Clone();
+                    }
+                }
+            }
+            catch
+            {
+                return null;
+            }
+
+            return null;
+        }
+
+        private static CadastralCanvasMetadata? ReadCadastralMetadata(string? json)
+        {
+            if (string.IsNullOrWhiteSpace(json))
+                return null;
+
+            try
+            {
+                CadastralCanvasMetadata? metadata =
+                    JsonSerializer.Deserialize<CadastralCanvasMetadata>(json);
+                return string.Equals(metadata?.Kind, CadastralCanvasMetadata.MetadataKind, StringComparison.OrdinalIgnoreCase)
+                    ? metadata
+                    : null;
+            }
+            catch
+            {
+                return null;
+            }
         }
 
         private static RectangleF CreateScreenRectangle(PointF a, PointF b)
@@ -1219,8 +1318,6 @@ namespace Land_Readjustment_Tool.UI.MapCanvas.Rendering
 
         public void Dispose()
         {
-            _penCache.Dispose();
-            _brushCache.Dispose();
             _labelFont.Dispose();
             _previewFont.Dispose();
         }
@@ -1230,17 +1327,6 @@ namespace Land_Readjustment_Tool.UI.MapCanvas.Rendering
             None,
             Solid,
             Hatched
-        }
-
-        private enum HatchStroke
-        {
-            Horizontal,
-            Vertical,
-            ForwardDiagonal,
-            BackwardDiagonal,
-            Dots,
-            BrickVertical,
-            Wave
         }
 
         private readonly record struct VectorShapeStyle(

@@ -16,6 +16,8 @@ namespace Land_Readjustment_Tool.UI.MapCanvas.Rendering
     /// </summary>
     public sealed class MapCanvasRenderer : IDisposable
     {
+        private const int LevelOfDetailDirectRenderThreshold = 1_000;
+
         private readonly record struct MapCanvasRenderViewport(
             RectangleD VisibleWorldBounds,
             RectangleF VisibleScreenBounds);
@@ -182,14 +184,46 @@ namespace Land_Readjustment_Tool.UI.MapCanvas.Rendering
                 _settings.AntiAliasingEnabled);
         }
 
-        public void BeginVectorPan(Size canvasSize)
+        public async Task<bool> RefreshVectorCacheAsync(
+            Size canvasSize,
+            CancellationToken cancellationToken = default)
         {
-            _vectorDeferredRenderer.BeginPan(canvasSize);
+            MapCanvasEngine engineSnapshot = _engine.CreateSnapshot();
+            Size sizeSnapshot = canvasSize;
+
+            return await Task.Run(
+                () => _vectorDeferredRenderer.RenderNow(
+                    sizeSnapshot,
+                    _vectorRenderer,
+                    engineSnapshot,
+                    _settings.AntiAliasingEnabled,
+                    cancellationToken),
+                cancellationToken);
+        }
+
+        public bool BeginVectorPan(Size canvasSize)
+        {
+            return _vectorDeferredRenderer.BeginPan(canvasSize);
+        }
+
+        public bool BeginVectorZoom(Size canvasSize)
+        {
+            return _vectorDeferredRenderer.BeginZoom(canvasSize, _engine);
+        }
+
+        public void EndVectorZoom()
+        {
+            _vectorDeferredRenderer.EndZoom();
         }
 
         public bool TryGetVectorCacheFrame(out RasterRenderFrame frame)
         {
             return _vectorDeferredRenderer.TryGetCacheFrame(out frame);
+        }
+
+        public bool TryGetVectorZoomFrame(out RasterRenderFrame frame)
+        {
+            return _vectorDeferredRenderer.TryGetZoomFrame(_engine, out frame);
         }
 
         public bool TryGetVectorPanFrame(PointF totalPanDelta, out RasterRenderFrame frame)
@@ -317,7 +351,7 @@ namespace Land_Readjustment_Tool.UI.MapCanvas.Rendering
                 graphics,
                 _engine,
                 viewport.VisibleWorldBounds,
-                useLevelOfDetail: _vectorRenderer.FeatureCount > 20_000,
+                useLevelOfDetail: _vectorRenderer.FeatureCount > LevelOfDetailDirectRenderThreshold,
                 canvasSize: Size.Round(viewport.VisibleScreenBounds.Size));
         }
 

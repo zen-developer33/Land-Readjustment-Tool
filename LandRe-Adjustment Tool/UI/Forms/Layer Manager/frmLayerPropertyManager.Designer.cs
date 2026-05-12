@@ -978,7 +978,7 @@ namespace Land_Readjustment_Tool.UI.Forms
             // _cboLabelField
             // 
             _cboLabelField.Dock = DockStyle.Fill;
-            _cboLabelField.Items.AddRange(new object[] { "ParcelNo", "OwnerName", "AreaSqm", "AreaRAPD", "LandUse", "PlotNumber" });
+            _cboLabelField.Items.AddRange(new object[] { "ParcelNo", "MapSheetNo", "MapSheetParcelNo", "OwnerName", "AreaSqm", "CalculatedAreaSqm", "AreaRAPD", "LandUse", "PlotNumber", "AssignmentStatus", "SourceLayer", "LabelText", "ObjectDescription" });
             _cboLabelField.Location = new Point(110, 156);
             _cboLabelField.Margin = new Padding(0, 4, 0, 4);
             _cboLabelField.Name = "_cboLabelField";

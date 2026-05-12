@@ -32,6 +32,8 @@ namespace Land_Readjustment_Tool.Repositories.Canvas
                 return await _dbSet
                     .AsNoTracking()
                     .Include(item => item.CanvasLayer)
+                    .Include(item => item.BaselineParcel)
+                        .ThenInclude(parcel => parcel!.LandOwner)
                     .FirstOrDefaultAsync(item => item.Id == id, ct);
             }
             catch (Exception ex)
@@ -49,6 +51,8 @@ namespace Land_Readjustment_Tool.Repositories.Canvas
                 return await _dbSet
                     .AsNoTracking()
                     .Include(item => item.CanvasLayer)
+                    .Include(item => item.BaselineParcel)
+                        .ThenInclude(parcel => parcel!.LandOwner)
                     .ToListAsync(ct);
             }
             catch (Exception ex)
@@ -66,6 +70,8 @@ namespace Land_Readjustment_Tool.Repositories.Canvas
                 return await _dbSet
                     .AsNoTracking()
                     .Include(item => item.CanvasLayer)
+                    .Include(item => item.BaselineParcel)
+                        .ThenInclude(parcel => parcel!.LandOwner)
                     .Where(item => item.IsVisible)
                     .ToListAsync(ct);
             }
@@ -85,6 +91,8 @@ namespace Land_Readjustment_Tool.Repositories.Canvas
                 return await _dbSet
                     .AsNoTracking()
                     .Include(item => item.CanvasLayer)
+                    .Include(item => item.BaselineParcel)
+                        .ThenInclude(parcel => parcel!.LandOwner)
                     .Where(item => item.CanvasLayerId == canvasLayerId)
                     .ToListAsync(ct);
             }
@@ -108,6 +116,8 @@ namespace Land_Readjustment_Tool.Repositories.Canvas
                 List<CanvasObject> candidates = await _dbSet
                     .AsNoTracking()
                     .Include(item => item.CanvasLayer)
+                    .Include(item => item.BaselineParcel)
+                        .ThenInclude(parcel => parcel!.LandOwner)
                     .Where(item => item.IsVisible)
                     .ToListAsync(ct);
 

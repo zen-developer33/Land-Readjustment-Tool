@@ -74,6 +74,10 @@ namespace Land_Readjustment_Tool.Core.Models.Import
         public string? MatchedText { get; set; }
         public string? AttributesJson { get; set; }
         public int? BaselineParcelId { get; set; }
+        public string? FullUniqueParcelCode { get; set; }
+        public double? RecordAreaSqm { get; set; }
+        public string? OwnerName { get; set; }
+        public string? LandUse { get; set; }
         public string AssignmentStatus { get; set; } = "Unassigned";
         public DateTime ImportedAt { get; set; } = DateTime.Now;
     }
@@ -84,6 +88,11 @@ namespace Land_Readjustment_Tool.Core.Models.Import
         int AssignedCount,
         int MissingKeyCount,
         int NoRecordMatchCount);
+
+    public sealed record CadastralLayerMapSheetMapping(
+        string LayerName,
+        string? SourceLayer,
+        string MapSheetNo);
 
     public sealed record CadastralAssignmentCandidate(
         Guid CanvasObjectId,

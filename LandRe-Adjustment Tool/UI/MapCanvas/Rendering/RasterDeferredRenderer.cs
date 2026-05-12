@@ -199,7 +199,7 @@ namespace Land_Readjustment_Tool.UI.MapCanvas.Rendering
                     cancellationToken));
         }
 
-        public void BeginPan(
+        public bool BeginPan(
             Size canvasSize,
             IReadOnlyList<IRasterRenderLayer> rasterLayers,
             MapCanvasEngine engine)
@@ -207,17 +207,17 @@ namespace Land_Readjustment_Tool.UI.MapCanvas.Rendering
             Resize(canvasSize);
 
             if (_panBuffer == null || _rasterCache == null)
-                return;
+                return false;
 
             lock (_sync)
             {
                 if (_disposed)
-                    return;
+                    return false;
 
                 _panBufferValid = false;
 
                 if (!_cacheValid || _panBuffer == null || _rasterCache == null)
-                    return;
+                    return false;
 
                 using Graphics graphics = Graphics.FromImage(_panBuffer);
                 graphics.Clear(Color.Transparent);
@@ -233,6 +233,7 @@ namespace Land_Readjustment_Tool.UI.MapCanvas.Rendering
                 }
 
                 _panBufferValid = true;
+                return true;
             }
         }
 

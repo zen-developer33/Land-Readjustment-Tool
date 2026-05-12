@@ -44,7 +44,7 @@ namespace Land_Readjustment_Tool.UI.CustomControls
             ThreePointArc   // Arc through an explicit through-point picked by the user
         }
 
-        private const int ZoomSettleIntervalMs = 50;
+        private const int ZoomSettleIntervalMs = 150;
         private const int ObjectSelectionTolerancePixels = 8;
         private const int SnapQueryBoxPixels = 20;
         private const double DefaultSnapPickTolerancePixels = 8.0;
@@ -72,6 +72,8 @@ namespace Land_Readjustment_Tool.UI.CustomControls
         public event Action<IShape>? ShapeCompleted;
         public event Action? SelectToolRequested;
         public event Action<IReadOnlyList<Guid>>? SelectedObjectsDeleteRequested;
+        public event Action? SelectedObjectsAssignParcelDataRequested;
+        public event Action<IReadOnlyList<Guid>>? SelectedCanvasObjectsChanged;
 
         private bool _panToolActive;
         private bool _isPanning;
@@ -89,6 +91,9 @@ namespace Land_Readjustment_Tool.UI.CustomControls
         private CancellationTokenSource? _rasterRenderCancellation;
         private int _rasterRenderGeneration;
         private bool _rasterCacheRefreshPending;
+        private CancellationTokenSource? _vectorRenderCancellation;
+        private int _vectorRenderGeneration;
+        private bool _vectorCacheRefreshPending;
         private volatile bool _liveTileRefreshPending;
         private bool _showDebugOverlay = DefaultShowDebugOverlay;
         private long _debugFrameNumber;
@@ -97,6 +102,9 @@ namespace Land_Readjustment_Tool.UI.CustomControls
         private bool _blockPanUntilZoomSettle;
         private bool _holdZoomStartFrameUntilRasterRefresh;
         private bool _suppressStaleRasterFrameUntilFreshRender;
+        private bool _holdVectorPanFrameUntilRefresh;
+        private bool _holdVectorZoomFrameUntilRefresh;
+        private PointF _heldVectorPanDelta;
         private bool _snapEnabled = true;
         private bool _orthoModeEnabled;
         private double _snapPickTolerancePixels = DefaultSnapPickTolerancePixels;
@@ -127,10 +135,11 @@ namespace Land_Readjustment_Tool.UI.CustomControls
         private Cursor? _panCursor;
         private readonly ContextMenuStrip _objectSelectionContextMenu = new();
         private readonly ContextMenuStrip _drawingOptionsContextMenu = new();
+        private readonly ToolStripMenuItem _mnuAssignParcelData = new("Assign Parcel Data...");
         private readonly ToolStripMenuItem _mnuDeleteSelectedObjects = new("Delete Selected Object(s)");
         private readonly System.Windows.Forms.Timer _zoomingStatusTimer = new()
         {
-            Interval = ZoomSettleIntervalMs
+            Interval = Math.Max(1, ZoomSettleIntervalMs)
         };
 
         public MapCanvasControl()
@@ -141,7 +150,11 @@ namespace Land_Readjustment_Tool.UI.CustomControls
             _renderSettings = MapCanvasRenderSettings.CreateLightDefaults();
             _renderer = new MapCanvasRenderer(_engine, _renderSettings);
             _zoomingStatusTimer.Tick += ZoomingStatusTimer_Tick;
+            _objectSelectionContextMenu.Opening += ObjectSelectionContextMenu_Opening;
+            _mnuAssignParcelData.Click += (_, _) => SelectedObjectsAssignParcelDataRequested?.Invoke();
             _mnuDeleteSelectedObjects.Click += (_, _) => RequestDeleteSelectedObjects();
+            _objectSelectionContextMenu.Items.Add(_mnuAssignParcelData);
+            _objectSelectionContextMenu.Items.Add(new ToolStripSeparator());
             _objectSelectionContextMenu.Items.Add(_mnuDeleteSelectedObjects);
             _drawingOptionsContextMenu.Closed += (_, _) => canvasSurface.Focus();
             WireInteractionEvents();
@@ -213,7 +226,7 @@ namespace Land_Readjustment_Tool.UI.CustomControls
             _renderer.UpdateSettings(_renderSettings);
             BackColor = _renderSettings.BackgroundColor;
             canvasSurface.BackColor = _renderSettings.BackgroundColor;
-            RefreshVectorCacheForCurrentViewImmediately();
+            RefreshVectorCacheForCurrentViewAsync();
             RequestRender();
         }
 
@@ -317,7 +330,7 @@ namespace Land_Readjustment_Tool.UI.CustomControls
             _renderer.UpdateVectorLayers(vectorLayers);
             RefreshActiveDrawingLayer(vectorLayers);
             UpdateWorldBounds();
-            RefreshVectorCacheForCurrentViewImmediately();
+            RefreshVectorCacheForCurrentViewAsync();
             RequestRender();
         }
 
@@ -331,7 +344,7 @@ namespace Land_Readjustment_Tool.UI.CustomControls
                 _activeDrawingLayerName = layer.Name;
             }
 
-            RefreshVectorCacheForCurrentViewImmediately();
+            RefreshVectorCacheForCurrentViewAsync();
             RequestRender();
         }
 
@@ -345,7 +358,7 @@ namespace Land_Readjustment_Tool.UI.CustomControls
 
             _renderer.UpdateVectorFeatures(_vectorFeatures);
             UpdateWorldBounds();
-            RefreshVectorCacheForCurrentViewImmediately();
+            RefreshVectorCacheForCurrentViewAsync();
             RequestRender();
         }
 
@@ -471,7 +484,7 @@ namespace Land_Readjustment_Tool.UI.CustomControls
 
             _engine.ZoomToExtents();
             RefreshRasterCacheForCurrentViewAsync();
-            RefreshVectorCacheForCurrentViewImmediately();
+            RefreshVectorCacheForCurrentViewAsync();
             RequestRender();
         }
 
@@ -493,7 +506,7 @@ namespace Land_Readjustment_Tool.UI.CustomControls
             // Set viewport with new zoom scale while maintaining center
             _engine.SetViewport(centerWorld, scaleFactor);
             RefreshRasterCacheForCurrentViewAsync();
-            RefreshVectorCacheForCurrentViewImmediately();
+            RefreshVectorCacheForCurrentViewAsync();
             RequestRender();
         }
 
@@ -508,7 +521,7 @@ namespace Land_Readjustment_Tool.UI.CustomControls
 
             _engine.ZoomToExtents(worldBounds);
             RefreshRasterCacheForCurrentViewAsync();
-            RefreshVectorCacheForCurrentViewImmediately();
+            RefreshVectorCacheForCurrentViewAsync();
             RequestRender();
         }
 
@@ -541,7 +554,7 @@ namespace Land_Readjustment_Tool.UI.CustomControls
                 new PointD(viewportState.CenterX, viewportState.CenterY),
                 viewportState.ZoomScale);
             RefreshRasterCacheForCurrentViewAsync();
-            RefreshVectorCacheForCurrentViewImmediately();
+            RefreshVectorCacheForCurrentViewAsync();
             RequestRender();
             return true;
         }
@@ -564,7 +577,7 @@ namespace Land_Readjustment_Tool.UI.CustomControls
 
             _engine.ZoomToExtents(bounds);
             RefreshRasterCacheForCurrentViewAsync();
-            RefreshVectorCacheForCurrentViewImmediately();
+            RefreshVectorCacheForCurrentViewAsync();
             RequestRender();
             return true;
         }
@@ -818,7 +831,7 @@ namespace Land_Readjustment_Tool.UI.CustomControls
             _rasterDeferredRenderer.Resize(canvasSurface.Size);
             _renderer.ResizeVectorCache(canvasSurface.Size);
             RefreshRasterCacheForCurrentViewAsync();
-            RefreshVectorCacheForCurrentViewImmediately();
+            RefreshVectorCacheForCurrentViewAsync();
             RequestRender();
         }
 
@@ -885,13 +898,11 @@ namespace Land_Readjustment_Tool.UI.CustomControls
             if (_renderSettings.ZoomBehavior != MapCanvasZoomBehavior.StandardScaleSteps)
             {
                 _engine.ZoomAtPoint(screenPoint, normalZoomFactor);
-                _renderer.InvalidateVectorCache();
                 return;
             }
 
             double targetZoomScale = GetNextStandardZoomScale(_engine.ZoomScale, zoomIn);
             _engine.ZoomAtPointToScale(screenPoint, targetZoomScale);
-            _renderer.InvalidateVectorCache();
         }
 
         private static double GetNextStandardZoomScale(double currentZoomScale, bool zoomIn)
@@ -1001,9 +1012,11 @@ namespace Land_Readjustment_Tool.UI.CustomControls
             if (isPanGesture)
             {
                 CancelPendingRasterRender();
+                CancelPendingVectorRender();
                 CancelLiveTileLoading();
                 SetLiveTileInternetFetchingSuspended(true);
                 _isPanning = true;
+                _holdVectorPanFrameUntilRefresh = false;
                 _holdZoomStartFrameUntilRasterRefresh = false;
                 _lastPanPoint = e.Location;
                 _totalPanDelta = PointF.Empty;
@@ -1013,8 +1026,7 @@ namespace Land_Readjustment_Tool.UI.CustomControls
                     canvasSurface.Size,
                     _rasterRenderLayers,
                     _engine);
-                RefreshVectorCacheForCurrentViewImmediately();
-                _renderer.BeginVectorPan(canvasSurface.Size);
+                EnsureVectorPanSnapshot();
                 canvasSurface.Capture = true;
                 UpdateCanvasCursor();
                 UpdateStatusBar();
@@ -1112,7 +1124,7 @@ namespace Land_Readjustment_Tool.UI.CustomControls
                 {
                     ZoomToScreenRectangle(rectangle.Value);
                     RefreshRasterCacheForCurrentViewAsync();
-                    RefreshVectorCacheForCurrentViewImmediately();
+                    RefreshVectorCacheForCurrentViewAsync();
                 }
 
                 UpdateCanvasCursor();
@@ -1122,15 +1134,18 @@ namespace Land_Readjustment_Tool.UI.CustomControls
 
             if (_isPanning)
             {
+                PointF finalPanDelta = _totalPanDelta;
                 _isPanning = false;
                 canvasSurface.Capture = false;
                 _currentMouseWorld = _engine.ScreenToWorld(e.Location);
                 _panStartWorld = null;
+                _heldVectorPanDelta = finalPanDelta;
+                _holdVectorPanFrameUntilRefresh = true;
                 _totalPanDelta = PointF.Empty;
                 SetLiveTileInternetFetchingSuspended(false);
                 _suppressStaleRasterFrameUntilFreshRender = true;
                 RefreshRasterCacheForCurrentViewAsync();
-                RefreshVectorCacheForCurrentViewImmediately();
+                RefreshVectorCacheForCurrentViewAsync();
                 UpdateCanvasCursor();
                 RequestRender();
                 return;
@@ -2604,7 +2619,7 @@ namespace Land_Readjustment_Tool.UI.CustomControls
             }
 
             ApplySelectedShapeFlags();
-            RefreshVectorCacheForCurrentViewImmediately();
+            RefreshVectorCacheForCurrentViewAsync();
             UpdateStatusBar();
         }
 
@@ -2617,8 +2632,9 @@ namespace Land_Readjustment_Tool.UI.CustomControls
             }
 
             ApplySelectedShapeFlags();
-            RefreshVectorCacheForCurrentViewImmediately();
+            RefreshVectorCacheForCurrentViewAsync();
             UpdateStatusBar();
+            NotifySelectedCanvasObjectsChanged();
         }
 
         private void AddSelectedObjects(IEnumerable<CanvasFeature> selectedFeatures)
@@ -2635,8 +2651,9 @@ namespace Land_Readjustment_Tool.UI.CustomControls
             }
 
             ApplySelectedShapeFlags();
-            RefreshVectorCacheForCurrentViewImmediately();
+            RefreshVectorCacheForCurrentViewAsync();
             UpdateStatusBar();
+            NotifySelectedCanvasObjectsChanged();
         }
 
         private void ClearSelectedObjects()
@@ -2646,7 +2663,8 @@ namespace Land_Readjustment_Tool.UI.CustomControls
 
             _selectedShapeIds.Clear();
             ApplySelectedShapeFlags();
-            RefreshVectorCacheForCurrentViewImmediately();
+            RefreshVectorCacheForCurrentViewAsync();
+            NotifySelectedCanvasObjectsChanged();
         }
 
         private void ApplySelectedShapeFlags()
@@ -2665,20 +2683,54 @@ namespace Land_Readjustment_Tool.UI.CustomControls
             SelectedObjectsDeleteRequested?.Invoke(_selectedShapeIds.ToArray());
         }
 
+        private void ObjectSelectionContextMenu_Opening(object? sender, CancelEventArgs e)
+        {
+            _mnuAssignParcelData.Enabled = SelectionContainsImportedCadastralParcel();
+            _mnuDeleteSelectedObjects.Enabled = SelectionContainsEditableObject();
+        }
+
+        private bool SelectionContainsImportedCadastralParcel()
+        {
+            return _vectorFeatures.Any(feature =>
+                _selectedShapeIds.Contains(feature.Shape.Id) &&
+                IsSelectableImportedCadastralParcel(feature));
+        }
+
+        private bool SelectionContainsEditableObject()
+        {
+            return _vectorFeatures.Any(feature =>
+                _selectedShapeIds.Contains(feature.Shape.Id) &&
+                feature.Layer?.IsLocked != true);
+        }
+
         public void ClearSelectionAfterDelete()
         {
             _selectedShapeIds.Clear();
             ApplySelectedShapeFlags();
+            NotifySelectedCanvasObjectsChanged();
             RequestRender();
+        }
+
+        private void NotifySelectedCanvasObjectsChanged()
+        {
+            SelectedCanvasObjectsChanged?.Invoke(_selectedShapeIds.ToArray());
         }
 
         private bool IsSelectableDrawingFeature(CanvasFeature feature)
         {
             return feature.Shape.IsVisible &&
                    feature.Layer?.IsVisible != false &&
-                   feature.Layer?.IsLocked != true &&
                    feature.Layer != null &&
-                   CanvasLayerTreeService.IsDrawingMarkupLayer(feature.Layer);
+                   ((feature.Layer.IsLocked != true &&
+                     CanvasLayerTreeService.IsDrawingMarkupLayer(feature.Layer)) ||
+                    IsSelectableImportedCadastralParcel(feature));
+        }
+
+        private static bool IsSelectableImportedCadastralParcel(CanvasFeature feature)
+        {
+            return string.Equals(feature.CanvasObject.ObjectType, "Polygon", StringComparison.OrdinalIgnoreCase) &&
+                   !string.IsNullOrWhiteSpace(feature.CanvasObject.GeometryMetadataJson) &&
+                   feature.CanvasObject.GeometryMetadataJson.Contains("CadastralParcel", StringComparison.OrdinalIgnoreCase);
         }
 
         private RectangleD CreateWorldRectangle(Rectangle screenRectangle)
@@ -3237,7 +3289,11 @@ namespace Land_Readjustment_Tool.UI.CustomControls
              !_suppressStaleRasterFrameUntilFreshRender);
 
         private bool ShouldDeferDirectVectorRendering =>
-            _isPanning;
+            _isPanning ||
+            _isZooming ||
+            _vectorCacheRefreshPending ||
+            _holdVectorPanFrameUntilRefresh ||
+            _holdVectorZoomFrameUntilRefresh;
 
         private RasterRenderFrame? GetRasterRenderFrame(out CanvasFrameSource source)
         {
@@ -3250,6 +3306,11 @@ namespace Land_Readjustment_Tool.UI.CustomControls
             {
                 source = CanvasFrameSource.PanCache;
                 return panFrame;
+            }
+
+            if (_isPanning)
+            {
+                return null;
             }
 
             if (_isZooming &&
@@ -3294,8 +3355,50 @@ namespace Land_Readjustment_Tool.UI.CustomControls
                 return panFrame;
             }
 
-            if (!_isZooming &&
-                !_isSelectingZoomWindow &&
+            if (_isPanning)
+            {
+                return null;
+            }
+
+            if (_holdVectorPanFrameUntilRefresh &&
+                _renderer.TryGetVectorPanFrame(
+                    _heldVectorPanDelta,
+                    out RasterRenderFrame heldPanFrame))
+            {
+                source = CanvasFrameSource.PanCache;
+                return heldPanFrame;
+            }
+
+            if (_holdVectorPanFrameUntilRefresh)
+            {
+                return null;
+            }
+
+            if (_isZooming &&
+                _renderer.TryGetVectorZoomFrame(out RasterRenderFrame zoomFrame))
+            {
+                source = CanvasFrameSource.ZoomCache;
+                return zoomFrame;
+            }
+
+            if (_isZooming)
+            {
+                return null;
+            }
+
+            if (_holdVectorZoomFrameUntilRefresh &&
+                _renderer.TryGetVectorZoomFrame(out RasterRenderFrame heldZoomFrame))
+            {
+                source = CanvasFrameSource.HeldZoomCache;
+                return heldZoomFrame;
+            }
+
+            if (_holdVectorZoomFrameUntilRefresh)
+            {
+                return null;
+            }
+
+            if (!_isSelectingZoomWindow &&
                 _renderer.TryGetVectorCacheFrame(out RasterRenderFrame cacheFrame))
             {
                 source = CanvasFrameSource.Cache;
@@ -3456,8 +3559,8 @@ namespace Land_Readjustment_Tool.UI.CustomControls
         {
             _zoomingStatusTimer.Stop();
             SetLiveTileInternetFetchingSuspended(false);
+            _holdVectorZoomFrameUntilRefresh = true;
             RefreshRasterCacheForCurrentViewAsync(endZoomWhenComplete: true);
-            RefreshVectorCacheForCurrentViewImmediately();
             UpdateStatusBar();
             RequestRender();
         }
@@ -3472,12 +3575,30 @@ namespace Land_Readjustment_Tool.UI.CustomControls
             if (!_isZooming)
             {
                 CancelPendingRasterRender();
+                CancelPendingVectorRender();
+                bool reuseHeldVectorZoomFrame = false;
+                if (_holdVectorZoomFrameUntilRefresh &&
+                    _renderer.TryGetVectorZoomFrame(out RasterRenderFrame heldVectorZoomFrame))
+                {
+                    heldVectorZoomFrame.Dispose();
+                    reuseHeldVectorZoomFrame = true;
+                }
+
                 _holdZoomStartFrameUntilRasterRefresh = false;
                 _rasterDeferredRenderer.BeginZoom(
                     canvasSurface.Size,
                     _rasterRenderLayers,
                     _engine);
-                _renderer.InvalidateVectorCache();
+                if (!reuseHeldVectorZoomFrame)
+                {
+                    _holdVectorZoomFrameUntilRefresh = false;
+                    EnsureVectorZoomSnapshot();
+                }
+            }
+            else if (_rasterCacheRefreshPending || _vectorCacheRefreshPending)
+            {
+                CancelPendingRasterRender();
+                CancelPendingVectorRender();
             }
 
             _isZooming = true;
@@ -3515,6 +3636,63 @@ namespace Land_Readjustment_Tool.UI.CustomControls
             _rasterCacheRefreshPending = false;
         }
 
+        private void CancelPendingVectorRender()
+        {
+            CancellationTokenSource? previousCancellation = _vectorRenderCancellation;
+            _vectorRenderCancellation = null;
+            previousCancellation?.Cancel();
+            previousCancellation?.Dispose();
+            _vectorCacheRefreshPending = false;
+        }
+
+        private void EnsureVectorPanSnapshot()
+        {
+            if (_renderer.BeginVectorPan(canvasSurface.Size))
+            {
+                return;
+            }
+
+            try
+            {
+                _engine.SnapViewOriginToPixelGrid();
+                _renderer.RefreshVectorCache(canvasSurface.Size);
+                _renderer.BeginVectorPan(canvasSurface.Size);
+            }
+            catch (ObjectDisposedException)
+            {
+                // The control or renderer was disposed while preparing the pan snapshot.
+            }
+            catch (Exception ex)
+            {
+                System.Diagnostics.Debug.WriteLine(
+                    $"Vector pan snapshot preparation failed: {ex.Message}");
+            }
+        }
+
+        private void EnsureVectorZoomSnapshot()
+        {
+            if (_renderer.BeginVectorZoom(canvasSurface.Size))
+            {
+                return;
+            }
+
+            try
+            {
+                _engine.SnapViewOriginToPixelGrid();
+                _renderer.RefreshVectorCache(canvasSurface.Size);
+                _renderer.BeginVectorZoom(canvasSurface.Size);
+            }
+            catch (ObjectDisposedException)
+            {
+                // The control or renderer was disposed while preparing the zoom snapshot.
+            }
+            catch (Exception ex)
+            {
+                System.Diagnostics.Debug.WriteLine(
+                    $"Vector zoom snapshot preparation failed: {ex.Message}");
+            }
+        }
+
         private void CancelLiveTileLoading()
         {
             foreach (IRasterRenderLayer layer in _rasterRenderLayers)
@@ -3544,6 +3722,9 @@ namespace Land_Readjustment_Tool.UI.CustomControls
                 _isPanning = false;
                 _panStartWorld = null;
                 _totalPanDelta = PointF.Empty;
+                _holdVectorPanFrameUntilRefresh = false;
+                _holdVectorZoomFrameUntilRefresh = false;
+                _heldVectorPanDelta = PointF.Empty;
                 _holdZoomStartFrameUntilRasterRefresh = false;
                 _suppressStaleRasterFrameUntilFreshRender = false;
                 canvasSurface.Capture = false;
@@ -3569,11 +3750,14 @@ namespace Land_Readjustment_Tool.UI.CustomControls
             _blockPanUntilZoomSettle = false;
             SetLiveTileInternetFetchingSuspended(false);
             CancelPendingRasterRender();
+            CancelPendingVectorRender();
             _rasterDeferredRenderer.EndZoom();
+            _renderer.EndVectorZoom();
             _isZooming = false;
             _zoomDirection = null;
             _rasterCacheRefreshPending = false;
             _suppressStaleRasterFrameUntilFreshRender = false;
+            _holdVectorZoomFrameUntilRefresh = false;
             UpdateCanvasCursor();
             UpdateStatusBar();
         }
@@ -3615,25 +3799,73 @@ namespace Land_Readjustment_Tool.UI.CustomControls
             }
         }
 
-        private void RefreshVectorCacheForCurrentViewImmediately()
+        private async void RefreshVectorCacheForCurrentViewAsync()
         {
             if (IsDisposed || Disposing)
             {
                 return;
             }
 
+            if (_isPanning)
+            {
+                return;
+            }
+
+            CancelPendingVectorRender();
+
+            CancellationTokenSource cancellation = new();
+            _vectorRenderCancellation = cancellation;
+            int generation = ++_vectorRenderGeneration;
+            _vectorCacheRefreshPending = true;
+
             try
             {
-                _renderer.RefreshVectorCache(canvasSurface.Size);
+                _engine.SnapViewOriginToPixelGrid();
+                bool refreshed = await _renderer.RefreshVectorCacheAsync(
+                    canvasSurface.Size,
+                    cancellation.Token);
+
+                if (!refreshed ||
+                    cancellation.IsCancellationRequested ||
+                    generation != _vectorRenderGeneration ||
+                    IsDisposed ||
+                    Disposing)
+                {
+                    return;
+                }
+
+                _renderer.EndVectorZoom();
+                _holdVectorPanFrameUntilRefresh = false;
+                _holdVectorZoomFrameUntilRefresh = false;
+                _heldVectorPanDelta = PointF.Empty;
+
+                if (IsHandleCreated)
+                {
+                    BeginInvoke((MethodInvoker)RequestRender);
+                }
+            }
+            catch (OperationCanceledException)
+            {
+                // Expected during fast interaction sequences.
             }
             catch (ObjectDisposedException)
             {
-                // The canvas was disposed while a vector cache frame was being refreshed.
+                // Canvas disposed while vector render was in flight.
             }
             catch (Exception ex)
             {
                 System.Diagnostics.Debug.WriteLine(
                     $"Vector cache refresh failed: {ex.Message}");
+            }
+            finally
+            {
+                if (ReferenceEquals(_vectorRenderCancellation, cancellation))
+                {
+                    _vectorRenderCancellation = null;
+                    _vectorCacheRefreshPending = false;
+                }
+
+                cancellation.Dispose();
             }
         }
 
@@ -3727,6 +3959,7 @@ namespace Land_Readjustment_Tool.UI.CustomControls
                         _blockPanUntilZoomSettle = false;
                         _isZooming = false;
                         _zoomDirection = null;
+                        RefreshVectorCacheForCurrentViewAsync();
                     }
 
                     _rasterRenderCancellation = null;

@@ -151,6 +151,7 @@ namespace Land_Readjustment_Tool.UI.Dialogs
         private void ConfigureMapSheetMappingGrid()
         {
             dgvMapSheetMappings.Columns.Clear();
+            dgvMapSheetMappings.EnableHeadersVisualStyles = false;
             dgvMapSheetMappings.Columns.Add(new DataGridViewTextBoxColumn
             {
                 Name = "Layer",
@@ -197,7 +198,7 @@ namespace Land_Readjustment_Tool.UI.Dialogs
             if (_fileInfo == null)
                 return;
 
-            foreach (CadastralLayerInfo layer in _fileInfo.Layers)
+            foreach (CadastralLayerInfo layer in _fileInfo.Layers.Where(IsParcelGeometryLayer))
             {
                 string defaultMapSheet = _availableMapSheets
                     .FirstOrDefault(item => string.Equals(item, layer.Name, StringComparison.OrdinalIgnoreCase))
@@ -205,6 +206,9 @@ namespace Land_Readjustment_Tool.UI.Dialogs
                 int rowIndex = dgvMapSheetMappings.Rows.Add(layer.Name, defaultMapSheet);
                 dgvMapSheetMappings.Rows[rowIndex].Tag = layer;
             }
+
+            dgvMapSheetMappings.ClearSelection();
+            dgvMapSheetMappings.CurrentCell = null;
         }
 
         private void ApplyAssignmentState()
@@ -216,7 +220,46 @@ namespace Land_Readjustment_Tool.UI.Dialogs
                 : "No Original Parcel Records found. Import will store raw layers only; map-sheet assignment is disabled.";
 
             lblMapSheetMappingCaption.Enabled = _hasOriginalParcelRecords;
-            dgvMapSheetMappings.Enabled = _hasOriginalParcelRecords;
+            ApplyMapSheetMappingGridState(_hasOriginalParcelRecords);
+        }
+
+        private void ApplyMapSheetMappingGridState(bool enabled)
+        {
+            dgvMapSheetMappings.Enabled = enabled;
+            dgvMapSheetMappings.ReadOnly = !enabled;
+            dgvMapSheetMappings.TabStop = enabled;
+
+            Color backColor = enabled ? SystemColors.Window : SystemColors.Control;
+            Color foreColor = enabled ? SystemColors.ControlText : SystemColors.GrayText;
+            Color selectionBackColor = enabled ? SystemColors.Highlight : SystemColors.Control;
+            Color selectionForeColor = enabled ? SystemColors.HighlightText : SystemColors.GrayText;
+
+            dgvMapSheetMappings.BackgroundColor = backColor;
+            dgvMapSheetMappings.GridColor = enabled ? SystemColors.ControlDark : SystemColors.ControlDark;
+            dgvMapSheetMappings.DefaultCellStyle.BackColor = backColor;
+            dgvMapSheetMappings.DefaultCellStyle.ForeColor = foreColor;
+            dgvMapSheetMappings.DefaultCellStyle.SelectionBackColor = selectionBackColor;
+            dgvMapSheetMappings.DefaultCellStyle.SelectionForeColor = selectionForeColor;
+            dgvMapSheetMappings.ColumnHeadersDefaultCellStyle.BackColor = enabled
+                ? SystemColors.Window
+                : SystemColors.Control;
+            dgvMapSheetMappings.ColumnHeadersDefaultCellStyle.ForeColor = foreColor;
+            dgvMapSheetMappings.RowHeadersDefaultCellStyle.BackColor = backColor;
+            dgvMapSheetMappings.RowHeadersDefaultCellStyle.ForeColor = foreColor;
+
+            foreach (DataGridViewColumn column in dgvMapSheetMappings.Columns)
+                column.ReadOnly = !enabled || column.Name == "Layer";
+
+            if (!enabled)
+            {
+                dgvMapSheetMappings.ClearSelection();
+                dgvMapSheetMappings.CurrentCell = null;
+            }
+        }
+
+        private static bool IsParcelGeometryLayer(CadastralLayerInfo layer)
+        {
+            return layer.PolygonCount > 0 || layer.PolylineCount > 0;
         }
 
         private async Task LoadSourceCrsChoicesAsync()
