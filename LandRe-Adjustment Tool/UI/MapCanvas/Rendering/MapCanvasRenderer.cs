@@ -351,76 +351,33 @@ namespace Land_Readjustment_Tool.UI.MapCanvas.Rendering
         private void RenderNorthMarker(Graphics graphics, RectangleF clientRect)
         {
             float minSide = Math.Min(clientRect.Width, clientRect.Height);
-            float size = Math.Max(32.0f, Math.Min(56.0f, minSide * 0.12f));
-            float margin = Math.Max(10.0f, size * 0.28f);
+            float size    = Math.Max(32.0f, Math.Min(56.0f, minSide * 0.12f));
+            float margin  = Math.Max(10.0f, size * 0.28f);
 
-            float left = clientRect.Right - margin - size;
-            float top = clientRect.Top + margin;
+            float centerX = clientRect.Right - margin - size * 0.5f;
+            float top     = clientRect.Top + margin;
 
-            float minLeft = clientRect.Left + margin;
-            float minTop = clientRect.Top + margin;
-            if (left < minLeft)
-            {
-                left = minLeft;
-            }
+            Color canvasBg   = _settings.BackgroundColor;
+            Color arrowColor = CanvasThemeColorService.AdjustColorForCanvasTheme(canvasBg, _settings.AccentColor);
+            Color labelColor = CanvasThemeColorService.AdjustColorForCanvasTheme(canvasBg, _settings.OverlayBorderColor);
 
-            if (top < minTop)
-            {
-                top = minTop;
-            }
+            // Simple north-pointing filled triangle
+            float arrowH    = size * 0.62f;
+            float arrowHalf = size * 0.22f;
 
-            RectangleF badge = new(left, top, size, size);
-            float centerX = badge.Left + badge.Width / 2.0f;
-            float centerY = badge.Top + badge.Height / 2.0f;
+            PointF tip   = new(centerX, top);
+            PointF wingL = new(centerX - arrowHalf, top + arrowH);
+            PointF wingR = new(centerX + arrowHalf, top + arrowH);
 
-            Color canvasBg = _settings.BackgroundColor;
-            Color accent = CanvasThemeColorService.AdjustColorForCanvasTheme(canvasBg, _settings.AccentColor);
-            Color border = CanvasThemeColorService.AdjustColorForCanvasTheme(canvasBg, _settings.OverlayBorderColor);
-            Color plate = _settings.OverlayBackgroundColor;
-            plate = Color.FromArgb(210, plate.R, plate.G, plate.B);
+            using SolidBrush arrowBrush = new(arrowColor);
+            graphics.FillPolygon(arrowBrush, new[] { tip, wingR, wingL });
 
-            using SolidBrush shadowBrush = new(Color.FromArgb(40, 0, 0, 0));
-            RectangleF shadow = badge;
-            shadow.Offset(1.5f, 2.0f);
-            graphics.FillEllipse(shadowBrush, shadow);
-
-            using SolidBrush plateBrush = new(plate);
-            using Pen borderPen = new(border, 1.0f);
-            graphics.FillEllipse(plateBrush, badge);
-            graphics.DrawEllipse(borderPen, badge);
-
-            float arrowHeight = size * 0.55f;
-            float arrowWidth = size * 0.28f;
-            float tailHeight = size * 0.16f;
-
-            PointF tip = new(centerX, centerY - arrowHeight / 2.0f);
-            PointF leftWing = new(centerX - arrowWidth / 2.0f, centerY + arrowHeight / 2.0f);
-            PointF rightWing = new(centerX + arrowWidth / 2.0f, centerY + arrowHeight / 2.0f);
-
-            using GraphicsPath arrowPath = new();
-            arrowPath.AddPolygon(new[] { tip, rightWing, leftWing });
-
-            using SolidBrush arrowBrush = new(accent);
-            using Pen arrowPen = new(Color.FromArgb(200, accent), 1.2f);
-            graphics.FillPath(arrowBrush, arrowPath);
-            graphics.DrawPath(arrowPen, arrowPath);
-
-            RectangleF tail = new(
-                centerX - arrowWidth * 0.2f,
-                centerY + arrowHeight / 2.0f - tailHeight * 0.2f,
-                arrowWidth * 0.4f,
-                tailHeight);
-            graphics.FillRectangle(arrowBrush, tail);
-
-            using Font labelFont = new("Cambria", size * 0.28f, FontStyle.Bold);
-            using SolidBrush labelBrush = new(border);
-            using StringFormat format = new()
-            {
-                Alignment = StringAlignment.Center,
-                LineAlignment = StringAlignment.Center
-            };
-            PointF labelPoint = new(centerX, badge.Top + size * 0.22f);
-            graphics.DrawString("N", labelFont, labelBrush, labelPoint, format);
+            // "N" label centred just below the arrow tip
+            using Font labelFont = new("Segoe UI", Math.Max(7f, size * 0.26f), FontStyle.Bold);
+            using SolidBrush labelBrush = new(labelColor);
+            using StringFormat sf = new() { Alignment = StringAlignment.Center };
+            graphics.DrawString("N", labelFont, labelBrush,
+                new PointF(centerX, top + arrowH + size * 0.04f), sf);
         }
 
         /// <summary>

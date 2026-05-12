@@ -178,7 +178,8 @@ namespace Land_Readjustment_Tool.UI.MapCanvas.Rendering
             VectorRenderContext context = new(
                 _penCache,
                 _brushCache,
-                engine.ZoomScale);
+                engine.ZoomScale,
+                isPreview: true);
 
             DrawShape(graphics, engine, previewShape, ResolveStyle(previewShape, previewLayer), context);
 

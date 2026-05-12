@@ -14,6 +14,10 @@ namespace Land_Readjustment_Tool.UI.MapCanvas.Services
     public static class GeometryShapeMapper
     {
         private static readonly GeometryFactory GeometryFactory = new(new PrecisionModel(), 0);
+        private static readonly JsonSerializerOptions MetadataJsonOptions = new()
+        {
+            PropertyNameCaseInsensitive = true
+        };
 
         public static CanvasObject ToCanvasObject(
             IShape shape,
@@ -288,6 +292,12 @@ namespace Land_Readjustment_Tool.UI.MapCanvas.Services
             string? labelText,
             string? metadataJson)
         {
+            if (!string.IsNullOrWhiteSpace(metadataJson) &&
+                TryCreatePolylineFromMetadata(metadataJson, out PolylineShape? polylineFromMetadata))
+            {
+                return polylineFromMetadata;
+            }
+
             if (objectType.Equals("Circle", StringComparison.OrdinalIgnoreCase))
             {
                 if (TryCreateCircleFromMetadata(metadataJson, out CircleShape? circle))
@@ -511,6 +521,27 @@ namespace Land_Readjustment_Tool.UI.MapCanvas.Services
             {
                 if (segment.Kind == PolylineShape.PolylineSegmentKind.Arc && segment.Arc != null)
                 {
+                    if (!IsFinite(segment.Arc.Center.X) ||
+                        !IsFinite(segment.Arc.Center.Y) ||
+                        !IsFinite(segment.Arc.Radius) ||
+                        !IsFinite(segment.Arc.StartAngleRadians) ||
+                        !IsFinite(segment.Arc.SweepAngleRadians) ||
+                        segment.Arc.Radius <= 0.0)
+                    {
+                        segments.Add(new PolylineSegmentMetadata(
+                            "Line",
+                            segment.Start.X,
+                            segment.Start.Y,
+                            segment.End.X,
+                            segment.End.Y,
+                            null,
+                            null,
+                            null,
+                            null,
+                            null));
+                        continue;
+                    }
+
                     segments.Add(new PolylineSegmentMetadata(
                         "Arc",
                         segment.Start.X,
@@ -655,7 +686,9 @@ namespace Land_Readjustment_Tool.UI.MapCanvas.Services
 
             try
             {
-                PolylineCurveMetadata? metadata = JsonSerializer.Deserialize<PolylineCurveMetadata>(metadataJson);
+                PolylineCurveMetadata? metadata = JsonSerializer.Deserialize<PolylineCurveMetadata>(
+                    metadataJson,
+                    MetadataJsonOptions);
                 if (metadata == null ||
                     metadata.Segments == null ||
                     metadata.Segments.Count == 0 ||
@@ -842,6 +875,11 @@ namespace Land_Readjustment_Tool.UI.MapCanvas.Services
         private static bool NearlyEqual(double a, double b)
         {
             return Math.Abs(a - b) <= 0.0000001;
+        }
+
+        private static bool IsFinite(double value)
+        {
+            return !double.IsNaN(value) && !double.IsInfinity(value);
         }
 
         private static bool SameWorldPoint(PointD first, PointD second)

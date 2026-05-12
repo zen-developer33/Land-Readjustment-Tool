@@ -1282,8 +1282,25 @@ namespace Land_Readjustment_Tool.UI.CustomControls
             if (_activeTool == MapCanvasTool.Rectangle)
             {
                 double sideMagnitude = Math.Max(Math.Abs(dx), Math.Abs(dy));
-                double sideX = Math.Sign(dx) * sideMagnitude;
-                double sideY = Math.Sign(dy) * sideMagnitude;
+                if (sideMagnitude <= 0.0)
+                {
+                    return anchor;
+                }
+
+                double signX = Math.Sign(dx);
+                double signY = Math.Sign(dy);
+                if (signX == 0.0)
+                {
+                    signX = signY != 0.0 ? signY : 1.0;
+                }
+
+                if (signY == 0.0)
+                {
+                    signY = signX;
+                }
+
+                double sideX = signX * sideMagnitude;
+                double sideY = signY * sideMagnitude;
                 return new PointD(anchor.X + sideX, anchor.Y + sideY);
             }
 
@@ -2055,6 +2072,8 @@ namespace Land_Readjustment_Tool.UI.CustomControls
                     points.Add(worldPoint);
                     return new PolylineShape(points, segments, isClosed);
                 }
+                // Arc is degenerate (start ≈ end); show only what's been drawn so far
+                return new PolylineShape(points, segments, isClosed);
             }
 
             if (_polylineSegmentMode == PolylineSegmentDrawingMode.Line && points.Count > 0)
