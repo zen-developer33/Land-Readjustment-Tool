@@ -32,6 +32,7 @@ namespace Land_Readjustment_Tool.Forms
             txtDistrict = new TextBox();
             txtProvince = new TextBox();
             grpOwnerInfo = new GroupBox();
+            btnOtherOwners = new Button();
             btnLoadOwnerDetails = new Button();
             txtIssueDate = new TextBox();
             label6 = new Label();
@@ -144,7 +145,7 @@ namespace Land_Readjustment_Tool.Forms
             // cbMapSheetNo
             // 
             cbMapSheetNo.Anchor = AnchorStyles.Top | AnchorStyles.Left | AnchorStyles.Right;
-            cbMapSheetNo.FlatStyle = FlatStyle.Flat;
+            cbMapSheetNo.FlatStyle = FlatStyle.System;
             cbMapSheetNo.Font = new Font("Segoe UI", 9F);
             cbMapSheetNo.FormattingEnabled = true;
             cbMapSheetNo.Items.AddRange(new object[] { "Male", "Female", "Other" });
@@ -182,6 +183,7 @@ namespace Land_Readjustment_Tool.Forms
             // 
             // grpOwnerInfo
             // 
+            grpOwnerInfo.Controls.Add(btnOtherOwners);
             grpOwnerInfo.Controls.Add(btnLoadOwnerDetails);
             grpOwnerInfo.Controls.Add(txtIssueDate);
             grpOwnerInfo.Controls.Add(label6);
@@ -203,6 +205,17 @@ namespace Land_Readjustment_Tool.Forms
             grpOwnerInfo.TabStop = false;
             grpOwnerInfo.Tag = "100";
             grpOwnerInfo.Text = "Owner Information";
+            // 
+            // btnOtherOwners
+            // 
+            btnOtherOwners.Anchor = AnchorStyles.Top | AnchorStyles.Right;
+            btnOtherOwners.Font = new Font("Segoe UI", 8F);
+            btnOtherOwners.Location = new Point(406, 28);
+            btnOtherOwners.Name = "btnOtherOwners";
+            btnOtherOwners.Size = new Size(61, 31);
+            btnOtherOwners.TabIndex = 29;
+            btnOtherOwners.Text = "Others (0)";
+            btnOtherOwners.UseVisualStyleBackColor = true;
             // 
             // btnLoadOwnerDetails
             // 
@@ -899,5 +912,6 @@ namespace Land_Readjustment_Tool.Forms
         private TextBox txtTenant;
         private ComboBox cbMapSheetNo;
         private Button btnLoadOwnerDetails;
+        private Button btnOtherOwners;
     }
 }

@@ -19,7 +19,6 @@ namespace Land_Readjustment_Tool.Forms
             dgvMapping.Rows.Clear();
 
             // Enable custom header style and make headers bold
-            dgvMapping.EnableHeadersVisualStyles = false;
             dgvMapping.ColumnHeadersDefaultCellStyle.Font = new Font(dgvMapping.Font, FontStyle.Bold);
 
             // Add Target Field column (TextBox column - read only)

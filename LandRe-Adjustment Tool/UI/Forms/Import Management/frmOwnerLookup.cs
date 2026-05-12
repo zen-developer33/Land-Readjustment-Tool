@@ -18,7 +18,7 @@ namespace Land_Readjustment_Tool.Forms
         {
             _ownersFromDatabase = owners;
             _importedRecords = null;
-            InitializeComponents();
+            InitializeComponent();
             LoadOwners();
         }
 
@@ -27,116 +27,8 @@ namespace Land_Readjustment_Tool.Forms
         {
             _ownersFromDatabase = null;
             _importedRecords = importedRecords;
-            InitializeComponents();
+            InitializeComponent();
             LoadOwnersFromImportedRecords();
-        }
-
-        private void InitializeComponents()
-        {
-            Text = "Select Land Owner";
-            Size = new Size(600, 450);
-            StartPosition = FormStartPosition.CenterParent;
-            FormBorderStyle = FormBorderStyle.FixedDialog;
-            MaximizeBox = false;
-            MinimizeBox = false;
-
-            var lblSearch = new Label
-            {
-                Text = "Search:",
-                Location = new Point(12, 15),
-                AutoSize = true
-            };
-
-            var txtSearch = new TextBox
-            {
-                Name = "txtSearch",
-                Location = new Point(70, 12),
-                Size = new Size(300, 23)
-            };
-            txtSearch.TextChanged += TxtSearch_TextChanged;
-
-            var dgvOwners = new DataGridView
-            {
-                Name = "dgvOwners",
-                Location = new Point(12, 45),
-                Size = new Size(560, 320),
-                AutoGenerateColumns = false,
-                AllowUserToAddRows = false,
-                AllowUserToDeleteRows = false,
-                ReadOnly = true,
-                SelectionMode = DataGridViewSelectionMode.FullRowSelect,
-                MultiSelect = false,
-                RowHeadersVisible = false,
-                BackgroundColor = SystemColors.Window,
-                BorderStyle = BorderStyle.FixedSingle
-            };
-
-            dgvOwners.Columns.Add(new DataGridViewTextBoxColumn
-            {
-                Name = "LandOwnerId",
-                HeaderText = "ID",
-                DataPropertyName = "LandOwnerId",
-                Width = 50
-            });
-            dgvOwners.Columns.Add(new DataGridViewTextBoxColumn
-            {
-                Name = "LandOwnersName",
-                HeaderText = "Owner Name",
-                DataPropertyName = "LandOwnersName",
-                Width = 180
-            });
-            dgvOwners.Columns.Add(new DataGridViewTextBoxColumn
-            {
-                Name = "FatherSpouse",
-                HeaderText = "Father/Spouse",
-                DataPropertyName = "FatherSpouse",
-                Width = 150
-            });
-            dgvOwners.Columns.Add(new DataGridViewTextBoxColumn
-            {
-                Name = "CitizenshipNumber",
-                HeaderText = "Citizenship No",
-                DataPropertyName = "CitizenshipNumber",
-                Width = 120
-            });
-            dgvOwners.Columns.Add(new DataGridViewTextBoxColumn
-            {
-                Name = "PermanentAddress",
-                HeaderText = "Address",
-                DataPropertyName = "PermanentAddress",
-                Width = 150
-            });
-
-            dgvOwners.ColumnHeadersDefaultCellStyle.Font = new Font("Segoe UI", 9F, FontStyle.Bold);
-            dgvOwners.ColumnHeadersHeight = 30;
-            dgvOwners.RowTemplate.Height = 25;
-            dgvOwners.SelectionChanged += DgvOwners_SelectionChanged;
-            dgvOwners.CellDoubleClick += DgvOwners_CellDoubleClick;
-
-            var btnLoad = new Button
-            {
-                Name = "btnLoad",
-                Text = "Load",
-                Location = new Point(400, 375),
-                Size = new Size(80, 28),
-                Enabled = false
-            };
-            btnLoad.Click += BtnLoad_Click;
-
-            var btnCancel = new Button
-            {
-                Name = "btnCancel",
-                Text = "Cancel",
-                Location = new Point(490, 375),
-                Size = new Size(80, 28)
-            };
-            btnCancel.Click += BtnCancel_Click;
-
-            Controls.Add(lblSearch);
-            Controls.Add(txtSearch);
-            Controls.Add(dgvOwners);
-            Controls.Add(btnLoad);
-            Controls.Add(btnCancel);
         }
 
         private void LoadOwners()
@@ -223,11 +115,7 @@ namespace Land_Readjustment_Tool.Forms
 
             _displayedOwners = new BindingList<OwnerLookupDisplayModel>(displayModels);
 
-            var dgv = Controls.Find("dgvOwners", false).FirstOrDefault() as DataGridView;
-            if (dgv != null)
-            {
-                dgv.DataSource = _displayedOwners;
-            }
+            dgvOwners.DataSource = _displayedOwners;
         }
 
         private void TxtSearch_TextChanged(object? sender, EventArgs e)
@@ -254,12 +142,8 @@ namespace Land_Readjustment_Tool.Forms
 
         private void DgvOwners_SelectionChanged(object? sender, EventArgs e)
         {
-            var dgv = sender as DataGridView;
-            var btnLoad = Controls.Find("btnLoad", false).FirstOrDefault() as Button;
-            if (btnLoad != null)
-            {
-                btnLoad.Enabled = dgv?.SelectedRows.Count == 1;
-            }
+            var grid = sender as DataGridView;
+            btnLoad.Enabled = grid?.SelectedRows.Count == 1;
         }
 
         private void DgvOwners_CellDoubleClick(object? sender, DataGridViewCellEventArgs e)
@@ -275,20 +159,14 @@ namespace Land_Readjustment_Tool.Forms
 
         private void LoadSelectedOwner()
         {
-            var dgv = Controls.Find("dgvOwners", false).FirstOrDefault() as DataGridView;
-            if (dgv?.SelectedRows.Count != 1) return;
+            if (dgvOwners.SelectedRows.Count != 1) return;
 
-            if (dgv.SelectedRows[0].DataBoundItem is OwnerLookupDisplayModel model)
+            if (dgvOwners.SelectedRows[0].DataBoundItem is OwnerLookupDisplayModel model)
             {
                 SelectedOwner = _allOwners.FirstOrDefault(o => o.LandOwnerId == model.LandOwnerId);
                 DialogResult = DialogResult.OK;
                 Close();
             }
-        }
-
-        private void InitializeComponent()
-        {
-
         }
 
         private void BtnCancel_Click(object? sender, EventArgs e)

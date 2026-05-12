@@ -15,7 +15,6 @@ namespace Land_Readjustment_Tool.Forms
         private readonly BindingList<BaselineLandParcelRecord> _allRecords;
         private readonly OwnerDeduplicationService.DeduplicationResult _deduplicationResult;
         private readonly Dictionary<int, List<OwnerRowData>> _groupOwnerRowsCache = new();
-        private readonly Dictionary<int, string> _mapSheetByParcelIndex;
 
         private readonly Stack<Dictionary<int, UserDecision>> _undoStack = new();
         private readonly Dictionary<int, UserDecision> _userDecisions = new();
@@ -52,7 +51,6 @@ namespace Land_Readjustment_Tool.Forms
             _deduplicationResult = deduplicationResult;
             _duplicateGroups = deduplicationResult.DuplicatesNeedingReview;
             _allRecords = allRecords;
-            _mapSheetByParcelIndex = BuildMapSheetLookup(allRecords);
 
             // If every group is auto-merged, show them immediately so the list is not empty.
             _showMergedRows = _duplicateGroups.All(g => g.IsAutoMerged);
@@ -64,17 +62,6 @@ namespace Land_Readjustment_Tool.Forms
             miKeep.Click += (s, e) => ApplyDecisionToSelectedRows(UserDecision.KeepSeparate);
             menu.Items.AddRange([miMerge, miKeep]);
             dgvDuplicateGroups.ContextMenuStrip = menu;
-        }
-
-        private static Dictionary<int, string> BuildMapSheetLookup(IList<BaselineLandParcelRecord> records)
-        {
-            var lookup = new Dictionary<int, string>(records.Count);
-            for (int i = 0; i < records.Count; i++)
-            {
-                lookup[i] = records[i].MapSheetNo ?? string.Empty;
-            }
-
-            return lookup;
         }
 
         private void frmReviewDuplicates_Load(object sender, EventArgs e)
@@ -286,14 +273,7 @@ namespace Land_Readjustment_Tool.Forms
                     row.Cells["colOwnerParcels"].Value = ownerRow.Parcels;
                     row.Cells["colOwnerMapSheets"].Value = ownerRow.MapSheets;
 
-                    if (ownerRow.IsBestOwner && ownerRows.Count > 1)
-                    {
-                        row.DefaultCellStyle.BackColor = Color.FromArgb(230, 255, 230);
-                    }
-                    else
-                    {
-                        row.DefaultCellStyle.BackColor = Color.White;
-                    }
+                    row.DefaultCellStyle.BackColor = dgvGroupOwners.DefaultCellStyle.BackColor;
                 }
 
                 if (dgvGroupOwners.Rows.Count > 0)
@@ -334,13 +314,8 @@ namespace Land_Readjustment_Tool.Forms
             for (int i = 0; i < group.Owners.Count; i++)
             {
                 var owner = group.Owners[i];
-                var mapSheets = owner.ParcelIndices
-                    .Where(idx => idx >= 0 && idx < _allRecords.Count)
-                    .Select(idx => _mapSheetByParcelIndex.TryGetValue(idx, out var mapSheet) ? mapSheet : string.Empty)
-                    .Where(ms => !string.IsNullOrWhiteSpace(ms))
-                    .Distinct(StringComparer.OrdinalIgnoreCase)
-                    .OrderBy(ms => ms)
-                    .ToList();
+                var parcelNos = GetParcelNos(owner);
+                var mapSheets = GetMapSheets(owner);
 
                 rows.Add(new OwnerRowData
                 {
@@ -348,7 +323,7 @@ namespace Land_Readjustment_Tool.Forms
                     Name = owner.LandOwnersName,
                     FatherSpouse = owner.FatherSpouse ?? string.Empty,
                     Citizenship = owner.CitizenshipNumber ?? string.Empty,
-                    Parcels = string.Join(", ", owner.ParcelIndices),
+                    Parcels = string.Join(", ", parcelNos),
                     MapSheets = string.Join(", ", mapSheets),
                     IsBestOwner = i == bestOwnerIndex
                 });
@@ -356,6 +331,52 @@ namespace Land_Readjustment_Tool.Forms
 
             _groupOwnerRowsCache[groupIndex] = rows;
             return rows;
+        }
+
+        private List<string> GetParcelNos(OwnerDeduplicationService.UniqueOwner owner)
+        {
+            if (owner.SourceOwners.Count > 0)
+            {
+                return owner.SourceOwners
+                    .Select(source => source.Record?.ParcelNo)
+                    .Where(value => !string.IsNullOrWhiteSpace(value))
+                    .Select(value => value!)
+                    .Distinct(StringComparer.OrdinalIgnoreCase)
+                    .OrderBy(value => value, StringComparer.OrdinalIgnoreCase)
+                    .ToList();
+            }
+
+            return owner.ParcelIndices
+                .Where(index => index >= 0 && index < _allRecords.Count)
+                .Select(index => !string.IsNullOrWhiteSpace(_allRecords[index].ParcelNo)
+                    ? _allRecords[index].ParcelNo!
+                    : $"#{index + 1}")
+                .Distinct(StringComparer.OrdinalIgnoreCase)
+                .OrderBy(value => value, StringComparer.OrdinalIgnoreCase)
+                .ToList();
+        }
+
+        private List<string> GetMapSheets(OwnerDeduplicationService.UniqueOwner owner)
+        {
+            if (owner.SourceOwners.Count > 0)
+            {
+                return owner.SourceOwners
+                    .Select(source => source.Record?.MapSheetNo)
+                    .Where(value => !string.IsNullOrWhiteSpace(value))
+                    .Select(value => value!)
+                    .Distinct(StringComparer.OrdinalIgnoreCase)
+                    .OrderBy(value => value, StringComparer.OrdinalIgnoreCase)
+                    .ToList();
+            }
+
+            return owner.ParcelIndices
+                .Where(index => index >= 0 && index < _allRecords.Count)
+                .Select(index => _allRecords[index].MapSheetNo)
+                .Where(value => !string.IsNullOrWhiteSpace(value))
+                .Select(value => value!)
+                .Distinct(StringComparer.OrdinalIgnoreCase)
+                .OrderBy(value => value, StringComparer.OrdinalIgnoreCase)
+                .ToList();
         }
 
         private void btnPreviewUniqueOwners_Click(object? sender, EventArgs e)
@@ -470,20 +491,15 @@ namespace Land_Readjustment_Tool.Forms
                 ? "Auto-Merged"
                 : (decision == UserDecision.Merge ? "Merge" : "Keep Separate");
 
-            row.DefaultCellStyle.BackColor = decision == UserDecision.Merge
-                ? Color.FromArgb(230, 255, 230)
-                : Color.White;
-
-            row.Cells["colDecision"].Style.ForeColor = decision == UserDecision.Merge
-                ? Color.ForestGreen
-                : Color.Maroon;
+            row.DefaultCellStyle.BackColor = row.DataGridView?.DefaultCellStyle.BackColor ?? SystemColors.Window;
+            row.Cells["colDecision"].Style.ForeColor = row.DataGridView?.DefaultCellStyle.ForeColor ?? SystemColors.ControlText;
         }
 
         private static void SetPendingDecisionDisplay(DataGridViewRow row)
         {
             row.Cells["colDecision"].Value = "Pending Review";
-            row.DefaultCellStyle.BackColor = Color.White;
-            row.Cells["colDecision"].Style.ForeColor = Color.Maroon;
+            row.DefaultCellStyle.BackColor = row.DataGridView?.DefaultCellStyle.BackColor ?? SystemColors.Window;
+            row.Cells["colDecision"].Style.ForeColor = row.DataGridView?.DefaultCellStyle.ForeColor ?? SystemColors.ControlText;
         }
 
         private bool IsAutoMerged(int groupIndex)
@@ -644,6 +660,46 @@ namespace Land_Readjustment_Tool.Forms
 
         private void ApplyOwnerToRecords(OwnerDeduplicationService.UniqueOwner owner, IEnumerable<int> parcelIndices)
         {
+            if (owner.SourceOwners.Count > 0)
+            {
+                foreach (var source in owner.SourceOwners)
+                {
+                    var record = source.Record;
+                    if (record == null)
+                    {
+                        if (source.ParcelIndex < 0 || source.ParcelIndex >= _allRecords.Count)
+                        {
+                            continue;
+                        }
+
+                        record = _allRecords[source.ParcelIndex];
+                    }
+
+                    if (source.Kind == OwnerDeduplicationService.OwnerReferenceKind.CoOwner)
+                    {
+                        var coOwner = source.CoOwner;
+                        if (coOwner == null)
+                        {
+                            if (!source.CoOwnerIndex.HasValue ||
+                                source.CoOwnerIndex.Value < 0 ||
+                                source.CoOwnerIndex.Value >= record.JointCoOwners.Count)
+                            {
+                                continue;
+                            }
+
+                            coOwner = record.JointCoOwners[source.CoOwnerIndex.Value];
+                        }
+
+                        ApplyOwnerToCoOwner(coOwner, owner);
+                        continue;
+                    }
+
+                    ApplyOwnerToPrimary(record, owner);
+                }
+
+                return;
+            }
+
             foreach (var idx in parcelIndices)
             {
                 if (idx < 0 || idx >= _allRecords.Count)
@@ -651,18 +707,36 @@ namespace Land_Readjustment_Tool.Forms
                     continue;
                 }
 
-                var record = _allRecords[idx];
-                record.LandOwnersName = owner.LandOwnersName;
-                record.FatherSpouse = owner.FatherSpouse;
-                record.Gender = owner.Gender;
-                record.CitizenshipNumber = owner.CitizenshipNumber;
-                record.CitizenshipIssuedDistrict = owner.CitizenshipIssuedDistrict;
-                record.CitizenshipIssuedDate = owner.CitizenshipIssuedDate;
-                record.PermanentAddress = owner.PermanentAddress;
-                record.TemporaryAddress = owner.TemporaryAddress;
-                record.ContactNumber = owner.ContactNumber;
-                record.EmailID = owner.EmailID;
+                ApplyOwnerToPrimary(_allRecords[idx], owner);
             }
+        }
+
+        private static void ApplyOwnerToPrimary(BaselineLandParcelRecord record, OwnerDeduplicationService.UniqueOwner owner)
+        {
+            record.LandOwnersName = owner.LandOwnersName;
+            record.FatherSpouse = owner.FatherSpouse;
+            record.Gender = owner.Gender;
+            record.CitizenshipNumber = owner.CitizenshipNumber;
+            record.CitizenshipIssuedDistrict = owner.CitizenshipIssuedDistrict;
+            record.CitizenshipIssuedDate = owner.CitizenshipIssuedDate;
+            record.PermanentAddress = owner.PermanentAddress;
+            record.TemporaryAddress = owner.TemporaryAddress;
+            record.ContactNumber = owner.ContactNumber;
+            record.EmailID = owner.EmailID;
+        }
+
+        private static void ApplyOwnerToCoOwner(CoOwnerRecord coOwner, OwnerDeduplicationService.UniqueOwner owner)
+        {
+            coOwner.OwnerName = owner.LandOwnersName;
+            coOwner.FatherSpouse = owner.FatherSpouse;
+            coOwner.Gender = owner.Gender;
+            coOwner.CitizenshipNumber = owner.CitizenshipNumber;
+            coOwner.CitizenshipIssuedDistrict = owner.CitizenshipIssuedDistrict;
+            coOwner.CitizenshipIssuedDate = owner.CitizenshipIssuedDate;
+            coOwner.PermanentAddress = owner.PermanentAddress;
+            coOwner.TemporaryAddress = owner.TemporaryAddress;
+            coOwner.ContactNumber = owner.ContactNumber;
+            coOwner.EmailID = owner.EmailID;
         }
 
         private void RebuildUniqueOwnerSignatures()
@@ -670,13 +744,13 @@ namespace Land_Readjustment_Tool.Forms
             _uniqueOwnerSignatures.Clear();
             foreach (var owner in _deduplicationResult.UniqueOwners)
             {
-                _uniqueOwnerSignatures.Add(BuildParcelSignature(owner.ParcelIndices));
+                _uniqueOwnerSignatures.Add(BuildOwnerSignature(owner));
             }
         }
 
         private void AddOwnerToResultIfMissing(OwnerDeduplicationService.UniqueOwner owner)
         {
-            var signature = BuildParcelSignature(owner.ParcelIndices);
+            var signature = BuildOwnerSignature(owner);
             if (_uniqueOwnerSignatures.Contains(signature))
             {
                 return;
@@ -688,9 +762,9 @@ namespace Land_Readjustment_Tool.Forms
 
         private void RemoveOwnerFromResult(OwnerDeduplicationService.UniqueOwner owner)
         {
-            var signature = BuildParcelSignature(owner.ParcelIndices);
+            var signature = BuildOwnerSignature(owner);
             var existing = _deduplicationResult.UniqueOwners
-                .FirstOrDefault(o => string.Equals(BuildParcelSignature(o.ParcelIndices), signature, StringComparison.Ordinal));
+                .FirstOrDefault(o => string.Equals(BuildOwnerSignature(o), signature, StringComparison.Ordinal));
 
             if (existing != null)
             {
@@ -703,6 +777,13 @@ namespace Land_Readjustment_Tool.Forms
         private static string BuildParcelSignature(IEnumerable<int> parcelIndices)
         {
             return string.Join(",", parcelIndices.OrderBy(i => i));
+        }
+
+        private static string BuildOwnerSignature(OwnerDeduplicationService.UniqueOwner owner)
+        {
+            return owner.SourceOwners.Count > 0
+                ? OwnerDeduplicationService.BuildSourceSignature(owner)
+                : BuildParcelSignature(owner.ParcelIndices);
         }
 
         private static OwnerDeduplicationService.UniqueOwner CloneOwner(OwnerDeduplicationService.UniqueOwner owner)
@@ -720,6 +801,16 @@ namespace Land_Readjustment_Tool.Forms
                 ContactNumber = owner.ContactNumber,
                 EmailID = owner.EmailID,
                 ParcelIndices = owner.ParcelIndices.ToList(),
+                SourceOwners = owner.SourceOwners
+                    .Select(source => new OwnerDeduplicationService.OwnerReference
+                    {
+                        ParcelIndex = source.ParcelIndex,
+                        Kind = source.Kind,
+                        CoOwnerIndex = source.CoOwnerIndex,
+                        Record = source.Record,
+                        CoOwner = source.CoOwner
+                    })
+                    .ToList(),
                 IsAnonymous = owner.IsAnonymous
             };
         }
@@ -737,6 +828,16 @@ namespace Land_Readjustment_Tool.Forms
             target.ContactNumber = source.ContactNumber;
             target.EmailID = source.EmailID;
             target.ParcelIndices = source.ParcelIndices.ToList();
+            target.SourceOwners = source.SourceOwners
+                .Select(sourceReference => new OwnerDeduplicationService.OwnerReference
+                {
+                    ParcelIndex = sourceReference.ParcelIndex,
+                    Kind = sourceReference.Kind,
+                    CoOwnerIndex = sourceReference.CoOwnerIndex,
+                    Record = sourceReference.Record,
+                    CoOwner = sourceReference.CoOwner
+                })
+                .ToList();
             target.IsAnonymous = source.IsAnonymous;
         }
 

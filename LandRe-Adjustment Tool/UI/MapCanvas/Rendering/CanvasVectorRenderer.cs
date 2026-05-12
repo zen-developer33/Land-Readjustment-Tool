@@ -607,7 +607,7 @@ namespace Land_Readjustment_Tool.UI.MapCanvas.Rendering
             }
 
             RectangleF bounds = path.GetBounds();
-            if (!IsValidRectangle(bounds) ||
+            if (!IsValidPathBounds(bounds) ||
                 Math.Abs(bounds.Left) > MaxGdiCoordinate ||
                 Math.Abs(bounds.Top) > MaxGdiCoordinate ||
                 Math.Abs(bounds.Right) > MaxGdiCoordinate ||
@@ -616,9 +616,12 @@ namespace Land_Readjustment_Tool.UI.MapCanvas.Rendering
                 return;
             }
 
-            if (polyline.IsClosed && style.FillMode != FillMode.None)
+            if (polyline.IsClosed &&
+                polyline.Vertices.Count > 2 &&
+                style.FillMode != FillMode.None &&
+                IsValidRectangle(bounds))
             {
-                FillClosedPath(graphics, path, path.GetBounds(), style, context);
+                FillClosedPath(graphics, path, bounds, style, context);
             }
 
             if (pen == null)
@@ -1128,6 +1131,13 @@ namespace Land_Readjustment_Tool.UI.MapCanvas.Rendering
             float.IsFinite(rectangle.Height) &&
             rectangle.Width > 0 &&
             rectangle.Height > 0;
+
+        private static bool IsValidPathBounds(RectangleF rectangle) =>
+            IsValidPoint(rectangle.Location) &&
+            float.IsFinite(rectangle.Width) &&
+            float.IsFinite(rectangle.Height) &&
+            rectangle.Width >= 0 &&
+            rectangle.Height >= 0;
 
         private static float Distance(PointF a, PointF b)
         {

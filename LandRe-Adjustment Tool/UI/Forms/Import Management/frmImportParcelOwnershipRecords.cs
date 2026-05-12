@@ -3,9 +3,12 @@ using Land_Readjustment_Tool.Services;
 using Land_Readjustment_Tool.Services.Import;
 using Land_Readjustment_Tool.Data;
 using Land_Readjustment_Tool.Core.Interfaces;
+using Microsoft.EntityFrameworkCore;
 using System.ComponentModel;
+using System.ComponentModel.DataAnnotations.Schema;
 using System.Data;
 using System.Text;
+using static Land_Readjustment_Tool.Services.DataTransformationService;
 
 namespace Land_Readjustment_Tool.Forms
 {
@@ -77,11 +80,8 @@ namespace Land_Readjustment_Tool.Forms
         private void InitializeMappingGridStyles()
         {
             dgvMapping.Font = new Font("Segoe UI", 9F, FontStyle.Regular, GraphicsUnit.Point, 0);
-            dgvMapping.EnableHeadersVisualStyles = false;
-            dgvMapping.ColumnHeadersDefaultCellStyle.Font = new Font("Segoe UI", 9F, FontStyle.Bold, GraphicsUnit.Point, 0);
             dgvMapping.DefaultCellStyle.Font = new Font("Segoe UI", 9F, FontStyle.Regular, GraphicsUnit.Point, 0);
             dgvMapping.RowsDefaultCellStyle.Font = new Font("Segoe UI", 9F, FontStyle.Regular, GraphicsUnit.Point, 0);
-            dgvMapping.AlternatingRowsDefaultCellStyle.Font = new Font("Segoe UI", 9F, FontStyle.Regular, GraphicsUnit.Point, 0);
             dgvMapping.EditingControlShowing += dgvMapping_EditingControlShowing;
         }
 
@@ -155,26 +155,8 @@ namespace Land_Readjustment_Tool.Forms
 
             if (stepLabel == null) return;
 
-            string icon = status switch
-            {
-                StepStatus.Pending => "⏳",
-                StepStatus.InProgress => "🔄",
-                StepStatus.Success => "✅",
-                StepStatus.Error => "❌",
-                _ => "⏳"
-            };
-
-            Color color = status switch
-            {
-                StepStatus.Pending => Color.Gray,
-                StepStatus.InProgress => Color.DodgerBlue,
-                StepStatus.Success => Color.Green,
-                StepStatus.Error => Color.Red,
-                _ => Color.Gray
-            };
-
-            stepLabel.Text = $"Step {stepNumber}: {icon} {message}";
-            stepLabel.ForeColor = color;
+            stepLabel.Text = $"Step {stepNumber}: {message}";
+            stepLabel.ForeColor = SystemColors.ControlText;
         }
 
         private void InitializeDataGridView()
@@ -300,7 +282,7 @@ namespace Land_Readjustment_Tool.Forms
             }
 
             lblStatusBar1.Text = $"Status: Sheet '{sheetName}' loaded ({_selectedSheet.Rows.Count} rows)";
-            lblStatusBar1.ForeColor = Color.Green;
+            lblStatusBar1.ForeColor = SystemColors.ControlText;
 
             DisableStep1();
             EnableStep2();
@@ -327,7 +309,7 @@ namespace Land_Readjustment_Tool.Forms
 
             // Reset UI
             lblValidationStatus.Text = "Not Validated";
-            lblValidationStatus.ForeColor = Color.Gray;
+            lblValidationStatus.ForeColor = SystemColors.ControlText;
             lblRecordsReady.Text = "N/A";
             lblTotalRecords.Text = "0";
 
@@ -349,7 +331,7 @@ namespace Land_Readjustment_Tool.Forms
             grpStep2.Enabled = true;
             PopulateFieldMappings();
             btnAutoMap.Focus();
-            btnAutoMap.BackColor = Color.DodgerBlue;
+            btnAutoMap.UseVisualStyleBackColor = true;
         }
 
         private void DisableStep2()
@@ -391,7 +373,7 @@ namespace Land_Readjustment_Tool.Forms
             dgvMapping.Columns.Add(sourceColumn);
 
             // Add rows for each model property
-            foreach (var prop in typeof(BaselineLandParcelRecord).GetProperties())
+            foreach (var prop in typeof(BaselineLandParcelRecord).GetProperties().Where(IsImportSurfaceProperty))
             {
                 int rowIndex = dgvMapping.Rows.Add();
                 dgvMapping.Rows[rowIndex].Cells["TargetField"].Value = prop.Name;
@@ -691,26 +673,15 @@ namespace Land_Readjustment_Tool.Forms
             dgvRecords.MultiSelect = true;
             dgvRecords.ReadOnly = true;
             dgvRecords.DoubleBuffered(true);
-            dgvRecords.AlternatingRowsDefaultCellStyle.BackColor = Color.FromArgb(248, 248, 252);
             dgvRecords.RowHeadersVisible = true;
             dgvRecords.RowHeadersWidth = 50;
             dgvRecords.RowHeadersDefaultCellStyle.Alignment = DataGridViewContentAlignment.MiddleCenter;
-            dgvRecords.BorderStyle = BorderStyle.None;
-            dgvRecords.CellBorderStyle = DataGridViewCellBorderStyle.Single;
-            dgvRecords.GridColor = Color.FromArgb(220, 220, 220);
-
-
-            // Make headers styled
-            dgvRecords.ColumnHeadersDefaultCellStyle.Font = new Font("Segoe UI", 9F, FontStyle.Bold);
-            dgvRecords.ColumnHeadersDefaultCellStyle.BackColor = Color.FromArgb(45, 65, 95);
-            dgvRecords.ColumnHeadersDefaultCellStyle.ForeColor = Color.White;
-            dgvRecords.ColumnHeadersHeight = 34;
-            dgvRecords.EnableHeadersVisualStyles = false;
             dgvRecords.DefaultCellStyle.Font = new Font("Segoe UI", 9F);
             dgvRecords.RowTemplate.Height = 28;
 
             dgvRecords.SelectionChanged += DgvRecords_SelectionChanged;
             dgvRecords.RowPostPaint += DgvRecords_RowPostPaint;
+            dgvRecords.CellFormatting += DgvRecords_CellFormatting;
         }
 
         /// <summary>
@@ -749,7 +720,17 @@ namespace Land_Readjustment_Tool.Forms
         {
             dgvRecords.Columns.Clear();
 
-            foreach (var property in typeof(BaselineLandParcelRecord).GetProperties())
+            dgvRecords.Columns.Add(new DataGridViewTextBoxColumn
+            {
+                Name = "Status",
+                HeaderText = "Status",
+                AutoSizeMode = DataGridViewAutoSizeColumnMode.None,
+                SortMode = DataGridViewColumnSortMode.NotSortable,
+                ReadOnly = true,
+                Width = 135
+            });
+
+            foreach (var property in typeof(BaselineLandParcelRecord).GetProperties().Where(IsImportSurfaceProperty))
             {
                 dgvRecords.Columns.Add(new DataGridViewTextBoxColumn
                 {
@@ -916,6 +897,7 @@ namespace Land_Readjustment_Tool.Forms
                         _editedRowIndices.Add(rowIndex);
                     }
 
+                    InvalidateOwnerDeduplication();
                     dgvRecords.Refresh();
                     UpdateRecordCount();
                     UpdateValidationStatus();
@@ -947,6 +929,7 @@ namespace Land_Readjustment_Tool.Forms
                 RemoveErrorForRow(index);
             }
 
+            InvalidateOwnerDeduplication();
             dgvRecords.Refresh();
             UpdateRecordCount();
             UpdateValidationStatus();
@@ -988,8 +971,148 @@ namespace Land_Readjustment_Tool.Forms
             // Show validation errors form
             using (var errorForm = new frmValidationErrors(_validationErrors, _importedRecords))
             {
+                errorForm.RecordsModified += (s, e) =>
+                {
+                    // Re-sort and refresh grid after joint ownership resolution removed rows.
+                    SortRecordsByParcelNo();
+                    dgvRecords.DataSource = null;
+                    dgvRecords.DataSource = _importedRecords;
+                    InvalidateOwnerDeduplication();
+                    RevalidateCurrentRecords();
+                    UpdateRecordCount();
+                };
                 errorForm.ShowDialog();
             }
+        }
+
+        private void DgvRecords_CellFormatting(object? sender, DataGridViewCellFormattingEventArgs e)
+        {
+            if (e.RowIndex < 0 || e.ColumnIndex < 0)
+                return;
+
+            if (dgvRecords.Columns[e.ColumnIndex].Name != "Status")
+                return;
+
+            if (dgvRecords.Rows[e.RowIndex].DataBoundItem is not BaselineLandParcelRecord record)
+                return;
+
+            e.Value = IsJointOwnershipRecord(record) ? "Joint Ownership" : "Single";
+            e.FormattingApplied = true;
+        }
+
+        private void btnResolveParcelDuplication_Click(object sender, EventArgs e)
+        {
+            if (_importedRecords.Count == 0)
+            {
+                MessageBox.Show("No records to process. Please import data first.",
+                    "No Data", MessageBoxButtons.OK, MessageBoxIcon.Information);
+                return;
+            }
+
+            var duplicateGroups = ParcelDuplicateResolutionService.FindDuplicateGroups(_importedRecords);
+            if (duplicateGroups.Count == 0)
+            {
+                MessageBox.Show("No duplicate parcels were found in the current import data.",
+                    "No Parcel Duplicates", MessageBoxButtons.OK, MessageBoxIcon.Information);
+                return;
+            }
+
+            using var resolver = new frmParcelDuplicationResolver(_importedRecords.ToList());
+            var result = resolver.ShowDialog(this);
+            if (result != DialogResult.OK || !resolver.ChangesWereMade)
+                return;
+
+            RemoveAbsorbedJointOwnerRows();
+            InvalidateOwnerDeduplication();
+
+            RefreshDataGridView();
+            RevalidateCurrentRecords();
+            UpdateRecordCount();
+
+            MessageBox.Show(
+                "Parcel duplication has been resolved.\n\n" +
+                "Duplicate parcel rows were converted into joint co-owners. The import grid now shows only unique parcels.",
+                "Parcel Resolution Complete",
+                MessageBoxButtons.OK,
+                MessageBoxIcon.Information);
+
+            UpdateStatusBar("Parcel duplicates resolved. Please run owner deduplication again before saving.");
+        }
+
+        private void btnSetSelectedJointOwnership_Click(object sender, EventArgs e)
+        {
+            var selectedRecords = GetSelectedImportRecords();
+            if (selectedRecords.Count < 2)
+            {
+                MessageBox.Show("Please select two or more records to set as joint ownership.",
+                    "Invalid Selection", MessageBoxButtons.OK, MessageBoxIcon.Information);
+                return;
+            }
+
+            if (selectedRecords.Any(record => record.IsJointCoOwnerRow))
+            {
+                MessageBox.Show("One or more selected records are already absorbed as joint co-owner rows.",
+                    "Invalid Selection", MessageBoxButtons.OK, MessageBoxIcon.Information);
+                return;
+            }
+
+            using var resolver = new frmJointOwnershipResolver(selectedRecords, "Selected Records");
+            if (resolver.ShowDialog(this) != DialogResult.OK)
+                return;
+
+            ParcelDuplicateResolutionService.ApplyJointOwnership(selectedRecords, resolver.PrimaryIndex);
+            RemoveAbsorbedJointOwnerRows();
+            InvalidateOwnerDeduplication();
+
+            RefreshDataGridView();
+            RevalidateCurrentRecords();
+            UpdateRecordCount();
+
+            MessageBox.Show(
+                "Selected records were converted into one joint ownership parcel.\n\n" +
+                "The import grid now shows the primary owner row and stores the selected owners as co-owners.",
+                "Joint Ownership Complete",
+                MessageBoxButtons.OK,
+                MessageBoxIcon.Information);
+
+            UpdateStatusBar("Selected records set as joint ownership. Please run owner deduplication again before saving.");
+        }
+
+        private void RemoveAbsorbedJointOwnerRows()
+        {
+            for (int i = _importedRecords.Count - 1; i >= 0; i--)
+            {
+                if (_importedRecords[i].IsJointCoOwnerRow)
+                {
+                    _importedRecords.RemoveAt(i);
+                }
+            }
+        }
+
+        private void RevalidateCurrentRecords()
+        {
+            var result = DataTransformationService.ValidateRecords(_importedRecords.ToList());
+            _validationErrors = result.ValidationErrors;
+            _isValidated = true;
+
+            if (result.HasErrors)
+            {
+                UpdateStepStatus(3, StepStatus.Error, $"{result.InvalidRecords.Count} errors");
+                UpdateStepStatus(4, StepStatus.Pending, "Fix errors first");
+            }
+            else
+            {
+                UpdateStepStatus(3, StepStatus.InProgress, "Review & deduplicate");
+                UpdateStepStatus(4, StepStatus.Pending, "Run owner dedupe");
+            }
+
+            UpdateValidationStatus();
+        }
+
+        private void InvalidateOwnerDeduplication()
+        {
+            _isDeduplicationDone = false;
+            _deduplicationResult = null;
         }
 
         private void DgvRecords_SelectionChanged(object sender, EventArgs e)
@@ -1010,6 +1133,8 @@ namespace Land_Readjustment_Tool.Forms
                 btnEditRecord.Enabled = false;
                 btnRemoveSelected.Enabled = false;
             }
+
+            UpdateManualJointOwnershipButtonState();
         }
 
         // ==================== STEP 4: VALIDATE & SAVE ====================
@@ -1046,10 +1171,12 @@ namespace Land_Readjustment_Tool.Forms
 
         private void UpdateValidationStatus()
         {
+            UpdateParcelDuplicationButtonState();
+
             if (!_isValidated)
             {
                 lblValidationStatus.Text = "Not Validated";
-                lblValidationStatus.ForeColor = Color.Gray;
+                lblValidationStatus.ForeColor = SystemColors.ControlText;
                 lblRecordsReady.Text = "N/A";
                 btnSaveToDatabase.Enabled = false;
             }
@@ -1064,19 +1191,58 @@ namespace Land_Readjustment_Tool.Forms
                 if (errorCount > 0)
                 {
                     lblValidationStatus.Text = $"{errorCount} Error(s)";
-                    lblValidationStatus.ForeColor = Color.Red;
+                    lblValidationStatus.ForeColor = SystemColors.ControlText;
                     btnSaveToDatabase.Enabled = false;
                     ColorCodeRows();
                 }
                 else
                 {
                     lblValidationStatus.Text = "All Valid!";
-                    lblValidationStatus.ForeColor = Color.Green;
+                    lblValidationStatus.ForeColor = SystemColors.ControlText;
                     // Only enable save button if deduplication is also done
                     btnSaveToDatabase.Enabled = _isDeduplicationDone;
                     ClearRowColors();
                 }
             }
+        }
+
+        private void UpdateParcelDuplicationButtonState()
+        {
+            if (btnResolveParcelDuplication == null)
+                return;
+
+            btnResolveParcelDuplication.Enabled =
+                _importedRecords.Count > 0 &&
+                ParcelDuplicateResolutionService.FindDuplicateGroups(_importedRecords).Count > 0;
+
+            UpdateManualJointOwnershipButtonState();
+        }
+
+        private void UpdateManualJointOwnershipButtonState()
+        {
+            if (btnSetSelectedJointOwnership == null)
+                return;
+
+            btnSetSelectedJointOwnership.Enabled = GetSelectedImportRecords().Count >= 2;
+        }
+
+        private List<BaselineLandParcelRecord> GetSelectedImportRecords()
+        {
+            return dgvRecords.SelectedRows
+                .Cast<DataGridViewRow>()
+                .Where(row => !row.IsNewRow)
+                .Select(row => row.DataBoundItem as BaselineLandParcelRecord)
+                .Where(record => record != null)
+                .Cast<BaselineLandParcelRecord>()
+                .Distinct()
+                .ToList();
+        }
+
+        private static bool IsJointOwnershipRecord(BaselineLandParcelRecord record)
+        {
+            return record.IsJointCoOwnerRow ||
+                   record.JointCoOwners.Count > 0 ||
+                   string.Equals(record.LandOwnershipType?.Trim(), "Private (Joint)", StringComparison.OrdinalIgnoreCase);
         }
 
         private void ColorCodeRows()
@@ -1087,13 +1253,13 @@ namespace Land_Readjustment_Tool.Forms
             {
                 if (invalidIndices.Contains(row.Index))
                 {
-                    row.DefaultCellStyle.BackColor = Color.FromArgb(255, 245, 245); // Very subtle red
-                    row.DefaultCellStyle.ForeColor = Color.FromArgb(139, 0, 0);
+                    row.DefaultCellStyle.BackColor = dgvRecords.DefaultCellStyle.BackColor;
+                    row.DefaultCellStyle.ForeColor = dgvRecords.DefaultCellStyle.ForeColor;
                 }
                 else
                 {
-                    row.DefaultCellStyle.BackColor = Color.White;
-                    row.DefaultCellStyle.ForeColor = Color.Black;
+                    row.DefaultCellStyle.BackColor = dgvRecords.DefaultCellStyle.BackColor;
+                    row.DefaultCellStyle.ForeColor = dgvRecords.DefaultCellStyle.ForeColor;
                 }
             }
         }
@@ -1102,8 +1268,8 @@ namespace Land_Readjustment_Tool.Forms
         {
             foreach (DataGridViewRow row in dgvRecords.Rows)
             {
-                row.DefaultCellStyle.BackColor = Color.White;
-                row.DefaultCellStyle.ForeColor = Color.Black;
+                row.DefaultCellStyle.BackColor = dgvRecords.DefaultCellStyle.BackColor;
+                row.DefaultCellStyle.ForeColor = dgvRecords.DefaultCellStyle.ForeColor;
             }
         }
 
@@ -1288,8 +1454,7 @@ namespace Land_Readjustment_Tool.Forms
         private OperationResult ValidateDataOperation(List<BaselineLandParcelRecord> records, BackgroundWorker worker)
         {
             worker.ReportProgress(30);
-            var dt = ConvertRecordsToDataTable(records);
-            var result = DataTransformationService.ValidateFromDataTable(dt);
+            var result = DataTransformationService.ValidateRecords(records);
             worker.ReportProgress(100);
 
             return new OperationResult
@@ -1379,15 +1544,49 @@ namespace Land_Readjustment_Tool.Forms
                 return new OperationResult
                 {
                     Success = false,
-                    Message = $"Failed to save to database: {ex.Message}"
+                    Message = $"Failed to save to database:\n{FormatExceptionDetails(ex)}"
                 };
+            }
+        }
+
+        private static string FormatExceptionDetails(Exception exception)
+        {
+            var details = new List<string>();
+
+            for (Exception? current = exception; current != null; current = current.InnerException)
+            {
+                if (!details.Contains(current.Message))
+                {
+                    details.Add(current.Message);
+                }
+            }
+
+            var dbUpdateException = EnumerateExceptions(exception).OfType<DbUpdateException>().FirstOrDefault();
+            if (dbUpdateException != null)
+            {
+                foreach (var entry in dbUpdateException.Entries)
+                {
+                    details.Add($"Entity: {entry.Entity.GetType().Name}, State: {entry.State}");
+                }
+            }
+
+            return string.Join(Environment.NewLine, details);
+        }
+
+        private static IEnumerable<Exception> EnumerateExceptions(Exception exception)
+        {
+            for (Exception? current = exception; current != null; current = current.InnerException)
+            {
+                yield return current;
             }
         }
 
         private DataTable ConvertRecordsToDataTable(List<BaselineLandParcelRecord> records)
         {
             var dt = new DataTable();
-            var properties = typeof(BaselineLandParcelRecord).GetProperties();
+            var properties = typeof(BaselineLandParcelRecord).GetProperties()
+                .Where(IsImportSurfaceProperty)
+                .ToList();
 
             foreach (var prop in properties)
             {
@@ -1405,6 +1604,11 @@ namespace Land_Readjustment_Tool.Forms
             }
 
             return dt;
+        }
+
+        private static bool IsImportSurfaceProperty(System.Reflection.PropertyInfo property)
+        {
+            return !Attribute.IsDefined(property, typeof(NotMappedAttribute));
         }
 
         private void BackgroundWorker_ProgressChanged(object? sender, ProgressChangedEventArgs e)
@@ -1468,7 +1672,7 @@ namespace Land_Readjustment_Tool.Forms
             btnImportData.Enabled = true;
 
             lblStatusBar1.Text = $"Status: File loaded with {sheetNames.Count} sheet(s)";
-            lblStatusBar1.ForeColor = Color.Green;
+            lblStatusBar1.ForeColor = SystemColors.ControlText;
 
             UpdateStepStatus(1, StepStatus.Success, $"Loaded ({sheetNames.Count} sheets)");
             UpdateStepStatus(2, StepStatus.InProgress, "Ready to map");
@@ -1527,8 +1731,9 @@ namespace Land_Readjustment_Tool.Forms
         // ==================== POST-IMPORT PROCESSING ====================
 
         /// <summary>
-        /// Auto-calculates RAPD and BKD from AreaInSqm and auto-detects Ownership Type
-        /// for all imported records. Called once after data transformation.
+        /// Auto-calculates RAPD and BKD from AreaInSqm, auto-detects Ownership Type,
+        /// and splits single-row delimited owner names into JointCoOwners.
+        /// Called once after data transformation.
         /// </summary>
         private void PostProcessImportedRecords()
         {
@@ -1548,13 +1753,44 @@ namespace Land_Readjustment_Tool.Forms
                 }
                 else
                 {
-                    // Even if set, try to refine based on keywords in existing value + name
                     string detected = DetectOwnershipType(record.LandOwnersName, record.LandOwnershipType);
                     if (!string.IsNullOrWhiteSpace(detected))
                     {
                         record.LandOwnershipType = detected;
                     }
                 }
+
+                // Split single-row multi-owner name into JointCoOwners.
+                // e.g. "Ram Bahadur / Shyam Kumar" → primary = "Ram Bahadur", co-owner = "Shyam Kumar"
+                SplitDelimitedOwnerNames(record);
+            }
+        }
+
+        /// <summary>
+        /// When LandOwnersName contains delimiter-separated names, keeps the first name
+        /// as the primary and creates CoOwnerRecord entries for the rest.
+        /// Only runs once (skips records that already have JointCoOwners).
+        /// </summary>
+        private static void SplitDelimitedOwnerNames(BaselineLandParcelRecord record)
+        {
+            if (record.JointCoOwners.Count > 0) return;
+
+            var names = OwnerNameParser.SplitOwnerNames(record.LandOwnersName);
+            if (names.Count < 2) return;
+
+            // First name stays as primary.
+            record.LandOwnersName = names[0];
+
+            // Remaining names become co-owners (name only; other fields unknown).
+            for (int i = 1; i < names.Count; i++)
+            {
+                record.JointCoOwners.Add(new CoOwnerRecord { OwnerName = names[i] });
+            }
+
+            if (string.IsNullOrWhiteSpace(record.LandOwnershipType) ||
+                !record.LandOwnershipType.Contains("Joint", StringComparison.OrdinalIgnoreCase))
+            {
+                record.LandOwnershipType = "Private (Joint)";
             }
         }
 
@@ -1679,7 +1915,7 @@ namespace Land_Readjustment_Tool.Forms
 
         private void UpdateStatusBar(string message)
         {
-            lblStatusBar.ForeColor = Color.Green;
+            lblStatusBar.ForeColor = SystemColors.ControlText;
             lblStatusBar.Text = $"Status: {message}";
         }
 

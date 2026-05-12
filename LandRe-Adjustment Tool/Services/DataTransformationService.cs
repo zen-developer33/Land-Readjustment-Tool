@@ -1,5 +1,6 @@
 ﻿using Land_Readjustment_Tool.Infrastructure.Constants;
 using Land_Readjustment_Tool.Models;
+using System.ComponentModel.DataAnnotations.Schema;
 using System.Data;
 using System.Text;
 using System.Text.RegularExpressions;
@@ -179,6 +180,60 @@ public class DataTransformationService
             return result;
         }
 
+        public static TransformationResult ValidateRecords(IReadOnlyList<BaselineLandParcelRecord> records)
+        {
+            if (records == null)
+                throw new ArgumentNullException(nameof(records));
+
+            var result = new TransformationResult();
+
+            for (int i = 0; i < records.Count; i++)
+            {
+                var record = records[i];
+                if (record.IsJointCoOwnerRow)
+                    continue;
+
+                int rowNumber = result.AllOriginalRecords.Count + 1;
+                var rowErrors = new List<string>();
+
+                try
+                {
+                    ApplyOwnerSemanticNormalization(record);
+                    ValidateBusinessRules(record, rowNumber, rowErrors);
+
+                    result.AllOriginalRecords.Add(record);
+
+                    if (rowErrors.Count > 0)
+                    {
+                        result.InvalidRecords.Add(record);
+                        result.ValidationErrors.Add(new ValidationError
+                        {
+                            RowNumber = rowNumber,
+                            RecordData = record,
+                            Errors = rowErrors
+                        });
+                    }
+                    else
+                    {
+                        result.ValidRecords.Add(record);
+                    }
+                }
+                catch (Exception ex)
+                {
+                    result.InvalidRecords.Add(record);
+                    result.ValidationErrors.Add(new ValidationError
+                    {
+                        RowNumber = rowNumber,
+                        RecordData = record,
+                        Errors = new List<string> { $"Unexpected error: {ex.Message}" }
+                    });
+                }
+            }
+
+            ApplyDuplicateParcelValidation(result);
+            return result;
+        }
+
         // ==================== ROW SKIP LOGIC ====================
 
         /// <summary>
@@ -245,6 +300,10 @@ public class DataTransformationService
 
             foreach (var group in groups)
             {
+                // Normalised key shared by all rows in this duplicate group.
+                var dupKey = $"{group.Key.MapSheet}::{group.Key.Parcel}";
+                var dupMessage = $"Duplicate ParcelNo '{group.First().record.ParcelNo}' found in MapSheet '{group.First().record.MapSheetNo}' — possible Joint Ownership";
+
                 foreach (var item in group)
                 {
                     int rowNumber = item.rowIndex + 1;
@@ -258,10 +317,9 @@ public class DataTransformationService
                         {
                             RowNumber = rowNumber,
                             RecordData = item.record,
-                            Errors = new List<string>
-                            {
-                                $"Duplicate ParcelNo '{item.record.ParcelNo}' found in MapSheet '{item.record.MapSheetNo}'"
-                            }
+                            Errors = new List<string> { dupMessage },
+                            IsDuplicateParcel = true,
+                            DuplicateParcelKey = dupKey
                         };
 
                         result.ValidationErrors.Add(error);
@@ -270,9 +328,12 @@ public class DataTransformationService
                     }
                     else
                     {
-                        existingError.Errors.Add(
-                            $"Duplicate ParcelNo '{item.record.ParcelNo}' found in MapSheet '{item.record.MapSheetNo}'"
-                        );
+                        existingError.Errors.Add(dupMessage);
+                        // If all errors on this row are now duplicate-parcel errors, mark it.
+                        existingError.IsDuplicateParcel = existingError.Errors.All(
+                            e => e.Contains("Duplicate ParcelNo"));
+                        if (existingError.IsDuplicateParcel)
+                            existingError.DuplicateParcelKey = dupKey;
                     }
                 }
             }
@@ -288,6 +349,7 @@ public class DataTransformationService
         {
             var property = typeof(BaselineLandParcelRecord).GetProperty(propertyName);
             if (property == null) return;
+            if (Attribute.IsDefined(property, typeof(NotMappedAttribute))) return;
 
             try
             {
@@ -485,6 +547,13 @@ public class DataTransformationService
         public int RowNumber { get; set; }
         public BaselineLandParcelRecord? RecordData { get; set; }
         public List<string> Errors { get; set; } = new();
+
+        // Set when ALL errors on this row are solely caused by a duplicate parcel number.
+        // Used by frmValidationErrors to offer "Mark as Joint Ownership".
+        public bool IsDuplicateParcel { get; set; }
+
+        // Normalised "MAPSHEET::PARCELNO" key shared by all rows in the same duplicate group.
+        public string DuplicateParcelKey { get; set; } = string.Empty;
 
         public string ErrorSummary => $"Row {RowNumber}: {string.Join("; ", Errors)}";
     }

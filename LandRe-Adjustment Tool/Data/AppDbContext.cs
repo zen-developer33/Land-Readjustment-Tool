@@ -35,6 +35,7 @@ namespace Land_Readjustment_Tool.Data
         public DbSet<LandOwner> LandOwners { get; set; }
         public DbSet<MalpotReference> MalpotReferences { get; set; }
         public DbSet<BaselineParcel> BaselineParcels { get; set; }
+        public DbSet<BaselineParcelCoOwner> BaselineParcelCoOwners { get; set; }
         public DbSet<ParcelFrontage> ParcelFrontages { get; set; }
 
         // Import
@@ -206,6 +207,23 @@ namespace Land_Readjustment_Tool.Data
                 .WithMany(r => r.ParcelFrontages)
                 .HasForeignKey(f => f.ReplottedParcelId)
                 .OnDelete(DeleteBehavior.Restrict);
+
+            // ── BASELINE PARCEL CO-OWNERSHIP ─────────
+            modelBuilder.Entity<BaselineParcelCoOwner>()
+                .HasOne(c => c.BaselineParcel)
+                .WithMany(b => b.CoOwners)
+                .HasForeignKey(c => c.BaselineParcelId)
+                .OnDelete(DeleteBehavior.Cascade);
+
+            modelBuilder.Entity<BaselineParcelCoOwner>()
+                .HasOne(c => c.LandOwner)
+                .WithMany(o => o.BaselineCoOwnerships)
+                .HasForeignKey(c => c.LandOwnerId)
+                .OnDelete(DeleteBehavior.Restrict);
+
+            modelBuilder.Entity<BaselineParcelCoOwner>()
+                .HasIndex(c => new { c.BaselineParcelId, c.LandOwnerId })
+                .IsUnique();
 
             modelBuilder.Entity<OriginalToReplottedMap>()
                 .HasOne(o => o.BaselineParcel)

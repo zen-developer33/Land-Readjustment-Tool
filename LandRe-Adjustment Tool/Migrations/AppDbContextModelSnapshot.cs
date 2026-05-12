@@ -697,6 +697,34 @@ namespace Land_Readjustment_Tool.Migrations
                     b.ToTable("tblBaselineParcels");
                 });
 
+            modelBuilder.Entity("Land_Readjustment_Tool.Core.Entities.LandData.BaselineParcelCoOwner", b =>
+                {
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("INTEGER");
+
+                    b.Property<int>("BaselineParcelId")
+                        .HasColumnType("INTEGER");
+
+                    b.Property<DateTime>("CreatedDate")
+                        .HasColumnType("TEXT");
+
+                    b.Property<int>("LandOwnerId")
+                        .HasColumnType("INTEGER");
+
+                    b.Property<double?>("OwnershipSharePercent")
+                        .HasColumnType("REAL");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("LandOwnerId");
+
+                    b.HasIndex("BaselineParcelId", "LandOwnerId")
+                        .IsUnique();
+
+                    b.ToTable("tblBaselineParcelCoOwners");
+                });
+
             modelBuilder.Entity("Land_Readjustment_Tool.Core.Entities.LandData.LandOwner", b =>
                 {
                     b.Property<int>("Id")
@@ -1819,6 +1847,25 @@ namespace Land_Readjustment_Tool.Migrations
                     b.Navigation("MalpotReference");
                 });
 
+            modelBuilder.Entity("Land_Readjustment_Tool.Core.Entities.LandData.BaselineParcelCoOwner", b =>
+                {
+                    b.HasOne("Land_Readjustment_Tool.Core.Entities.LandData.BaselineParcel", "BaselineParcel")
+                        .WithMany("CoOwners")
+                        .HasForeignKey("BaselineParcelId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.HasOne("Land_Readjustment_Tool.Core.Entities.LandData.LandOwner", "LandOwner")
+                        .WithMany("BaselineCoOwnerships")
+                        .HasForeignKey("LandOwnerId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.Navigation("BaselineParcel");
+
+                    b.Navigation("LandOwner");
+                });
+
             modelBuilder.Entity("Land_Readjustment_Tool.Core.Entities.LandData.MalpotReference", b =>
                 {
                     b.HasOne("Land_Readjustment_Tool.Core.Entities.LandData.LandOwner", "LandOwner")
@@ -2009,6 +2056,8 @@ namespace Land_Readjustment_Tool.Migrations
 
             modelBuilder.Entity("Land_Readjustment_Tool.Core.Entities.LandData.BaselineParcel", b =>
                 {
+                    b.Navigation("CoOwners");
+
                     b.Navigation("OriginalToReplottedMaps");
 
                     b.Navigation("ParcelContributionSummary");
@@ -2020,6 +2069,8 @@ namespace Land_Readjustment_Tool.Migrations
 
             modelBuilder.Entity("Land_Readjustment_Tool.Core.Entities.LandData.LandOwner", b =>
                 {
+                    b.Navigation("BaselineCoOwnerships");
+
                     b.Navigation("BaselineParcels");
 
                     b.Navigation("MalpotReferences");

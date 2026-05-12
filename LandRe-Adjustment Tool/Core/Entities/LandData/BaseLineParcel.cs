@@ -65,6 +65,8 @@ namespace Land_Readjustment_Tool.Core.Entities.LandData
         // Navigation properties
         public ImportSession ImportSession { get; set; } = null!;
         public LandOwner LandOwner { get; set; } = null!;
+        // Joint co-owners (additional owners beyond the primary LandOwner)
+        public ICollection<BaselineParcelCoOwner> CoOwners { get; set; } = new List<BaselineParcelCoOwner>();
         public MalpotReference? MalpotReference { get; set; }
         public CanvasObject? CanvasObject { get; set; }
         public ICollection<ParcelFrontage> ParcelFrontages { get; set; } = new List<ParcelFrontage>();

@@ -145,5 +145,20 @@ namespace Land_Readjustment_Tool.Models
         [Category("Remarks")]
         [Description("Additional remarks or notes from source data")]
         public string? Remarks { get; set; }
+
+        /* ===============================
+           Joint Ownership (not from Excel — populated during import processing)
+           =============================== */
+
+        // Additional co-owners beyond the primary owner in LandOwnersName.
+        // Populated from: (a) delimiter-split of LandOwnersName, or
+        //                 (b) frmJointOwnershipResolver merging duplicate-parcel rows.
+        [NotMapped]
+        public List<CoOwnerRecord> JointCoOwners { get; set; } = new();
+
+        // True when this row has been absorbed into another row as a co-owner.
+        // The persistence service skips rows with this flag set.
+        [NotMapped]
+        public bool IsJointCoOwnerRow { get; set; } = false;
     }
 }

@@ -105,7 +105,7 @@
             grpFilterByMapSheet.Controls.Add(cbProvince);
             grpFilterByMapSheet.Controls.Add(lblMapSheet);
             grpFilterByMapSheet.Font = new Font("Segoe UI", 9F, FontStyle.Bold);
-            grpFilterByMapSheet.ForeColor = Color.FromArgb(45, 65, 95);
+            grpFilterByMapSheet.ForeColor = SystemColors.ControlText;
             grpFilterByMapSheet.Location = new Point(8, 35);
             grpFilterByMapSheet.Name = "grpFilterByMapSheet";
             grpFilterByMapSheet.Size = new Size(453, 67);
@@ -128,7 +128,7 @@
             // 
             label3.AutoSize = true;
             label3.Font = new Font("Segoe UI", 9F);
-            label3.ForeColor = Color.Black;
+            label3.ForeColor = SystemColors.ControlText;
             label3.Location = new Point(383, 22);
             label3.Name = "label3";
             label3.Size = new Size(57, 15);
@@ -149,7 +149,7 @@
             // 
             label2.AutoSize = true;
             label2.Font = new Font("Segoe UI", 9F);
-            label2.ForeColor = Color.Black;
+            label2.ForeColor = SystemColors.ControlText;
             label2.Location = new Point(245, 22);
             label2.Name = "label2";
             label2.Size = new Size(116, 15);
@@ -171,7 +171,7 @@
             // 
             label1.AutoSize = true;
             label1.Font = new Font("Segoe UI", 9F);
-            label1.ForeColor = Color.Black;
+            label1.ForeColor = SystemColors.ControlText;
             label1.Location = new Point(133, 22);
             label1.Name = "label1";
             label1.Size = new Size(47, 15);
@@ -192,7 +192,7 @@
             // 
             lblMapSheet.AutoSize = true;
             lblMapSheet.Font = new Font("Segoe UI", 9F);
-            lblMapSheet.ForeColor = Color.Black;
+            lblMapSheet.ForeColor = SystemColors.ControlText;
             lblMapSheet.Location = new Point(17, 22);
             lblMapSheet.Name = "lblMapSheet";
             lblMapSheet.Size = new Size(56, 15);
@@ -204,7 +204,7 @@
             groupBox1.Controls.Add(label4);
             groupBox1.Controls.Add(cbMapSheet);
             groupBox1.Font = new Font("Segoe UI", 9F, FontStyle.Bold);
-            groupBox1.ForeColor = Color.FromArgb(45, 65, 95);
+            groupBox1.ForeColor = SystemColors.ControlText;
             groupBox1.Location = new Point(466, 35);
             groupBox1.Name = "groupBox1";
             groupBox1.Size = new Size(150, 67);
@@ -216,7 +216,7 @@
             // 
             label4.AutoSize = true;
             label4.Font = new Font("Segoe UI", 9F);
-            label4.ForeColor = Color.Black;
+            label4.ForeColor = SystemColors.ControlText;
             label4.Location = new Point(16, 22);
             label4.Name = "label4";
             label4.Size = new Size(81, 15);
@@ -238,7 +238,7 @@
             // 
             label5.AutoSize = true;
             label5.Font = new Font("Segoe UI", 12F, FontStyle.Bold, GraphicsUnit.Point, 0);
-            label5.ForeColor = Color.MidnightBlue;
+            label5.ForeColor = SystemColors.ControlText;
             label5.Location = new Point(10, 7);
             label5.Name = "label5";
             label5.Size = new Size(228, 21);
@@ -254,7 +254,7 @@
             groupBox3.Controls.Add(rbSqm);
             groupBox3.Controls.Add(label8);
             groupBox3.Font = new Font("Segoe UI", 9F, FontStyle.Bold);
-            groupBox3.ForeColor = Color.FromArgb(45, 65, 95);
+            groupBox3.ForeColor = SystemColors.ControlText;
             groupBox3.Location = new Point(771, 35);
             groupBox3.Name = "groupBox3";
             groupBox3.Size = new Size(278, 67);
@@ -331,7 +331,7 @@
             // 
             label8.AutoSize = true;
             label8.Font = new Font("Segoe UI", 9F);
-            label8.ForeColor = Color.Black;
+            label8.ForeColor = SystemColors.ControlText;
             label8.Location = new Point(129, 43);
             label8.Name = "label8";
             label8.Size = new Size(18, 15);
@@ -345,7 +345,7 @@
             groupBox4.Controls.Add(label10);
             groupBox4.Controls.Add(label11);
             groupBox4.Font = new Font("Segoe UI", 9F, FontStyle.Bold);
-            groupBox4.ForeColor = Color.FromArgb(45, 65, 95);
+            groupBox4.ForeColor = SystemColors.ControlText;
             groupBox4.Location = new Point(10, 108);
             groupBox4.Name = "groupBox4";
             groupBox4.Size = new Size(597, 66);
@@ -379,7 +379,7 @@
             // 
             label10.AutoSize = true;
             label10.Font = new Font("Segoe UI", 9F);
-            label10.ForeColor = Color.Black;
+            label10.ForeColor = SystemColors.ControlText;
             label10.Location = new Point(164, 23);
             label10.Name = "label10";
             label10.Size = new Size(117, 15);
@@ -390,7 +390,7 @@
             // 
             label11.AutoSize = true;
             label11.Font = new Font("Segoe UI", 9F);
-            label11.ForeColor = Color.Black;
+            label11.ForeColor = SystemColors.ControlText;
             label11.Location = new Point(10, 23);
             label11.Name = "label11";
             label11.Size = new Size(61, 15);
@@ -410,7 +410,7 @@
             btnApplyFilter.TabIndex = 20;
             btnApplyFilter.Text = "Apply Filter";
             btnApplyFilter.TextImageRelation = TextImageRelation.ImageBeforeText;
-            btnApplyFilter.UseVisualStyleBackColor = false;
+            btnApplyFilter.UseVisualStyleBackColor = true;
             // 
             // btnClearFilter
             // 
@@ -439,7 +439,7 @@
             // 
             // panel1
             // 
-            panel1.BackColor = SystemColors.ControlLightLight;
+            panel1.BackColor = SystemColors.Control;
             panel1.Controls.Add(chkToggleQuickSearch);
             panel1.Controls.Add(btnClearSearch);
             panel1.Controls.Add(groupBox3);
@@ -497,14 +497,14 @@
             btnApplySearch.TabIndex = 23;
             btnApplySearch.Text = "Apply Search";
             btnApplySearch.TextImageRelation = TextImageRelation.ImageBeforeText;
-            btnApplySearch.UseVisualStyleBackColor = false;
+            btnApplySearch.UseVisualStyleBackColor = true;
             // 
             // groupBox2
             // 
             groupBox2.Controls.Add(label6);
             groupBox2.Controls.Add(cbLandOwnership);
             groupBox2.Font = new Font("Segoe UI", 9F, FontStyle.Bold);
-            groupBox2.ForeColor = Color.FromArgb(45, 65, 95);
+            groupBox2.ForeColor = SystemColors.ControlText;
             groupBox2.Location = new Point(622, 35);
             groupBox2.Name = "groupBox2";
             groupBox2.Size = new Size(144, 67);
@@ -516,7 +516,7 @@
             // 
             label6.AutoSize = true;
             label6.Font = new Font("Segoe UI", 9F);
-            label6.ForeColor = Color.Black;
+            label6.ForeColor = SystemColors.ControlText;
             label6.Location = new Point(16, 22);
             label6.Name = "label6";
             label6.Size = new Size(96, 15);
@@ -537,7 +537,7 @@
             // 
             lblSelectedRecords.AutoSize = true;
             lblSelectedRecords.Font = new Font("Segoe UI", 9F);
-            lblSelectedRecords.ForeColor = Color.FromArgb(0, 123, 255);
+            lblSelectedRecords.ForeColor = SystemColors.ControlText;
             lblSelectedRecords.Location = new Point(8, 33);
             lblSelectedRecords.Name = "lblSelectedRecords";
             lblSelectedRecords.Size = new Size(63, 15);
@@ -560,7 +560,7 @@
             // 
             lblTotalRecords.AutoSize = true;
             lblTotalRecords.Font = new Font("Segoe UI", 9F, FontStyle.Bold);
-            lblTotalRecords.ForeColor = Color.FromArgb(45, 65, 95);
+            lblTotalRecords.ForeColor = SystemColors.ControlText;
             lblTotalRecords.Location = new Point(8, 3);
             lblTotalRecords.Name = "lblTotalRecords";
             lblTotalRecords.Size = new Size(95, 15);
@@ -571,7 +571,7 @@
             // 
             lblFilteredRecords.AutoSize = true;
             lblFilteredRecords.Font = new Font("Segoe UI", 9F);
-            lblFilteredRecords.ForeColor = Color.Black;
+            lblFilteredRecords.ForeColor = SystemColors.ControlText;
             lblFilteredRecords.Location = new Point(8, 18);
             lblFilteredRecords.Name = "lblFilteredRecords";
             lblFilteredRecords.Size = new Size(103, 15);
@@ -583,33 +583,33 @@
             dgvRecords.AllowUserToAddRows = false;
             dgvRecords.AllowUserToDeleteRows = false;
             dgvRecords.AllowUserToOrderColumns = true;
-            dataGridViewCellStyle1.BackColor = Color.FromArgb(248, 249, 250);
+            dataGridViewCellStyle1.BackColor = SystemColors.Window;
             dgvRecords.AlternatingRowsDefaultCellStyle = dataGridViewCellStyle1;
             dgvRecords.Anchor = AnchorStyles.Top | AnchorStyles.Bottom | AnchorStyles.Left | AnchorStyles.Right;
-            dgvRecords.BackgroundColor = Color.White;
+            dgvRecords.BackgroundColor = SystemColors.Window;
             dgvRecords.BorderStyle = BorderStyle.None;
             dgvRecords.CellBorderStyle = DataGridViewCellBorderStyle.SingleHorizontal;
             dgvRecords.ColumnHeadersBorderStyle = DataGridViewHeaderBorderStyle.None;
             dataGridViewCellStyle2.Alignment = DataGridViewContentAlignment.MiddleLeft;
-            dataGridViewCellStyle2.BackColor = Color.FromArgb(45, 65, 95);
+            dataGridViewCellStyle2.BackColor = SystemColors.Control;
             dataGridViewCellStyle2.Font = new Font("Segoe UI", 9F, FontStyle.Bold);
-            dataGridViewCellStyle2.ForeColor = Color.White;
-            dataGridViewCellStyle2.SelectionBackColor = Color.FromArgb(45, 65, 95);
-            dataGridViewCellStyle2.SelectionForeColor = Color.White;
+            dataGridViewCellStyle2.ForeColor = SystemColors.WindowText;
+            dataGridViewCellStyle2.SelectionBackColor = SystemColors.Highlight;
+            dataGridViewCellStyle2.SelectionForeColor = SystemColors.HighlightText;
             dataGridViewCellStyle2.WrapMode = DataGridViewTriState.False;
             dgvRecords.ColumnHeadersDefaultCellStyle = dataGridViewCellStyle2;
             dgvRecords.ColumnHeadersHeight = 36;
             dgvRecords.ColumnHeadersHeightSizeMode = DataGridViewColumnHeadersHeightSizeMode.DisableResizing;
             dataGridViewCellStyle3.Alignment = DataGridViewContentAlignment.MiddleLeft;
-            dataGridViewCellStyle3.BackColor = Color.White;
+            dataGridViewCellStyle3.BackColor = SystemColors.Window;
             dataGridViewCellStyle3.Font = new Font("Segoe UI", 9F);
-            dataGridViewCellStyle3.ForeColor = Color.FromArgb(33, 37, 41);
-            dataGridViewCellStyle3.SelectionBackColor = Color.FromArgb(0, 123, 255);
-            dataGridViewCellStyle3.SelectionForeColor = Color.White;
+            dataGridViewCellStyle3.ForeColor = SystemColors.ControlText;
+            dataGridViewCellStyle3.SelectionBackColor = SystemColors.Highlight;
+            dataGridViewCellStyle3.SelectionForeColor = SystemColors.HighlightText;
             dataGridViewCellStyle3.WrapMode = DataGridViewTriState.False;
             dgvRecords.DefaultCellStyle = dataGridViewCellStyle3;
-            dgvRecords.EnableHeadersVisualStyles = false;
-            dgvRecords.GridColor = Color.FromArgb(222, 226, 230);
+            dgvRecords.EnableHeadersVisualStyles = true;
+            dgvRecords.GridColor = SystemColors.ControlDark;
             dgvRecords.Location = new Point(8, 51);
             dgvRecords.Name = "dgvRecords";
             dgvRecords.ReadOnly = true;

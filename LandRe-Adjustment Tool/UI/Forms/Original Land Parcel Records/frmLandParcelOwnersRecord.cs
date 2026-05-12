@@ -229,14 +229,8 @@ namespace Land_Readjustment_Tool.Forms.LandOwnersRecord_Managerment
             dgvRecords.DoubleBuffered(true);
             dgvRecords.RowHeadersVisible = true;
             dgvRecords.RowHeadersWidth = 50;
-            dgvRecords.BorderStyle = BorderStyle.None;
-            dgvRecords.CellBorderStyle = DataGridViewCellBorderStyle.SingleHorizontal;
-            dgvRecords.GridColor = Color.FromArgb(220, 220, 220);
-
             dgvRecords.RowHeadersDefaultCellStyle.Font = new Font("Segoe UI", 9F, FontStyle.Regular);
             dgvRecords.RowHeadersDefaultCellStyle.Alignment = DataGridViewContentAlignment.MiddleCenter;
-            dgvRecords.RowHeadersDefaultCellStyle.BackColor = SystemColors.Control;
-            dgvRecords.RowHeadersDefaultCellStyle.ForeColor = SystemColors.ControlText;
 
             dgvRecords.Columns.Clear();
 
@@ -268,11 +262,6 @@ namespace Land_Readjustment_Tool.Forms.LandOwnersRecord_Managerment
                 col.SortMode = DataGridViewColumnSortMode.Automatic;
             }
 
-            dgvRecords.ColumnHeadersDefaultCellStyle.Font = new Font("Segoe UI", 9F, FontStyle.Bold);
-            dgvRecords.ColumnHeadersDefaultCellStyle.BackColor = Color.FromArgb(45, 65, 95);
-            dgvRecords.ColumnHeadersDefaultCellStyle.ForeColor = Color.White;
-            dgvRecords.ColumnHeadersHeight = 34;
-            dgvRecords.EnableHeadersVisualStyles = false;
             dgvRecords.DefaultCellStyle.Font = new Font("Segoe UI", 9F);
             dgvRecords.RowTemplate.Height = 28;
         }

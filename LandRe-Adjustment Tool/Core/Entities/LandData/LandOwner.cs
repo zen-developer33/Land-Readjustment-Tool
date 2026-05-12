@@ -37,5 +37,7 @@ namespace Land_Readjustment_Tool.Core.Entities.LandData
         public ICollection<MalpotReference> MalpotReferences { get; set; } = new List<MalpotReference>();
         public ICollection<BaselineParcel> BaselineParcels { get; set; } = new List<BaselineParcel>();
         public ICollection<ReplottedParcelOwner> ReplottedParcelOwnerships { get; set; } = new List<ReplottedParcelOwner>();
+        // Co-ownership on baseline parcels where this owner is a secondary owner
+        public ICollection<BaselineParcelCoOwner> BaselineCoOwnerships { get; set; } = new List<BaselineParcelCoOwner>();
     }
 }

@@ -14,6 +14,7 @@ namespace Land_Readjustment_Tool.Forms
         private int? _parcelId;
         private LandRecordsService? _landRecordsService;
         private List<BaselineLandParcelRecord>? _importedRecords;
+        private Button? _btnOtherOwners;
 
         public BaselineLandParcelRecord Record { get; private set; } = new();
         public bool IsDeleted { get; private set; } = false;
@@ -124,6 +125,14 @@ namespace Land_Readjustment_Tool.Forms
             btnLoadOwnerDetails.Visible = true;
             btnLoadOwnerDetails.Enabled = true;
             btnLoadOwnerDetails.Click += BtnLoadOwnerDetails_Click;
+
+            // Narrow the owner name textbox and Load button to make room for "Other Owners" button
+            txtLandOwnersName.Width = 170;
+            btnLoadOwnerDetails.Location = new Point(353, btnLoadOwnerDetails.Location.Y);
+            btnLoadOwnerDetails.Width = 50;
+
+            _btnOtherOwners = btnOtherOwners;
+            _btnOtherOwners.Click += BtnOtherOwners_Click;
 
             // Configure owner fields based on mode
             if (_ownerFieldsReadOnly)
@@ -327,6 +336,8 @@ namespace Land_Readjustment_Tool.Forms
 
             // Remarks
             txtRemarks.Text = _currentRecord.Remarks ?? "";
+
+            UpdateOtherOwnersButton();
         }
 
         private BaselineLandParcelRecord GetRecordFromForm()
@@ -379,6 +390,9 @@ namespace Land_Readjustment_Tool.Forms
                 record.AreaInRAPD = AreaConverterService.SqmToRAPDString(area);
                 record.AreaInBKD = AreaConverterService.SqmToBKDString(area);
             }
+
+            // Preserve co-owners edited via the Other Owners dialog
+            record.JointCoOwners = _currentRecord.JointCoOwners;
 
             return record;
         }
@@ -605,6 +619,20 @@ namespace Land_Readjustment_Tool.Forms
         private void btnLoadOwnerDetails_Click_1(object sender, EventArgs e)
         {
 
+        }
+
+        private void BtnOtherOwners_Click(object? sender, EventArgs e)
+        {
+            using var dlg = new frmCoOwnersList(_currentRecord.JointCoOwners, _currentRecord.ParcelNo ?? "");
+            dlg.ShowDialog(this);
+            UpdateOtherOwnersButton();
+        }
+
+        private void UpdateOtherOwnersButton()
+        {
+            if (_btnOtherOwners == null) return;
+            int count = _currentRecord.JointCoOwners.Count;
+            _btnOtherOwners.Text = $"Others ({count})";
         }
     }
 }

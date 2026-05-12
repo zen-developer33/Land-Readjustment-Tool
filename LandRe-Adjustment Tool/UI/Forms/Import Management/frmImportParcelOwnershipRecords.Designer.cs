@@ -1,4 +1,4 @@
-﻿namespace Land_Readjustment_Tool.Forms
+namespace Land_Readjustment_Tool.Forms
 {
     partial class frmImportParcelOwnershipRecords
     {
@@ -52,7 +52,6 @@
             lblSelectFile = new Label();
             grpStep4 = new GroupBox();
             btnCancel = new Button();
-            btnResolveOwnerDuplication = new Button();
             btnSaveToDatabase = new Button();
             btnValidate = new Button();
             lblTotalRecordsLabel = new Label();
@@ -61,7 +60,10 @@
             lblRecordsReady = new Label();
             lblValidationLabel = new Label();
             lblValidationStatus = new Label();
+            btnResolveOwnerDuplication = new Button();
             grpStep3 = new GroupBox();
+            btnSetSelectedJointOwnership = new Button();
+            btnResolveParcelDuplication = new Button();
             btnReMapFields = new Button();
             btnRemoveSelected = new Button();
             dgvRecords = new DataGridView();
@@ -85,9 +87,9 @@
             SCImportManager.SuspendLayout();
             pnlStepStatus.SuspendLayout();
             SuspendLayout();
-            // 
+            //
             // lblProgress
-            // 
+            //
             lblProgress.Anchor = AnchorStyles.Bottom | AnchorStyles.Left;
             lblProgress.AutoSize = true;
             lblProgress.Location = new Point(12, 692);
@@ -95,9 +97,9 @@
             lblProgress.Size = new Size(117, 20);
             lblProgress.TabIndex = 8;
             lblProgress.Text = "Import Progress:";
-            // 
+            //
             // lblStatusBar
-            // 
+            //
             lblStatusBar.Anchor = AnchorStyles.Bottom | AnchorStyles.Left;
             lblStatusBar.AutoSize = true;
             lblStatusBar.Font = new Font("Segoe UI", 9F, FontStyle.Italic);
@@ -106,17 +108,17 @@
             lblStatusBar.Size = new Size(269, 20);
             lblStatusBar.TabIndex = 9;
             lblStatusBar.Text = "Status: Ready to import land owner data.";
-            // 
+            //
             // progressBar
-            // 
+            //
             progressBar.Anchor = AnchorStyles.Bottom | AnchorStyles.Left | AnchorStyles.Right;
             progressBar.Location = new Point(135, 689);
             progressBar.Name = "progressBar";
             progressBar.Size = new Size(1285, 25);
             progressBar.TabIndex = 7;
-            // 
+            //
             // grpStep2
-            // 
+            //
             grpStep2.Anchor = AnchorStyles.Top | AnchorStyles.Bottom | AnchorStyles.Left | AnchorStyles.Right;
             grpStep2.Controls.Add(label2);
             grpStep2.Controls.Add(btnClearMapping);
@@ -130,9 +132,9 @@
             grpStep2.TabIndex = 2;
             grpStep2.TabStop = false;
             grpStep2.Text = "Step 2: Map Fields";
-            // 
+            //
             // label2
-            // 
+            //
             label2.AutoSize = true;
             label2.Font = new Font("Segoe UI", 9F);
             label2.Location = new Point(6, 33);
@@ -140,9 +142,9 @@
             label2.Size = new Size(299, 20);
             label2.TabIndex = 43;
             label2.Text = "*Select the appropriate source field to map.";
-            // 
+            //
             // btnClearMapping
-            // 
+            //
             btnClearMapping.Anchor = AnchorStyles.Bottom | AnchorStyles.Right;
             btnClearMapping.Font = new Font("Segoe UI", 9F);
             btnClearMapping.Location = new Point(139, 636);
@@ -152,9 +154,9 @@
             btnClearMapping.Text = "Clear";
             btnClearMapping.UseVisualStyleBackColor = true;
             btnClearMapping.Click += btnClearMapping_Click;
-            // 
+            //
             // btnAutoMap
-            // 
+            //
             btnAutoMap.Anchor = AnchorStyles.Bottom | AnchorStyles.Right;
             btnAutoMap.Font = new Font("Segoe UI", 9F);
             btnAutoMap.Location = new Point(42, 636);
@@ -164,22 +166,21 @@
             btnAutoMap.Text = "Auto Map";
             btnAutoMap.UseVisualStyleBackColor = true;
             btnAutoMap.Click += btnAutoMap_Click;
-            // 
+            //
             // btnApplyMapping
-            // 
+            //
             btnApplyMapping.Anchor = AnchorStyles.Bottom | AnchorStyles.Right;
-            btnApplyMapping.BackColor = SystemColors.ControlLightLight;
             btnApplyMapping.Font = new Font("Segoe UI", 9F);
             btnApplyMapping.Location = new Point(224, 636);
             btnApplyMapping.Name = "btnApplyMapping";
             btnApplyMapping.Size = new Size(122, 35);
             btnApplyMapping.TabIndex = 41;
             btnApplyMapping.Text = "Apply Mapping";
-            btnApplyMapping.UseVisualStyleBackColor = false;
+            btnApplyMapping.UseVisualStyleBackColor = true;
             btnApplyMapping.Click += btnApplyMapping_Click;
-            // 
+            //
             // dgvMapping
-            // 
+            //
             dgvMapping.AllowUserToResizeColumns = false;
             dgvMapping.AllowUserToResizeRows = false;
             dgvMapping.Anchor = AnchorStyles.Top | AnchorStyles.Bottom | AnchorStyles.Left | AnchorStyles.Right;
@@ -201,9 +202,9 @@
             dgvMapping.RowsDefaultCellStyle = dataGridViewCellStyle2;
             dgvMapping.Size = new Size(346, 567);
             dgvMapping.TabIndex = 40;
-            // 
+            //
             // grpStep1
-            // 
+            //
             grpStep1.Anchor = AnchorStyles.Top | AnchorStyles.Left | AnchorStyles.Right;
             grpStep1.Controls.Add(lblStatusBar1);
             grpStep1.Controls.Add(btnImportData);
@@ -217,13 +218,13 @@
             grpStep1.Font = new Font("Segoe UI", 9F, FontStyle.Bold);
             grpStep1.Location = new Point(3, 3);
             grpStep1.Name = "grpStep1";
-            grpStep1.Size = new Size(563, 172);
+            grpStep1.Size = new Size(483, 172);
             grpStep1.TabIndex = 1;
             grpStep1.TabStop = false;
             grpStep1.Text = "Step 1: Load Data File";
-            // 
+            //
             // lblStatusBar1
-            // 
+            //
             lblStatusBar1.AutoSize = true;
             lblStatusBar1.Font = new Font("Segoe UI", 9F);
             lblStatusBar1.Location = new Point(19, 142);
@@ -231,9 +232,9 @@
             lblStatusBar1.Size = new Size(89, 20);
             lblStatusBar1.TabIndex = 42;
             lblStatusBar1.Text = "<statusbar>";
-            // 
+            //
             // btnImportData
-            // 
+            //
             btnImportData.Font = new Font("Segoe UI", 9F);
             btnImportData.Location = new Point(366, 101);
             btnImportData.Name = "btnImportData";
@@ -242,9 +243,9 @@
             btnImportData.Text = "Import Data";
             btnImportData.UseVisualStyleBackColor = true;
             btnImportData.Click += btnImportData_Click;
-            // 
+            //
             // cbSelectSheet
-            // 
+            //
             cbSelectSheet.DropDownStyle = ComboBoxStyle.DropDownList;
             cbSelectSheet.Font = new Font("Segoe UI", 9F);
             cbSelectSheet.FormattingEnabled = true;
@@ -252,9 +253,9 @@
             cbSelectSheet.Name = "cbSelectSheet";
             cbSelectSheet.Size = new Size(240, 28);
             cbSelectSheet.TabIndex = 40;
-            // 
+            //
             // label1
-            // 
+            //
             label1.AutoSize = true;
             label1.Font = new Font("Segoe UI", 9F);
             label1.Location = new Point(15, 106);
@@ -262,9 +263,9 @@
             label1.Size = new Size(93, 20);
             label1.TabIndex = 7;
             label1.Text = "Select Sheet:";
-            // 
+            //
             // cmbFileType
-            // 
+            //
             cmbFileType.DropDownStyle = ComboBoxStyle.DropDownList;
             cmbFileType.Enabled = false;
             cmbFileType.Font = new Font("Segoe UI", 9F);
@@ -274,9 +275,9 @@
             cmbFileType.Name = "cmbFileType";
             cmbFileType.Size = new Size(240, 28);
             cmbFileType.TabIndex = 4;
-            // 
+            //
             // lblFileType
-            // 
+            //
             lblFileType.AutoSize = true;
             lblFileType.Font = new Font("Segoe UI", 9F);
             lblFileType.Location = new Point(15, 72);
@@ -284,9 +285,9 @@
             lblFileType.Size = new Size(70, 20);
             lblFileType.TabIndex = 3;
             lblFileType.Text = "File Type:";
-            // 
+            //
             // btnBrowse
-            // 
+            //
             btnBrowse.Font = new Font("Segoe UI", 9F);
             btnBrowse.Location = new Point(366, 35);
             btnBrowse.Name = "btnBrowse";
@@ -295,18 +296,18 @@
             btnBrowse.Text = "Browse...";
             btnBrowse.UseVisualStyleBackColor = true;
             btnBrowse.Click += btnBrowse_Click;
-            // 
+            //
             // txtFilePath
-            // 
+            //
             txtFilePath.Font = new Font("Segoe UI", 9F);
             txtFilePath.Location = new Point(120, 36);
             txtFilePath.Name = "txtFilePath";
             txtFilePath.ReadOnly = true;
             txtFilePath.Size = new Size(240, 27);
             txtFilePath.TabIndex = 1;
-            // 
+            //
             // lblSelectFile
-            // 
+            //
             lblSelectFile.AutoSize = true;
             lblSelectFile.Font = new Font("Segoe UI", 9F);
             lblSelectFile.Location = new Point(15, 38);
@@ -314,12 +315,11 @@
             lblSelectFile.Size = new Size(79, 20);
             lblSelectFile.TabIndex = 0;
             lblSelectFile.Text = "Select File:";
-            // 
+            //
             // grpStep4
-            // 
+            //
             grpStep4.Anchor = AnchorStyles.Top | AnchorStyles.Right;
             grpStep4.Controls.Add(btnCancel);
-            grpStep4.Controls.Add(btnResolveOwnerDuplication);
             grpStep4.Controls.Add(btnSaveToDatabase);
             grpStep4.Controls.Add(btnValidate);
             grpStep4.Controls.Add(lblTotalRecordsLabel);
@@ -329,63 +329,49 @@
             grpStep4.Controls.Add(lblValidationLabel);
             grpStep4.Controls.Add(lblValidationStatus);
             grpStep4.Font = new Font("Segoe UI", 9F, FontStyle.Bold);
-            grpStep4.Location = new Point(572, 3);
+            grpStep4.Location = new Point(492, 3);
             grpStep4.Name = "grpStep4";
-            grpStep4.Size = new Size(494, 172);
+            grpStep4.Size = new Size(574, 172);
             grpStep4.TabIndex = 4;
             grpStep4.TabStop = false;
             grpStep4.Text = "Step 2: Validata and Save";
-            // 
+            //
             // btnCancel
-            // 
+            //
             btnCancel.Font = new Font("Segoe UI", 9F);
-            btnCancel.Location = new Point(400, 136);
+            btnCancel.Location = new Point(479, 139);
             btnCancel.Name = "btnCancel";
             btnCancel.Size = new Size(87, 33);
             btnCancel.TabIndex = 11;
             btnCancel.Text = "Cancel";
             btnCancel.UseVisualStyleBackColor = true;
             btnCancel.Click += btnCancel_Click;
-            // 
-            // btnResolveOwnerDuplication
-            // 
-            btnResolveOwnerDuplication.Anchor = AnchorStyles.Bottom | AnchorStyles.Left;
-            btnResolveOwnerDuplication.BackColor = SystemColors.ControlLightLight;
-            btnResolveOwnerDuplication.Font = new Font("Segoe UI", 9F);
-            btnResolveOwnerDuplication.Location = new Point(114, 136);
-            btnResolveOwnerDuplication.Name = "btnResolveOwnerDuplication";
-            btnResolveOwnerDuplication.Size = new Size(198, 33);
-            btnResolveOwnerDuplication.TabIndex = 47;
-            btnResolveOwnerDuplication.Text = "Resolve Owner Duplication";
-            btnResolveOwnerDuplication.UseVisualStyleBackColor = false;
-            btnResolveOwnerDuplication.Click += btnResolveOwnerDuplication_Click;
-            // 
+            //
             // btnSaveToDatabase
-            // 
-            btnSaveToDatabase.BackColor = SystemColors.ControlLightLight;
+            //
             btnSaveToDatabase.Enabled = false;
             btnSaveToDatabase.Font = new Font("Segoe UI", 9F);
-            btnSaveToDatabase.Location = new Point(318, 136);
+            btnSaveToDatabase.Location = new Point(397, 139);
             btnSaveToDatabase.Name = "btnSaveToDatabase";
             btnSaveToDatabase.Size = new Size(76, 33);
             btnSaveToDatabase.TabIndex = 10;
             btnSaveToDatabase.Text = "Save";
-            btnSaveToDatabase.UseVisualStyleBackColor = false;
+            btnSaveToDatabase.UseVisualStyleBackColor = true;
             btnSaveToDatabase.Click += btnSaveToDatabase_Click;
-            // 
+            //
             // btnValidate
-            // 
+            //
             btnValidate.Font = new Font("Segoe UI", 9F);
-            btnValidate.Location = new Point(6, 136);
+            btnValidate.Location = new Point(289, 139);
             btnValidate.Name = "btnValidate";
             btnValidate.Size = new Size(102, 33);
             btnValidate.TabIndex = 9;
             btnValidate.Text = "Re-Validate";
             btnValidate.UseVisualStyleBackColor = true;
             btnValidate.Click += btnValidate_Click;
-            // 
+            //
             // lblTotalRecordsLabel
-            // 
+            //
             lblTotalRecordsLabel.AutoSize = true;
             lblTotalRecordsLabel.Font = new Font("Segoe UI", 9F);
             lblTotalRecordsLabel.Location = new Point(15, 90);
@@ -393,9 +379,9 @@
             lblTotalRecordsLabel.Size = new Size(102, 20);
             lblTotalRecordsLabel.TabIndex = 7;
             lblTotalRecordsLabel.Text = "Total Records:";
-            // 
+            //
             // lblTotalRecords
-            // 
+            //
             lblTotalRecords.AutoSize = true;
             lblTotalRecords.Font = new Font("Segoe UI", 9F, FontStyle.Bold);
             lblTotalRecords.Location = new Point(200, 90);
@@ -403,9 +389,9 @@
             lblTotalRecords.Size = new Size(18, 20);
             lblTotalRecords.TabIndex = 6;
             lblTotalRecords.Text = "0";
-            // 
+            //
             // lblRecordsReadyLabel
-            // 
+            //
             lblRecordsReadyLabel.AutoSize = true;
             lblRecordsReadyLabel.Font = new Font("Segoe UI", 9F);
             lblRecordsReadyLabel.Location = new Point(15, 60);
@@ -413,9 +399,9 @@
             lblRecordsReadyLabel.Size = new Size(163, 20);
             lblRecordsReadyLabel.TabIndex = 5;
             lblRecordsReadyLabel.Text = "Records Ready to Save:";
-            // 
+            //
             // lblRecordsReady
-            // 
+            //
             lblRecordsReady.AutoSize = true;
             lblRecordsReady.Font = new Font("Segoe UI", 9F, FontStyle.Bold);
             lblRecordsReady.Location = new Point(200, 60);
@@ -423,9 +409,9 @@
             lblRecordsReady.Size = new Size(18, 20);
             lblRecordsReady.TabIndex = 4;
             lblRecordsReady.Text = "0";
-            // 
+            //
             // lblValidationLabel
-            // 
+            //
             lblValidationLabel.AutoSize = true;
             lblValidationLabel.Font = new Font("Segoe UI", 9F);
             lblValidationLabel.Location = new Point(15, 30);
@@ -433,22 +419,37 @@
             lblValidationLabel.Size = new Size(79, 20);
             lblValidationLabel.TabIndex = 3;
             lblValidationLabel.Text = "Validation:";
-            // 
+            //
             // lblValidationStatus
-            // 
+            //
             lblValidationStatus.AutoSize = true;
             lblValidationStatus.Font = new Font("Segoe UI", 9F, FontStyle.Bold);
-            lblValidationStatus.ForeColor = Color.Gray;
+            lblValidationStatus.ForeColor = SystemColors.ControlText;
             lblValidationStatus.Location = new Point(200, 30);
             lblValidationStatus.Name = "lblValidationStatus";
             lblValidationStatus.Size = new Size(105, 20);
             lblValidationStatus.TabIndex = 2;
             lblValidationStatus.Text = "Not Validated";
-            // 
+            //
+            // btnResolveOwnerDuplication
+            //
+            btnResolveOwnerDuplication.Anchor = AnchorStyles.Bottom | AnchorStyles.Left;
+            btnResolveOwnerDuplication.Font = new Font("Segoe UI", 9F);
+            btnResolveOwnerDuplication.Location = new Point(409, 456);
+            btnResolveOwnerDuplication.Name = "btnResolveOwnerDuplication";
+            btnResolveOwnerDuplication.Size = new Size(155, 33);
+            btnResolveOwnerDuplication.TabIndex = 47;
+            btnResolveOwnerDuplication.Text = "Owner Dedupe";
+            btnResolveOwnerDuplication.UseVisualStyleBackColor = true;
+            btnResolveOwnerDuplication.Click += btnResolveOwnerDuplication_Click;
+            //
             // grpStep3
-            // 
+            //
             grpStep3.Anchor = AnchorStyles.Top | AnchorStyles.Bottom | AnchorStyles.Left | AnchorStyles.Right;
+            grpStep3.Controls.Add(btnSetSelectedJointOwnership);
+            grpStep3.Controls.Add(btnResolveParcelDuplication);
             grpStep3.Controls.Add(btnReMapFields);
+            grpStep3.Controls.Add(btnResolveOwnerDuplication);
             grpStep3.Controls.Add(btnRemoveSelected);
             grpStep3.Controls.Add(dgvRecords);
             grpStep3.Controls.Add(btnFixErrors);
@@ -460,9 +461,34 @@
             grpStep3.TabIndex = 5;
             grpStep3.TabStop = false;
             grpStep3.Text = "Step 3: Review && Edit Records";
-            // 
+            //
+            // btnSetSelectedJointOwnership
+            //
+            btnSetSelectedJointOwnership.Anchor = AnchorStyles.Bottom | AnchorStyles.Left;
+            btnSetSelectedJointOwnership.Enabled = false;
+            btnSetSelectedJointOwnership.Font = new Font("Segoe UI", 9F);
+            btnSetSelectedJointOwnership.Location = new Point(731, 457);
+            btnSetSelectedJointOwnership.Name = "btnSetSelectedJointOwnership";
+            btnSetSelectedJointOwnership.Size = new Size(186, 33);
+            btnSetSelectedJointOwnership.TabIndex = 50;
+            btnSetSelectedJointOwnership.Text = "Set Joint Ownership";
+            btnSetSelectedJointOwnership.UseVisualStyleBackColor = true;
+            btnSetSelectedJointOwnership.Click += btnSetSelectedJointOwnership_Click;
+            //
+            // btnResolveParcelDuplication
+            //
+            btnResolveParcelDuplication.Anchor = AnchorStyles.Bottom | AnchorStyles.Left;
+            btnResolveParcelDuplication.Font = new Font("Segoe UI", 9F);
+            btnResolveParcelDuplication.Location = new Point(570, 457);
+            btnResolveParcelDuplication.Name = "btnResolveParcelDuplication";
+            btnResolveParcelDuplication.Size = new Size(155, 33);
+            btnResolveParcelDuplication.TabIndex = 49;
+            btnResolveParcelDuplication.Text = "Parcel Dedupe";
+            btnResolveParcelDuplication.UseVisualStyleBackColor = true;
+            btnResolveParcelDuplication.Click += btnResolveParcelDuplication_Click;
+            //
             // btnReMapFields
-            // 
+            //
             btnReMapFields.Anchor = AnchorStyles.Bottom | AnchorStyles.Right;
             btnReMapFields.Font = new Font("Segoe UI", 9F);
             btnReMapFields.Location = new Point(923, 455);
@@ -472,21 +498,21 @@
             btnReMapFields.Text = "Re-Map Fields";
             btnReMapFields.UseVisualStyleBackColor = true;
             btnReMapFields.Click += btnReMapFields_Click;
-            // 
+            //
             // btnRemoveSelected
-            // 
+            //
             btnRemoveSelected.Anchor = AnchorStyles.Bottom | AnchorStyles.Left;
             btnRemoveSelected.Font = new Font("Segoe UI", 9F);
-            btnRemoveSelected.Location = new Point(135, 455);
+            btnRemoveSelected.Location = new Point(107, 455);
             btnRemoveSelected.Name = "btnRemoveSelected";
-            btnRemoveSelected.Size = new Size(146, 35);
+            btnRemoveSelected.Size = new Size(120, 35);
             btnRemoveSelected.TabIndex = 46;
-            btnRemoveSelected.Text = "Delete Selected";
+            btnRemoveSelected.Text = "Delete";
             btnRemoveSelected.UseVisualStyleBackColor = true;
             btnRemoveSelected.Click += btnRemoveSelected_Click;
-            // 
+            //
             // dgvRecords
-            // 
+            //
             dgvRecords.AllowUserToAddRows = false;
             dgvRecords.AllowUserToDeleteRows = false;
             dgvRecords.Anchor = AnchorStyles.Top | AnchorStyles.Bottom | AnchorStyles.Left | AnchorStyles.Right;
@@ -509,57 +535,56 @@
             dgvRecords.Size = new Size(1048, 423);
             dgvRecords.TabIndex = 0;
             dgvRecords.CellContentClick += dgvRecords_CellContentClick;
-            // 
+            //
             // btnFixErrors
-            // 
+            //
             btnFixErrors.Anchor = AnchorStyles.Bottom | AnchorStyles.Left;
-            btnFixErrors.BackColor = SystemColors.ControlLightLight;
             btnFixErrors.Font = new Font("Segoe UI", 9F);
-            btnFixErrors.Location = new Point(287, 455);
+            btnFixErrors.Location = new Point(233, 455);
             btnFixErrors.Name = "btnFixErrors";
-            btnFixErrors.Size = new Size(216, 35);
+            btnFixErrors.Size = new Size(170, 35);
             btnFixErrors.TabIndex = 44;
-            btnFixErrors.Text = "Show/Fix validation Errors";
-            btnFixErrors.UseVisualStyleBackColor = false;
+            btnFixErrors.Text = "Validation Errors";
+            btnFixErrors.UseVisualStyleBackColor = true;
             btnFixErrors.Click += btnFixErrors_Click;
-            // 
+            //
             // btnEditRecord
-            // 
+            //
             btnEditRecord.Anchor = AnchorStyles.Bottom | AnchorStyles.Left;
             btnEditRecord.Font = new Font("Segoe UI", 9F);
             btnEditRecord.Location = new Point(11, 455);
             btnEditRecord.Name = "btnEditRecord";
-            btnEditRecord.Size = new Size(118, 35);
+            btnEditRecord.Size = new Size(90, 35);
             btnEditRecord.TabIndex = 45;
-            btnEditRecord.Text = "Edit selected";
+            btnEditRecord.Text = "Edit";
             btnEditRecord.UseVisualStyleBackColor = true;
             btnEditRecord.Click += btnEditRecord_Click;
-            // 
+            //
             // SCImportManager
-            // 
+            //
             SCImportManager.Anchor = AnchorStyles.Top | AnchorStyles.Bottom | AnchorStyles.Left | AnchorStyles.Right;
             SCImportManager.Location = new Point(0, 0);
             SCImportManager.Name = "SCImportManager";
-            // 
+            //
             // SCImportManager.Panel1
-            // 
+            //
             SCImportManager.Panel1.Controls.Add(grpStep3);
             SCImportManager.Panel1.Controls.Add(grpStep4);
             SCImportManager.Panel1.Controls.Add(grpStep1);
             SCImportManager.Panel1MinSize = 500;
-            // 
+            //
             // SCImportManager.Panel2
-            // 
+            //
             SCImportManager.Panel2.Controls.Add(grpStep2);
             SCImportManager.Panel2MinSize = 300;
             SCImportManager.Size = new Size(1426, 683);
             SCImportManager.SplitterDistance = 1069;
             SCImportManager.TabIndex = 0;
-            // 
+            //
             // pnlStepStatus
-            // 
+            //
             pnlStepStatus.Anchor = AnchorStyles.Bottom | AnchorStyles.Left | AnchorStyles.Right;
-            pnlStepStatus.BackColor = SystemColors.ControlLight;
+            pnlStepStatus.BackColor = SystemColors.Control;
             pnlStepStatus.BorderStyle = BorderStyle.FixedSingle;
             pnlStepStatus.Controls.Add(lblStep1Status);
             pnlStepStatus.Controls.Add(lblStep2Status);
@@ -569,53 +594,53 @@
             pnlStepStatus.Name = "pnlStepStatus";
             pnlStepStatus.Size = new Size(1402, 35);
             pnlStepStatus.TabIndex = 10;
-            // 
+            //
             // lblStep1Status
-            // 
+            //
             lblStep1Status.AutoSize = true;
             lblStep1Status.Font = new Font("Segoe UI", 9F, FontStyle.Bold);
-            lblStep1Status.ForeColor = Color.Gray;
+            lblStep1Status.ForeColor = SystemColors.ControlText;
             lblStep1Status.Location = new Point(10, 7);
             lblStep1Status.Name = "lblStep1Status";
             lblStep1Status.Size = new Size(144, 20);
             lblStep1Status.TabIndex = 0;
-            lblStep1Status.Text = "Step 1: ⏳ Pending";
-            // 
+            lblStep1Status.Text = "Step 1: ? Pending";
+            //
             // lblStep2Status
-            // 
+            //
             lblStep2Status.AutoSize = true;
             lblStep2Status.Font = new Font("Segoe UI", 9F, FontStyle.Bold);
-            lblStep2Status.ForeColor = Color.Gray;
+            lblStep2Status.ForeColor = SystemColors.ControlText;
             lblStep2Status.Location = new Point(307, 7);
             lblStep2Status.Name = "lblStep2Status";
             lblStep2Status.Size = new Size(144, 20);
             lblStep2Status.TabIndex = 1;
-            lblStep2Status.Text = "Step 2: ⏳ Pending";
-            // 
+            lblStep2Status.Text = "Step 2: ? Pending";
+            //
             // lblStep3Status
-            // 
+            //
             lblStep3Status.AutoSize = true;
             lblStep3Status.Font = new Font("Segoe UI", 9F, FontStyle.Bold);
-            lblStep3Status.ForeColor = Color.Gray;
+            lblStep3Status.ForeColor = SystemColors.ControlText;
             lblStep3Status.Location = new Point(604, 7);
             lblStep3Status.Name = "lblStep3Status";
             lblStep3Status.Size = new Size(144, 20);
             lblStep3Status.TabIndex = 2;
-            lblStep3Status.Text = "Step 3: ⏳ Pending";
-            // 
+            lblStep3Status.Text = "Step 3: ? Pending";
+            //
             // lblStep4Status
-            // 
+            //
             lblStep4Status.AutoSize = true;
             lblStep4Status.Font = new Font("Segoe UI", 9F, FontStyle.Bold);
-            lblStep4Status.ForeColor = Color.Gray;
+            lblStep4Status.ForeColor = SystemColors.ControlText;
             lblStep4Status.Location = new Point(901, 7);
             lblStep4Status.Name = "lblStep4Status";
             lblStep4Status.Size = new Size(144, 20);
             lblStep4Status.TabIndex = 3;
-            lblStep4Status.Text = "Step 4: ⏳ Pending";
-            // 
+            lblStep4Status.Text = "Step 4: ? Pending";
+            //
             // frmImportParcelOwnershipRecords
-            // 
+            //
             AutoScaleDimensions = new SizeF(8F, 20F);
             AutoScaleMode = AutoScaleMode.Font;
             ClientSize = new Size(1426, 797);
@@ -694,5 +719,7 @@
         private Label lblStep2Status;
         private Label lblStep3Status;
         private Label lblStep4Status;
+        private Button btnResolveParcelDuplication;
+        private Button btnSetSelectedJointOwnership;
     }
 }

@@ -288,9 +288,7 @@ namespace Land_Readjustment_Tool.UI.CustomControls
                 }
 
                 _orthoModeEnabled = value;
-                // Always refresh the display when ortho mode changes so previews update
-                RequestRender();
-
+                RefreshDrawingPreviewFromCursor();
                 UpdateStatusBar();
             }
         }
@@ -1223,90 +1221,48 @@ namespace Land_Readjustment_Tool.UI.CustomControls
         {
             PointD mouseWorld = _engine.ScreenToWorld(screenPoint);
 
-            if (!_snapEnabled || _currentSnapPoint == null)
-            {
-                return ShouldApplyOrthoConstraint()
-                    ? ApplyOrthoConstraint(_drawingVertices[^1], mouseWorld)
-                    : mouseWorld;
-            }
+            // Snap always takes priority — even when ortho is active.
+            if (_snapEnabled && _currentSnapPoint != null)
+                return _currentSnapPoint.Position;
 
-            PointD snapWorld = _currentSnapPoint.Position;
+            if (!IsActiveLineSegmentOrthoConstrained())
+                return mouseWorld;
 
-            if (!ShouldApplyOrthoConstraint())
-            {
-                return snapWorld;
-            }
-
-            PointD anchor = _drawingVertices[^1];
-            PointD orthoPoint = ApplyOrthoConstraint(anchor, mouseWorld);
-            return IsOrthoCompatibleSnap(anchor, mouseWorld, snapWorld)
-                ? snapWorld
-                : orthoPoint;
+            PointD anchor = GetCurrentOrthoAnchor();
+            return OrthoConstraintService.ConstrainToDominantAxis(anchor, mouseWorld);
         }
 
-        private bool ShouldApplyOrthoConstraint()
+        private bool IsActiveLineSegmentOrthoConstrained()
         {
-            return _orthoModeEnabled &&
-                   _drawingVertices.Count > 0 &&
-                   (_activeTool == MapCanvasTool.Line ||
-                    _activeTool == MapCanvasTool.Rectangle ||
-                    ((_activeTool == MapCanvasTool.Polyline || _activeTool == MapCanvasTool.Polygon) &&
-                     _polylineSegmentMode == PolylineSegmentDrawingMode.Line));
-        }
-
-        private bool IsOrthoCompatibleSnap(PointD anchor, PointD mouseWorld, PointD snapWorld)
-        {
-            double dx = mouseWorld.X - anchor.X;
-            double dy = mouseWorld.Y - anchor.Y;
-            bool isHorizontal = Math.Abs(dx) >= Math.Abs(dy);
-            double tolerance = _engine.ScreenToWorldDistance(_snapPickTolerancePixels);
-
-            // If the snap is exactly on the anchor, consider it compatible —
-            // don't reject it just because the mouse moved some distance.
-            if (SameWorldPoint(anchor, snapWorld))
+            if (!_orthoModeEnabled || _drawingVertices.Count == 0)
             {
-                return true;
+                return false;
             }
 
-            return isHorizontal
-                ? Math.Abs(snapWorld.Y - anchor.Y) <= tolerance
-                : Math.Abs(snapWorld.X - anchor.X) <= tolerance;
+            return _activeTool == MapCanvasTool.Line ||
+                   ((_activeTool == MapCanvasTool.Polyline || _activeTool == MapCanvasTool.Polygon) &&
+                    _polylineSegmentMode == PolylineSegmentDrawingMode.Line &&
+                    !_polylineArcAwaitingCenter &&
+                    !_polylineArcAwaitingEnd &&
+                    !_pendingPolylineArcThroughPoint.HasValue);
         }
 
-        private PointD ApplyOrthoConstraint(PointD anchor, PointD candidate)
+        private PointD GetCurrentOrthoAnchor()
         {
-            double dx = candidate.X - anchor.X;
-            double dy = candidate.Y - anchor.Y;
+            return _activeTool == MapCanvasTool.Line
+                ? _drawingVertices[0]
+                : _drawingVertices[^1];
+        }
 
-            // Rectangle in ortho mode: constrain to a square by using the larger delta for both axes
-            if (_activeTool == MapCanvasTool.Rectangle)
+        private void RefreshDrawingPreviewFromCursor()
+        {
+            if (_activeTool != MapCanvasTool.Select && _drawingVertices.Count > 0)
             {
-                double sideMagnitude = Math.Max(Math.Abs(dx), Math.Abs(dy));
-                if (sideMagnitude <= 0.0)
-                {
-                    return anchor;
-                }
-
-                double signX = Math.Sign(dx);
-                double signY = Math.Sign(dy);
-                if (signX == 0.0)
-                {
-                    signX = signY != 0.0 ? signY : 1.0;
-                }
-
-                if (signY == 0.0)
-                {
-                    signY = signX;
-                }
-
-                double sideX = signX * sideMagnitude;
-                double sideY = signY * sideMagnitude;
-                return new PointD(anchor.X + sideX, anchor.Y + sideY);
+                UpdateDrawingPreview(canvasSurface.PointToClient(Cursor.Position));
+                return;
             }
 
-            return Math.Abs(dx) >= Math.Abs(dy)
-                ? new PointD(candidate.X, anchor.Y)
-                : new PointD(anchor.X, candidate.Y);
+            RequestRender();
         }
 
         private void HandleTwoPointDrawing(PointD worldPoint)
@@ -2072,7 +2028,7 @@ namespace Land_Readjustment_Tool.UI.CustomControls
                     points.Add(worldPoint);
                     return new PolylineShape(points, segments, isClosed);
                 }
-                // Arc is degenerate (start ≈ end); show only what's been drawn so far
+                // Arc is degenerate; show only what's been drawn so far.
                 return new PolylineShape(points, segments, isClosed);
             }
 
@@ -2090,7 +2046,7 @@ namespace Land_Readjustment_Tool.UI.CustomControls
             {
                 if (_pendingPolylineArcThroughPoint.HasValue)
                 {
-                    // Through-point is locked; preview the live arc from start → through → mouse
+                    // Through-point is locked; preview the live arc through the mouse.
                     ArcShape? arc = ArcShape.FromThreePoints(
                         points[^1],
                         _pendingPolylineArcThroughPoint.Value,
@@ -2113,7 +2069,7 @@ namespace Land_Readjustment_Tool.UI.CustomControls
                 }
                 else
                 {
-                    // Through-point not yet picked — show rubber-band line to mouse
+                    // Through-point not yet picked; show rubber-band line to mouse.
                     segments.Add(new PolylineShape.PolylineSegment(
                         PolylineShape.PolylineSegmentKind.Line,
                         points[^1],

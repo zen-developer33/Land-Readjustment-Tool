@@ -47,8 +47,24 @@ namespace Land_Readjustment_Tool.Services
             public string? ContactNumber { get; set; }
             public string? EmailID { get; set; }
             public List<int> ParcelIndices { get; set; } = new();
+            public List<OwnerReference> SourceOwners { get; set; } = new();
             public bool IsAnonymous { get; set; }
             public int CompletenessScore => GetCompletenessScore(this);
+        }
+
+        public enum OwnerReferenceKind
+        {
+            Primary = 0,
+            CoOwner = 1
+        }
+
+        public class OwnerReference
+        {
+            public int ParcelIndex { get; set; }
+            public OwnerReferenceKind Kind { get; set; }
+            public int? CoOwnerIndex { get; set; }
+            public BaselineLandParcelRecord? Record { get; set; }
+            public CoOwnerRecord? CoOwner { get; set; }
         }
 
         public class DuplicateGroup
@@ -603,44 +619,128 @@ namespace Land_Readjustment_Tool.Services
             DeduplicationResult result,
             bool excludeAnonymous)
         {
-            var owners = new List<UniqueOwner>(records.Count);
+            var owners = new List<UniqueOwner>();
             var anonymousCounter = 1;
 
             for (int i = 0; i < records.Count; i++)
             {
                 var record = records[i];
-                var rawName = NormalizeNullable(record.LandOwnersName);
-
-                var isAnonymous = string.IsNullOrWhiteSpace(rawName) || ContainsAnonymousKeyword(rawName!);
-                var name = isAnonymous ? $"Anonymous Owner {anonymousCounter++}" : rawName!;
-
-                if (isAnonymous)
-                    result.AnonymousOwnersCreated++;
-
-                if (excludeAnonymous && isAnonymous)
+                if (record.IsJointCoOwnerRow)
                     continue;
 
-                var owner = new UniqueOwner
-                {
-                    LandOwnersName = name,
-                    FatherSpouse = NormalizeNullable(record.FatherSpouse),
-                    Gender = NormalizeNullable(record.Gender),
-                    CitizenshipNumber = NormalizeNullable(record.CitizenshipNumber),
-                    CitizenshipIssuedDistrict = NormalizeNullable(record.CitizenshipIssuedDistrict),
-                    CitizenshipIssuedDate = NormalizeNullable(record.CitizenshipIssuedDate),
-                    PermanentAddress = NormalizeNullable(record.PermanentAddress),
-                    TemporaryAddress = NormalizeNullable(record.TemporaryAddress),
-                    ContactNumber = NormalizeNullable(record.ContactNumber),
-                    EmailID = NormalizeNullable(record.EmailID),
-                    ParcelIndices = new List<int> { i },
-                    IsAnonymous = isAnonymous
-                };
+                AddOwnerSeed(
+                    owners,
+                    result,
+                    ref anonymousCounter,
+                    excludeAnonymous,
+                    i,
+                    OwnerReferenceKind.Primary,
+                    null,
+                    record,
+                    null,
+                    record.LandOwnersName,
+                    record.FatherSpouse,
+                    record.Gender,
+                    record.CitizenshipNumber,
+                    record.CitizenshipIssuedDistrict,
+                    record.CitizenshipIssuedDate,
+                    record.PermanentAddress,
+                    record.TemporaryAddress,
+                    record.ContactNumber,
+                    record.EmailID);
 
-                SanitizeOwnerByCategory(owner);
-                owners.Add(owner);
+                if (record.JointCoOwners == null)
+                    continue;
+
+                for (int coOwnerIndex = 0; coOwnerIndex < record.JointCoOwners.Count; coOwnerIndex++)
+                {
+                    var coOwner = record.JointCoOwners[coOwnerIndex];
+                    AddOwnerSeed(
+                        owners,
+                        result,
+                        ref anonymousCounter,
+                        excludeAnonymous,
+                        i,
+                        OwnerReferenceKind.CoOwner,
+                        coOwnerIndex,
+                        record,
+                        coOwner,
+                        coOwner.OwnerName,
+                        coOwner.FatherSpouse,
+                        coOwner.Gender,
+                        coOwner.CitizenshipNumber,
+                        coOwner.CitizenshipIssuedDistrict,
+                        coOwner.CitizenshipIssuedDate,
+                        coOwner.PermanentAddress,
+                        coOwner.TemporaryAddress,
+                        coOwner.ContactNumber,
+                        coOwner.EmailID);
+                }
             }
 
             return owners;
+        }
+
+        private static void AddOwnerSeed(
+            List<UniqueOwner> owners,
+            DeduplicationResult result,
+            ref int anonymousCounter,
+            bool excludeAnonymous,
+            int parcelIndex,
+            OwnerReferenceKind sourceKind,
+            int? coOwnerIndex,
+            BaselineLandParcelRecord? sourceRecord,
+            CoOwnerRecord? sourceCoOwner,
+            string? landOwnersName,
+            string? fatherSpouse,
+            string? gender,
+            string? citizenshipNumber,
+            string? citizenshipIssuedDistrict,
+            string? citizenshipIssuedDate,
+            string? permanentAddress,
+            string? temporaryAddress,
+            string? contactNumber,
+            string? emailId)
+        {
+            var rawName = NormalizeNullable(landOwnersName);
+            var isAnonymous = string.IsNullOrWhiteSpace(rawName) || ContainsAnonymousKeyword(rawName!);
+            var name = isAnonymous ? $"Anonymous Owner {anonymousCounter++}" : rawName!;
+
+            if (isAnonymous)
+                result.AnonymousOwnersCreated++;
+
+            if (excludeAnonymous && isAnonymous)
+                return;
+
+            var owner = new UniqueOwner
+            {
+                LandOwnersName = name,
+                FatherSpouse = NormalizeNullable(fatherSpouse),
+                Gender = NormalizeNullable(gender),
+                CitizenshipNumber = NormalizeNullable(citizenshipNumber),
+                CitizenshipIssuedDistrict = NormalizeNullable(citizenshipIssuedDistrict),
+                CitizenshipIssuedDate = NormalizeNullable(citizenshipIssuedDate),
+                PermanentAddress = NormalizeNullable(permanentAddress),
+                TemporaryAddress = NormalizeNullable(temporaryAddress),
+                ContactNumber = NormalizeNullable(contactNumber),
+                EmailID = NormalizeNullable(emailId),
+                ParcelIndices = new List<int> { parcelIndex },
+                SourceOwners = new List<OwnerReference>
+                {
+                    new()
+                    {
+                        ParcelIndex = parcelIndex,
+                        Kind = sourceKind,
+                        CoOwnerIndex = coOwnerIndex,
+                        Record = sourceRecord,
+                        CoOwner = sourceCoOwner
+                    }
+                },
+                IsAnonymous = isAnonymous
+            };
+
+            SanitizeOwnerByCategory(owner);
+            owners.Add(owner);
         }
 
         private static string BuildIdentityKey(UniqueOwner owner)
@@ -653,7 +753,7 @@ namespace Land_Readjustment_Tool.Services
             if (owner.IsAnonymous)
             {
                 // Keep anonymous owners isolated by their row linkage.
-                return $"A::{normalizedName}::{string.Join(",", owner.ParcelIndices.OrderBy(x => x))}";
+                return $"A::{normalizedName}::{BuildSourceSignature(owner)}";
             }
 
             if (category == OwnerCategory.Institution)
@@ -739,6 +839,14 @@ namespace Land_Readjustment_Tool.Services
 
             var merged = CloneOwner(best);
             merged.ParcelIndices = owners.SelectMany(o => o.ParcelIndices).Distinct().OrderBy(x => x).ToList();
+            merged.SourceOwners = owners
+                .SelectMany(o => o.SourceOwners)
+                .Select(CloneSourceReference)
+                .DistinctBy(BuildSourceReferenceKey)
+                .OrderBy(r => r.ParcelIndex)
+                .ThenBy(r => r.Kind)
+                .ThenBy(r => r.CoOwnerIndex ?? -1)
+                .ToList();
 
             if (DetermineOwnerCategory(merged) == OwnerCategory.Institution)
             {
@@ -783,40 +891,132 @@ namespace Land_Readjustment_Tool.Services
             foreach (var owner in deduplicationResult.UniqueOwners)
             {
                 var category = DetermineOwnerCategory(owner);
+                if (owner.SourceOwners.Count > 0)
+                {
+                    foreach (var source in owner.SourceOwners)
+                    {
+                        ApplyOwnerToSource(records, source, owner, category);
+                    }
+
+                    continue;
+                }
+
                 foreach (var index in owner.ParcelIndices)
                 {
                     if (index < 0 || index >= records.Count)
                         continue;
 
-                    var record = records[index];
-                    record.LandOwnersName = owner.LandOwnersName;
-
-                    if (category == OwnerCategory.Institution)
-                    {
-                        record.FatherSpouse = null;
-                        record.Gender = null;
-                        record.CitizenshipNumber = null;
-                        record.CitizenshipIssuedDistrict = null;
-                        record.CitizenshipIssuedDate = null;
-                        record.PermanentAddress = null;
-                        record.TemporaryAddress = null;
-                        record.ContactNumber = null;
-                        record.EmailID = null;
-                    }
-                    else
-                    {
-                        record.FatherSpouse = owner.FatherSpouse;
-                        record.Gender = owner.Gender;
-                        record.CitizenshipNumber = owner.CitizenshipNumber;
-                        record.CitizenshipIssuedDistrict = owner.CitizenshipIssuedDistrict;
-                        record.CitizenshipIssuedDate = owner.CitizenshipIssuedDate;
-                        record.PermanentAddress = owner.PermanentAddress;
-                        record.TemporaryAddress = owner.TemporaryAddress;
-                        record.ContactNumber = owner.ContactNumber;
-                        record.EmailID = owner.EmailID;
-                    }
+                    ApplyOwnerToSource(
+                        records,
+                        new OwnerReference { ParcelIndex = index, Kind = OwnerReferenceKind.Primary },
+                        owner,
+                        category);
                 }
             }
+        }
+
+        private static void ApplyOwnerToSource(
+            List<BaselineLandParcelRecord> records,
+            OwnerReference source,
+            UniqueOwner owner,
+            OwnerCategory category)
+        {
+            var record = source.Record;
+            if (record == null)
+            {
+                if (source.ParcelIndex < 0 || source.ParcelIndex >= records.Count)
+                    return;
+
+                record = records[source.ParcelIndex];
+            }
+
+            if (record == null)
+                return;
+
+            if (source.Kind == OwnerReferenceKind.CoOwner)
+            {
+                var coOwner = source.CoOwner;
+                if (coOwner == null)
+                {
+                    if (!source.CoOwnerIndex.HasValue ||
+                        source.CoOwnerIndex.Value < 0 ||
+                        source.CoOwnerIndex.Value >= record.JointCoOwners.Count)
+                    {
+                        return;
+                    }
+
+                    coOwner = record.JointCoOwners[source.CoOwnerIndex.Value];
+                }
+
+                ApplyOwnerToCoOwner(coOwner, owner, category);
+                return;
+            }
+
+            ApplyOwnerToPrimaryRecord(record, owner, category);
+        }
+
+        private static void ApplyOwnerToPrimaryRecord(
+            BaselineLandParcelRecord record,
+            UniqueOwner owner,
+            OwnerCategory category)
+        {
+            record.LandOwnersName = owner.LandOwnersName;
+
+            if (category == OwnerCategory.Institution)
+            {
+                record.FatherSpouse = null;
+                record.Gender = null;
+                record.CitizenshipNumber = null;
+                record.CitizenshipIssuedDistrict = null;
+                record.CitizenshipIssuedDate = null;
+                record.PermanentAddress = null;
+                record.TemporaryAddress = null;
+                record.ContactNumber = null;
+                record.EmailID = null;
+                return;
+            }
+
+            record.FatherSpouse = owner.FatherSpouse;
+            record.Gender = owner.Gender;
+            record.CitizenshipNumber = owner.CitizenshipNumber;
+            record.CitizenshipIssuedDistrict = owner.CitizenshipIssuedDistrict;
+            record.CitizenshipIssuedDate = owner.CitizenshipIssuedDate;
+            record.PermanentAddress = owner.PermanentAddress;
+            record.TemporaryAddress = owner.TemporaryAddress;
+            record.ContactNumber = owner.ContactNumber;
+            record.EmailID = owner.EmailID;
+        }
+
+        private static void ApplyOwnerToCoOwner(
+            CoOwnerRecord coOwner,
+            UniqueOwner owner,
+            OwnerCategory category)
+        {
+            coOwner.OwnerName = owner.LandOwnersName;
+
+            if (category == OwnerCategory.Institution)
+            {
+                coOwner.FatherSpouse = null;
+                coOwner.Gender = null;
+                coOwner.CitizenshipNumber = null;
+                coOwner.CitizenshipIssuedDistrict = null;
+                coOwner.CitizenshipIssuedDate = null;
+                coOwner.PermanentAddress = null;
+                coOwner.TemporaryAddress = null;
+                coOwner.ContactNumber = null;
+                coOwner.EmailID = null;
+                return;
+            }
+
+            coOwner.FatherSpouse = owner.FatherSpouse;
+            coOwner.Gender = owner.Gender;
+            coOwner.CitizenshipNumber = owner.CitizenshipNumber;
+            coOwner.CitizenshipIssuedDistrict = owner.CitizenshipIssuedDistrict;
+            coOwner.CitizenshipIssuedDate = owner.CitizenshipIssuedDate;
+            coOwner.PermanentAddress = owner.PermanentAddress;
+            coOwner.TemporaryAddress = owner.TemporaryAddress;
+            coOwner.ContactNumber = owner.ContactNumber;
+            coOwner.EmailID = owner.EmailID;
         }
 
         public static int GetCompletenessScore(UniqueOwner owner)
@@ -955,6 +1155,38 @@ namespace Land_Readjustment_Tool.Services
             return $"{name} {father}".Trim();
         }
 
+        public static string BuildSourceSignature(UniqueOwner owner)
+        {
+            if (owner.SourceOwners.Count == 0)
+            {
+                return string.Join(",", owner.ParcelIndices.OrderBy(x => x));
+            }
+
+            return string.Join(",",
+                owner.SourceOwners
+                    .Select(BuildSourceReferenceKey)
+                    .OrderBy(key => key, StringComparer.Ordinal));
+        }
+
+        private static string BuildSourceReferenceKey(OwnerReference source)
+        {
+            return source.Kind == OwnerReferenceKind.CoOwner
+                ? $"{source.ParcelIndex}:C:{source.CoOwnerIndex ?? -1}"
+                : $"{source.ParcelIndex}:P";
+        }
+
+        private static OwnerReference CloneSourceReference(OwnerReference source)
+        {
+            return new OwnerReference
+            {
+                ParcelIndex = source.ParcelIndex,
+                Kind = source.Kind,
+                CoOwnerIndex = source.CoOwnerIndex,
+                Record = source.Record,
+                CoOwner = source.CoOwner
+            };
+        }
+
         private static string? NormalizeNullable(string? value)
         {
             if (string.IsNullOrWhiteSpace(value))
@@ -979,6 +1211,7 @@ namespace Land_Readjustment_Tool.Services
                 ContactNumber = owner.ContactNumber,
                 EmailID = owner.EmailID,
                 ParcelIndices = owner.ParcelIndices.ToList(),
+                SourceOwners = owner.SourceOwners.Select(CloneSourceReference).ToList(),
                 IsAnonymous = owner.IsAnonymous
             };
         }

@@ -82,6 +82,7 @@ namespace Land_Readjustment_Tool
         private readonly ToolStripMenuItem _mnuToggleLayerLock = new("Locked");
         private readonly ToolStripMenuItem _mnuLayerProperties = new("Layer Properties");
         private readonly ToolStripMenuItem _mnuAddDrawingLayer = new("Add Drawing Layer...");
+        private readonly ToolStripMenuItem _mnuSetActiveLayer = new("Set Active Layer");
         private readonly ToolStripMenuItem _mnuAddRasterMap = new("Add Raster Map...");
         private readonly ToolStripMenuItem _mnuAddXyzTiles = new("Add XYZ Tiles...");
         private readonly ToolStripMenuItem _mnuImportXyzTiles = new("Import XYZ Tiles...");
@@ -3424,6 +3425,12 @@ namespace Land_Readjustment_Tool
             _mnuRenameLayer.Click += (_, _) => BeginLayerRename(_contextLayerNode);
             _mnuDeleteLayer.Click += async (_, _) => await DeleteLayerAsync(_contextLayerNode);
             _mnuAddDrawingLayer.Click += async (_, _) => await AddDrawingMarkupLayerAsync(_contextLayerGroupNode);
+            _mnuSetActiveLayer.Click += (_, _) =>
+            {
+                CanvasLayer? layer = GetLayerFromNode(_contextLayerNode);
+                if (layer != null)
+                    SetCurrentDrawingLayer(layer);
+            };
             _mnuMoveLayerUp.Click += async (_, _) => await MoveRasterLayerInDisplayOrderAsync(_contextLayerNode, -1);
             _mnuMoveLayerDown.Click += async (_, _) => await MoveRasterLayerInDisplayOrderAsync(_contextLayerNode, 1);
             _mnuToggleLayerVisibility.Click += async (_, _) => await ToggleLayerNodeVisibilityAsync(_contextLayerNode);
@@ -3736,6 +3743,15 @@ namespace Land_Readjustment_Tool
             ConfigureLayerContextMenuItems();
 
             CanvasLayer layer = GetLayerFromNode(_contextLayerNode)!;
+
+            if (CanvasLayerTreeService.IsDrawingMarkupLayer(layer))
+            {
+                bool isAlreadyActive = _currentDrawingLayer?.Id == layer.Id;
+                _mnuSetActiveLayer.Text = isAlreadyActive ? "Set Active Layer ✓" : "Set Active Layer";
+                _mnuSetActiveLayer.Enabled = !isAlreadyActive;
+                _layerContextMenu.Items.Insert(0, _mnuSetActiveLayer);
+                _layerContextMenu.Items.Insert(1, new ToolStripSeparator());
+            }
 
             _mnuToggleLayerVisibility.Text = "Hidden";
             _mnuToggleLayerLock.Text = "Locked";
@@ -4631,7 +4647,7 @@ namespace Land_Readjustment_Tool
                     LineStyle = "Solid",
                     LineTypeScale = 1.0,
                     FillColor = null,
-                    FillTransparency = 100,
+                    FillTransparency = 0,
                     FillStyle = "None",
                     HatchScale = 1.0,
                     PointSymbol = "Dot",
@@ -5615,6 +5631,12 @@ namespace Land_Readjustment_Tool
                 else
                 {
                     mapCanvasControlMain.UpdateVectorLayer(updatedLayer);
+                    // Sync the drawing-layer combo so the updated layer object
+                    // (with the new color/style) replaces the stale cached item.
+                    // Without this, re-activating a drawing tool passes the old
+                    // layer to SetActiveTool and reverts the preview back to the
+                    // previous color.
+                    RefreshCurrentDrawingLayerCombo();
                     SetCanvasCommandStatus($"Layer properties updated: {updatedLayer.Name}");
                 }
 

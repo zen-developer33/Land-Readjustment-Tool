@@ -54,13 +54,12 @@
             // 
             btnConfirmMapping.Anchor = AnchorStyles.Bottom | AnchorStyles.Right;
             btnConfirmMapping.AutoSize = true;
-            btnConfirmMapping.BackColor = SystemColors.ControlLightLight;
             btnConfirmMapping.Location = new Point(234, 651);
             btnConfirmMapping.Name = "btnConfirmMapping";
             btnConfirmMapping.Size = new Size(160, 37);
             btnConfirmMapping.TabIndex = 1;
             btnConfirmMapping.Text = "Confim Mapping";
-            btnConfirmMapping.UseVisualStyleBackColor = false;
+            btnConfirmMapping.UseVisualStyleBackColor = true;
             btnConfirmMapping.Click += btnConfirmMapping_Click;
             // 
             // btnCLear

@@ -19,6 +19,7 @@ namespace Land_Readjustment_Tool.Forms
         {
             dgvErrors = new DataGridView();
             btnFixSelected = new Button();
+            btnMarkJointOwnership = new Button();
             btnClose = new Button();
             lblErrorCount = new Label();
             btnExportErrors = new Button();
@@ -68,7 +69,7 @@ namespace Land_Readjustment_Tool.Forms
             // 
             lblErrorCount.AutoSize = true;
             lblErrorCount.Font = new Font("Segoe UI", 10F, FontStyle.Bold);
-            lblErrorCount.ForeColor = Color.Red;
+            lblErrorCount.ForeColor = SystemColors.ControlText;
             lblErrorCount.Location = new Point(12, 40);
             lblErrorCount.Name = "lblErrorCount";
             lblErrorCount.Size = new Size(137, 23);
@@ -76,7 +77,7 @@ namespace Land_Readjustment_Tool.Forms
             lblErrorCount.Text = "0 error(s) found";
             // 
             // btnExportErrors
-            // 
+            //
             btnExportErrors.Anchor = AnchorStyles.Bottom | AnchorStyles.Left;
             btnExportErrors.Location = new Point(166, 480);
             btnExportErrors.Name = "btnExportErrors";
@@ -85,6 +86,18 @@ namespace Land_Readjustment_Tool.Forms
             btnExportErrors.Text = "Export to File";
             btnExportErrors.UseVisualStyleBackColor = true;
             btnExportErrors.Click += btnExportErrors_Click;
+            //
+            // btnMarkJointOwnership
+            //
+            btnMarkJointOwnership.Anchor = AnchorStyles.Bottom | AnchorStyles.Left;
+            btnMarkJointOwnership.Location = new Point(303, 480);
+            btnMarkJointOwnership.Name = "btnMarkJointOwnership";
+            btnMarkJointOwnership.Size = new Size(200, 35);
+            btnMarkJointOwnership.TabIndex = 6;
+            btnMarkJointOwnership.Text = "Mark as Joint Ownership";
+            btnMarkJointOwnership.Enabled = false;
+            btnMarkJointOwnership.UseVisualStyleBackColor = true;
+            btnMarkJointOwnership.Click += btnMarkJointOwnership_Click;
             // 
             // lblTitle
             // 
@@ -103,6 +116,7 @@ namespace Land_Readjustment_Tool.Forms
             ClientSize = new Size(900, 527);
             Controls.Add(lblTitle);
             Controls.Add(btnExportErrors);
+            Controls.Add(btnMarkJointOwnership);
             Controls.Add(lblErrorCount);
             Controls.Add(btnClose);
             Controls.Add(btnFixSelected);
@@ -122,6 +136,7 @@ namespace Land_Readjustment_Tool.Forms
 
         private DataGridView dgvErrors;
         private Button btnFixSelected;
+        private Button btnMarkJointOwnership;
         private Button btnClose;
         private Label lblErrorCount;
         private Button btnExportErrors;

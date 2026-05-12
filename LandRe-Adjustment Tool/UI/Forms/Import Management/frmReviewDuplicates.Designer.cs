@@ -105,13 +105,12 @@ namespace Land_Readjustment_Tool.Forms
             // 
             // btnMerge
             // 
-            btnMerge.BackColor = Color.FromArgb(230, 255, 230);
             btnMerge.Location = new Point(17, 13);
             btnMerge.Name = "btnMerge";
             btnMerge.Size = new Size(150, 38);
             btnMerge.TabIndex = 0;
             btnMerge.Text = "✓ Merge These";
-            btnMerge.UseVisualStyleBackColor = false;
+            btnMerge.UseVisualStyleBackColor = true;
             btnMerge.Click += btnMerge_Click;
             // 
             // btnUndoDecision
@@ -136,15 +135,13 @@ namespace Land_Readjustment_Tool.Forms
             // btnAcceptAll
             // 
             btnAcceptAll.Anchor = AnchorStyles.Top | AnchorStyles.Right;
-            btnAcceptAll.BackColor = SystemColors.Control;
             btnAcceptAll.Font = new Font("Segoe UI", 9F, FontStyle.Regular, GraphicsUnit.Point, 0);
-            btnAcceptAll.ForeColor = Color.Black;
             btnAcceptAll.Location = new Point(1186, 13);
             btnAcceptAll.Name = "btnAcceptAll";
             btnAcceptAll.Size = new Size(195, 38);
             btnAcceptAll.TabIndex = 2;
             btnAcceptAll.Text = "✓ Accept All && Continue";
-            btnAcceptAll.UseVisualStyleBackColor = false;
+            btnAcceptAll.UseVisualStyleBackColor = true;
             btnAcceptAll.Click += btnAcceptAll_Click;
             // 
             // splitContainer1
@@ -170,7 +167,7 @@ namespace Land_Readjustment_Tool.Forms
             // 
             lblStats.AutoSize = true;
             lblStats.Font = new Font("Segoe UI", 10F, FontStyle.Bold, GraphicsUnit.Point, 0);
-            lblStats.ForeColor = Color.FromArgb(30, 50, 80);
+            lblStats.ForeColor = SystemColors.ControlText;
             lblStats.Location = new Point(17, 3);
             lblStats.Name = "lblStats";
             lblStats.Size = new Size(397, 23);
@@ -181,7 +178,7 @@ namespace Land_Readjustment_Tool.Forms
             // 
             lblInstructions.AutoSize = true;
             lblInstructions.Font = new Font("Segoe UI", 9F, FontStyle.Regular, GraphicsUnit.Point, 0);
-            lblInstructions.ForeColor = Color.FromArgb(40, 40, 40);
+            lblInstructions.ForeColor = SystemColors.ControlText;
             lblInstructions.Location = new Point(17, 29);
             lblInstructions.Name = "lblInstructions";
             lblInstructions.Size = new Size(775, 20);
@@ -275,7 +272,7 @@ namespace Land_Readjustment_Tool.Forms
             grpComparison.Controls.Add(dgvGroupOwners);
             grpComparison.Controls.Add(lblGroupOwners);
             grpComparison.Font = new Font("Segoe UI", 10F, FontStyle.Bold, GraphicsUnit.Point, 0);
-            grpComparison.ForeColor = Color.FromArgb(35, 35, 35);
+            grpComparison.ForeColor = SystemColors.ControlText;
             grpComparison.Location = new Point(3, 3);
             grpComparison.Name = "grpComparison";
             grpComparison.Size = new Size(656, 761);

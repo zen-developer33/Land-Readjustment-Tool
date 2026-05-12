@@ -116,6 +116,9 @@ namespace Land_Readjustment_Tool.Services.Import
 
             for (int i = 0; i < records.Count; i++)
             {
+                // Rows absorbed into a joint-ownership primary are excluded from validation.
+                if (records[i].IsJointCoOwnerRow) continue;
+
                 var rowNo = i + 1;
                 var rowErrors = DataTransformationService.ValidateSingleRecord(records[i], rowNo);
                 if (rowErrors.Count > 0)
@@ -162,6 +165,7 @@ namespace Land_Readjustment_Tool.Services.Import
             await _context.Database.ExecuteSqlRawAsync("DELETE FROM tblParcelContributions;", ct);
             await _context.Database.ExecuteSqlRawAsync("DELETE FROM tblParcelContributionSummaries;", ct);
             await _context.Database.ExecuteSqlRawAsync("DELETE FROM tblParcelFrontages WHERE BaselineParcelId IS NOT NULL;", ct);
+            await _context.Database.ExecuteSqlRawAsync("DELETE FROM tblBaselineParcelCoOwners;", ct);
             await _context.Database.ExecuteSqlRawAsync("DELETE FROM tblBaselineParcels;", ct);
             await _context.Database.ExecuteSqlRawAsync("DELETE FROM tblMalpotReferences;", ct);
             await _context.Database.ExecuteSqlRawAsync("DELETE FROM tblLandOwners;", ct);
@@ -198,7 +202,16 @@ namespace Land_Readjustment_Tool.Services.Import
                         unique.EmailID,
                         unique.IsAnonymous);
 
-                    foreach (var index in unique.ParcelIndices)
+                    var primaryIndexes = unique.SourceOwners.Count > 0
+                        ? unique.SourceOwners
+                            .Where(source => source.Kind == OwnerDeduplicationService.OwnerReferenceKind.Primary)
+                            .Select(source => ResolveCurrentRecordIndex(records, source))
+                            .Where(index => index >= 0)
+                            .Distinct()
+                            .ToList()
+                        : unique.ParcelIndices.Distinct().ToList();
+
+                    foreach (var index in primaryIndexes)
                     {
                         if (!seeds.ContainsKey(index))
                             seeds[index] = seed;
@@ -208,6 +221,9 @@ namespace Land_Readjustment_Tool.Services.Import
 
             for (int i = 0; i < records.Count; i++)
             {
+                // Skip absorbed co-owner rows.
+                if (records[i].IsJointCoOwnerRow) continue;
+
                 if (seeds.ContainsKey(i))
                     continue;
 
@@ -227,6 +243,26 @@ namespace Land_Readjustment_Tool.Services.Import
             }
 
             return seeds;
+        }
+
+        private static int ResolveCurrentRecordIndex(
+            IReadOnlyList<BaselineRecord> records,
+            OwnerDeduplicationService.OwnerReference source)
+        {
+            if (source.Record != null)
+            {
+                for (int i = 0; i < records.Count; i++)
+                {
+                    if (ReferenceEquals(records[i], source.Record))
+                    {
+                        return i;
+                    }
+                }
+            }
+
+            return source.ParcelIndex >= 0 && source.ParcelIndex < records.Count
+                ? source.ParcelIndex
+                : -1;
         }
 
         private async Task<OwnerUpsertResult> UpsertOwnersAsync(
@@ -303,6 +339,8 @@ namespace Land_Readjustment_Tool.Services.Import
             var savedParcels = 0;
             var skippedDuplicates = 0;
             var parcelsToAdd = new List<BaselineParcel>();
+            // Track which record a parcel was built from (needed for co-owner save).
+            var parcelToRecord = new List<(BaselineParcel Parcel, BaselineRecord Record)>();
 
             var ownerIds = ownerIdByRow.Values.Distinct().ToList();
             var malpotRefs = await _context.MalpotReferences
@@ -318,6 +356,9 @@ namespace Land_Readjustment_Tool.Services.Import
                 var rowIndex = pair.Key;
                 var ownerId = pair.Value;
                 var record = records[rowIndex];
+
+                // Skip absorbed joint-co-owner rows.
+                if (record.IsJointCoOwnerRow) continue;
 
                 var mapSheetNo = record.MapSheetNo?.Trim() ?? string.Empty;
                 var parcelNo = record.ParcelNo?.Trim() ?? string.Empty;
@@ -386,7 +427,7 @@ namespace Land_Readjustment_Tool.Services.Import
                 };
 
                 parcelsToAdd.Add(parcel);
-
+                parcelToRecord.Add((parcel, record));
                 existingCodes.Add(fullCode);
                 savedParcels++;
             }
@@ -397,7 +438,99 @@ namespace Land_Readjustment_Tool.Services.Import
                 await _context.SaveChangesAsync(ct);
             }
 
+            // Save co-owners for joint-ownership parcels.
+            await SaveCoOwnersAsync(parcelToRecord, ct);
+
             return (savedParcels, skippedDuplicates);
+        }
+
+        private async Task SaveCoOwnersAsync(
+            List<(BaselineParcel Parcel, BaselineRecord Record)> parcelToRecord,
+            CancellationToken ct)
+        {
+            var coOwnerEntries = new List<Land_Readjustment_Tool.Core.Entities.LandData.BaselineParcelCoOwner>();
+            var ownerCache = await _context.LandOwners.ToListAsync(ct);
+            var ownerLookup = OwnerLookupIndex.Build(ownerCache);
+            var existingCoOwners = await _context.BaselineParcelCoOwners
+                .Select(c => new { c.BaselineParcelId, c.LandOwnerId })
+                .ToListAsync(ct);
+            var coOwnerKeys = new HashSet<string>(
+                existingCoOwners.Select(c => $"{c.BaselineParcelId}::{c.LandOwnerId}"),
+                StringComparer.Ordinal);
+
+            foreach (var (parcel, record) in parcelToRecord)
+            {
+                if (record.JointCoOwners == null || record.JointCoOwners.Count == 0) continue;
+
+                foreach (var coOwner in record.JointCoOwners)
+                {
+                    if (string.IsNullOrWhiteSpace(coOwner.OwnerName)) continue;
+
+                    var seed = CreateSeed(
+                        coOwner.OwnerName,
+                        coOwner.FatherSpouse,
+                        coOwner.Gender,
+                        coOwner.CitizenshipNumber,
+                        coOwner.CitizenshipIssuedDistrict,
+                        coOwner.CitizenshipIssuedDate,
+                        coOwner.PermanentAddress,
+                        coOwner.TemporaryAddress,
+                        coOwner.ContactNumber,
+                        coOwner.EmailID,
+                        isAnonymous: false);
+
+                    var matched = ownerLookup.FindMatch(seed);
+                    if (matched == null)
+                    {
+                        matched = new Land_Readjustment_Tool.Core.Entities.LandData.LandOwner
+                        {
+                            FullName = seed.FullName,
+                            FatherOrSpouseName = seed.FatherOrSpouseName,
+                            Gender = seed.Gender,
+                            CitizenshipNumber = seed.CitizenshipNumber,
+                            CitizenshipIssueDistrict = seed.CitizenshipIssueDistrict,
+                            CitizenshipIssueDate = seed.CitizenshipIssueDate,
+                            PermanentAddress = seed.PermanentAddress,
+                            TemporaryAddress = seed.TemporaryAddress,
+                            ContactNumber = seed.ContactNumber,
+                            Email = seed.Email,
+                            IdentificationMethod = seed.IdentificationMethod,
+                            CreatedDate = DateTime.UtcNow,
+                            LastModifiedDate = DateTime.UtcNow
+                        };
+                        _context.LandOwners.Add(matched);
+                        ownerCache.Add(matched);
+                        ownerLookup.IndexOwner(matched);
+                        await _context.SaveChangesAsync(ct);
+                    }
+
+                    if (matched.Id == parcel.LandOwnerId)
+                    {
+                        continue;
+                    }
+
+                    var coOwnerKey = $"{parcel.Id}::{matched.Id}";
+                    if (!coOwnerKeys.Add(coOwnerKey))
+                    {
+                        continue;
+                    }
+
+                    coOwnerEntries.Add(
+                        new Land_Readjustment_Tool.Core.Entities.LandData.BaselineParcelCoOwner
+                        {
+                            BaselineParcelId = parcel.Id,
+                            LandOwnerId = matched.Id,
+                            OwnershipSharePercent = coOwner.OwnershipSharePercent,
+                            CreatedDate = DateTime.UtcNow
+                        });
+                }
+            }
+
+            if (coOwnerEntries.Count > 0)
+            {
+                await _context.BaselineParcelCoOwners.AddRangeAsync(coOwnerEntries, ct);
+                await _context.SaveChangesAsync(ct);
+            }
         }
 
         private static string BuildParcelCode(string mapSheetNo, string parcelNo)
