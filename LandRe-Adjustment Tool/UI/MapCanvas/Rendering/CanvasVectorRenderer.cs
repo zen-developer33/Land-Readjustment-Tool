@@ -5,6 +5,7 @@ using Land_Readjustment_Tool.Core.Entities.Canvas;
 using Land_Readjustment_Tool.UI.MapCanvas.Core;
 using Land_Readjustment_Tool.UI.MapCanvas.Models.Shapes;
 using Land_Readjustment_Tool.UI.MapCanvas.Services;
+using NetTopologySuite.Geometries;
 
 namespace Land_Readjustment_Tool.UI.MapCanvas.Rendering
 {
@@ -143,7 +144,7 @@ namespace Land_Readjustment_Tool.UI.MapCanvas.Rendering
                 }
 
                 DrawShape(graphics, engine, feature.Shape, ResolveStyle(feature, layer), context);
-                DrawLabelIfNeeded(graphics, engine, feature, layer, context);
+                DrawLabelIfNeeded(graphics, engine, visibleWorldBounds, feature, layer, context);
                 renderedCount++;
             }
 
@@ -1039,6 +1040,7 @@ namespace Land_Readjustment_Tool.UI.MapCanvas.Rendering
         private void DrawLabelIfNeeded(
             Graphics graphics,
             MapCanvasEngine engine,
+            RectangleD visibleWorldBounds,
             CanvasFeature feature,
             CanvasLayer? layer,
             VectorRenderContext context)
@@ -1054,10 +1056,8 @@ namespace Land_Readjustment_Tool.UI.MapCanvas.Rendering
                 return;
             }
 
-            RectangleD bounds = feature.Shape.GetBoundingBox();
-            PointF position = ToScreenPointF(engine.WorldToScreen(new PointD(
-                bounds.X + bounds.Width / 2.0,
-                bounds.Y + bounds.Height / 2.0)));
+            PointD labelAnchor = ResolveLabelAnchor(feature, visibleWorldBounds);
+            PointF position = ToScreenPointF(engine.WorldToScreen(labelAnchor));
 
             if (!IsValidPoint(position))
             {
@@ -1072,6 +1072,76 @@ namespace Land_Readjustment_Tool.UI.MapCanvas.Rendering
                 context.GetSolidBrush(labelColor),
                 position.X - size.Width / 2.0f,
                 position.Y - size.Height / 2.0f);
+        }
+
+        private static PointD ResolveLabelAnchor(
+            CanvasFeature feature,
+            RectangleD visibleWorldBounds)
+        {
+            Geometry? geometry = feature.CanvasObject.Shape;
+            if (geometry != null && !geometry.IsEmpty)
+            {
+                try
+                {
+                    Geometry visibleGeometry = geometry;
+                    if (!IsGeometryFullyVisible(geometry.EnvelopeInternal, visibleWorldBounds))
+                    {
+                        Geometry viewport = CreateViewportGeometry(visibleWorldBounds);
+                        visibleGeometry = geometry.Intersection(viewport);
+                    }
+
+                    if (!visibleGeometry.IsEmpty)
+                    {
+                        NetTopologySuite.Geometries.Point point = visibleGeometry.PointOnSurface;
+                        return new PointD(point.X, point.Y);
+                    }
+                }
+                catch
+                {
+                    // Fall back to the visible bounding-box center below.
+                }
+            }
+
+            RectangleD bounds = feature.Shape.GetBoundingBox();
+            double left = Math.Max(bounds.Left, visibleWorldBounds.Left);
+            double right = Math.Min(bounds.Right, visibleWorldBounds.Right);
+            double bottom = Math.Max(bounds.Bottom, visibleWorldBounds.Bottom);
+            double top = Math.Min(bounds.Top, visibleWorldBounds.Top);
+
+            if (right <= left || top <= bottom)
+            {
+                return new PointD(
+                    bounds.X + bounds.Width / 2.0,
+                    bounds.Y + bounds.Height / 2.0);
+            }
+
+            return new PointD(
+                left + (right - left) / 2.0,
+                bottom + (top - bottom) / 2.0);
+        }
+
+        private static bool IsGeometryFullyVisible(
+            Envelope envelope,
+            RectangleD visibleWorldBounds)
+        {
+            return envelope.MinX >= visibleWorldBounds.Left &&
+                   envelope.MaxX <= visibleWorldBounds.Right &&
+                   envelope.MinY >= visibleWorldBounds.Bottom &&
+                   envelope.MaxY <= visibleWorldBounds.Top;
+        }
+
+        private static Geometry CreateViewportGeometry(RectangleD visibleWorldBounds)
+        {
+            GeometryFactory factory = new(new PrecisionModel(), 0);
+            Coordinate[] ring =
+            [
+                new(visibleWorldBounds.Left, visibleWorldBounds.Bottom),
+                new(visibleWorldBounds.Right, visibleWorldBounds.Bottom),
+                new(visibleWorldBounds.Right, visibleWorldBounds.Top),
+                new(visibleWorldBounds.Left, visibleWorldBounds.Top),
+                new(visibleWorldBounds.Left, visibleWorldBounds.Bottom)
+            ];
+            return factory.CreatePolygon(ring);
         }
 
         private static string? ResolveLabelText(CanvasFeature feature, CanvasLayer layer)

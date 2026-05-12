@@ -7,7 +7,6 @@ namespace Land_Readjustment_Tool.Migrations
     /// <inheritdoc />
     public partial class addednewentities : Migration
     {
-    {
         /// <inheritdoc />
         protected override void Up(MigrationBuilder migrationBuilder)
         {

@@ -19,6 +19,7 @@ namespace Land_Readjustment_Tool.UI.Dialogs
         private CadastralFileInfo? _fileInfo;
         private ProjectRasterCrsContext? _projectCrs;
         private bool _hasOriginalParcelRecords;
+        private IReadOnlyList<string> _availableMapSheets = [];
 
         public CadastralImportResult? ImportResult { get; private set; }
 
@@ -39,10 +40,16 @@ namespace Land_Readjustment_Tool.UI.Dialogs
             Load += frmCadastralImport_Load;
             btnImport.Click += btnImport_Click;
             dgvLayers.CellValueChanged += (_, _) => UpdateImportButtonState();
+            dgvMapSheetMappings.CellValueChanged += (_, _) => UpdateImportButtonState();
             dgvLayers.CurrentCellDirtyStateChanged += (_, _) =>
             {
                 if (dgvLayers.IsCurrentCellDirty)
                     dgvLayers.CommitEdit(DataGridViewDataErrorContexts.Commit);
+            };
+            dgvMapSheetMappings.CurrentCellDirtyStateChanged += (_, _) =>
+            {
+                if (dgvMapSheetMappings.IsCurrentCellDirty)
+                    dgvMapSheetMappings.CommitEdit(DataGridViewDataErrorContexts.Commit);
             };
         }
 
@@ -57,6 +64,15 @@ namespace Land_Readjustment_Tool.UI.Dialogs
                     .BaselineParcels
                     .AsNoTracking()
                     .AnyAsync();
+                _availableMapSheets = _hasOriginalParcelRecords
+                    ? await _session.GetDbContext()
+                        .BaselineParcels
+                        .AsNoTracking()
+                        .Select(parcel => parcel.MapSheetNo)
+                        .Distinct()
+                        .OrderBy(value => value)
+                        .ToListAsync()
+                    : [];
 
                 lblFileValue.Text = Path.GetFileName(_filePath);
                 lblFormatValue.Text = _fileInfo.FileFormat;
@@ -65,6 +81,8 @@ namespace Land_Readjustment_Tool.UI.Dialogs
 
                 ConfigureLayerGrid();
                 PopulateLayerGrid();
+                ConfigureMapSheetMappingGrid();
+                PopulateMapSheetMappingGrid();
                 ApplyAssignmentState();
 
                 if (_fileInfo.RequiresCrsFromUser)
@@ -72,7 +90,7 @@ namespace Land_Readjustment_Tool.UI.Dialogs
 
                 ApplyCrsState();
                 lblStatus.Text = _fileInfo.Layers.Count == 0
-                    ? "No parcel polygon layers found."
+                    ? "No importable layers found."
                     : "Ready.";
                 UpdateImportButtonState();
             }
@@ -125,15 +143,34 @@ namespace Land_Readjustment_Tool.UI.Dialogs
             dgvLayers.Columns.Add(new DataGridViewTextBoxColumn
             {
                 Name = "CanvasLayer",
-                HeaderText = "Canvas layer name",
+                HeaderText = "Target Layer Name",
                 AutoSizeMode = DataGridViewAutoSizeColumnMode.Fill
             });
-            dgvLayers.Columns.Add(new DataGridViewTextBoxColumn
+        }
+
+        private void ConfigureMapSheetMappingGrid()
+        {
+            dgvMapSheetMappings.Columns.Clear();
+            dgvMapSheetMappings.Columns.Add(new DataGridViewTextBoxColumn
+            {
+                Name = "Layer",
+                HeaderText = "Drawing source layer",
+                ReadOnly = true,
+                AutoSizeMode = DataGridViewAutoSizeColumnMode.Fill
+            });
+
+            DataGridViewComboBoxColumn mapSheetColumn = new()
             {
                 Name = "MapSheet",
-                HeaderText = "Map sheet no",
-                Width = 120
-            });
+                HeaderText = "Original record MapSheetNo",
+                Width = 210,
+                FlatStyle = FlatStyle.Flat
+            };
+            mapSheetColumn.Items.Add(string.Empty);
+            foreach (string mapSheet in _availableMapSheets)
+                mapSheetColumn.Items.Add(mapSheet);
+
+            dgvMapSheetMappings.Columns.Add(mapSheetColumn);
         }
 
         private void PopulateLayerGrid()
@@ -149,9 +186,24 @@ namespace Land_Readjustment_Tool.UI.Dialogs
                     layer.Name,
                     layer.ObjectCount,
                     layer.ObjectTypes,
-                    layer.Name,
                     layer.Name);
                 dgvLayers.Rows[rowIndex].Tag = layer;
+            }
+        }
+
+        private void PopulateMapSheetMappingGrid()
+        {
+            dgvMapSheetMappings.Rows.Clear();
+            if (_fileInfo == null)
+                return;
+
+            foreach (CadastralLayerInfo layer in _fileInfo.Layers)
+            {
+                string defaultMapSheet = _availableMapSheets
+                    .FirstOrDefault(item => string.Equals(item, layer.Name, StringComparison.OrdinalIgnoreCase))
+                    ?? string.Empty;
+                int rowIndex = dgvMapSheetMappings.Rows.Add(layer.Name, defaultMapSheet);
+                dgvMapSheetMappings.Rows[rowIndex].Tag = layer;
             }
         }
 
@@ -160,11 +212,11 @@ namespace Land_Readjustment_Tool.UI.Dialogs
             chkAutoAssign.Enabled = _hasOriginalParcelRecords;
             chkAutoAssign.Checked = _hasOriginalParcelRecords;
             lblAssignmentNote.Text = _hasOriginalParcelRecords
-                ? "Auto assignment uses MapSheetNo + ParcelNo from imported records."
-                : "No Original Parcel Records found. Auto assignment and map-sheet assignment are disabled.";
+                ? "Map drawing layers to existing Original Parcel Record MapSheetNo values before using auto assignment."
+                : "No Original Parcel Records found. Import will store raw layers only; map-sheet assignment is disabled.";
 
-            if (dgvLayers.Columns.Contains("MapSheet"))
-                dgvLayers.Columns["MapSheet"].ReadOnly = !_hasOriginalParcelRecords;
+            lblMapSheetMappingCaption.Enabled = _hasOriginalParcelRecords;
+            dgvMapSheetMappings.Enabled = _hasOriginalParcelRecords;
         }
 
         private async Task LoadSourceCrsChoicesAsync()
@@ -286,7 +338,7 @@ namespace Land_Readjustment_Tool.UI.Dialogs
             {
                 btnImport.Enabled = false;
                 btnCancel.Enabled = false;
-                lblStatus.Text = "Transforming and saving cadastral parcels...";
+                lblStatus.Text = "Transforming and saving cadastral map objects...";
 
                 ImportResult = await _importService.ImportAsync(
                     _session,
@@ -340,15 +392,12 @@ namespace Land_Readjustment_Tool.UI.Dialogs
                     continue;
 
                 bool include = row.Cells["Include"].Value is bool value && value;
-                string? mapSheet = Convert.ToString(row.Cells["MapSheet"].Value)?.Trim();
+                string? mapSheet = _hasOriginalParcelRecords
+                    ? GetMappedMapSheet(layer.Name)
+                    : null;
                 string canvasLayer = Convert.ToString(row.Cells["CanvasLayer"].Value)?.Trim() ?? string.Empty;
                 if (string.IsNullOrWhiteSpace(canvasLayer))
                     canvasLayer = layer.Name;
-
-                if (!_hasOriginalParcelRecords)
-                    mapSheet = null;
-                else if (string.IsNullOrWhiteSpace(mapSheet))
-                    mapSheet = layer.Name;
 
                 options.Add(new CadastralLayerImportOption(
                     layer.Name,
@@ -358,6 +407,23 @@ namespace Land_Readjustment_Tool.UI.Dialogs
             }
 
             return options;
+        }
+
+        private string? GetMappedMapSheet(string sourceLayer)
+        {
+            foreach (DataGridViewRow row in dgvMapSheetMappings.Rows)
+            {
+                if (row.Tag is not CadastralLayerInfo layer ||
+                    !string.Equals(layer.Name, sourceLayer, StringComparison.OrdinalIgnoreCase))
+                {
+                    continue;
+                }
+
+                string? value = Convert.ToString(row.Cells["MapSheet"].Value)?.Trim();
+                return string.IsNullOrWhiteSpace(value) ? null : value;
+            }
+
+            return null;
         }
 
         private string GetSourceCrsDefinition()

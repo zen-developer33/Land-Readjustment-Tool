@@ -1873,10 +1873,15 @@ namespace Land_Readjustment_Tool
             using frmCadastralRecordAssignment form = new(
                 AppServices.Context.Session,
                 _cadastralRecordAssignmentService);
+            form.SelectedCanvasObjectChanged += PreviewAssignmentCandidateOnCanvas;
             form.ShowDialog(this);
+            form.SelectedCanvasObjectChanged -= PreviewAssignmentCandidateOnCanvas;
 
             if (!form.AssignmentChanged)
+            {
+                mapCanvasControlMain.ClearPreviewSelection();
                 return;
+            }
 
             MarkProjectModifiedIfOpen();
             await RefreshVectorCanvasFeaturesAsync();

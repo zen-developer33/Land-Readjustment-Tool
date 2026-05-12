@@ -42,6 +42,62 @@ namespace Land_Readjustment_Tool.Services.Assignment
             PropertyNameCaseInsensitive = true
         };
 
+        public async Task<IReadOnlyList<CadastralAssignmentCandidate>> GetCandidatesAsync(
+            ProjectSession session,
+            CancellationToken ct = default)
+        {
+            var context = session.GetDbContext();
+            List<CanvasObject> objects = await context.CanvasObjects
+                .Include(item => item.CanvasLayer)
+                .Where(canvasObject => canvasObject.GeometryMetadataJson != null &&
+                                       canvasObject.GeometryMetadataJson.Contains(CadastralCanvasMetadata.MetadataKind) &&
+                                       canvasObject.ObjectType == "Polygon")
+                .OrderBy(item => item.CanvasLayer.Name)
+                .ThenBy(item => item.CreatedDate)
+                .ToListAsync(ct);
+
+            return objects
+                .Select(ToCandidate)
+                .ToList();
+        }
+
+        public async Task<IReadOnlyList<string>> GetMapSheetNumbersAsync(
+            ProjectSession session,
+            CancellationToken ct = default)
+        {
+            return await session.GetDbContext()
+                .BaselineParcels
+                .AsNoTracking()
+                .Select(parcel => parcel.MapSheetNo)
+                .Where(value => value != "")
+                .Distinct()
+                .OrderBy(value => value)
+                .ToListAsync(ct);
+        }
+
+        public async Task<IReadOnlyList<CadastralParcelRecordChoice>> GetParcelsByMapSheetAsync(
+            ProjectSession session,
+            string mapSheetNo,
+            CancellationToken ct = default)
+        {
+            if (string.IsNullOrWhiteSpace(mapSheetNo))
+                return [];
+
+            return await session.GetDbContext()
+                .BaselineParcels
+                .AsNoTracking()
+                .Where(parcel => parcel.MapSheetNo == mapSheetNo)
+                .OrderBy(parcel => parcel.ParcelNo)
+                .Select(parcel => new CadastralParcelRecordChoice(
+                    parcel.Id,
+                    parcel.MapSheetNo,
+                    parcel.ParcelNo,
+                    $"{parcel.ParcelNo}  |  {parcel.OriginalAreaSqm:0.##} sq.m",
+                    parcel.OriginalAreaSqm,
+                    parcel.CanvasObjectId))
+                .ToListAsync(ct);
+        }
+
         public async Task<CadastralAssignmentResult> AutoAssignAsync(
             ProjectSession session,
             bool replaceExistingAssignments,
@@ -206,58 +262,3 @@ namespace Land_Readjustment_Tool.Services.Assignment
         }
     }
 }
-        public async Task<IReadOnlyList<CadastralAssignmentCandidate>> GetCandidatesAsync(
-            ProjectSession session,
-            CancellationToken ct = default)
-        {
-            var context = session.GetDbContext();
-            List<CanvasObject> objects = await context.CanvasObjects
-                .Include(item => item.CanvasLayer)
-                .Where(canvasObject => canvasObject.GeometryMetadataJson != null &&
-                                       canvasObject.GeometryMetadataJson.Contains(CadastralCanvasMetadata.MetadataKind) &&
-                                       canvasObject.ObjectType == "Polygon")
-                .OrderBy(item => item.CanvasLayer.Name)
-                .ThenBy(item => item.CreatedDate)
-                .ToListAsync(ct);
-
-            return objects
-                .Select(ToCandidate)
-                .ToList();
-        }
-
-        public async Task<IReadOnlyList<string>> GetMapSheetNumbersAsync(
-            ProjectSession session,
-            CancellationToken ct = default)
-        {
-            return await session.GetDbContext()
-                .BaselineParcels
-                .AsNoTracking()
-                .Select(parcel => parcel.MapSheetNo)
-                .Where(value => value != "")
-                .Distinct()
-                .OrderBy(value => value)
-                .ToListAsync(ct);
-        }
-
-        public async Task<IReadOnlyList<CadastralParcelRecordChoice>> GetParcelsByMapSheetAsync(
-            ProjectSession session,
-            string mapSheetNo,
-            CancellationToken ct = default)
-        {
-            if (string.IsNullOrWhiteSpace(mapSheetNo))
-                return [];
-
-            return await session.GetDbContext()
-                .BaselineParcels
-                .AsNoTracking()
-                .Where(parcel => parcel.MapSheetNo == mapSheetNo)
-                .OrderBy(parcel => parcel.ParcelNo)
-                .Select(parcel => new CadastralParcelRecordChoice(
-                    parcel.Id,
-                    parcel.MapSheetNo,
-                    parcel.ParcelNo,
-                    $"{parcel.ParcelNo}  |  {parcel.OriginalAreaSqm:0.##} sq.m",
-                    parcel.OriginalAreaSqm,
-                    parcel.CanvasObjectId))
-                .ToListAsync(ct);
-        }

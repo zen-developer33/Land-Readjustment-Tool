@@ -9,12 +9,14 @@ namespace Land_Readjustment_Tool.UI.Dialogs
         private Label lblSourceCrsCaption;
         private Label lblProjectCrsCaption;
         private Label lblLayersCaption;
+        private Label lblMapSheetMappingCaption;
         private Label lblFileValue;
         private Label lblFormatValue;
         private Label lblProjectCrsValue;
         private ComboBox cmbSourceCrs;
         private Label lblSourceCrsValue;
         private DataGridView dgvLayers;
+        private DataGridView dgvMapSheetMappings;
         private CheckBox chkAutoAssign;
         private Label lblAssignmentNote;
         private Label lblStatus;
@@ -39,12 +41,14 @@ namespace Land_Readjustment_Tool.UI.Dialogs
             lblSourceCrsCaption = new Label();
             lblProjectCrsCaption = new Label();
             lblLayersCaption = new Label();
+            lblMapSheetMappingCaption = new Label();
             lblFileValue = new Label();
             lblFormatValue = new Label();
             lblProjectCrsValue = new Label();
             cmbSourceCrs = new ComboBox();
             lblSourceCrsValue = new Label();
             dgvLayers = new DataGridView();
+            dgvMapSheetMappings = new DataGridView();
             chkAutoAssign = new CheckBox();
             lblAssignmentNote = new Label();
             lblStatus = new Label();
@@ -53,6 +57,7 @@ namespace Land_Readjustment_Tool.UI.Dialogs
             btnCancel = new Button();
             mainLayout.SuspendLayout();
             ((System.ComponentModel.ISupportInitialize)dgvLayers).BeginInit();
+            ((System.ComponentModel.ISupportInitialize)dgvMapSheetMappings).BeginInit();
             buttonPanel.SuspendLayout();
             SuspendLayout();
             // 
@@ -67,32 +72,37 @@ namespace Land_Readjustment_Tool.UI.Dialogs
             mainLayout.Controls.Add(lblFileValue, 1, 0);
             mainLayout.Controls.Add(lblFormatValue, 1, 1);
             mainLayout.Controls.Add(dgvLayers, 1, 2);
-            mainLayout.Controls.Add(chkAutoAssign, 1, 4);
-            mainLayout.Controls.Add(lblAssignmentNote, 1, 5);
-            mainLayout.Controls.Add(lblSourceCrsCaption, 0, 6);
-            mainLayout.Controls.Add(cmbSourceCrs, 1, 6);
-            mainLayout.Controls.Add(lblSourceCrsValue, 1, 6);
-            mainLayout.Controls.Add(lblProjectCrsCaption, 0, 7);
-            mainLayout.Controls.Add(lblProjectCrsValue, 1, 7);
-            mainLayout.Controls.Add(lblStatus, 1, 8);
-            mainLayout.Controls.Add(buttonPanel, 1, 9);
+            mainLayout.Controls.Add(lblMapSheetMappingCaption, 0, 4);
+            mainLayout.Controls.Add(dgvMapSheetMappings, 1, 4);
+            mainLayout.Controls.Add(chkAutoAssign, 1, 6);
+            mainLayout.Controls.Add(lblAssignmentNote, 1, 7);
+            mainLayout.Controls.Add(lblSourceCrsCaption, 0, 8);
+            mainLayout.Controls.Add(cmbSourceCrs, 1, 8);
+            mainLayout.Controls.Add(lblSourceCrsValue, 1, 8);
+            mainLayout.Controls.Add(lblProjectCrsCaption, 0, 9);
+            mainLayout.Controls.Add(lblProjectCrsValue, 1, 9);
+            mainLayout.Controls.Add(lblStatus, 1, 10);
+            mainLayout.Controls.Add(buttonPanel, 1, 11);
             mainLayout.Dock = DockStyle.Fill;
             mainLayout.Location = new Point(0, 0);
             mainLayout.Name = "mainLayout";
             mainLayout.Padding = new Padding(14);
-            mainLayout.RowCount = 10;
+            mainLayout.RowCount = 12;
             mainLayout.RowStyles.Add(new RowStyle(SizeType.Absolute, 30F));
             mainLayout.RowStyles.Add(new RowStyle(SizeType.Absolute, 30F));
             mainLayout.RowStyles.Add(new RowStyle(SizeType.Absolute, 30F));
-            mainLayout.RowStyles.Add(new RowStyle(SizeType.Percent, 100F));
+            mainLayout.RowStyles.Add(new RowStyle(SizeType.Absolute, 170F));
             mainLayout.RowStyles.Add(new RowStyle(SizeType.Absolute, 30F));
+            mainLayout.RowStyles.Add(new RowStyle(SizeType.Absolute, 90F));
             mainLayout.RowStyles.Add(new RowStyle(SizeType.Absolute, 30F));
+            mainLayout.RowStyles.Add(new RowStyle(SizeType.Absolute, 34F));
             mainLayout.RowStyles.Add(new RowStyle(SizeType.Absolute, 36F));
             mainLayout.RowStyles.Add(new RowStyle(SizeType.Absolute, 34F));
             mainLayout.RowStyles.Add(new RowStyle(SizeType.Absolute, 32F));
             mainLayout.RowStyles.Add(new RowStyle(SizeType.Absolute, 46F));
             mainLayout.SetRowSpan(dgvLayers, 2);
-            mainLayout.Size = new Size(680, 520);
+            mainLayout.SetRowSpan(dgvMapSheetMappings, 2);
+            mainLayout.Size = new Size(720, 610);
             mainLayout.TabIndex = 0;
             // 
             // labels
@@ -106,6 +116,9 @@ namespace Land_Readjustment_Tool.UI.Dialogs
             lblLayersCaption.Dock = DockStyle.Fill;
             lblLayersCaption.Text = "Layers";
             lblLayersCaption.TextAlign = ContentAlignment.MiddleLeft;
+            lblMapSheetMappingCaption.Dock = DockStyle.Fill;
+            lblMapSheetMappingCaption.Text = "Map sheet mapping";
+            lblMapSheetMappingCaption.TextAlign = ContentAlignment.MiddleLeft;
             lblSourceCrsCaption.Dock = DockStyle.Fill;
             lblSourceCrsCaption.Text = "Source CRS";
             lblSourceCrsCaption.TextAlign = ContentAlignment.MiddleLeft;
@@ -139,8 +152,26 @@ namespace Land_Readjustment_Tool.UI.Dialogs
             dgvLayers.RowHeadersVisible = false;
             dgvLayers.RowHeadersWidth = 51;
             dgvLayers.SelectionMode = DataGridViewSelectionMode.FullRowSelect;
-            dgvLayers.Size = new Size(518, 217);
+            dgvLayers.Size = new Size(558, 194);
             dgvLayers.TabIndex = 0;
+            // 
+            // dgvMapSheetMappings
+            // 
+            dgvMapSheetMappings.AllowUserToAddRows = false;
+            dgvMapSheetMappings.AllowUserToDeleteRows = false;
+            dgvMapSheetMappings.AllowUserToResizeRows = false;
+            dgvMapSheetMappings.BackgroundColor = SystemColors.Window;
+            dgvMapSheetMappings.BorderStyle = BorderStyle.Fixed3D;
+            dgvMapSheetMappings.ColumnHeadersHeightSizeMode = DataGridViewColumnHeadersHeightSizeMode.AutoSize;
+            dgvMapSheetMappings.Dock = DockStyle.Fill;
+            dgvMapSheetMappings.Location = new Point(145, 277);
+            dgvMapSheetMappings.MultiSelect = false;
+            dgvMapSheetMappings.Name = "dgvMapSheetMappings";
+            dgvMapSheetMappings.RowHeadersVisible = false;
+            dgvMapSheetMappings.RowHeadersWidth = 51;
+            dgvMapSheetMappings.SelectionMode = DataGridViewSelectionMode.FullRowSelect;
+            dgvMapSheetMappings.Size = new Size(558, 114);
+            dgvMapSheetMappings.TabIndex = 1;
             // 
             // chkAutoAssign
             // 
@@ -176,15 +207,15 @@ namespace Land_Readjustment_Tool.UI.Dialogs
             buttonPanel.Controls.Add(btnCancel);
             buttonPanel.Dock = DockStyle.Fill;
             buttonPanel.FlowDirection = FlowDirection.RightToLeft;
-            buttonPanel.Location = new Point(145, 463);
+            buttonPanel.Location = new Point(145, 549);
             buttonPanel.Name = "buttonPanel";
-            buttonPanel.Size = new Size(518, 40);
+            buttonPanel.Size = new Size(558, 40);
             buttonPanel.TabIndex = 1;
             // 
             // btnImport
             // 
             btnImport.Enabled = false;
-            btnImport.Location = new Point(425, 3);
+            btnImport.Location = new Point(465, 3);
             btnImport.Name = "btnImport";
             btnImport.Size = new Size(90, 32);
             btnImport.TabIndex = 0;
@@ -194,7 +225,7 @@ namespace Land_Readjustment_Tool.UI.Dialogs
             // btnCancel
             // 
             btnCancel.DialogResult = DialogResult.Cancel;
-            btnCancel.Location = new Point(329, 3);
+            btnCancel.Location = new Point(369, 3);
             btnCancel.Name = "btnCancel";
             btnCancel.Size = new Size(90, 32);
             btnCancel.TabIndex = 1;
@@ -207,7 +238,7 @@ namespace Land_Readjustment_Tool.UI.Dialogs
             AutoScaleDimensions = new SizeF(8F, 20F);
             AutoScaleMode = AutoScaleMode.Font;
             CancelButton = btnCancel;
-            ClientSize = new Size(680, 520);
+            ClientSize = new Size(720, 610);
             Controls.Add(mainLayout);
             Font = new Font("Segoe UI", 9F);
             FormBorderStyle = FormBorderStyle.FixedDialog;
@@ -218,6 +249,7 @@ namespace Land_Readjustment_Tool.UI.Dialogs
             Text = "Import Cadastral Map";
             mainLayout.ResumeLayout(false);
             ((System.ComponentModel.ISupportInitialize)dgvLayers).EndInit();
+            ((System.ComponentModel.ISupportInitialize)dgvMapSheetMappings).EndInit();
             buttonPanel.ResumeLayout(false);
             ResumeLayout(false);
         }
