@@ -393,24 +393,25 @@ namespace Land_Readjustment_Tool.UI.Forms
             _chkVisible.Enabled = canEdit;
 
             bool isPoint = IsSelectedPointLayerType();
+            bool isAnnotation = IsSelectedAnnotationLayerType();
             bool hasBorder = !_chkNoBorder.Checked;
-            _pnlBorderColor.Enabled = canEdit && (hasBorder || isPoint);
-            _btnBorderColor.Enabled = canEdit && (hasBorder || isPoint);
-            _chkNoBorder.Enabled = canEdit && !isPoint;
-            _lineTypePanel.Enabled = canEdit && hasBorder && !isPoint;
-            _cboLineStyle.Enabled = canEdit && hasBorder && !isPoint;
-            _numLineTypeScale.Enabled = canEdit && hasBorder && !isPoint;
-            _numLineWeight.Enabled = canEdit && hasBorder && !isPoint;
+            _pnlBorderColor.Enabled = canEdit && !isAnnotation && (hasBorder || isPoint);
+            _btnBorderColor.Enabled = canEdit && !isAnnotation && (hasBorder || isPoint);
+            _chkNoBorder.Enabled = canEdit && !isPoint && !isAnnotation;
+            _lineTypePanel.Enabled = canEdit && hasBorder && !isPoint && !isAnnotation;
+            _cboLineStyle.Enabled = canEdit && hasBorder && !isPoint && !isAnnotation;
+            _numLineTypeScale.Enabled = canEdit && hasBorder && !isPoint && !isAnnotation;
+            _numLineWeight.Enabled = canEdit && hasBorder && !isPoint && !isAnnotation;
             _pnlPointMarkerPreview.Enabled = canEdit && isPoint;
             _btnPointMarker.Enabled = canEdit && isPoint;
             _numPointSize.Enabled = canEdit && isPoint;
 
-            _cboFillStyle.Enabled = canEdit;
-            _pnlFillColor.Enabled = canEdit;
-            _btnFillColor.Enabled = canEdit;
-            _numHatchScale.Enabled = canEdit;
-            _trkTransparency.Enabled = canEdit;
-            _txtTransparencyValue.Enabled = canEdit;
+            _cboFillStyle.Enabled = canEdit && !isAnnotation;
+            _pnlFillColor.Enabled = canEdit && !isAnnotation;
+            _btnFillColor.Enabled = canEdit && !isAnnotation;
+            _numHatchScale.Enabled = canEdit && !isAnnotation;
+            _trkTransparency.Enabled = canEdit && !isAnnotation;
+            _txtTransparencyValue.Enabled = canEdit && !isAnnotation;
 
             _chkShowLabels.Enabled = canEdit;
             _btnFont.Enabled = canEdit;
@@ -463,14 +464,21 @@ namespace Land_Readjustment_Tool.UI.Forms
                     string.Equals(NormalizeDrawingLayerType(_cboLayerKind.Text), CanvasLayerTreeService.PolylineLayerType, StringComparison.OrdinalIgnoreCase);
                 bool selectedPoint =
                     string.Equals(NormalizeDrawingLayerType(_cboLayerKind.Text), CanvasLayerTreeService.PointLayerType, StringComparison.OrdinalIgnoreCase);
+                bool selectedAnnotation =
+                    string.Equals(NormalizeDrawingLayerType(_cboLayerKind.Text), CanvasLayerTreeService.AnnotationLayerType, StringComparison.OrdinalIgnoreCase);
 
-                if ((!_isDrawingMarkupLayer && _isLineLayer) || selectedPolyline || selectedPoint)
+                if ((!_isDrawingMarkupLayer && _isLineLayer) || selectedPolyline || selectedPoint || selectedAnnotation)
                 {
                     Layer.FillStyle = "None";
                     Layer.FillColor = null;
                     Layer.HatchPattern = null;
                     Layer.HatchScale = 1.0;
                     Layer.FillTransparency = 100;
+                    if (selectedAnnotation)
+                    {
+                        Layer.LineWeight = 0;
+                        Layer.PointSize = Math.Max(1.0, Layer.PointSize);
+                    }
                 }
                 else
                 {
@@ -554,6 +562,9 @@ namespace Land_Readjustment_Tool.UI.Forms
             if (CanvasLayerTreeService.IsPointLayer(layer))
                 return CanvasLayerTreeService.PointLayerType;
 
+            if (CanvasLayerTreeService.IsAnnotationLayer(layer))
+                return CanvasLayerTreeService.AnnotationLayerType;
+
             if (CanvasLayerTreeService.IsLineLayer(layer))
                 return CanvasLayerTreeService.PolylineLayerType;
 
@@ -569,24 +580,30 @@ namespace Land_Readjustment_Tool.UI.Forms
             bool isPoint = string.Equals(layerType, CanvasLayerTreeService.PointLayerType, StringComparison.OrdinalIgnoreCase);
             bool isPolyline = string.Equals(layerType, CanvasLayerTreeService.PolylineLayerType, StringComparison.OrdinalIgnoreCase);
             bool isPolygon = string.Equals(layerType, CanvasLayerTreeService.PolygonLayerType, StringComparison.OrdinalIgnoreCase);
+            bool isAnnotation = string.Equals(layerType, CanvasLayerTreeService.AnnotationLayerType, StringComparison.OrdinalIgnoreCase);
 
             Text = _isDrawingMarkupLayer
                 ? "Drawing Layer Properties"
+                : isAnnotation ? "Annotation Layer Properties"
                 : isPolyline ? "Line Layer Properties" : "Polygon Layer Properties";
             _lblBorderColor.Text = isPoint
                 ? "Point Color"
+                : isAnnotation ? "Text Color"
                 : isPolyline ? "Line Color" : "Border Color";
 
-            SetControlVisible(_chkNoBorder, !isPoint);
-            SetControlVisible(_lblLineStyle, !isPoint);
-            SetControlVisible(_lineTypePanel, !isPoint);
-            SetControlVisible(_lblLinePreview, !isPoint);
-            SetControlVisible(_pnlLinePreview, !isPoint);
-            SetControlVisible(_lblLineWeight, !isPoint);
-            SetControlVisible(_numLineWeight, !isPoint);
-            SetGeneralRowHeight(3, isPoint ? 0F : 38F);
-            SetGeneralRowHeight(4, isPoint ? 0F : 38F);
-            SetGeneralRowHeight(5, isPoint ? 0F : 38F);
+            SetControlVisible(_chkNoBorder, !isPoint && !isAnnotation);
+            SetControlVisible(_lblLineStyle, !isPoint && !isAnnotation);
+            SetControlVisible(_lineTypePanel, !isPoint && !isAnnotation);
+            SetControlVisible(_lblLinePreview, !isPoint && !isAnnotation);
+            SetControlVisible(_pnlLinePreview, !isPoint && !isAnnotation);
+            SetControlVisible(_lblLineWeight, !isPoint && !isAnnotation);
+            SetControlVisible(_numLineWeight, !isPoint && !isAnnotation);
+            SetControlVisible(_lblBorderColor, !isAnnotation);
+            SetControlVisible(_borderColorPanel, !isAnnotation);
+            SetGeneralRowHeight(2, isAnnotation ? 0F : 38F);
+            SetGeneralRowHeight(3, isPoint || isAnnotation ? 0F : 38F);
+            SetGeneralRowHeight(4, isPoint || isAnnotation ? 0F : 38F);
+            SetGeneralRowHeight(5, isPoint || isAnnotation ? 0F : 38F);
 
             SetControlVisible(_lblPointMarker, isPoint);
             SetControlVisible(_pointMarkerPanel, isPoint);
@@ -611,6 +628,7 @@ namespace Land_Readjustment_Tool.UI.Forms
                 "line" => CanvasLayerTreeService.PolylineLayerType,
                 "polyline" => CanvasLayerTreeService.PolylineLayerType,
                 "polygon" => CanvasLayerTreeService.PolygonLayerType,
+                "annotation" => CanvasLayerTreeService.AnnotationLayerType,
                 _ => CanvasLayerTreeService.PolylineLayerType
             };
         }
@@ -620,6 +638,14 @@ namespace Land_Readjustment_Tool.UI.Forms
             return string.Equals(
                 NormalizeDrawingLayerType(_cboLayerKind.Text),
                 CanvasLayerTreeService.PointLayerType,
+                StringComparison.OrdinalIgnoreCase);
+        }
+
+        private bool IsSelectedAnnotationLayerType()
+        {
+            return string.Equals(
+                NormalizeDrawingLayerType(_cboLayerKind.Text),
+                CanvasLayerTreeService.AnnotationLayerType,
                 StringComparison.OrdinalIgnoreCase);
         }
 

@@ -72,6 +72,7 @@ namespace Land_Readjustment_Tool
             baseMapsToolStripMenuItem = new ToolStripMenuItem();
             assignmentToolStripMenuItem = new ToolStripMenuItem();
             projectBoundaryAssignmentToolStripMenuItem = new ToolStripMenuItem();
+            cadastralRecordsAssignmentToolStripMenuItem = new ToolStripMenuItem();
             importToolStripMenuItem = new ToolStripMenuItem();
             viewEditRecordToolStripMenuItem = new ToolStripMenuItem();
             landOwnerDataToolStripMenuItem = new ToolStripMenuItem();
@@ -417,6 +418,7 @@ namespace Land_Readjustment_Tool
             importCadastralDataDXFDWGShapefileToolStripMenuItem.Name = "importCadastralDataDXFDWGShapefileToolStripMenuItem";
             importCadastralDataDXFDWGShapefileToolStripMenuItem.Size = new Size(385, 26);
             importCadastralDataDXFDWGShapefileToolStripMenuItem.Text = "Cadastral Map (DXF/DWG/Shapefile)";
+            importCadastralDataDXFDWGShapefileToolStripMenuItem.Click += importCadastralDataDXFDWGShapefileToolStripMenuItem_Click;
             // 
             // ImportProjectBoundaryDXFDWGToolStripMenuItem
             // 
@@ -437,7 +439,7 @@ namespace Land_Readjustment_Tool
             // 
             // assignmentToolStripMenuItem
             // 
-            assignmentToolStripMenuItem.DropDownItems.AddRange(new ToolStripItem[] { projectBoundaryAssignmentToolStripMenuItem });
+            assignmentToolStripMenuItem.DropDownItems.AddRange(new ToolStripItem[] { projectBoundaryAssignmentToolStripMenuItem, cadastralRecordsAssignmentToolStripMenuItem });
             assignmentToolStripMenuItem.Name = "assignmentToolStripMenuItem";
             assignmentToolStripMenuItem.Size = new Size(224, 26);
             assignmentToolStripMenuItem.Text = "Assignment";
@@ -447,6 +449,13 @@ namespace Land_Readjustment_Tool
             projectBoundaryAssignmentToolStripMenuItem.Name = "projectBoundaryAssignmentToolStripMenuItem";
             projectBoundaryAssignmentToolStripMenuItem.Size = new Size(224, 26);
             projectBoundaryAssignmentToolStripMenuItem.Text = "Project Boundary";
+            // 
+            // cadastralRecordsAssignmentToolStripMenuItem
+            // 
+            cadastralRecordsAssignmentToolStripMenuItem.Name = "cadastralRecordsAssignmentToolStripMenuItem";
+            cadastralRecordsAssignmentToolStripMenuItem.Size = new Size(224, 26);
+            cadastralRecordsAssignmentToolStripMenuItem.Text = "Cadastral Records";
+            cadastralRecordsAssignmentToolStripMenuItem.Click += CadastralRecordsAssignmentToolStripMenuItem_Click;
             // 
             // importToolStripMenuItem
             // 
@@ -769,7 +778,7 @@ namespace Land_Readjustment_Tool
             cboLayerType.Anchor = AnchorStyles.Top | AnchorStyles.Left | AnchorStyles.Right;
             cboLayerType.DropDownStyle = ComboBoxStyle.DropDownList;
             cboLayerType.Font = new Font("Segoe UI", 9F);
-            cboLayerType.Items.AddRange(new object[] { "BaselineParcel", "ReplottedParcel", "ProposedRoad", "ExistingRoad", "Block", "ProjectBoundary", "Annotation", "Reference", "Raster" });
+            cboLayerType.Items.AddRange(new object[] { "Point", "Polyline", "Polygon", "Annotation" });
             cboLayerType.Location = new Point(127, 48);
             cboLayerType.Name = "cboLayerType";
             cboLayerType.Size = new Size(29, 28);
@@ -1832,6 +1841,7 @@ namespace Land_Readjustment_Tool
         private ToolStripMenuItem importToolStripMenuItem;
         private ToolStripMenuItem assignmentToolStripMenuItem;
         private ToolStripMenuItem projectBoundaryAssignmentToolStripMenuItem;
+        private ToolStripMenuItem cadastralRecordsAssignmentToolStripMenuItem;
         private ToolStripMenuItem contributionSettingsToolStripMenuItem;
         private ToolStripMenuItem calculateContributionToolStripMenuItem;
         private ToolStripMenuItem contributionSummaryToolStripMenuItem;

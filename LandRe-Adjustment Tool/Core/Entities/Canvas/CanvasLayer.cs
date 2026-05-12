@@ -22,6 +22,9 @@ namespace Land_Readjustment_Tool.Core.Entities.Canvas
         // "ProjectBoundary"
         // "ReplottedParcel"
         // "Annotation"
+        // "Point"
+        // "Polyline"
+        // "Polygon"
         // "Reference"
 
         // ── VISIBILITY & BEHAVIOUR ──────────────────

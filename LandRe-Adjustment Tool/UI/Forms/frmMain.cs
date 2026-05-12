@@ -51,7 +51,9 @@ namespace Land_Readjustment_Tool
         private readonly IXyzTileSourceService _xyzTileSourceService;
         private readonly IBoundaryReaderFactory _boundaryReaderFactory;
         private readonly IBoundaryImportService _boundaryImportService;
+        private readonly ICadastralImportService _cadastralImportService;
         private readonly IProjectBoundaryAssignmentService _projectBoundaryAssignmentService;
+        private readonly ICadastralRecordAssignmentService _cadastralRecordAssignmentService;
         private readonly XyzTilePreDownloadService _xyzTilePreDownloadService;
         private readonly IHatchPatternService _hatchPatternService;
         private readonly ProjectOpenService _projectOpenService;
@@ -73,6 +75,7 @@ namespace Land_Readjustment_Tool
         private const string LayerGroupNodeNamePrefix = "LayerGroup_";
         private const string RePlotRootNodeKey = "RePlotRoot";
         private const string OriginalDataGroupKey = CanvasLayerTreeService.OriginalDataGroupKey;
+        private const string CadastralMapGroupKey = "CadastralMap";
         private const string BlockLayoutGroupKey = CanvasLayerTreeService.BlockLayoutGroupKey;
         private const string RoadsGroupKey = CanvasLayerTreeService.RoadsGroupKey;
         private const string ReplottedParcelsGroupKey = CanvasLayerTreeService.ReplottedParcelsGroupKey;
@@ -117,6 +120,7 @@ namespace Land_Readjustment_Tool
         {
             public bool IsLayerNode { get; init; }
             public bool IsCheckableGroup { get; init; }
+            public bool IsGroupCheckedWhenEmpty { get; set; }
             public string? GroupKey { get; init; }
             public CanvasLayer? Layer { get; set; }
             public bool IsOnlineBasemap { get; set; }
@@ -181,7 +185,9 @@ namespace Land_Readjustment_Tool
                         new Services.Import.Readers.KmlBoundaryReader()),
                     projectScopedFactory,
                     new ProjectRasterCrsResolver(projectScopedFactory)),
+                new CadastralImportService(new ProjectRasterCrsResolver(projectScopedFactory)),
                 new ProjectBoundaryAssignmentService(projectScopedFactory),
+                new CadastralRecordAssignmentService(),
                 new HatchPatternService(),
                 new ProjectOpenService(sessionFactory, projectScopedFactory),
                 new ProjectSaveAsService(backupService, sessionFactory),
@@ -203,7 +209,9 @@ namespace Land_Readjustment_Tool
             IXyzTileSourceService xyzTileSourceService,
             IBoundaryReaderFactory boundaryReaderFactory,
             IBoundaryImportService boundaryImportService,
+            ICadastralImportService cadastralImportService,
             IProjectBoundaryAssignmentService projectBoundaryAssignmentService,
+            ICadastralRecordAssignmentService cadastralRecordAssignmentService,
             IHatchPatternService hatchPatternService,
             ProjectOpenService projectOpenService,
             ProjectSaveAsService projectSaveAsService,
@@ -222,7 +230,9 @@ namespace Land_Readjustment_Tool
             _xyzTileSourceService = xyzTileSourceService ?? throw new ArgumentNullException(nameof(xyzTileSourceService));
             _boundaryReaderFactory = boundaryReaderFactory ?? throw new ArgumentNullException(nameof(boundaryReaderFactory));
             _boundaryImportService = boundaryImportService ?? throw new ArgumentNullException(nameof(boundaryImportService));
+            _cadastralImportService = cadastralImportService ?? throw new ArgumentNullException(nameof(cadastralImportService));
             _projectBoundaryAssignmentService = projectBoundaryAssignmentService ?? throw new ArgumentNullException(nameof(projectBoundaryAssignmentService));
+            _cadastralRecordAssignmentService = cadastralRecordAssignmentService ?? throw new ArgumentNullException(nameof(cadastralRecordAssignmentService));
             _xyzTilePreDownloadService = new XyzTilePreDownloadService();
             _hatchPatternService = hatchPatternService ?? throw new ArgumentNullException(nameof(hatchPatternService));
             _projectOpenService = projectOpenService ?? throw new ArgumentNullException(nameof(projectOpenService));
@@ -1587,6 +1597,83 @@ namespace Land_Readjustment_Tool
             await ShowImportProjectBoundaryWorkflowAsync();
         }
 
+        private async void importCadastralDataDXFDWGShapefileToolStripMenuItem_Click(
+            object? sender,
+            EventArgs e)
+        {
+            await ShowImportCadastralMapWorkflowAsync();
+        }
+
+        private async Task ShowImportCadastralMapWorkflowAsync()
+        {
+            if (!AppServices.HasContext)
+            {
+                MessageBox.Show(
+                    "Please open or create a project first.",
+                    "No Project Open",
+                    MessageBoxButtons.OK,
+                    MessageBoxIcon.Warning);
+                return;
+            }
+
+            using OpenFileDialog dialog = new()
+            {
+                Title = "Import Cadastral Map",
+                Filter = "Cadastral map files (*.dxf;*.dwg;*.shp)|*.dxf;*.dwg;*.shp|DXF files (*.dxf)|*.dxf|DWG files (*.dwg)|*.dwg|Shapefiles (*.shp)|*.shp|All files (*.*)|*.*",
+                Multiselect = false,
+                RestoreDirectory = true
+            };
+
+            if (dialog.ShowDialog(this) != DialogResult.OK)
+                return;
+
+            try
+            {
+                using frmCadastralImport importForm = new(
+                    AppServices.Context.Session,
+                    dialog.FileName,
+                    _cadastralImportService,
+                    _projectScopedFactory,
+                    _projectRasterCrsResolver);
+
+                if (importForm.ShowDialog(this) != DialogResult.OK)
+                    return;
+
+                MarkProjectModifiedIfOpen();
+                await RefreshLayerTreeAsync();
+
+                CadastralImportResult? result = importForm.ImportResult;
+                if (result?.BoundingBox != null && !result.BoundingBox.IsNull)
+                    mapCanvasControlMain.ZoomToWorldBounds(ToRectangleD(result.BoundingBox));
+
+                SetCanvasCommandStatus(
+                    result == null
+                        ? "Cadastral map imported."
+                        : $"Imported {result.ObjectsCreated} cadastral parcel object(s).");
+            }
+            catch (InvalidOperationException ex)
+                when (ex.Message.Contains(
+                    "project coordinate system",
+                    StringComparison.OrdinalIgnoreCase))
+            {
+                MessageBox.Show(
+                    ex.Message,
+                    "Cadastral Map Import",
+                    MessageBoxButtons.OK,
+                    MessageBoxIcon.Warning);
+                OpenProjectSettings();
+            }
+            catch (Exception ex)
+            {
+                LogProjectError("Cadastral map import failed.", ex);
+                MessageBox.Show(
+                    $"Failed to import cadastral map: {GetMostUsefulExceptionMessage(ex)}",
+                    "Cadastral Map Import",
+                    MessageBoxButtons.OK,
+                    MessageBoxIcon.Error);
+            }
+        }
+
         private async Task ShowImportProjectBoundaryWorkflowAsync()
         {
             if (!AppServices.HasContext)
@@ -1769,6 +1856,32 @@ namespace Land_Readjustment_Tool
                     MessageBoxButtons.OK,
                     MessageBoxIcon.Error);
             }
+        }
+
+        private async void CadastralRecordsAssignmentToolStripMenuItem_Click(object? sender, EventArgs e)
+        {
+            if (!AppServices.HasContext)
+            {
+                MessageBox.Show(
+                    "Please open or create a project first.",
+                    "No Project Open",
+                    MessageBoxButtons.OK,
+                    MessageBoxIcon.Warning);
+                return;
+            }
+
+            using frmCadastralRecordAssignment form = new(
+                AppServices.Context.Session,
+                _cadastralRecordAssignmentService);
+            form.ShowDialog(this);
+
+            if (!form.AssignmentChanged)
+                return;
+
+            MarkProjectModifiedIfOpen();
+            await RefreshVectorCanvasFeaturesAsync();
+            mapCanvasControlMain.RequestRender();
+            SetCanvasCommandStatus("Cadastral records assigned.");
         }
 
         private void PreviewAssignmentCandidateOnCanvas(Guid? canvasObjectId, bool zoomToObject)
@@ -3498,6 +3611,7 @@ namespace Land_Readjustment_Tool
                 "line" => "Polyline",
                 "polyline" => "Polyline",
                 "polygon" => "Polygon",
+                "annotation" => "Annotation",
                 _ => string.IsNullOrWhiteSpace(layerType) ? "matching" : layerType.Trim()
             };
         }
@@ -3780,6 +3894,10 @@ namespace Land_Readjustment_Tool
                     // checkerboard icon that universally signals imagery / raster data.
                     DrawRasterLayerIcon(g, colorRect);
                 }
+                else if (CanvasLayerTreeService.IsAnnotationLayer(layer))
+                {
+                    DrawAnnotationLayerSwatch(g, colorRect, layer, treeViewLayers.BackColor);
+                }
                 else if (CanvasLayerTreeService.IsPointLayer(layer))
                 {
                     DrawPointLayerSwatch(g, colorRect, layer, treeViewLayers.BackColor);
@@ -3836,7 +3954,9 @@ namespace Land_Readjustment_Tool
                 Tag = new LayerTreeNodeState
                 {
                     IsLayerNode = false,
-                    IsCheckableGroup = IsRePlotDataGroupKey(key),
+                    IsCheckableGroup = IsRePlotDataGroupKey(key) ||
+                                       string.Equals(key, CadastralMapGroupKey, StringComparison.OrdinalIgnoreCase),
+                    IsGroupCheckedWhenEmpty = string.Equals(key, CadastralMapGroupKey, StringComparison.OrdinalIgnoreCase),
                     GroupKey = key
                 }
             };
@@ -3948,6 +4068,14 @@ namespace Land_Readjustment_Tool
                 return;
 
             e.Handled = true;
+            if (selectedNode.Tag is LayerTreeNodeState state &&
+                !state.IsLayerNode &&
+                state.IsCheckableGroup)
+            {
+                await ToggleLayerGroupVisibilityAsync(selectedNode);
+                return;
+            }
+
             await ToggleLayerNodeVisibilityAsync(selectedNode);
         }
 
@@ -4190,6 +4318,34 @@ namespace Land_Readjustment_Tool
                 layer.PointSymbol,
                 markerColor,
                 Math.Max(1.0f, (float)layer.LineWeight));
+        }
+
+        private static void DrawAnnotationLayerSwatch(
+            Graphics g,
+            Rectangle rect,
+            CanvasLayer layer,
+            Color backgroundColor)
+        {
+            using SolidBrush backgroundBrush = new(backgroundColor);
+            g.FillRectangle(backgroundBrush, rect);
+
+            Color textColor = ParseColorOrDefault(
+                layer.LabelColor,
+                ParseColorOrDefault(layer.BorderColor, Color.Black));
+            using Font font = new(
+                "Segoe UI",
+                Math.Max(7.0f, rect.Height - 7.0f),
+                FontStyle.Bold,
+                GraphicsUnit.Pixel);
+            TextRenderer.DrawText(
+                g,
+                "T",
+                font,
+                rect,
+                textColor,
+                TextFormatFlags.HorizontalCenter |
+                TextFormatFlags.VerticalCenter |
+                TextFormatFlags.NoPadding);
         }
 
         private void DrawRoadsGroupSwatch(
@@ -4544,7 +4700,14 @@ namespace Land_Readjustment_Tool
 
             List<TreeNode> layerNodes = EnumerateLayerNodes(groupNode).ToList();
             if (layerNodes.Count == 0)
+            {
+                nodeState.IsGroupCheckedWhenEmpty = !nodeState.IsGroupCheckedWhenEmpty;
+                treeViewLayers.Invalidate();
+                SetCanvasCommandStatus(nodeState.IsGroupCheckedWhenEmpty
+                    ? $"Layer group checked: {groupNode.Text}"
+                    : $"Layer group unchecked: {groupNode.Text}");
                 return;
+            }
 
             bool newVisibility = layerNodes
                 .Select(GetLayerFromNode)
@@ -4582,6 +4745,7 @@ namespace Land_Readjustment_Tool
                     }
                 }
 
+                nodeState.IsGroupCheckedWhenEmpty = newVisibility;
                 MarkProjectModifiedIfOpen();
                 treeViewLayers.Invalidate();
 
@@ -5346,12 +5510,7 @@ namespace Land_Readjustment_Tool
                     TreeNode groupNode =
                         CreateLayerGroupNode(group.Key, group.Name);
 
-                    foreach (CanvasLayer layer in OrderLayerGroupForDisplay(
-                                 group.Key,
-                                 group.Layers))
-                    {
-                        groupNode.Nodes.Add(CreateLayerNode(layer));
-                    }
+                    PopulateGroupNodeLayers(groupNode, group);
 
                     if (IsRePlotDataGroupKey(group.Key))
                     {
@@ -5400,6 +5559,39 @@ namespace Land_Readjustment_Tool
             UpdateVectorCanvasLayersFromTree();
         }
 
+        private void PopulateGroupNodeLayers(
+            TreeNode groupNode,
+            CanvasLayerTreeGroup group)
+        {
+            if (!string.Equals(group.Key, OriginalDataGroupKey, StringComparison.OrdinalIgnoreCase))
+            {
+                foreach (CanvasLayer layer in OrderLayerGroupForDisplay(group.Key, group.Layers))
+                    groupNode.Nodes.Add(CreateLayerNode(layer));
+
+                return;
+            }
+
+            TreeNode cadastralMapNode = CreateLayerGroupNode(CadastralMapGroupKey, "Cadastral Map");
+            foreach (CanvasLayer layer in OrderLayerGroupForDisplay(group.Key, group.Layers))
+            {
+                if (IsCadastralCanvasLayer(layer))
+                    cadastralMapNode.Nodes.Add(CreateLayerNode(layer));
+                else
+                    groupNode.Nodes.Add(CreateLayerNode(layer));
+            }
+
+            groupNode.Nodes.Add(cadastralMapNode);
+            cadastralMapNode.Expand();
+        }
+
+        private static bool IsCadastralCanvasLayer(CanvasLayer layer)
+        {
+            return string.Equals(layer.LayerType, "BaselineParcel", StringComparison.OrdinalIgnoreCase) ||
+                   layer.Description?.StartsWith(
+                       "Imported cadastral map layer",
+                       StringComparison.OrdinalIgnoreCase) == true;
+        }
+
         private void ResetLayerTree()
         {
             _suppressLayerTreeEvents = true;
@@ -5417,8 +5609,7 @@ namespace Land_Readjustment_Tool
                     TreeNode groupNode =
                         CreateLayerGroupNode(group.Key, group.Name);
 
-                    foreach (CanvasLayer layer in group.Layers)
-                        groupNode.Nodes.Add(CreateLayerNode(layer));
+                    PopulateGroupNodeLayers(groupNode, group);
 
                     if (IsRePlotDataGroupKey(group.Key))
                     {
@@ -5713,11 +5904,20 @@ namespace Land_Readjustment_Tool
                 .ToList();
 
             if (layers.Count == 0)
-                return VisualStyles.CheckBoxState.UncheckedDisabled;
+            {
+                return groupNode.Tag is LayerTreeNodeState state &&
+                       state.IsGroupCheckedWhenEmpty
+                    ? VisualStyles.CheckBoxState.CheckedNormal
+                    : VisualStyles.CheckBoxState.UncheckedNormal;
+            }
 
-            return layers.Any(layer => layer.IsVisible)
-                ? VisualStyles.CheckBoxState.CheckedNormal
-                : VisualStyles.CheckBoxState.UncheckedNormal;
+            if (layers.All(layer => layer.IsVisible))
+                return VisualStyles.CheckBoxState.CheckedNormal;
+
+            if (layers.All(layer => !layer.IsVisible))
+                return VisualStyles.CheckBoxState.UncheckedNormal;
+
+            return VisualStyles.CheckBoxState.MixedNormal;
         }
 
         private static bool IsRasterLayer(CanvasLayer? layer)
@@ -5931,9 +6131,9 @@ namespace Land_Readjustment_Tool
 
         private void SelectLayerNodeById(int layerId)
         {
-            foreach (TreeNode groupNode in treeViewLayers.Nodes)
+            foreach (TreeNode rootNode in treeViewLayers.Nodes)
             {
-                foreach (TreeNode layerNode in groupNode.Nodes)
+                foreach (TreeNode layerNode in EnumerateLayerNodes(rootNode))
                 {
                     if (layerNode.Tag is LayerTreeNodeState state &&
                         state.Layer?.Id == layerId)

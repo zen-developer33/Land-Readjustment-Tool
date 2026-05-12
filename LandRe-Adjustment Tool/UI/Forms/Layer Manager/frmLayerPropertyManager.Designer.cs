@@ -281,7 +281,7 @@ namespace Land_Readjustment_Tool.UI.Forms
             // 
             _cboLayerKind.Dock = DockStyle.Left;
             _cboLayerKind.DropDownStyle = ComboBoxStyle.DropDownList;
-            _cboLayerKind.Items.AddRange(new object[] { "Point", "Polyline", "Polygon" });
+            _cboLayerKind.Items.AddRange(new object[] { "Point", "Polyline", "Polygon", "Annotation" });
             _cboLayerKind.Location = new Point(110, 42);
             _cboLayerKind.Margin = new Padding(0, 4, 0, 4);
             _cboLayerKind.Name = "_cboLayerKind";

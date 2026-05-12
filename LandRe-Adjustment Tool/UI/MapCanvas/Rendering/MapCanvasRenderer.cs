@@ -351,11 +351,11 @@ namespace Land_Readjustment_Tool.UI.MapCanvas.Rendering
         private void RenderNorthMarker(Graphics graphics, RectangleF clientRect)
         {
             float minSide = Math.Min(clientRect.Width, clientRect.Height);
-            float size    = Math.Max(42.0f, Math.Min(72.0f, minSide * 0.12f));
-            float margin  = Math.Max(10.0f, size * 0.28f);
+            float size = Math.Max(36.0f, Math.Min(60.0f, minSide * 0.10f));
+            float margin = Math.Max(10.0f, size * 0.24f);
 
             float centerX = clientRect.Right - margin - size * 0.5f;
-            float top     = clientRect.Top + margin;
+            float top = clientRect.Top + margin;
 
             Color canvasBg = _settings.BackgroundColor;
             bool isDarkCanvas = CanvasThemeColorService.IsDarkCanvas(canvasBg);
@@ -369,16 +369,10 @@ namespace Land_Readjustment_Tool.UI.MapCanvas.Rendering
                 ? Color.FromArgb(48, 60, 66)
                 : Color.FromArgb(245, 248, 250);
 
-            float labelHeight = size * 0.34f;
-            using Font labelFont = new("Segoe UI", Math.Max(12f, size * 0.34f), FontStyle.Bold);
-            using SolidBrush labelBrush = new(lineColor);
-            using StringFormat sf = new() { Alignment = StringAlignment.Center };
-            graphics.DrawString("N", labelFont, labelBrush, new PointF(centerX, top), sf);
-
-            float arrowTop = top + labelHeight;
-            float arrowBottom = arrowTop + size * 0.82f;
-            float arrowHalf = size * 0.25f;
-            float spineBottom = arrowBottom - size * 0.18f;
+            float arrowTop = top;
+            float arrowBottom = arrowTop + size * 0.78f;
+            float arrowHalf = size * 0.22f;
+            float spineBottom = arrowBottom - size * 0.16f;
 
             PointF tip = new(centerX, arrowTop);
             PointF spine = new(centerX, spineBottom);
@@ -387,7 +381,7 @@ namespace Land_Readjustment_Tool.UI.MapCanvas.Rendering
 
             using SolidBrush leftBrush = new(leftFillColor);
             using SolidBrush rightBrush = new(rightFillColor);
-            using Pen outlinePen = new(lineColor, Math.Max(1.6f, size * 0.04f))
+            using Pen outlinePen = new(lineColor, Math.Max(1.4f, size * 0.035f))
             {
                 LineJoin = LineJoin.Miter
             };
@@ -396,8 +390,13 @@ namespace Land_Readjustment_Tool.UI.MapCanvas.Rendering
             graphics.FillPolygon(rightBrush, new[] { tip, rightBase, spine });
             graphics.DrawPolygon(outlinePen, new[] { tip, rightBase, spine, leftBase });
             graphics.DrawLine(outlinePen, tip, spine);
-        }
 
+            float labelTop = arrowBottom + Math.Max(2.0f, size * 0.04f);
+            using Font labelFont = new("Segoe UI", Math.Max(10f, size * 0.26f), FontStyle.Bold);
+            using SolidBrush labelBrush = new(lineColor);
+            using StringFormat sf = new() { Alignment = StringAlignment.Center };
+            graphics.DrawString("N", labelFont, labelBrush, new PointF(centerX, labelTop), sf);
+        }
         /// <summary>
         /// Draws all visible raster layer tiles that intersect the current viewport.
         /// </summary>

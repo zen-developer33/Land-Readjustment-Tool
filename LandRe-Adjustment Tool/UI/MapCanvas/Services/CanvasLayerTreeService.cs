@@ -22,6 +22,7 @@ namespace Land_Readjustment_Tool.UI.MapCanvas.Services
         public const string PointLayerType = "Point";
         public const string PolylineLayerType = "Polyline";
         public const string PolygonLayerType = "Polygon";
+        public const string AnnotationLayerType = "Annotation";
         public const string DrawingMarkupLayerType = "DrawingMarkup";
 
         private readonly ICanvasLayerRepository _canvasLayerRepository;
@@ -41,7 +42,6 @@ namespace Land_Readjustment_Tool.UI.MapCanvas.Services
         [
             // Colours follow the ArcMap-style palette used elsewhere in the app.
             new(OriginalDataGroupKey, "Project Boundary", "ProjectBoundary", "#CF7C82", null, 0, 2.0, "Solid", "Boundary"),
-            new(OriginalDataGroupKey, "Original Parcels", "BaselineParcel", "#8FCDE4", "#C8E8F4", 55, 1.4, "Solid", null),
             new(BlockLayoutGroupKey, "Blocks", "Block", "#D99A5A", "#F6C766", 35, 1.5, "Solid", null),
             new(RoadsGroupKey, "Road Parcel", "RoadParcel", "#D99A5A", "#F6C766", 20, 1.5, "Solid", "Proposed Roads"),
             new(RoadsGroupKey, "Road Centerline", RoadCenterlineLayerType, "#C76E78", null, 100, 1.4, "Centerline", null),
@@ -137,6 +137,13 @@ namespace Land_Readjustment_Tool.UI.MapCanvas.Services
             if (DefaultLayerNameToGroup.TryGetValue(layer.Name, out string? defaultGroupKey))
                 return defaultGroupKey;
 
+            if (layer.Description?.StartsWith(
+                    "Imported cadastral map layer",
+                    StringComparison.OrdinalIgnoreCase) == true)
+            {
+                return OriginalDataGroupKey;
+            }
+
             return layer.LayerType switch
             {
                 "Raster" => RasterGroupKey,
@@ -152,7 +159,7 @@ namespace Land_Readjustment_Tool.UI.MapCanvas.Services
                 "PublicFacility" => ReplottedParcelsGroupKey,
                 "OpenSpace" => ReplottedParcelsGroupKey,
                 "ServiceSalesPlot" => ReplottedParcelsGroupKey,
-                "Annotation" => DrawingMarkupGroupKey,
+                AnnotationLayerType => DrawingMarkupGroupKey,
                 DrawingMarkupLayerType => DrawingMarkupGroupKey,
                 PointLayerType => DrawingMarkupGroupKey,
                 PolylineLayerType => DrawingMarkupGroupKey,
@@ -323,6 +330,11 @@ namespace Land_Readjustment_Tool.UI.MapCanvas.Services
         public static bool IsPolygonLayer(CanvasLayer layer)
         {
             return string.Equals(layer.LayerType, PolygonLayerType, StringComparison.OrdinalIgnoreCase);
+        }
+
+        public static bool IsAnnotationLayer(CanvasLayer layer)
+        {
+            return string.Equals(layer.LayerType, AnnotationLayerType, StringComparison.OrdinalIgnoreCase);
         }
 
         public static bool IsDrawingMarkupLayer(CanvasLayer layer)

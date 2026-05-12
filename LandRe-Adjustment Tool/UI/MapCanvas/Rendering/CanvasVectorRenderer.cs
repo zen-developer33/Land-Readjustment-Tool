@@ -500,7 +500,7 @@ namespace Land_Readjustment_Tool.UI.MapCanvas.Rendering
                     DrawEllipse(graphics, engine, ellipse, style, context, pen);
                     break;
                 case TextShape text:
-                    DrawText(graphics, engine, text, context);
+                    DrawText(graphics, engine, text, style, context);
                     break;
                 default:
                     shape.Draw(graphics, engine.WorldToScreen, context.IsPreview);
@@ -1021,6 +1021,7 @@ namespace Land_Readjustment_Tool.UI.MapCanvas.Rendering
             Graphics graphics,
             MapCanvasEngine engine,
             TextShape text,
+            VectorShapeStyle style,
             VectorRenderContext context)
         {
             PointF position = ToScreenPointF(engine.WorldToScreen(text.Position));
@@ -1030,7 +1031,7 @@ namespace Land_Readjustment_Tool.UI.MapCanvas.Rendering
             }
 
             Color color = text.FillColor == Color.Transparent
-                ? text.BorderColor
+                ? style.StrokeColor
                 : text.FillColor;
             graphics.DrawString(text.Text, text.Font, context.GetSolidBrush(color), position);
         }
