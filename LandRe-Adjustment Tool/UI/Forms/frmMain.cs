@@ -991,8 +991,9 @@ namespace Land_Readjustment_Tool
             {
                 HideOperationProgress();
                 AppServices.ClearContext();
+                LogProjectError("Project creation failed.", ex);
                 MessageBox.Show(
-                    $"Failed to create project: {ex.Message}",
+                    $"Failed to create project: {GetMostUsefulExceptionMessage(ex)}",
                     "Error",
                     MessageBoxButtons.OK,
                     MessageBoxIcon.Error);
