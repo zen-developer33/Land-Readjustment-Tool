@@ -5,6 +5,7 @@ using Land_Readjustment_Tool.Data;
 using Land_Readjustment_Tool.Services.Import;
 using Land_Readjustment_Tool.Services.Raster;
 using Land_Readjustment_Tool.UI.MapCanvas.Services;
+using Microsoft.EntityFrameworkCore;
 
 namespace Land_Readjustment_Tool.UI.Dialogs
 {
@@ -212,10 +213,23 @@ namespace Land_Readjustment_Tool.UI.Dialogs
                 btnCancel.Enabled = false;
                 lblStatus.Text = "Transforming and saving boundary...";
 
+                bool replaceExistingBoundary = await ConfirmReplaceExistingBoundaryAsync();
+                if (!replaceExistingBoundary)
+                {
+                    DialogResult = DialogResult.None;
+                    btnImport.Enabled = true;
+                    btnCancel.Enabled = true;
+                    lblStatus.Text = "Import cancelled.";
+                    return;
+                }
+
                 ImportResult = await _importService.ImportProjectBoundaryAsync(
                     _session,
                     _filePath,
-                    new BoundaryImportOptions(selectedLayer.Layer.Name, sourceCrs));
+                    new BoundaryImportOptions(
+                        selectedLayer.Layer.Name,
+                        sourceCrs,
+                        DeleteExistingBoundaryObjects: true));
 
                 if (!ImportResult.Success)
                 {
@@ -248,6 +262,29 @@ namespace Land_Readjustment_Tool.UI.Dialogs
                 btnCancel.Enabled = true;
                 lblStatus.Text = "Import failed.";
             }
+        }
+
+        private async Task<bool> ConfirmReplaceExistingBoundaryAsync()
+        {
+            int existingBoundaryCount = await _session.GetDbContext()
+                .CanvasObjects
+                .AsNoTracking()
+                .CountAsync(canvasObject =>
+                    canvasObject.CanvasLayer.Name == "Project Boundary" ||
+                    canvasObject.CanvasLayer.LayerType == "ProjectBoundary");
+
+            if (existingBoundaryCount == 0)
+                return true;
+
+            DialogResult result = MessageBox.Show(
+                this,
+                $"A Project Boundary already exists ({existingBoundaryCount} object(s)).\n\nReplace it with this import?",
+                "Replace Project Boundary",
+                MessageBoxButtons.YesNo,
+                MessageBoxIcon.Question,
+                MessageBoxDefaultButton.Button1);
+
+            return result == DialogResult.Yes;
         }
 
         private string GetSourceCrsDefinition()

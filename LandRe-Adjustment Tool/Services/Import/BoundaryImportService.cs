@@ -79,6 +79,15 @@ namespace Land_Readjustment_Tool.Services.Import
                 ct);
             ApplyProjectBoundaryDefaultStyle(boundaryLayer);
 
+            if (options.DeleteExistingBoundaryObjects)
+            {
+                List<CanvasObject> existingBoundaryObjects = await context.CanvasObjects
+                    .Where(canvasObject => canvasObject.CanvasLayerId == boundaryLayer.Id)
+                    .ToListAsync(ct);
+
+                context.CanvasObjects.RemoveRange(existingBoundaryObjects);
+            }
+
             DateTime now = DateTime.Now;
             List<CanvasObject> objects = geometries
                 .Select(geometry => new CanvasObject

@@ -1583,6 +1583,11 @@ namespace Land_Readjustment_Tool
 
         private async void ImportProjectBoundaryToolStripMenuItem_Click(object? sender, EventArgs e)
         {
+            await ShowImportProjectBoundaryWorkflowAsync();
+        }
+
+        private async Task ShowImportProjectBoundaryWorkflowAsync()
+        {
             if (!AppServices.HasContext)
             {
                 MessageBox.Show(
@@ -1696,6 +1701,12 @@ namespace Land_Readjustment_Tool
 
                 if (dialogResult != DialogResult.OK)
                     return;
+
+                if (form.ImportProjectBoundaryRequested)
+                {
+                    await ShowImportProjectBoundaryWorkflowAsync();
+                    return;
+                }
 
                 ProjectBoundaryAssignmentResult result;
                 if (form.RemoveProjectBoundaryRequested)

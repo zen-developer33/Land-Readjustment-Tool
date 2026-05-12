@@ -31,6 +31,7 @@ namespace Land_Readjustment_Tool.UI.Dialogs
             chkDeleteExistingBoundary = new CheckBox();
             lblStatus = new Label();
             btnRemoveBoundary = new Button();
+            btnImportBoundary = new Button();
             btnAssign = new Button();
             btnCancel = new Button();
             SuspendLayout();
@@ -117,11 +118,12 @@ namespace Land_Readjustment_Tool.UI.Dialogs
             chkDeleteExistingBoundary.AutoSize = true;
             chkDeleteExistingBoundary.Checked = true;
             chkDeleteExistingBoundary.CheckState = CheckState.Checked;
+            chkDeleteExistingBoundary.Enabled = false;
             chkDeleteExistingBoundary.Location = new Point(138, 304);
             chkDeleteExistingBoundary.Name = "chkDeleteExistingBoundary";
-            chkDeleteExistingBoundary.Size = new Size(302, 24);
+            chkDeleteExistingBoundary.Size = new Size(320, 24);
             chkDeleteExistingBoundary.TabIndex = 7;
-            chkDeleteExistingBoundary.Text = "Delete existing Project Boundary objects";
+            chkDeleteExistingBoundary.Text = "Replace existing Project Boundary objects";
             chkDeleteExistingBoundary.UseVisualStyleBackColor = true;
             // 
             // lblStatus
@@ -145,13 +147,24 @@ namespace Land_Readjustment_Tool.UI.Dialogs
             btnRemoveBoundary.UseVisualStyleBackColor = true;
             btnRemoveBoundary.Click += btnRemoveBoundary_Click;
             // 
+            // btnImportBoundary
+            // 
+            btnImportBoundary.Anchor = AnchorStyles.Bottom | AnchorStyles.Left;
+            btnImportBoundary.Location = new Point(184, 399);
+            btnImportBoundary.Name = "btnImportBoundary";
+            btnImportBoundary.Size = new Size(142, 34);
+            btnImportBoundary.TabIndex = 10;
+            btnImportBoundary.Text = "Import Boundary";
+            btnImportBoundary.UseVisualStyleBackColor = true;
+            btnImportBoundary.Click += btnImportBoundary_Click;
+            // 
             // btnAssign
             // 
             btnAssign.Anchor = AnchorStyles.Bottom | AnchorStyles.Right;
             btnAssign.Location = new Point(392, 399);
             btnAssign.Name = "btnAssign";
             btnAssign.Size = new Size(94, 34);
-            btnAssign.TabIndex = 10;
+            btnAssign.TabIndex = 11;
             btnAssign.Text = "Assign";
             btnAssign.UseVisualStyleBackColor = true;
             btnAssign.Click += btnAssign_Click;
@@ -163,7 +176,7 @@ namespace Land_Readjustment_Tool.UI.Dialogs
             btnCancel.Location = new Point(498, 399);
             btnCancel.Name = "btnCancel";
             btnCancel.Size = new Size(94, 34);
-            btnCancel.TabIndex = 11;
+            btnCancel.TabIndex = 12;
             btnCancel.Text = "Cancel";
             btnCancel.UseVisualStyleBackColor = true;
             // 
@@ -176,6 +189,7 @@ namespace Land_Readjustment_Tool.UI.Dialogs
             ClientSize = new Size(612, 453);
             Controls.Add(btnCancel);
             Controls.Add(btnAssign);
+            Controls.Add(btnImportBoundary);
             Controls.Add(btnRemoveBoundary);
             Controls.Add(lblStatus);
             Controls.Add(chkDeleteExistingBoundary);
@@ -211,6 +225,7 @@ namespace Land_Readjustment_Tool.UI.Dialogs
         private CheckBox chkDeleteExistingBoundary;
         private Label lblStatus;
         private Button btnRemoveBoundary;
+        private Button btnImportBoundary;
         private Button btnAssign;
         private Button btnCancel;
     }

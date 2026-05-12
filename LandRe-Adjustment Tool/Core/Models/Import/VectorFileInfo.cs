@@ -16,7 +16,8 @@ namespace Land_Readjustment_Tool.Core.Models.Import
 
     public sealed record BoundaryImportOptions(
         string SelectedLayerName,
-        string SourceCrsCode);
+        string SourceCrsCode,
+        bool DeleteExistingBoundaryObjects = false);
 
     public sealed record BoundaryImportResult(
         bool Success,

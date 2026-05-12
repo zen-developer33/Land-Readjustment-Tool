@@ -10,8 +10,9 @@ namespace Land_Readjustment_Tool.UI.Dialogs
         public event Action<Guid?, bool>? CandidatePreviewRequested;
 
         public Guid? SelectedCandidateId { get; private set; }
-        public bool DeleteExistingBoundary => chkDeleteExistingBoundary.Checked;
+        public bool DeleteExistingBoundary => true;
         public bool RemoveProjectBoundaryRequested { get; private set; }
+        public bool ImportProjectBoundaryRequested { get; private set; }
 
         public frmProjectBoundaryAssignment(
             IReadOnlyList<ProjectBoundaryAssignmentCandidate> candidates)
@@ -173,6 +174,16 @@ namespace Land_Readjustment_Tool.UI.Dialogs
 
             SelectedCandidateId = candidate.CanvasObjectId;
             RemoveProjectBoundaryRequested = false;
+            ImportProjectBoundaryRequested = false;
+            DialogResult = DialogResult.OK;
+            Close();
+        }
+
+        private void btnImportBoundary_Click(object? sender, EventArgs e)
+        {
+            SelectedCandidateId = null;
+            RemoveProjectBoundaryRequested = false;
+            ImportProjectBoundaryRequested = true;
             DialogResult = DialogResult.OK;
             Close();
         }
@@ -191,6 +202,7 @@ namespace Land_Readjustment_Tool.UI.Dialogs
 
             SelectedCandidateId = null;
             RemoveProjectBoundaryRequested = true;
+            ImportProjectBoundaryRequested = false;
             DialogResult = DialogResult.OK;
             Close();
         }

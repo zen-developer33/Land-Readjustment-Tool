@@ -204,6 +204,7 @@ namespace Land_Readjustment_Tool
             toolStripSeparator16 = new ToolStripSeparator();
             toolStripComboBox1 = new ToolStripComboBox();
             tsProjectMenu = new ToolStrip();
+            toolStripSeparator18 = new ToolStripSeparator();
             mainMenuStrip.SuspendLayout();
             ((System.ComponentModel.ISupportInitialize)leftSplitContainer).BeginInit();
             leftSplitContainer.Panel1.SuspendLayout();
@@ -386,7 +387,7 @@ namespace Land_Readjustment_Tool
             // 
             // dataToolStripMenuItem
             // 
-            dataToolStripMenuItem.DropDownItems.AddRange(new ToolStripItem[] { importDataToolStripMenuItem1, assignmentToolStripMenuItem, importToolStripMenuItem });
+            dataToolStripMenuItem.DropDownItems.AddRange(new ToolStripItem[] { importDataToolStripMenuItem1, importToolStripMenuItem, toolStripSeparator18, assignmentToolStripMenuItem });
             dataToolStripMenuItem.Name = "dataToolStripMenuItem";
             dataToolStripMenuItem.Size = new Size(147, 24);
             dataToolStripMenuItem.Text = "Data Management";
@@ -395,7 +396,7 @@ namespace Land_Readjustment_Tool
             // 
             importDataToolStripMenuItem1.DropDownItems.AddRange(new ToolStripItem[] { ImportParcelOwnerShipRecords, toolStripSeparator5, importCadastralDataDXFDWGShapefileToolStripMenuItem, ImportProjectBoundaryDXFDWGToolStripMenuItem, toolStripSeparator6, baseMapsToolStripMenuItem });
             importDataToolStripMenuItem1.Name = "importDataToolStripMenuItem1";
-            importDataToolStripMenuItem1.Size = new Size(166, 26);
+            importDataToolStripMenuItem1.Size = new Size(224, 26);
             importDataToolStripMenuItem1.Text = "Import";
             // 
             // ImportParcelOwnerShipRecords
@@ -438,20 +439,20 @@ namespace Land_Readjustment_Tool
             // 
             assignmentToolStripMenuItem.DropDownItems.AddRange(new ToolStripItem[] { projectBoundaryAssignmentToolStripMenuItem });
             assignmentToolStripMenuItem.Name = "assignmentToolStripMenuItem";
-            assignmentToolStripMenuItem.Size = new Size(166, 26);
+            assignmentToolStripMenuItem.Size = new Size(224, 26);
             assignmentToolStripMenuItem.Text = "Assignment";
             // 
             // projectBoundaryAssignmentToolStripMenuItem
             // 
             projectBoundaryAssignmentToolStripMenuItem.Name = "projectBoundaryAssignmentToolStripMenuItem";
-            projectBoundaryAssignmentToolStripMenuItem.Size = new Size(210, 26);
+            projectBoundaryAssignmentToolStripMenuItem.Size = new Size(224, 26);
             projectBoundaryAssignmentToolStripMenuItem.Text = "Project Boundary";
             // 
             // importToolStripMenuItem
             // 
             importToolStripMenuItem.DropDownItems.AddRange(new ToolStripItem[] { viewEditRecordToolStripMenuItem, landOwnerDataToolStripMenuItem });
             importToolStripMenuItem.Name = "importToolStripMenuItem";
-            importToolStripMenuItem.Size = new Size(166, 26);
+            importToolStripMenuItem.Size = new Size(224, 26);
             importToolStripMenuItem.Text = "Records";
             // 
             // viewEditRecordToolStripMenuItem
@@ -1735,6 +1736,11 @@ namespace Land_Readjustment_Tool
             tsProjectMenu.TabIndex = 4;
             tsProjectMenu.Text = "Project Menu";
             // 
+            // toolStripSeparator18
+            // 
+            toolStripSeparator18.Name = "toolStripSeparator18";
+            toolStripSeparator18.Size = new Size(221, 6);
+            // 
             // frmMain
             // 
             AutoScaleMode = AutoScaleMode.None;
@@ -1954,5 +1960,6 @@ namespace Land_Readjustment_Tool
         private StatusProgressBar hostOperationProgress;
         private MapCanvasControl mapCanvasControlMain;
         private StatusProgressBar hostProgressBarHost;
+        private ToolStripSeparator toolStripSeparator18;
     }
 }
