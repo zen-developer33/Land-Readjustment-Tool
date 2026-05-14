@@ -117,6 +117,7 @@ namespace Land_Readjustment_Tool
         private bool _suppressSelectedPropertyObjectChanged;
         private const string AllSelectedObjectsComboText = "All Selected objects";
         private const string VariesPropertyValue = "*VARIES*";
+        private const int MaxPropertySelectionDetails = 20;
         private readonly ContextMenuStrip _layerContextMenu = new();
 
         private readonly ToolStripMenuItem _mnuZoomToLayer = new("Zoom To Layer");
@@ -2037,9 +2038,15 @@ namespace Land_Readjustment_Tool
         private async void MapCanvasControlMain_SelectedCanvasObjectsChanged(IReadOnlyList<Guid> selectedObjectIds)
         {
             _currentSelectedCanvasObjectIds = selectedObjectIds.ToArray();
-            if (selectedObjectIds.Count > 0)
+            int uniqueSelectionCount = selectedObjectIds
+                .Where(id => id != Guid.Empty)
+                .Distinct()
+                .Count();
+
+            if (uniqueSelectionCount > MaxPropertySelectionDetails)
             {
-                mapCanvasControlMain.ZoomToCanvasObjects(selectedObjectIds);
+                ShowLargeSelectionPropertyMessage(uniqueSelectionCount);
+                return;
             }
 
             await LoadSelectedParcelPropertiesAsync(selectedObjectIds);
@@ -2084,6 +2091,12 @@ namespace Land_Readjustment_Tool
                 {
                     ClearCurrentPropertyGridSelection();
                     ShowNoParcelSelection();
+                    return;
+                }
+
+                if (selectedIds.Count > MaxPropertySelectionDetails)
+                {
+                    ShowLargeSelectionPropertyMessage(selectedIds.Count);
                     return;
                 }
 
@@ -2519,9 +2532,12 @@ namespace Land_Readjustment_Tool
                 if (form.ShowDialog(this) != DialogResult.OK)
                     return;
 
+                bool canZoomToRecordSelection =
+                    form.ZoomToSelection &&
+                    form.SelectedCanvasObjectIds.Count <= MaxPropertySelectionDetails;
                 mapCanvasControlMain.SelectCanvasObjects(
                     form.SelectedCanvasObjectIds,
-                    form.ZoomToSelection);
+                    canZoomToRecordSelection);
                 SetCanvasCommandStatus(form.SelectedCanvasObjectIds.Count == 0
                     ? "Cleared record-based selection"
                     : $"Selected {form.SelectedCanvasObjectIds.Count:N0} object(s) from records");
@@ -2917,6 +2933,13 @@ namespace Land_Readjustment_Tool
         private void ShowNoParcelSelection()
         {
             ShowPropertyGridMessage("Select a parcel on the map to view its properties.");
+        }
+
+        private void ShowLargeSelectionPropertyMessage(int selectedCount)
+        {
+            ClearCurrentPropertyGridSelection();
+            ShowPropertyGridMessage(
+                $"{selectedCount:N0} objects selected. Property details are disabled for selections over {MaxPropertySelectionDetails:N0} objects.");
         }
 
         private void ShowPropertyGridMessage(string message)
@@ -5079,22 +5102,18 @@ namespace Land_Readjustment_Tool
             g.TextRenderingHint =
                 System.Drawing.Text.TextRenderingHint.ClearTypeGridFit;
 
-            Color backColor = selected
-                ? SystemColors.Highlight
-                : treeViewLayers.BackColor;
-
-            Color textColor = selected
-                ? SystemColors.HighlightText
-                : treeViewLayers.ForeColor;
-
             Rectangle rowRect = new Rectangle(
                 e.Bounds.X,
                 e.Bounds.Y,
                 treeViewLayers.ClientSize.Width - e.Bounds.X,
                 e.Bounds.Height);
 
-            using (SolidBrush backBrush = new(backColor))
+            using (SolidBrush backBrush = new(treeViewLayers.BackColor))
                 g.FillRectangle(backBrush, rowRect);
+
+            Color textColor = selected
+                ? Color.White
+                : treeViewLayers.ForeColor;
 
             int x = e.Bounds.X;
 
@@ -5106,7 +5125,7 @@ namespace Land_Readjustment_Tool
                 if (isLockedLayer)
                 {
                     textColor = selected
-                        ? Color.FromArgb(224, 224, 224)
+                        ? Color.White
                         : BlendColor(treeViewLayers.ForeColor, treeViewLayers.BackColor, 0.48f);
                 }
 
@@ -5179,13 +5198,22 @@ namespace Land_Readjustment_Tool
                 }
             }
 
+            Rectangle textRect = GetLayerNodeTextRect(e.Node, x);
+            if (selected)
+            {
+                Rectangle highlightRect = GetLayerNodeTextHighlightRect(g, e.Node.Text, textRect);
+                using SolidBrush highlightBrush = new(Color.FromArgb(0, 120, 215));
+                g.FillRectangle(highlightBrush, highlightRect);
+            }
+
             TextRenderer.DrawText(
                 g,
                 e.Node.Text,
                 treeViewLayers.Font,
-                GetLayerNodeTextRect(e.Node, x),
+                textRect,
                 textColor,
                 TextFormatFlags.Left |
+                TextFormatFlags.SingleLine |
                 TextFormatFlags.VerticalCenter |
                 TextFormatFlags.NoPrefix);
         }
@@ -7650,6 +7678,26 @@ namespace Land_Readjustment_Tool
                 node.Bounds.Y,
                 Math.Max(1, treeViewLayers.ClientSize.Width - textStartX - 4),
                 node.Bounds.Height);
+        }
+
+        private Rectangle GetLayerNodeTextHighlightRect(Graphics graphics, string text, Rectangle textRect)
+        {
+            Size measured = TextRenderer.MeasureText(
+                graphics,
+                text,
+                treeViewLayers.Font,
+                new Size(Math.Max(1, textRect.Width), textRect.Height),
+                TextFormatFlags.Left |
+                TextFormatFlags.SingleLine |
+                TextFormatFlags.VerticalCenter |
+                TextFormatFlags.NoPrefix);
+
+            int width = Math.Min(textRect.Width, Math.Max(8, measured.Width));
+            return new Rectangle(
+                textRect.X,
+                textRect.Y + 2,
+                width,
+                Math.Max(1, textRect.Height - 4));
         }
 
         private Rectangle GetLayerRenameTextBoxRect(TreeNode node)

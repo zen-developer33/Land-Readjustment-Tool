@@ -45,7 +45,7 @@ namespace Land_Readjustment_Tool.UI.CustomControls
         }
 
         private const int ZoomSettleIntervalMs = 150;
-        private const int ObjectSelectionTolerancePixels = 8;
+        private const int ObjectSelectionTolerancePixels = 3;
         private const int SnapQueryBoxPixels = 20;
         private const double DefaultSnapPickTolerancePixels = 8.0;
         private const float DefaultSnapGlyphSizePixels = 14.0f;
@@ -2638,13 +2638,7 @@ namespace Land_Readjustment_Tool.UI.CustomControls
             PointD worldPoint = _engine.ScreenToWorld(new PointD(screenPoint.X, screenPoint.Y));
             double worldTolerance = _engine.ScreenToWorldDistance(ObjectSelectionTolerancePixels);
 
-            CanvasFeature? hitFeature = _vectorFeatures
-                .Where(IsSelectableDrawingFeature)
-                .Reverse()
-                .FirstOrDefault(feature => IsScreenPointNearShape(
-                    feature.Shape,
-                    worldPoint,
-                    worldTolerance));
+            CanvasFeature? hitFeature = FindClickHitFeature(worldPoint, worldTolerance);
 
             if (!additiveSelection)
             {
@@ -2666,6 +2660,68 @@ namespace Land_Readjustment_Tool.UI.CustomControls
             RefreshVectorCacheForCurrentViewAsync();
             UpdateStatusBar();
             NotifySelectedCanvasObjectsChanged();
+        }
+
+        private CanvasFeature? FindClickHitFeature(PointD worldPoint, double toleranceWorld)
+        {
+            NtsGeometry pickPoint = SelectionGeometryFactory.CreatePoint(
+                new NtsCoordinate(worldPoint.X, worldPoint.Y));
+            List<(CanvasFeature Feature, NtsGeometry Geometry)> candidates = _vectorFeatures
+                .Where(IsSelectableDrawingFeature)
+                .Reverse()
+                .Select(feature => (Feature: feature, Geometry: CreateSelectionGeometry(feature.Shape)))
+                .Where(candidate => !candidate.Geometry.IsEmpty)
+                .ToList();
+
+            CanvasFeature? exactHit = candidates
+                .Where(candidate => IsSelectableImportedCadastralParcel(candidate.Feature) &&
+                                    candidate.Geometry.Covers(pickPoint))
+                .OrderBy(candidate => GetSelectionGeometryPickArea(candidate.Geometry))
+                .Select(candidate => candidate.Feature)
+                .FirstOrDefault();
+            if (exactHit != null)
+                return exactHit;
+
+            return candidates
+                .Select(candidate => new
+                {
+                    candidate.Feature,
+                    candidate.Geometry,
+                    ClickGeometry = CreateClickSelectionGeometry(candidate.Feature, candidate.Geometry)
+                })
+                .Where(candidate => !candidate.ClickGeometry.IsEmpty)
+                .Select(candidate => new
+                {
+                    candidate.Feature,
+                    candidate.Geometry,
+                    Distance = candidate.ClickGeometry.Distance(pickPoint)
+                })
+                .Where(candidate => candidate.Distance <= toleranceWorld)
+                .OrderBy(candidate => candidate.Distance)
+                .ThenBy(candidate => GetSelectionGeometryPickArea(candidate.Geometry))
+                .Select(candidate => candidate.Feature)
+                .FirstOrDefault();
+        }
+
+        private static NtsGeometry CreateClickSelectionGeometry(CanvasFeature feature, NtsGeometry selectionGeometry)
+        {
+            if (IsSelectableImportedCadastralParcel(feature) || selectionGeometry.Area <= 0)
+            {
+                return selectionGeometry;
+            }
+
+            return selectionGeometry.Boundary;
+        }
+
+        private static double GetSelectionGeometryPickArea(NtsGeometry geometry)
+        {
+            if (geometry.Area > 0)
+                return geometry.Area;
+
+            NetTopologySuite.Geometries.Envelope envelope = geometry.EnvelopeInternal;
+            return envelope.IsNull
+                ? double.MaxValue
+                : Math.Max(0.0, envelope.Width * envelope.Height);
         }
 
         private void ReplaceSelectedObjects(IEnumerable<CanvasFeature> selectedFeatures)
