@@ -389,9 +389,11 @@ namespace Land_Readjustment_Tool.Services.LandData
             entity.Municipality = Normalize(parcel.MunicipalityVillage);
             entity.WardNo = Normalize(parcel.WardNo);
             entity.OriginalAreaSqm = parcel.AreaInSqm ?? 0;
+            entity.FieldMeasuredAreaSqm = parcel.FieldMeasuredAreaSqm;
             entity.LandUse = Normalize(parcel.LandUse);
             entity.LandOwnershipType = Normalize(parcel.LandOwnershipType);
-            entity.HasTenant = ParseTenant(parcel.IsTenant);
+            entity.TenantName = NormalizeTenantName(parcel.TenantName, parcel.IsTenant);
+            entity.HasTenant = ParseTenant(parcel.IsTenant) || !string.IsNullOrWhiteSpace(entity.TenantName);
             entity.Remarks = Normalize(parcel.Remarks);
             entity.LastModifiedDate = DateTime.UtcNow;
 
@@ -510,9 +512,11 @@ namespace Land_Readjustment_Tool.Services.LandData
                         Municipality = Normalize(record.MunicipalityVillage),
                         WardNo = Normalize(record.WardNo),
                         OriginalAreaSqm = record.AreaInSqm ?? 0,
+                        FieldMeasuredAreaSqm = record.FieldMeasuredAreaSqm,
                         LandUse = Normalize(record.LandUse),
                         LandOwnershipType = Normalize(record.LandOwnershipType),
-                        HasTenant = ParseTenant(record.Tenant),
+                        TenantName = NormalizeTenantName(record.TenantName, record.Tenant),
+                        HasTenant = ParseTenant(record.Tenant) || !string.IsNullOrWhiteSpace(NormalizeTenantName(record.TenantName, record.Tenant)),
                         Remarks = Normalize(record.Remarks),
                         CreatedDate = DateTime.UtcNow,
                         LastModifiedDate = DateTime.UtcNow
@@ -810,7 +814,23 @@ namespace Land_Readjustment_Tool.Services.LandData
                 return false;
 
             var normalized = tenant.Trim().ToLowerInvariant();
-            return normalized is "yes" or "y" or "true" or "1" or "mohi";
+            return normalized is not ("no" or "n" or "false" or "0" or "none" or "छैन");
+        }
+
+        private static string? NormalizeTenantName(string? tenantName, string? tenant)
+        {
+            var value = Normalize(tenantName);
+            if (!string.IsNullOrWhiteSpace(value))
+                return value;
+
+            value = Normalize(tenant);
+            if (string.IsNullOrWhiteSpace(value))
+                return null;
+
+            var normalized = value.ToLowerInvariant();
+            return normalized is "yes" or "y" or "true" or "1" or "mohi" or "no" or "n" or "false" or "0" or "none" or "छैन"
+                ? null
+                : value;
         }
 
         private static bool MergeIfEmpty(string? target, string? source, Action<string?> assign)
@@ -902,9 +922,11 @@ namespace Land_Readjustment_Tool.Services.LandData
                 ParcelLocation = null,
                 MapSheetNo = parcel.MapSheetNo,
                 IsTenant = parcel.HasTenant ? "Yes" : "No",
+                TenantName = parcel.TenantName,
                 LandUse = parcel.LandUse,
                 LandOwnershipType = parcel.LandOwnershipType,
                 AreaInSqm = areaSqm,
+                FieldMeasuredAreaSqm = parcel.FieldMeasuredAreaSqm,
                 AreaInRAPD = AreaConverterService.SqmToRAPDString(areaSqm),
                 AreaInBKD = AreaConverterService.SqmToBKDString(areaSqm),
                 MothNo = parcel.MalpotReference?.MothNo,

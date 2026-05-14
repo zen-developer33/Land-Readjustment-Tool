@@ -5,6 +5,7 @@ using Land_Readjustment_Tool.Core.Entities.LandData;
 using Land_Readjustment_Tool.Core.Entities.Layout;
 using Land_Readjustment_Tool.Core.Entities.Project;
 using Land_Readjustment_Tool.Core.Entities.Replotting;
+using Land_Readjustment_Tool.Core.Entities.Roads;
 using Land_Readjustment_Tool.Core.Entities.Spatial;
 using Microsoft.Data.Sqlite;
 using Microsoft.EntityFrameworkCore;
@@ -52,6 +53,9 @@ namespace Land_Readjustment_Tool.Data
         // Layout
         public DbSet<Road> Roads { get; set; }
         public DbSet<Block> Blocks { get; set; }
+        public DbSet<RoadParcel> RoadParcels { get; set; }
+        public DbSet<RoadIsland> RoadIslands { get; set; }
+        public DbSet<Parcel> Parcels { get; set; }
 
         // Contribution
         public DbSet<ContributionCategory> ContributionCategories { get; set; }
@@ -101,6 +105,10 @@ namespace Land_Readjustment_Tool.Data
             modelBuilder.Entity<CanvasLayer>()
                 .Property(layer => layer.LineTypeScale)
                 .HasDefaultValue(1.0);
+
+            modelBuilder.Entity<CanvasLayer>()
+                .Property(layer => layer.LabelScaleWithZoom)
+                .HasDefaultValue(true);
 
             modelBuilder.Entity<CanvasObject>()
                 .Property(canvasObject => canvasObject.IsLocked)
@@ -266,6 +274,52 @@ namespace Land_Readjustment_Tool.Data
                 .HasForeignKey<Block>(
                     b => b.CanvasObjectId)
                 .OnDelete(DeleteBehavior.SetNull);
+
+            // ── DONUT ROAD PARCELS ──────────────────
+
+            modelBuilder.Entity<RoadParcel>(entity =>
+            {
+                entity.HasKey(road => road.Id);
+                entity.Property(road => road.Shape)
+                    .HasColumnType("GEOMETRY");
+                entity.Property(road => road.RoadParcelNumber)
+                    .HasMaxLength(80);
+                entity.Property(road => road.RoadName)
+                    .HasMaxLength(160);
+                entity.Property(road => road.ValidationMessage)
+                    .HasMaxLength(1000);
+
+                entity.HasMany(road => road.Islands)
+                    .WithOne(island => island.RoadParcel)
+                    .HasForeignKey(island => island.RoadParcelId)
+                    .OnDelete(DeleteBehavior.Cascade);
+            });
+
+            modelBuilder.Entity<RoadIsland>(entity =>
+            {
+                entity.HasKey(island => island.Id);
+                entity.Property(island => island.IslandShape)
+                    .HasColumnType("GEOMETRY");
+                entity.Property(island => island.LinkedParcelNumber)
+                    .HasMaxLength(80);
+                entity.Property(island => island.IslandDescription)
+                    .HasMaxLength(300);
+                entity.HasIndex(island => new { island.RoadParcelId, island.HoleIndex })
+                    .IsUnique();
+            });
+
+            modelBuilder.Entity<Parcel>(entity =>
+            {
+                entity.HasKey(parcel => parcel.Id);
+                entity.Property(parcel => parcel.Shape)
+                    .HasColumnType("GEOMETRY");
+                entity.Property(parcel => parcel.ParcelNumber)
+                    .HasMaxLength(80);
+                entity.Property(parcel => parcel.ParcelType)
+                    .HasMaxLength(40);
+                entity.HasIndex(parcel => parcel.ParcelNumber)
+                    .IsUnique();
+            });
 
             // ── SEED DATA ────────────────────────────
 

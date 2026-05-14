@@ -6,10 +6,12 @@ using Land_Readjustment_Tool.Core.Models.Import;
 using Land_Readjustment_Tool.Data;
 using Land_Readjustment_Tool.Services.Import.Readers;
 using Land_Readjustment_Tool.Services.Raster;
+using Land_Readjustment_Tool.UI.Helpers;
 using Land_Readjustment_Tool.UI.MapCanvas.Services;
 using Microsoft.EntityFrameworkCore;
 using NetTopologySuite.Geometries;
 using OSGeo.OSR;
+using System.Drawing;
 
 namespace Land_Readjustment_Tool.Services.Import
 {
@@ -21,6 +23,7 @@ namespace Land_Readjustment_Tool.Services.Import
             ProjectSession session,
             string filePath,
             CadastralImportOptions options,
+            IProgress<CadastralImportProgress>? progress = null,
             CancellationToken ct = default);
     }
 
@@ -43,11 +46,14 @@ namespace Land_Readjustment_Tool.Services.Import
             ProjectSession session,
             string filePath,
             CadastralImportOptions options,
+            IProgress<CadastralImportProgress>? progress = null,
             CancellationToken ct = default)
         {
+            ReportProgress(progress, 3, "Reading cadastral source file...");
             List<CadastralRawParcel> rawParcels = _reader.Read(filePath, options);
             if (rawParcels.Count == 0)
             {
+                ReportProgress(progress, 100, "No importable cadastral objects found.");
                 return new CadastralImportResult(
                     false,
                     "No importable objects were found in the selected layer(s).",
@@ -55,12 +61,16 @@ namespace Land_Readjustment_Tool.Services.Import
                     0,
                     0,
                     0,
+                    0,
+                    null,
                     null);
             }
 
+            ReportProgress(progress, 15, $"Read {rawParcels.Count:N0} cadastral object(s). Resolving project CRS...");
             ProjectRasterCrsContext projectCrs =
                 await _projectCrsResolver.ResolveAsync(session, ct);
 
+            ReportProgress(progress, 25, "Transforming cadastral geometry to the project CRS...");
             List<CadastralRawParcel> parcels = NeedsTransform(
                     options.SourceCrsCode,
                     projectCrs.TargetSrsDefinition)
@@ -69,25 +79,43 @@ namespace Land_Readjustment_Tool.Services.Import
                     .Select(parcel => parcel with { Geometry = parcel.Geometry.Copy() })
                     .ToList();
 
+            ReportProgress(progress, 40, "Normalizing cadastral geometry for storage...");
             foreach (CadastralRawParcel parcel in parcels)
                 NormalizeGeometryForCanvasDatabase(parcel.Geometry);
 
+            int duplicateObjectsSkipped = 0;
+            if (options.SkipDuplicateGeometries)
+            {
+                ReportProgress(progress, 52, "Removing duplicate cadastral geometries...");
+                int originalCount = parcels.Count;
+                parcels = RemoveDuplicateGeometries(parcels);
+                duplicateObjectsSkipped = originalCount - parcels.Count;
+            }
+
+            ReportProgress(progress, 60, "Copying cadastral source file into the project folder...");
+            string? copiedSourceFile = CopySourceFilesToProjectFolder(session, filePath);
+
+            ReportProgress(progress, 66, "Preparing project database for cadastral objects...");
             AppDbContext context = session.GetDbContext();
             await context.Database.MigrateAsync(ct);
 
+            ReportProgress(progress, 72, "Preparing cadastral map layers...");
             Dictionary<string, CanvasLayer> targetLayers = await GetOrCreateTargetLayersAsync(
                 context,
                 parcels,
                 ct);
 
+            ReportProgress(progress, 78, "Loading Original Parcel Records for automatic assignment...");
             Dictionary<string, BaselineParcel> baselineLookup = options.AutoAssignParcelRecords
                 ? await LoadBaselineParcelLookupAsync(context, ct)
                 : new Dictionary<string, BaselineParcel>(StringComparer.OrdinalIgnoreCase);
 
+            ReportProgress(progress, 82, "Creating cadastral map objects...");
             DateTime now = DateTime.Now;
             List<CanvasObject> objects = [];
-            foreach (CadastralRawParcel parcel in parcels)
+            for (int index = 0; index < parcels.Count; index++)
             {
+                CadastralRawParcel parcel = parcels[index];
                 string layerKey = GetTargetLayerKey(parcel);
                 CanvasLayer layer = targetLayers[layerKey];
                 double area = Math.Abs(parcel.Geometry.Area);
@@ -103,6 +131,7 @@ namespace Land_Readjustment_Tool.Services.Import
                 {
                     SourceFormat = Path.GetExtension(filePath).TrimStart('.').ToUpperInvariant(),
                     SourceFileName = Path.GetFileName(filePath),
+                    ProjectSourceFile = copiedSourceFile,
                     SourceLayer = parcel.SourceLayer,
                     MapSheetNo = parcel.MapSheetNo,
                     ParcelNo = parcel.ParcelNo,
@@ -146,12 +175,19 @@ namespace Land_Readjustment_Tool.Services.Import
                 objects.Add(canvasObject);
                 if (assignedParcel != null && assignedParcel.CanvasObjectId == null)
                     assignedParcel.CanvasObjectId = canvasObject.Id;
+
+                if ((index + 1) % 250 == 0 || index == parcels.Count - 1)
+                {
+                    int percent = 82 + (int)Math.Round(((index + 1) / (double)parcels.Count) * 10.0);
+                    ReportProgress(progress, percent, $"Creating cadastral map objects... {index + 1:N0}/{parcels.Count:N0}");
+                }
             }
 
+            ReportProgress(progress, 93, "Saving cadastral map objects to the project...");
             await context.CanvasObjects.AddRangeAsync(objects, ct);
             foreach (CanvasLayer layer in targetLayers.Values)
             {
-                layer.SourceFile = filePath;
+                layer.SourceFile = copiedSourceFile ?? filePath;
                 layer.ImportedDate = now;
                 layer.LastModifiedDate = now;
             }
@@ -163,6 +199,7 @@ namespace Land_Readjustment_Tool.Services.Import
             catch (Exception ex)
             {
                 session.Logger.LogError("Cadastral map import save failed.", ex);
+                ReportProgress(progress, 100, "Cadastral map import failed.");
                 return new CadastralImportResult(
                     false,
                     $"Could not save cadastral map: {BuildExceptionMessage(ex)}",
@@ -170,14 +207,18 @@ namespace Land_Readjustment_Tool.Services.Import
                     0,
                     0,
                     0,
+                    0,
+                    copiedSourceFile,
                     null);
             }
 
+            ReportProgress(progress, 97, "Calculating cadastral map extent...");
             Envelope envelope = new();
             foreach (Geometry geometry in parcels.Select(parcel => parcel.Geometry))
                 envelope.ExpandToInclude(geometry.EnvelopeInternal);
 
             int assigned = objects.Count(item => item.BaselineParcelId.HasValue);
+            ReportProgress(progress, 100, $"Imported {objects.Count:N0} cadastral object(s).");
             return new CadastralImportResult(
                 true,
                 null,
@@ -185,7 +226,98 @@ namespace Land_Readjustment_Tool.Services.Import
                 assigned,
                 objects.Count - assigned,
                 parcels.Count(item => !string.IsNullOrWhiteSpace(item.MatchedText)),
+                duplicateObjectsSkipped,
+                copiedSourceFile,
                 envelope);
+        }
+
+        private static void ReportProgress(
+            IProgress<CadastralImportProgress>? progress,
+            int percent,
+            string status)
+        {
+            progress?.Report(new CadastralImportProgress(
+                Math.Clamp(percent, 0, 100),
+                status));
+        }
+
+        private static List<CadastralRawParcel> RemoveDuplicateGeometries(
+            IReadOnlyList<CadastralRawParcel> parcels)
+        {
+            HashSet<string> seen = new(StringComparer.Ordinal);
+            List<CadastralRawParcel> unique = [];
+            foreach (CadastralRawParcel parcel in parcels)
+            {
+                Geometry normalized = parcel.Geometry.Copy();
+                normalized.Normalize();
+                string key = $"{parcel.ObjectType}|{normalized.AsText()}";
+                if (!seen.Add(key))
+                    continue;
+
+                unique.Add(parcel);
+            }
+
+            return unique;
+        }
+
+        private static string? CopySourceFilesToProjectFolder(
+            ProjectSession session,
+            string sourcePath)
+        {
+            if (string.IsNullOrWhiteSpace(sourcePath) || !File.Exists(sourcePath))
+                return null;
+
+            string sourceFolder = Path.GetDirectoryName(sourcePath) ?? string.Empty;
+            string extension = Path.GetExtension(sourcePath).ToLowerInvariant();
+            string baseName = Path.GetFileNameWithoutExtension(sourcePath);
+            string targetFolder = Path.Combine(session.ProjectFolderPath, "Imports", "Cadastral");
+            Directory.CreateDirectory(targetFolder);
+
+            string targetBaseName = GetAvailableImportBaseName(targetFolder, baseName, extension);
+            string primaryRelativePath = Path.Combine("Imports", "Cadastral", targetBaseName + extension);
+
+            foreach (string path in EnumerateSourceSidecarFiles(sourcePath))
+            {
+                string sidecarExtension = Path.GetExtension(path);
+                string targetPath = Path.Combine(targetFolder, targetBaseName + sidecarExtension);
+                File.Copy(path, targetPath, overwrite: true);
+            }
+
+            return primaryRelativePath.Replace(Path.DirectorySeparatorChar, '/');
+        }
+
+        private static IEnumerable<string> EnumerateSourceSidecarFiles(string sourcePath)
+        {
+            string extension = Path.GetExtension(sourcePath).ToLowerInvariant();
+            if (extension != ".shp")
+                return [sourcePath];
+
+            string folder = Path.GetDirectoryName(sourcePath) ?? string.Empty;
+            string baseName = Path.GetFileNameWithoutExtension(sourcePath);
+            string[] sidecarExtensions =
+            [
+                ".shp", ".shx", ".dbf", ".prj", ".cpg", ".qix",
+                ".sbn", ".sbx", ".xml", ".fix"
+            ];
+
+            return sidecarExtensions
+                .Select(item => Path.Combine(folder, baseName + item))
+                .Where(File.Exists)
+                .ToList();
+        }
+
+        private static string GetAvailableImportBaseName(
+            string targetFolder,
+            string baseName,
+            string primaryExtension)
+        {
+            string candidate = SanitizeLayerName(baseName) ?? "cadastral-source";
+            string targetPath = Path.Combine(targetFolder, candidate + primaryExtension);
+            if (!File.Exists(targetPath))
+                return candidate;
+
+            string timestamp = DateTime.Now.ToString("yyyyMMdd_HHmmss");
+            return $"{candidate}_{timestamp}";
         }
 
         private static async Task<Dictionary<string, CanvasLayer>> GetOrCreateTargetLayersAsync(
@@ -206,6 +338,8 @@ namespace Land_Readjustment_Tool.Services.Import
                 (await context.CanvasLayers
                     .Select(layer => (int?)layer.DisplayOrder)
                     .MaxAsync(ct) ?? -1) + 1;
+            List<Color> existingLayerColors = await GetExistingLayerColorsAsync(context, ct);
+            List<Color> newImportColors = [];
 
             foreach (TargetLayerSpec spec in specs)
             {
@@ -217,7 +351,16 @@ namespace Land_Readjustment_Tool.Services.Import
 
                 if (layer == null)
                 {
-                    layer = CreateImportedCadastralLayer(spec.Name, spec.LayerType, nextDisplayOrder++);
+                    Color layerColor = ChooseDistinctImportColor(
+                        existingLayerColors,
+                        newImportColors);
+                    layer = CreateImportedCadastralLayer(
+                        spec.Name,
+                        spec.LayerType,
+                        nextDisplayOrder++,
+                        layerColor);
+                    newImportColors.Add(layerColor);
+                    existingLayerColors.Add(layerColor);
                     await context.CanvasLayers.AddAsync(layer, ct);
                     await context.SaveChangesAsync(ct);
                 }
@@ -235,7 +378,8 @@ namespace Land_Readjustment_Tool.Services.Import
         private static CanvasLayer CreateImportedCadastralLayer(
             string name,
             string layerType,
-            int displayOrder)
+            int displayOrder,
+            Color paletteColor)
         {
             DateTime now = DateTime.Now;
             CanvasLayer layer = new()
@@ -252,19 +396,21 @@ namespace Land_Readjustment_Tool.Services.Import
                 Description = "Imported cadastral map layer"
             };
 
-            ApplyImportedCadastralLayerDefaults(layer);
+            ApplyImportedCadastralLayerDefaults(layer, paletteColor);
             return layer;
         }
 
-        private static void ApplyImportedCadastralLayerDefaults(CanvasLayer layer)
+        private static void ApplyImportedCadastralLayerDefaults(CanvasLayer layer, Color? paletteColor = null)
         {
             layer.IsLocked = true;
             layer.IsSelectable = true;
+            string? paletteFillColor = paletteColor.HasValue ? ToHtml(paletteColor.Value) : null;
+            string? paletteStrokeColor = paletteColor.HasValue ? ToHtml(Darken(paletteColor.Value, 0.58f)) : null;
 
             if (CanvasLayerTreeService.IsAnnotationLayer(layer))
             {
                 layer.BorderColor = string.IsNullOrWhiteSpace(layer.BorderColor)
-                    ? "#111111"
+                    ? paletteStrokeColor ?? "#111111"
                     : layer.BorderColor;
                 layer.FillColor = null;
                 layer.FillStyle = "None";
@@ -274,7 +420,7 @@ namespace Land_Readjustment_Tool.Services.Import
                     ? layer.BorderColor
                     : layer.LabelColor;
                 layer.LabelFontName = string.IsNullOrWhiteSpace(layer.LabelFontName)
-                    ? "Segoe UI"
+                    ? "Nirmala UI"
                     : layer.LabelFontName;
                 layer.LabelFontSize = layer.LabelFontSize <= 0 ? 9.0 : layer.LabelFontSize;
                 layer.PointSymbol = string.IsNullOrWhiteSpace(layer.PointSymbol)
@@ -285,10 +431,10 @@ namespace Land_Readjustment_Tool.Services.Import
             }
 
             layer.BorderColor = string.IsNullOrWhiteSpace(layer.BorderColor)
-                ? ResolveDefaultBorderColor(layer.LayerType)
+                ? paletteStrokeColor ?? ResolveDefaultBorderColor(layer.LayerType)
                 : layer.BorderColor;
             layer.FillColor ??= CanvasLayerTreeService.IsPolygonLayer(layer)
-                ? "#C8E8F4"
+                ? paletteFillColor ?? "#C8E8F4"
                 : null;
             layer.FillTransparency = CanvasLayerTreeService.IsPolygonLayer(layer)
                 ? layer.FillTransparency <= 0 ? 55 : layer.FillTransparency
@@ -304,11 +450,152 @@ namespace Land_Readjustment_Tool.Services.Import
             layer.LabelColor = string.IsNullOrWhiteSpace(layer.LabelColor)
                 ? "#000000"
                 : layer.LabelColor;
+            layer.LabelFontName = string.IsNullOrWhiteSpace(layer.LabelFontName)
+                ? "Nirmala UI"
+                : layer.LabelFontName;
             layer.PointSymbol = string.IsNullOrWhiteSpace(layer.PointSymbol)
                 ? "Dot"
                 : layer.PointSymbol;
             layer.PointSize = layer.PointSize <= 0 ? 5.0 : layer.PointSize;
         }
+
+        private static async Task<List<Color>> GetExistingLayerColorsAsync(
+            AppDbContext context,
+            CancellationToken ct)
+        {
+            var colorValues = await context.CanvasLayers
+                .AsNoTracking()
+                .Select(layer => new
+                {
+                    layer.FillColor,
+                    layer.BorderColor
+                })
+                .ToListAsync(ct);
+
+            return colorValues
+                .SelectMany(layer => new[] { layer.FillColor, layer.BorderColor })
+                .Select(TryParseHtmlColor)
+                .Where(color => color.HasValue)
+                .Select(color => NormalizeColor(color!.Value))
+                .DistinctBy(color => color.ToArgb())
+                .ToList();
+        }
+
+        private static Color ChooseDistinctImportColor(
+            IReadOnlyList<Color> existingLayerColors,
+            IReadOnlyList<Color> newImportColors)
+        {
+            Color[] palette = ColorDialogCustomColorsStore.GetLayerPaletteColors();
+            if (palette.Length == 0)
+            {
+                palette =
+                [
+                    Color.FromArgb(142, 211, 230),
+                    Color.FromArgb(246, 179, 182),
+                    Color.FromArgb(207, 246, 194),
+                    Color.FromArgb(246, 227, 180)
+                ];
+            }
+
+            List<Color> candidates = palette
+                .Select(NormalizeColor)
+                .Where(IsUsableImportLayerColor)
+                .DistinctBy(color => color.ToArgb())
+                .ToList();
+            if (candidates.Count == 0)
+            {
+                candidates = palette
+                    .Select(NormalizeColor)
+                    .DistinctBy(color => color.ToArgb())
+                    .ToList();
+            }
+
+            List<Color> usedColors = existingLayerColors
+                .Concat(newImportColors)
+                .Select(NormalizeColor)
+                .ToList();
+
+            if (usedColors.Count == 0)
+                return candidates[0];
+
+            Color? unusedColor = candidates
+                .Where(candidate => usedColors.All(used => ColorDistance(candidate, used) >= 75.0))
+                .OrderByDescending(candidate => MinimumColorDistance(candidate, usedColors))
+                .ThenBy(candidate => candidate.GetHue())
+                .FirstOrDefault();
+
+            if (unusedColor.HasValue && unusedColor.Value != Color.Empty)
+                return unusedColor.Value;
+
+            return candidates
+                .OrderByDescending(candidate => MinimumColorDistance(candidate, usedColors))
+                .ThenBy(candidate => candidate.GetHue())
+                .First();
+        }
+
+        private static Color? TryParseHtmlColor(string? value)
+        {
+            if (string.IsNullOrWhiteSpace(value))
+                return null;
+
+            try
+            {
+                return NormalizeColor(ColorTranslator.FromHtml(value.Trim()));
+            }
+            catch
+            {
+                return null;
+            }
+        }
+
+        private static Color NormalizeColor(Color color)
+        {
+            return Color.FromArgb(255, color.R, color.G, color.B);
+        }
+
+        private static bool IsUsableImportLayerColor(Color color)
+        {
+            double luminance = (0.299 * color.R + 0.587 * color.G + 0.114 * color.B) / 255.0;
+            double channelRange = Math.Max(color.R, Math.Max(color.G, color.B)) -
+                                  Math.Min(color.R, Math.Min(color.G, color.B));
+
+            return luminance is >= 0.35 and <= 0.93 &&
+                   channelRange >= 24.0 &&
+                   color.ToArgb() != Color.White.ToArgb();
+        }
+
+        private static double MinimumColorDistance(Color color, IReadOnlyList<Color> usedColors)
+        {
+            return usedColors.Count == 0
+                ? double.MaxValue
+                : usedColors.Min(used => ColorDistance(color, used));
+        }
+
+        private static double ColorDistance(Color left, Color right)
+        {
+            double rMean = (left.R + right.R) / 2.0;
+            double r = left.R - right.R;
+            double g = left.G - right.G;
+            double b = left.B - right.B;
+
+            return Math.Sqrt(
+                (2.0 + rMean / 256.0) * r * r +
+                4.0 * g * g +
+                (2.0 + (255.0 - rMean) / 256.0) * b * b);
+        }
+
+        private static Color Darken(Color color, float factor)
+        {
+            factor = Math.Clamp(factor, 0.0f, 1.0f);
+            return Color.FromArgb(
+                255,
+                (int)Math.Round(color.R * factor),
+                (int)Math.Round(color.G * factor),
+                (int)Math.Round(color.B * factor));
+        }
+
+        private static string ToHtml(Color color) =>
+            $"#{color.R:X2}{color.G:X2}{color.B:X2}";
 
         private static string GetTargetLayerKey(CadastralRawParcel parcel)
         {

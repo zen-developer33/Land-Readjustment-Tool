@@ -256,12 +256,6 @@ namespace Land_Readjustment_Tool.UI.MapCanvas.Services
                 changed = true;
             }
 
-            if (!layer.IsLocked)
-            {
-                layer.IsLocked = true;
-                changed = true;
-            }
-
             if (!string.Equals(layer.Description, $"Default layer: {definition.Name}", StringComparison.OrdinalIgnoreCase))
             {
                 layer.Description = $"Default layer: {definition.Name}";

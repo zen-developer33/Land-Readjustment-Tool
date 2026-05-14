@@ -1,4 +1,6 @@
 using System.Text.RegularExpressions;
+using ACadSharp;
+using ACadSharp.IO;
 using Land_Readjustment_Tool.Core.Models.Import;
 using netDxf;
 using netDxf.Entities;
@@ -7,6 +9,17 @@ using NetTopologySuite.Index.Strtree;
 using NetTopologySuite.IO;
 using OSGeo.OGR;
 using OSGeo.OSR;
+using CSMath;
+using AcadCircle = ACadSharp.Entities.Circle;
+using AcadEntity = ACadSharp.Entities.Entity;
+using AcadInsert = ACadSharp.Entities.Insert;
+using AcadLine = ACadSharp.Entities.Line;
+using AcadLwPolyline = ACadSharp.Entities.LwPolyline;
+using AcadMText = ACadSharp.Entities.MText;
+using AcadPoint = ACadSharp.Entities.Point;
+using AcadPolyline2D = ACadSharp.Entities.Polyline2D;
+using AcadPolyline3D = ACadSharp.Entities.Polyline3D;
+using AcadText = ACadSharp.Entities.TextEntity;
 using NtsGeometry = NetTopologySuite.Geometries.Geometry;
 
 namespace Land_Readjustment_Tool.Services.Import.Readers
@@ -22,8 +35,10 @@ namespace Land_Readjustment_Tool.Services.Import.Readers
             return extension switch
             {
                 ".dxf" => InspectDxf(filePath),
-                ".dwg" => InspectOgr(filePath, "DWG"),
+                ".dwg" => InspectDwg(filePath),
                 ".shp" => InspectOgr(filePath, "SHP"),
+                ".kml" => InspectOgr(filePath, "KML"),
+                ".kmz" => InspectOgr(filePath, "KML"),
                 _ => throw new NotSupportedException($"Cadastral map format not supported: {extension}")
             };
         }
@@ -34,8 +49,10 @@ namespace Land_Readjustment_Tool.Services.Import.Readers
             List<CadastralRawParcel> parcels = extension switch
             {
                 ".dxf" => ReadDxf(filePath, options),
-                ".dwg" => ReadOgr(filePath, options, "DWG"),
+                ".dwg" => ReadDwg(filePath, options),
                 ".shp" => ReadOgr(filePath, options, "SHP"),
+                ".kml" => ReadOgr(filePath, options, "KML"),
+                ".kmz" => ReadOgr(filePath, options, "KML"),
                 _ => throw new NotSupportedException($"Cadastral map format not supported: {extension}")
             };
 
@@ -106,6 +123,7 @@ namespace Land_Readjustment_Tool.Services.Import.Readers
                 "DXF",
                 layers,
                 [],
+                new Dictionary<string, IReadOnlyList<string>>(StringComparer.OrdinalIgnoreCase),
                 null,
                 RequiresCrsFromUser: true,
                 textCount);
@@ -217,6 +235,289 @@ namespace Land_Readjustment_Tool.Services.Import.Readers
             return parcels;
         }
 
+        private static CadastralFileInfo InspectDwg(string filePath)
+        {
+            Exception? managedReaderException = null;
+            try
+            {
+                CadDocument document = DwgReader.Read(filePath, OnCadReaderNotification);
+                Dictionary<string, LayerStats> stats = BuildCadLayerStats(document);
+
+                IReadOnlyList<CadastralLayerInfo> layers = stats
+                    .Where(item => item.Value.ObjectCount > 0)
+                    .OrderBy(item => item.Key)
+                    .Select(item => new CadastralLayerInfo(
+                        item.Key,
+                        item.Value.PolygonCount,
+                        item.Value.PolylineCount,
+                        item.Value.LineCount,
+                        item.Value.PointCount,
+                        item.Value.TextCount,
+                        HasImportableObjects: item.Value.ObjectCount > 0))
+                    .ToList();
+
+                return new CadastralFileInfo(
+                    filePath,
+                    "DWG",
+                    layers,
+                    [],
+                    new Dictionary<string, IReadOnlyList<string>>(StringComparer.OrdinalIgnoreCase),
+                    null,
+                    RequiresCrsFromUser: true,
+                    stats.Values.Sum(item => item.TextCount));
+            }
+            catch (Exception ex)
+            {
+                managedReaderException = ex;
+            }
+
+            try
+            {
+                return InspectOgr(filePath, "DWG");
+            }
+            catch (Exception ogrException)
+            {
+                throw CreateDwgReadException(filePath, managedReaderException, ogrException);
+            }
+        }
+
+        private static List<CadastralRawParcel> ReadDwg(
+            string filePath,
+            CadastralImportOptions options)
+        {
+            Exception? managedReaderException = null;
+            try
+            {
+                CadDocument document = DwgReader.Read(filePath, OnCadReaderNotification);
+                return ReadCadDocument(document, options);
+            }
+            catch (Exception ex)
+            {
+                managedReaderException = ex;
+            }
+
+            try
+            {
+                return ReadOgr(filePath, options, "DWG");
+            }
+            catch (Exception ogrException)
+            {
+                throw CreateDwgReadException(filePath, managedReaderException, ogrException);
+            }
+        }
+
+        private static InvalidOperationException CreateDwgReadException(
+            string filePath,
+            Exception? managedReaderException,
+            Exception ogrException)
+        {
+            string message =
+                $"Could not read AutoCAD DWG file '{Path.GetFileName(filePath)}'. " +
+                "The importer supports common DWG versions from AutoCAD R14/R2000 through DWG 2018/2021/2024 format families when the file is not encrypted or proxy-only. " +
+                "If this drawing still fails, open it in AutoCAD/BricsCAD/DWG TrueView and save a clean DXF or DWG copy, then import that copy.";
+
+            return new InvalidOperationException(
+                $"{message}{Environment.NewLine}{Environment.NewLine}" +
+                $"Managed DWG reader: {managedReaderException?.Message ?? "not attempted"}{Environment.NewLine}" +
+                $"GDAL DWG reader: {ogrException.Message}",
+                ogrException);
+        }
+
+        private static Dictionary<string, LayerStats> BuildCadLayerStats(CadDocument document)
+        {
+            Dictionary<string, LayerStats> stats = new(StringComparer.OrdinalIgnoreCase);
+            foreach (AcadEntity entity in EnumerateCadEntities(document.Entities))
+            {
+                LayerStats layerStats = GetStats(stats, entity.Layer?.Name);
+                switch (entity)
+                {
+                    case AcadLwPolyline polyline:
+                        if (polyline.IsClosed || IsRingClosed(ReadCoordinates(polyline)))
+                            layerStats.PolygonCount++;
+                        else
+                            layerStats.PolylineCount++;
+                        break;
+                    case AcadPolyline2D polyline:
+                        if (polyline.IsClosed || IsRingClosed(ReadCoordinates(polyline)))
+                            layerStats.PolygonCount++;
+                        else
+                            layerStats.PolylineCount++;
+                        break;
+                    case AcadPolyline3D polyline:
+                        if (polyline.IsClosed || IsRingClosed(ReadCoordinates(polyline)))
+                            layerStats.PolygonCount++;
+                        else
+                            layerStats.PolylineCount++;
+                        break;
+                    case AcadCircle:
+                        layerStats.PolygonCount++;
+                        break;
+                    case AcadLine:
+                        layerStats.LineCount++;
+                        break;
+                    case AcadPoint:
+                        layerStats.PointCount++;
+                        break;
+                    case AcadText:
+                    case AcadMText:
+                        layerStats.TextCount++;
+                        break;
+                }
+            }
+
+            return stats;
+        }
+
+        private static List<CadastralRawParcel> ReadCadDocument(
+            CadDocument document,
+            CadastralImportOptions options)
+        {
+            Dictionary<string, CadastralLayerImportOption> layerOptions = options.Layers
+                .Where(option => option.Include)
+                .ToDictionary(option => option.LayerName, StringComparer.OrdinalIgnoreCase);
+
+            List<CadastralRawParcel> parcels = [];
+            List<CadastralTextFeature> textFeatures = [];
+            foreach (AcadEntity entity in EnumerateCadEntities(document.Entities))
+            {
+                string? layerName = entity.Layer?.Name;
+                string handle = entity.Handle.ToString("X");
+
+                switch (entity)
+                {
+                    case AcadLwPolyline polyline:
+                        AddDxfPolyline(
+                            parcels,
+                            layerName,
+                            handle,
+                            ReadCoordinates(polyline),
+                            polyline.IsClosed || IsRingClosed(ReadCoordinates(polyline)),
+                            layerOptions);
+                        break;
+                    case AcadPolyline2D polyline:
+                        AddDxfPolyline(
+                            parcels,
+                            layerName,
+                            handle,
+                            ReadCoordinates(polyline),
+                            polyline.IsClosed || IsRingClosed(ReadCoordinates(polyline)),
+                            layerOptions);
+                        break;
+                    case AcadPolyline3D polyline:
+                        AddDxfPolyline(
+                            parcels,
+                            layerName,
+                            handle,
+                            ReadCoordinates(polyline),
+                            polyline.IsClosed || IsRingClosed(ReadCoordinates(polyline)),
+                            layerOptions);
+                        break;
+                    case AcadCircle circle:
+                        AddDxfPolyline(
+                            parcels,
+                            layerName,
+                            handle,
+                            ReadCoordinates(circle),
+                            isClosed: true,
+                            layerOptions);
+                        break;
+                    case AcadLine line:
+                        AddDxfObject(
+                            parcels,
+                            layerName,
+                            handle,
+                            GeometryFactory.CreateLineString(
+                                [
+                                    new Coordinate(line.StartPoint.X, line.StartPoint.Y),
+                                    new Coordinate(line.EndPoint.X, line.EndPoint.Y)
+                                ]),
+                            "Line",
+                            null,
+                            layerOptions);
+                        break;
+                    case AcadPoint point:
+                        AddDxfObject(
+                            parcels,
+                            layerName,
+                            handle,
+                            GeometryFactory.CreatePoint(
+                                new Coordinate(point.Location.X, point.Location.Y)),
+                            "Point",
+                            null,
+                            layerOptions);
+                        break;
+                    case AcadText text:
+                        string? textValue = NormalizeText(text.Value);
+                        AddCadTextFeature(textFeatures, textValue, text.InsertPoint.X, text.InsertPoint.Y, layerName);
+                        AddDxfObject(
+                            parcels,
+                            layerName,
+                            handle,
+                            GeometryFactory.CreatePoint(
+                                new Coordinate(text.InsertPoint.X, text.InsertPoint.Y)),
+                            "Text",
+                            textValue,
+                            layerOptions);
+                        break;
+                    case AcadMText text:
+                        string? mTextValue = NormalizeText(text.PlainText ?? text.Value);
+                        AddCadTextFeature(textFeatures, mTextValue, text.InsertPoint.X, text.InsertPoint.Y, layerName);
+                        AddDxfObject(
+                            parcels,
+                            layerName,
+                            handle,
+                            GeometryFactory.CreatePoint(
+                                new Coordinate(text.InsertPoint.X, text.InsertPoint.Y)),
+                            "Text",
+                            mTextValue,
+                            layerOptions);
+                        break;
+                }
+            }
+
+            if (options.AutoAssignParcelRecords)
+                AssignTextToParcels(parcels, textFeatures);
+
+            return parcels;
+        }
+
+        private static IEnumerable<AcadEntity> EnumerateCadEntities(IEnumerable<AcadEntity> entities)
+        {
+            foreach (AcadEntity entity in entities)
+            {
+                if (entity.IsInvisible)
+                    continue;
+
+                if (entity is AcadInsert insert)
+                {
+                    foreach (AcadEntity exploded in EnumerateCadEntities(insert.Explode().OfType<AcadEntity>()))
+                        yield return exploded;
+                    continue;
+                }
+
+                yield return entity;
+            }
+        }
+
+        private static void AddCadTextFeature(
+            List<CadastralTextFeature> textFeatures,
+            string? value,
+            double x,
+            double y,
+            string? layerName)
+        {
+            textFeatures.Add(new CadastralTextFeature(
+                ExtractParcelText(value),
+                x,
+                y,
+                string.IsNullOrWhiteSpace(layerName) ? "0" : layerName));
+        }
+
+        private static void OnCadReaderNotification(object sender, NotificationEventArgs e)
+        {
+            System.Diagnostics.Debug.WriteLine($"CAD reader: {e.Message}");
+        }
+
         private static CadastralFileInfo InspectOgr(string filePath, string format)
         {
             GdalBootstrapper.ConfigureAll();
@@ -225,6 +526,7 @@ namespace Land_Readjustment_Tool.Services.Import.Readers
 
             List<CadastralLayerInfo> layers = [];
             List<string> attributeFields = [];
+            Dictionary<string, SortedSet<string>> attributeValues = new(StringComparer.OrdinalIgnoreCase);
             string? detectedCrs = null;
 
             for (int index = 0; index < dataSource.GetLayerCount(); index++)
@@ -237,17 +539,40 @@ namespace Land_Readjustment_Tool.Services.Import.Readers
                 int count = CountPolygonalFeatures(layer);
                 layers.Add(new CadastralLayerInfo(layerName, count, 0, 0, 0, 0, count > 0));
 
+                List<string> layerFields = GetAttributeFields(layer);
                 if (attributeFields.Count == 0)
-                    attributeFields.AddRange(GetAttributeFields(layer));
+                {
+                    attributeFields.AddRange(layerFields);
+                    foreach (string field in attributeFields)
+                        attributeValues.TryAdd(field, new SortedSet<string>(StringComparer.OrdinalIgnoreCase));
+                }
+                else
+                {
+                    foreach (string field in layerFields.Where(field =>
+                                 !attributeFields.Contains(field, StringComparer.OrdinalIgnoreCase)))
+                    {
+                        attributeFields.Add(field);
+                        attributeValues.TryAdd(field, new SortedSet<string>(StringComparer.OrdinalIgnoreCase));
+                    }
+                }
+
+                CollectAttributeValues(layer, attributeValues);
 
                 detectedCrs ??= GetLayerCrsDefinition(layer);
             }
+
+            Dictionary<string, IReadOnlyList<string>> uniqueValues = attributeValues
+                .ToDictionary(
+                    pair => pair.Key,
+                    pair => (IReadOnlyList<string>)pair.Value.ToList(),
+                    StringComparer.OrdinalIgnoreCase);
 
             return new CadastralFileInfo(
                 filePath,
                 format,
                 layers.Where(layer => layer.HasImportableObjects).ToList(),
                 attributeFields,
+                uniqueValues,
                 detectedCrs,
                 RequiresCrsFromUser: string.IsNullOrWhiteSpace(detectedCrs),
                 TextCount: 0);
@@ -295,14 +620,16 @@ namespace Land_Readjustment_Tool.Services.Import.Readers
 
                         Dictionary<string, string?> attributes = ReadAttributes(feature);
                         string? parcelNo = TryGetAttribute(attributes, options.ShpParcelNumberField);
-                        string? mapSheet = TryGetAttribute(attributes, options.ShpMapSheetField);
+                        string? sourceMapSheet = TryGetAttribute(attributes, options.ShpMapSheetField);
+                        string? targetMapSheet = ResolveMappedMapSheet(sourceMapSheet, options.AttributeMapSheetValueMappings)
+                                                 ?? layerOption.MapSheetNo;
 
                         parcels.Add(new CadastralRawParcel(
                             valid,
                             "Polygon",
                             layerName,
                             layerOption.CanvasLayerName,
-                            string.IsNullOrWhiteSpace(mapSheet) ? layerOption.MapSheetNo : mapSheet,
+                            targetMapSheet,
                             parcelNo,
                             null,
                             null,
@@ -444,6 +771,39 @@ namespace Land_Readjustment_Tool.Services.Import.Readers
             return fields;
         }
 
+        private static void CollectAttributeValues(
+            Layer layer,
+            Dictionary<string, SortedSet<string>> attributeValues)
+        {
+            if (attributeValues.Count == 0)
+                return;
+
+            layer.ResetReading();
+            Feature? feature;
+            while ((feature = layer.GetNextFeature()) != null)
+            {
+                using (feature)
+                {
+                    FeatureDefn definition = feature.GetDefnRef();
+                    for (int index = 0; index < definition.GetFieldCount(); index++)
+                    {
+                        string name = definition.GetFieldDefn(index).GetName();
+                        if (!attributeValues.TryGetValue(name, out SortedSet<string>? values) ||
+                            !feature.IsFieldSet(index))
+                        {
+                            continue;
+                        }
+
+                        string? value = NormalizeText(feature.GetFieldAsString(index));
+                        if (!string.IsNullOrWhiteSpace(value))
+                            values.Add(value);
+                    }
+                }
+            }
+
+            layer.ResetReading();
+        }
+
         private static Dictionary<string, string?> ReadAttributes(Feature feature)
         {
             Dictionary<string, string?> attributes = new(StringComparer.OrdinalIgnoreCase);
@@ -469,6 +829,27 @@ namespace Land_Readjustment_Tool.Services.Import.Readers
             return attributes.TryGetValue(fieldName, out string? value)
                 ? NormalizeText(value)
                 : null;
+        }
+
+        private static string? ResolveMappedMapSheet(
+            string? sourceMapSheet,
+            IReadOnlyDictionary<string, string> mappings)
+        {
+            if (string.IsNullOrWhiteSpace(sourceMapSheet))
+                return null;
+
+            string normalized = NormalizeMapSheetValue(sourceMapSheet);
+            if (mappings.TryGetValue(normalized, out string? target))
+                return target;
+
+            return mappings.TryGetValue(sourceMapSheet.Trim(), out target)
+                ? target
+                : null;
+        }
+
+        private static string NormalizeMapSheetValue(string value)
+        {
+            return Regex.Replace(value.Trim(), @"\s+", string.Empty).ToUpperInvariant();
         }
 
         private static string? ExtractParcelText(string? value)
@@ -529,6 +910,39 @@ namespace Land_Readjustment_Tool.Services.Import.Readers
             return polyline.PolygonalVertexes(24)
                 .Select(vertex => new Coordinate(vertex.X, vertex.Y))
                 .ToList();
+        }
+
+        private static List<Coordinate> ReadCoordinates(AcadLwPolyline polyline)
+        {
+            return polyline.Vertices
+                .Select(vertex => new Coordinate(vertex.Location.X, vertex.Location.Y))
+                .ToList();
+        }
+
+        private static List<Coordinate> ReadCoordinates(AcadPolyline2D polyline)
+        {
+            return polyline.Vertices
+                .Select(vertex => ToCoordinate(vertex.Location))
+                .ToList();
+        }
+
+        private static List<Coordinate> ReadCoordinates(AcadPolyline3D polyline)
+        {
+            return polyline.Vertices
+                .Select(vertex => ToCoordinate(vertex.Location))
+                .ToList();
+        }
+
+        private static List<Coordinate> ReadCoordinates(AcadCircle circle)
+        {
+            return circle.PolygonalVertexes(72)
+                .Select(vertex => new Coordinate(vertex.X, vertex.Y))
+                .ToList();
+        }
+
+        private static Coordinate ToCoordinate(IVector vector)
+        {
+            return new Coordinate(vector[0], vector[1]);
         }
 
         private static bool IsRingClosed(IReadOnlyList<Coordinate> coordinates)

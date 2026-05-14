@@ -1,5 +1,6 @@
 
 using Land_Readjustment_Tool.Core.Entities.Canvas;
+using Land_Readjustment_Tool.Core.Entities.LandData;
 using Land_Readjustment_Tool.Core.Entities.Project;
 using Land_Readjustment_Tool.Core.Interfaces;
 using Land_Readjustment_Tool.Core.Models.Assignment;
@@ -28,6 +29,7 @@ using OSGeo.OSR;
 using System.Drawing.Drawing2D;
 using System.Drawing.Imaging;
 using System.Reflection;
+using System.Text.Json;
 using NtsEnvelope = NetTopologySuite.Geometries.Envelope;
 using VisualStyles = System.Windows.Forms.VisualStyles;
 
@@ -85,6 +87,36 @@ namespace Land_Readjustment_Tool
         private const int LayerNodeCheckBoxGap = 10;
         private const int LayerNodeColorBoxSize = 18;
         private const int LayerNodeColorBoxGap = 4;
+        private static readonly JsonSerializerOptions CadastralMetadataJsonOptions = new()
+        {
+            PropertyNameCaseInsensitive = true
+        };
+        private static readonly string[] DefaultParcelPropertyFieldKeys =
+        {
+            "selection.selectedObjects",
+            "selection.objectType",
+            "selection.layer",
+            "selection.assignment",
+            "parcel.parcelNo",
+            "parcel.mapSheetNo",
+            "parcel.uniqueCode",
+            "parcel.ownershipType",
+            "owner.primaryOwner",
+            "owner.coOwners",
+            "area.originalRecord",
+            "area.geometry",
+            "area.fieldMeasured",
+            "tenancy.hasTenant",
+            "tenancy.tenantName"
+        };
+
+        private readonly List<string> _visibleParcelPropertyFieldKeys = new(DefaultParcelPropertyFieldKeys);
+        private IReadOnlyList<Guid> _currentSelectedCanvasObjectIds = Array.Empty<Guid>();
+        private IReadOnlyList<CanvasObject> _currentPropertyGridObjects = Array.Empty<CanvasObject>();
+        private int _currentPropertyGridSelectedCount;
+        private bool _suppressSelectedPropertyObjectChanged;
+        private const string AllSelectedObjectsComboText = "All Selected objects";
+        private const string VariesPropertyValue = "*VARIES*";
         private readonly ContextMenuStrip _layerContextMenu = new();
 
         private readonly ToolStripMenuItem _mnuZoomToLayer = new("Zoom To Layer");
@@ -94,6 +126,7 @@ namespace Land_Readjustment_Tool
         private readonly ToolStripMenuItem _mnuMoveLayerDown = new("Shift Layer Down");
         private readonly ToolStripMenuItem _mnuToggleLayerVisibility = new("Hidden");
         private readonly ToolStripMenuItem _mnuToggleLayerLock = new("Locked");
+        private readonly ToolStripMenuItem _mnuToggleLayerLabels = new("Show Labels");
         private readonly ToolStripMenuItem _mnuLayerProperties = new("Layer Properties");
         private readonly ToolStripMenuItem _mnuCopyLayerObjectsToDefault = new("Copy Objects To");
         private readonly ToolStripMenuItem _mnuMoveLayerObjectsToDefault = new("Move Objects To");
@@ -102,6 +135,8 @@ namespace Land_Readjustment_Tool
         private readonly ToolStripMenuItem _mnuAddRasterMap = new("Add Raster Map...");
         private readonly ToolStripMenuItem _mnuAddXyzTiles = new("Add XYZ Tiles...");
         private readonly ToolStripMenuItem _mnuImportXyzTiles = new("Import XYZ Tiles...");
+        private readonly ToolStripMenuItem _mnuOriginalScenarioSummary = new("Original Scenario Summary");
+        private readonly ToolStripButton _btnOriginalScenarioSummary = new("Original Scenario");
         private readonly TextBox _layerRenameTextBox = new();
         private TreeNode? _contextLayerNode;
         private TreeNode? _contextLayerGroupNode;
@@ -295,6 +330,15 @@ namespace Land_Readjustment_Tool
             projectBoundaryAssignmentToolStripMenuItem.Click += ProjectBoundaryAssignmentToolStripMenuItem_Click!;
             _mnuImportXyzTiles.Click += importXyzTilesToolStripMenuItem_Click!;
             importDataToolStripMenuItem1.DropDownItems.Add(_mnuImportXyzTiles);
+            _mnuOriginalScenarioSummary.Click += OriginalScenarioSummaryToolStripMenuItem_Click;
+            _mnuOriginalScenarioSummary.Name = "originalScenarioSummaryToolStripMenuItem";
+            dataToolStripMenuItem.DropDownItems.Insert(2, _mnuOriginalScenarioSummary);
+            _btnOriginalScenarioSummary.Name = "btnOriginalScenarioSummary";
+            _btnOriginalScenarioSummary.DisplayStyle = ToolStripItemDisplayStyle.Text;
+            _btnOriginalScenarioSummary.Text = "Original Scenario";
+            _btnOriginalScenarioSummary.ToolTipText = "Open Original Scenario Summary";
+            _btnOriginalScenarioSummary.Click += OriginalScenarioSummaryToolStripMenuItem_Click;
+            tsProjectMenu.Items.Insert(tsProjectMenu.Items.IndexOf(toolStripSeparator12), _btnOriginalScenarioSummary);
 
         }
 
@@ -852,6 +896,8 @@ namespace Land_Readjustment_Tool
             ImportParcelOwnerShipRecords.Enabled = true;
             viewEditRecordToolStripMenuItem.Enabled = true;
             landOwnerDataToolStripMenuItem.Enabled = true;
+            _mnuOriginalScenarioSummary.Enabled = true;
+            _btnOriginalScenarioSummary.Enabled = true;
             startReplotWorkspaceToolStripMenuItem.Enabled = true;
             mnuUndo.Enabled = false;
             mnuRedo.Enabled = false;
@@ -892,6 +938,8 @@ namespace Land_Readjustment_Tool
             ImportParcelOwnerShipRecords.Enabled = false;
             viewEditRecordToolStripMenuItem.Enabled = false;
             landOwnerDataToolStripMenuItem.Enabled = false;
+            _mnuOriginalScenarioSummary.Enabled = false;
+            _btnOriginalScenarioSummary.Enabled = false;
             startReplotWorkspaceToolStripMenuItem.Enabled = false;
             mnuUndo.Enabled = false;
             mnuRedo.Enabled = false;
@@ -1195,11 +1243,6 @@ namespace Land_Readjustment_Tool
                 mnuOSnapToggle.Checked = settings.SnapEnabled;
                 mapCanvasControlMain.OrthoModeEnabled = settings.OrthoEnabled;
                 mnuOrthoToggle.Checked = settings.OrthoEnabled;
-
-                // Update layer colors to be theme-aware
-                if (showRefreshProgress)
-                    SetOperationProgress(45, "Updating layer colors for theme");
-                await UpdateLayerColorsForCanvasThemeAsync(bgColor);
 
                 if (_workspaceCanvas != null && !_workspaceCanvas.IsDisposed)
                 {
@@ -1540,7 +1583,7 @@ namespace Land_Readjustment_Tool
             // TODO: implement backup
         }
 
-        private void ImportParcelOwnerShipRecords_Click(object sender, EventArgs e)
+        private async void ImportParcelOwnerShipRecords_Click(object sender, EventArgs e)
         {
             if (!AppServices.HasContext)
             {
@@ -1561,6 +1604,9 @@ namespace Land_Readjustment_Tool
             if (frm.ShowDialog(this) == DialogResult.OK)
             {
                 AppServices.Context.MarkAsModified();
+                await RefreshVectorCanvasFeaturesAsync();
+                await LoadSelectedParcelPropertiesAsync(_currentSelectedCanvasObjectIds);
+                mapCanvasControlMain.RequestRender();
                 UpdateWindowTitle();
             }
         }
@@ -1582,6 +1628,24 @@ namespace Land_Readjustment_Tool
                 AppServices.Context.ProjectFilePath);
             using var frm = new frmLandOwnersRecord(
                 landRecordsService,
+                AppServices.Context.ProjectFilePath);
+            frm.ShowDialog(this);
+        }
+
+        private void OriginalScenarioSummaryToolStripMenuItem_Click(object? sender, EventArgs e)
+        {
+            if (!AppServices.HasContext)
+            {
+                MessageBox.Show(
+                    "Please open or create a project first.",
+                    "No Project Open",
+                    MessageBoxButtons.OK,
+                    MessageBoxIcon.Warning);
+                return;
+            }
+
+            using var frm = new frmOriginalScenarioSummary(
+                AppServices.Context.Session,
                 AppServices.Context.ProjectFilePath);
             frm.ShowDialog(this);
         }
@@ -1625,7 +1689,7 @@ namespace Land_Readjustment_Tool
             using OpenFileDialog dialog = new()
             {
                 Title = "Import Cadastral Map",
-                Filter = "Cadastral map files (*.dxf;*.dwg;*.shp)|*.dxf;*.dwg;*.shp|DXF files (*.dxf)|*.dxf|DWG files (*.dwg)|*.dwg|Shapefiles (*.shp)|*.shp|All files (*.*)|*.*",
+                Filter = "Cadastral map files (*.dxf;*.dwg;*.shp;*.kml;*.kmz)|*.dxf;*.dwg;*.shp;*.kml;*.kmz|DXF files (*.dxf)|*.dxf|DWG files (*.dwg)|*.dwg|Shapefiles (*.shp)|*.shp|KML/KMZ files (*.kml;*.kmz)|*.kml;*.kmz|All files (*.*)|*.*",
                 Multiselect = false,
                 RestoreDirectory = true
             };
@@ -1641,21 +1705,41 @@ namespace Land_Readjustment_Tool
                     _cadastralImportService,
                     _projectScopedFactory,
                     _projectRasterCrsResolver);
+                importForm.ImportProgressChanged += progress =>
+                    SetOperationProgress(progress.Percent, progress.Status, showProgressForm: false);
 
-                if (importForm.ShowDialog(this) != DialogResult.OK)
-                    return;
+                try
+                {
+                    if (importForm.ShowDialog(this) != DialogResult.OK)
+                        return;
 
-                MarkProjectModifiedIfOpen();
-                await RefreshLayerTreeAsync();
+                    MarkProjectModifiedIfOpen();
+                    SetOperationProgress(100, "Refreshing cadastral map layers...", showProgressForm: false);
+                    await RefreshLayerTreeAsync();
 
-                CadastralImportResult? result = importForm.ImportResult;
-                if (result?.BoundingBox != null && !result.BoundingBox.IsNull)
-                    mapCanvasControlMain.ZoomToWorldBounds(ToRectangleD(result.BoundingBox));
+                    CadastralImportResult? result = importForm.ImportResult;
+                    if (result?.BoundingBox != null && !result.BoundingBox.IsNull)
+                        mapCanvasControlMain.ZoomToWorldBounds(ToRectangleD(result.BoundingBox));
 
-                SetCanvasCommandStatus(
-                    result == null
-                        ? "Cadastral map imported."
-                        : $"Imported {result.ObjectsCreated} cadastral parcel object(s).");
+                    SetCanvasCommandStatus(
+                        result == null
+                            ? "Cadastral map imported."
+                            : $"Imported {result.ObjectsCreated} cadastral parcel object(s).");
+
+                    if (result?.DuplicateObjectsSkipped > 0)
+                    {
+                        MessageBox.Show(
+                            this,
+                            $"Imported unique cadastral objects and skipped {result.DuplicateObjectsSkipped} duplicate shape(s) with the same geometry.",
+                            "Cadastral Map Import",
+                            MessageBoxButtons.OK,
+                            MessageBoxIcon.Information);
+                    }
+                }
+                finally
+                {
+                    HideOperationProgress();
+                }
             }
             catch (InvalidOperationException ex)
                 when (ex.Message.Contains(
@@ -1950,8 +2034,16 @@ namespace Land_Readjustment_Tool
             }
         }
 
-        private void MapCanvasControlMain_SelectedCanvasObjectsChanged(IReadOnlyList<Guid> selectedObjectIds)
+        private async void MapCanvasControlMain_SelectedCanvasObjectsChanged(IReadOnlyList<Guid> selectedObjectIds)
         {
+            _currentSelectedCanvasObjectIds = selectedObjectIds.ToArray();
+            if (selectedObjectIds.Count > 0)
+            {
+                mapCanvasControlMain.ZoomToCanvasObjects(selectedObjectIds);
+            }
+
+            await LoadSelectedParcelPropertiesAsync(selectedObjectIds);
+
             if (_suppressCadastralAssignmentCanvasSelectionChanged ||
                 _cadastralRecordAssignmentForm is not { IsDisposed: false } form ||
                 selectedObjectIds.Count == 0)
@@ -1960,6 +2052,1088 @@ namespace Land_Readjustment_Tool
             }
 
             form.SelectCanvasObjectFromCanvas(selectedObjectIds[0]);
+        }
+
+        private async Task LoadSelectedParcelPropertiesAsync(IReadOnlyList<Guid> selectedObjectIds)
+        {
+            if (IsDisposed || Disposing)
+                return;
+
+            if (selectedObjectIds.Count == 0)
+            {
+                ClearCurrentPropertyGridSelection();
+                ShowNoParcelSelection();
+                return;
+            }
+
+            if (!AppServices.HasContext)
+            {
+                ClearCurrentPropertyGridSelection();
+                ShowPropertyGridMessage("Open a project to inspect parcel properties.");
+                return;
+            }
+
+            try
+            {
+                List<Guid> selectedIds = selectedObjectIds
+                    .Where(id => id != Guid.Empty)
+                    .Distinct()
+                    .ToList();
+
+                if (selectedIds.Count == 0)
+                {
+                    ClearCurrentPropertyGridSelection();
+                    ShowNoParcelSelection();
+                    return;
+                }
+
+                AppDbContext context = AppServices.Context.Session.GetDbContext();
+                List<CanvasObject> selectedObjects = await context.CanvasObjects
+                    .AsNoTracking()
+                    .Include(item => item.CanvasLayer)
+                    .Include(item => item.BaselineParcel)
+                        .ThenInclude(parcel => parcel!.LandOwner)
+                    .Include(item => item.BaselineParcel)
+                        .ThenInclude(parcel => parcel!.CoOwners)
+                            .ThenInclude(coOwner => coOwner.LandOwner)
+                    .Include(item => item.BaselineParcel)
+                        .ThenInclude(parcel => parcel!.MalpotReference)
+                    .Include(item => item.BaselineParcel)
+                        .ThenInclude(parcel => parcel!.ParcelFrontages)
+                            .ThenInclude(frontage => frontage.Road)
+                    .Include(item => item.BaselineParcel)
+                        .ThenInclude(parcel => parcel!.ParcelContributionSummary)
+                    .Include(item => item.BaselineParcel)
+                        .ThenInclude(parcel => parcel!.ParcelContributions)
+                            .ThenInclude(contribution => contribution.ContributionCategory)
+                    .Where(item => selectedIds.Contains(item.Id))
+                    .ToListAsync();
+
+                await LoadFallbackBaselineParcelsForSelectionAsync(context, selectedObjects);
+
+                List<CanvasObject> orderedSelectedObjects = selectedIds
+                    .Select(id => selectedObjects.FirstOrDefault(item => item.Id == id))
+                    .Where(item => item != null)
+                    .Cast<CanvasObject>()
+                    .ToList();
+
+                if (orderedSelectedObjects.Count == 0)
+                {
+                    ClearCurrentPropertyGridSelection();
+                    ShowPropertyGridMessage("Selected object was not found in the project database.");
+                    return;
+                }
+
+                _currentPropertyGridObjects = orderedSelectedObjects;
+                _currentPropertyGridSelectedCount = selectedIds.Count;
+                PopulateSelectedPropertyObjectCombo(orderedSelectedObjects);
+                PopulatePropertyGridForSelectedComboItem();
+            }
+            catch (Exception ex)
+            {
+                ClearCurrentPropertyGridSelection();
+                ShowPropertyGridMessage($"Could not load selected parcel properties. {ex.Message}");
+            }
+        }
+
+        private static async Task LoadFallbackBaselineParcelsForSelectionAsync(
+            AppDbContext context,
+            IReadOnlyList<CanvasObject> selectedObjects)
+        {
+            List<CanvasObject> objectsNeedingParcel = selectedObjects
+                .Where(item => item.BaselineParcel == null)
+                .ToList();
+            if (objectsNeedingParcel.Count == 0)
+                return;
+
+            HashSet<int> parcelIds = objectsNeedingParcel
+                .Select(item => item.BaselineParcelId ?? ReadCadastralMetadata(item.GeometryMetadataJson)?.BaselineParcelId)
+                .Where(id => id.HasValue)
+                .Select(id => id!.Value)
+                .ToHashSet();
+
+            Dictionary<int, BaselineParcel> parcelsById = parcelIds.Count == 0
+                ? []
+                : await IncludeParcelPropertyDetails(context.BaselineParcels.AsNoTracking())
+                    .Where(parcel => parcelIds.Contains(parcel.Id))
+                    .ToDictionaryAsync(parcel => parcel.Id);
+
+            HashSet<string> lookupCodes = objectsNeedingParcel
+                .Select(item => ReadCadastralMetadata(item.GeometryMetadataJson))
+                .Where(metadata => metadata != null &&
+                                   !string.IsNullOrWhiteSpace(metadata.MapSheetNo) &&
+                                   !string.IsNullOrWhiteSpace(metadata.ParcelNo))
+                .Select(metadata => BuildParcelLookupCode(metadata!.MapSheetNo, metadata.ParcelNo))
+                .ToHashSet(StringComparer.OrdinalIgnoreCase);
+
+            Dictionary<string, BaselineParcel> parcelsByCode = lookupCodes.Count == 0
+                ? []
+                : await IncludeParcelPropertyDetails(context.BaselineParcels.AsNoTracking())
+                    .Where(parcel => lookupCodes.Contains(parcel.FullUniqueParcelCode))
+                    .ToDictionaryAsync(parcel => parcel.FullUniqueParcelCode, StringComparer.OrdinalIgnoreCase);
+
+            foreach (CanvasObject canvasObject in objectsNeedingParcel)
+            {
+                CadastralCanvasMetadata? metadata = ReadCadastralMetadata(canvasObject.GeometryMetadataJson);
+                int? parcelId = canvasObject.BaselineParcelId ?? metadata?.BaselineParcelId;
+                if (parcelId.HasValue && parcelsById.TryGetValue(parcelId.Value, out BaselineParcel? parcelById))
+                {
+                    canvasObject.BaselineParcel = parcelById;
+                    canvasObject.BaselineParcelId ??= parcelById.Id;
+                    continue;
+                }
+
+                if (metadata == null ||
+                    string.IsNullOrWhiteSpace(metadata.MapSheetNo) ||
+                    string.IsNullOrWhiteSpace(metadata.ParcelNo))
+                {
+                    continue;
+                }
+
+                string code = BuildParcelLookupCode(metadata.MapSheetNo, metadata.ParcelNo);
+                if (parcelsByCode.TryGetValue(code, out BaselineParcel? parcelByCode))
+                {
+                    canvasObject.BaselineParcel = parcelByCode;
+                    canvasObject.BaselineParcelId ??= parcelByCode.Id;
+                }
+            }
+        }
+
+        private static IQueryable<BaselineParcel> IncludeParcelPropertyDetails(
+            IQueryable<BaselineParcel> query)
+        {
+            return query
+                .Include(parcel => parcel.LandOwner)
+                .Include(parcel => parcel.CoOwners)
+                    .ThenInclude(coOwner => coOwner.LandOwner)
+                .Include(parcel => parcel.MalpotReference)
+                .Include(parcel => parcel.ParcelFrontages)
+                    .ThenInclude(frontage => frontage.Road)
+                .Include(parcel => parcel.ParcelContributionSummary)
+                .Include(parcel => parcel.ParcelContributions)
+                    .ThenInclude(contribution => contribution.ContributionCategory);
+        }
+
+        private static string BuildParcelLookupCode(string? mapSheetNo, string? parcelNo)
+        {
+            return $"{(mapSheetNo ?? string.Empty).Trim().ToUpperInvariant()}::{(parcelNo ?? string.Empty).Trim().ToUpperInvariant()}";
+        }
+
+        private static string BuildSelectedObjectDisplayText(CanvasObject canvasObject)
+        {
+            CadastralCanvasMetadata? metadata = ReadCadastralMetadata(canvasObject.GeometryMetadataJson);
+            string? mapSheetNo = FirstNonEmpty(canvasObject.BaselineParcel?.MapSheetNo, metadata?.MapSheetNo);
+            string? parcelNo = FirstNonEmpty(canvasObject.BaselineParcel?.ParcelNo, metadata?.ParcelNo);
+            string? uniqueCode = FirstNonEmpty(canvasObject.BaselineParcel?.FullUniqueParcelCode, metadata?.FullUniqueParcelCode);
+
+            if (!string.IsNullOrWhiteSpace(mapSheetNo) && !string.IsNullOrWhiteSpace(parcelNo))
+                return $"{mapSheetNo} - {parcelNo}";
+
+            if (!string.IsNullOrWhiteSpace(uniqueCode))
+                return uniqueCode;
+
+            string layerName = canvasObject.CanvasLayer?.Name ?? "No layer";
+            return $"{FirstNonEmpty(canvasObject.ObjectType, "Object")} - {layerName}";
+        }
+
+        private void PopulateParcelPropertyGrid(IReadOnlyList<CanvasObject> selectedObjects, int selectedCount)
+        {
+            if (selectedObjects.Count > 1)
+            {
+                PopulateMultipleSelectionPropertyGrid(selectedObjects, selectedCount);
+                return;
+            }
+
+            PopulateSingleParcelPropertyGrid(selectedObjects[0], selectedCount);
+        }
+
+        private void PopulateSelectedPropertyObjectCombo(IReadOnlyList<CanvasObject> selectedObjects)
+        {
+            _suppressSelectedPropertyObjectChanged = true;
+            try
+            {
+                cboSelectedPropertyObject.Items.Clear();
+                cboSelectedPropertyObject.Enabled = selectedObjects.Count > 0;
+                if (selectedObjects.Count == 0)
+                    return;
+
+                cboSelectedPropertyObject.Items.Add(
+                    new SelectedPropertyObjectComboItem(AllSelectedObjectsComboText, null));
+
+                foreach (CanvasObject canvasObject in selectedObjects)
+                {
+                    cboSelectedPropertyObject.Items.Add(
+                        new SelectedPropertyObjectComboItem(
+                            BuildSelectedObjectDisplayText(canvasObject),
+                            canvasObject.Id));
+                }
+
+                cboSelectedPropertyObject.SelectedIndex = 0;
+            }
+            finally
+            {
+                _suppressSelectedPropertyObjectChanged = false;
+            }
+        }
+
+        private void PopulatePropertyGridForSelectedComboItem()
+        {
+            if (_currentPropertyGridObjects.Count == 0)
+            {
+                ShowNoParcelSelection();
+                return;
+            }
+
+            if (cboSelectedPropertyObject.SelectedItem is SelectedPropertyObjectComboItem { IsAll: false } item &&
+                item.CanvasObjectId.HasValue)
+            {
+                CanvasObject? selectedObject = _currentPropertyGridObjects
+                    .FirstOrDefault(canvasObject => canvasObject.Id == item.CanvasObjectId.Value);
+                if (selectedObject != null)
+                {
+                    PopulateSingleParcelPropertyGrid(selectedObject, 1);
+                    return;
+                }
+            }
+
+            PopulateParcelPropertyGrid(_currentPropertyGridObjects, _currentPropertyGridSelectedCount);
+        }
+
+        private void cboSelectedPropertyObject_SelectedIndexChanged(object? sender, EventArgs e)
+        {
+            if (_suppressSelectedPropertyObjectChanged)
+                return;
+
+            PopulatePropertyGridForSelectedComboItem();
+            ZoomToSelectedPropertyComboItem();
+        }
+
+        private void cboSelectedPropertyObject_SelectionChangeCommitted(object? sender, EventArgs e)
+        {
+            if (_suppressSelectedPropertyObjectChanged)
+                return;
+
+            ZoomToSelectedPropertyComboItem();
+        }
+
+        private void cboSelectedPropertyObject_DropDownClosed(object? sender, EventArgs e)
+        {
+            if (_suppressSelectedPropertyObjectChanged)
+                return;
+
+            ZoomToSelectedPropertyComboItem();
+        }
+
+        private void ZoomToSelectedPropertyComboItem()
+        {
+            if (cboSelectedPropertyObject.SelectedItem is not SelectedPropertyObjectComboItem item)
+                return;
+
+            if (item.IsAll)
+            {
+                ZoomToPropertyObjects(_currentPropertyGridObjects);
+                return;
+            }
+
+            if (item.CanvasObjectId.HasValue)
+            {
+                ZoomToPropertyObjects(_currentPropertyGridObjects
+                    .Where(canvasObject => canvasObject.Id == item.CanvasObjectId.Value));
+            }
+        }
+
+        private void ZoomToPropertyObjects(IEnumerable<CanvasObject> canvasObjects)
+        {
+            List<CanvasObject> objects = canvasObjects
+                .Where(canvasObject => canvasObject.Shape != null && !canvasObject.Shape.IsEmpty)
+                .ToList();
+            if (objects.Count == 0)
+                return;
+
+            double minX = double.MaxValue;
+            double minY = double.MaxValue;
+            double maxX = double.MinValue;
+            double maxY = double.MinValue;
+            bool hasBounds = false;
+
+            foreach (CanvasObject canvasObject in objects)
+            {
+                NtsEnvelope envelope = canvasObject.Shape!.EnvelopeInternal;
+                if (envelope.IsNull ||
+                    !double.IsFinite(envelope.MinX) ||
+                    !double.IsFinite(envelope.MinY) ||
+                    !double.IsFinite(envelope.MaxX) ||
+                    !double.IsFinite(envelope.MaxY))
+                {
+                    continue;
+                }
+
+                minX = Math.Min(minX, envelope.MinX);
+                minY = Math.Min(minY, envelope.MinY);
+                maxX = Math.Max(maxX, envelope.MaxX);
+                maxY = Math.Max(maxY, envelope.MaxY);
+                hasBounds = true;
+            }
+
+            if (!hasBounds || maxX <= minX || maxY <= minY)
+                return;
+
+            mapCanvasControlMain.ZoomToWorldBounds(new RectangleD(minX, minY, maxX - minX, maxY - minY));
+        }
+
+        private void PopulateMultipleSelectionPropertyGrid(IReadOnlyList<CanvasObject> selectedObjects, int selectedCount)
+        {
+            var selectedKeys = new HashSet<string>(_visibleParcelPropertyFieldKeys, StringComparer.OrdinalIgnoreCase);
+            var fields = GetParcelPropertyFields()
+                .Where(field => selectedKeys.Contains(field.Key))
+                .ToList();
+
+            dgvParcelObjProperty.SuspendLayout();
+            try
+            {
+                dgvParcelObjProperty.Rows.Clear();
+                SetPropertiesPanelTitle();
+
+                foreach (var categoryGroup in fields.GroupBy(field => field.Category))
+                {
+                    int categoryIndex = dgvParcelObjProperty.Rows.Count;
+                    AddPropertyCategory(categoryGroup.Key);
+
+                    foreach (var field in categoryGroup)
+                    {
+                        AddPropertyRow(
+                            field.Label,
+                            GetAggregatedFieldValue(selectedObjects, field, selectedCount),
+                            field.IncludeWhenEmpty || field.Category == "Selection");
+                    }
+
+                    if (dgvParcelObjProperty.Rows.Count == categoryIndex + 1)
+                    {
+                        dgvParcelObjProperty.Rows.RemoveAt(categoryIndex);
+                    }
+                }
+
+                if (dgvParcelObjProperty.Rows.Count == 0)
+                {
+                    ShowPropertyGridMessage("No displayable properties were found for this selection.");
+                }
+                else
+                {
+                    dgvParcelObjProperty.ClearSelection();
+                }
+            }
+            finally
+            {
+                dgvParcelObjProperty.ResumeLayout();
+            }
+        }
+
+        private void PopulateSingleParcelPropertyGrid(CanvasObject canvasObject, int selectedCount)
+        {
+            CadastralCanvasMetadata? metadata = ReadCadastralMetadata(canvasObject.GeometryMetadataJson);
+            var parcel = canvasObject.BaselineParcel;
+            var selectedKeys = new HashSet<string>(_visibleParcelPropertyFieldKeys, StringComparer.OrdinalIgnoreCase);
+            var fields = GetParcelPropertyFields()
+                .Where(field => selectedKeys.Contains(field.Key))
+                .ToList();
+
+            dgvParcelObjProperty.SuspendLayout();
+            try
+            {
+                dgvParcelObjProperty.Rows.Clear();
+                SetPropertiesPanelTitle();
+
+                foreach (var categoryGroup in fields.GroupBy(field => field.Category))
+                {
+                    int categoryIndex = dgvParcelObjProperty.Rows.Count;
+                    AddPropertyCategory(categoryGroup.Key);
+
+                    foreach (var field in categoryGroup)
+                    {
+                        AddPropertyRow(
+                            field.Label,
+                            field.GetValue(canvasObject, metadata, selectedCount),
+                            field.IncludeWhenEmpty);
+                    }
+
+                    if (dgvParcelObjProperty.Rows.Count == categoryIndex + 1)
+                    {
+                        dgvParcelObjProperty.Rows.RemoveAt(categoryIndex);
+                    }
+                }
+
+                if (dgvParcelObjProperty.Rows.Count == 0)
+                {
+                    ShowPropertyGridMessage("No displayable properties were found for this selection.");
+                }
+                else
+                {
+                    dgvParcelObjProperty.ClearSelection();
+                }
+            }
+            finally
+            {
+                dgvParcelObjProperty.ResumeLayout();
+            }
+        }
+
+        private async void btnConfigureParcelProperties_Click(object? sender, EventArgs e)
+        {
+            var fieldOptions = GetParcelPropertyFields()
+                .Select(field => new ParcelPropertyFieldSelectorItem(field.Key, field.Category, field.Label))
+                .ToList();
+
+            using var form = new frmParcelPropertyFieldSelector(fieldOptions, _visibleParcelPropertyFieldKeys);
+            if (form.ShowDialog(this) != DialogResult.OK)
+                return;
+
+            _visibleParcelPropertyFieldKeys.Clear();
+            _visibleParcelPropertyFieldKeys.AddRange(form.SelectedFieldKeys);
+
+            if (_currentPropertyGridObjects.Count > 0)
+            {
+                PopulatePropertyGridForSelectedComboItem();
+                return;
+            }
+
+            await LoadSelectedParcelPropertiesAsync(_currentSelectedCanvasObjectIds);
+        }
+
+        private async void btnSelectFromRecords_Click(object? sender, EventArgs e)
+        {
+            if (!AppServices.HasContext)
+            {
+                MessageBox.Show(
+                    this,
+                    "Please open or create a project first.",
+                    "Select From Records",
+                    MessageBoxButtons.OK,
+                    MessageBoxIcon.Information);
+                return;
+            }
+
+            try
+            {
+                List<ObjectRecordSelectorItem> records = await LoadOriginalParcelRecordSelectorItemsAsync();
+                using var form = new frmObjectRecordSelector(records, _currentSelectedCanvasObjectIds);
+                if (form.ShowDialog(this) != DialogResult.OK)
+                    return;
+
+                mapCanvasControlMain.SelectCanvasObjects(
+                    form.SelectedCanvasObjectIds,
+                    form.ZoomToSelection);
+                SetCanvasCommandStatus(form.SelectedCanvasObjectIds.Count == 0
+                    ? "Cleared record-based selection"
+                    : $"Selected {form.SelectedCanvasObjectIds.Count:N0} object(s) from records");
+            }
+            catch (Exception ex)
+            {
+                MessageBox.Show(
+                    this,
+                    $"Could not load record selector: {ex.Message}",
+                    "Select From Records",
+                    MessageBoxButtons.OK,
+                    MessageBoxIcon.Error);
+            }
+        }
+
+        private static async Task<List<ObjectRecordSelectorItem>> LoadOriginalParcelRecordSelectorItemsAsync()
+        {
+            AppDbContext context = AppServices.Context.Session.GetDbContext();
+            List<BaselineParcel> parcels = await context.BaselineParcels
+                .AsNoTracking()
+                .Include(parcel => parcel.LandOwner)
+                .OrderBy(parcel => parcel.MapSheetNo)
+                .ThenBy(parcel => parcel.ParcelNo)
+                .ToListAsync();
+
+            List<int> parcelIds = parcels
+                .Select(parcel => parcel.Id)
+                .ToList();
+            List<Guid> linkedCanvasObjectIds = parcels
+                .Where(parcel => parcel.CanvasObjectId.HasValue)
+                .Select(parcel => parcel.CanvasObjectId!.Value)
+                .ToList();
+
+            List<CanvasObject> linkedObjects = await context.CanvasObjects
+                .AsNoTracking()
+                .Include(item => item.CanvasLayer)
+                .Where(item =>
+                    (item.BaselineParcelId.HasValue && parcelIds.Contains(item.BaselineParcelId.Value)) ||
+                    linkedCanvasObjectIds.Contains(item.Id))
+                .ToListAsync();
+
+            Dictionary<int, CanvasObject> objectsByParcelId = linkedObjects
+                .Where(item => item.BaselineParcelId.HasValue)
+                .GroupBy(item => item.BaselineParcelId!.Value)
+                .ToDictionary(group => group.Key, group => group.First());
+            Dictionary<Guid, CanvasObject> objectsById = linkedObjects
+                .GroupBy(item => item.Id)
+                .ToDictionary(group => group.Key, group => group.First());
+
+            return parcels
+                .Select(parcel =>
+                {
+                    CanvasObject? canvasObject = null;
+                    if (parcel.CanvasObjectId.HasValue)
+                        objectsById.TryGetValue(parcel.CanvasObjectId.Value, out canvasObject);
+                    canvasObject ??= objectsByParcelId.GetValueOrDefault(parcel.Id);
+
+                    return new ObjectRecordSelectorItem(
+                        parcel.Id,
+                        parcel.MapSheetNo,
+                        parcel.ParcelNo,
+                        string.IsNullOrWhiteSpace(parcel.FullUniqueParcelCode)
+                            ? BuildParcelLookupCode(parcel.MapSheetNo, parcel.ParcelNo)
+                            : parcel.FullUniqueParcelCode,
+                        parcel.LandOwner?.FullName ?? string.Empty,
+                        parcel.OriginalAreaSqm,
+                        canvasObject?.Id,
+                        canvasObject?.CanvasLayer?.Name);
+                })
+                .ToList();
+        }
+
+        private void ClearCurrentPropertyGridSelection()
+        {
+            _currentPropertyGridObjects = Array.Empty<CanvasObject>();
+            _currentPropertyGridSelectedCount = 0;
+            _suppressSelectedPropertyObjectChanged = true;
+            try
+            {
+                cboSelectedPropertyObject.Items.Clear();
+                cboSelectedPropertyObject.Enabled = false;
+            }
+            finally
+            {
+                _suppressSelectedPropertyObjectChanged = false;
+            }
+        }
+
+        private static IReadOnlyList<ParcelPropertyField> GetParcelPropertyFields()
+        {
+            return
+            [
+                new("selection.selectedObjects", "Selection", "Selected Objects", true,
+                    (_, _, selectedCount) => selectedCount.ToString()),
+                new("selection.objectType", "Selection", "Object Type", true,
+                    (canvasObject, _, _) => canvasObject.ObjectType),
+                new("selection.layer", "Selection", "Layer", true,
+                    (canvasObject, _, _) => canvasObject.CanvasLayer?.Name),
+                new("selection.assignment", "Selection", "Assignment", true,
+                    (canvasObject, metadata, _) => GetAssignmentValue(canvasObject, metadata)),
+
+                new("parcel.parcelNo", "Original Parcel", "Parcel No.", true,
+                    (canvasObject, metadata, _) => FirstNonEmpty(canvasObject.BaselineParcel?.ParcelNo, metadata?.ParcelNo)),
+                new("parcel.mapSheetNo", "Original Parcel", "Map Sheet No.", true,
+                    (canvasObject, metadata, _) => FirstNonEmpty(canvasObject.BaselineParcel?.MapSheetNo, metadata?.MapSheetNo)),
+                new("parcel.uniqueCode", "Original Parcel", "Unique Code", true,
+                    (canvasObject, metadata, _) => FirstNonEmpty(canvasObject.BaselineParcel?.FullUniqueParcelCode, metadata?.FullUniqueParcelCode)),
+                new("parcel.ownershipType", "Original Parcel", "Ownership Type", true,
+                    (canvasObject, _, _) => canvasObject.BaselineParcel?.LandOwnershipType),
+                new("parcel.recordId", "Original Parcel", "Parcel Record ID", false,
+                    (canvasObject, _, _) => canvasObject.BaselineParcel?.Id.ToString()),
+                new("parcel.landUse", "Original Parcel", "Land Use", false,
+                    (canvasObject, metadata, _) => FirstNonEmpty(canvasObject.BaselineParcel?.LandUse, metadata?.LandUse)),
+                new("parcel.remarks", "Original Parcel", "Remarks", false,
+                    (canvasObject, _, _) => canvasObject.BaselineParcel?.Remarks),
+
+                new("owner.primaryOwner", "Owner", "Primary Owner", true,
+                    (canvasObject, metadata, _) => FirstNonEmpty(canvasObject.BaselineParcel?.LandOwner?.FullName, metadata?.OwnerName)),
+                new("owner.coOwners", "Owner", "Co-Owners", true,
+                    (canvasObject, _, _) => FormatCoOwners(canvasObject.BaselineParcel)),
+                new("owner.fatherSpouse", "Owner", "Father/Spouse", false,
+                    (canvasObject, _, _) => canvasObject.BaselineParcel?.LandOwner?.FatherOrSpouseName),
+                new("owner.gender", "Owner", "Gender", false,
+                    (canvasObject, _, _) => canvasObject.BaselineParcel?.LandOwner?.Gender),
+                new("owner.citizenshipNo", "Owner", "Citizenship No.", false,
+                    (canvasObject, _, _) => canvasObject.BaselineParcel?.LandOwner?.CitizenshipNumber),
+                new("owner.contact", "Owner", "Contact", false,
+                    (canvasObject, _, _) => canvasObject.BaselineParcel?.LandOwner?.ContactNumber),
+                new("owner.email", "Owner", "Email", false,
+                    (canvasObject, _, _) => canvasObject.BaselineParcel?.LandOwner?.Email),
+
+                new("area.originalRecord", "Area", "Original Area (Land Records)", true,
+                    (canvasObject, metadata, _) => FormatArea(canvasObject.BaselineParcel?.OriginalAreaSqm ?? metadata?.RecordAreaSqm)),
+                new("area.geometry", "Area", "Area (From Geometry)", true,
+                    (canvasObject, _, _) => FormatArea(Math.Abs(canvasObject.Shape?.Area ?? 0.0))),
+                new("area.fieldMeasured", "Area", "Area (Measured in Field)", true,
+                    (canvasObject, _, _) => FormatArea(canvasObject.BaselineParcel?.FieldMeasuredAreaSqm)),
+                new("area.effective", "Area", "Effective Area", false,
+                    (canvasObject, _, _) => FormatArea(canvasObject.BaselineParcel?.EffectiveAreaSqm)),
+                new("area.effectiveMode", "Area", "Effective Area Mode", false,
+                    (canvasObject, _, _) => canvasObject.BaselineParcel == null
+                        ? null
+                        : canvasObject.BaselineParcel.IsEffectiveAreaManual ? "Manual" : "Calculated"),
+                new("area.imported", "Area", "Imported Area", false,
+                    (_, metadata, _) => FormatArea(metadata?.CalculatedAreaSqm)),
+
+                new("tenancy.hasTenant", "Tenancy", "Has Tenant", true,
+                    (canvasObject, _, _) => canvasObject.BaselineParcel == null ? null : FormatBoolean(canvasObject.BaselineParcel.HasTenant)),
+                new("tenancy.tenantName", "Tenancy", "Name of Tenant", true,
+                    (canvasObject, _, _) => canvasObject.BaselineParcel?.TenantName),
+
+                new("location.province", "Location", "Province", false,
+                    (canvasObject, _, _) => canvasObject.BaselineParcel?.Province),
+                new("location.district", "Location", "District", false,
+                    (canvasObject, _, _) => canvasObject.BaselineParcel?.District),
+                new("location.municipality", "Location", "Municipality", false,
+                    (canvasObject, _, _) => canvasObject.BaselineParcel?.Municipality),
+                new("location.ward", "Location", "Ward No.", false,
+                    (canvasObject, _, _) => canvasObject.BaselineParcel?.WardNo),
+
+                new("landRecord.mothNo", "Land Record", "Moth No.", false,
+                    (canvasObject, _, _) => canvasObject.BaselineParcel?.MalpotReference?.MothNo),
+                new("landRecord.paanaNo", "Land Record", "Paana No.", false,
+                    (canvasObject, _, _) => canvasObject.BaselineParcel?.MalpotReference?.PaanaNo),
+
+                new("source.format", "Source", "Source Format", false,
+                    (_, metadata, _) => metadata?.SourceFormat),
+                new("source.file", "Source", "Source File", false,
+                    (_, metadata, _) => metadata?.SourceFileName),
+                new("source.layer", "Source", "Source Layer", false,
+                    (_, metadata, _) => metadata?.SourceLayer),
+                new("source.matchedText", "Source", "Matched Text", false,
+                    (_, metadata, _) => metadata?.MatchedText),
+                new("source.handle", "Source", "Source Handle", false,
+                    (canvasObject, metadata, _) => FirstNonEmpty(metadata?.SourceHandle, canvasObject.SourceDxfHandle)),
+                new("source.importedAt", "Source", "Imported At", false,
+                    (_, metadata, _) => FormatDate(metadata?.ImportedAt)),
+
+                new("canvas.objectId", "Canvas", "Object ID", false,
+                    (canvasObject, _, _) => canvasObject.Id.ToString()),
+                new("canvas.baselineParcelId", "Canvas", "Baseline Parcel ID", false,
+                    (canvasObject, _, _) => canvasObject.BaselineParcelId?.ToString()),
+                new("canvas.visible", "Canvas", "Visible", false,
+                    (canvasObject, _, _) => FormatBoolean(canvasObject.IsVisible)),
+                new("canvas.locked", "Canvas", "Locked", false,
+                    (canvasObject, _, _) => FormatBoolean(canvasObject.IsLocked || canvasObject.CanvasLayer?.IsLocked == true)),
+                new("canvas.created", "Canvas", "Created", false,
+                    (canvasObject, _, _) => FormatDate(canvasObject.CreatedDate)),
+                new("canvas.modified", "Canvas", "Last Modified", false,
+                    (canvasObject, _, _) => FormatDate(canvasObject.LastModifiedDate))
+            ];
+        }
+
+        private static string GetSharedFieldValue(
+            IReadOnlyList<CanvasObject> selectedObjects,
+            ParcelPropertyField field,
+            int selectedCount)
+        {
+            var values = selectedObjects
+                .Select(canvasObject =>
+                {
+                    CadastralCanvasMetadata? metadata = ReadCadastralMetadata(canvasObject.GeometryMetadataJson);
+                    return field.GetValue(canvasObject, metadata, selectedCount);
+                })
+                .Select(value => string.IsNullOrWhiteSpace(value) ? "--" : value.Trim())
+                .Distinct(StringComparer.OrdinalIgnoreCase)
+                .ToList();
+
+            return values.Count == 1 ? values[0] : "*VARIES*";
+        }
+
+        private static string? GetAggregatedFieldValue(
+            IReadOnlyList<CanvasObject> selectedObjects,
+            ParcelPropertyField field,
+            int selectedCount)
+        {
+            if (field.Key == "selection.selectedObjects")
+                return selectedCount.ToString("N0");
+
+            if (TryAggregateAreaField(selectedObjects, field.Key, out string? areaValue))
+                return areaValue;
+
+            if (field.Key == "parcel.uniqueCode")
+                return FormatSelectedUniqueParcelCodes(selectedObjects);
+
+            IReadOnlyList<string> values = selectedObjects
+                .Select(canvasObject =>
+                {
+                    CadastralCanvasMetadata? metadata = ReadCadastralMetadata(canvasObject.GeometryMetadataJson);
+                    return field.GetValue(canvasObject, metadata, selectedCount);
+                })
+                .Select(value => string.IsNullOrWhiteSpace(value) ? "--" : value.Trim())
+                .ToList();
+
+            List<string> distinctValues = values
+                .Distinct(StringComparer.OrdinalIgnoreCase)
+                .ToList();
+
+            if (distinctValues.Count == 0 ||
+                distinctValues.All(value => value == "--"))
+            {
+                return field.IncludeWhenEmpty ? "--" : null;
+            }
+
+            return VariesPropertyValue;
+        }
+
+        private static string FormatSelectedUniqueParcelCodes(IReadOnlyList<CanvasObject> selectedObjects)
+        {
+            List<string> uniqueCodes = selectedObjects
+                .Select(canvasObject =>
+                {
+                    CadastralCanvasMetadata? metadata = ReadCadastralMetadata(canvasObject.GeometryMetadataJson);
+                    string? code = FirstNonEmpty(
+                        canvasObject.BaselineParcel?.FullUniqueParcelCode,
+                        metadata?.FullUniqueParcelCode);
+                    if (!string.IsNullOrWhiteSpace(code))
+                        return code;
+
+                    string? mapSheetNo = FirstNonEmpty(
+                        canvasObject.BaselineParcel?.MapSheetNo,
+                        metadata?.MapSheetNo);
+                    string? parcelNo = FirstNonEmpty(
+                        canvasObject.BaselineParcel?.ParcelNo,
+                        metadata?.ParcelNo);
+
+                    return string.IsNullOrWhiteSpace(mapSheetNo) || string.IsNullOrWhiteSpace(parcelNo)
+                        ? null
+                        : $"{mapSheetNo.Trim()}::{parcelNo.Trim()}";
+                })
+                .Where(value => !string.IsNullOrWhiteSpace(value))
+                .Select(value => value!.Trim())
+                .Distinct(StringComparer.OrdinalIgnoreCase)
+                .OrderBy(value => value, StringComparer.OrdinalIgnoreCase)
+                .ToList();
+
+            return uniqueCodes.Count == 0 ? "--" : string.Join(", ", uniqueCodes);
+        }
+
+        private static bool TryAggregateAreaField(
+            IReadOnlyList<CanvasObject> selectedObjects,
+            string fieldKey,
+            out string? value)
+        {
+            Func<CanvasObject, CadastralCanvasMetadata?, double?>? selector = fieldKey switch
+            {
+                "area.originalRecord" => (canvasObject, metadata) =>
+                    canvasObject.BaselineParcel?.OriginalAreaSqm ?? metadata?.RecordAreaSqm,
+                "area.geometry" => (canvasObject, _) =>
+                    Math.Abs(canvasObject.Shape?.Area ?? 0.0),
+                "area.fieldMeasured" => (canvasObject, _) =>
+                    canvasObject.BaselineParcel?.FieldMeasuredAreaSqm,
+                "area.effective" => (canvasObject, _) =>
+                    canvasObject.BaselineParcel?.EffectiveAreaSqm,
+                "area.imported" => (_, metadata) =>
+                    metadata?.CalculatedAreaSqm,
+                _ => null
+            };
+
+            if (selector == null)
+            {
+                value = null;
+                return false;
+            }
+
+            double total = 0.0;
+            int count = 0;
+            foreach (CanvasObject canvasObject in selectedObjects)
+            {
+                CadastralCanvasMetadata? metadata = ReadCadastralMetadata(canvasObject.GeometryMetadataJson);
+                double? area = selector(canvasObject, metadata);
+                if (!area.HasValue)
+                    continue;
+
+                total += Math.Abs(area.Value);
+                count++;
+            }
+
+            value = count == 0
+                ? null
+                : $"{FormatArea(total)} total ({count:N0} object{(count == 1 ? string.Empty : "s")})";
+            return true;
+        }
+
+        private static bool ShouldListAggregate(ParcelPropertyField field)
+        {
+            return field.Key is
+                "parcel.parcelNo" or
+                "parcel.mapSheetNo" or
+                "parcel.uniqueCode" or
+                "owner.primaryOwner" or
+                "owner.coOwners" or
+                "owner.fatherSpouse" or
+                "owner.citizenshipNo" or
+                "owner.contact" or
+                "owner.email" or
+                "tenancy.tenantName" or
+                "source.file" or
+                "source.layer" or
+                "source.matchedText" or
+                "source.handle" or
+                "canvas.objectId" or
+                "canvas.baselineParcelId";
+        }
+
+        private static bool ShouldCountAggregate(ParcelPropertyField field)
+        {
+            return field.Key is
+                "selection.objectType" or
+                "selection.layer" or
+                "selection.assignment" or
+                "parcel.ownershipType" or
+                "parcel.landUse" or
+                "tenancy.hasTenant" or
+                "area.effectiveMode" or
+                "location.province" or
+                "location.district" or
+                "location.municipality" or
+                "location.ward" or
+                "source.format" or
+                "canvas.visible" or
+                "canvas.locked";
+        }
+
+        private static string JoinDistinctValues(IEnumerable<string> values)
+        {
+            List<string> distinct = values
+                .Where(value => !string.IsNullOrWhiteSpace(value))
+                .Distinct(StringComparer.OrdinalIgnoreCase)
+                .OrderBy(value => value, StringComparer.OrdinalIgnoreCase)
+                .ToList();
+
+            return distinct.Count == 0 ? "--" : string.Join(", ", distinct);
+        }
+
+        private static string FormatValueCounts(IReadOnlyList<string> values)
+        {
+            return string.Join(", ", values
+                .GroupBy(value => string.IsNullOrWhiteSpace(value) ? "--" : value.Trim(), StringComparer.OrdinalIgnoreCase)
+                .OrderByDescending(group => group.Count())
+                .ThenBy(group => group.Key, StringComparer.OrdinalIgnoreCase)
+                .Select(group => $"{group.Key}: {group.Count():N0}"));
+        }
+
+        private static string GetAssignmentValue(CanvasObject canvasObject, CadastralCanvasMetadata? metadata)
+        {
+            return metadata?.AssignmentStatus
+                ?? (canvasObject.BaselineParcelId.HasValue || canvasObject.BaselineParcel != null
+                    ? "Assigned"
+                    : "Unassigned");
+        }
+
+        private void ShowNoParcelSelection()
+        {
+            ShowPropertyGridMessage("Select a parcel on the map to view its properties.");
+        }
+
+        private void ShowPropertyGridMessage(string message)
+        {
+            if (dgvParcelObjProperty.Columns.Count == 0)
+            {
+                ConfigureLayerPropertiesPanel();
+            }
+
+            SetPropertiesPanelTitle();
+            dgvParcelObjProperty.SuspendLayout();
+            try
+            {
+                dgvParcelObjProperty.Rows.Clear();
+                int index = dgvParcelObjProperty.Rows.Add("Status", message);
+                DataGridViewRow row = dgvParcelObjProperty.Rows[index];
+                row.DefaultCellStyle.ForeColor = Color.FromArgb(85, 96, 110);
+                row.DefaultCellStyle.BackColor = Color.FromArgb(248, 250, 252);
+                row.Height = 36;
+                dgvParcelObjProperty.ClearSelection();
+            }
+            finally
+            {
+                dgvParcelObjProperty.ResumeLayout();
+            }
+        }
+
+        private void AddPropertyCategory(string categoryName)
+        {
+            int index = dgvParcelObjProperty.Rows.Add(categoryName, string.Empty);
+            DataGridViewRow row = dgvParcelObjProperty.Rows[index];
+            row.ReadOnly = true;
+            row.Height = 28;
+            row.DefaultCellStyle.BackColor = Color.FromArgb(242, 242, 242);
+            row.DefaultCellStyle.ForeColor = Color.Black;
+            row.DefaultCellStyle.Font = grpParcelObjProp.Font;
+            row.Cells[1].Style.BackColor = row.DefaultCellStyle.BackColor;
+            row.Cells[1].Style.SelectionBackColor = row.DefaultCellStyle.BackColor;
+            row.Cells[0].Style.SelectionBackColor = row.DefaultCellStyle.BackColor;
+            row.Cells[0].Style.SelectionForeColor = row.DefaultCellStyle.ForeColor;
+        }
+
+        private void AddPropertyRow(string field, string? value, bool includeWhenEmpty = false)
+        {
+            string displayValue = string.IsNullOrWhiteSpace(value) ? "--" : value.Trim();
+            if (!includeWhenEmpty && displayValue == "--")
+                return;
+
+            int index = dgvParcelObjProperty.Rows.Add(field, displayValue);
+            DataGridViewRow row = dgvParcelObjProperty.Rows[index];
+            row.ReadOnly = true;
+            row.DefaultCellStyle.BackColor = Color.White;
+        }
+
+        private static CadastralCanvasMetadata? ReadCadastralMetadata(string? json)
+        {
+            if (string.IsNullOrWhiteSpace(json))
+                return null;
+
+            try
+            {
+                CadastralCanvasMetadata? metadata =
+                    JsonSerializer.Deserialize<CadastralCanvasMetadata>(json, CadastralMetadataJsonOptions);
+                return string.Equals(metadata?.Kind, CadastralCanvasMetadata.MetadataKind, StringComparison.OrdinalIgnoreCase)
+                    ? metadata
+                    : null;
+            }
+            catch
+            {
+                return null;
+            }
+        }
+
+        private static string? FormatCoOwners(Core.Entities.LandData.BaselineParcel? parcel)
+        {
+            if (parcel?.CoOwners == null || parcel.CoOwners.Count == 0)
+                return null;
+
+            return string.Join("; ", parcel.CoOwners
+                .OrderBy(coOwner => coOwner.LandOwner.FullName)
+                .Select(coOwner =>
+                {
+                    string ownerName = string.IsNullOrWhiteSpace(coOwner.LandOwner.FullName)
+                        ? $"Owner #{coOwner.LandOwnerId}"
+                        : coOwner.LandOwner.FullName.Trim();
+                    return coOwner.OwnershipSharePercent.HasValue
+                        ? $"{ownerName} ({coOwner.OwnershipSharePercent.Value:0.##}%)"
+                        : ownerName;
+                }));
+        }
+
+        private static string? FormatFrontages(Core.Entities.LandData.BaselineParcel? parcel)
+        {
+            if (parcel?.ParcelFrontages == null || parcel.ParcelFrontages.Count == 0)
+                return null;
+
+            return string.Join("; ", parcel.ParcelFrontages
+                .OrderBy(frontage => frontage.FacingDirection)
+                .Select(frontage =>
+                {
+                    string roadName = string.IsNullOrWhiteSpace(frontage.Road?.RoadName)
+                        ? "Road"
+                        : frontage.Road.RoadName.Trim();
+                    string length = frontage.FrontageLength.HasValue
+                        ? $"{frontage.FrontageLength.Value:0.##} m"
+                        : "length not set";
+                    return $"{roadName} ({frontage.FacingDirection}, {length})";
+                }));
+        }
+
+        private static string? FormatArea(double? areaSqm)
+        {
+            if (!areaSqm.HasValue)
+                return null;
+
+            double sqm = areaSqm.Value;
+            string traditionalArea = string.Equals(GetTraditionalAreaUnit(), "BKD", StringComparison.OrdinalIgnoreCase)
+                ? AreaConverterService.SqmToBKDString(sqm)
+                : AreaConverterService.SqmToRAPDString(sqm);
+
+            return $"{sqm:N2} sq.m ({traditionalArea})";
+        }
+
+        private static string GetTraditionalAreaUnit()
+        {
+            try
+            {
+                if (!AppServices.HasContext)
+                    return "RAPD";
+
+                return AppServices.Context.Session.GetDbContext()
+                    .ProjectSettings
+                    .Select(settings => settings.TraditionalAreaUnit)
+                    .FirstOrDefault() is string unit &&
+                       string.Equals(unit, "BKD", StringComparison.OrdinalIgnoreCase)
+                    ? "BKD"
+                    : "RAPD";
+            }
+            catch
+            {
+                return "RAPD";
+            }
+        }
+
+        private static string? FormatPercent(double? value)
+        {
+            return value.HasValue ? $"{value.Value:0.##}%" : null;
+        }
+
+        private static string? FormatNumber(double? value)
+        {
+            return value.HasValue ? value.Value.ToString("N2") : null;
+        }
+
+        private static string? FormatDate(DateTime? value)
+        {
+            if (!value.HasValue || value.Value == default)
+                return null;
+
+            return value.Value.ToString("yyyy-MM-dd HH:mm");
+        }
+
+        private static string FormatBoolean(bool value)
+        {
+            return value ? "Yes" : "No";
+        }
+
+        private static string? FirstNonEmpty(params string?[] values)
+        {
+            return values.FirstOrDefault(value => !string.IsNullOrWhiteSpace(value))?.Trim();
+        }
+
+        private sealed class SelectedPropertyObjectComboItem
+        {
+            public SelectedPropertyObjectComboItem(string text, Guid? canvasObjectId)
+            {
+                Text = text;
+                CanvasObjectId = canvasObjectId;
+            }
+
+            public string Text { get; }
+            public Guid? CanvasObjectId { get; }
+            public bool IsAll => !CanvasObjectId.HasValue;
+
+            public override string ToString()
+            {
+                return Text;
+            }
+        }
+
+        private sealed class ParcelPropertyField
+        {
+            public ParcelPropertyField(
+                string key,
+                string category,
+                string label,
+                bool includeWhenEmpty,
+                Func<CanvasObject, CadastralCanvasMetadata?, int, string?> valueFactory)
+            {
+                Key = key;
+                Category = category;
+                Label = label;
+                IncludeWhenEmpty = includeWhenEmpty;
+                _valueFactory = valueFactory;
+            }
+
+            private readonly Func<CanvasObject, CadastralCanvasMetadata?, int, string?> _valueFactory;
+
+            public string Key { get; }
+            public string Category { get; }
+            public string Label { get; }
+            public bool IncludeWhenEmpty { get; }
+
+            public string? GetValue(CanvasObject canvasObject, CadastralCanvasMetadata? metadata, int selectedCount)
+            {
+                return _valueFactory(canvasObject, metadata, selectedCount);
+            }
         }
 
         private static RectangleD ToRectangleD(NtsEnvelope envelope)
@@ -3855,6 +5029,7 @@ namespace Land_Readjustment_Tool
             _layerContextMenu.Opening += LayerContextMenu_Opening;
             _mnuToggleLayerVisibility.CheckOnClick = false;
             _mnuToggleLayerLock.CheckOnClick = false;
+            _mnuToggleLayerLabels.CheckOnClick = false;
             _mnuAddRasterMap.Click += async (_, _) => await ImportRasterFileAsync(
                 "Add Raster Map",
                 GetGeneralRasterImportFilter());
@@ -3874,13 +5049,17 @@ namespace Land_Readjustment_Tool
             _mnuMoveLayerDown.Click += async (_, _) => await MoveRasterLayerInDisplayOrderAsync(_contextLayerNode, 1);
             _mnuToggleLayerVisibility.Click += async (_, _) => await ToggleLayerNodeVisibilityAsync(_contextLayerNode);
             _mnuToggleLayerLock.Click += async (_, _) => await ToggleLayerLockAsync(_contextLayerNode);
+            _mnuToggleLayerLabels.Click += async (_, _) => await ToggleLayerLabelsAsync(_contextLayerNode);
             _mnuLayerProperties.Click += async (_, _) => await OpenLayerPropertyManagerAsync(_contextLayerNode);
             treeViewLayers.ContextMenuStrip = _layerContextMenu;
         }
 
         private void ConfigureLayerPropertiesPanel()
         {
-            // tabProperties (TabControl) replaced the old grpProperties GroupBox.
+            grpParcelObjProp.ForeColor = Color.FromArgb(39, 55, 77);
+            grpParcelObjProp.Padding = new Padding(8);
+            SetPropertiesPanelTitle();
+            ShowNoParcelSelection();
         }
 
         private void treeViewLayers_DrawNode(object? sender, DrawTreeNodeEventArgs e)
@@ -4159,6 +5338,17 @@ namespace Land_Readjustment_Tool
             SetCanvasCommandStatus("Layer selected");
         }
 
+        private void SetPropertiesPanelTitle()
+        {
+            grpParcelObjProp.Text = "Properties";
+            if (grpParcelObjProp.Font.Style != FontStyle.Bold)
+            {
+                grpParcelObjProp.Font = new Font(
+                    grpParcelObjProp.Font,
+                    grpParcelObjProp.Font.Style | FontStyle.Bold);
+            }
+        }
+
         private void LayerContextMenu_Opening(object? sender, System.ComponentModel.CancelEventArgs e)
         {
             Point clientPoint = treeViewLayers.PointToClient(Cursor.Position);
@@ -4208,8 +5398,10 @@ namespace Land_Readjustment_Tool
 
             _mnuToggleLayerVisibility.Text = "Hidden";
             _mnuToggleLayerLock.Text = "Locked";
+            _mnuToggleLayerLabels.Text = "Show Labels";
             _mnuToggleLayerVisibility.Checked = !layer.IsVisible;
             _mnuToggleLayerLock.Checked = layer.IsLocked;
+            _mnuToggleLayerLabels.Checked = layer.ShowLabels;
 
             bool isProtectedDefaultLayer =
                 CanvasLayerTreeService.IsProtectedDefaultLayer(layer);
@@ -4226,7 +5418,8 @@ namespace Land_Readjustment_Tool
                 canReorderRaster &&
                 CanMoveRasterLayerInDisplayOrder(_contextLayerNode, 1);
             _mnuToggleLayerVisibility.Enabled = true;
-            _mnuToggleLayerLock.Enabled = !isProtectedDefaultLayer && !IsCadastralCanvasLayer(layer);
+            _mnuToggleLayerLock.Enabled = true;
+            _mnuToggleLayerLabels.Enabled = CanLayerDisplayLabels(layer);
             _mnuLayerProperties.Enabled = true;
             ConfigureDefaultLayerTransferMenus(_contextLayerNode, layer);
         }
@@ -4241,6 +5434,11 @@ namespace Land_Readjustment_Tool
             int blue = (int)Math.Round((source.B * sourceWeight) + (target.B * clampedWeight));
 
             return Color.FromArgb(red, green, blue);
+        }
+
+        private static Color FadeLockedLayerColorForTree(Color color, Color backgroundColor)
+        {
+            return BlendColor(color, backgroundColor, 0.48f);
         }
 
         /// <summary>
@@ -4307,6 +5505,12 @@ namespace Land_Readjustment_Tool
                 ? ParseColorOrDefault(layer.FillColor, Color.White)
                 : backgroundColor;
 
+            if (layer.IsLocked)
+            {
+                outlineColor = FadeLockedLayerColorForTree(outlineColor, backgroundColor);
+                rawFillColor = FadeLockedLayerColorForTree(rawFillColor, backgroundColor);
+            }
+
             Color fillColor = hasFill
                 ? BlendColor(rawFillColor, backgroundColor, layer.FillTransparency / 100f)
                 : backgroundColor;
@@ -4358,6 +5562,9 @@ namespace Land_Readjustment_Tool
             Color backgroundColor)
         {
             Color lineColor = ParseColorOrDefault(layer.BorderColor, Color.Black);
+            if (layer.IsLocked)
+                lineColor = FadeLockedLayerColorForTree(lineColor, backgroundColor);
+
             DrawCenteredLineSymbol(
                 g,
                 rect,
@@ -4377,6 +5584,9 @@ namespace Land_Readjustment_Tool
             g.FillRectangle(backgroundBrush, rect);
 
             Color markerColor = ParseColorOrDefault(layer.BorderColor, Color.Black);
+            if (layer.IsLocked)
+                markerColor = FadeLockedLayerColorForTree(markerColor, backgroundColor);
+
             RectangleF markerRect = RectangleF.Inflate(rect, -3, -3);
             PointMarkerRenderer.Draw(
                 g,
@@ -4398,14 +5608,17 @@ namespace Land_Readjustment_Tool
             Color textColor = ParseColorOrDefault(
                 layer.LabelColor,
                 ParseColorOrDefault(layer.BorderColor, Color.Black));
+            if (layer.IsLocked)
+                textColor = FadeLockedLayerColorForTree(textColor, backgroundColor);
+
             using Font font = new(
                 "Segoe UI",
-                Math.Max(7.0f, rect.Height - 7.0f),
+                Math.Max(7.0f, rect.Height - 8.0f),
                 FontStyle.Bold,
                 GraphicsUnit.Pixel);
             TextRenderer.DrawText(
                 g,
-                "T",
+                "Aa",
                 font,
                 rect,
                 textColor,
@@ -4445,6 +5658,9 @@ namespace Land_Readjustment_Tool
             if (centerline != null)
             {
                 Color lineColor = ParseColorOrDefault(centerline.BorderColor, Color.Black);
+                if (centerline.IsLocked)
+                    lineColor = FadeLockedLayerColorForTree(lineColor, backgroundColor);
+
                 Rectangle centerlineRect = new(
                     rect.X + 2,
                     rect.Y,
@@ -4586,6 +5802,7 @@ namespace Land_Readjustment_Tool
                 new ToolStripSeparator(),
                 _mnuToggleLayerVisibility,
                 _mnuToggleLayerLock,
+                _mnuToggleLayerLabels,
                 new ToolStripSeparator(),
                 _mnuLayerProperties
             ]);
@@ -4989,6 +6206,50 @@ namespace Land_Readjustment_Tool
             }
         }
 
+        private async Task ToggleLayerLabelsAsync(TreeNode? node)
+        {
+            CanvasLayer? layer = GetLayerFromNode(node);
+            if (layer == null || !CanLayerDisplayLabels(layer))
+            {
+                return;
+            }
+
+            try
+            {
+                CanvasLayer editableLayer = _layerCommandService.CreateEditableCopy(layer);
+                editableLayer.ShowLabels = !layer.ShowLabels;
+                if (editableLayer.LabelFontSize <= 0)
+                    editableLayer.LabelFontSize = editableLayer.LabelScaleWithZoom ? 2.0 : 6.0;
+
+                CanvasLayer updatedLayer =
+                    await _layerCommandService.UpdatePropertiesAsync(
+                        AppServices.HasContext ? AppServices.Context.Session : null,
+                        editableLayer);
+
+                UpdateLayerNode(node!, updatedLayer, updateRasterStack: false);
+                mapCanvasControlMain.UpdateVectorLayer(updatedLayer);
+                MarkProjectModifiedIfOpen();
+                SetCanvasCommandStatus(updatedLayer.ShowLabels
+                    ? $"Labels shown: {updatedLayer.Name}"
+                    : $"Labels hidden: {updatedLayer.Name}");
+                SelectLayerNodeById(updatedLayer.Id);
+            }
+            catch (Exception ex)
+            {
+                MessageBox.Show(
+                    $"Failed to update layer labels: {ex.Message}",
+                    "Layer Labels",
+                    MessageBoxButtons.OK,
+                    MessageBoxIcon.Error);
+            }
+        }
+
+        private static bool CanLayerDisplayLabels(CanvasLayer layer)
+        {
+            return !IsRasterLayer(layer) &&
+                   !CanvasLayerTreeService.IsAnnotationLayer(layer);
+        }
+
         private async Task ToggleLayerGroupVisibilityAsync(TreeNode? groupNode)
         {
             if (groupNode == null ||
@@ -5130,17 +6391,6 @@ namespace Land_Readjustment_Tool
                 return;
             }
 
-            if (CanvasLayerTreeService.IsProtectedDefaultLayer(layer) ||
-                IsCadastralCanvasLayer(layer))
-            {
-                MessageBox.Show(
-                    $"Layer '{layer.Name}' is managed by the application and must remain locked.",
-                    "Layer Lock",
-                    MessageBoxButtons.OK,
-                    MessageBoxIcon.Information);
-                return;
-            }
-
             try
             {
                 CanvasLayer? updatedLayer =
@@ -5154,6 +6404,12 @@ namespace Land_Readjustment_Tool
                 }
 
                 UpdateLayerNode(node!, updatedLayer, updateRasterStack: false);
+                if (IsRasterLayer(updatedLayer))
+                    UpdateRasterCanvasLayersFromTree();
+                else
+                    mapCanvasControlMain.UpdateVectorLayer(updatedLayer);
+
+                RefreshCurrentDrawingLayerCombo();
                 MarkProjectModifiedIfOpen();
                 SetCanvasCommandStatus(updatedLayer.IsLocked
                     ? $"Layer locked: {updatedLayer.Name}"
@@ -5757,8 +7013,8 @@ namespace Land_Readjustment_Tool
                 CanvasObject? lockedObject = selectedObjects.FirstOrDefault(item =>
                     item.CanvasLayer?.IsLocked == true ||
                     (item.CanvasLayer != null &&
-                     (CanvasLayerTreeService.IsProtectedDefaultLayer(item.CanvasLayer) ||
-                      IsCadastralCanvasLayer(item.CanvasLayer))));
+                     CanvasLayerTreeService.IsProtectedDefaultLayer(item.CanvasLayer) &&
+                     !IsCadastralCanvasLayer(item.CanvasLayer)));
                 if (lockedObject != null)
                 {
                     MessageBox.Show(
@@ -5767,6 +7023,23 @@ namespace Land_Readjustment_Tool
                         MessageBoxButtons.OK,
                         MessageBoxIcon.Information);
                     return;
+                }
+
+                int cadastralObjectCount = selectedObjects.Count(item =>
+                    item.CanvasLayer != null && IsCadastralCanvasLayer(item.CanvasLayer));
+                if (cadastralObjectCount > 0)
+                {
+                    DialogResult cadastralDeleteResult = MessageBox.Show(
+                        this,
+                        cadastralObjectCount == 1
+                            ? "The selected object is part of an imported cadastral map. Deleting it will remove its parcel assignment link from the map.\n\nDelete this cadastral object?"
+                            : $"{cadastralObjectCount} selected objects are part of imported cadastral maps. Deleting them will remove their parcel assignment links from the map.\n\nDelete these cadastral objects?",
+                        "Delete Cadastral Map Object",
+                        MessageBoxButtons.YesNo,
+                        MessageBoxIcon.Warning,
+                        MessageBoxDefaultButton.Button2);
+                    if (cadastralDeleteResult != DialogResult.Yes)
+                        return;
                 }
 
                 CanvasFeatureService featureService =
@@ -6411,12 +7684,6 @@ namespace Land_Readjustment_Tool
 
             if (frm.ShowDialog(this) != DialogResult.OK)
                 return;
-
-            if (CanvasLayerTreeService.IsProtectedDefaultLayer(nodeState.Layer) ||
-                IsCadastralCanvasLayer(nodeState.Layer))
-            {
-                editableLayer.IsLocked = true;
-            }
 
             try
             {

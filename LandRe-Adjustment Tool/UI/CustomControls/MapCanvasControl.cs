@@ -381,6 +381,50 @@ namespace Land_Readjustment_Tool.UI.CustomControls
             RequestRender();
         }
 
+        public void SelectCanvasObjects(IEnumerable<Guid> canvasObjectIds, bool zoomToSelection)
+        {
+            HashSet<Guid> ids = canvasObjectIds
+                .Where(id => id != Guid.Empty)
+                .ToHashSet();
+            List<CanvasFeature> features = ids.Count == 0
+                ? []
+                : _vectorFeatures
+                    .Where(item => ids.Contains(item.CanvasObject.Id) || ids.Contains(item.Shape.Id))
+                    .ToList();
+
+            ReplaceSelectedObjects(features);
+
+            if (zoomToSelection &&
+                TryGetCombinedFeatureBounds(features, out RectangleD bounds))
+            {
+                ZoomToWorldBounds(bounds);
+                return;
+            }
+
+            RequestRender();
+        }
+
+        public void ZoomToCanvasObjects(IEnumerable<Guid> canvasObjectIds)
+        {
+            HashSet<Guid> ids = canvasObjectIds
+                .Where(id => id != Guid.Empty)
+                .ToHashSet();
+            if (ids.Count == 0)
+                return;
+
+            List<CanvasFeature> features = _vectorFeatures
+                .Where(item => ids.Contains(item.CanvasObject.Id) || ids.Contains(item.Shape.Id))
+                .ToList();
+
+            if (TryGetCombinedFeatureBounds(features, out RectangleD bounds))
+            {
+                ZoomToWorldBounds(bounds);
+                return;
+            }
+
+            RequestRender();
+        }
+
         public void ClearPreviewSelection()
         {
             ClearSelectedObjects();
@@ -2621,6 +2665,7 @@ namespace Land_Readjustment_Tool.UI.CustomControls
             ApplySelectedShapeFlags();
             RefreshVectorCacheForCurrentViewAsync();
             UpdateStatusBar();
+            NotifySelectedCanvasObjectsChanged();
         }
 
         private void ReplaceSelectedObjects(IEnumerable<CanvasFeature> selectedFeatures)
@@ -2635,6 +2680,45 @@ namespace Land_Readjustment_Tool.UI.CustomControls
             RefreshVectorCacheForCurrentViewAsync();
             UpdateStatusBar();
             NotifySelectedCanvasObjectsChanged();
+        }
+
+        private static bool TryGetCombinedFeatureBounds(
+            IReadOnlyList<CanvasFeature> features,
+            out RectangleD bounds)
+        {
+            bounds = default;
+            bool hasBounds = false;
+            double left = 0;
+            double right = 0;
+            double bottom = 0;
+            double top = 0;
+
+            foreach (CanvasFeature feature in features)
+            {
+                if (!TryNormalizeWorldBounds(feature.Shape.GetBoundingBox(), out RectangleD featureBounds))
+                    continue;
+
+                if (!hasBounds)
+                {
+                    left = featureBounds.Left;
+                    right = featureBounds.Right;
+                    bottom = featureBounds.Bottom;
+                    top = featureBounds.Top;
+                    hasBounds = true;
+                    continue;
+                }
+
+                left = Math.Min(left, featureBounds.Left);
+                right = Math.Max(right, featureBounds.Right);
+                bottom = Math.Min(bottom, featureBounds.Bottom);
+                top = Math.Max(top, featureBounds.Top);
+            }
+
+            if (!hasBounds || right <= left || top <= bottom)
+                return false;
+
+            bounds = new RectangleD(left, bottom, right - left, top - bottom);
+            return true;
         }
 
         private void AddSelectedObjects(IEnumerable<CanvasFeature> selectedFeatures)
@@ -2794,6 +2878,7 @@ namespace Land_Readjustment_Tool.UI.CustomControls
                         new NtsCoordinate(line.End.X, line.End.Y)
                     ]),
                 PolylineShape polyline => CreateSelectionGeometryFromPolyline(polyline),
+                DonutPolygonShape donut => donut.ToGeometry(),
                 ArcShape arc => SelectionGeometryFactory.CreateLineString(
                     arc.SamplePoints(96)
                         .Select(point => new NtsCoordinate(point.X, point.Y))

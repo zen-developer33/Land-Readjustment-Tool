@@ -1319,6 +1319,7 @@ namespace Land_Readjustment_Tool.UI.MapCanvas.Rendering
         {
             private const string CacheRootFolderName = "RePlotRasterTileCache";
             private const string CacheFormatVersion = "raster-tile-cache-v3";
+            private const int MaxPendingWrites = 8;
             private readonly string _cacheFolder;
             private readonly ConcurrentDictionary<RasterTileCacheKey, byte> _pendingWrites = new ConcurrentDictionary<RasterTileCacheKey, byte>();
 
@@ -1395,6 +1396,7 @@ namespace Land_Readjustment_Tool.UI.MapCanvas.Rendering
             {
                 string path = GetTilePath(key);
                 if (File.Exists(path) ||
+                    _pendingWrites.Count >= MaxPendingWrites ||
                     !_pendingWrites.TryAdd(key, 0))
                 {
                     return;

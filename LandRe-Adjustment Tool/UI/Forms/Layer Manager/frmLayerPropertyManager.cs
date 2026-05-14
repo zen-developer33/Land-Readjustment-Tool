@@ -7,6 +7,13 @@ namespace Land_Readjustment_Tool.UI.Forms
 {
     public sealed partial class frmLayerPropertyManager : Form
     {
+        private const string DefaultCanvasLabelFontName = "Nirmala UI";
+        private const decimal DefaultFixedLabelFontSize = 6.0m;
+        private const decimal DefaultScaledLabelFontSize = 2.0m;
+        private const decimal MinLabelFontSize = 1.0m;
+        private const decimal MaxFixedLabelFontSize = 72.0m;
+        private const decimal MaxScaledLabelFontSize = 120.0m;
+
         public CanvasLayer Layer { get; }
         private readonly IHatchPatternService _hatchPatternService;
         private readonly bool _isRasterLayer;
@@ -45,6 +52,8 @@ namespace Land_Readjustment_Tool.UI.Forms
             NumericUpDownSelectAllBehavior.AttachTo(this);
             LoadLayer();
             ConfigureApplicableControls();
+            _rdoFontFixedSize.CheckedChanged += FontScalingRadio_CheckedChanged;
+            _rdoFontScalesWithZoom.CheckedChanged += FontScalingRadio_CheckedChanged;
             _chkLocked.CheckedChanged += (_, _) => ConfigureLockedControlState();
             ConfigureLockedControlState();
         }
@@ -79,11 +88,17 @@ namespace Land_Readjustment_Tool.UI.Forms
 
             _chkShowLabels.Checked = Layer.ShowLabels;
             _txtFontName.Text = string.IsNullOrWhiteSpace(Layer.LabelFontName)
-                ? "Segoe UI"
+                ? DefaultCanvasLabelFontName
                 : Layer.LabelFontName;
-            _numFontSize.Value = ClampDecimal((decimal)Layer.LabelFontSize, _numFontSize);
+            ConfigureLabelFontSizeControl(Layer.LabelScaleWithZoom, resetToDefault: false);
+            decimal labelFontSize = Layer.LabelFontSize <= 0
+                ? GetDefaultLabelFontSize(Layer.LabelScaleWithZoom)
+                : (decimal)Layer.LabelFontSize;
+            _numFontSize.Value = ClampDecimal(labelFontSize, _numFontSize);
             _pnlLabelColor.BackColor = ParseColorOrDefault(Layer.LabelColor, Color.Black);
             SetComboText(_cboLabelField, Layer.LabelField ?? string.Empty);
+            _rdoFontScalesWithZoom.Checked = Layer.LabelScaleWithZoom;
+            _rdoFontFixedSize.Checked = !Layer.LabelScaleWithZoom;
         }
 
         /// <summary>
@@ -91,6 +106,12 @@ namespace Land_Readjustment_Tool.UI.Forms
         /// </summary>
         private void ConfigureApplicableControls()
         {
+            if (_isDrawingMarkupLayer)
+            {
+                UpdateLayerKindPresentation();
+                return;
+            }
+
             if (_isLineLayer && !_isDrawingMarkupLayer)
             {
                 Text = "Line Layer Properties";
@@ -227,7 +248,7 @@ namespace Land_Readjustment_Tool.UI.Forms
         private void btnFont_Click(object? sender, EventArgs e)
         {
             _fontDialog.Font = new Font(
-                string.IsNullOrWhiteSpace(_txtFontName.Text) ? "Segoe UI" : _txtFontName.Text,
+                string.IsNullOrWhiteSpace(_txtFontName.Text) ? DefaultCanvasLabelFontName : _txtFontName.Text,
                 (float)_numFontSize.Value);
 
             if (_fontDialog.ShowDialog(this) != DialogResult.OK)
@@ -419,6 +440,9 @@ namespace Land_Readjustment_Tool.UI.Forms
             _pnlLabelColor.Enabled = canEdit;
             _btnLabelColor.Enabled = canEdit;
             _cboLabelField.Enabled = canEdit;
+            _fontScalingPanel.Enabled = canEdit;
+            _rdoFontFixedSize.Enabled = canEdit;
+            _rdoFontScalesWithZoom.Enabled = canEdit;
 
             _chkLocked.Enabled = true;
             UpdateLayerKindPresentation();
@@ -434,6 +458,40 @@ namespace Land_Readjustment_Tool.UI.Forms
             }
 
             base.OnFormClosing(e);
+        }
+
+        private void FontScalingRadio_CheckedChanged(object? sender, EventArgs e)
+        {
+            if (_rdoFontScalesWithZoom.Checked)
+            {
+                ConfigureLabelFontSizeControl(scaleWithZoom: true, resetToDefault: true);
+                return;
+            }
+
+            if (_rdoFontFixedSize.Checked)
+            {
+                ConfigureLabelFontSizeControl(scaleWithZoom: false, resetToDefault: true);
+            }
+        }
+
+        private void ConfigureLabelFontSizeControl(bool scaleWithZoom, bool resetToDefault)
+        {
+            decimal currentValue = _numFontSize.Value;
+            _numFontSize.Minimum = MinLabelFontSize;
+            _numFontSize.Maximum = scaleWithZoom
+                ? MaxScaledLabelFontSize
+                : MaxFixedLabelFontSize;
+
+            _numFontSize.Value = resetToDefault
+                ? GetDefaultLabelFontSize(scaleWithZoom)
+                : ClampDecimal(currentValue, _numFontSize);
+        }
+
+        private static decimal GetDefaultLabelFontSize(bool scaleWithZoom)
+        {
+            return scaleWithZoom
+                ? DefaultScaledLabelFontSize
+                : DefaultFixedLabelFontSize;
         }
 
         private bool ApplyChanges()
@@ -495,15 +553,21 @@ namespace Land_Readjustment_Tool.UI.Forms
                         : 1.0;
                 }
 
-                Layer.ShowLabels = _chkShowLabels.Checked;
+                Layer.ShowLabels = selectedAnnotation ? false : _chkShowLabels.Checked;
                 Layer.LabelFontName = string.IsNullOrWhiteSpace(_txtFontName.Text)
-                    ? "Segoe UI"
+                    ? DefaultCanvasLabelFontName
                     : _txtFontName.Text.Trim();
                 Layer.LabelFontSize = (double)_numFontSize.Value;
                 Layer.LabelColor = ColorTranslator.ToHtml(_pnlLabelColor.BackColor);
-                Layer.LabelField = string.IsNullOrWhiteSpace(_cboLabelField.Text)
+                Layer.LabelField = selectedAnnotation || string.IsNullOrWhiteSpace(_cboLabelField.Text)
                     ? null
                     : _cboLabelField.Text.Trim();
+                Layer.LabelScaleWithZoom = !selectedAnnotation && _rdoFontScalesWithZoom.Checked;
+
+                if (selectedAnnotation)
+                {
+                    Layer.BorderColor = Layer.LabelColor;
+                }
             }
 
             return true;
@@ -582,14 +646,35 @@ namespace Land_Readjustment_Tool.UI.Forms
             bool isPolygon = string.Equals(layerType, CanvasLayerTreeService.PolygonLayerType, StringComparison.OrdinalIgnoreCase);
             bool isAnnotation = string.Equals(layerType, CanvasLayerTreeService.AnnotationLayerType, StringComparison.OrdinalIgnoreCase);
 
+            ConfigureAnnotationPropertyLayout(isAnnotation);
+
             Text = _isDrawingMarkupLayer
                 ? "Drawing Layer Properties"
                 : isAnnotation ? "Annotation Layer Properties"
                 : isPolyline ? "Line Layer Properties" : "Polygon Layer Properties";
+            if (isAnnotation)
+                Text = "Annotation Layer Properties";
+
             _lblBorderColor.Text = isPoint
                 ? "Point Color"
                 : isAnnotation ? "Text Color"
                 : isPolyline ? "Line Color" : "Border Color";
+
+            if (isAnnotation)
+            {
+                SetControlVisible(_chkNoBorder, false);
+                SetControlVisible(_lblLineStyle, false);
+                SetControlVisible(_lineTypePanel, false);
+                SetControlVisible(_lblLinePreview, false);
+                SetControlVisible(_pnlLinePreview, false);
+                SetControlVisible(_lblLineWeight, false);
+                SetControlVisible(_numLineWeight, false);
+                SetControlVisible(_lblBorderColor, false);
+                SetControlVisible(_borderColorPanel, false);
+                SetControlVisible(_lblPointMarker, false);
+                SetControlVisible(_pointMarkerPanel, false);
+                return;
+            }
 
             SetControlVisible(_chkNoBorder, !isPoint && !isAnnotation);
             SetControlVisible(_lblLineStyle, !isPoint && !isAnnotation);
@@ -618,6 +703,97 @@ namespace Land_Readjustment_Tool.UI.Forms
                 int insertIndex = Math.Min(1, _tabs.TabPages.Count);
                 _tabs.TabPages.Insert(insertIndex, _tabFill);
             }
+        }
+
+        private void ConfigureAnnotationPropertyLayout(bool isAnnotation)
+        {
+            if (isAnnotation)
+            {
+                if (_tabs.TabPages.Contains(_tabFill))
+                    _tabs.TabPages.Remove(_tabFill);
+
+                if (_tabs.TabPages.Contains(_tabLabel))
+                    _tabs.TabPages.Remove(_tabLabel);
+
+                MoveControlToLayout(_generalLayout, _lblFont, 0, 2);
+                MoveControlToLayout(_generalLayout, _fontPanel, 1, 2);
+                MoveControlToLayout(_generalLayout, _lblFontSize, 0, 3);
+                MoveControlToLayout(_generalLayout, _numFontSize, 1, 3);
+                MoveControlToLayout(_generalLayout, _lblTextColor, 0, 4);
+                MoveControlToLayout(_generalLayout, _labelColorPanel, 1, 4);
+                MoveControlToLayout(_generalLayout, _lblState, 0, 5);
+                MoveControlToLayout(_generalLayout, _statePanel, 1, 5);
+
+                SetControlVisible(_lblFont, true);
+                SetControlVisible(_fontPanel, true);
+                SetControlVisible(_lblFontSize, true);
+                SetControlVisible(_numFontSize, true);
+                SetControlVisible(_lblTextColor, true);
+                SetControlVisible(_labelColorPanel, true);
+                SetControlVisible(_lblLabels, false);
+                SetControlVisible(_chkShowLabels, false);
+                SetControlVisible(_lblLabelField, false);
+                SetControlVisible(_cboLabelField, false);
+                SetControlVisible(_lblFontScaling, false);
+                SetControlVisible(_fontScalingPanel, false);
+
+                SetGeneralRowHeight(2, 38F);
+                SetGeneralRowHeight(3, 38F);
+                SetGeneralRowHeight(4, 38F);
+                SetGeneralRowHeight(5, 38F);
+                SetGeneralRowHeight(6, 0F);
+                SetGeneralRowHeight(7, 0F);
+                SetGeneralRowHeight(8, 0F);
+                return;
+            }
+
+            if (!_tabs.TabPages.Contains(_tabLabel) && !_isRasterLayer)
+                _tabs.TabPages.Add(_tabLabel);
+
+            MoveControlToLayout(_labelLayout, _lblFont, 0, 1);
+            MoveControlToLayout(_labelLayout, _fontPanel, 1, 1);
+            MoveControlToLayout(_labelLayout, _lblFontSize, 0, 2);
+            MoveControlToLayout(_labelLayout, _numFontSize, 1, 2);
+            MoveControlToLayout(_labelLayout, _lblTextColor, 0, 3);
+            MoveControlToLayout(_labelLayout, _labelColorPanel, 1, 3);
+            MoveControlToLayout(_generalLayout, _lblState, 0, 7);
+            MoveControlToLayout(_generalLayout, _statePanel, 1, 7);
+
+            SetControlVisible(_lblFont, true);
+            SetControlVisible(_fontPanel, true);
+            SetControlVisible(_lblFontSize, true);
+            SetControlVisible(_numFontSize, true);
+            SetControlVisible(_lblTextColor, true);
+            SetControlVisible(_labelColorPanel, true);
+            SetControlVisible(_lblLabels, true);
+            SetControlVisible(_chkShowLabels, true);
+            SetControlVisible(_lblLabelField, true);
+            SetControlVisible(_cboLabelField, true);
+            SetControlVisible(_lblFontScaling, true);
+            SetControlVisible(_fontScalingPanel, true);
+
+            SetGeneralRowHeight(2, 38F);
+            SetGeneralRowHeight(3, 38F);
+            SetGeneralRowHeight(4, 38F);
+            SetGeneralRowHeight(5, 38F);
+            SetGeneralRowHeight(7, 37F);
+            SetGeneralRowHeight(8, 38F);
+        }
+
+        private static void MoveControlToLayout(
+            TableLayoutPanel layout,
+            Control control,
+            int column,
+            int row)
+        {
+            if (control.Parent != layout)
+            {
+                layout.Controls.Add(control, column, row);
+                return;
+            }
+
+            layout.SetColumn(control, column);
+            layout.SetRow(control, row);
         }
 
         private static string NormalizeDrawingLayerType(string? layerType)

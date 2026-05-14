@@ -167,6 +167,7 @@ namespace Land_Readjustment_Tool.UI.MapCanvas.Services
                         new Coordinate(line.Start.X, line.Start.Y),
                         new Coordinate(line.End.X, line.End.Y)
                     ]),
+                DonutPolygonShape donut => donut.ToGeometry(),
                 PolylineShape polyline => CreateGeometryFromPolyline(polyline),
                 RectangleShape rectangle => CreatePolygonFromRectangle(rectangle),
                 CircleShape circle => CreatePolygonFromCircle(circle),
@@ -376,7 +377,24 @@ namespace Land_Readjustment_Tool.UI.MapCanvas.Services
 
         private static IShape CreatePolygonShape(Polygon polygon)
         {
-            Coordinate[] coordinates = polygon.ExteriorRing.Coordinates;
+            List<PointD> vertices = ToOpenPointRing(polygon.ExteriorRing.Coordinates);
+
+            if (polygon.NumInteriorRings == 0)
+            {
+                return new PolylineShape(vertices, isClosed: true);
+            }
+
+            List<List<PointD>> holes = new();
+            for (int i = 0; i < polygon.NumInteriorRings; i++)
+            {
+                holes.Add(ToOpenPointRing(polygon.GetInteriorRingN(i).Coordinates));
+            }
+
+            return new DonutPolygonShape(vertices, holes);
+        }
+
+        private static List<PointD> ToOpenPointRing(Coordinate[] coordinates)
+        {
             List<PointD> vertices = coordinates
                 .Select(c => new PointD(c.X, c.Y))
                 .ToList();
@@ -388,7 +406,7 @@ namespace Land_Readjustment_Tool.UI.MapCanvas.Services
                 vertices.RemoveAt(vertices.Count - 1);
             }
 
-            return new PolylineShape(vertices, isClosed: true);
+            return vertices;
         }
 
         private static IShape CreatePolygonFromEnvelopeShape(Envelope envelope)
@@ -433,6 +451,7 @@ namespace Land_Readjustment_Tool.UI.MapCanvas.Services
 
             return shape switch
             {
+                DonutPolygonShape => "Polygon",
                 PolylineShape polyline when polyline.IsClosed => "Polygon",
                 PolylineShape => "Polyline",
                 LineShape => "Line",

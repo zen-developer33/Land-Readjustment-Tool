@@ -1,6 +1,8 @@
 using Land_Readjustment_Tool.Core.Entities.Canvas;
 using Land_Readjustment_Tool.Core.Interfaces;
+using Land_Readjustment_Tool.UI.Helpers;
 using Land_Readjustment_Tool.UI.MapCanvas.Models.Shapes;
+using System.Drawing;
 
 namespace Land_Readjustment_Tool.UI.MapCanvas.Services
 {
@@ -120,6 +122,7 @@ namespace Land_Readjustment_Tool.UI.MapCanvas.Services
                 ? 0
                 : layers.Max(layer => layer.DisplayOrder) + 1;
 
+            Color paletteColor = GetRandomPaletteColor();
             CanvasLayer newLayer = new()
             {
                 Name = normalizedName,
@@ -129,13 +132,16 @@ namespace Land_Readjustment_Tool.UI.MapCanvas.Services
                 IsSelectable = true,
                 IsPrintable = true,
                 DisplayOrder = nextDisplayOrder,
-                BorderColor = "#000000",
-                FillColor = "#FFFFFF",
+                BorderColor = ToHtml(Darken(paletteColor, 0.58f)),
+                FillColor = ToHtml(paletteColor),
                 FillTransparency = 100,
                 LineWeight = 1.0,
                 LineStyle = "Solid",
                 LineTypeScale = 1.0,
                 LabelColor = "#000000",
+                LabelFontName = "Nirmala UI",
+                LabelFontSize = 2.0,
+                LabelScaleWithZoom = true,
                 FillStyle = "Solid",
                 PointSymbol = "Dot",
                 PointSize = 5.0
@@ -143,6 +149,28 @@ namespace Land_Readjustment_Tool.UI.MapCanvas.Services
 
             return await _canvasLayerRepository.AddAsync(newLayer, ct);
         }
+
+        private static Color GetRandomPaletteColor()
+        {
+            Color[] palette = ColorDialogCustomColorsStore.GetLayerPaletteColors();
+            if (palette.Length == 0)
+                return Color.FromArgb(Random.Shared.Next(96, 232), Random.Shared.Next(96, 232), Random.Shared.Next(96, 232));
+
+            return palette[Random.Shared.Next(palette.Length)];
+        }
+
+        private static Color Darken(Color color, float factor)
+        {
+            factor = Math.Clamp(factor, 0.0f, 1.0f);
+            return Color.FromArgb(
+                255,
+                (int)Math.Round(color.R * factor),
+                (int)Math.Round(color.G * factor),
+                (int)Math.Round(color.B * factor));
+        }
+
+        private static string ToHtml(Color color) =>
+            $"#{color.R:X2}{color.G:X2}{color.B:X2}";
 
         private static string ResolveLayerType(IShape shape)
         {

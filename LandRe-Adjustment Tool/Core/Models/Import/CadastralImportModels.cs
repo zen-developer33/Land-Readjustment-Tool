@@ -7,6 +7,7 @@ namespace Land_Readjustment_Tool.Core.Models.Import
         string FileFormat,
         IReadOnlyList<CadastralLayerInfo> Layers,
         IReadOnlyList<string> AttributeFields,
+        IReadOnlyDictionary<string, IReadOnlyList<string>> AttributeUniqueValues,
         string? DetectedCrsCode,
         bool RequiresCrsFromUser,
         int TextCount);
@@ -48,7 +49,9 @@ namespace Land_Readjustment_Tool.Core.Models.Import
         string SourceCrsCode,
         bool AutoAssignParcelRecords,
         string? ShpParcelNumberField,
-        string? ShpMapSheetField);
+        string? ShpMapSheetField,
+        IReadOnlyDictionary<string, string> AttributeMapSheetValueMappings,
+        bool SkipDuplicateGeometries);
 
     public sealed record CadastralImportResult(
         bool Success,
@@ -57,7 +60,13 @@ namespace Land_Readjustment_Tool.Core.Models.Import
         int ObjectsAssigned,
         int ObjectsUnassigned,
         int TextsMatched,
+        int DuplicateObjectsSkipped,
+        string? CopiedSourceFile,
         Envelope? BoundingBox);
+
+    public sealed record CadastralImportProgress(
+        int Percent,
+        string Status);
 
     public sealed class CadastralCanvasMetadata
     {
@@ -66,6 +75,7 @@ namespace Land_Readjustment_Tool.Core.Models.Import
         public string Kind { get; set; } = MetadataKind;
         public string SourceFormat { get; set; } = string.Empty;
         public string SourceFileName { get; set; } = string.Empty;
+        public string? ProjectSourceFile { get; set; }
         public string? SourceLayer { get; set; }
         public string? MapSheetNo { get; set; }
         public string? ParcelNo { get; set; }
@@ -101,6 +111,9 @@ namespace Land_Readjustment_Tool.Core.Models.Import
         string? SourceLayer,
         string? MapSheetNo,
         string? ParcelNo,
+        string? SourceFormat,
+        string? SourceFileName,
+        string? AttributesJson,
         int? BaselineParcelId,
         string AssignmentStatus,
         double CalculatedAreaSqm);

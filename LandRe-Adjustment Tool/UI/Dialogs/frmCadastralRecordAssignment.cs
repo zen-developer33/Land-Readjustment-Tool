@@ -98,7 +98,7 @@ namespace Land_Readjustment_Tool.UI.Dialogs
             DataGridViewComboBoxColumn mapSheetColumn = new()
             {
                 Name = "MapSheet",
-                HeaderText = "Record MapSheetNo",
+                HeaderText = "Target MapSheetNo",
                 Width = 170,
                 FlatStyle = FlatStyle.Flat
             };
@@ -119,6 +119,11 @@ namespace Land_Readjustment_Tool.UI.Dialogs
 
         private void PopulateLayerMappingGrid()
         {
+            bool useAttributeMapping = UsesAttributeBasedMapping();
+            lblLayerMappingCaption.Text = useAttributeMapping
+                ? "Attribute mapping"
+                : "Source to target MapSheet";
+
             Dictionary<string, string?> existingSelections = new(StringComparer.OrdinalIgnoreCase);
             foreach (DataGridViewRow row in dgvLayerMapSheets.Rows)
             {
@@ -130,7 +135,43 @@ namespace Land_Readjustment_Tool.UI.Dialogs
             }
 
             dgvLayerMapSheets.Rows.Clear();
+            if (useAttributeMapping)
+            {
+                dgvLayerMapSheets.Columns.Clear();
+                dgvLayerMapSheets.Columns.Add(new DataGridViewTextBoxColumn
+                {
+                    Name = "Source",
+                    HeaderText = "Source",
+                    ReadOnly = true,
+                    Width = 110
+                });
+                dgvLayerMapSheets.Columns.Add(new DataGridViewTextBoxColumn
+                {
+                    Name = "Mapping",
+                    HeaderText = "Detected mapping",
+                    ReadOnly = true,
+                    AutoSizeMode = DataGridViewAutoSizeColumnMode.Fill
+                });
+
+                foreach (var group in _allCandidates
+                    .GroupBy(candidate => candidate.SourceFormat ?? "Source", StringComparer.OrdinalIgnoreCase)
+                    .OrderBy(group => group.Key))
+                {
+                    int withKeys = group.Count(candidate =>
+                        !string.IsNullOrWhiteSpace(candidate.MapSheetNo) &&
+                        !string.IsNullOrWhiteSpace(candidate.ParcelNo));
+                    dgvLayerMapSheets.Rows.Add(
+                        group.Key,
+                        $"{withKeys} of {group.Count()} objects have MapSheetNo + ParcelNo from saved source attributes");
+                }
+
+                dgvLayerMapSheets.Enabled = false;
+                return;
+            }
+
+            ConfigureLayerMappingGrid();
             foreach (LayerMappingRow layer in _allCandidates
+                .Where(candidate => !IsAttributeMappedSource(candidate))
                 .GroupBy(candidate => BuildLayerMappingKey(candidate.LayerName, candidate.SourceLayer), StringComparer.OrdinalIgnoreCase)
                 .Select(group => new LayerMappingRow(
                     group.First().LayerName,
@@ -187,6 +228,11 @@ namespace Land_Readjustment_Tool.UI.Dialogs
                 : $"{_candidates.Count} of {_allCandidates.Count} imported parcel shapes shown.";
             btnAssign.Enabled = _candidates.Count > 0 && cboMapSheet.Items.Count > 0;
             btnAutoAssign.Enabled = _allCandidates.Count > 0 && cboMapSheet.Items.Count > 0;
+            if (UsesAttributeBasedMapping())
+            {
+                btnAutoAssign.Text = "Auto Assign";
+                lblStatus.Text += " Attribute-based sources use saved MapSheetNo and ParcelNo values.";
+            }
 
             if (preferredSelection.HasValue && SelectCandidate(preferredSelection.Value))
                 return;
@@ -326,8 +372,11 @@ namespace Land_Readjustment_Tool.UI.Dialogs
 
         private async void btnAutoAssign_Click(object? sender, EventArgs e)
         {
-            IReadOnlyList<CadastralLayerMapSheetMapping> mappings = GetLayerMappings();
-            if (mappings.Count == 0)
+            bool useAttributeMapping = UsesAttributeBasedMapping();
+            IReadOnlyList<CadastralLayerMapSheetMapping> mappings = useAttributeMapping
+                ? []
+                : GetLayerMappings();
+            if (!useAttributeMapping && mappings.Count == 0)
             {
                 MessageBox.Show(
                     this,
@@ -340,7 +389,9 @@ namespace Land_Readjustment_Tool.UI.Dialogs
 
             try
             {
-                SetBusy(true, "Auto assigning from layer map and parcel text locations...");
+                SetBusy(true, useAttributeMapping
+                    ? "Auto assigning from saved source attribute values..."
+                    : "Auto assigning from layer map and parcel text locations...");
 
                 CadastralAssignmentResult result =
                     await _assignmentService.AutoAssignAsync(
@@ -442,7 +493,10 @@ namespace Land_Readjustment_Tool.UI.Dialogs
             btnPrevious.Enabled = !busy;
             btnNext.Enabled = !busy;
             cboObjectFilter.Enabled = !busy;
-            dgvLayerMapSheets.Enabled = !busy && dgvLayerMapSheets.Rows.Count > 0 && cboMapSheet.Items.Count > 0;
+            dgvLayerMapSheets.Enabled = !busy &&
+                                        !UsesAttributeBasedMapping() &&
+                                        dgvLayerMapSheets.Rows.Count > 0 &&
+                                        cboMapSheet.Items.Count > 0;
             cboMapSheet.Enabled = !busy;
             cboParcel.Enabled = !busy;
             chkReplaceExisting.Enabled = !busy;
@@ -453,6 +507,19 @@ namespace Land_Readjustment_Tool.UI.Dialogs
         private static string BuildLayerMappingKey(string layerName, string? sourceLayer)
         {
             return $"{layerName.Trim()}::{(sourceLayer ?? string.Empty).Trim()}";
+        }
+
+        private bool UsesAttributeBasedMapping()
+        {
+            return _allCandidates.Count > 0 &&
+                   _allCandidates.All(IsAttributeMappedSource);
+        }
+
+        private static bool IsAttributeMappedSource(CadastralAssignmentCandidate candidate)
+        {
+            return string.Equals(candidate.SourceFormat, "SHP", StringComparison.OrdinalIgnoreCase) ||
+                   string.Equals(candidate.SourceFormat, "KML", StringComparison.OrdinalIgnoreCase) ||
+                   string.Equals(candidate.SourceFormat, "KMZ", StringComparison.OrdinalIgnoreCase);
         }
 
         private sealed record LayerMappingRow(

@@ -118,6 +118,7 @@ namespace Land_Readjustment_Tool.Forms
 
             txtAreaInSqm.TextChanged += TxtAreaInSqm_TextChanged;
             txtAreaInSqm.KeyPress += TxtAreaInSqm_KeyPress;
+            txtFieldMeasuredAreaSqm.KeyPress += TxtAreaInSqm_KeyPress;
             txtParcelNo.KeyPress += TxtParcelNo_KeyPress;
             FormClosing += FrmAddEditRecord_FormClosing;
 
@@ -262,11 +263,13 @@ namespace Land_Readjustment_Tool.Forms
 
             // Other Parcel Information
             txtTenant.Clear();
+            cboHasTenant.SelectedIndex = 0;
             cbOwnershipType.SelectedIndex = -1;
             cmbLandUse.SelectedIndex = -1;
 
             // Area Information
             txtAreaInSqm.Clear();
+            txtFieldMeasuredAreaSqm.Clear();
             txtAreaInRAPD.Clear();
             txtAreaInBKD.Clear();
 
@@ -321,12 +324,14 @@ namespace Land_Readjustment_Tool.Forms
             txtEmailID.Text = _currentRecord.EmailID ?? "";
 
             // Other Parcel Information
-            txtTenant.Text = _currentRecord.Tenant ?? "";
+            SetComboValue(cboHasTenant, GetTenantFlagDisplay(_currentRecord.Tenant, _currentRecord.TenantName));
+            txtTenant.Text = GetTenantNameDisplay(_currentRecord.Tenant, _currentRecord.TenantName);
             SetComboValue(cbOwnershipType, _currentRecord.LandOwnershipType);
             SetComboValue(cmbLandUse, _currentRecord.LandUse);
 
             // Area Information
             txtAreaInSqm.Text = _currentRecord.AreaInSqm?.ToString() ?? "";
+            txtFieldMeasuredAreaSqm.Text = _currentRecord.FieldMeasuredAreaSqm?.ToString() ?? "";
             txtAreaInRAPD.Text = _currentRecord.AreaInRAPD ?? "";
             txtAreaInBKD.Text = _currentRecord.AreaInBKD ?? "";
 
@@ -371,7 +376,8 @@ namespace Land_Readjustment_Tool.Forms
                 EmailID = txtEmailID.Text.Trim(),
 
                 // Other Parcel Information
-                Tenant = txtTenant.Text.Trim(),
+                Tenant = cboHasTenant.SelectedItem?.ToString() ?? cboHasTenant.Text.Trim(),
+                TenantName = txtTenant.Text.Trim(),
                 LandOwnershipType = cbOwnershipType.SelectedItem?.ToString() ?? cbOwnershipType.Text.Trim(),
                 LandUse = cmbLandUse.SelectedItem?.ToString() ?? cmbLandUse.Text.Trim(),
 
@@ -389,6 +395,11 @@ namespace Land_Readjustment_Tool.Forms
                 record.AreaInSqm = area;
                 record.AreaInRAPD = AreaConverterService.SqmToRAPDString(area);
                 record.AreaInBKD = AreaConverterService.SqmToBKDString(area);
+            }
+
+            if (double.TryParse(txtFieldMeasuredAreaSqm.Text.Trim(), out double fieldMeasuredArea))
+            {
+                record.FieldMeasuredAreaSqm = fieldMeasuredArea;
             }
 
             // Preserve co-owners edited via the Other Owners dialog
@@ -430,6 +441,34 @@ namespace Land_Readjustment_Tool.Forms
             comboBox.Text = normalized;
         }
 
+        private static string GetTenantFlagDisplay(string? tenant, string? tenantName)
+        {
+            if (!string.IsNullOrWhiteSpace(tenantName))
+                return "Yes";
+
+            if (string.IsNullOrWhiteSpace(tenant))
+                return "No";
+
+            string normalized = tenant.Trim().ToLowerInvariant();
+            return normalized is "no" or "n" or "false" or "0" or "none" or "छैन"
+                ? "No"
+                : "Yes";
+        }
+
+        private static string GetTenantNameDisplay(string? tenant, string? tenantName)
+        {
+            if (!string.IsNullOrWhiteSpace(tenantName))
+                return tenantName.Trim();
+
+            if (string.IsNullOrWhiteSpace(tenant))
+                return string.Empty;
+
+            string normalized = tenant.Trim().ToLowerInvariant();
+            return normalized is "yes" or "y" or "true" or "1" or "mohi" or "no" or "n" or "false" or "0" or "none" or "छैन"
+                ? string.Empty
+                : tenant.Trim();
+        }
+
         private bool ValidateRecord()
         {
             // Required: ParcelNo
@@ -456,6 +495,15 @@ namespace Land_Readjustment_Tool.Forms
                 _ = MessageBox.Show("Area (sq.m) must be a valid number greater than 0.", "Validation Error",
                     MessageBoxButtons.OK, MessageBoxIcon.Warning);
                 _ = txtAreaInSqm.Focus();
+                return false;
+            }
+
+            if (!string.IsNullOrWhiteSpace(txtFieldMeasuredAreaSqm.Text) &&
+                (!double.TryParse(txtFieldMeasuredAreaSqm.Text.Trim(), out double fieldMeasuredArea) || fieldMeasuredArea <= 0))
+            {
+                _ = MessageBox.Show("Field Area (sq.m) must be a valid number greater than 0.", "Validation Error",
+                    MessageBoxButtons.OK, MessageBoxIcon.Warning);
+                _ = txtFieldMeasuredAreaSqm.Focus();
                 return false;
             }
 

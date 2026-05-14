@@ -24,6 +24,7 @@ namespace Land_Readjustment_Tool.Core.Entities.Import
         public string? PaanaNo { get; set; }
         public string? LandUse { get; set; }
         public double? AreaSqm { get; set; }
+        public double? FieldMeasuredAreaSqm { get; set; }
 
         // Traditional area units — kept for raw audit
         public string? AreaRAPD { get; set; }
@@ -44,6 +45,7 @@ namespace Land_Readjustment_Tool.Core.Entities.Import
         public string? ContactNumber { get; set; }
         public string? Email { get; set; }
         public bool? IsTenant { get; set; }
+        public string? TenantName { get; set; }
         public string? Remarks { get; set; }
 
         // Import metadata

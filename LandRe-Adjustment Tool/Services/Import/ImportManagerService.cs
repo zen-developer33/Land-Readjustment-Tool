@@ -345,6 +345,8 @@ namespace Land_Readjustment_Tool.Services.Import
             }
 
             var areaSqmText = GetValue("AreaInSqm") ?? GetValue("AreaSqm");
+            var tenantText = GetValue("Tenant");
+            var tenantName = GetValue("TenantName");
 
             var record = new ImportedRawRecord
             {
@@ -360,6 +362,7 @@ namespace Land_Readjustment_Tool.Services.Import
                 PaanaNo = GetValue("PaanaNo"),
                 LandUse = GetValue("LandUse"),
                 AreaSqm = TryParseNullableDouble(areaSqmText),
+                FieldMeasuredAreaSqm = TryParseNullableDouble(GetValue("FieldMeasuredAreaSqm")),
                 AreaRAPD = GetValue("AreaInRAPD"),
                 AreaBKD = GetValue("AreaInBKD"),
                 OwnerName = GetValue("LandOwnersName") ?? GetValue("OwnerName"),
@@ -372,7 +375,9 @@ namespace Land_Readjustment_Tool.Services.Import
                 TemporaryAddress = GetValue("TemporaryAddress") ?? GetValue("TemporaryAddress"),
                 ContactNumber = GetValue("ContactNumber"),
                 Email = GetValue("EmailID") ?? GetValue("Email"),
-                IsTenant = TryParseNullableBool(GetValue("Tenant")),
+                IsTenant = TryParseNullableBool(tenantText)
+                    ?? (!string.IsNullOrWhiteSpace(tenantName) || !string.IsNullOrWhiteSpace(tenantText) ? true : null),
+                TenantName = tenantName,
                 Remarks = GetValue("Remarks"),
                 IsValid = true,
                 RawRowData = SerializeRow(row, columns)
@@ -479,6 +484,7 @@ namespace Land_Readjustment_Tool.Services.Import
                 PaanaNo = source.PaanaNo,
                 LandUse = source.LandUse,
                 AreaSqm = source.AreaInSqm,
+                FieldMeasuredAreaSqm = source.FieldMeasuredAreaSqm,
                 AreaRAPD = source.AreaInRAPD,
                 AreaBKD = source.AreaInBKD,
                 OwnerName = source.LandOwnersName,
@@ -491,7 +497,9 @@ namespace Land_Readjustment_Tool.Services.Import
                 TemporaryAddress = source.TemporaryAddress,
                 ContactNumber = source.ContactNumber,
                 Email = source.EmailID,
-                IsTenant = TryParseNullableBool(source.Tenant),
+                IsTenant = TryParseNullableBool(source.Tenant)
+                    ?? (!string.IsNullOrWhiteSpace(source.TenantName) || !string.IsNullOrWhiteSpace(source.Tenant) ? true : null),
+                TenantName = source.TenantName,
                 Remarks = source.Remarks,
                 IsValid = true,
                 RawRowData = JsonSerializer.Serialize(source)

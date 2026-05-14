@@ -17,7 +17,7 @@ namespace Land_Readjustment_Tool.UI.MapCanvas.Rendering
         private const int MaxCachedTiles = 1024;
         private const int MaxMissingTileKeys = 8192;
         private const int MaxTilesPerFrame = 512;
-        private const int MaxTileFetchesPerFrame = 192;
+        private const int MaxTileFetchesPerFrame = 64;
         private const int MaxTileFetchBatchSize = 64;
         private const int MaxSupportedZoom = 30;
         private const byte TransparentWhiteThreshold = 248;
@@ -340,7 +340,7 @@ namespace Land_Readjustment_Tool.UI.MapCanvas.Rendering
 
             if (missedKeys.Count > 0)
             {
-                BatchFetchAndCacheTiles(missedKeys);
+                BatchFetchAndCacheTiles(missedKeys, cancellationToken);
             }
 
             // Draw — read directly from cache, no per-tile SQLite call needed
@@ -524,7 +524,9 @@ namespace Land_Readjustment_Tool.UI.MapCanvas.Rendering
             return true;
         }
 
-        private void BatchFetchAndCacheTiles(List<MbTilesTileKey> keys)
+        private void BatchFetchAndCacheTiles(
+            List<MbTilesTileKey> keys,
+            CancellationToken cancellationToken)
         {
             if (keys.Count == 0)
                 return;
@@ -533,6 +535,8 @@ namespace Land_Readjustment_Tool.UI.MapCanvas.Rendering
             {
                 foreach (MbTilesTileKey[] batch in keys.Chunk(MaxTileFetchBatchSize))
                 {
+                    cancellationToken.ThrowIfCancellationRequested();
+
                     HashSet<MbTilesTileKey> pendingKeys = batch.ToHashSet();
                     using SqliteCommand cmd = _connection.CreateCommand();
                     cmd.CommandText = CreateTileFetchSql(batch.Length);
@@ -547,6 +551,8 @@ namespace Land_Readjustment_Tool.UI.MapCanvas.Rendering
                     using SqliteDataReader reader = cmd.ExecuteReader();
                     while (reader.Read())
                     {
+                        cancellationToken.ThrowIfCancellationRequested();
+
                         int zoom = reader.GetInt32(0);
                         int col = reader.GetInt32(1);
                         int stoRow = reader.GetInt32(2);
@@ -562,7 +568,9 @@ namespace Land_Readjustment_Tool.UI.MapCanvas.Rendering
                         if (_tileCache.ContainsKey(key))
                             continue;
 
+                        cancellationToken.ThrowIfCancellationRequested();
                         Bitmap? bitmap = DecodeTileBitmap(tileData);
+                        cancellationToken.ThrowIfCancellationRequested();
                         if (bitmap == null)
                         {
                             AddMissingTile(key);
@@ -576,11 +584,17 @@ namespace Land_Readjustment_Tool.UI.MapCanvas.Rendering
 
                     foreach (MbTilesTileKey missingKey in pendingKeys)
                     {
+                        cancellationToken.ThrowIfCancellationRequested();
                         AddMissingTile(missingKey);
                     }
                 }
 
+                cancellationToken.ThrowIfCancellationRequested();
                 TrimTileCache();
+            }
+            catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
+            {
+                throw;
             }
             catch (Exception ex)
             {

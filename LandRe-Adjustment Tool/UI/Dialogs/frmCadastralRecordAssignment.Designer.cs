@@ -202,7 +202,7 @@ namespace Land_Readjustment_Tool.UI.Dialogs
             lblLayerMappingCaption.Name = "lblLayerMappingCaption";
             lblLayerMappingCaption.Size = new Size(164, 30);
             lblLayerMappingCaption.TabIndex = 4;
-            lblLayerMappingCaption.Text = "Layer to MapSheet";
+            lblLayerMappingCaption.Text = "Source to target MapSheet";
             lblLayerMappingCaption.TextAlign = ContentAlignment.MiddleLeft;
             // 
             // dgvLayerMapSheets

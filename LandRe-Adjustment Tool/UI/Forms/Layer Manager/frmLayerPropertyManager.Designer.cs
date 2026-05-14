@@ -18,6 +18,7 @@ namespace Land_Readjustment_Tool.UI.Forms
         private FlowLayoutPanel _fillColorPanel = null!;
         private FlowLayoutPanel _hatchPatternPanel = null!;
         private FlowLayoutPanel _labelColorPanel = null!;
+        private FlowLayoutPanel _fontScalingPanel = null!;
         private FlowLayoutPanel _footerPanel = null!;
         private TableLayoutPanel _fontPanel = null!;
 
@@ -41,6 +42,7 @@ namespace Land_Readjustment_Tool.UI.Forms
         private Label _lblFontSize = null!;
         private Label _lblTextColor = null!;
         private Label _lblLabelField = null!;
+        private Label _lblFontScaling = null!;
 
         private TextBox _txtName = null!;
         private ComboBox _cboLayerKind = null!;
@@ -68,6 +70,8 @@ namespace Land_Readjustment_Tool.UI.Forms
         private NumericUpDown _numFontSize = null!;
         private Panel _pnlLabelColor = null!;
         private ComboBox _cboLabelField = null!;
+        private RadioButton _rdoFontFixedSize = null!;
+        private RadioButton _rdoFontScalesWithZoom = null!;
         private Button _btnBorderColor = null!;
         private Button _btnFillColor = null!;
         private Button _btnHatchPattern = null!;
@@ -152,6 +156,10 @@ namespace Land_Readjustment_Tool.UI.Forms
             _btnLabelColor = new Button();
             _lblLabelField = new Label();
             _cboLabelField = new ComboBox();
+            _lblFontScaling = new Label();
+            _fontScalingPanel = new FlowLayoutPanel();
+            _rdoFontFixedSize = new RadioButton();
+            _rdoFontScalesWithZoom = new RadioButton();
             _footerPanel = new FlowLayoutPanel();
             _btnOk = new Button();
             _btnCancel = new Button();
@@ -813,6 +821,8 @@ namespace Land_Readjustment_Tool.UI.Forms
             _labelLayout.Controls.Add(_labelColorPanel, 1, 3);
             _labelLayout.Controls.Add(_lblLabelField, 0, 4);
             _labelLayout.Controls.Add(_cboLabelField, 1, 4);
+            _labelLayout.Controls.Add(_lblFontScaling, 0, 5);
+            _labelLayout.Controls.Add(_fontScalingPanel, 1, 5);
             _labelLayout.Dock = DockStyle.Fill;
             _labelLayout.Location = new Point(12, 12);
             _labelLayout.Name = "_labelLayout";
@@ -914,12 +924,12 @@ namespace Land_Readjustment_Tool.UI.Forms
             _numFontSize.Increment = new decimal(new int[] { 5, 0, 0, 65536 });
             _numFontSize.Location = new Point(110, 80);
             _numFontSize.Margin = new Padding(0, 4, 0, 4);
-            _numFontSize.Maximum = new decimal(new int[] { 72, 0, 0, 0 });
-            _numFontSize.Minimum = new decimal(new int[] { 4, 0, 0, 0 });
+            _numFontSize.Maximum = new decimal(new int[] { 120, 0, 0, 0 });
+            _numFontSize.Minimum = new decimal(new int[] { 1, 0, 0, 0 });
             _numFontSize.Name = "_numFontSize";
             _numFontSize.Size = new Size(110, 27);
             _numFontSize.TabIndex = 5;
-            _numFontSize.Value = new decimal(new int[] { 4, 0, 0, 0 });
+            _numFontSize.Value = new decimal(new int[] { 2, 0, 0, 0 });
             // 
             // _lblTextColor
             // 
@@ -972,18 +982,64 @@ namespace Land_Readjustment_Tool.UI.Forms
             _lblLabelField.Name = "_lblLabelField";
             _lblLabelField.Size = new Size(104, 38);
             _lblLabelField.TabIndex = 8;
-            _lblLabelField.Text = "Label Field";
+            _lblLabelField.Text = "Label Style";
             _lblLabelField.TextAlign = ContentAlignment.MiddleLeft;
             // 
             // _cboLabelField
             // 
             _cboLabelField.Dock = DockStyle.Fill;
-            _cboLabelField.Items.AddRange(new object[] { "ParcelNo", "MapSheetNo", "MapSheetParcelNo", "OwnerName", "AreaSqm", "CalculatedAreaSqm", "AreaRAPD", "LandUse", "PlotNumber", "AssignmentStatus", "SourceLayer", "LabelText", "ObjectDescription" });
+            _cboLabelField.Items.AddRange(new object[] { "ParcelNo", "ParcelNo + AreaSqm", "ParcelNo + AreaRAPD", "MapSheet + ParcelNo + AreaSqm", "MapSheet + ParcelNo + AreaRAPD", "ParcelNo + OwnerName", "ParcelNo + LandUse", "MapSheetNo", "MapSheetParcelNo", "OwnerName", "AreaSqm", "CalculatedAreaSqm", "AreaRAPD", "AreaBKD", "LandUse", "PlotNumber", "AssignmentStatus", "SourceLayer", "LabelText", "ObjectDescription", "template:{ParcelNo}\\nArea: {AreaSqm} sq.m" });
             _cboLabelField.Location = new Point(110, 156);
             _cboLabelField.Margin = new Padding(0, 4, 0, 4);
             _cboLabelField.Name = "_cboLabelField";
             _cboLabelField.Size = new Size(315, 28);
             _cboLabelField.TabIndex = 9;
+            //
+            // _lblFontScaling
+            //
+            _lblFontScaling.Dock = DockStyle.Fill;
+            _lblFontScaling.Location = new Point(3, 190);
+            _lblFontScaling.Name = "_lblFontScaling";
+            _lblFontScaling.Size = new Size(104, 38);
+            _lblFontScaling.TabIndex = 10;
+            _lblFontScaling.Text = "Font Scaling";
+            _lblFontScaling.TextAlign = ContentAlignment.MiddleLeft;
+            //
+            // _fontScalingPanel
+            //
+            _fontScalingPanel.Controls.Add(_rdoFontFixedSize);
+            _fontScalingPanel.Controls.Add(_rdoFontScalesWithZoom);
+            _fontScalingPanel.Dock = DockStyle.Fill;
+            _fontScalingPanel.Location = new Point(110, 190);
+            _fontScalingPanel.Margin = new Padding(0);
+            _fontScalingPanel.Name = "_fontScalingPanel";
+            _fontScalingPanel.Size = new Size(315, 38);
+            _fontScalingPanel.TabIndex = 11;
+            _fontScalingPanel.WrapContents = false;
+            //
+            // _rdoFontFixedSize
+            //
+            _rdoFontFixedSize.AutoSize = true;
+            _rdoFontFixedSize.Location = new Point(0, 7);
+            _rdoFontFixedSize.Margin = new Padding(0, 7, 18, 0);
+            _rdoFontFixedSize.Name = "_rdoFontFixedSize";
+            _rdoFontFixedSize.Size = new Size(121, 24);
+            _rdoFontFixedSize.TabIndex = 0;
+            _rdoFontFixedSize.Text = "Fixed on view";
+            _rdoFontFixedSize.UseVisualStyleBackColor = true;
+            //
+            // _rdoFontScalesWithZoom
+            //
+            _rdoFontScalesWithZoom.AutoSize = true;
+            _rdoFontScalesWithZoom.Checked = true;
+            _rdoFontScalesWithZoom.Location = new Point(139, 7);
+            _rdoFontScalesWithZoom.Margin = new Padding(0, 7, 0, 0);
+            _rdoFontScalesWithZoom.Name = "_rdoFontScalesWithZoom";
+            _rdoFontScalesWithZoom.Size = new Size(141, 24);
+            _rdoFontScalesWithZoom.TabIndex = 1;
+            _rdoFontScalesWithZoom.TabStop = true;
+            _rdoFontScalesWithZoom.Text = "Scale with zoom";
+            _rdoFontScalesWithZoom.UseVisualStyleBackColor = true;
             // 
             // _footerPanel
             // 
@@ -1075,6 +1131,8 @@ namespace Land_Readjustment_Tool.UI.Forms
             ((System.ComponentModel.ISupportInitialize)_numFontSize).EndInit();
             _labelColorPanel.ResumeLayout(false);
             _labelColorPanel.PerformLayout();
+            _fontScalingPanel.ResumeLayout(false);
+            _fontScalingPanel.PerformLayout();
             _footerPanel.ResumeLayout(false);
             _footerPanel.PerformLayout();
             ResumeLayout(false);

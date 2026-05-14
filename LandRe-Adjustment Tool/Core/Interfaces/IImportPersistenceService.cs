@@ -30,5 +30,8 @@ namespace Land_Readjustment_Tool.Core.Interfaces
         public int SavedParcels { get; init; }
         public int SkippedDuplicateParcels { get; init; }
         public int ImportSessionId { get; init; }
+        public int CadastralObjectsAssigned { get; init; }
+        public int CadastralObjectsMissingKey { get; init; }
+        public int CadastralObjectsNoRecordMatch { get; init; }
     }
 }

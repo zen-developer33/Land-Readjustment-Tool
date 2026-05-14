@@ -42,6 +42,8 @@ namespace Land_Readjustment_Tool.Core.Entities.LandData
         [Required]
         public double OriginalAreaSqm { get; set; }
 
+        public double? FieldMeasuredAreaSqm { get; set; }
+
         public double? EffectiveAreaSqm { get; set; }
         // null until calculated
 

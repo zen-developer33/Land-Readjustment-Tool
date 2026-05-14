@@ -421,6 +421,8 @@ public class DataTransformationService
             record.TemporaryAddress = NormalizeNullable(record.TemporaryAddress);
             record.ContactNumber = NormalizeNullable(record.ContactNumber);
             record.EmailID = NormalizeNullable(record.EmailID);
+            record.Tenant = NormalizeNullable(record.Tenant);
+            record.TenantName = NormalizeNullable(record.TenantName);
             record.LandOwnershipType = NormalizeNullable(record.LandOwnershipType);
 
             if (!string.IsNullOrWhiteSpace(record.CitizenshipNumber))

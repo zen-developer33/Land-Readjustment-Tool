@@ -83,6 +83,11 @@ namespace Land_Readjustment_Tool.Migrations
                     b.Property<double>("LabelFontSize")
                         .HasColumnType("REAL");
 
+                    b.Property<bool>("LabelScaleWithZoom")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("INTEGER")
+                        .HasDefaultValue(true);
+
                     b.Property<DateTime>("LastModifiedDate")
                         .HasColumnType("TEXT");
 
@@ -501,6 +506,9 @@ namespace Land_Readjustment_Tool.Migrations
                     b.Property<string>("FatherSpouseName")
                         .HasColumnType("TEXT");
 
+                    b.Property<double?>("FieldMeasuredAreaSqm")
+                        .HasColumnType("REAL");
+
                     b.Property<string>("Gender")
                         .HasColumnType("TEXT");
 
@@ -553,6 +561,9 @@ namespace Land_Readjustment_Tool.Migrations
                         .HasColumnType("INTEGER");
 
                     b.Property<string>("TemporaryAddress")
+                        .HasColumnType("TEXT");
+
+                    b.Property<string>("TenantName")
                         .HasColumnType("TEXT");
 
                     b.Property<string>("WardNo")
@@ -624,6 +635,9 @@ namespace Land_Readjustment_Tool.Migrations
                         .HasColumnType("TEXT");
 
                     b.Property<double?>("EffectiveAreaSqm")
+                        .HasColumnType("REAL");
+
+                    b.Property<double?>("FieldMeasuredAreaSqm")
                         .HasColumnType("REAL");
 
                     b.Property<string>("FullUniqueParcelCode")
@@ -1366,6 +1380,107 @@ namespace Land_Readjustment_Tool.Migrations
                     b.ToTable("tblReplottedParcelOwners");
                 });
 
+            modelBuilder.Entity("Land_Readjustment_Tool.Core.Entities.Roads.Parcel", b =>
+                {
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("INTEGER");
+
+                    b.Property<string>("ParcelNumber")
+                        .IsRequired()
+                        .HasMaxLength(80)
+                        .HasColumnType("TEXT");
+
+                    b.Property<string>("ParcelType")
+                        .IsRequired()
+                        .HasMaxLength(40)
+                        .HasColumnType("TEXT");
+
+                    b.Property<Geometry>("Shape")
+                        .IsRequired()
+                        .HasColumnType("GEOMETRY");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("ParcelNumber")
+                        .IsUnique();
+
+                    b.ToTable("tblParcels");
+                });
+
+            modelBuilder.Entity("Land_Readjustment_Tool.Core.Entities.Roads.RoadIsland", b =>
+                {
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("INTEGER");
+
+                    b.Property<int>("HoleIndex")
+                        .HasColumnType("INTEGER");
+
+                    b.Property<string>("IslandDescription")
+                        .HasMaxLength(300)
+                        .HasColumnType("TEXT");
+
+                    b.Property<Polygon>("IslandShape")
+                        .IsRequired()
+                        .HasColumnType("GEOMETRY");
+
+                    b.Property<string>("LinkedParcelNumber")
+                        .HasMaxLength(80)
+                        .HasColumnType("TEXT");
+
+                    b.Property<int>("RoadParcelId")
+                        .HasColumnType("INTEGER");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("RoadParcelId", "HoleIndex")
+                        .IsUnique();
+
+                    b.ToTable("tblRoadIslands");
+                });
+
+            modelBuilder.Entity("Land_Readjustment_Tool.Core.Entities.Roads.RoadParcel", b =>
+                {
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("INTEGER");
+
+                    b.Property<DateTime>("ImportedAt")
+                        .HasColumnType("TEXT");
+
+                    b.Property<int>("ImportedFrom")
+                        .HasColumnType("INTEGER");
+
+                    b.Property<string>("RoadName")
+                        .IsRequired()
+                        .HasMaxLength(160)
+                        .HasColumnType("TEXT");
+
+                    b.Property<string>("RoadParcelNumber")
+                        .IsRequired()
+                        .HasMaxLength(80)
+                        .HasColumnType("TEXT");
+
+                    b.Property<int>("RoadType")
+                        .HasColumnType("INTEGER");
+
+                    b.Property<Polygon>("Shape")
+                        .IsRequired()
+                        .HasColumnType("GEOMETRY");
+
+                    b.Property<string>("ValidationMessage")
+                        .HasMaxLength(1000)
+                        .HasColumnType("TEXT");
+
+                    b.Property<int>("ValidationStatus")
+                        .HasColumnType("INTEGER");
+
+                    b.HasKey("Id");
+
+                    b.ToTable("tblRoadParcels");
+                });
+
             modelBuilder.Entity("Land_Readjustment_Tool.Core.Entities.Spatial.CoordinateSystem", b =>
                 {
                     b.Property<int>("Id")
@@ -2007,6 +2122,17 @@ namespace Land_Readjustment_Tool.Migrations
                     b.Navigation("ReplottedParcel");
                 });
 
+            modelBuilder.Entity("Land_Readjustment_Tool.Core.Entities.Roads.RoadIsland", b =>
+                {
+                    b.HasOne("Land_Readjustment_Tool.Core.Entities.Roads.RoadParcel", "RoadParcel")
+                        .WithMany("Islands")
+                        .HasForeignKey("RoadParcelId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.Navigation("RoadParcel");
+                });
+
             modelBuilder.Entity("Land_Readjustment_Tool.Core.Entities.Spatial.ProjectionParameters", b =>
                 {
                     b.HasOne("Land_Readjustment_Tool.Core.Entities.Spatial.CoordinateSystem", "CoordinateSystem")
@@ -2111,6 +2237,11 @@ namespace Land_Readjustment_Tool.Migrations
                     b.Navigation("ParcelFrontages");
 
                     b.Navigation("ReplottedParcelOwners");
+                });
+
+            modelBuilder.Entity("Land_Readjustment_Tool.Core.Entities.Roads.RoadParcel", b =>
+                {
+                    b.Navigation("Islands");
                 });
 
             modelBuilder.Entity("Land_Readjustment_Tool.Core.Entities.Spatial.CoordinateSystem", b =>

@@ -1,9 +1,11 @@
 using Land_Readjustment_Tool.Core.Entities.LandData;
 using Land_Readjustment_Tool.Core.Entities.Replotting;
 using Land_Readjustment_Tool.Core.Interfaces;
+using Land_Readjustment_Tool.Core.Models.Import;
 using Land_Readjustment_Tool.Data;
 using Land_Readjustment_Tool.Infrastructure.Constants;
 using Land_Readjustment_Tool.Infrastructure.Logging;
+using Land_Readjustment_Tool.Services.Assignment;
 using Microsoft.EntityFrameworkCore;
 using BaselineRecord = Land_Readjustment_Tool.Models.BaselineLandParcelRecord;
 using System.Text;
@@ -12,6 +14,7 @@ namespace Land_Readjustment_Tool.Services.Import
 {
     public sealed class ImportPersistenceService : IImportPersistenceService
     {
+        private readonly ProjectSession _session;
         private readonly AppDbContext _context;
         private readonly IAppLogger _logger;
         private readonly IImportManagerService _importManagerService;
@@ -25,6 +28,7 @@ namespace Land_Readjustment_Tool.Services.Import
 
         public ImportPersistenceService(ProjectSession session)
         {
+            _session = session;
             _context = session.GetDbContext();
             _logger = session.Logger;
             _importManagerService = new ImportManagerService(session);
@@ -78,6 +82,8 @@ namespace Land_Readjustment_Tool.Services.Import
                 var (savedParcels, skippedDuplicates) = await SaveParcelsAsync(records, session.Id, ownerUpsert.OwnerIdByRow, ct);
 
                 await tx.CommitAsync(ct);
+                CadastralAssignmentResult cadastralAssignment =
+                    await AutoAssignImportedCadastralObjectsAsync(replaceExistingData, ct);
 
                 var result = new ImportPersistenceResult
                 {
@@ -91,7 +97,10 @@ namespace Land_Readjustment_Tool.Services.Import
                     ExistingOwnersUpdated = ownerUpsert.ExistingOwnersUpdated,
                     SavedParcels = savedParcels,
                     SkippedDuplicateParcels = skippedDuplicates,
-                    ImportSessionId = session.Id
+                    ImportSessionId = session.Id,
+                    CadastralObjectsAssigned = cadastralAssignment.AssignedCount,
+                    CadastralObjectsMissingKey = cadastralAssignment.MissingKeyCount,
+                    CadastralObjectsNoRecordMatch = cadastralAssignment.NoRecordMatchCount
                 };
 
                 _logger.LogInfo(
@@ -243,6 +252,43 @@ namespace Land_Readjustment_Tool.Services.Import
             }
 
             return seeds;
+        }
+
+        private async Task<CadastralAssignmentResult> AutoAssignImportedCadastralObjectsAsync(
+            bool replaceExistingData,
+            CancellationToken ct)
+        {
+            try
+            {
+                bool hasCadastralObjects = await _context.CanvasObjects
+                    .AsNoTracking()
+                    .AnyAsync(canvasObject =>
+                        canvasObject.GeometryMetadataJson != null &&
+                        canvasObject.GeometryMetadataJson.Contains(CadastralCanvasMetadata.MetadataKind),
+                        ct);
+                if (!hasCadastralObjects)
+                    return new CadastralAssignmentResult(true, null, 0, 0, 0);
+
+                CadastralRecordAssignmentService assignmentService = new();
+                CadastralAssignmentResult result = await assignmentService.AutoAssignAsync(
+                    _session,
+                    replaceExistingData,
+                    ct);
+
+                if (result.AssignedCount > 0)
+                {
+                    _logger.LogInfo(
+                        $"Auto-assigned cadastral objects after parcel import. Assigned={result.AssignedCount}, " +
+                        $"MissingKey={result.MissingKeyCount}, NoRecordMatch={result.NoRecordMatchCount}");
+                }
+
+                return result;
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError("Automatic cadastral assignment after parcel import failed.", ex);
+                return new CadastralAssignmentResult(false, ex.Message, 0, 0, 0);
+            }
         }
 
         private static int ResolveCurrentRecordIndex(
@@ -401,6 +447,7 @@ namespace Land_Readjustment_Tool.Services.Import
                     }
                 }
 
+                string? tenantName = NormalizeTenantName(record.TenantName, record.Tenant);
                 var parcel = new BaselineParcel
                 {
                     ImportSessionId = importSessionId,
@@ -415,12 +462,13 @@ namespace Land_Readjustment_Tool.Services.Import
                     Municipality = NormalizeText(record.MunicipalityVillage),
                     WardNo = NormalizeText(record.WardNo),
                     OriginalAreaSqm = record.AreaInSqm ?? 0,
+                    FieldMeasuredAreaSqm = record.FieldMeasuredAreaSqm,
                     EffectiveAreaSqm = null,
                     IsEffectiveAreaManual = false,
                     LandUse = NormalizeText(record.LandUse),
                     LandOwnershipType = NormalizeText(record.LandOwnershipType),
-                    HasTenant = ParseTenant(record.Tenant),
-                    TenantName = null,
+                    HasTenant = ParseTenant(record.Tenant) || !string.IsNullOrWhiteSpace(tenantName),
+                    TenantName = tenantName,
                     Remarks = NormalizeText(record.Remarks),
                     CreatedDate = DateTime.UtcNow,
                     LastModifiedDate = DateTime.UtcNow
@@ -549,7 +597,23 @@ namespace Land_Readjustment_Tool.Services.Import
                 return false;
 
             var normalized = tenant.Trim().ToLowerInvariant();
-            return normalized is "yes" or "y" or "true" or "1" or "mohi";
+            return normalized is not ("no" or "n" or "false" or "0" or "none" or "छैन");
+        }
+
+        private static string? NormalizeTenantName(string? tenantName, string? tenant)
+        {
+            string? value = NormalizeText(tenantName);
+            if (!string.IsNullOrWhiteSpace(value))
+                return value;
+
+            value = NormalizeText(tenant);
+            if (string.IsNullOrWhiteSpace(value))
+                return null;
+
+            string normalized = value.ToLowerInvariant();
+            return normalized is "yes" or "y" or "true" or "1" or "mohi" or "no" or "n" or "false" or "0" or "none" or "छैन"
+                ? null
+                : value;
         }
 
         private static string? NormalizeText(string? value)

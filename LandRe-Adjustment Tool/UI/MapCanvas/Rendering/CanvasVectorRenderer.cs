@@ -6,6 +6,7 @@ using System.Reflection;
 using System.Text.Json;
 using Land_Readjustment_Tool.Core.Entities.Canvas;
 using Land_Readjustment_Tool.Core.Models.Import;
+using Land_Readjustment_Tool.Services;
 using Land_Readjustment_Tool.UI.MapCanvas.Core;
 using Land_Readjustment_Tool.UI.MapCanvas.Models.Shapes;
 using Land_Readjustment_Tool.UI.MapCanvas.Services;
@@ -15,11 +16,17 @@ namespace Land_Readjustment_Tool.UI.MapCanvas.Rendering
 {
     public sealed class CanvasVectorRenderer : IDisposable
     {
+        private const string DefaultCanvasLabelFontName = "Nirmala UI";
         private const double MaxGdiCoordinate = 1_000_000.0;
         private const float HatchLineWidthPx = 0.65f;
         private const float SelectionLineWidthPx = 2.0f;
+        private const float LockedLayerColorAlphaFactor = 0.48f;
+        private const float MinLabelFontSizePt = 1.0f;
+        private const float MaxFixedLabelFontSizePt = 72.0f;
+        private const float MaxScaledLabelFontSizePt = 120.0f;
+        private const double MinLabelZoomFactor = 0.1;
+        private const double MaxLabelZoomFactor = 12.0;
         private static readonly Color SelectionStrokeColor = Color.FromArgb(0, 122, 204);
-        private readonly Font _labelFont = new("Segoe UI", 8.0f, FontStyle.Regular);
         private readonly Font _previewFont = new("Segoe UI", 8.0f, FontStyle.Bold);
         private readonly VectorFeatureSpatialIndex _featureSpatialIndex = new();
         private IReadOnlyList<CanvasFeature> _features = Array.Empty<CanvasFeature>();
@@ -27,6 +34,7 @@ namespace Land_Readjustment_Tool.UI.MapCanvas.Rendering
             new Dictionary<int, CanvasLayer>();
         private VectorRenderStats _lastRenderStats = VectorRenderStats.Empty;
         private readonly ConcurrentDictionary<Guid, PointD> _labelAnchorCache = new();
+        private static readonly GeometryFactory LabelGeometryFactory = new(new PrecisionModel(), 0);
 
         public int FeatureCount => _features.Count;
 
@@ -117,6 +125,7 @@ namespace Land_Readjustment_Tool.UI.MapCanvas.Rendering
 
             using PenCache penCache = new();
             using BrushCache brushCache = new();
+            using LabelFontCache labelFontCache = new();
             VectorRenderContext context = new(
                 penCache,
                 brushCache,
@@ -149,8 +158,8 @@ namespace Land_Readjustment_Tool.UI.MapCanvas.Rendering
                     continue;
                 }
 
-                DrawShape(graphics, engine, feature.Shape, ResolveStyle(feature, layer), context, feature);
-                DrawLabelIfNeeded(graphics, engine, visibleWorldBounds, feature, layer, context);
+                DrawShape(graphics, engine, feature.Shape, ResolveStyle(feature, layer), context, feature, layer);
+                DrawLabelIfNeeded(graphics, engine, visibleWorldBounds, feature, layer, context, labelFontCache);
                 renderedCount++;
             }
 
@@ -190,7 +199,7 @@ namespace Land_Readjustment_Tool.UI.MapCanvas.Rendering
                 engine.ZoomScale,
                 isPreview: true);
 
-            DrawShape(graphics, engine, previewShape, ResolveStyle(previewShape, previewLayer), context);
+            DrawShape(graphics, engine, previewShape, ResolveStyle(previewShape, previewLayer), context, layer: previewLayer);
 
             if (previewShape is CircleShape circle)
             {
@@ -379,8 +388,9 @@ namespace Land_Readjustment_Tool.UI.MapCanvas.Rendering
             CanvasLayer? layer,
             CanvasObject? canvasObject = null)
         {
+            bool isAnnotationLayer = layer != null && CanvasLayerTreeService.IsAnnotationLayer(layer);
             Color stroke = ParseColor(
-                layer?.BorderColor,
+                isAnnotationLayer ? layer?.LabelColor : layer?.BorderColor,
                 ParseColor(canvasObject?.BorderColorOverride, shape.BorderColor));
 
             Color fill = ParseColor(
@@ -393,6 +403,12 @@ namespace Land_Readjustment_Tool.UI.MapCanvas.Rendering
                 100);
             int alpha = (int)Math.Round(255 * ((100 - transparency) / 100.0));
             fill = Color.FromArgb(alpha, fill.R, fill.G, fill.B);
+
+            if (layer?.IsLocked == true)
+            {
+                stroke = FadeLockedLayerColor(stroke);
+                fill = FadeLockedLayerColor(fill);
+            }
 
             double lineWeight = layer?.LineWeight ?? canvasObject?.LineWeightOverride ?? 1.0;
             string lineStyle = layer?.LineStyle ?? canvasObject?.LineStyleOverride ?? "Solid";
@@ -449,6 +465,18 @@ namespace Land_Readjustment_Tool.UI.MapCanvas.Rendering
             }
         }
 
+        private static Color FadeLockedLayerColor(Color color)
+        {
+            if (color.A == 0)
+                return color;
+
+            int alpha = Math.Clamp(
+                (int)Math.Round(color.A * LockedLayerColorAlphaFactor),
+                24,
+                color.A);
+            return Color.FromArgb(alpha, color.R, color.G, color.B);
+        }
+
         private static DashStyle ResolveDashStyle(string? lineStyle)
         {
             return lineStyle?.Trim().ToLowerInvariant() switch
@@ -467,7 +495,8 @@ namespace Land_Readjustment_Tool.UI.MapCanvas.Rendering
             IShape shape,
             VectorShapeStyle style,
             VectorRenderContext context,
-            CanvasFeature? feature = null)
+            CanvasFeature? feature = null,
+            CanvasLayer? layer = null)
         {
             if (style.IsPointStyle && shape is CircleShape pointCircle)
             {
@@ -493,6 +522,9 @@ namespace Land_Readjustment_Tool.UI.MapCanvas.Rendering
 
             switch (shape)
             {
+                case DonutPolygonShape donut:
+                    DrawDonutPolygon(graphics, engine, donut, style, context, pen, isCadastralParcelSelection);
+                    break;
                 case PolylineShape polyline:
                     DrawPolyline(graphics, engine, polyline, style, context, pen, isCadastralParcelSelection);
                     break;
@@ -512,7 +544,7 @@ namespace Land_Readjustment_Tool.UI.MapCanvas.Rendering
                     DrawEllipse(graphics, engine, ellipse, style, context, pen);
                     break;
                 case TextShape text:
-                    DrawText(graphics, engine, text, style, context);
+                    DrawText(graphics, engine, text, style, context, layer);
                     break;
                 default:
                     shape.Draw(graphics, engine.WorldToScreen, context.IsPreview);
@@ -651,6 +683,52 @@ namespace Land_Readjustment_Tool.UI.MapCanvas.Rendering
             }
 
             graphics.DrawPath(pen, path);
+        }
+
+        private static void DrawDonutPolygon(
+            Graphics graphics,
+            MapCanvasEngine engine,
+            DonutPolygonShape donut,
+            VectorShapeStyle style,
+            VectorRenderContext context,
+            Pen? pen,
+            bool drawParcelSelectionHighlight = false)
+        {
+            if (donut.ExteriorRing.Count < 3)
+            {
+                return;
+            }
+
+            using GraphicsPath path = donut.CreateScreenPath(engine.WorldToScreen);
+            if (path.PointCount == 0)
+            {
+                return;
+            }
+
+            RectangleF bounds = path.GetBounds();
+            if (!IsValidPathBounds(bounds) ||
+                Math.Abs(bounds.Left) > MaxGdiCoordinate ||
+                Math.Abs(bounds.Top) > MaxGdiCoordinate ||
+                Math.Abs(bounds.Right) > MaxGdiCoordinate ||
+                Math.Abs(bounds.Bottom) > MaxGdiCoordinate)
+            {
+                return;
+            }
+
+            if (style.FillMode != FillMode.None && IsValidRectangle(bounds))
+            {
+                FillClosedPath(graphics, path, bounds, style, context);
+            }
+
+            if (drawParcelSelectionHighlight && IsValidRectangle(bounds))
+            {
+                DrawCadastralParcelSelectionHighlight(graphics, path, bounds);
+            }
+
+            if (pen != null)
+            {
+                graphics.DrawPath(pen, path);
+            }
         }
 
         private static void DrawLine(
@@ -934,7 +1012,8 @@ namespace Land_Readjustment_Tool.UI.MapCanvas.Rendering
             MapCanvasEngine engine,
             TextShape text,
             VectorShapeStyle style,
-            VectorRenderContext context)
+            VectorRenderContext context,
+            CanvasLayer? layer)
         {
             PointF position = ToScreenPointF(engine.WorldToScreen(text.Position));
             if (!IsValidPoint(position))
@@ -942,10 +1021,74 @@ namespace Land_Readjustment_Tool.UI.MapCanvas.Rendering
                 return;
             }
 
-            Color color = text.FillColor == Color.Transparent
+            bool isAnnotationLayer = layer != null && CanvasLayerTreeService.IsAnnotationLayer(layer);
+            Color color = isAnnotationLayer
+                ? ParseColor(layer!.LabelColor, style.StrokeColor)
+                : text.FillColor == Color.Transparent
                 ? style.StrokeColor
                 : text.FillColor;
-            graphics.DrawString(text.Text, text.Font, context.GetSolidBrush(color), position);
+            if (layer?.IsLocked == true)
+                color = FadeLockedLayerColor(color);
+
+            using Font? layerFont = CreateAnnotationTextFont(layer);
+            graphics.DrawString(text.Text, layerFont ?? text.Font, context.GetSolidBrush(color), position);
+        }
+
+        private static Font? CreateAnnotationTextFont(CanvasLayer? layer)
+        {
+            if (layer == null || !CanvasLayerTreeService.IsAnnotationLayer(layer))
+                return null;
+
+            string fontName = string.IsNullOrWhiteSpace(layer.LabelFontName)
+                ? DefaultCanvasLabelFontName
+                : layer.LabelFontName.Trim();
+            float fontSize = (float)Math.Clamp(layer.LabelFontSize <= 0 ? 6.0 : layer.LabelFontSize, MinLabelFontSizePt, 72.0);
+
+            try
+            {
+                return new Font(fontName, fontSize);
+            }
+            catch
+            {
+                return new Font(DefaultCanvasLabelFontName, fontSize);
+            }
+        }
+
+        private static Font CreateLayerLabelFont(CanvasLayer layer, double zoomScale)
+        {
+            string fontName = string.IsNullOrWhiteSpace(layer.LabelFontName)
+                ? DefaultCanvasLabelFontName
+                : layer.LabelFontName.Trim();
+            float fontSize = ResolveLayerLabelFontSize(layer, zoomScale);
+
+            try
+            {
+                return new Font(fontName, fontSize);
+            }
+            catch
+            {
+                return new Font(DefaultCanvasLabelFontName, fontSize);
+            }
+        }
+
+        private static float ResolveLayerLabelFontSize(CanvasLayer layer, double zoomScale)
+        {
+            double baseSize = layer.LabelFontSize <= 0
+                ? layer.LabelScaleWithZoom ? 2.0 : 6.0
+                : layer.LabelFontSize;
+            double maxSize = layer.LabelScaleWithZoom
+                ? MaxScaledLabelFontSizePt
+                : MaxFixedLabelFontSizePt;
+
+            if (layer.LabelScaleWithZoom)
+            {
+                double zoomFactor = double.IsFinite(zoomScale)
+                    ? Math.Clamp(zoomScale, MinLabelZoomFactor, MaxLabelZoomFactor)
+                    : 1.0;
+                baseSize *= zoomFactor;
+            }
+
+            return (float)Math.Clamp(baseSize, MinLabelFontSizePt, maxSize);
         }
 
         private void DrawLabelIfNeeded(
@@ -954,9 +1097,11 @@ namespace Land_Readjustment_Tool.UI.MapCanvas.Rendering
             RectangleD visibleWorldBounds,
             CanvasFeature feature,
             CanvasLayer? layer,
-            VectorRenderContext context)
+            VectorRenderContext context,
+            LabelFontCache labelFontCache)
         {
-            if (layer?.ShowLabels != true)
+            if (layer?.ShowLabels != true ||
+                CanvasLayerTreeService.IsAnnotationLayer(layer))
             {
                 return;
             }
@@ -967,7 +1112,11 @@ namespace Land_Readjustment_Tool.UI.MapCanvas.Rendering
                 return;
             }
 
-            PointD labelAnchor = ResolveLabelAnchor(feature, visibleWorldBounds);
+            if (!TryResolveLabelAnchor(feature, visibleWorldBounds, out PointD labelAnchor))
+            {
+                return;
+            }
+
             PointF position = ToScreenPointF(engine.WorldToScreen(labelAnchor));
 
             if (!IsValidPoint(position))
@@ -976,40 +1125,72 @@ namespace Land_Readjustment_Tool.UI.MapCanvas.Rendering
             }
 
             Color labelColor = ParseColor(layer.LabelColor, Color.Black);
-            SizeF size = graphics.MeasureString(labelText, _labelFont);
-            graphics.DrawString(
-                labelText,
-                _labelFont,
-                context.GetSolidBrush(labelColor),
-                position.X - size.Width / 2.0f,
-                position.Y - size.Height / 2.0f);
+            if (layer.IsLocked)
+                labelColor = FadeLockedLayerColor(labelColor);
+
+            Font labelFont = labelFontCache.Get(layer, context.ZoomScale);
+            System.Drawing.Text.TextRenderingHint previousTextRenderingHint = graphics.TextRenderingHint;
+            graphics.TextRenderingHint = System.Drawing.Text.TextRenderingHint.AntiAliasGridFit;
+            try
+            {
+                SizeF size = graphics.MeasureString(labelText, labelFont);
+                graphics.DrawString(
+                    labelText,
+                    labelFont,
+                    context.GetSolidBrush(labelColor),
+                    position.X - size.Width / 2.0f,
+                    position.Y - size.Height / 2.0f);
+            }
+            finally
+            {
+                graphics.TextRenderingHint = previousTextRenderingHint;
+            }
         }
 
-        private PointD ResolveLabelAnchor(
+        private bool TryResolveLabelAnchor(
             CanvasFeature feature,
-            RectangleD visibleWorldBounds)
+            RectangleD visibleWorldBounds,
+            out PointD anchor)
         {
+            anchor = default;
             Guid cacheKey = feature.CanvasObject.Id;
-
-            // Re-use the cached interior point when it falls inside the current viewport.
-            if (cacheKey != Guid.Empty && _labelAnchorCache.TryGetValue(cacheKey, out PointD cached))
-            {
-                if (visibleWorldBounds.Contains(cached))
-                    return cached;
-                return ClampAnchorToViewport(feature.Shape.GetBoundingBox(), visibleWorldBounds);
-            }
+            RectangleD shapeBounds = feature.Shape.GetBoundingBox();
+            bool shapeFullyVisible = ContainsBounds(visibleWorldBounds, shapeBounds);
 
             Geometry? geometry = feature.CanvasObject.Shape;
+            if (!shapeFullyVisible && geometry != null)
+            {
+                if (TryResolveClippedGeometryLabelAnchor(geometry, visibleWorldBounds, out PointD clippedAnchor))
+                {
+                    anchor = clippedAnchor;
+                    return true;
+                }
+
+                return false;
+            }
+
+            // Re-use the cached full-geometry interior point only when it is visible.
+            if (cacheKey != Guid.Empty &&
+                _labelAnchorCache.TryGetValue(cacheKey, out PointD cached) &&
+                ContainsPoint(visibleWorldBounds, cached))
+            {
+                anchor = cached;
+                return true;
+            }
+
             if (geometry != null && !geometry.IsEmpty)
             {
                 try
                 {
                     NetTopologySuite.Geometries.Point point = geometry.PointOnSurface;
-                    PointD anchor = new(point.X, point.Y);
+                    PointD pointAnchor = new(point.X, point.Y);
                     if (cacheKey != Guid.Empty)
-                        _labelAnchorCache.TryAdd(cacheKey, anchor);
-                    if (visibleWorldBounds.Contains(anchor))
-                        return anchor;
+                        _labelAnchorCache.TryAdd(cacheKey, pointAnchor);
+                    if (ContainsPoint(visibleWorldBounds, pointAnchor))
+                    {
+                        anchor = pointAnchor;
+                        return true;
+                    }
                 }
                 catch
                 {
@@ -1017,27 +1198,130 @@ namespace Land_Readjustment_Tool.UI.MapCanvas.Rendering
                 }
             }
 
-            return ClampAnchorToViewport(feature.Shape.GetBoundingBox(), visibleWorldBounds);
+            anchor = ClampAnchorToViewport(shapeBounds, visibleWorldBounds);
+            return ContainsPoint(visibleWorldBounds, anchor);
+        }
+
+        private static bool TryResolveClippedGeometryLabelAnchor(
+            Geometry geometry,
+            RectangleD visibleWorldBounds,
+            out PointD anchor)
+        {
+            anchor = default;
+            if (geometry.IsEmpty)
+                return false;
+
+            try
+            {
+                Geometry viewportGeometry = CreateViewportGeometry(visibleWorldBounds);
+                Geometry clippedGeometry = geometry.Intersection(viewportGeometry);
+                if (clippedGeometry.IsEmpty)
+                    return false;
+
+                NetTopologySuite.Geometries.Point centroid = clippedGeometry.Centroid;
+                if (IsUsableLabelPoint(centroid, clippedGeometry, visibleWorldBounds))
+                {
+                    anchor = new PointD(centroid.X, centroid.Y);
+                    return true;
+                }
+
+                NetTopologySuite.Geometries.Point interiorPoint = clippedGeometry.PointOnSurface;
+                if (IsUsableLabelPoint(interiorPoint, clippedGeometry, visibleWorldBounds))
+                {
+                    anchor = new PointD(interiorPoint.X, interiorPoint.Y);
+                    return true;
+                }
+            }
+            catch
+            {
+                // Invalid source geometry or a topology edge case: use the visible bounds centre fallback.
+            }
+
+            return false;
+        }
+
+        private static Geometry CreateViewportGeometry(RectangleD visibleWorldBounds)
+        {
+            return LabelGeometryFactory.ToGeometry(new Envelope(
+                MinX(visibleWorldBounds),
+                MaxX(visibleWorldBounds),
+                MinY(visibleWorldBounds),
+                MaxY(visibleWorldBounds)));
+        }
+
+        private static bool IsUsableLabelPoint(
+            NetTopologySuite.Geometries.Point point,
+            Geometry geometry,
+            RectangleD visibleWorldBounds)
+        {
+            if (point.IsEmpty ||
+                !double.IsFinite(point.X) ||
+                !double.IsFinite(point.Y))
+            {
+                return false;
+            }
+
+            PointD anchor = new(point.X, point.Y);
+            if (!ContainsPoint(visibleWorldBounds, anchor))
+                return false;
+
+            return geometry.Covers(point) || geometry.Distance(point) <= 1e-7;
         }
 
         private static PointD ClampAnchorToViewport(RectangleD bounds, RectangleD visibleWorldBounds)
         {
-            double left = Math.Max(bounds.Left, visibleWorldBounds.Left);
-            double right = Math.Min(bounds.Right, visibleWorldBounds.Right);
-            double bottom = Math.Max(bounds.Bottom, visibleWorldBounds.Bottom);
-            double top = Math.Min(bounds.Top, visibleWorldBounds.Top);
+            double left = Math.Max(MinX(bounds), MinX(visibleWorldBounds));
+            double right = Math.Min(MaxX(bounds), MaxX(visibleWorldBounds));
+            double bottom = Math.Max(MinY(bounds), MinY(visibleWorldBounds));
+            double top = Math.Min(MaxY(bounds), MaxY(visibleWorldBounds));
 
             if (right <= left || top <= bottom)
-                return new PointD(bounds.X + bounds.Width / 2.0, bounds.Y + bounds.Height / 2.0);
+                return new PointD(MinX(bounds) + Math.Abs(bounds.Width) / 2.0, MinY(bounds) + Math.Abs(bounds.Height) / 2.0);
 
             return new PointD(left + (right - left) / 2.0, bottom + (top - bottom) / 2.0);
         }
 
+        private static bool ContainsBounds(RectangleD outer, RectangleD inner)
+        {
+            return MinX(inner) >= MinX(outer) &&
+                   MaxX(inner) <= MaxX(outer) &&
+                   MinY(inner) >= MinY(outer) &&
+                   MaxY(inner) <= MaxY(outer);
+        }
+
+        private static bool ContainsPoint(RectangleD bounds, PointD point)
+        {
+            return point.X >= MinX(bounds) &&
+                   point.X <= MaxX(bounds) &&
+                   point.Y >= MinY(bounds) &&
+                   point.Y <= MaxY(bounds);
+        }
+
+        private static double MinX(RectangleD bounds) => Math.Min(bounds.Left, bounds.Right);
+
+        private static double MaxX(RectangleD bounds) => Math.Max(bounds.Left, bounds.Right);
+
+        private static double MinY(RectangleD bounds) => Math.Min(bounds.Top, bounds.Bottom);
+
+        private static double MaxY(RectangleD bounds) => Math.Max(bounds.Top, bounds.Bottom);
+
+
         private static string? ResolveLabelText(CanvasFeature feature, CanvasLayer layer)
         {
-            if (!string.IsNullOrWhiteSpace(layer.LabelField))
+            string? labelField = layer.LabelField?.Trim();
+            if (!string.IsNullOrWhiteSpace(labelField))
             {
-                return ResolveLabelFieldValue(feature, layer.LabelField.Trim());
+                string? presetTemplate = ResolveLabelPresetTemplate(labelField);
+                if (!string.IsNullOrWhiteSpace(presetTemplate))
+                    return ResolveLabelTemplate(feature, presetTemplate);
+
+                if (labelField.StartsWith("template:", StringComparison.OrdinalIgnoreCase))
+                    return ResolveLabelTemplate(feature, labelField["template:".Length..]);
+
+                if (labelField.Contains('{') && labelField.Contains('}'))
+                    return ResolveLabelTemplate(feature, labelField);
+
+                return ResolveLabelFieldValue(feature, labelField);
             }
 
             if (!string.IsNullOrWhiteSpace(feature.CanvasObject.LabelText))
@@ -1048,6 +1332,51 @@ namespace Land_Readjustment_Tool.UI.MapCanvas.Rendering
             return TryGetShapeProperty(feature, "LabelText", out object? fallback)
                 ? fallback?.ToString()
                 : null;
+        }
+
+        private static string? ResolveLabelPresetTemplate(string labelField)
+        {
+            string normalized = NormalizeLabelField(labelField);
+            return normalized switch
+            {
+                "parcelnoareasqm" or "parcelnumberareasqm" =>
+                    "{ParcelNo}\n{AreaSqm} sq.m",
+                "parcelnoarearapd" or "parcelnumberarearapd" or "parcelnoarealocal" =>
+                    "{ParcelNo}\n{AreaRAPD}",
+                "mapsheetparcelnoareasqm" or "mapsheetnoparcelnoareasqm" =>
+                    "{MapSheetNo}-{ParcelNo}\n{AreaSqm} sq.m",
+                "mapsheetparcelnoarearapd" or "mapsheetnoparcelnoarearapd" =>
+                    "{MapSheetNo}-{ParcelNo}\n{AreaRAPD}",
+                "parcelnoownername" =>
+                    "{ParcelNo}\n{OwnerName}",
+                "parcelnolanduse" =>
+                    "{ParcelNo}\n{LandUse}",
+                _ => null
+            };
+        }
+
+        private static string? ResolveLabelTemplate(CanvasFeature feature, string template)
+        {
+            if (string.IsNullOrWhiteSpace(template))
+                return null;
+
+            string expanded = template.Replace("\\n", "\n", StringComparison.Ordinal);
+            expanded = System.Text.RegularExpressions.Regex.Replace(
+                expanded,
+                @"\{(?<field>[^{}]+)\}",
+                match =>
+                {
+                    string field = match.Groups["field"].Value.Trim();
+                    return ResolveLabelFieldValue(feature, field) ?? string.Empty;
+                });
+
+            string[] lines = expanded
+                .Split('\n')
+                .Select(line => line.Trim())
+                .Where(line => !string.IsNullOrWhiteSpace(line))
+                .ToArray();
+
+            return lines.Length == 0 ? null : string.Join(Environment.NewLine, lines);
         }
 
         private static string? ResolveLabelFieldValue(CanvasFeature feature, string labelField)
@@ -1088,6 +1417,14 @@ namespace Land_Readjustment_Tool.UI.MapCanvas.Rendering
                     metadata?.RecordAreaSqm,
                     GetPropertyValue(canvasObject.BaselineParcel, "OriginalAreaSqm"),
                     GetAttributeValue(metadata, labelField)),
+                "arearapd" or "localarea" => FormatTraditionalArea(ResolveFirst(
+                    metadata?.RecordAreaSqm,
+                    GetPropertyValue(canvasObject.BaselineParcel, "OriginalAreaSqm"),
+                    metadata?.CalculatedAreaSqm)),
+                "areabkd" => FormatTraditionalArea(ResolveFirst(
+                    metadata?.RecordAreaSqm,
+                    GetPropertyValue(canvasObject.BaselineParcel, "OriginalAreaSqm"),
+                    metadata?.CalculatedAreaSqm), useBkd: true),
                 "effectiveareasqm" => GetPropertyValue(canvasObject.BaselineParcel, "EffectiveAreaSqm"),
                 "calculatedareasqm" or "geometryareasqm" or "geometryarea" => ResolveFirst(
                     metadata?.CalculatedAreaSqm,
@@ -1105,6 +1442,26 @@ namespace Land_Readjustment_Tool.UI.MapCanvas.Rendering
             };
 
             return FormatLabelValue(value);
+        }
+
+        private static string? FormatTraditionalArea(object? value, bool useBkd = false)
+        {
+            if (value == null)
+                return null;
+
+            if (!double.TryParse(
+                    Convert.ToString(value, CultureInfo.InvariantCulture),
+                    NumberStyles.Float,
+                    CultureInfo.InvariantCulture,
+                    out double areaSqm) ||
+                areaSqm <= 0)
+            {
+                return null;
+            }
+
+            return useBkd
+                ? AreaConverterService.SqmToBKDString(areaSqm)
+                : AreaConverterService.SqmToRAPDString(areaSqm);
         }
 
         private static string? CombineMapSheetAndParcel(CadastralCanvasMetadata? metadata)
@@ -1125,6 +1482,7 @@ namespace Land_Readjustment_Tool.UI.MapCanvas.Rendering
                 .Replace(" ", string.Empty)
                 .Replace("_", string.Empty)
                 .Replace("-", string.Empty)
+                .Replace("+", string.Empty)
                 .Trim()
                 .ToLowerInvariant();
         }
@@ -1318,7 +1676,6 @@ namespace Land_Readjustment_Tool.UI.MapCanvas.Rendering
 
         public void Dispose()
         {
-            _labelFont.Dispose();
             _previewFont.Dispose();
         }
 
@@ -1328,6 +1685,37 @@ namespace Land_Readjustment_Tool.UI.MapCanvas.Rendering
             Solid,
             Hatched
         }
+
+        private sealed class LabelFontCache : IDisposable
+        {
+            private readonly Dictionary<LabelFontKey, Font> _fonts = new();
+
+            public Font Get(CanvasLayer layer, double zoomScale)
+            {
+                string fontName = string.IsNullOrWhiteSpace(layer.LabelFontName)
+                    ? DefaultCanvasLabelFontName
+                    : layer.LabelFontName.Trim();
+                float fontSize = ResolveLayerLabelFontSize(layer, zoomScale);
+                LabelFontKey key = new(fontName, fontSize);
+
+                if (_fonts.TryGetValue(key, out Font? cached))
+                    return cached;
+
+                Font font = CreateLayerLabelFont(layer, zoomScale);
+                _fonts[key] = font;
+                return font;
+            }
+
+            public void Dispose()
+            {
+                foreach (Font font in _fonts.Values)
+                    font.Dispose();
+
+                _fonts.Clear();
+            }
+        }
+
+        private readonly record struct LabelFontKey(string FontName, float FontSize);
 
         private readonly record struct VectorShapeStyle(
             Color StrokeColor,

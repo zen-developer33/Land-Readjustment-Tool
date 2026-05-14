@@ -496,6 +496,12 @@ namespace Land_Readjustment_Tool.Forms
                     "मोही", "किसान", "बटाईदार", "मोही/किसान"
                 }, "Tenant" },
 
+                // Tenant / Mohi Name
+                { new[] {
+                    "tenant name", "tenantname", "mohi name", "mohiname", "kisan name",
+                    "मोहीको नाम", "मोही नाम", "किसानको नाम", "बटाईदारको नाम"
+                }, "TenantName" },
+
                 // Permanent Address
                 { new[] {
                     "permanent", "permanentaddress", "permanent address", "address", "thegana", "basabas",
@@ -521,6 +527,13 @@ namespace Land_Readjustment_Tool.Forms
                     "sqm", "square", "squaremeter", "sqmeter", "meter", "vargameter",
                     "क्षेत्रफल", "वर्गमिटर", "वर्ग मि", "वर्ग मिटर", "व.मि."
                 }, "AreaInSqm" },
+
+                // Area measured in field (Square Meter)
+                { new[] {
+                    "field area", "field measured area", "measured area", "survey area",
+                    "area from field", "fieldareasqm", "measuredareasqm",
+                    "नापी क्षेत्रफल", "फिल्ड क्षेत्रफल", "स्थलगत क्षेत्रफल"
+                }, "FieldMeasuredAreaSqm" },
 
                 // Area (RAPD - Ropani/Aana/Paisa/Dam)
                 { new[] {
@@ -1530,7 +1543,10 @@ namespace Land_Readjustment_Tool.Forms
                     $"- New Owners Created: {persistResult.NewOwnersCreated}\n" +
                     $"- Existing Owners Updated: {persistResult.ExistingOwnersUpdated}\n" +
                     $"- Saved Parcels: {persistResult.SavedParcels}\n" +
-                    $"- Skipped Duplicate Parcels: {persistResult.SkippedDuplicateParcels}";
+                    $"- Skipped Duplicate Parcels: {persistResult.SkippedDuplicateParcels}\n" +
+                    $"- Auto-assigned Map Objects: {persistResult.CadastralObjectsAssigned}\n" +
+                    $"- Map Objects Missing Key: {persistResult.CadastralObjectsMissingKey}\n" +
+                    $"- Map Objects Without Matching Record: {persistResult.CadastralObjectsNoRecordMatch}";
 
                 return new OperationResult
                 {

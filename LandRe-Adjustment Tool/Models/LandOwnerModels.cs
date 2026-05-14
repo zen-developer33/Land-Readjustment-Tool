@@ -51,9 +51,11 @@ namespace Land_Readjustment_Tool.Models
         public string? ParcelLocation { get; set; }
         public string MapSheetNo { get; set; } = string.Empty;
         public string? IsTenant { get; set; }
+        public string? TenantName { get; set; }
         public string? LandUse { get; set; }
         public string? LandOwnershipType { get; set; }
         public double? AreaInSqm { get; set; }
+        public double? FieldMeasuredAreaSqm { get; set; }
         public string? AreaInRAPD { get; set; }
         public string? AreaInBKD { get; set; }
         public string? MothNo { get; set; }
@@ -98,6 +100,8 @@ namespace Land_Readjustment_Tool.Models
         public string AreaInBKD { get; set; } = string.Empty;
         public string LandUse { get; set; } = string.Empty;
         public string IsTenant { get; set; } = string.Empty;
+        public string TenantName { get; set; } = string.Empty;
+        public double? FieldMeasuredAreaSqm { get; set; }
         public string MothNo { get; set; } = string.Empty;
         public string PaanaNo { get; set; } = string.Empty;
         public string Remarks { get; set; } = string.Empty;

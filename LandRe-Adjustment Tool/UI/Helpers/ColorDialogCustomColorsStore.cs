@@ -60,6 +60,17 @@ namespace Land_Readjustment_Tool.UI.Helpers
             SaveColors(dialog.CustomColors);
         }
 
+        public static Color[] GetLayerPaletteColors()
+        {
+            return ArcMapPalette
+                .Select(entry => entry.Color)
+                .Concat(LoadColors().Select(ColorTranslator.FromOle))
+                .Where(color => color.A > 0)
+                .GroupBy(color => Color.FromArgb(255, color.R, color.G, color.B).ToArgb())
+                .Select(group => group.First())
+                .ToArray();
+        }
+
         private static int[] LoadColors()
         {
             try

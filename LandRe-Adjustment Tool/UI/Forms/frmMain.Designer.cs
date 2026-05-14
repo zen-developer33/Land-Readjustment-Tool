@@ -1,4 +1,4 @@
-﻿using System.Drawing;
+using System.Drawing;
 using System.Windows.Forms;
 using Land_Readjustment_Tool.UI.CustomControls;
 using Land_Readjustment_Tool.Data;
@@ -41,6 +41,8 @@ namespace Land_Readjustment_Tool
             TreeNode treeNode6 = new TreeNode("Drawing/Mark Up Layers");
             TreeNode treeNode7 = new TreeNode("Other External Layers");
             TreeNode treeNode8 = new TreeNode("Raster Layers");
+            DataGridViewCellStyle dataGridViewCellStyle1 = new DataGridViewCellStyle();
+            DataGridViewCellStyle dataGridViewCellStyle2 = new DataGridViewCellStyle();
             System.ComponentModel.ComponentResourceManager resources = new System.ComponentModel.ComponentResourceManager(typeof(frmMain));
             mainMenuStrip = new MenuStrip();
             fileToolStripMenuItem = new ToolStripMenuItem();
@@ -66,8 +68,8 @@ namespace Land_Readjustment_Tool
             importDataToolStripMenuItem1 = new ToolStripMenuItem();
             ImportParcelOwnerShipRecords = new ToolStripMenuItem();
             toolStripSeparator5 = new ToolStripSeparator();
-            importCadastralDataDXFDWGShapefileToolStripMenuItem = new ToolStripMenuItem();
             ImportProjectBoundaryDXFDWGToolStripMenuItem = new ToolStripMenuItem();
+            importCadastralDataDXFDWGShapefileToolStripMenuItem = new ToolStripMenuItem();
             toolStripSeparator6 = new ToolStripSeparator();
             baseMapsToolStripMenuItem = new ToolStripMenuItem();
             importToolStripMenuItem = new ToolStripMenuItem();
@@ -77,6 +79,9 @@ namespace Land_Readjustment_Tool
             assignmentToolStripMenuItem = new ToolStripMenuItem();
             projectBoundaryAssignmentToolStripMenuItem = new ToolStripMenuItem();
             cadastralRecordsAssignmentToolStripMenuItem = new ToolStripMenuItem();
+            blockDataToolStripMenuItem = new ToolStripMenuItem();
+            roadDataToolStripMenuItem = new ToolStripMenuItem();
+            assignToolStripMenuItem = new ToolStripMenuItem();
             contributionToolStripMenuItem = new ToolStripMenuItem();
             contributionSettingsToolStripMenuItem = new ToolStripMenuItem();
             calculateContributionToolStripMenuItem = new ToolStripMenuItem();
@@ -169,7 +174,12 @@ namespace Land_Readjustment_Tool
             toolStripSeparator11 = new ToolStripSeparator();
             mnuOSnapToggle = new ToolStripButton();
             grpParcelObjProp = new GroupBox();
+            btnSelectFromRecords = new Button();
+            btnConfigureParcelProperties = new Button();
+            cboSelectedPropertyObject = new ComboBox();
             dgvParcelObjProperty = new DataGridView();
+            colParcelPropertyField = new DataGridViewTextBoxColumn();
+            colParcelPropertyValue = new DataGridViewTextBoxColumn();
             statusCanvas = new StatusStrip();
             lblProjectName = new ToolStripStatusLabel();
             tsStatusSep1 = new ToolStripSeparator();
@@ -206,9 +216,6 @@ namespace Land_Readjustment_Tool
             toolStripSeparator16 = new ToolStripSeparator();
             toolStripComboBox1 = new ToolStripComboBox();
             tsProjectMenu = new ToolStrip();
-            assignToolStripMenuItem = new ToolStripMenuItem();
-            blockDataToolStripMenuItem = new ToolStripMenuItem();
-            roadDataToolStripMenuItem = new ToolStripMenuItem();
             mainMenuStrip.SuspendLayout();
             ((System.ComponentModel.ISupportInitialize)leftSplitContainer).BeginInit();
             leftSplitContainer.Panel1.SuspendLayout();
@@ -400,7 +407,7 @@ namespace Land_Readjustment_Tool
             // 
             importDataToolStripMenuItem1.DropDownItems.AddRange(new ToolStripItem[] { ImportParcelOwnerShipRecords, toolStripSeparator5, ImportProjectBoundaryDXFDWGToolStripMenuItem, importCadastralDataDXFDWGShapefileToolStripMenuItem, toolStripSeparator6, baseMapsToolStripMenuItem });
             importDataToolStripMenuItem1.Name = "importDataToolStripMenuItem1";
-            importDataToolStripMenuItem1.Size = new Size(224, 26);
+            importDataToolStripMenuItem1.Size = new Size(146, 26);
             importDataToolStripMenuItem1.Text = "Import...";
             // 
             // ImportParcelOwnerShipRecords
@@ -416,18 +423,18 @@ namespace Land_Readjustment_Tool
             toolStripSeparator5.Name = "toolStripSeparator5";
             toolStripSeparator5.Size = new Size(382, 6);
             // 
+            // ImportProjectBoundaryDXFDWGToolStripMenuItem
+            // 
+            ImportProjectBoundaryDXFDWGToolStripMenuItem.Name = "ImportProjectBoundaryDXFDWGToolStripMenuItem";
+            ImportProjectBoundaryDXFDWGToolStripMenuItem.Size = new Size(385, 26);
+            ImportProjectBoundaryDXFDWGToolStripMenuItem.Text = "Project Boundary (DXF/SHP/KML)";
+            // 
             // importCadastralDataDXFDWGShapefileToolStripMenuItem
             // 
             importCadastralDataDXFDWGShapefileToolStripMenuItem.Name = "importCadastralDataDXFDWGShapefileToolStripMenuItem";
             importCadastralDataDXFDWGShapefileToolStripMenuItem.Size = new Size(385, 26);
             importCadastralDataDXFDWGShapefileToolStripMenuItem.Text = "Cadastral Map (DXF/DWG/Shapefile)";
             importCadastralDataDXFDWGShapefileToolStripMenuItem.Click += importCadastralDataDXFDWGShapefileToolStripMenuItem_Click;
-            // 
-            // ImportProjectBoundaryDXFDWGToolStripMenuItem
-            // 
-            ImportProjectBoundaryDXFDWGToolStripMenuItem.Name = "ImportProjectBoundaryDXFDWGToolStripMenuItem";
-            ImportProjectBoundaryDXFDWGToolStripMenuItem.Size = new Size(385, 26);
-            ImportProjectBoundaryDXFDWGToolStripMenuItem.Text = "Project Boundary (DXF/SHP/KML)";
             // 
             // toolStripSeparator6
             // 
@@ -444,7 +451,7 @@ namespace Land_Readjustment_Tool
             // 
             importToolStripMenuItem.DropDownItems.AddRange(new ToolStripItem[] { viewEditRecordToolStripMenuItem, landOwnerDataToolStripMenuItem });
             importToolStripMenuItem.Name = "importToolStripMenuItem";
-            importToolStripMenuItem.Size = new Size(224, 26);
+            importToolStripMenuItem.Size = new Size(146, 26);
             importToolStripMenuItem.Text = "Records";
             // 
             // viewEditRecordToolStripMenuItem
@@ -465,27 +472,45 @@ namespace Land_Readjustment_Tool
             // toolStripSeparator18
             // 
             toolStripSeparator18.Name = "toolStripSeparator18";
-            toolStripSeparator18.Size = new Size(221, 6);
+            toolStripSeparator18.Size = new Size(143, 6);
             // 
             // assignmentToolStripMenuItem
             // 
             assignmentToolStripMenuItem.DropDownItems.AddRange(new ToolStripItem[] { projectBoundaryAssignmentToolStripMenuItem, cadastralRecordsAssignmentToolStripMenuItem, blockDataToolStripMenuItem, roadDataToolStripMenuItem });
             assignmentToolStripMenuItem.Name = "assignmentToolStripMenuItem";
-            assignmentToolStripMenuItem.Size = new Size(224, 26);
+            assignmentToolStripMenuItem.Size = new Size(146, 26);
             assignmentToolStripMenuItem.Text = "Assign...";
             // 
             // projectBoundaryAssignmentToolStripMenuItem
             // 
             projectBoundaryAssignmentToolStripMenuItem.Name = "projectBoundaryAssignmentToolStripMenuItem";
-            projectBoundaryAssignmentToolStripMenuItem.Size = new Size(224, 26);
+            projectBoundaryAssignmentToolStripMenuItem.Size = new Size(211, 26);
             projectBoundaryAssignmentToolStripMenuItem.Text = "Project Boundary";
             // 
             // cadastralRecordsAssignmentToolStripMenuItem
             // 
             cadastralRecordsAssignmentToolStripMenuItem.Name = "cadastralRecordsAssignmentToolStripMenuItem";
-            cadastralRecordsAssignmentToolStripMenuItem.Size = new Size(224, 26);
+            cadastralRecordsAssignmentToolStripMenuItem.Size = new Size(211, 26);
             cadastralRecordsAssignmentToolStripMenuItem.Text = "Cadastral Records";
             cadastralRecordsAssignmentToolStripMenuItem.Click += CadastralRecordsAssignmentToolStripMenuItem_Click;
+            // 
+            // blockDataToolStripMenuItem
+            // 
+            blockDataToolStripMenuItem.Name = "blockDataToolStripMenuItem";
+            blockDataToolStripMenuItem.Size = new Size(211, 26);
+            blockDataToolStripMenuItem.Text = "Block Data";
+            // 
+            // roadDataToolStripMenuItem
+            // 
+            roadDataToolStripMenuItem.Name = "roadDataToolStripMenuItem";
+            roadDataToolStripMenuItem.Size = new Size(211, 26);
+            roadDataToolStripMenuItem.Text = "Road Data";
+            // 
+            // assignToolStripMenuItem
+            // 
+            assignToolStripMenuItem.Name = "assignToolStripMenuItem";
+            assignToolStripMenuItem.Size = new Size(146, 26);
+            assignToolStripMenuItem.Text = "Assign...";
             // 
             // contributionToolStripMenuItem
             // 
@@ -1212,11 +1237,11 @@ namespace Land_Readjustment_Tool
             // 
             // mapCanvasControlMain
             // 
+            mapCanvasControlMain.Anchor = AnchorStyles.Top | AnchorStyles.Bottom | AnchorStyles.Left | AnchorStyles.Right;
             mapCanvasControlMain.BackColor = Color.White;
-            mapCanvasControlMain.Dock = DockStyle.Fill;
-            mapCanvasControlMain.Location = new Point(0, 28);
+            mapCanvasControlMain.Location = new Point(0, 31);
             mapCanvasControlMain.Name = "mapCanvasControlMain";
-            mapCanvasControlMain.Size = new Size(905, 527);
+            mapCanvasControlMain.Size = new Size(905, 524);
             mapCanvasControlMain.TabIndex = 0;
             // 
             // tsCanvasTools
@@ -1424,6 +1449,9 @@ namespace Land_Readjustment_Tool
             // 
             // grpParcelObjProp
             // 
+            grpParcelObjProp.Controls.Add(btnSelectFromRecords);
+            grpParcelObjProp.Controls.Add(btnConfigureParcelProperties);
+            grpParcelObjProp.Controls.Add(cboSelectedPropertyObject);
             grpParcelObjProp.Controls.Add(dgvParcelObjProperty);
             grpParcelObjProp.Dock = DockStyle.Fill;
             grpParcelObjProp.Font = new Font("Segoe UI", 9F, FontStyle.Bold, GraphicsUnit.Point, 0);
@@ -1435,18 +1463,106 @@ namespace Land_Readjustment_Tool
             grpParcelObjProp.Size = new Size(316, 555);
             grpParcelObjProp.TabIndex = 1;
             grpParcelObjProp.TabStop = false;
-            grpParcelObjProp.Text = "Parcel";
+            grpParcelObjProp.Text = "Properties";
             // 
+            // btnSelectFromRecords
+            // 
+            btnSelectFromRecords.Anchor = AnchorStyles.Top | AnchorStyles.Left | AnchorStyles.Right;
+            btnSelectFromRecords.Font = new Font("Segoe UI", 9F, FontStyle.Regular, GraphicsUnit.Point, 0);
+            btnSelectFromRecords.Location = new Point(8, 27);
+            btnSelectFromRecords.Name = "btnSelectFromRecords";
+            btnSelectFromRecords.Size = new Size(216, 29);
+            btnSelectFromRecords.TabIndex = 1;
+            btnSelectFromRecords.Text = "Select from Records...";
+            btnSelectFromRecords.UseVisualStyleBackColor = true;
+            btnSelectFromRecords.Click += btnSelectFromRecords_Click;
+            // 
+            // btnConfigureParcelProperties
+            // 
+            btnConfigureParcelProperties.Anchor = AnchorStyles.Top | AnchorStyles.Right;
+            btnConfigureParcelProperties.Font = new Font("Segoe UI", 9F, FontStyle.Regular, GraphicsUnit.Point, 0);
+            btnConfigureParcelProperties.Location = new Point(230, 27);
+            btnConfigureParcelProperties.Name = "btnConfigureParcelProperties";
+            btnConfigureParcelProperties.Size = new Size(76, 29);
+            btnConfigureParcelProperties.TabIndex = 2;
+            btnConfigureParcelProperties.Text = "Fields...";
+            btnConfigureParcelProperties.UseVisualStyleBackColor = true;
+            btnConfigureParcelProperties.Click += btnConfigureParcelProperties_Click;
+            // 
+            // cboSelectedPropertyObject
+            // 
+            cboSelectedPropertyObject.Anchor = AnchorStyles.Top | AnchorStyles.Left | AnchorStyles.Right;
+            cboSelectedPropertyObject.DropDownStyle = ComboBoxStyle.DropDownList;
+            cboSelectedPropertyObject.Enabled = false;
+            cboSelectedPropertyObject.Font = new Font("Segoe UI", 9F, FontStyle.Regular, GraphicsUnit.Point, 0);
+            cboSelectedPropertyObject.FormattingEnabled = true;
+            cboSelectedPropertyObject.Location = new Point(8, 62);
+            cboSelectedPropertyObject.Name = "cboSelectedPropertyObject";
+            cboSelectedPropertyObject.Size = new Size(300, 28);
+            cboSelectedPropertyObject.TabIndex = 3;
+            cboSelectedPropertyObject.DropDownClosed += cboSelectedPropertyObject_DropDownClosed;
+            cboSelectedPropertyObject.SelectionChangeCommitted += cboSelectedPropertyObject_SelectionChangeCommitted;
+            cboSelectedPropertyObject.SelectedIndexChanged += cboSelectedPropertyObject_SelectedIndexChanged;
+            //
             // dgvParcelObjProperty
             // 
-            dgvParcelObjProperty.BackgroundColor = SystemColors.Control;
-            dgvParcelObjProperty.ColumnHeadersHeightSizeMode = DataGridViewColumnHeadersHeightSizeMode.AutoSize;
-            dgvParcelObjProperty.Dock = DockStyle.Fill;
-            dgvParcelObjProperty.Location = new Point(4, 24);
+            dgvParcelObjProperty.AllowUserToAddRows = false;
+            dgvParcelObjProperty.AllowUserToDeleteRows = false;
+            dgvParcelObjProperty.AllowUserToResizeRows = false;
+            dgvParcelObjProperty.Anchor = AnchorStyles.Top | AnchorStyles.Bottom | AnchorStyles.Left | AnchorStyles.Right;
+            dgvParcelObjProperty.AutoSizeRowsMode = DataGridViewAutoSizeRowsMode.AllCells;
+            dgvParcelObjProperty.BackgroundColor = Color.White;
+            dgvParcelObjProperty.BorderStyle = BorderStyle.None;
+            dgvParcelObjProperty.CellBorderStyle = DataGridViewCellBorderStyle.SingleHorizontal;
+            dgvParcelObjProperty.ColumnHeadersBorderStyle = DataGridViewHeaderBorderStyle.Single;
+            dataGridViewCellStyle1.Alignment = DataGridViewContentAlignment.MiddleLeft;
+            dataGridViewCellStyle1.BackColor = Color.FromArgb(242, 242, 242);
+            dataGridViewCellStyle1.Font = new Font("Segoe UI", 9F, FontStyle.Bold);
+            dataGridViewCellStyle1.ForeColor = Color.Black;
+            dataGridViewCellStyle1.SelectionBackColor = Color.FromArgb(242, 242, 242);
+            dataGridViewCellStyle1.SelectionForeColor = Color.Black;
+            dataGridViewCellStyle1.WrapMode = DataGridViewTriState.True;
+            dgvParcelObjProperty.ColumnHeadersDefaultCellStyle = dataGridViewCellStyle1;
+            dgvParcelObjProperty.ColumnHeadersHeight = 28;
+            dgvParcelObjProperty.ColumnHeadersHeightSizeMode = DataGridViewColumnHeadersHeightSizeMode.DisableResizing;
+            dgvParcelObjProperty.Columns.AddRange(new DataGridViewColumn[] { colParcelPropertyField, colParcelPropertyValue });
+            dataGridViewCellStyle2.Alignment = DataGridViewContentAlignment.MiddleLeft;
+            dataGridViewCellStyle2.BackColor = SystemColors.Window;
+            dataGridViewCellStyle2.Font = new Font("Segoe UI", 9F);
+            dataGridViewCellStyle2.ForeColor = SystemColors.ControlText;
+            dataGridViewCellStyle2.SelectionBackColor = Color.FromArgb(235, 235, 235);
+            dataGridViewCellStyle2.SelectionForeColor = Color.Black;
+            dataGridViewCellStyle2.WrapMode = DataGridViewTriState.True;
+            dgvParcelObjProperty.DefaultCellStyle = dataGridViewCellStyle2;
+            dgvParcelObjProperty.EnableHeadersVisualStyles = false;
+            dgvParcelObjProperty.GridColor = Color.FromArgb(230, 230, 230);
+            dgvParcelObjProperty.Location = new Point(4, 96);
+            dgvParcelObjProperty.MultiSelect = false;
             dgvParcelObjProperty.Name = "dgvParcelObjProperty";
+            dgvParcelObjProperty.ReadOnly = true;
+            dgvParcelObjProperty.RowHeadersVisible = false;
             dgvParcelObjProperty.RowHeadersWidth = 51;
-            dgvParcelObjProperty.Size = new Size(308, 527);
-            dgvParcelObjProperty.TabIndex = 0;
+            dgvParcelObjProperty.SelectionMode = DataGridViewSelectionMode.FullRowSelect;
+            dgvParcelObjProperty.Size = new Size(308, 455);
+            dgvParcelObjProperty.TabIndex = 4;
+            // 
+            // colParcelPropertyField
+            // 
+            colParcelPropertyField.HeaderText = "Property";
+            colParcelPropertyField.MinimumWidth = 96;
+            colParcelPropertyField.Name = "colParcelPropertyField";
+            colParcelPropertyField.ReadOnly = true;
+            colParcelPropertyField.SortMode = DataGridViewColumnSortMode.NotSortable;
+            colParcelPropertyField.Width = 118;
+            // 
+            // colParcelPropertyValue
+            // 
+            colParcelPropertyValue.AutoSizeMode = DataGridViewAutoSizeColumnMode.Fill;
+            colParcelPropertyValue.HeaderText = "Value";
+            colParcelPropertyValue.MinimumWidth = 120;
+            colParcelPropertyValue.Name = "colParcelPropertyValue";
+            colParcelPropertyValue.ReadOnly = true;
+            colParcelPropertyValue.SortMode = DataGridViewColumnSortMode.NotSortable;
             // 
             // statusCanvas
             // 
@@ -1753,24 +1869,6 @@ namespace Land_Readjustment_Tool
             tsProjectMenu.TabIndex = 4;
             tsProjectMenu.Text = "Project Menu";
             // 
-            // assignToolStripMenuItem
-            // 
-            assignToolStripMenuItem.Name = "assignToolStripMenuItem";
-            assignToolStripMenuItem.Size = new Size(224, 26);
-            assignToolStripMenuItem.Text = "Assign...";
-            // 
-            // blockDataToolStripMenuItem
-            // 
-            blockDataToolStripMenuItem.Name = "blockDataToolStripMenuItem";
-            blockDataToolStripMenuItem.Size = new Size(224, 26);
-            blockDataToolStripMenuItem.Text = "Block Data";
-            // 
-            // roadDataToolStripMenuItem
-            // 
-            roadDataToolStripMenuItem.Name = "roadDataToolStripMenuItem";
-            roadDataToolStripMenuItem.Size = new Size(224, 26);
-            roadDataToolStripMenuItem.Text = "Road Data";
-            // 
             // frmMain
             // 
             AutoScaleMode = AutoScaleMode.None;
@@ -1932,7 +2030,11 @@ namespace Land_Readjustment_Tool
         private ToolStripSeparator toolStripSeparator8;
         private SplitContainer splitContainer3;
         private GroupBox grpParcelObjProp;
+        private Button btnSelectFromRecords;
+        private ComboBox cboSelectedPropertyObject;
         private DataGridView dgvParcelObjProperty;
+        private DataGridViewTextBoxColumn colParcelPropertyField;
+        private DataGridViewTextBoxColumn colParcelPropertyValue;
         private ToolStripButton mnuNewProject;
         private ToolStripButton mnuOpenProject;
         private ToolStripButton mnuSaveProject;
@@ -1995,5 +2097,6 @@ namespace Land_Readjustment_Tool
         private ToolStripMenuItem assignToolStripMenuItem;
         private ToolStripMenuItem blockDataToolStripMenuItem;
         private ToolStripMenuItem roadDataToolStripMenuItem;
+        private Button btnConfigureParcelProperties;
     }
 }

@@ -102,6 +102,10 @@ namespace Land_Readjustment_Tool.Models
         [Description("Indicates whether the parcel has a tenant (Mohi)")]
         public string? Tenant { get; set; }
 
+        [Category("Tenancy")]
+        [Description("Name of tenant (Mohi), when available")]
+        public string? TenantName { get; set; }
+
         [Category("Land Classification")]
         [Description("Land use type (Residential, Agricultural, etc.)")]
         public string? LandUse { get; set; }
@@ -117,6 +121,10 @@ namespace Land_Readjustment_Tool.Models
         [Category("Area")]
         [Description("Area of land in square meters")]
         public double? AreaInSqm { get; set; }
+
+        [Category("Area")]
+        [Description("Area measured in field in square meters")]
+        public double? FieldMeasuredAreaSqm { get; set; }
 
         [Category("Area")]
         [Description("Area expressed in Local Land Measurement Unit(Ropani-Aana-Paisa-Dam) format")]

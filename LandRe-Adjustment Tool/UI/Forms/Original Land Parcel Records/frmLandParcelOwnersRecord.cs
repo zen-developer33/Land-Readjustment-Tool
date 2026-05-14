@@ -247,12 +247,14 @@ namespace Land_Readjustment_Tool.Forms.LandOwnersRecord_Managerment
             AddColumn("CitizenshipNumber", "Citizenship No", 110);
             AddColumn("PermanentAddress", "Permanent Address", 140);
             AddColumn("AreaInSqm", "Area (sqm)", 85);
+            AddColumn("FieldMeasuredAreaSqm", "Field Area (sqm)", 105);
             AddColumn("AreaInRAPD", "Area (RAPD)", 85);
             AddColumn("AreaInBKD", "Area (BKD)", 85);
             AddColumn("LandOwnershipType", "Ownership", 80);
             AddColumn("LandUse", "Land Use", 80);
 
             AddColumn("IsTenant", "Tenant", 55);
+            AddColumn("TenantName", "Tenant Name", 105);
             AddColumn("MothNo", "Moth No", 65);
             AddColumn("PaanaNo", "Paana No", 65);
             AddColumn("Remarks", "Remarks", 100);
@@ -624,11 +626,13 @@ namespace Land_Readjustment_Tool.Forms.LandOwnersRecord_Managerment
                 CitizenshipNumber = r.Owner?.CitizenshipNumber ?? "",
                 PermanentAddress = r.Owner?.PermanentAddress ?? "",
                 AreaInSqm = r.AreaInSqm,
+                FieldMeasuredAreaSqm = r.FieldMeasuredAreaSqm,
                 AreaInRAPD = r.AreaInRAPD ?? "",
                 AreaInBKD = r.AreaInBKD ?? "",
                 LandOwnershipType = r.LandOwnershipType ?? "",
                 LandUse = r.LandUse ?? "",
                 IsTenant = r.IsTenant ?? "",
+                TenantName = r.TenantName ?? "",
                 MothNo = r.MothNo ?? "",
                 PaanaNo = r.PaanaNo ?? "",
                 Remarks = r.Remarks ?? ""
@@ -1437,9 +1441,11 @@ namespace Land_Readjustment_Tool.Forms.LandOwnersRecord_Managerment
                 WardNo = record.WardNo,
                 ParcelLocation = record.ParcelLocation,
                 IsTenant = record.Tenant,
+                TenantName = record.TenantName,
                 LandUse = record.LandUse,
                 LandOwnershipType = record.LandOwnershipType,
                 AreaInSqm = record.AreaInSqm,
+                FieldMeasuredAreaSqm = record.FieldMeasuredAreaSqm,
                 AreaInRAPD = record.AreaInRAPD,
                 AreaInBKD = record.AreaInBKD,
                 MothNo = record.MothNo,
@@ -1469,9 +1475,11 @@ namespace Land_Readjustment_Tool.Forms.LandOwnersRecord_Managerment
                 CitizenshipNumber = parcel.Owner?.CitizenshipNumber,
                 PermanentAddress = parcel.Owner?.PermanentAddress,
                 Tenant = parcel.IsTenant,
+                TenantName = parcel.TenantName,
                 LandUse = parcel.LandUse,
                 LandOwnershipType = parcel.LandOwnershipType,
                 AreaInSqm = parcel.AreaInSqm,
+                FieldMeasuredAreaSqm = parcel.FieldMeasuredAreaSqm,
                 AreaInRAPD = parcel.AreaInRAPD,
                 AreaInBKD = parcel.AreaInBKD,
                 MothNo = parcel.MothNo,
@@ -1545,11 +1553,13 @@ namespace Land_Readjustment_Tool.Forms.LandOwnersRecord_Managerment
         public string CitizenshipNumber { get; set; } = "";
         public string PermanentAddress { get; set; } = "";
         public double? AreaInSqm { get; set; }
+        public double? FieldMeasuredAreaSqm { get; set; }
         public string AreaInRAPD { get; set; } = "";
         public string AreaInBKD { get; set; } = "";
         public string LandOwnershipType { get; set; } = "";
         public string LandUse { get; set; } = "";
         public string IsTenant { get; set; } = "";
+        public string TenantName { get; set; } = "";
         public string MothNo { get; set; } = "";
         public string PaanaNo { get; set; } = "";
         public string Remarks { get; set; } = "";
