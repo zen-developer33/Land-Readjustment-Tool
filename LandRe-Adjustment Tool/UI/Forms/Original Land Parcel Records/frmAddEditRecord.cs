@@ -14,7 +14,6 @@ namespace Land_Readjustment_Tool.Forms
         private int? _parcelId;
         private LandRecordsService? _landRecordsService;
         private List<BaselineLandParcelRecord>? _importedRecords;
-        private Button? _btnOtherOwners;
 
         public BaselineLandParcelRecord Record { get; private set; } = new();
         public bool IsDeleted { get; private set; } = false;
@@ -122,18 +121,11 @@ namespace Land_Readjustment_Tool.Forms
             txtParcelNo.KeyPress += TxtParcelNo_KeyPress;
             FormClosing += FrmAddEditRecord_FormClosing;
 
-            // Always show load button for owner lookup
             btnLoadOwnerDetails.Visible = true;
             btnLoadOwnerDetails.Enabled = true;
+            btnLoadOwnerDetails.Click -= btnLoadOwnerDetails_Click_1;
+            btnLoadOwnerDetails.Click -= BtnLoadOwnerDetails_Click;
             btnLoadOwnerDetails.Click += BtnLoadOwnerDetails_Click;
-
-            // Narrow the owner name textbox and Load button to make room for "Other Owners" button
-            txtLandOwnersName.Width = 170;
-            btnLoadOwnerDetails.Location = new Point(353, btnLoadOwnerDetails.Location.Y);
-            btnLoadOwnerDetails.Width = 50;
-
-            _btnOtherOwners = btnOtherOwners;
-            _btnOtherOwners.Click += BtnOtherOwners_Click;
 
             // Configure owner fields based on mode
             if (_ownerFieldsReadOnly)
@@ -179,9 +171,15 @@ namespace Land_Readjustment_Tool.Forms
 
             using (lookupForm)
             {
+                lookupForm.PreselectOwners(BuildCurrentPrimaryOwner(), _currentRecord.JointCoOwners);
                 if (lookupForm.ShowDialog() == DialogResult.OK && lookupForm.SelectedOwner != null)
                 {
                     LoadOwnerToForm(lookupForm.SelectedOwner);
+                    _currentRecord.JointCoOwners = lookupForm.SelectedCoOwners
+                        .Where(owner => owner.LandOwnerId != lookupForm.SelectedOwner.LandOwnerId)
+                        .Select(CreateCoOwnerFromOwner)
+                        .ToList();
+                    UpdateCoOwnersList();
                 }
             }
         }
@@ -202,6 +200,40 @@ namespace Land_Readjustment_Tool.Forms
             txtTemporaryAddress.Text = owner.TemporaryAddress ?? "";
             txtContactNo.Text = owner.ContactNumber ?? "";
             txtEmailID.Text = owner.EmailID ?? "";
+        }
+
+        private LandOwner BuildCurrentPrimaryOwner()
+        {
+            return new LandOwner
+            {
+                LandOwnersName = txtLandOwnersName.Text.Trim(),
+                FatherSpouse = txtFatherSpouse.Text.Trim(),
+                Gender = cmbGender.Text.Trim(),
+                CitizenshipNumber = txtCitizenshipNumber.Text.Trim(),
+                CitizenshipIssuedDistrict = txtIssueDistrict.Text.Trim(),
+                CitizenshipIssuedDate = txtIssueDate.Text.Trim(),
+                PermanentAddress = txtPermanentAddress.Text.Trim(),
+                TemporaryAddress = txtTemporaryAddress.Text.Trim(),
+                ContactNumber = txtContactNo.Text.Trim(),
+                EmailID = txtEmailID.Text.Trim()
+            };
+        }
+
+        private static CoOwnerRecord CreateCoOwnerFromOwner(LandOwner owner)
+        {
+            return new CoOwnerRecord
+            {
+                OwnerName = owner.LandOwnersName,
+                FatherSpouse = owner.FatherSpouse,
+                Gender = owner.Gender,
+                CitizenshipNumber = owner.CitizenshipNumber,
+                CitizenshipIssuedDistrict = owner.CitizenshipIssuedDistrict,
+                CitizenshipIssuedDate = owner.CitizenshipIssuedDate,
+                PermanentAddress = owner.PermanentAddress,
+                TemporaryAddress = owner.TemporaryAddress,
+                ContactNumber = owner.ContactNumber,
+                EmailID = owner.EmailID
+            };
         }
 
         private void InitializeMapSheetLookup()
@@ -249,6 +281,7 @@ namespace Land_Readjustment_Tool.Forms
 
             // Owner Information
             txtLandOwnersName.Clear();
+            lbCoOwners.Items.Clear();
             txtFatherSpouse.Clear();
             cmbGender.SelectedIndex = -1;
             txtCitizenshipNumber.Clear();
@@ -342,7 +375,7 @@ namespace Land_Readjustment_Tool.Forms
             // Remarks
             txtRemarks.Text = _currentRecord.Remarks ?? "";
 
-            UpdateOtherOwnersButton();
+            UpdateCoOwnersList();
         }
 
         private BaselineLandParcelRecord GetRecordFromForm()
@@ -664,23 +697,34 @@ namespace Land_Readjustment_Tool.Forms
 
         }
 
-        private void btnLoadOwnerDetails_Click_1(object sender, EventArgs e)
+        private void btnLoadOwnerDetails_Click_1(object? sender, EventArgs e)
         {
-
+            BtnLoadOwnerDetails_Click(sender, e);
         }
 
-        private void BtnOtherOwners_Click(object? sender, EventArgs e)
+        private void UpdateCoOwnersList()
         {
-            using var dlg = new frmCoOwnersList(_currentRecord.JointCoOwners, _currentRecord.ParcelNo ?? "");
-            dlg.ShowDialog(this);
-            UpdateOtherOwnersButton();
-        }
+            lbCoOwners.BeginUpdate();
+            try
+            {
+                lbCoOwners.Items.Clear();
+                foreach (var coOwner in _currentRecord.JointCoOwners)
+                {
+                    lbCoOwners.Items.Add(string.IsNullOrWhiteSpace(coOwner.OwnerName)
+                        ? "(Unknown)"
+                        : coOwner.OwnerName);
+                }
+            }
+            finally
+            {
+                lbCoOwners.EndUpdate();
+            }
 
-        private void UpdateOtherOwnersButton()
-        {
-            if (_btnOtherOwners == null) return;
-            int count = _currentRecord.JointCoOwners.Count;
-            _btnOtherOwners.Text = $"Others ({count})";
+            if (_currentRecord.JointCoOwners.Count > 0 &&
+                !cbOwnershipType.Text.Contains("Joint", StringComparison.OrdinalIgnoreCase))
+            {
+                SetComboValue(cbOwnershipType, "Private (Joint)");
+            }
         }
     }
 }

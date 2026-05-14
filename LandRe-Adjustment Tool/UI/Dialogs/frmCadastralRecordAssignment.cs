@@ -1,6 +1,8 @@
 using Land_Readjustment_Tool.Core.Interfaces;
 using Land_Readjustment_Tool.Core.Models.Import;
 using Land_Readjustment_Tool.Services.Assignment;
+using System.Drawing;
+using System.Text.Json;
 
 namespace Land_Readjustment_Tool.UI.Dialogs
 {
@@ -18,6 +20,7 @@ namespace Land_Readjustment_Tool.UI.Dialogs
         private List<CadastralAssignmentCandidate> _candidates = [];
         private List<CadastralParcelRecordChoice> _parcelChoices = [];
         private bool _suppressCanvasPreviewEvent;
+        private bool _suppressAttributeMappingEvents;
 
         public event Action<Guid?, bool>? SelectedCanvasObjectChanged;
         public event Action? AssignmentCommitted;
@@ -41,10 +44,21 @@ namespace Land_Readjustment_Tool.UI.Dialogs
                 if (dgvLayerMapSheets.IsCurrentCellDirty)
                     dgvLayerMapSheets.CommitEdit(DataGridViewDataErrorContexts.Commit);
             };
+            dgvAttributeMapSheetMappings.CurrentCellDirtyStateChanged += (_, _) =>
+            {
+                if (dgvAttributeMapSheetMappings.IsCurrentCellDirty)
+                    dgvAttributeMapSheetMappings.CommitEdit(DataGridViewDataErrorContexts.Commit);
+            };
+            cboSourceMapSheetField.SelectedIndexChanged += (_, _) =>
+            {
+                if (!_suppressAttributeMappingEvents)
+                    PopulateAttributeMapSheetMappingGrid();
+            };
             btnPrevious.Click += (_, _) => MoveSelection(-1);
             btnNext.Click += (_, _) => MoveSelection(1);
             btnAssign.Click += btnAssign_Click;
             btnAutoAssign.Click += btnAutoAssign_Click;
+            btnClearAssignments.Click += btnClearAssignments_Click;
             FormClosed += (_, _) => SelectedCanvasObjectChanged?.Invoke(null, false);
         }
 
@@ -53,6 +67,7 @@ namespace Land_Readjustment_Tool.UI.Dialogs
             ConfigureObjectFilter();
             await LoadReferenceDataAsync();
             ConfigureLayerMappingGrid();
+            ConfigureAttributeMappingGrid();
             await LoadCandidatesAsync();
         }
 
@@ -107,6 +122,7 @@ namespace Land_Readjustment_Tool.UI.Dialogs
                 mapSheetColumn.Items.Add(item.ToString() ?? string.Empty);
 
             dgvLayerMapSheets.Columns.Add(mapSheetColumn);
+            ApplyQuietGridStyle(dgvLayerMapSheets, enabled: true);
         }
 
         private async Task LoadCandidatesAsync(Guid? preferredSelection = null)
@@ -124,6 +140,9 @@ namespace Land_Readjustment_Tool.UI.Dialogs
                 ? "Attribute mapping"
                 : "Source to target MapSheet";
 
+            dgvLayerMapSheets.Visible = !useAttributeMapping;
+            attributeMappingLayout.Visible = useAttributeMapping;
+
             Dictionary<string, string?> existingSelections = new(StringComparer.OrdinalIgnoreCase);
             foreach (DataGridViewRow row in dgvLayerMapSheets.Rows)
             {
@@ -137,35 +156,9 @@ namespace Land_Readjustment_Tool.UI.Dialogs
             dgvLayerMapSheets.Rows.Clear();
             if (useAttributeMapping)
             {
-                dgvLayerMapSheets.Columns.Clear();
-                dgvLayerMapSheets.Columns.Add(new DataGridViewTextBoxColumn
-                {
-                    Name = "Source",
-                    HeaderText = "Source",
-                    ReadOnly = true,
-                    Width = 110
-                });
-                dgvLayerMapSheets.Columns.Add(new DataGridViewTextBoxColumn
-                {
-                    Name = "Mapping",
-                    HeaderText = "Detected mapping",
-                    ReadOnly = true,
-                    AutoSizeMode = DataGridViewAutoSizeColumnMode.Fill
-                });
-
-                foreach (var group in _allCandidates
-                    .GroupBy(candidate => candidate.SourceFormat ?? "Source", StringComparer.OrdinalIgnoreCase)
-                    .OrderBy(group => group.Key))
-                {
-                    int withKeys = group.Count(candidate =>
-                        !string.IsNullOrWhiteSpace(candidate.MapSheetNo) &&
-                        !string.IsNullOrWhiteSpace(candidate.ParcelNo));
-                    dgvLayerMapSheets.Rows.Add(
-                        group.Key,
-                        $"{withKeys} of {group.Count()} objects have MapSheetNo + ParcelNo from saved source attributes");
-                }
-
-                dgvLayerMapSheets.Enabled = false;
+                PopulateAttributeFieldSelectors();
+                PopulateAttributeMapSheetMappingGrid();
+                ApplyAttributeMappingGridState(GetAttributeFieldNames().Count > 0);
                 return;
             }
 
@@ -189,6 +182,8 @@ namespace Land_Readjustment_Tool.UI.Dialogs
             }
 
             dgvLayerMapSheets.Enabled = cboMapSheet.Items.Count > 0 && dgvLayerMapSheets.Rows.Count > 0;
+            dgvLayerMapSheets.ClearSelection();
+            dgvLayerMapSheets.CurrentCell = null;
         }
 
         private string ResolveDefaultMapSheet(LayerMappingRow layer)
@@ -230,8 +225,14 @@ namespace Land_Readjustment_Tool.UI.Dialogs
             btnAutoAssign.Enabled = _allCandidates.Count > 0 && cboMapSheet.Items.Count > 0;
             if (UsesAttributeBasedMapping())
             {
+                btnAutoAssign.Text = "Remap / Auto Assign";
+                lblStatus.Text += GetAttributeFieldNames().Count == 0
+                    ? " No saved attribute table was found for these imported objects."
+                    : " Choose saved source fields below to remap from the imported attribute table.";
+            }
+            else
+            {
                 btnAutoAssign.Text = "Auto Assign";
-                lblStatus.Text += " Attribute-based sources use saved MapSheetNo and ParcelNo values.";
             }
 
             if (preferredSelection.HasValue && SelectCandidate(preferredSelection.Value))
@@ -373,9 +374,7 @@ namespace Land_Readjustment_Tool.UI.Dialogs
         private async void btnAutoAssign_Click(object? sender, EventArgs e)
         {
             bool useAttributeMapping = UsesAttributeBasedMapping();
-            IReadOnlyList<CadastralLayerMapSheetMapping> mappings = useAttributeMapping
-                ? []
-                : GetLayerMappings();
+            IReadOnlyList<CadastralLayerMapSheetMapping> mappings = useAttributeMapping ? [] : GetLayerMappings();
             if (!useAttributeMapping && mappings.Count == 0)
             {
                 MessageBox.Show(
@@ -390,14 +389,29 @@ namespace Land_Readjustment_Tool.UI.Dialogs
             try
             {
                 SetBusy(true, useAttributeMapping
-                    ? "Auto assigning from saved source attribute values..."
+                    ? "Remapping from saved source attributes..."
                     : "Auto assigning from layer map and parcel text locations...");
 
-                CadastralAssignmentResult result =
-                    await _assignmentService.AutoAssignAsync(
+                CadastralAssignmentResult result = useAttributeMapping
+                    ? await _assignmentService.AutoAssignFromAttributesAsync(
+                        _session,
+                        chkReplaceExisting.Checked,
+                        GetAttributeFieldMapping())
+                    : await _assignmentService.AutoAssignAsync(
                         _session,
                         chkReplaceExisting.Checked,
                         mappings);
+                if (!result.Success)
+                {
+                    MessageBox.Show(
+                        this,
+                        result.ErrorMessage ?? "Cadastral assignment failed.",
+                        "Assign Cadastral Records",
+                        MessageBoxButtons.OK,
+                        MessageBoxIcon.Information);
+                    lblStatus.Text = result.ErrorMessage ?? "Assignment failed.";
+                    return;
+                }
 
                 AssignmentChanged = result.AssignedCount > 0;
                 if (result.AssignedCount > 0)
@@ -416,6 +430,45 @@ namespace Land_Readjustment_Tool.UI.Dialogs
                     MessageBoxButtons.OK,
                     MessageBoxIcon.Error);
                 lblStatus.Text = "Assignment failed.";
+            }
+            finally
+            {
+                SetBusy(false);
+            }
+        }
+
+        private async void btnClearAssignments_Click(object? sender, EventArgs e)
+        {
+            DialogResult confirm = MessageBox.Show(
+                this,
+                "Remove all record-to-map assignments from imported cadastral parcel objects? Imported source attributes and geometry will be kept.",
+                "Assign Cadastral Records",
+                MessageBoxButtons.OKCancel,
+                MessageBoxIcon.Warning,
+                MessageBoxDefaultButton.Button2);
+            if (confirm != DialogResult.OK)
+                return;
+
+            try
+            {
+                SetBusy(true, "Removing parcel assignments...");
+                int cleared = await _assignmentService.ClearAssignmentsAsync(_session);
+                AssignmentChanged = cleared > 0;
+                if (cleared > 0)
+                    AssignmentCommitted?.Invoke();
+
+                lblStatus.Text = $"Removed {cleared:N0} assignment(s).";
+                await LoadCandidatesAsync(GetSelectedCandidate()?.CanvasObjectId);
+            }
+            catch (Exception ex)
+            {
+                MessageBox.Show(
+                    this,
+                    $"Could not remove assignments: {ex.Message}",
+                    "Assign Cadastral Records",
+                    MessageBoxButtons.OK,
+                    MessageBoxIcon.Error);
+                lblStatus.Text = "Remove assignments failed.";
             }
             finally
             {
@@ -444,6 +497,173 @@ namespace Land_Readjustment_Tool.UI.Dialogs
             return mappings;
         }
 
+        private void ConfigureAttributeMappingGrid()
+        {
+            dgvAttributeMapSheetMappings.Columns.Clear();
+            dgvAttributeMapSheetMappings.EnableHeadersVisualStyles = false;
+            dgvAttributeMapSheetMappings.Columns.Add(new DataGridViewTextBoxColumn
+            {
+                Name = "SourceMapSheet",
+                HeaderText = "Source map-sheet value",
+                ReadOnly = true,
+                AutoSizeMode = DataGridViewAutoSizeColumnMode.Fill
+            });
+
+            DataGridViewComboBoxColumn targetMapSheetColumn = new()
+            {
+                Name = "TargetMapSheet",
+                HeaderText = "Target MapSheetNo",
+                Width = 210,
+                FlatStyle = FlatStyle.Flat
+            };
+            dgvAttributeMapSheetMappings.Columns.Add(targetMapSheetColumn);
+            ApplyQuietGridStyle(dgvAttributeMapSheetMappings, enabled: true);
+        }
+
+        private void PopulateAttributeFieldSelectors()
+        {
+            List<string> fields = GetAttributeFieldNames();
+            string? previousMapSheet = GetSelectedComboText(cboSourceMapSheetField);
+            string? previousParcel = GetSelectedComboText(cboSourceParcelField);
+
+            _suppressAttributeMappingEvents = true;
+            try
+            {
+                cboSourceMapSheetField.Items.Clear();
+                cboSourceParcelField.Items.Clear();
+                cboSourceMapSheetField.Items.Add(string.Empty);
+                cboSourceParcelField.Items.Add(string.Empty);
+                foreach (string field in fields)
+                {
+                    cboSourceMapSheetField.Items.Add(field);
+                    cboSourceParcelField.Items.Add(field);
+                }
+
+                SelectComboValue(
+                    cboSourceMapSheetField,
+                    previousMapSheet ?? FindBestAttributeField(
+                        fields,
+                        ["mapsheet", "map_sheet", "map sheet", "mapsheetno", "map_sheet_no", "sheet", "sheetno", "sheet_no"]));
+                SelectComboValue(
+                    cboSourceParcelField,
+                    previousParcel ?? FindBestAttributeField(
+                        fields,
+                        ["parcel", "parcelno", "parcel_no", "parcel number", "parcelnumber", "kitta", "kitta_no", "kittano", "plot", "plotno", "plot_no"]));
+            }
+            finally
+            {
+                _suppressAttributeMappingEvents = false;
+            }
+        }
+
+        private void PopulateAttributeMapSheetMappingGrid()
+        {
+            Dictionary<string, string?> existingSelections = new(StringComparer.OrdinalIgnoreCase);
+            foreach (DataGridViewRow row in dgvAttributeMapSheetMappings.Rows)
+            {
+                if (row.Tag is string sourceValue)
+                    existingSelections[sourceValue] = Convert.ToString(row.Cells["TargetMapSheet"].Value)?.Trim();
+            }
+
+            dgvAttributeMapSheetMappings.Rows.Clear();
+            DataGridViewComboBoxColumn? targetMapSheetColumn =
+                dgvAttributeMapSheetMappings.Columns["TargetMapSheet"] as DataGridViewComboBoxColumn;
+            if (targetMapSheetColumn != null)
+            {
+                targetMapSheetColumn.Items.Clear();
+                targetMapSheetColumn.Items.Add(string.Empty);
+                foreach (object item in cboMapSheet.Items)
+                    targetMapSheetColumn.Items.Add(item.ToString() ?? string.Empty);
+            }
+
+            string? mapSheetField = GetSelectedComboText(cboSourceMapSheetField);
+            foreach (string sourceValue in GetAttributeUniqueValues(mapSheetField))
+            {
+                string target = existingSelections.TryGetValue(sourceValue, out string? selected)
+                    ? selected ?? string.Empty
+                    : ResolveLikelyMapSheet(sourceValue);
+                int rowIndex = dgvAttributeMapSheetMappings.Rows.Add(sourceValue, target);
+                dgvAttributeMapSheetMappings.Rows[rowIndex].Tag = sourceValue;
+            }
+
+            dgvAttributeMapSheetMappings.ClearSelection();
+            dgvAttributeMapSheetMappings.CurrentCell = null;
+        }
+
+        private CadastralAttributeFieldMapping GetAttributeFieldMapping()
+        {
+            return new CadastralAttributeFieldMapping(
+                GetSelectedComboText(cboSourceMapSheetField),
+                GetSelectedComboText(cboSourceParcelField),
+                GetAttributeMapSheetValueMappings());
+        }
+
+        private Dictionary<string, string> GetAttributeMapSheetValueMappings()
+        {
+            Dictionary<string, string> mappings = new(StringComparer.OrdinalIgnoreCase);
+            foreach (DataGridViewRow row in dgvAttributeMapSheetMappings.Rows)
+            {
+                string? sourceValue = row.Tag as string;
+                string? targetMapSheet = Convert.ToString(row.Cells["TargetMapSheet"].Value)?.Trim();
+                if (string.IsNullOrWhiteSpace(sourceValue) ||
+                    string.IsNullOrWhiteSpace(targetMapSheet))
+                {
+                    continue;
+                }
+
+                mappings[sourceValue] = targetMapSheet;
+                string normalized = NormalizeMapSheetValue(sourceValue);
+                if (!mappings.ContainsKey(normalized))
+                    mappings[normalized] = targetMapSheet;
+            }
+
+            return mappings;
+        }
+
+        private List<string> GetAttributeFieldNames()
+        {
+            return _allCandidates
+                .Where(IsAttributeMappedSource)
+                .SelectMany(candidate => ReadAttributeDictionary(candidate.AttributesJson).Keys)
+                .Where(field => !string.IsNullOrWhiteSpace(field))
+                .Distinct(StringComparer.OrdinalIgnoreCase)
+                .OrderBy(field => field, StringComparer.OrdinalIgnoreCase)
+                .ToList();
+        }
+
+        private List<string> GetAttributeUniqueValues(string? fieldName)
+        {
+            if (string.IsNullOrWhiteSpace(fieldName))
+                return [];
+
+            return _allCandidates
+                .Where(IsAttributeMappedSource)
+                .Select(candidate => ReadAttributeDictionary(candidate.AttributesJson))
+                .Select(attributes => attributes.TryGetValue(fieldName, out string? value) ? value?.Trim() : null)
+                .Where(value => !string.IsNullOrWhiteSpace(value))
+                .Select(value => value!)
+                .Distinct(StringComparer.OrdinalIgnoreCase)
+                .OrderBy(value => value, StringComparer.OrdinalIgnoreCase)
+                .ToList();
+        }
+
+        private string ResolveLikelyMapSheet(string sourceValue)
+        {
+            foreach (object item in cboMapSheet.Items)
+            {
+                string mapSheet = item.ToString() ?? string.Empty;
+                if (string.Equals(
+                        NormalizeMapSheetValue(sourceValue),
+                        NormalizeMapSheetValue(mapSheet),
+                        StringComparison.OrdinalIgnoreCase))
+                {
+                    return mapSheet;
+                }
+            }
+
+            return string.Empty;
+        }
+
         private CadastralAssignmentCandidate? GetSelectedCandidate()
         {
             return lstObjects.SelectedItem is CandidateItem item
@@ -466,8 +686,11 @@ namespace Land_Readjustment_Tool.UI.Dialogs
             return false;
         }
 
-        private static void SelectComboValue(ComboBox comboBox, string value)
+        private static void SelectComboValue(ComboBox comboBox, string? value)
         {
+            if (string.IsNullOrWhiteSpace(value))
+                return;
+
             for (int index = 0; index < comboBox.Items.Count; index++)
             {
                 if (string.Equals(comboBox.Items[index]?.ToString(), value, StringComparison.OrdinalIgnoreCase))
@@ -492,16 +715,38 @@ namespace Land_Readjustment_Tool.UI.Dialogs
             btnClose.Enabled = !busy;
             btnPrevious.Enabled = !busy;
             btnNext.Enabled = !busy;
+            btnClearAssignments.Enabled = !busy && _allCandidates.Count > 0;
             cboObjectFilter.Enabled = !busy;
             dgvLayerMapSheets.Enabled = !busy &&
                                         !UsesAttributeBasedMapping() &&
                                         dgvLayerMapSheets.Rows.Count > 0 &&
                                         cboMapSheet.Items.Count > 0;
+            ApplyAttributeMappingGridState(!busy && UsesAttributeBasedMapping() && GetAttributeFieldNames().Count > 0);
             cboMapSheet.Enabled = !busy;
             cboParcel.Enabled = !busy;
             chkReplaceExisting.Enabled = !busy;
             if (!string.IsNullOrWhiteSpace(status))
                 lblStatus.Text = status;
+        }
+
+        private void ApplyAttributeMappingGridState(bool enabled)
+        {
+            attributeMappingLayout.Enabled = enabled;
+            cboSourceMapSheetField.Enabled = enabled;
+            cboSourceParcelField.Enabled = enabled;
+            dgvAttributeMapSheetMappings.Enabled = enabled;
+            dgvAttributeMapSheetMappings.ReadOnly = !enabled;
+            dgvAttributeMapSheetMappings.TabStop = enabled;
+            ApplyQuietGridStyle(dgvAttributeMapSheetMappings, enabled);
+
+            foreach (DataGridViewColumn column in dgvAttributeMapSheetMappings.Columns)
+                column.ReadOnly = !enabled || column.Name == "SourceMapSheet";
+
+            if (!enabled)
+            {
+                dgvAttributeMapSheetMappings.ClearSelection();
+                dgvAttributeMapSheetMappings.CurrentCell = null;
+            }
         }
 
         private static string BuildLayerMappingKey(string layerName, string? sourceLayer)
@@ -520,6 +765,90 @@ namespace Land_Readjustment_Tool.UI.Dialogs
             return string.Equals(candidate.SourceFormat, "SHP", StringComparison.OrdinalIgnoreCase) ||
                    string.Equals(candidate.SourceFormat, "KML", StringComparison.OrdinalIgnoreCase) ||
                    string.Equals(candidate.SourceFormat, "KMZ", StringComparison.OrdinalIgnoreCase);
+        }
+
+        private static Dictionary<string, string?> ReadAttributeDictionary(string? json)
+        {
+            if (string.IsNullOrWhiteSpace(json))
+                return new Dictionary<string, string?>(StringComparer.OrdinalIgnoreCase);
+
+            try
+            {
+                Dictionary<string, string?>? attributes =
+                    JsonSerializer.Deserialize<Dictionary<string, string?>>(json);
+                return attributes == null
+                    ? new Dictionary<string, string?>(StringComparer.OrdinalIgnoreCase)
+                    : new Dictionary<string, string?>(attributes, StringComparer.OrdinalIgnoreCase);
+            }
+            catch
+            {
+                return new Dictionary<string, string?>(StringComparer.OrdinalIgnoreCase);
+            }
+        }
+
+        private static string? GetSelectedComboText(ComboBox comboBox)
+        {
+            string? value = Convert.ToString(comboBox.SelectedItem)?.Trim();
+            return string.IsNullOrWhiteSpace(value) ? null : value;
+        }
+
+        private static string? FindBestAttributeField(
+            IEnumerable<string> fields,
+            IReadOnlyList<string> names)
+        {
+            foreach (string name in names)
+            {
+                string? exact = fields.FirstOrDefault(field =>
+                    string.Equals(NormalizeMapSheetValue(field), NormalizeMapSheetValue(name), StringComparison.OrdinalIgnoreCase));
+                if (!string.IsNullOrWhiteSpace(exact))
+                    return exact;
+            }
+
+            foreach (string name in names)
+            {
+                string normalizedName = NormalizeMapSheetValue(name);
+                string? contains = fields.FirstOrDefault(field =>
+                    NormalizeMapSheetValue(field).Contains(normalizedName, StringComparison.OrdinalIgnoreCase));
+                if (!string.IsNullOrWhiteSpace(contains))
+                    return contains;
+            }
+
+            return null;
+        }
+
+        private static string NormalizeMapSheetValue(string? value)
+        {
+            return string.IsNullOrWhiteSpace(value)
+                ? string.Empty
+                : new string(value
+                    .Where(ch => !char.IsWhiteSpace(ch))
+                    .Select(char.ToUpperInvariant)
+                    .ToArray());
+        }
+
+        private static void ApplyQuietGridStyle(DataGridView grid, bool enabled)
+        {
+            Color backColor = enabled ? SystemColors.Window : SystemColors.Control;
+            Color foreColor = enabled ? SystemColors.ControlText : SystemColors.GrayText;
+            Color headerBackColor = enabled ? Color.FromArgb(248, 250, 252) : SystemColors.Control;
+
+            grid.EnableHeadersVisualStyles = false;
+            grid.BackgroundColor = backColor;
+            grid.GridColor = Color.FromArgb(214, 219, 226);
+            grid.DefaultCellStyle.BackColor = backColor;
+            grid.DefaultCellStyle.ForeColor = foreColor;
+            grid.DefaultCellStyle.SelectionBackColor = backColor;
+            grid.DefaultCellStyle.SelectionForeColor = foreColor;
+            grid.AlternatingRowsDefaultCellStyle.BackColor = enabled
+                ? Color.FromArgb(252, 253, 255)
+                : backColor;
+            grid.AlternatingRowsDefaultCellStyle.ForeColor = foreColor;
+            grid.AlternatingRowsDefaultCellStyle.SelectionBackColor = grid.AlternatingRowsDefaultCellStyle.BackColor;
+            grid.AlternatingRowsDefaultCellStyle.SelectionForeColor = foreColor;
+            grid.ColumnHeadersDefaultCellStyle.BackColor = headerBackColor;
+            grid.ColumnHeadersDefaultCellStyle.ForeColor = foreColor;
+            grid.ColumnHeadersDefaultCellStyle.SelectionBackColor = headerBackColor;
+            grid.ColumnHeadersDefaultCellStyle.SelectionForeColor = foreColor;
         }
 
         private sealed record LayerMappingRow(

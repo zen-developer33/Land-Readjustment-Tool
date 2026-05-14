@@ -82,8 +82,10 @@ namespace Land_Readjustment_Tool.UI.CustomControls
         private bool _zoomWindowActive;
         private bool _isSelectingZoomWindow;
         private Point _lastPanPoint;
+        private Point _panStartPoint;
         private PointF _totalPanDelta;
         private PointD? _panStartWorld;
+        private PointD _panStartWorldOrigin;
         private Point _zoomWindowStart;
         private Point _zoomWindowCurrent;
         private PointD? _currentMouseWorld;
@@ -1065,6 +1067,8 @@ namespace Land_Readjustment_Tool.UI.CustomControls
                 _lastPanPoint = e.Location;
                 _totalPanDelta = PointF.Empty;
                 _panStartWorld = _engine.ScreenToWorld(e.Location);
+                _panStartPoint = e.Location;
+                _panStartWorldOrigin = _engine.ViewOriginWorld;
                 _currentMouseWorld = _panStartWorld;
                 _rasterDeferredRenderer.BeginPan(
                     canvasSurface.Size,
@@ -1119,13 +1123,13 @@ namespace Land_Readjustment_Tool.UI.CustomControls
                 // Freeze cursor world coordinates while panning to avoid jitter.
                 // During drag the cursor shows the world coordinate captured at pan start.
                 _currentMouseWorld = _panStartWorld;
-                int dx = e.X - _lastPanPoint.X;
-                int dy = e.Y - _lastPanPoint.Y;
-                _totalPanDelta = new PointF(
-                    _totalPanDelta.X + dx,
-                    _totalPanDelta.Y + dy);
-                _engine.PanByScreenDelta(dx, dy);
-                _lastPanPoint = e.Location;
+                int totalDx = e.X - _panStartPoint.X;
+                int totalDy = e.Y - _panStartPoint.Y;
+                _totalPanDelta = new PointF(totalDx, totalDy);
+                _engine.SetViewOriginFromPanStart(
+                    _panStartWorldOrigin,
+                    totalDx,
+                    totalDy);
                 RequestRender();
                 return;
             }
@@ -3795,7 +3799,6 @@ namespace Land_Readjustment_Tool.UI.CustomControls
 
             try
             {
-                _engine.SnapViewOriginToPixelGrid();
                 _renderer.RefreshVectorCache(canvasSurface.Size);
                 _renderer.BeginVectorPan(canvasSurface.Size);
             }
@@ -3819,7 +3822,6 @@ namespace Land_Readjustment_Tool.UI.CustomControls
 
             try
             {
-                _engine.SnapViewOriginToPixelGrid();
                 _renderer.RefreshVectorCache(canvasSurface.Size);
                 _renderer.BeginVectorZoom(canvasSurface.Size);
             }
@@ -3915,7 +3917,6 @@ namespace Land_Readjustment_Tool.UI.CustomControls
 
             try
             {
-                _engine.SnapViewOriginToPixelGrid();
                 _rasterDeferredRenderer.RenderNow(
                     canvasSurface.Size,
                     _rasterRenderLayers,
@@ -3961,7 +3962,6 @@ namespace Land_Readjustment_Tool.UI.CustomControls
 
             try
             {
-                _engine.SnapViewOriginToPixelGrid();
                 bool refreshed = await _renderer.RefreshVectorCacheAsync(
                     canvasSurface.Size,
                     cancellation.Token);
@@ -4033,7 +4033,6 @@ namespace Land_Readjustment_Tool.UI.CustomControls
 
             try
             {
-                _engine.SnapViewOriginToPixelGrid();
                 bool refreshed = await _rasterDeferredRenderer.RenderAsync(
                     canvasSurface.Size,
                     _rasterRenderLayers,

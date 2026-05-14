@@ -37,11 +37,21 @@ namespace Land_Readjustment_Tool.Services.Assignment
             bool replaceExistingAssignments,
             CancellationToken ct = default);
 
+        Task<CadastralAssignmentResult> AutoAssignFromAttributesAsync(
+            ProjectSession session,
+            bool replaceExistingAssignments,
+            CadastralAttributeFieldMapping attributeMapping,
+            CancellationToken ct = default);
+
         Task AssignManualAsync(
             ProjectSession session,
             Guid canvasObjectId,
             int baselineParcelId,
             bool replaceExistingAssignment,
+            CancellationToken ct = default);
+
+        Task<int> ClearAssignmentsAsync(
+            ProjectSession session,
             CancellationToken ct = default);
     }
 
@@ -115,6 +125,115 @@ namespace Land_Readjustment_Tool.Services.Assignment
             CancellationToken ct = default)
         {
             return await AutoAssignAsync(session, replaceExistingAssignments, [], ct);
+        }
+
+        public async Task<CadastralAssignmentResult> AutoAssignFromAttributesAsync(
+            ProjectSession session,
+            bool replaceExistingAssignments,
+            CadastralAttributeFieldMapping attributeMapping,
+            CancellationToken ct = default)
+        {
+            if (string.IsNullOrWhiteSpace(attributeMapping.ParcelField))
+            {
+                return new CadastralAssignmentResult(
+                    false,
+                    "Select the source parcel field before assigning from saved attributes.",
+                    0,
+                    0,
+                    0);
+            }
+
+            var context = session.GetDbContext();
+            List<BaselineParcel> records = await context.BaselineParcels
+                .Include(parcel => parcel.LandOwner)
+                .ToListAsync(ct);
+            Dictionary<string, BaselineParcel> lookup = BuildParcelLookup(records);
+            Dictionary<string, BaselineParcel?> uniqueParcelNumberLookup = BuildUniqueParcelNumberLookup(records);
+
+            List<CanvasObject> parcelObjects = await context.CanvasObjects
+                .Include(canvasObject => canvasObject.CanvasLayer)
+                .Where(canvasObject => canvasObject.GeometryMetadataJson != null &&
+                                       canvasObject.GeometryMetadataJson.Contains(CadastralCanvasMetadata.MetadataKind) &&
+                                       canvasObject.ObjectType == "Polygon")
+                .ToListAsync(ct);
+
+            int assigned = 0;
+            int missingKey = 0;
+            int noMatch = 0;
+
+            foreach (CanvasObject canvasObject in parcelObjects)
+            {
+                CadastralCanvasMetadata? metadata = ReadMetadata(canvasObject.GeometryMetadataJson);
+                if (metadata == null || !IsAttributeMappedSource(metadata.SourceFormat))
+                    continue;
+
+                if (!replaceExistingAssignments && canvasObject.BaselineParcelId.HasValue)
+                    continue;
+
+                IReadOnlyDictionary<string, string?> attributes = ReadAttributeDictionary(metadata.AttributesJson);
+                if (attributes.Count == 0)
+                {
+                    missingKey++;
+                    continue;
+                }
+
+                string? parcelNo = TryGetAttribute(attributes, attributeMapping.ParcelField);
+                string? sourceMapSheet = TryGetAttribute(attributes, attributeMapping.MapSheetField);
+                string? mapSheetNo = ResolveMappedMapSheet(sourceMapSheet, attributeMapping.MapSheetValueMappings)
+                                     ?? sourceMapSheet;
+                if (string.IsNullOrWhiteSpace(parcelNo))
+                {
+                    missingKey++;
+                    continue;
+                }
+
+                IReadOnlyList<string> parcelCandidates = [parcelNo];
+                bool foundParcel = !string.IsNullOrWhiteSpace(mapSheetNo)
+                    ? TryFindParcel(lookup, mapSheetNo, parcelCandidates, out BaselineParcel? parcel, out string matchedParcelNo)
+                    : TryFindUniqueParcelByParcelNumber(uniqueParcelNumberLookup, parcelCandidates, out parcel, out matchedParcelNo);
+                if (!foundParcel || parcel == null)
+                {
+                    if (string.IsNullOrWhiteSpace(mapSheetNo))
+                        missingKey++;
+                    else
+                        noMatch++;
+                    continue;
+                }
+
+                if (!replaceExistingAssignments &&
+                    parcel.CanvasObjectId.HasValue &&
+                    parcel.CanvasObjectId.Value != canvasObject.Id)
+                {
+                    noMatch++;
+                    continue;
+                }
+
+                if (replaceExistingAssignments)
+                {
+                    await ClearPreviousParcelLinkedToObjectAsync(context, canvasObject.Id, ct);
+                    await ClearPreviousObjectLinkedToParcelAsync(context, parcel, canvasObject.Id, ct);
+                }
+
+                canvasObject.BaselineParcelId = parcel.Id;
+                canvasObject.LabelText = parcel.ParcelNo;
+                parcel.CanvasObjectId = canvasObject.Id;
+                metadata.MapSheetNo = parcel.MapSheetNo;
+                metadata.ParcelNo = parcel.ParcelNo;
+                metadata.MatchedText = matchedParcelNo;
+                ApplyParcelMetadata(metadata, parcel, "AutoAssigned");
+                canvasObject.GeometryMetadataJson = JsonSerializer.Serialize(metadata);
+                canvasObject.LastModifiedDate = DateTime.Now;
+                parcel.LastModifiedDate = DateTime.Now;
+                assigned++;
+            }
+
+            await context.SaveChangesAsync(ct);
+            return new CadastralAssignmentResult(
+                true,
+                null,
+                assigned,
+                missingKey,
+                noMatch);
         }
 
         public async Task<CadastralAssignmentResult> AutoAssignAsync(
@@ -409,6 +528,76 @@ namespace Land_Readjustment_Tool.Services.Assignment
             await context.SaveChangesAsync(ct);
         }
 
+        public async Task<int> ClearAssignmentsAsync(
+            ProjectSession session,
+            CancellationToken ct = default)
+        {
+            var context = session.GetDbContext();
+            List<CanvasObject> parcelObjects = await context.CanvasObjects
+                .Where(canvasObject => canvasObject.GeometryMetadataJson != null &&
+                                       canvasObject.GeometryMetadataJson.Contains(CadastralCanvasMetadata.MetadataKind) &&
+                                       canvasObject.ObjectType == "Polygon")
+                .ToListAsync(ct);
+            if (parcelObjects.Count == 0)
+                return 0;
+
+            HashSet<Guid> objectIds = parcelObjects.Select(item => item.Id).ToHashSet();
+            HashSet<int> baselineParcelIds = parcelObjects
+                .Select(item => item.BaselineParcelId)
+                .Where(id => id.HasValue)
+                .Select(id => id!.Value)
+                .ToHashSet();
+
+            List<BaselineParcel> linkedParcels = await context.BaselineParcels
+                .Where(parcel =>
+                    (parcel.CanvasObjectId.HasValue && objectIds.Contains(parcel.CanvasObjectId.Value)) ||
+                    baselineParcelIds.Contains(parcel.Id))
+                .ToListAsync(ct);
+
+            int cleared = 0;
+            foreach (CanvasObject canvasObject in parcelObjects)
+            {
+                CadastralCanvasMetadata? metadata = ReadMetadata(canvasObject.GeometryMetadataJson);
+                bool hadAssignment = canvasObject.BaselineParcelId.HasValue ||
+                                     metadata?.BaselineParcelId != null ||
+                                     string.Equals(metadata?.AssignmentStatus, "AutoAssigned", StringComparison.OrdinalIgnoreCase) ||
+                                     string.Equals(metadata?.AssignmentStatus, "ManualAssigned", StringComparison.OrdinalIgnoreCase);
+                if (!hadAssignment)
+                    continue;
+
+                canvasObject.BaselineParcelId = null;
+                canvasObject.LabelText = metadata?.ParcelNo;
+                if (metadata != null)
+                {
+                    metadata.BaselineParcelId = null;
+                    metadata.FullUniqueParcelCode = null;
+                    metadata.RecordAreaSqm = null;
+                    metadata.OwnerName = null;
+                    metadata.LandUse = null;
+                    metadata.AssignmentStatus = "Unassigned";
+                    canvasObject.GeometryMetadataJson = JsonSerializer.Serialize(metadata);
+                }
+
+                canvasObject.LastModifiedDate = DateTime.Now;
+                cleared++;
+            }
+
+            foreach (BaselineParcel parcel in linkedParcels)
+            {
+                if (!parcel.CanvasObjectId.HasValue ||
+                    !objectIds.Contains(parcel.CanvasObjectId.Value))
+                {
+                    continue;
+                }
+
+                parcel.CanvasObjectId = null;
+                parcel.LastModifiedDate = DateTime.Now;
+            }
+
+            await context.SaveChangesAsync(ct);
+            return cleared;
+        }
+
         private static Dictionary<string, string> BuildLayerMapSheetLookup(
             IReadOnlyList<CadastralLayerMapSheetMapping> layerMappings)
         {
@@ -630,6 +819,69 @@ namespace Land_Readjustment_Tool.Services.Assignment
             {
                 return null;
             }
+        }
+
+        private static IReadOnlyDictionary<string, string?> ReadAttributeDictionary(string? json)
+        {
+            if (string.IsNullOrWhiteSpace(json))
+                return new Dictionary<string, string?>(StringComparer.OrdinalIgnoreCase);
+
+            try
+            {
+                Dictionary<string, string?>? attributes =
+                    JsonSerializer.Deserialize<Dictionary<string, string?>>(json, JsonOptions);
+                return attributes == null
+                    ? new Dictionary<string, string?>(StringComparer.OrdinalIgnoreCase)
+                    : new Dictionary<string, string?>(attributes, StringComparer.OrdinalIgnoreCase);
+            }
+            catch
+            {
+                return new Dictionary<string, string?>(StringComparer.OrdinalIgnoreCase);
+            }
+        }
+
+        private static string? TryGetAttribute(
+            IReadOnlyDictionary<string, string?> attributes,
+            string? fieldName)
+        {
+            if (string.IsNullOrWhiteSpace(fieldName))
+                return null;
+
+            return attributes.TryGetValue(fieldName, out string? value)
+                ? NormalizeAttributeText(value)
+                : null;
+        }
+
+        private static string? NormalizeAttributeText(string? value)
+        {
+            if (string.IsNullOrWhiteSpace(value))
+                return null;
+
+            string normalized = value.Trim();
+            return string.IsNullOrWhiteSpace(normalized) ? null : normalized;
+        }
+
+        private static string? ResolveMappedMapSheet(
+            string? sourceMapSheet,
+            IReadOnlyDictionary<string, string> mappings)
+        {
+            if (string.IsNullOrWhiteSpace(sourceMapSheet))
+                return null;
+
+            string normalized = NormalizeIdentifierForMatching(sourceMapSheet);
+            if (mappings.TryGetValue(normalized, out string? target))
+                return target;
+
+            return mappings.TryGetValue(sourceMapSheet.Trim(), out target)
+                ? target
+                : null;
+        }
+
+        private static bool IsAttributeMappedSource(string? sourceFormat)
+        {
+            return string.Equals(sourceFormat, "SHP", StringComparison.OrdinalIgnoreCase) ||
+                   string.Equals(sourceFormat, "KML", StringComparison.OrdinalIgnoreCase) ||
+                   string.Equals(sourceFormat, "KMZ", StringComparison.OrdinalIgnoreCase);
         }
 
         private static string BuildParcelCode(string? mapSheetNo, string? parcelNo)

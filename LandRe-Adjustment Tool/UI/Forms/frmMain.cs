@@ -2267,6 +2267,7 @@ namespace Land_Readjustment_Tool
             {
                 cboSelectedPropertyObject.Items.Clear();
                 cboSelectedPropertyObject.Enabled = selectedObjects.Count > 0;
+                UpdateSelectedPropertyCycleButtons();
                 if (selectedObjects.Count == 0)
                     return;
 
@@ -2282,6 +2283,7 @@ namespace Land_Readjustment_Tool
                 }
 
                 cboSelectedPropertyObject.SelectedIndex = 0;
+                UpdateSelectedPropertyCycleButtons();
             }
             finally
             {
@@ -2319,6 +2321,7 @@ namespace Land_Readjustment_Tool
 
             PopulatePropertyGridForSelectedComboItem();
             ZoomToSelectedPropertyComboItem();
+            UpdateSelectedPropertyCycleButtons();
         }
 
         private void cboSelectedPropertyObject_SelectionChangeCommitted(object? sender, EventArgs e)
@@ -2327,6 +2330,7 @@ namespace Land_Readjustment_Tool
                 return;
 
             ZoomToSelectedPropertyComboItem();
+            UpdateSelectedPropertyCycleButtons();
         }
 
         private void cboSelectedPropertyObject_DropDownClosed(object? sender, EventArgs e)
@@ -2335,6 +2339,70 @@ namespace Land_Readjustment_Tool
                 return;
 
             ZoomToSelectedPropertyComboItem();
+            UpdateSelectedPropertyCycleButtons();
+        }
+
+        private void btnPreviousSelectedPropertyObject_Click(object? sender, EventArgs e)
+        {
+            CycleSelectedPropertyObject(direction: -1);
+        }
+
+        private void btnNextSelectedPropertyObject_Click(object? sender, EventArgs e)
+        {
+            CycleSelectedPropertyObject(direction: 1);
+        }
+
+        private void CycleSelectedPropertyObject(int direction)
+        {
+            List<int> objectIndexes = GetSelectedPropertyObjectComboIndexes();
+            if (objectIndexes.Count == 0)
+                return;
+
+            int currentComboIndex = cboSelectedPropertyObject.SelectedIndex;
+            int currentObjectIndex = objectIndexes.IndexOf(currentComboIndex);
+            int nextObjectIndex;
+
+            if (currentObjectIndex < 0)
+            {
+                nextObjectIndex = direction < 0
+                    ? objectIndexes.Count - 1
+                    : 0;
+            }
+            else
+            {
+                nextObjectIndex = (currentObjectIndex + direction + objectIndexes.Count) % objectIndexes.Count;
+            }
+
+            int nextComboIndex = objectIndexes[nextObjectIndex];
+            if (cboSelectedPropertyObject.SelectedIndex == nextComboIndex)
+            {
+                PopulatePropertyGridForSelectedComboItem();
+                ZoomToSelectedPropertyComboItem();
+                return;
+            }
+
+            cboSelectedPropertyObject.SelectedIndex = nextComboIndex;
+        }
+
+        private List<int> GetSelectedPropertyObjectComboIndexes()
+        {
+            List<int> indexes = new();
+            for (int index = 0; index < cboSelectedPropertyObject.Items.Count; index++)
+            {
+                if (cboSelectedPropertyObject.Items[index] is SelectedPropertyObjectComboItem { IsAll: false })
+                {
+                    indexes.Add(index);
+                }
+            }
+
+            return indexes;
+        }
+
+        private void UpdateSelectedPropertyCycleButtons()
+        {
+            bool enabled = GetSelectedPropertyObjectComboIndexes().Count > 0;
+            btnPreviousSelectedPropertyObject.Enabled = enabled;
+            btnNextSelectedPropertyObject.Enabled = enabled;
         }
 
         private void ZoomToSelectedPropertyComboItem()
@@ -2532,12 +2600,9 @@ namespace Land_Readjustment_Tool
                 if (form.ShowDialog(this) != DialogResult.OK)
                     return;
 
-                bool canZoomToRecordSelection =
-                    form.ZoomToSelection &&
-                    form.SelectedCanvasObjectIds.Count <= MaxPropertySelectionDetails;
                 mapCanvasControlMain.SelectCanvasObjects(
                     form.SelectedCanvasObjectIds,
-                    canZoomToRecordSelection);
+                    form.ZoomToSelection && form.SelectedCanvasObjectIds.Count > 0);
                 SetCanvasCommandStatus(form.SelectedCanvasObjectIds.Count == 0
                     ? "Cleared record-based selection"
                     : $"Selected {form.SelectedCanvasObjectIds.Count:N0} object(s) from records");
@@ -2619,6 +2684,7 @@ namespace Land_Readjustment_Tool
             {
                 cboSelectedPropertyObject.Items.Clear();
                 cboSelectedPropertyObject.Enabled = false;
+                UpdateSelectedPropertyCycleButtons();
             }
             finally
             {

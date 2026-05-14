@@ -104,6 +104,11 @@ namespace Land_Readjustment_Tool.Core.Models.Import
         string? SourceLayer,
         string MapSheetNo);
 
+    public sealed record CadastralAttributeFieldMapping(
+        string? MapSheetField,
+        string? ParcelField,
+        IReadOnlyDictionary<string, string> MapSheetValueMappings);
+
     public sealed record CadastralAssignmentCandidate(
         Guid CanvasObjectId,
         string LayerName,

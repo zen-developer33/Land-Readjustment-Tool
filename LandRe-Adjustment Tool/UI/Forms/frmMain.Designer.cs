@@ -177,6 +177,8 @@ namespace Land_Readjustment_Tool
             btnSelectFromRecords = new Button();
             btnConfigureParcelProperties = new Button();
             cboSelectedPropertyObject = new ComboBox();
+            btnPreviousSelectedPropertyObject = new Button();
+            btnNextSelectedPropertyObject = new Button();
             dgvParcelObjProperty = new DataGridView();
             colParcelPropertyField = new DataGridViewTextBoxColumn();
             colParcelPropertyValue = new DataGridViewTextBoxColumn();
@@ -1452,6 +1454,8 @@ namespace Land_Readjustment_Tool
             grpParcelObjProp.Controls.Add(btnSelectFromRecords);
             grpParcelObjProp.Controls.Add(btnConfigureParcelProperties);
             grpParcelObjProp.Controls.Add(cboSelectedPropertyObject);
+            grpParcelObjProp.Controls.Add(btnPreviousSelectedPropertyObject);
+            grpParcelObjProp.Controls.Add(btnNextSelectedPropertyObject);
             grpParcelObjProp.Controls.Add(dgvParcelObjProperty);
             grpParcelObjProp.Dock = DockStyle.Fill;
             grpParcelObjProp.Font = new Font("Segoe UI", 9F, FontStyle.Bold, GraphicsUnit.Point, 0);
@@ -1498,12 +1502,38 @@ namespace Land_Readjustment_Tool
             cboSelectedPropertyObject.FormattingEnabled = true;
             cboSelectedPropertyObject.Location = new Point(8, 62);
             cboSelectedPropertyObject.Name = "cboSelectedPropertyObject";
-            cboSelectedPropertyObject.Size = new Size(300, 28);
+            cboSelectedPropertyObject.Size = new Size(216, 28);
             cboSelectedPropertyObject.TabIndex = 3;
-            cboSelectedPropertyObject.DropDownClosed += cboSelectedPropertyObject_DropDownClosed;
-            cboSelectedPropertyObject.SelectionChangeCommitted += cboSelectedPropertyObject_SelectionChangeCommitted;
             cboSelectedPropertyObject.SelectedIndexChanged += cboSelectedPropertyObject_SelectedIndexChanged;
-            //
+            cboSelectedPropertyObject.SelectionChangeCommitted += cboSelectedPropertyObject_SelectionChangeCommitted;
+            cboSelectedPropertyObject.DropDownClosed += cboSelectedPropertyObject_DropDownClosed;
+            // 
+            // btnPreviousSelectedPropertyObject
+            // 
+            btnPreviousSelectedPropertyObject.Anchor = AnchorStyles.Top | AnchorStyles.Right;
+            btnPreviousSelectedPropertyObject.Enabled = false;
+            btnPreviousSelectedPropertyObject.Font = new Font("Segoe UI", 9F, FontStyle.Regular, GraphicsUnit.Point, 0);
+            btnPreviousSelectedPropertyObject.Location = new Point(230, 62);
+            btnPreviousSelectedPropertyObject.Name = "btnPreviousSelectedPropertyObject";
+            btnPreviousSelectedPropertyObject.Size = new Size(36, 28);
+            btnPreviousSelectedPropertyObject.TabIndex = 4;
+            btnPreviousSelectedPropertyObject.Text = "<";
+            btnPreviousSelectedPropertyObject.UseVisualStyleBackColor = true;
+            btnPreviousSelectedPropertyObject.Click += btnPreviousSelectedPropertyObject_Click;
+            // 
+            // btnNextSelectedPropertyObject
+            // 
+            btnNextSelectedPropertyObject.Anchor = AnchorStyles.Top | AnchorStyles.Right;
+            btnNextSelectedPropertyObject.Enabled = false;
+            btnNextSelectedPropertyObject.Font = new Font("Segoe UI", 9F, FontStyle.Regular, GraphicsUnit.Point, 0);
+            btnNextSelectedPropertyObject.Location = new Point(270, 62);
+            btnNextSelectedPropertyObject.Name = "btnNextSelectedPropertyObject";
+            btnNextSelectedPropertyObject.Size = new Size(36, 28);
+            btnNextSelectedPropertyObject.TabIndex = 5;
+            btnNextSelectedPropertyObject.Text = ">";
+            btnNextSelectedPropertyObject.UseVisualStyleBackColor = true;
+            btnNextSelectedPropertyObject.Click += btnNextSelectedPropertyObject_Click;
+            // 
             // dgvParcelObjProperty
             // 
             dgvParcelObjProperty.AllowUserToAddRows = false;
@@ -2032,6 +2062,8 @@ namespace Land_Readjustment_Tool
         private GroupBox grpParcelObjProp;
         private Button btnSelectFromRecords;
         private ComboBox cboSelectedPropertyObject;
+        private Button btnPreviousSelectedPropertyObject;
+        private Button btnNextSelectedPropertyObject;
         private DataGridView dgvParcelObjProperty;
         private DataGridViewTextBoxColumn colParcelPropertyField;
         private DataGridViewTextBoxColumn colParcelPropertyValue;

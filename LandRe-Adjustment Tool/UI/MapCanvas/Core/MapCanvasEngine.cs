@@ -264,6 +264,21 @@ namespace Land_Readjustment_Tool.UI.MapCanvas.Core
                 _viewOriginWorld.Y + screenDeltaY / _zoomScale);
         }
 
+        /// <summary>
+        /// Sets the view origin directly from a known pan-start world position
+        /// and a total screen-pixel delta. This avoids sub-pixel drift from
+        /// accumulating many incremental pan steps.
+        /// </summary>
+        public void SetViewOriginFromPanStart(
+            PointD panStartWorldOrigin,
+            double totalScreenDx,
+            double totalScreenDy)
+        {
+            _viewOriginWorld = new PointD(
+                panStartWorldOrigin.X - totalScreenDx / _zoomScale,
+                panStartWorldOrigin.Y + totalScreenDy / _zoomScale);
+        }
+
         public string GetZoomLabel()
         {
             return $"Zoom: {_zoomScale * 100.0:F1}%";

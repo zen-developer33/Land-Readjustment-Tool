@@ -19,6 +19,10 @@ namespace Land_Readjustment_Tool.UI.Forms
         private Panel searchPanel;
         private Label lblSearch;
         private TextBox txtSearch;
+        private Label lblMapSheetFilter;
+        private ComboBox cboMapSheetFilter;
+        private Label lblPlotNumberSearch;
+        private TextBox txtPlotNumberSearch;
         private Button btnClearSearch;
         private FlowLayoutPanel selectionToolsPanel;
         private Button btnSelectAll;
@@ -64,6 +68,10 @@ namespace Land_Readjustment_Tool.UI.Forms
             searchPanel = new Panel();
             lblSearch = new Label();
             txtSearch = new TextBox();
+            lblMapSheetFilter = new Label();
+            cboMapSheetFilter = new ComboBox();
+            lblPlotNumberSearch = new Label();
+            txtPlotNumberSearch = new TextBox();
             btnClearSearch = new Button();
             selectionToolsPanel = new FlowLayoutPanel();
             btnSelectAll = new Button();
@@ -184,7 +192,7 @@ namespace Land_Readjustment_Tool.UI.Forms
             originalLayout.Location = new Point(10, 10);
             originalLayout.Name = "originalLayout";
             originalLayout.RowCount = 3;
-            originalLayout.RowStyles.Add(new RowStyle(SizeType.Absolute, 44F));
+            originalLayout.RowStyles.Add(new RowStyle(SizeType.Absolute, 86F));
             originalLayout.RowStyles.Add(new RowStyle(SizeType.Absolute, 44F));
             originalLayout.RowStyles.Add(new RowStyle(SizeType.Percent, 100F));
             originalLayout.Size = new Size(862, 419);
@@ -194,12 +202,16 @@ namespace Land_Readjustment_Tool.UI.Forms
             // 
             searchPanel.Controls.Add(lblSearch);
             searchPanel.Controls.Add(txtSearch);
+            searchPanel.Controls.Add(lblMapSheetFilter);
+            searchPanel.Controls.Add(cboMapSheetFilter);
+            searchPanel.Controls.Add(lblPlotNumberSearch);
+            searchPanel.Controls.Add(txtPlotNumberSearch);
             searchPanel.Controls.Add(btnClearSearch);
             searchPanel.Dock = DockStyle.Fill;
             searchPanel.Location = new Point(0, 0);
             searchPanel.Margin = new Padding(0);
             searchPanel.Name = "searchPanel";
-            searchPanel.Size = new Size(862, 44);
+            searchPanel.Size = new Size(862, 86);
             searchPanel.TabIndex = 0;
             // 
             // lblSearch
@@ -222,6 +234,46 @@ namespace Land_Readjustment_Tool.UI.Forms
             txtSearch.TabIndex = 1;
             txtSearch.TextChanged += txtSearch_TextChanged;
             // 
+            // lblMapSheetFilter
+            // 
+            lblMapSheetFilter.AutoSize = true;
+            lblMapSheetFilter.Font = new Font("Segoe UI", 9F, FontStyle.Bold);
+            lblMapSheetFilter.Location = new Point(0, 51);
+            lblMapSheetFilter.Name = "lblMapSheetFilter";
+            lblMapSheetFilter.Size = new Size(79, 20);
+            lblMapSheetFilter.TabIndex = 3;
+            lblMapSheetFilter.Text = "Map Sheet";
+            // 
+            // cboMapSheetFilter
+            // 
+            cboMapSheetFilter.DropDownStyle = ComboBoxStyle.DropDownList;
+            cboMapSheetFilter.FormattingEnabled = true;
+            cboMapSheetFilter.Location = new Point(92, 47);
+            cboMapSheetFilter.Name = "cboMapSheetFilter";
+            cboMapSheetFilter.Size = new Size(240, 28);
+            cboMapSheetFilter.TabIndex = 4;
+            cboMapSheetFilter.SelectedIndexChanged += cboMapSheetFilter_SelectedIndexChanged;
+            // 
+            // lblPlotNumberSearch
+            // 
+            lblPlotNumberSearch.AutoSize = true;
+            lblPlotNumberSearch.Font = new Font("Segoe UI", 9F, FontStyle.Bold);
+            lblPlotNumberSearch.Location = new Point(352, 51);
+            lblPlotNumberSearch.Name = "lblPlotNumberSearch";
+            lblPlotNumberSearch.Size = new Size(62, 20);
+            lblPlotNumberSearch.TabIndex = 5;
+            lblPlotNumberSearch.Text = "Plot No.";
+            // 
+            // txtPlotNumberSearch
+            // 
+            txtPlotNumberSearch.Location = new Point(424, 47);
+            txtPlotNumberSearch.Name = "txtPlotNumberSearch";
+            txtPlotNumberSearch.PlaceholderText = "Plot number";
+            txtPlotNumberSearch.Size = new Size(180, 27);
+            txtPlotNumberSearch.TabIndex = 6;
+            txtPlotNumberSearch.TextChanged += txtPlotNumberSearch_TextChanged;
+            txtPlotNumberSearch.KeyPress += txtPlotNumberSearch_KeyPress;
+            // 
             // btnClearSearch
             // 
             btnClearSearch.Anchor = AnchorStyles.Top | AnchorStyles.Right;
@@ -240,7 +292,7 @@ namespace Land_Readjustment_Tool.UI.Forms
             selectionToolsPanel.Controls.Add(btnDeselectVisible);
             selectionToolsPanel.Controls.Add(btnInvertSelection);
             selectionToolsPanel.Dock = DockStyle.Fill;
-            selectionToolsPanel.Location = new Point(0, 44);
+            selectionToolsPanel.Location = new Point(0, 86);
             selectionToolsPanel.Margin = new Padding(0);
             selectionToolsPanel.Name = "selectionToolsPanel";
             selectionToolsPanel.Padding = new Padding(0, 5, 0, 0);
@@ -322,7 +374,7 @@ namespace Land_Readjustment_Tool.UI.Forms
             dgvOriginalParcels.Dock = DockStyle.Fill;
             dgvOriginalParcels.EnableHeadersVisualStyles = false;
             dgvOriginalParcels.GridColor = Color.FromArgb(225, 229, 235);
-            dgvOriginalParcels.Location = new Point(0, 88);
+            dgvOriginalParcels.Location = new Point(0, 130);
             dgvOriginalParcels.Margin = new Padding(0);
             dgvOriginalParcels.MultiSelect = true;
             dgvOriginalParcels.Name = "dgvOriginalParcels";
@@ -330,7 +382,7 @@ namespace Land_Readjustment_Tool.UI.Forms
             dgvOriginalParcels.RowHeadersWidth = 51;
             dgvOriginalParcels.RowTemplate.Height = 30;
             dgvOriginalParcels.SelectionMode = DataGridViewSelectionMode.FullRowSelect;
-            dgvOriginalParcels.Size = new Size(862, 331);
+            dgvOriginalParcels.Size = new Size(862, 289);
             dgvOriginalParcels.TabIndex = 2;
             dgvOriginalParcels.CellContentClick += dgvOriginalParcels_CellContentClick;
             dgvOriginalParcels.CellValueChanged += dgvOriginalParcels_CellValueChanged;

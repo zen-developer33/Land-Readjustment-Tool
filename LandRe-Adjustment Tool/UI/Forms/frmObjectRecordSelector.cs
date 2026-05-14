@@ -8,6 +8,7 @@ namespace Land_Readjustment_Tool.UI.Forms
 {
     public partial class frmObjectRecordSelector : Form
     {
+        private const string AllMapSheetsFilterText = "All Map Sheets";
         private readonly List<ObjectRecordSelectorItem> _originalParcelRecords;
         private readonly HashSet<int> _checkedOriginalParcelIds = new();
         private bool _suppressGridEvents;
@@ -40,6 +41,7 @@ namespace Land_Readjustment_Tool.UI.Forms
             AddComingSoonContent(tabReplottedParcels, "Replotted parcel record selection will be added here.");
             AddComingSoonContent(tabBlocks, "Block record selection will be added here.");
             AddComingSoonContent(tabRoads, "Road record selection will be added here.");
+            PopulateMapSheetFilter();
             ApplyFilter();
         }
 
@@ -61,9 +63,35 @@ namespace Land_Readjustment_Tool.UI.Forms
             ApplyFilter();
         }
 
+        private void cboMapSheetFilter_SelectedIndexChanged(object? sender, EventArgs e)
+        {
+            ApplyFilter();
+        }
+
+        private void txtPlotNumberSearch_TextChanged(object? sender, EventArgs e)
+        {
+            ApplyFilter();
+        }
+
+        private void txtPlotNumberSearch_KeyPress(object? sender, KeyPressEventArgs e)
+        {
+            if (char.IsControl(e.KeyChar) || char.IsDigit(e.KeyChar))
+            {
+                return;
+            }
+
+            e.Handled = true;
+        }
+
         private void btnClearSearch_Click(object? sender, EventArgs e)
         {
             txtSearch.Clear();
+            txtPlotNumberSearch.Clear();
+            if (cboMapSheetFilter.Items.Count > 0)
+            {
+                cboMapSheetFilter.SelectedIndex = 0;
+            }
+
             txtSearch.Focus();
         }
 
@@ -152,18 +180,34 @@ namespace Land_Readjustment_Tool.UI.Forms
         private void ApplyFilter()
         {
             string searchText = txtSearch.Text.Trim();
-            List<ObjectRecordSelectorItem> filtered = string.IsNullOrWhiteSpace(searchText)
-                ? _originalParcelRecords
-                : _originalParcelRecords
-                    .Where(item => item.Matches(searchText))
-                    .ToList();
+            string mapSheetFilter = cboMapSheetFilter.SelectedItem?.ToString() ?? AllMapSheetsFilterText;
+            string plotNumberSearch = txtPlotNumberSearch.Text.Trim();
+
+            IEnumerable<ObjectRecordSelectorItem> filtered = _originalParcelRecords;
+            if (!string.IsNullOrWhiteSpace(searchText))
+            {
+                filtered = filtered.Where(item => item.Matches(searchText));
+            }
+
+            if (!string.Equals(mapSheetFilter, AllMapSheetsFilterText, StringComparison.OrdinalIgnoreCase))
+            {
+                filtered = filtered.Where(item =>
+                    string.Equals(item.MapSheetNo, mapSheetFilter, StringComparison.OrdinalIgnoreCase));
+            }
+
+            if (!string.IsNullOrWhiteSpace(plotNumberSearch))
+            {
+                filtered = filtered.Where(item => item.MatchesPlotNumber(plotNumberSearch));
+            }
+
+            List<ObjectRecordSelectorItem> filteredItems = filtered.ToList();
 
             _suppressGridEvents = true;
             dgvOriginalParcels.SuspendLayout();
             try
             {
                 dgvOriginalParcels.Rows.Clear();
-                foreach (ObjectRecordSelectorItem item in filtered)
+                foreach (ObjectRecordSelectorItem item in filteredItems)
                 {
                     int rowIndex = dgvOriginalParcels.Rows.Add(
                         item.CanSelect && _checkedOriginalParcelIds.Contains(item.RecordId),
@@ -194,6 +238,31 @@ namespace Land_Readjustment_Tool.UI.Forms
             }
 
             UpdateStatus();
+        }
+
+        private void PopulateMapSheetFilter()
+        {
+            cboMapSheetFilter.BeginUpdate();
+            try
+            {
+                cboMapSheetFilter.Items.Clear();
+                cboMapSheetFilter.Items.Add(AllMapSheetsFilterText);
+
+                foreach (string mapSheetNo in _originalParcelRecords
+                    .Select(item => item.MapSheetNo)
+                    .Where(value => !string.IsNullOrWhiteSpace(value))
+                    .Distinct(StringComparer.OrdinalIgnoreCase)
+                    .OrderBy(value => value, StringComparer.OrdinalIgnoreCase))
+                {
+                    cboMapSheetFilter.Items.Add(mapSheetNo);
+                }
+
+                cboMapSheetFilter.SelectedIndex = 0;
+            }
+            finally
+            {
+                cboMapSheetFilter.EndUpdate();
+            }
         }
 
         private IEnumerable<ObjectRecordSelectorItem> GetVisibleSelectableItems()
@@ -285,6 +354,11 @@ namespace Land_Readjustment_Tool.UI.Forms
                    Contains(OwnerName, searchText) ||
                    Contains(LayerName, searchText) ||
                    Contains(Status, searchText);
+        }
+
+        public bool MatchesPlotNumber(string plotNumber)
+        {
+            return Contains(ParcelNo, plotNumber);
         }
 
         private static bool Contains(string? value, string searchText)
