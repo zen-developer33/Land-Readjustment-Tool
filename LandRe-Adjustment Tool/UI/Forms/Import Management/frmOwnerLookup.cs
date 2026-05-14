@@ -1,6 +1,7 @@
 using Land_Readjustment_Tool.Data;
 using Land_Readjustment_Tool.Models;
 using System.ComponentModel;
+using System.Windows.Forms.VisualStyles;
 
 namespace Land_Readjustment_Tool.Forms
 {
@@ -12,6 +13,7 @@ namespace Land_Readjustment_Tool.Forms
         private List<LandOwner> _filteredOwners = [];
         private BindingList<OwnerLookupDisplayModel> _displayedOwners = [];
         private readonly HashSet<int> _selectedCoOwnerIds = new();
+        private int? _primaryOwnerId;
         private Image? _ownerPreviewImage;
 
         public LandOwner? SelectedOwner { get; private set; }
@@ -115,6 +117,7 @@ namespace Land_Readjustment_Tool.Forms
         public void PreselectOwners(LandOwner? primaryOwner, IEnumerable<CoOwnerRecord>? coOwners)
         {
             SelectedOwner = FindMatchingOwner(primaryOwner);
+            _primaryOwnerId = SelectedOwner?.LandOwnerId;
             _selectedCoOwnerIds.Clear();
 
             if (coOwners != null)
@@ -144,6 +147,7 @@ namespace Land_Readjustment_Tool.Forms
             var displayModels = owners.Select(o => new OwnerLookupDisplayModel
             {
                 IsCoOwner = _selectedCoOwnerIds.Contains(o.LandOwnerId),
+                IsPrimaryOwner = _primaryOwnerId == o.LandOwnerId,
                 LandOwnerId = o.LandOwnerId,
                 LandOwnersName = o.LandOwnersName ?? "",
                 FatherSpouse = o.FatherSpouse ?? "",
@@ -186,13 +190,42 @@ namespace Land_Readjustment_Tool.Forms
             UpdateLoadButtonState();
         }
 
+        private void DgvOwners_CellContentClick(object? sender, DataGridViewCellEventArgs e)
+        {
+            if (e.RowIndex < 0 || e.ColumnIndex < 0)
+            {
+                return;
+            }
+
+            string columnName = dgvOwners.Columns[e.ColumnIndex].Name;
+            if (columnName == "colIsPrimaryOwner" || columnName == "IsPrimaryOwner")
+            {
+                dgvOwners.CommitEdit(DataGridViewDataErrorContexts.Commit);
+                if (dgvOwners.Rows[e.RowIndex].DataBoundItem is OwnerLookupDisplayModel model)
+                {
+                    SetPrimaryOwner(model.LandOwnerId);
+                }
+            }
+            else if (columnName == "colIsCoOwner" || columnName == "IsCoOwner")
+            {
+                dgvOwners.CommitEdit(DataGridViewDataErrorContexts.Commit);
+            }
+        }
+
         private void DgvOwners_CellDoubleClick(object? sender, DataGridViewCellEventArgs e)
         {
-            var coOwnerColumn = dgvOwners.Columns["IsCoOwner"];
-            if (e.RowIndex >= 0 && coOwnerColumn != null && e.ColumnIndex != coOwnerColumn.Index)
+            if (e.RowIndex < 0 ||
+                dgvOwners.Rows[e.RowIndex].DataBoundItem is not OwnerLookupDisplayModel model)
             {
-                LoadSelectedOwner();
+                return;
             }
+
+            string columnName = dgvOwners.Columns[e.ColumnIndex].Name;
+            if (columnName == "colIsCoOwner" || columnName == "IsCoOwner")
+                return;
+
+            SetPrimaryOwner(model.LandOwnerId);
+            LoadSelectedOwner();
         }
 
         private void DgvOwners_CurrentCellDirtyStateChanged(object? sender, EventArgs e)
@@ -205,7 +238,7 @@ namespace Land_Readjustment_Tool.Forms
 
         private void DgvOwners_CellValueChanged(object? sender, DataGridViewCellEventArgs e)
         {
-            if (e.RowIndex < 0 || dgvOwners.Columns[e.ColumnIndex].Name != "IsCoOwner")
+            if (e.RowIndex < 0)
             {
                 return;
             }
@@ -215,8 +248,28 @@ namespace Land_Readjustment_Tool.Forms
                 return;
             }
 
-            var isChecked = Convert.ToBoolean(dgvOwners.Rows[e.RowIndex].Cells[e.ColumnIndex].Value);
-            if (isChecked)
+            string columnName = dgvOwners.Columns[e.ColumnIndex].Name;
+            if (columnName == "colIsPrimaryOwner" || columnName == "IsPrimaryOwner")
+            {
+                if (Convert.ToBoolean(dgvOwners.Rows[e.RowIndex].Cells[e.ColumnIndex].Value))
+                    SetPrimaryOwner(model.LandOwnerId);
+
+                return;
+            }
+
+            if (columnName != "colIsCoOwner" && columnName != "IsCoOwner")
+            {
+                return;
+            }
+
+            bool isChecked = Convert.ToBoolean(dgvOwners.Rows[e.RowIndex].Cells[e.ColumnIndex].Value);
+            if (model.LandOwnerId == _primaryOwnerId)
+            {
+                model.IsCoOwner = false;
+                dgvOwners.Rows[e.RowIndex].Cells[e.ColumnIndex].Value = false;
+                _selectedCoOwnerIds.Remove(model.LandOwnerId);
+            }
+            else if (isChecked)
             {
                 _selectedCoOwnerIds.Add(model.LandOwnerId);
             }
@@ -235,25 +288,21 @@ namespace Land_Readjustment_Tool.Forms
 
         private void LoadSelectedOwner()
         {
-            if (dgvOwners.SelectedRows.Count != 1) return;
+            if (!_primaryOwnerId.HasValue)
+                return;
 
-            if (dgvOwners.SelectedRows[0].DataBoundItem is OwnerLookupDisplayModel model)
-            {
-                SelectedOwner = _allOwners.FirstOrDefault(o => o.LandOwnerId == model.LandOwnerId);
-                if (SelectedOwner == null)
-                {
-                    return;
-                }
+            SelectedOwner = _allOwners.FirstOrDefault(o => o.LandOwnerId == _primaryOwnerId.Value);
+            if (SelectedOwner == null)
+                return;
 
-                _selectedCoOwnerIds.Remove(SelectedOwner.LandOwnerId);
-                SelectedCoOwners = _allOwners
-                    .Where(o => _selectedCoOwnerIds.Contains(o.LandOwnerId))
-                    .OrderBy(o => o.LandOwnersName)
-                    .ToList();
+            _selectedCoOwnerIds.Remove(SelectedOwner.LandOwnerId);
+            SelectedCoOwners = _allOwners
+                .Where(o => _selectedCoOwnerIds.Contains(o.LandOwnerId))
+                .OrderBy(o => o.LandOwnersName)
+                .ToList();
 
-                DialogResult = DialogResult.OK;
-                Close();
-            }
+            DialogResult = DialogResult.OK;
+            Close();
         }
 
         private void BtnCancel_Click(object? sender, EventArgs e)
@@ -314,6 +363,13 @@ namespace Land_Readjustment_Tool.Forms
         {
             if (SelectedOwner == null || dgvOwners.Rows.Count == 0)
             {
+                if (!_primaryOwnerId.HasValue && dgvOwners.Rows.Count > 0 &&
+                    dgvOwners.Rows[0].DataBoundItem is OwnerLookupDisplayModel firstModel)
+                {
+                    SetPrimaryOwner(firstModel.LandOwnerId);
+                    return;
+                }
+
                 UpdateSelectedOwnerPreview();
                 return;
             }
@@ -323,8 +379,11 @@ namespace Land_Readjustment_Tool.Forms
                 if (row.DataBoundItem is OwnerLookupDisplayModel model &&
                     model.LandOwnerId == SelectedOwner.LandOwnerId)
                 {
+                    _primaryOwnerId = model.LandOwnerId;
+                    model.IsPrimaryOwner = true;
                     row.Selected = true;
-                    dgvOwners.CurrentCell = row.Cells["LandOwnersName"];
+                    dgvOwners.CurrentCell = row.Cells["colLandOwnersName"];
+                    RefreshPrimaryColumn();
                     return;
                 }
             }
@@ -334,7 +393,7 @@ namespace Land_Readjustment_Tool.Forms
 
         private void UpdateSelectedOwnerPreview()
         {
-            var owner = GetCurrentOwner();
+            var owner = GetPrimaryOwner() ?? GetCurrentOwner();
             lblPrimaryValue.Text = owner?.LandOwnersName ?? "-";
             lblFatherValue.Text = owner?.FatherSpouse ?? "-";
             lblCitizenshipValue.Text = owner?.CitizenshipNumber ?? "-";
@@ -353,14 +412,52 @@ namespace Land_Readjustment_Tool.Forms
             return _allOwners.FirstOrDefault(o => o.LandOwnerId == model.LandOwnerId);
         }
 
+        private LandOwner? GetPrimaryOwner()
+        {
+            return _primaryOwnerId.HasValue
+                ? _allOwners.FirstOrDefault(o => o.LandOwnerId == _primaryOwnerId.Value)
+                : null;
+        }
+
+        private void SetPrimaryOwner(int landOwnerId)
+        {
+            if (_primaryOwnerId == landOwnerId)
+            {
+                RefreshPrimaryColumn();
+                UpdateSelectedOwnerPreview();
+                UpdateLoadButtonState();
+                return;
+            }
+
+            _primaryOwnerId = landOwnerId;
+            SelectedOwner = _allOwners.FirstOrDefault(o => o.LandOwnerId == landOwnerId);
+            _selectedCoOwnerIds.Remove(landOwnerId);
+            RefreshPrimaryColumn();
+            UpdateSelectionSummary();
+            UpdateSelectedOwnerPreview();
+            UpdateLoadButtonState();
+        }
+
+        private void RefreshPrimaryColumn()
+        {
+            foreach (OwnerLookupDisplayModel item in _displayedOwners)
+            {
+                item.IsPrimaryOwner = item.LandOwnerId == _primaryOwnerId;
+                if (item.IsPrimaryOwner)
+                    item.IsCoOwner = false;
+            }
+
+            dgvOwners.Refresh();
+        }
+
         private void UpdateSelectionSummary()
         {
-            lblCoOwnerCount.Text = $"{_selectedCoOwnerIds.Count} co-owner(s) checked";
+            lblCoOwnerCount.Text = $"{_selectedCoOwnerIds.Count} co-owner(s) selected";
         }
 
         private void UpdateLoadButtonState()
         {
-            btnLoad.Enabled = dgvOwners.SelectedRows.Count == 1;
+            btnLoad.Enabled = _primaryOwnerId.HasValue;
         }
 
         private void LoadOwnerPreviewImage(LandOwner? owner)
@@ -412,11 +509,76 @@ namespace Land_Readjustment_Tool.Forms
 
     public class OwnerLookupDisplayModel
     {
+        public bool IsPrimaryOwner { get; set; }
         public bool IsCoOwner { get; set; }
         public int LandOwnerId { get; set; }
         public string LandOwnersName { get; set; } = "";
         public string FatherSpouse { get; set; } = "";
         public string CitizenshipNumber { get; set; } = "";
         public string PermanentAddress { get; set; } = "";
+    }
+
+    internal sealed class DataGridViewRadioButtonColumn : DataGridViewCheckBoxColumn
+    {
+        public DataGridViewRadioButtonColumn()
+        {
+            CellTemplate = new DataGridViewRadioButtonCell();
+            ThreeState = false;
+            FlatStyle = FlatStyle.Flat;
+        }
+    }
+
+    internal sealed class DataGridViewRadioButtonCell : DataGridViewCheckBoxCell
+    {
+        public DataGridViewRadioButtonCell()
+        {
+            ThreeState = false;
+        }
+
+        protected override void Paint(
+            Graphics graphics,
+            Rectangle clipBounds,
+            Rectangle cellBounds,
+            int rowIndex,
+            DataGridViewElementStates elementState,
+            object? value,
+            object? formattedValue,
+            string? errorText,
+            DataGridViewCellStyle cellStyle,
+            DataGridViewAdvancedBorderStyle advancedBorderStyle,
+            DataGridViewPaintParts paintParts)
+        {
+            base.Paint(
+                graphics,
+                clipBounds,
+                cellBounds,
+                rowIndex,
+                elementState,
+                value,
+                formattedValue,
+                errorText,
+                cellStyle,
+                advancedBorderStyle,
+                paintParts & ~DataGridViewPaintParts.ContentForeground);
+
+            bool isChecked = value is bool checkedValue && checkedValue;
+            const int size = 14;
+            Point glyphLocation = new(
+                cellBounds.Left + (cellBounds.Width - size) / 2,
+                cellBounds.Top + (cellBounds.Height - size) / 2);
+
+            if (Application.RenderWithVisualStyles)
+            {
+                RadioButtonState state = isChecked
+                    ? RadioButtonState.CheckedNormal
+                    : RadioButtonState.UncheckedNormal;
+                RadioButtonRenderer.DrawRadioButton(graphics, glyphLocation, state);
+            }
+            else
+            {
+                ButtonState state = isChecked ? ButtonState.Checked : ButtonState.Normal;
+                ControlPaint.DrawRadioButton(graphics, glyphLocation.X, glyphLocation.Y, size, size, state);
+            }
+        }
     }
 }

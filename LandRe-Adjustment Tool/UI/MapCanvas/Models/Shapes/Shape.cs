@@ -58,6 +58,19 @@ namespace Land_Readjustment_Tool.UI.MapCanvas.Models.Shapes
         public virtual IEnumerable<SnapPoint> GetSnapPoints() { yield break; }
 
         /// <summary>
+        /// Moves this shape by a world-coordinate delta.
+        /// </summary>
+        /// <param name="delta">The horizontal and vertical world-coordinate distance to move.</param>
+        /// <remarks>
+        /// The base implementation is intentionally empty because each concrete
+        /// shape owns different geometry fields. Subclasses override this method
+        /// and shift those fields directly.
+        /// </remarks>
+        public virtual void Translate(PointD delta)
+        {
+        }
+
+        /// <summary>
         /// Helper method: Calculate distance from point to line segment
         /// WHY: Used by Line shape for hit testing
         /// </summary>

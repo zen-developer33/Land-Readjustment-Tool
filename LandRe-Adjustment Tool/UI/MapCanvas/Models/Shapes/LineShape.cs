@@ -98,6 +98,16 @@ namespace Land_Readjustment_Tool.UI.MapCanvas.Models.Shapes
             return new LineShape(this);
         }
 
+        /// <summary>
+        /// Moves both endpoints by the supplied world-coordinate delta.
+        /// </summary>
+        /// <param name="delta">The distance to add to <see cref="Start"/> and <see cref="End"/>.</param>
+        public override void Translate(PointD delta)
+        {
+            Start = new PointD(Start.X + delta.X, Start.Y + delta.Y);
+            End = new PointD(End.X + delta.X, End.Y + delta.Y);
+        }
+
         public override IEnumerable<SnapPoint> GetSnapPoints()
         {
             yield return new SnapPoint(SnapType.Endpoint, Start, this);

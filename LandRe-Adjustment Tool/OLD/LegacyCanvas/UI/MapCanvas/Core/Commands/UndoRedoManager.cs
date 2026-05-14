@@ -18,15 +18,18 @@ namespace Land_Readjustment_Tool.OLD.LegacyCanvas.UI.MapCanvas.Core.Commands
     /// </summary>
     public class UndoRedoManager
     {
-        private Stack<ICommand> _undoStack;
-        private Stack<ICommand> _redoStack;
-        private int _maxUndoLevels;
+        private readonly LinkedList<ICommand> _undoStack = new();
+        private readonly LinkedList<ICommand> _redoStack = new();
+        private readonly int _maxUndoLevels;
+
+        /// <summary>
+        /// Raised whenever the undo or redo stack changes.
+        /// </summary>
+        public event EventHandler? StateChanged;
 
         public UndoRedoManager(int maxUndoLevels = 100)
         {
-            _undoStack = new Stack<ICommand>();
-            _redoStack = new Stack<ICommand>();
-            _maxUndoLevels = maxUndoLevels;
+            _maxUndoLevels = Math.Max(1, maxUndoLevels);
         }
 
         /// <summary>
@@ -45,7 +48,7 @@ namespace Land_Readjustment_Tool.OLD.LegacyCanvas.UI.MapCanvas.Core.Commands
         /// </summary>
         public string GetUndoDescription()
         {
-            return CanUndo ? _undoStack.Peek().Description : "";
+            return CanUndo ? _undoStack.Last!.Value.Description : string.Empty;
         }
 
         /// <summary>
@@ -53,7 +56,7 @@ namespace Land_Readjustment_Tool.OLD.LegacyCanvas.UI.MapCanvas.Core.Commands
         /// </summary>
         public string GetRedoDescription()
         {
-            return CanRedo ? _redoStack.Peek().Description : "";
+            return CanRedo ? _redoStack.Last!.Value.Description : string.Empty;
         }
 
         /// <summary>
@@ -71,33 +74,29 @@ namespace Land_Readjustment_Tool.OLD.LegacyCanvas.UI.MapCanvas.Core.Commands
             // Try to merge with previous command (e.g., consecutive moves)
             if (_undoStack.Count > 0)
             {
-                ICommand previous = _undoStack.Peek();
+                ICommand previous = _undoStack.Last!.Value;
                 if (previous.CanMergeWith(command))
                 {
                     previous.MergeWith(command);
+                    _redoStack.Clear();
+                    OnStateChanged();
                     return; // Don't add to stack, merged into previous
                 }
             }
 
             // Add to undo stack
-            _undoStack.Push(command);
+            _undoStack.AddLast(command);
 
             // Clear redo stack (new action invalidates redo)
             _redoStack.Clear();
 
             // Enforce max undo levels
-            if (_undoStack.Count > _maxUndoLevels)
+            while (_undoStack.Count > _maxUndoLevels)
             {
-                // Remove oldest command
-                var commands = _undoStack.ToArray();
-                _undoStack.Clear();
-                
-                // Re-add all but the oldest
-                for (int i = commands.Length - 2; i >= 0; i--)
-                {
-                    _undoStack.Push(commands[i]);
-                }
+                _undoStack.RemoveFirst();
             }
+
+            OnStateChanged();
         }
 
         /// <summary>
@@ -107,9 +106,11 @@ namespace Land_Readjustment_Tool.OLD.LegacyCanvas.UI.MapCanvas.Core.Commands
         {
             if (!CanUndo) return;
 
-            ICommand command = _undoStack.Pop();
+            ICommand command = _undoStack.Last!.Value;
+            _undoStack.RemoveLast();
             command.Undo();
-            _redoStack.Push(command);
+            _redoStack.AddLast(command);
+            OnStateChanged();
         }
 
         /// <summary>
@@ -119,9 +120,11 @@ namespace Land_Readjustment_Tool.OLD.LegacyCanvas.UI.MapCanvas.Core.Commands
         {
             if (!CanRedo) return;
 
-            ICommand command = _redoStack.Pop();
+            ICommand command = _redoStack.Last!.Value;
+            _redoStack.RemoveLast();
             command.Redo();
-            _undoStack.Push(command);
+            _undoStack.AddLast(command);
+            OnStateChanged();
         }
 
         /// <summary>
@@ -132,6 +135,7 @@ namespace Land_Readjustment_Tool.OLD.LegacyCanvas.UI.MapCanvas.Core.Commands
         {
             _undoStack.Clear();
             _redoStack.Clear();
+            OnStateChanged();
         }
 
         /// <summary>
@@ -143,5 +147,13 @@ namespace Land_Readjustment_Tool.OLD.LegacyCanvas.UI.MapCanvas.Core.Commands
         /// Get redo stack count (for debugging)
         /// </summary>
         public int RedoCount => _redoStack.Count;
+
+        /// <summary>
+        /// Notifies listeners that undo/redo availability or descriptions changed.
+        /// </summary>
+        private void OnStateChanged()
+        {
+            StateChanged?.Invoke(this, EventArgs.Empty);
+        }
     }
 }

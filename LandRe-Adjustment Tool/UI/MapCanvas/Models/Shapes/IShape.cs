@@ -57,6 +57,16 @@ namespace Land_Readjustment_Tool.UI.MapCanvas.Models.Shapes
         RectangleD GetBoundingBox();
 
         /// <summary>
+        /// Moves the shape by the given world-coordinate delta.
+        /// </summary>
+        /// <param name="delta">The horizontal and vertical world-coordinate distance to move.</param>
+        /// <remarks>
+        /// Implementations must update the underlying geometry used by
+        /// <see cref="GetBoundingBox"/> so spatial indexes remain valid after a move.
+        /// </remarks>
+        void Translate(PointD delta);
+
+        /// <summary>
         /// Draw the shape on the graphics context.
         /// WHY: Delegate is used to avoid coupling shapes to the viewport transform
         /// </summary>

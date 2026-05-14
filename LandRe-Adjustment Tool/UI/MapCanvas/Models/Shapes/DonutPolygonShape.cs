@@ -95,6 +95,19 @@ namespace Land_Readjustment_Tool.UI.MapCanvas.Models.Shapes
 
         public override IShape Clone() => new DonutPolygonShape(this);
 
+        /// <summary>
+        /// Moves the exterior and interior polygon rings by the supplied world-coordinate delta.
+        /// </summary>
+        /// <param name="delta">The distance to add to every ring coordinate.</param>
+        public override void Translate(PointD delta)
+        {
+            TranslateRing(ExteriorRing, delta);
+            foreach (List<PointD> ring in InteriorRings)
+            {
+                TranslateRing(ring, delta);
+            }
+        }
+
         public override bool ContainsPoint(PointD worldPoint, float tolerance)
         {
             Geometry geometry = ToGeometry();
@@ -145,6 +158,15 @@ namespace Land_Readjustment_Tool.UI.MapCanvas.Models.Shapes
             if (points.Length >= 3)
             {
                 path.AddPolygon(points);
+            }
+        }
+
+        private static void TranslateRing(IList<PointD> ring, PointD delta)
+        {
+            for (int i = 0; i < ring.Count; i++)
+            {
+                PointD point = ring[i];
+                ring[i] = new PointD(point.X + delta.X, point.Y + delta.Y);
             }
         }
 

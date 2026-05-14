@@ -118,6 +118,8 @@ namespace Land_Readjustment_Tool
         private IReadOnlyList<CanvasObject> _currentPropertyGridObjects = Array.Empty<CanvasObject>();
         private int _currentPropertyGridSelectedCount;
         private bool _suppressSelectedPropertyObjectChanged;
+        private readonly PersistedCanvasUndoRedoManager _canvasUndoManager = new();
+        private bool _canvasUndoRedoOperationInProgress;
         private const string AllSelectedObjectsComboText = "All Selected objects";
         private const string VariesPropertyValue = "*VARIES*";
         private const int MaxPropertySelectionDetails = 20;
@@ -324,6 +326,9 @@ namespace Land_Readjustment_Tool
             mnuProjectInfo.Click += tsmProjectInformation_Click!;
             mnuProjectSettings.Click += tsmProjectSetting_Click!;
             startReplotWorkspaceToolStripMenuItem.Click += startReplotWorkspaceToolStripMenuItem_Click!;
+            _canvasUndoManager.StateChanged += (_, _) => UpdateCanvasUndoRedoToolbar();
+            mnuUndo.Click += async (_, _) => await UndoCanvasCommandAsync();
+            mnuRedo.Click += async (_, _) => await RedoCanvasCommandAsync();
             mnuPan.CheckOnClick = true;
             mnuZoomIn.Click += mnuZoomIn_Click!;
             mnuZoomOut.Click += mnuZoomOut_Click!;
@@ -658,6 +663,7 @@ namespace Land_Readjustment_Tool
         private void InitializeProjectWorkspace()
         {
             mainSplitContainer.Visible = true;
+            ClearCanvasUndoRedoHistory();
             EnableProjectMenuItems();
             _layerTreeService = AppServices.HasContext
                 ? _projectScopedFactory.CreateCanvasLayerTreeService(AppServices.Context.Session)
@@ -668,6 +674,7 @@ namespace Land_Readjustment_Tool
         {
             CloseReplotWorkspace();
             mainSplitContainer.Visible = false;
+            ClearCanvasUndoRedoHistory();
             DisableProjectMenuItems();
             _layerTreeService = null;
             ResetLayerTree();
@@ -912,6 +919,7 @@ namespace Land_Readjustment_Tool
             mnuZoomWindow.Enabled = true;
             SetDrawingToolButtonsEnabled(true);
             toolStripComboBox1.Enabled = true;
+            UpdateCanvasUndoRedoToolbar();
         }
 
         /// <summary>
@@ -954,6 +962,7 @@ namespace Land_Readjustment_Tool
             mnuZoomWindow.Enabled = false;
             SetDrawingToolButtonsEnabled(false);
             toolStripComboBox1.Enabled = false;
+            UpdateCanvasUndoRedoToolbar();
         }
 
         private void SetDrawingToolButtonsEnabled(bool enabled)
@@ -4778,6 +4787,18 @@ namespace Land_Readjustment_Tool
 
         protected override bool ProcessCmdKey(ref Message msg, Keys keyData)
         {
+            if (keyData == (Keys.Control | Keys.Z))
+            {
+                _ = UndoCanvasCommandAsync();
+                return true;
+            }
+
+            if (keyData == (Keys.Control | Keys.Y))
+            {
+                _ = RedoCanvasCommandAsync();
+                return true;
+            }
+
             Keys keyCode = keyData & Keys.KeyCode;
             if (keyCode == Keys.F3)
             {
@@ -7184,6 +7205,266 @@ namespace Land_Readjustment_Tool
             mapCanvasControlMain.SetVectorFeatures(features);
         }
 
+        /// <summary>
+        /// Adds a completed canvas edit command to the active project undo history.
+        /// </summary>
+        /// <param name="command">The command that can undo and redo a persisted canvas edit.</param>
+        private void RegisterCanvasUndoCommand(IPersistedCanvasUndoCommand command)
+        {
+            _canvasUndoManager.Register(command);
+        }
+
+        /// <summary>
+        /// Clears canvas edit undo history, usually when switching projects.
+        /// </summary>
+        private void ClearCanvasUndoRedoHistory()
+        {
+            _canvasUndoManager.Clear();
+        }
+
+        /// <summary>
+        /// Refreshes the main toolbar undo and redo button state and tooltips.
+        /// </summary>
+        private void UpdateCanvasUndoRedoToolbar()
+        {
+            bool canUseHistory = AppServices.HasContext && !_canvasUndoRedoOperationInProgress;
+
+            mnuUndo.Enabled = canUseHistory && _canvasUndoManager.CanUndo;
+            mnuRedo.Enabled = canUseHistory && _canvasUndoManager.CanRedo;
+            mnuUndo.ToolTipText = mnuUndo.Enabled
+                ? $"Undo {_canvasUndoManager.GetUndoDescription()}"
+                : "Undo";
+            mnuRedo.ToolTipText = mnuRedo.Enabled
+                ? $"Redo {_canvasUndoManager.GetRedoDescription()}"
+                : "Redo";
+        }
+
+        /// <summary>
+        /// Runs the next undo command from the main canvas edit history.
+        /// </summary>
+        private async Task UndoCanvasCommandAsync()
+        {
+            if (_canvasUndoRedoOperationInProgress ||
+                !AppServices.HasContext ||
+                !_canvasUndoManager.CanUndo)
+            {
+                return;
+            }
+
+            string description = _canvasUndoManager.GetUndoDescription();
+            _canvasUndoRedoOperationInProgress = true;
+            UpdateCanvasUndoRedoToolbar();
+
+            try
+            {
+                await _canvasUndoManager.UndoAsync(this);
+                SetCanvasCommandStatus($"Undo {description}");
+            }
+            catch (Exception ex)
+            {
+                MessageBox.Show(
+                    $"Failed to undo '{description}': {ex.Message}",
+                    "Undo",
+                    MessageBoxButtons.OK,
+                    MessageBoxIcon.Error);
+            }
+            finally
+            {
+                _canvasUndoRedoOperationInProgress = false;
+                UpdateCanvasUndoRedoToolbar();
+            }
+        }
+
+        /// <summary>
+        /// Runs the next redo command from the main canvas edit history.
+        /// </summary>
+        private async Task RedoCanvasCommandAsync()
+        {
+            if (_canvasUndoRedoOperationInProgress ||
+                !AppServices.HasContext ||
+                !_canvasUndoManager.CanRedo)
+            {
+                return;
+            }
+
+            string description = _canvasUndoManager.GetRedoDescription();
+            _canvasUndoRedoOperationInProgress = true;
+            UpdateCanvasUndoRedoToolbar();
+
+            try
+            {
+                await _canvasUndoManager.RedoAsync(this);
+                SetCanvasCommandStatus($"Redo {description}");
+            }
+            catch (Exception ex)
+            {
+                MessageBox.Show(
+                    $"Failed to redo '{description}': {ex.Message}",
+                    "Redo",
+                    MessageBoxButtons.OK,
+                    MessageBoxIcon.Error);
+            }
+            finally
+            {
+                _canvasUndoRedoOperationInProgress = false;
+                UpdateCanvasUndoRedoToolbar();
+            }
+        }
+
+        /// <summary>
+        /// Recreates persisted canvas objects from stored snapshots and restores parcel/object backlinks.
+        /// </summary>
+        /// <param name="snapshots">The canvas object snapshots to restore.</param>
+        private async Task RestoreCanvasObjectSnapshotsAsync(IReadOnlyList<CanvasObject> snapshots)
+        {
+            if (!AppServices.HasContext || snapshots.Count == 0)
+            {
+                return;
+            }
+
+            AppDbContext context = AppServices.Context.Session.GetDbContext();
+
+            foreach (CanvasObject snapshot in snapshots)
+            {
+                CanvasObject entity = CloneCanvasObjectSnapshot(snapshot);
+                Microsoft.EntityFrameworkCore.ChangeTracking.EntityEntry<CanvasObject>? localTracked =
+                    context.ChangeTracker
+                        .Entries<CanvasObject>()
+                        .FirstOrDefault(entry => entry.Entity.Id == entity.Id);
+
+                if (localTracked != null)
+                {
+                    localTracked.State = EntityState.Detached;
+                }
+
+                bool exists = await context.CanvasObjects
+                    .AsNoTracking()
+                    .AnyAsync(item => item.Id == entity.Id);
+
+                if (exists)
+                {
+                    context.CanvasObjects.Update(entity);
+                }
+                else
+                {
+                    await context.CanvasObjects.AddAsync(entity);
+                }
+            }
+
+            await context.SaveChangesAsync();
+            await RestoreCanvasBackLinksAsync(context, snapshots);
+            MarkProjectModifiedIfOpen();
+            await RefreshVectorCanvasFeaturesAsync();
+        }
+
+        /// <summary>
+        /// Deletes persisted canvas objects by id and refreshes the active canvas.
+        /// </summary>
+        /// <param name="canvasObjectIds">The canvas object identifiers to delete.</param>
+        private async Task DeleteCanvasObjectsForUndoRedoAsync(IReadOnlyList<Guid> canvasObjectIds)
+        {
+            if (!AppServices.HasContext || canvasObjectIds.Count == 0)
+            {
+                return;
+            }
+
+            CanvasFeatureService featureService =
+                _projectScopedFactory.CreateCanvasFeatureService(AppServices.Context.Session);
+
+            foreach (Guid canvasObjectId in canvasObjectIds.Distinct())
+            {
+                await featureService.DeleteShapeAsync(canvasObjectId);
+            }
+
+            mapCanvasControlMain.ClearSelectionAfterDelete();
+            MarkProjectModifiedIfOpen();
+            await RefreshVectorCanvasFeaturesAsync();
+        }
+
+        /// <summary>
+        /// Restores one-to-one navigation links from parcel, road, and block tables back to canvas objects.
+        /// </summary>
+        /// <param name="context">The active project database context.</param>
+        /// <param name="snapshots">The restored canvas object snapshots.</param>
+        private static async Task RestoreCanvasBackLinksAsync(
+            AppDbContext context,
+            IReadOnlyList<CanvasObject> snapshots)
+        {
+            foreach (CanvasObject snapshot in snapshots)
+            {
+                if (snapshot.BaselineParcelId.HasValue)
+                {
+                    BaselineParcel? parcel = await context.BaselineParcels.FindAsync(snapshot.BaselineParcelId.Value);
+                    if (parcel != null)
+                    {
+                        parcel.CanvasObjectId = snapshot.Id;
+                    }
+                }
+
+                if (snapshot.ReplottedParcelId.HasValue)
+                {
+                    Core.Entities.Replotting.ReplottedParcel? parcel =
+                        await context.ReplottedParcels.FindAsync(snapshot.ReplottedParcelId.Value);
+                    if (parcel != null)
+                    {
+                        parcel.CanvasObjectId = snapshot.Id;
+                    }
+                }
+
+                if (snapshot.RoadId.HasValue)
+                {
+                    Core.Entities.Layout.Road? road = await context.Roads.FindAsync(snapshot.RoadId.Value);
+                    if (road != null)
+                    {
+                        road.CanvasObjectId = snapshot.Id;
+                    }
+                }
+
+                if (snapshot.BlockId.HasValue)
+                {
+                    Core.Entities.Layout.Block? block = await context.Blocks.FindAsync(snapshot.BlockId.Value);
+                    if (block != null)
+                    {
+                        block.CanvasObjectId = snapshot.Id;
+                    }
+                }
+            }
+
+            await context.SaveChangesAsync();
+        }
+
+        /// <summary>
+        /// Creates a detached scalar snapshot of a canvas object for undo/redo persistence.
+        /// </summary>
+        /// <param name="source">The canvas object to snapshot.</param>
+        private static CanvasObject CloneCanvasObjectSnapshot(CanvasObject source)
+        {
+            return new CanvasObject
+            {
+                Id = source.Id,
+                CanvasLayerId = source.CanvasLayerId,
+                ObjectType = source.ObjectType,
+                Shape = source.Shape.Copy(),
+                GeometryMetadataJson = source.GeometryMetadataJson,
+                BorderColorOverride = source.BorderColorOverride,
+                FillColorOverride = source.FillColorOverride,
+                FillTransparencyOverride = source.FillTransparencyOverride,
+                LineWeightOverride = source.LineWeightOverride,
+                LineStyleOverride = source.LineStyleOverride,
+                LabelText = source.LabelText,
+                ObjectDescription = source.ObjectDescription,
+                IsVisible = source.IsVisible,
+                IsLocked = source.IsLocked,
+                BaselineParcelId = source.BaselineParcelId,
+                ReplottedParcelId = source.ReplottedParcelId,
+                RoadId = source.RoadId,
+                BlockId = source.BlockId,
+                SourceDxfHandle = source.SourceDxfHandle,
+                CreatedDate = source.CreatedDate,
+                LastModifiedDate = source.LastModifiedDate
+            };
+        }
+
         private async void MapCanvasControlMain_ShapeCompleted(IShape shape)
         {
             if (!AppServices.HasContext)
@@ -7207,6 +7488,8 @@ namespace Land_Readjustment_Tool
                     shape.LayerName);
                 MarkProjectModifiedIfOpen();
                 await RefreshVectorCanvasFeaturesAsync();
+                RegisterCanvasUndoCommand(
+                    new AddCanvasObjectsCommand([CloneCanvasObjectSnapshot(feature.CanvasObject)]));
                 SetCanvasCommandStatus($"Created {feature.CanvasObject.ObjectType}: {feature.Layer?.Name ?? shape.LayerName}");
             }
             catch (Exception ex)
@@ -7264,6 +7547,10 @@ namespace Land_Readjustment_Tool
                     return;
                 }
 
+                List<CanvasObject> deletedObjectSnapshots = selectedObjects
+                    .Select(CloneCanvasObjectSnapshot)
+                    .ToList();
+
                 int cadastralObjectCount = selectedObjects.Count(item =>
                     item.CanvasLayer != null && IsCadastralCanvasLayer(item.CanvasLayer));
                 if (cadastralObjectCount > 0)
@@ -7292,6 +7579,7 @@ namespace Land_Readjustment_Tool
                 mapCanvasControlMain.ClearSelectionAfterDelete();
                 MarkProjectModifiedIfOpen();
                 await RefreshVectorCanvasFeaturesAsync();
+                RegisterCanvasUndoCommand(new DeleteCanvasObjectsCommand(deletedObjectSnapshots));
                 SetCanvasCommandStatus(shapeIds.Count == 1
                     ? "Deleted selected drawing object"
                     : $"Deleted {shapeIds.Count} selected drawing objects");
@@ -8527,6 +8815,218 @@ namespace Land_Readjustment_Tool
                 : denominator.ToString("0.###");
 
             lblScale.Text = $"Scale: 1:{denominatorText}";
+        }
+
+        /// <summary>
+        /// Describes a persisted canvas edit that can undo and redo itself.
+        /// </summary>
+        private interface IPersistedCanvasUndoCommand
+        {
+            /// <summary>
+            /// Gets the human-readable operation name shown in toolbar tooltips.
+            /// </summary>
+            string Description { get; }
+
+            /// <summary>
+            /// Reverses the command against the active project database and canvas.
+            /// </summary>
+            /// <param name="owner">The main form that owns the active project services.</param>
+            Task UndoAsync(frmMain owner);
+
+            /// <summary>
+            /// Reapplies the command against the active project database and canvas.
+            /// </summary>
+            /// <param name="owner">The main form that owns the active project services.</param>
+            Task RedoAsync(frmMain owner);
+        }
+
+        /// <summary>
+        /// Maintains undo and redo stacks for persisted map canvas edits.
+        /// </summary>
+        private sealed class PersistedCanvasUndoRedoManager
+        {
+            private const int MaxUndoLevels = 100;
+            private readonly LinkedList<IPersistedCanvasUndoCommand> _undoStack = new();
+            private readonly LinkedList<IPersistedCanvasUndoCommand> _redoStack = new();
+
+            /// <summary>
+            /// Raised whenever stack availability or descriptions change.
+            /// </summary>
+            public event EventHandler? StateChanged;
+
+            /// <summary>
+            /// Gets whether an undo command is available.
+            /// </summary>
+            public bool CanUndo => _undoStack.Count > 0;
+
+            /// <summary>
+            /// Gets whether a redo command is available.
+            /// </summary>
+            public bool CanRedo => _redoStack.Count > 0;
+
+            /// <summary>
+            /// Adds an already-executed command to the undo stack and clears redo history.
+            /// </summary>
+            /// <param name="command">The completed persisted edit to remember.</param>
+            public void Register(IPersistedCanvasUndoCommand command)
+            {
+                _undoStack.AddLast(command);
+                _redoStack.Clear();
+
+                while (_undoStack.Count > MaxUndoLevels)
+                {
+                    _undoStack.RemoveFirst();
+                }
+
+                OnStateChanged();
+            }
+
+            /// <summary>
+            /// Undoes the most recent canvas edit and moves it to the redo stack.
+            /// </summary>
+            /// <param name="owner">The main form that can perform database refresh work.</param>
+            public async Task UndoAsync(frmMain owner)
+            {
+                if (!CanUndo)
+                    return;
+
+                IPersistedCanvasUndoCommand command = _undoStack.Last!.Value;
+                _undoStack.RemoveLast();
+                await command.UndoAsync(owner);
+                _redoStack.AddLast(command);
+                OnStateChanged();
+            }
+
+            /// <summary>
+            /// Redoes the most recently undone canvas edit and moves it to the undo stack.
+            /// </summary>
+            /// <param name="owner">The main form that can perform database refresh work.</param>
+            public async Task RedoAsync(frmMain owner)
+            {
+                if (!CanRedo)
+                    return;
+
+                IPersistedCanvasUndoCommand command = _redoStack.Last!.Value;
+                _redoStack.RemoveLast();
+                await command.RedoAsync(owner);
+                _undoStack.AddLast(command);
+                OnStateChanged();
+            }
+
+            /// <summary>
+            /// Removes all undo and redo history.
+            /// </summary>
+            public void Clear()
+            {
+                _undoStack.Clear();
+                _redoStack.Clear();
+                OnStateChanged();
+            }
+
+            /// <summary>
+            /// Gets the description of the next undo command.
+            /// </summary>
+            public string GetUndoDescription()
+            {
+                return CanUndo ? _undoStack.Last!.Value.Description : string.Empty;
+            }
+
+            /// <summary>
+            /// Gets the description of the next redo command.
+            /// </summary>
+            public string GetRedoDescription()
+            {
+                return CanRedo ? _redoStack.Last!.Value.Description : string.Empty;
+            }
+
+            private void OnStateChanged()
+            {
+                StateChanged?.Invoke(this, EventArgs.Empty);
+            }
+        }
+
+        /// <summary>
+        /// Undo command for one or more newly created persisted canvas objects.
+        /// </summary>
+        private sealed class AddCanvasObjectsCommand : IPersistedCanvasUndoCommand
+        {
+            private readonly IReadOnlyList<CanvasObject> _snapshots;
+
+            /// <summary>
+            /// Creates an add command from the created canvas object snapshots.
+            /// </summary>
+            /// <param name="snapshots">The created objects to remove on undo and restore on redo.</param>
+            public AddCanvasObjectsCommand(IReadOnlyList<CanvasObject> snapshots)
+            {
+                _snapshots = snapshots;
+            }
+
+            /// <summary>
+            /// Gets the operation name shown in undo/redo tooltips.
+            /// </summary>
+            public string Description => _snapshots.Count == 1
+                ? $"Add {_snapshots[0].ObjectType}"
+                : $"Add {_snapshots.Count} canvas objects";
+
+            /// <summary>
+            /// Deletes the added objects from the active project.
+            /// </summary>
+            /// <param name="owner">The main form that owns the active project services.</param>
+            public Task UndoAsync(frmMain owner)
+            {
+                return owner.DeleteCanvasObjectsForUndoRedoAsync(_snapshots.Select(item => item.Id).ToArray());
+            }
+
+            /// <summary>
+            /// Restores the added objects to the active project.
+            /// </summary>
+            /// <param name="owner">The main form that owns the active project services.</param>
+            public Task RedoAsync(frmMain owner)
+            {
+                return owner.RestoreCanvasObjectSnapshotsAsync(_snapshots);
+            }
+        }
+
+        /// <summary>
+        /// Undo command for one or more deleted persisted canvas objects.
+        /// </summary>
+        private sealed class DeleteCanvasObjectsCommand : IPersistedCanvasUndoCommand
+        {
+            private readonly IReadOnlyList<CanvasObject> _snapshots;
+
+            /// <summary>
+            /// Creates a delete command from snapshots captured before deletion.
+            /// </summary>
+            /// <param name="snapshots">The deleted objects to restore on undo and delete again on redo.</param>
+            public DeleteCanvasObjectsCommand(IReadOnlyList<CanvasObject> snapshots)
+            {
+                _snapshots = snapshots;
+            }
+
+            /// <summary>
+            /// Gets the operation name shown in undo/redo tooltips.
+            /// </summary>
+            public string Description => _snapshots.Count == 1
+                ? "Delete selected drawing object"
+                : $"Delete {_snapshots.Count} selected drawing objects";
+
+            /// <summary>
+            /// Restores the deleted objects to the active project.
+            /// </summary>
+            /// <param name="owner">The main form that owns the active project services.</param>
+            public Task UndoAsync(frmMain owner)
+            {
+                return owner.RestoreCanvasObjectSnapshotsAsync(_snapshots);
+            }
+
+            /// <summary>
+            /// Deletes the restored objects again from the active project.
+            /// </summary>
+            /// <param name="owner">The main form that owns the active project services.</param>
+            public Task RedoAsync(frmMain owner)
+            {
+                return owner.DeleteCanvasObjectsForUndoRedoAsync(_snapshots.Select(item => item.Id).ToArray());
+            }
         }
 
         /// <summary>

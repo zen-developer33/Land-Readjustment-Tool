@@ -203,6 +203,15 @@ namespace Land_Readjustment_Tool.UI.MapCanvas.Models.Shapes
 
         public override IShape Clone() => new ArcShape(this);
 
+        /// <summary>
+        /// Moves the arc center by the supplied world-coordinate delta.
+        /// </summary>
+        /// <param name="delta">The distance to add to <see cref="Center"/>.</param>
+        public override void Translate(PointD delta)
+        {
+            Center = new PointD(Center.X + delta.X, Center.Y + delta.Y);
+        }
+
         public override bool ContainsPoint(PointD worldPoint, float tolerance)
         {
             double distance = Distance(Center, worldPoint);

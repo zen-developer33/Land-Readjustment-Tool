@@ -104,6 +104,16 @@ namespace Land_Readjustment_Tool.UI.MapCanvas.Models.Shapes
             return new EllipseShape(this);
         }
 
+        /// <summary>
+        /// Moves both ellipse bounding-box corners by the supplied world-coordinate delta.
+        /// </summary>
+        /// <param name="delta">The distance to add to <see cref="Start"/> and <see cref="End"/>.</param>
+        public override void Translate(PointD delta)
+        {
+            Start = new PointD(Start.X + delta.X, Start.Y + delta.Y);
+            End = new PointD(End.X + delta.X, End.Y + delta.Y);
+        }
+
         public override IEnumerable<SnapPoint> GetSnapPoints()
         {
             // Center

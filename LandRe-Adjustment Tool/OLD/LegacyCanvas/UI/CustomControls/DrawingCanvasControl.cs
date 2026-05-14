@@ -144,6 +144,7 @@ namespace Land_Readjustment_Tool.UI.CustomControls
 
             _renderer = new CanvasRenderer();
             _undoManager = new UndoRedoManager(maxUndoLevels: 100);
+            _undoManager.StateChanged += OnUndoRedoStateChanged;
 
             _engine.SetView(500f, 500f, 1000f, 1000f);
 
@@ -151,6 +152,7 @@ namespace Land_Readjustment_Tool.UI.CustomControls
             panelCanvas.Resize += PanelCanvas_Resize!;
 
             _deferredRenderer = new OptimizedDeferredRenderer(panelCanvas.Size, _engine, _shapeManager);
+            OnUndoRedoStateChanged(this, EventArgs.Empty);
         }
 
         private void PanelCanvas_Resize(object sender, EventArgs e)
@@ -327,7 +329,7 @@ namespace Land_Readjustment_Tool.UI.CustomControls
                     if (importBounds.HasValue)
                         _shapeManager.EnsureWorldBoundsCovers(importBounds.Value);
 
-                    var command = new BulkAddShapesCommand(_shapeManager, shapes);
+                    var command = new ImportShapesCommand(_shapeManager, shapes, openFileDialog.FileName);
                     _undoManager.ExecuteCommand(command);
                     _deferredRenderer.RenderNow();
                     panelCanvas.Invalidate();
@@ -680,6 +682,9 @@ namespace Land_Readjustment_Tool.UI.CustomControls
 
         private void btnUndo_Click(object sender, EventArgs e)
         {
+            if (!_undoManager.CanUndo)
+                return;
+
             _undoManager.Undo();
             _deferredRenderer.RenderNow();
             panelCanvas.Invalidate();
@@ -687,6 +692,9 @@ namespace Land_Readjustment_Tool.UI.CustomControls
 
         private void btnRedo_Click(object sender, EventArgs e)
         {
+            if (!_undoManager.CanRedo)
+                return;
+
             _undoManager.Redo();
             _deferredRenderer.RenderNow();
             panelCanvas.Invalidate();
@@ -698,6 +706,23 @@ namespace Land_Readjustment_Tool.UI.CustomControls
             _undoManager.ExecuteCommand(command);
             _deferredRenderer.RenderNow();
             panelCanvas.Invalidate();
+        }
+
+        /// <summary>
+        /// Updates toolbar enabled state and tooltips whenever undo/redo history changes.
+        /// </summary>
+        /// <param name="sender">The undo manager raising the event.</param>
+        /// <param name="e">Unused event data.</param>
+        private void OnUndoRedoStateChanged(object? sender, EventArgs e)
+        {
+            toolStripButton6.Enabled = _undoManager.CanUndo;
+            toolStripButton7.Enabled = _undoManager.CanRedo;
+            toolStripButton6.ToolTipText = _undoManager.CanUndo
+                ? $"Undo {_undoManager.GetUndoDescription()}"
+                : "Undo";
+            toolStripButton7.ToolTipText = _undoManager.CanRedo
+                ? $"Redo {_undoManager.GetRedoDescription()}"
+                : "Redo";
         }
 
         private void CancelActiveDrawing()
@@ -809,6 +834,16 @@ namespace Land_Readjustment_Tool.UI.CustomControls
 
         protected override bool ProcessCmdKey(ref Message msg, Keys keyData)
         {
+            switch (keyData)
+            {
+                case Keys.Control | Keys.Z:
+                    btnUndo_Click(this, EventArgs.Empty);
+                    return true;
+                case Keys.Control | Keys.Y:
+                    btnRedo_Click(this, EventArgs.Empty);
+                    return true;
+            }
+
             if (keyData == Keys.R)
             {
                 CancelActiveDrawing();
@@ -995,7 +1030,16 @@ namespace Land_Readjustment_Tool.UI.CustomControls
         public void UndoLastCommandIfPossible()
         {
             _undoManager?.Undo();
+            _deferredRenderer?.RenderNow();
             panelCanvas.Invalidate();
+        }
+
+        /// <summary>
+        /// Clears document undo/redo history without changing the current canvas contents.
+        /// </summary>
+        public void ClearUndoRedoHistory()
+        {
+            _undoManager?.Clear();
         }
 
         /// <summary>

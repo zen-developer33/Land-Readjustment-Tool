@@ -218,6 +218,26 @@ namespace Land_Readjustment_Tool.UI.MapCanvas.Models.Shapes
             };
         }
 
+        /// <summary>
+        /// Moves every vertex and stored segment point by the supplied world-coordinate delta.
+        /// </summary>
+        /// <param name="delta">The distance to add to each polyline coordinate.</param>
+        public override void Translate(PointD delta)
+        {
+            for (int i = 0; i < Vertices.Count; i++)
+            {
+                PointD point = Vertices[i];
+                Vertices[i] = new PointD(point.X + delta.X, point.Y + delta.Y);
+            }
+
+            foreach (PolylineSegment segment in Segments)
+            {
+                segment.Start = new PointD(segment.Start.X + delta.X, segment.Start.Y + delta.Y);
+                segment.End = new PointD(segment.End.X + delta.X, segment.End.Y + delta.Y);
+                segment.Arc?.Translate(delta);
+            }
+        }
+
         public override bool ContainsPoint(PointD worldPoint, float tolerance)
         {
             foreach (PolylineSegment segment in EnumerateEffectiveSegments())

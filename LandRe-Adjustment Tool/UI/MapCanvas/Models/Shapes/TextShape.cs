@@ -7,7 +7,7 @@ namespace Land_Readjustment_Tool.UI.MapCanvas.Models.Shapes
     public class TextShape : IShape
     {
         public Guid Id { get; set; } = Guid.NewGuid();
-        public PointD Position { get; }
+        public PointD Position { get; private set; }
         public string Text { get; }
         public Font Font { get; }
         public Color BorderColor { get; set; } = Color.Black;
@@ -77,6 +77,15 @@ namespace Land_Readjustment_Tool.UI.MapCanvas.Models.Shapes
             foreach (var kvp in this.Properties)
                 clone.Properties[kvp.Key] = kvp.Value;
             return clone;
+        }
+
+        /// <summary>
+        /// Moves the text anchor position by the supplied world-coordinate delta.
+        /// </summary>
+        /// <param name="delta">The distance to add to <see cref="Position"/>.</param>
+        public void Translate(PointD delta)
+        {
+            Position = new PointD(Position.X + delta.X, Position.Y + delta.Y);
         }
 
         public void Draw(Graphics g, Func<PointD, PointD> worldToScreen, bool isPrinting = false)

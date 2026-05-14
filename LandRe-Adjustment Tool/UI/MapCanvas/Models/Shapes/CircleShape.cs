@@ -146,6 +146,16 @@ namespace Land_Readjustment_Tool.UI.MapCanvas.Models.Shapes
             return new CircleShape(this);
         }
 
+        /// <summary>
+        /// Moves the circle center and radius point by the supplied world-coordinate delta.
+        /// </summary>
+        /// <param name="delta">The distance to add to <see cref="Center"/> and <see cref="RadiusPoint"/>.</param>
+        public override void Translate(PointD delta)
+        {
+            Center = new PointD(Center.X + delta.X, Center.Y + delta.Y);
+            RadiusPoint = new PointD(RadiusPoint.X + delta.X, RadiusPoint.Y + delta.Y);
+        }
+
         private static double Distance(PointD a, PointD b)
         {
             double dx = a.X - b.X;
