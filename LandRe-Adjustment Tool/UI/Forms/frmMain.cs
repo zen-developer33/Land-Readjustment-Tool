@@ -104,8 +104,11 @@ namespace Land_Readjustment_Tool
             "owner.primaryOwner",
             "owner.coOwners",
             "area.originalRecord",
-            "area.geometry",
             "area.fieldMeasured",
+            "geometry.area",
+            "geometry.length",
+            "geometry.vertexCount",
+            "geometry.bounds",
             "tenancy.hasTenant",
             "tenancy.tenantName"
         };
@@ -2737,8 +2740,6 @@ namespace Land_Readjustment_Tool
 
                 new("area.originalRecord", "Area", "Original Area (Land Records)", true,
                     (canvasObject, metadata, _) => FormatArea(canvasObject.BaselineParcel?.OriginalAreaSqm ?? metadata?.RecordAreaSqm)),
-                new("area.geometry", "Area", "Area (From Geometry)", true,
-                    (canvasObject, _, _) => FormatArea(Math.Abs(canvasObject.Shape?.Area ?? 0.0))),
                 new("area.fieldMeasured", "Area", "Area (Measured in Field)", true,
                     (canvasObject, _, _) => FormatArea(canvasObject.BaselineParcel?.FieldMeasuredAreaSqm)),
                 new("area.effective", "Area", "Effective Area", false,
@@ -2749,6 +2750,17 @@ namespace Land_Readjustment_Tool
                         : canvasObject.BaselineParcel.IsEffectiveAreaManual ? "Manual" : "Calculated"),
                 new("area.imported", "Area", "Imported Area", false,
                     (_, metadata, _) => FormatArea(metadata?.CalculatedAreaSqm)),
+
+                new("geometry.type", "Other Geometry", "Geometry Type", false,
+                    (canvasObject, _, _) => canvasObject.Shape?.GeometryType ?? canvasObject.ObjectType),
+                new("geometry.area", "Other Geometry", "Geometry Area", true,
+                    (canvasObject, _, _) => FormatArea(GetGeometryArea(canvasObject))),
+                new("geometry.length", "Other Geometry", "Length / Perimeter", true,
+                    (canvasObject, _, _) => FormatLength(GetGeometryLength(canvasObject))),
+                new("geometry.vertexCount", "Other Geometry", "Points / Vertices", true,
+                    (canvasObject, _, _) => GetGeometryPointCount(canvasObject)?.ToString("N0")),
+                new("geometry.bounds", "Other Geometry", "Bounds", true,
+                    (canvasObject, _, _) => FormatGeometryBounds(canvasObject.Shape?.EnvelopeInternal)),
 
                 new("tenancy.hasTenant", "Tenancy", "Has Tenant", true,
                     (canvasObject, _, _) => canvasObject.BaselineParcel == null ? null : FormatBoolean(canvasObject.BaselineParcel.HasTenant)),
@@ -2826,6 +2838,15 @@ namespace Land_Readjustment_Tool
             if (TryAggregateAreaField(selectedObjects, field.Key, out string? areaValue))
                 return areaValue;
 
+            if (TryAggregateLengthField(selectedObjects, field.Key, out string? lengthValue))
+                return lengthValue;
+
+            if (TryAggregatePointCountField(selectedObjects, field.Key, out string? pointCountValue))
+                return pointCountValue;
+
+            if (TryAggregateBoundsField(selectedObjects, field.Key, out string? boundsValue))
+                return boundsValue;
+
             if (field.Key == "parcel.uniqueCode")
                 return FormatSelectedUniqueParcelCodes(selectedObjects);
 
@@ -2892,8 +2913,8 @@ namespace Land_Readjustment_Tool
             {
                 "area.originalRecord" => (canvasObject, metadata) =>
                     canvasObject.BaselineParcel?.OriginalAreaSqm ?? metadata?.RecordAreaSqm,
-                "area.geometry" => (canvasObject, _) =>
-                    Math.Abs(canvasObject.Shape?.Area ?? 0.0),
+                "geometry.area" => (canvasObject, _) =>
+                    GetGeometryArea(canvasObject),
                 "area.fieldMeasured" => (canvasObject, _) =>
                     canvasObject.BaselineParcel?.FieldMeasuredAreaSqm,
                 "area.effective" => (canvasObject, _) =>
@@ -2924,7 +2945,74 @@ namespace Land_Readjustment_Tool
 
             value = count == 0
                 ? null
-                : $"{FormatArea(total)} total ({count:N0} object{(count == 1 ? string.Empty : "s")})";
+                : FormatArea(total);
+            return true;
+        }
+
+        private static bool TryAggregateLengthField(
+            IReadOnlyList<CanvasObject> selectedObjects,
+            string fieldKey,
+            out string? value)
+        {
+            if (fieldKey != "geometry.length")
+            {
+                value = null;
+                return false;
+            }
+
+            double total = selectedObjects
+                .Select(GetGeometryLength)
+                .Where(length => length.HasValue)
+                .Sum(length => Math.Abs(length!.Value));
+
+            value = total > 0 ? FormatLength(total) : null;
+            return true;
+        }
+
+        private static bool TryAggregatePointCountField(
+            IReadOnlyList<CanvasObject> selectedObjects,
+            string fieldKey,
+            out string? value)
+        {
+            if (fieldKey != "geometry.vertexCount")
+            {
+                value = null;
+                return false;
+            }
+
+            int total = selectedObjects
+                .Select(GetGeometryPointCount)
+                .Where(count => count.HasValue)
+                .Sum(count => count!.Value);
+
+            value = total > 0 ? total.ToString("N0") : null;
+            return true;
+        }
+
+        private static bool TryAggregateBoundsField(
+            IReadOnlyList<CanvasObject> selectedObjects,
+            string fieldKey,
+            out string? value)
+        {
+            if (fieldKey != "geometry.bounds")
+            {
+                value = null;
+                return false;
+            }
+
+            NtsEnvelope bounds = new();
+            bool hasBounds = false;
+            foreach (CanvasObject canvasObject in selectedObjects)
+            {
+                NtsEnvelope? envelope = canvasObject.Shape?.EnvelopeInternal;
+                if (!IsUsableEnvelope(envelope))
+                    continue;
+
+                bounds.ExpandToInclude(envelope);
+                hasBounds = true;
+            }
+
+            value = hasBounds ? FormatGeometryBounds(bounds) : null;
             return true;
         }
 
@@ -3116,17 +3204,74 @@ namespace Land_Readjustment_Tool
                 }));
         }
 
+        private static double? GetGeometryArea(CanvasObject canvasObject)
+        {
+            if (canvasObject.Shape == null || canvasObject.Shape.IsEmpty)
+                return null;
+
+            double area = Math.Abs(canvasObject.Shape.Area);
+            return area > 0 ? area : null;
+        }
+
+        private static double? GetGeometryLength(CanvasObject canvasObject)
+        {
+            if (canvasObject.Shape == null || canvasObject.Shape.IsEmpty)
+                return null;
+
+            double length = Math.Abs(canvasObject.Shape.Length);
+            return length > 0 ? length : null;
+        }
+
+        private static int? GetGeometryPointCount(CanvasObject canvasObject)
+        {
+            if (canvasObject.Shape == null || canvasObject.Shape.IsEmpty)
+                return null;
+
+            return canvasObject.Shape.NumPoints > 0 ? canvasObject.Shape.NumPoints : null;
+        }
+
+        private static string? FormatGeometryBounds(NtsEnvelope? envelope)
+        {
+            if (!IsUsableEnvelope(envelope))
+                return null;
+
+            double width = envelope!.Width;
+            double height = envelope.Height;
+            return $"W {width:N2} m, H {height:N2} m";
+        }
+
+        private static bool IsUsableEnvelope(NtsEnvelope? envelope)
+        {
+            return envelope != null &&
+                   !envelope.IsNull &&
+                   double.IsFinite(envelope.MinX) &&
+                   double.IsFinite(envelope.MinY) &&
+                   double.IsFinite(envelope.MaxX) &&
+                   double.IsFinite(envelope.MaxY) &&
+                   envelope.MaxX >= envelope.MinX &&
+                   envelope.MaxY >= envelope.MinY;
+        }
+
         private static string? FormatArea(double? areaSqm)
         {
             if (!areaSqm.HasValue)
                 return null;
 
             double sqm = areaSqm.Value;
-            string traditionalArea = string.Equals(GetTraditionalAreaUnit(), "BKD", StringComparison.OrdinalIgnoreCase)
+            string traditionalUnit = GetTraditionalAreaUnit();
+            string traditionalArea = string.Equals(traditionalUnit, "BKD", StringComparison.OrdinalIgnoreCase)
                 ? AreaConverterService.SqmToBKDString(sqm)
                 : AreaConverterService.SqmToRAPDString(sqm);
 
-            return $"{sqm:N2} sq.m ({traditionalArea})";
+            return $"{sqm:N2} sq.m ({traditionalUnit}: {traditionalArea})";
+        }
+
+        private static string? FormatLength(double? lengthMeters)
+        {
+            if (!lengthMeters.HasValue)
+                return null;
+
+            return $"{lengthMeters.Value:N2} m";
         }
 
         private static string GetTraditionalAreaUnit()
