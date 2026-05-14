@@ -253,7 +253,8 @@ namespace Land_Readjustment_Tool.Services.Assignment
         {
             layer.FillStyle = "None";
             layer.FillColor = null;
-            layer.FillTransparency = 0;
+            layer.ShowFillTransparency = false;
+            layer.FillTransparency = 50;
 
             if (string.IsNullOrWhiteSpace(layer.BorderColor))
                 layer.BorderColor = "#CF7C82";
@@ -305,7 +306,8 @@ namespace Land_Readjustment_Tool.Services.Assignment
                 LineStyle = "Solid",
                 LineTypeScale = 1.0,
                 FillColor = null,
-                FillTransparency = 0,
+                ShowFillTransparency = false,
+                FillTransparency = 50,
                 FillStyle = "None",
                 LabelColor = "#000000",
                 PointSymbol = "Dot",

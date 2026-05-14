@@ -134,7 +134,6 @@ namespace Land_Readjustment_Tool.UI.MapCanvas.Services
                 DisplayOrder = nextDisplayOrder,
                 BorderColor = ToHtml(Darken(paletteColor, 0.58f)),
                 FillColor = ToHtml(paletteColor),
-                FillTransparency = 100,
                 LineWeight = 1.0,
                 LineStyle = "Solid",
                 LineTypeScale = 1.0,
@@ -143,6 +142,8 @@ namespace Land_Readjustment_Tool.UI.MapCanvas.Services
                 LabelFontSize = 2.0,
                 LabelScaleWithZoom = true,
                 FillStyle = "Solid",
+                ShowFillTransparency = false,
+                FillTransparency = 50,
                 PointSymbol = "Dot",
                 PointSize = 5.0
             };

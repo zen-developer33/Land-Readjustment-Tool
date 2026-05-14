@@ -6,6 +6,7 @@ namespace Land_Readjustment_Tool.UI.MapCanvas.Services
     public sealed class HatchPatternService : IHatchPatternService
     {
         private const int TileSize = 32;
+        private const int MaxTileSize = 640;
 
         private static readonly IReadOnlyList<HatchPatternDefinition> Patterns =
         [
@@ -79,51 +80,83 @@ namespace Land_Readjustment_Tool.UI.MapCanvas.Services
             graphics.FillRectangle(patternBrush, bounds);
         }
 
+        public static void FillPath(
+            Graphics graphics,
+            GraphicsPath path,
+            string? patternKey,
+            Color hatchColor,
+            double hatchScale,
+            PointF origin)
+        {
+            ArgumentNullException.ThrowIfNull(graphics);
+            ArgumentNullException.ThrowIfNull(path);
+
+            using Bitmap tile = CreatePatternTile(patternKey, hatchColor, hatchScale);
+
+            using TextureBrush patternBrush = new(tile, WrapMode.Tile);
+            patternBrush.TranslateTransform(origin.X, origin.Y);
+            graphics.FillPath(patternBrush, path);
+        }
+
+        internal static Bitmap CreatePatternTile(
+            string? patternKey,
+            Color hatchColor,
+            double hatchScale)
+        {
+            return CreatePatternTile(
+                NormalizePatternKey(patternKey),
+                hatchColor,
+                NormalizeHatchScale(hatchScale));
+        }
+
         private static Bitmap CreatePatternTile(string patternKey, Color hatchColor, float hatchScale)
         {
-            Bitmap tile = new(TileSize, TileSize);
+            int tileSize = Math.Clamp(
+                (int)Math.Ceiling(TileSize * hatchScale),
+                TileSize,
+                MaxTileSize);
+            float effectiveScale = tileSize / (float)TileSize;
+            Bitmap tile = new(tileSize, tileSize);
 
             using Graphics graphics = Graphics.FromImage(tile);
             graphics.Clear(Color.Transparent);
             graphics.SmoothingMode = SmoothingMode.AntiAlias;
+            graphics.ScaleTransform(effectiveScale, effectiveScale);
 
-            using Pen pen = new(hatchColor, 0.75f)
+            using Pen pen = new(hatchColor, 0.75f / effectiveScale)
             {
                 StartCap = LineCap.Flat,
                 EndCap = LineCap.Flat
             };
 
-            int ScaleSpacing(int spacing) =>
-                Math.Max(3, (int)Math.Round(spacing * hatchScale));
-
             switch (patternKey.ToUpperInvariant())
             {
                 case "ANSI32":
-                    DrawDiagonalLines(graphics, pen, spacing: ScaleSpacing(9), forward: true);
-                    DrawDiagonalLines(graphics, pen, spacing: ScaleSpacing(9), forward: false);
+                    DrawDiagonalLines(graphics, pen, spacing: 9, forward: true);
+                    DrawDiagonalLines(graphics, pen, spacing: 9, forward: false);
                     break;
                 case "ANSI33":
-                    DrawDiagonalLines(graphics, pen, spacing: ScaleSpacing(6), forward: true);
+                    DrawDiagonalLines(graphics, pen, spacing: 6, forward: true);
                     break;
                 case "ANSI34":
-                    DrawDiagonalLines(graphics, pen, spacing: ScaleSpacing(14), forward: true);
+                    DrawDiagonalLines(graphics, pen, spacing: 14, forward: true);
                     break;
                 case "HORIZONTAL":
-                    DrawHorizontalLines(graphics, pen, spacing: ScaleSpacing(8));
+                    DrawHorizontalLines(graphics, pen, spacing: 8);
                     break;
                 case "VERTICAL":
-                    DrawVerticalLines(graphics, pen, spacing: ScaleSpacing(8));
+                    DrawVerticalLines(graphics, pen, spacing: 8);
                     break;
                 case "CROSS":
-                    DrawHorizontalLines(graphics, pen, spacing: ScaleSpacing(9));
-                    DrawVerticalLines(graphics, pen, spacing: ScaleSpacing(9));
+                    DrawHorizontalLines(graphics, pen, spacing: 9);
+                    DrawVerticalLines(graphics, pen, spacing: 9);
                     break;
                 case "DIAGONAL-CROSS":
-                    DrawDiagonalLines(graphics, pen, spacing: ScaleSpacing(10), forward: true);
-                    DrawDiagonalLines(graphics, pen, spacing: ScaleSpacing(10), forward: false);
+                    DrawDiagonalLines(graphics, pen, spacing: 10, forward: true);
+                    DrawDiagonalLines(graphics, pen, spacing: 10, forward: false);
                     break;
                 case "DOTS":
-                    DrawDots(graphics, hatchColor, spacing: ScaleSpacing(8), radius: 1.3f);
+                    DrawDots(graphics, hatchColor, spacing: 8, radius: 1.3f);
                     break;
                 case "SAND":
                     DrawSand(graphics, hatchColor);
@@ -153,11 +186,24 @@ namespace Land_Readjustment_Tool.UI.MapCanvas.Services
                     DrawWood(graphics, pen);
                     break;
                 default:
-                    DrawDiagonalLines(graphics, pen, spacing: ScaleSpacing(10), forward: true);
+                    DrawDiagonalLines(graphics, pen, spacing: 10, forward: true);
                     break;
             }
 
             return tile;
+        }
+
+        internal static string NormalizePatternKey(string? patternKey)
+        {
+            if (string.IsNullOrWhiteSpace(patternKey))
+                return Patterns[0].Key;
+
+            HatchPatternDefinition? pattern = Patterns.FirstOrDefault(pattern =>
+                string.Equals(pattern.Key, patternKey, StringComparison.OrdinalIgnoreCase));
+
+            return pattern == null
+                ? patternKey.Trim()
+                : pattern.Key;
         }
 
         private static void DrawHorizontalLines(Graphics graphics, Pen pen, int spacing)

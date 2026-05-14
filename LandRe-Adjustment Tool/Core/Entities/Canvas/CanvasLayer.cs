@@ -52,7 +52,10 @@ namespace Land_Readjustment_Tool.Core.Entities.Canvas
         public string? FillColor { get; set; }
         // Hex color, null = no fill
 
-        public int FillTransparency { get; set; } = 0;
+        public bool ShowFillTransparency { get; set; } = false;
+        // When false, FillTransparency is preserved in properties but ignored while drawing.
+
+        public int FillTransparency { get; set; } = 50;
         // 0 = fully opaque, 100 = fully transparent
 
         public string FillStyle { get; set; } = "Solid";

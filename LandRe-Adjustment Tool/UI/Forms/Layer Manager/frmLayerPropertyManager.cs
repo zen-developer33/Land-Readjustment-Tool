@@ -81,8 +81,13 @@ namespace Land_Readjustment_Tool.UI.Forms
                 .GetPatternOrDefault(Layer.HatchPattern)
                 .Key;
             _numHatchScale.Value = ClampDecimal((decimal)NormalizeHatchScale(Layer.HatchScale), _numHatchScale);
-            _trkTransparency.Value = Math.Max(0, Math.Min(100, Layer.FillTransparency));
+            int fillTransparency = Math.Clamp(Layer.FillTransparency, 0, 100);
+            if (!_isRasterLayer && fillTransparency == 0 && !Layer.ShowFillTransparency)
+                fillTransparency = 50;
+
+            _trkTransparency.Value = fillTransparency;
             _txtTransparencyValue.Text = _trkTransparency.Value.ToString();
+            _chkShowFillTransparency.Checked = !_isRasterLayer && Layer.ShowFillTransparency;
             UpdateFillControlState();
             UpdateLayerKindPresentation();
 
@@ -155,6 +160,7 @@ namespace Land_Readjustment_Tool.UI.Forms
             SetControlVisible(_fillColorPanel, false);
             SetControlVisible(_lblHatchPattern, false);
             SetControlVisible(_hatchPatternPanel, false);
+            SetControlVisible(_chkShowFillTransparency, false);
             _fillLayout.SetRow(_lblTransparency, 0);
             _fillLayout.SetRow(_transparencyLayout, 0);
 
@@ -340,13 +346,19 @@ namespace Land_Readjustment_Tool.UI.Forms
                 _selectedHatchPatternKey,
                 _pnlFillColor.BackColor,
                 Color.White,
-                _trkTransparency.Value,
+                GetEffectivePreviewTransparency(),
                 (double)_numHatchScale.Value,
                 _pnlHatchPatternPreview.Parent?.BackColor ?? Color.White);
         }
 
         private void numHatchScale_ValueChanged(object? sender, EventArgs e)
         {
+            _pnlHatchPatternPreview.Invalidate();
+        }
+
+        private void chkShowFillTransparency_CheckedChanged(object? sender, EventArgs e)
+        {
+            UpdateFillControlState();
             _pnlHatchPatternPreview.Invalidate();
         }
 
@@ -376,6 +388,7 @@ namespace Land_Readjustment_Tool.UI.Forms
 
             if (_isRasterLayer)
             {
+                SetControlVisible(_chkShowFillTransparency, false);
                 _trkTransparency.Enabled = canEdit;
                 _txtTransparencyValue.Enabled = canEdit;
                 return;
@@ -383,11 +396,16 @@ namespace Land_Readjustment_Tool.UI.Forms
 
             bool hasFill = !string.Equals(_cboFillStyle.Text, "None", StringComparison.OrdinalIgnoreCase);
             bool isHatched = IsHatchedFill();
+            bool applyTransparency = hasFill && _chkShowFillTransparency.Checked;
 
             _pnlFillColor.Enabled = canEdit && hasFill;
             _btnFillColor.Enabled = canEdit && hasFill;
-            _trkTransparency.Enabled = canEdit && hasFill;
-            _txtTransparencyValue.Enabled = canEdit && hasFill;
+            SetControlVisible(_chkShowFillTransparency, hasFill);
+            _chkShowFillTransparency.Enabled = canEdit && hasFill;
+            SetControlVisible(_lblTransparency, hasFill);
+            SetControlVisible(_transparencyLayout, hasFill);
+            _trkTransparency.Enabled = canEdit && applyTransparency;
+            _txtTransparencyValue.Enabled = canEdit && applyTransparency;
             _lblFillColor.Text = isHatched ? "Hatch Color" : "Fill Color";
             _btnFillColor.Text = "Change...";
 
@@ -398,6 +416,8 @@ namespace Land_Readjustment_Tool.UI.Forms
             _btnHatchPattern.Enabled = canEdit && showHatchPattern;
             _numHatchScale.Enabled = canEdit && showHatchPattern;
             SetFillRowHeight(2, showHatchPattern ? 38F : 0F);
+            SetFillRowHeight(3, hasFill ? 38F : 0F);
+            SetFillRowHeight(4, hasFill ? 38F : 0F);
 
             if (isHatched && string.IsNullOrWhiteSpace(_selectedHatchPatternKey))
                 _selectedHatchPatternKey = _hatchPatternService.GetPatterns()[0].Key;
@@ -431,8 +451,9 @@ namespace Land_Readjustment_Tool.UI.Forms
             _pnlFillColor.Enabled = canEdit && !isAnnotation;
             _btnFillColor.Enabled = canEdit && !isAnnotation;
             _numHatchScale.Enabled = canEdit && !isAnnotation;
-            _trkTransparency.Enabled = canEdit && !isAnnotation;
-            _txtTransparencyValue.Enabled = canEdit && !isAnnotation;
+            _chkShowFillTransparency.Enabled = canEdit && !isAnnotation;
+            _trkTransparency.Enabled = canEdit && !isAnnotation && _chkShowFillTransparency.Checked;
+            _txtTransparencyValue.Enabled = canEdit && !isAnnotation && _chkShowFillTransparency.Checked;
 
             _chkShowLabels.Enabled = canEdit;
             _btnFont.Enabled = canEdit;
@@ -499,6 +520,7 @@ namespace Land_Readjustment_Tool.UI.Forms
             Layer.IsVisible = _chkVisible.Checked;
             Layer.IsLocked = _chkLocked.Checked;
             Layer.FillTransparency = _trkTransparency.Value;
+            Layer.ShowFillTransparency = !_isRasterLayer && _chkShowFillTransparency.Checked;
             if (_allowRename && !string.IsNullOrWhiteSpace(_txtName.Text))
             {
                 Layer.Name = _txtName.Text.Trim();
@@ -531,7 +553,8 @@ namespace Land_Readjustment_Tool.UI.Forms
                     Layer.FillColor = null;
                     Layer.HatchPattern = null;
                     Layer.HatchScale = 1.0;
-                    Layer.FillTransparency = 100;
+                    Layer.ShowFillTransparency = false;
+                    Layer.FillTransparency = 50;
                     if (selectedAnnotation)
                     {
                         Layer.LineWeight = 0;
@@ -544,6 +567,9 @@ namespace Land_Readjustment_Tool.UI.Forms
                     Layer.FillColor = string.Equals(Layer.FillStyle, "None", StringComparison.OrdinalIgnoreCase)
                         ? null
                         : ColorTranslator.ToHtml(_pnlFillColor.BackColor);
+                    Layer.ShowFillTransparency =
+                        !string.Equals(Layer.FillStyle, "None", StringComparison.OrdinalIgnoreCase) &&
+                        _chkShowFillTransparency.Checked;
                     Layer.HatchPattern = string.Equals(Layer.FillStyle, "Hatched", StringComparison.OrdinalIgnoreCase) &&
                                          !string.IsNullOrWhiteSpace(_selectedHatchPatternKey)
                         ? _selectedHatchPatternKey.Trim()
@@ -580,7 +606,7 @@ namespace Land_Readjustment_Tool.UI.Forms
                 _selectedHatchPatternKey,
                 _pnlFillColor.BackColor,
                 Color.White,
-                _trkTransparency.Value,
+                GetEffectivePreviewTransparency(),
                 (double)_numHatchScale.Value);
 
             if (picker.ShowDialog(this) != DialogResult.OK)
@@ -593,6 +619,13 @@ namespace Land_Readjustment_Tool.UI.Forms
         private bool IsHatchedFill()
         {
             return string.Equals(_cboFillStyle.Text, "Hatched", StringComparison.OrdinalIgnoreCase);
+        }
+
+        private int GetEffectivePreviewTransparency()
+        {
+            return _isRasterLayer || _chkShowFillTransparency.Checked
+                ? _trkTransparency.Value
+                : 0;
         }
 
         /// <summary>

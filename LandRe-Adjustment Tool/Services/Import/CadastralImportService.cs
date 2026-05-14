@@ -414,7 +414,8 @@ namespace Land_Readjustment_Tool.Services.Import
                     : layer.BorderColor;
                 layer.FillColor = null;
                 layer.FillStyle = "None";
-                layer.FillTransparency = 100;
+                layer.ShowFillTransparency = false;
+                layer.FillTransparency = 50;
                 layer.LineWeight = 0;
                 layer.LabelColor = string.IsNullOrWhiteSpace(layer.LabelColor)
                     ? layer.BorderColor
@@ -436,9 +437,9 @@ namespace Land_Readjustment_Tool.Services.Import
             layer.FillColor ??= CanvasLayerTreeService.IsPolygonLayer(layer)
                 ? paletteFillColor ?? "#C8E8F4"
                 : null;
-            layer.FillTransparency = CanvasLayerTreeService.IsPolygonLayer(layer)
-                ? layer.FillTransparency <= 0 ? 55 : layer.FillTransparency
-                : 100;
+            layer.ShowFillTransparency = CanvasLayerTreeService.IsPolygonLayer(layer) &&
+                                         layer.ShowFillTransparency;
+            layer.FillTransparency = layer.FillTransparency <= 0 ? 50 : layer.FillTransparency;
             layer.LineWeight = layer.LineWeight <= 0 ? 1.4 : layer.LineWeight;
             layer.LineStyle = string.IsNullOrWhiteSpace(layer.LineStyle)
                 ? "Solid"

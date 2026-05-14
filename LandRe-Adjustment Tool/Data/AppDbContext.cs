@@ -107,6 +107,14 @@ namespace Land_Readjustment_Tool.Data
                 .HasDefaultValue(1.0);
 
             modelBuilder.Entity<CanvasLayer>()
+                .Property(layer => layer.ShowFillTransparency)
+                .HasDefaultValue(false);
+
+            modelBuilder.Entity<CanvasLayer>()
+                .Property(layer => layer.FillTransparency)
+                .HasDefaultValue(50);
+
+            modelBuilder.Entity<CanvasLayer>()
                 .Property(layer => layer.LabelScaleWithZoom)
                 .HasDefaultValue(true);
 

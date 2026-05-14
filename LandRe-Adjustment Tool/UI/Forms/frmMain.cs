@@ -30,7 +30,11 @@ using System.Drawing.Drawing2D;
 using System.Drawing.Imaging;
 using System.Reflection;
 using System.Text.Json;
+using NtsCoordinate = NetTopologySuite.Geometries.Coordinate;
 using NtsEnvelope = NetTopologySuite.Geometries.Envelope;
+using NtsLineString = NetTopologySuite.Geometries.LineString;
+using NtsMultiPolygon = NetTopologySuite.Geometries.MultiPolygon;
+using NtsPolygon = NetTopologySuite.Geometries.Polygon;
 using VisualStyles = System.Windows.Forms.VisualStyles;
 
 namespace Land_Readjustment_Tool
@@ -133,6 +137,7 @@ namespace Land_Readjustment_Tool
         private readonly ToolStripMenuItem _mnuToggleLayerVisibility = new("Hidden");
         private readonly ToolStripMenuItem _mnuToggleLayerLock = new("Locked");
         private readonly ToolStripMenuItem _mnuToggleLayerLabels = new("Show Labels");
+        private readonly ToolStripMenuItem _mnuToggleFillTransparency = new("Show Transparency");
         private readonly ToolStripMenuItem _mnuLayerProperties = new("Layer Properties");
         private readonly ToolStripMenuItem _mnuCopyLayerObjectsToDefault = new("Copy Objects To");
         private readonly ToolStripMenuItem _mnuMoveLayerObjectsToDefault = new("Move Objects To");
@@ -3236,7 +3241,38 @@ namespace Land_Readjustment_Tool
             if (canvasObject.Shape == null || canvasObject.Shape.IsEmpty)
                 return null;
 
-            return canvasObject.Shape.NumPoints > 0 ? canvasObject.Shape.NumPoints : null;
+            int pointCount = canvasObject.Shape switch
+            {
+                NtsPolygon polygon => CountPolygonVertices(polygon),
+                NtsMultiPolygon multiPolygon => multiPolygon.Geometries
+                    .OfType<NtsPolygon>()
+                    .Sum(CountPolygonVertices),
+                _ => canvasObject.Shape.NumPoints
+            };
+
+            return pointCount > 0 ? pointCount : null;
+        }
+
+        private static int CountPolygonVertices(NtsPolygon polygon)
+        {
+            int vertexCount = CountRingVertices(polygon.ExteriorRing);
+            for (int index = 0; index < polygon.NumInteriorRings; index++)
+            {
+                vertexCount += CountRingVertices(polygon.GetInteriorRingN(index));
+            }
+
+            return vertexCount;
+        }
+
+        private static int CountRingVertices(NtsLineString ring)
+        {
+            int count = ring.NumPoints;
+            if (count <= 1)
+                return count;
+
+            NtsCoordinate first = ring.GetCoordinateN(0);
+            NtsCoordinate last = ring.GetCoordinateN(count - 1);
+            return first.Equals2D(last) ? count - 1 : count;
         }
 
         private static string? FormatGeometryBounds(NtsEnvelope? envelope)
@@ -4930,7 +4966,8 @@ namespace Land_Readjustment_Tool
                 LineStyle = "Solid",
                 LineTypeScale = 1.0,
                 FillColor = null,
-                FillTransparency = 100,
+                ShowFillTransparency = false,
+                FillTransparency = 50,
                 FillStyle = "None",
                 LabelColor = "#000000",
                 PointSymbol = "Dot",
@@ -5285,6 +5322,7 @@ namespace Land_Readjustment_Tool
             _mnuToggleLayerVisibility.CheckOnClick = false;
             _mnuToggleLayerLock.CheckOnClick = false;
             _mnuToggleLayerLabels.CheckOnClick = false;
+            _mnuToggleFillTransparency.CheckOnClick = false;
             _mnuAddRasterMap.Click += async (_, _) => await ImportRasterFileAsync(
                 "Add Raster Map",
                 GetGeneralRasterImportFilter());
@@ -5305,6 +5343,7 @@ namespace Land_Readjustment_Tool
             _mnuToggleLayerVisibility.Click += async (_, _) => await ToggleLayerNodeVisibilityAsync(_contextLayerNode);
             _mnuToggleLayerLock.Click += async (_, _) => await ToggleLayerLockAsync(_contextLayerNode);
             _mnuToggleLayerLabels.Click += async (_, _) => await ToggleLayerLabelsAsync(_contextLayerNode);
+            _mnuToggleFillTransparency.Click += async (_, _) => await ToggleLayerFillTransparencyAsync(_contextLayerNode);
             _mnuLayerProperties.Click += async (_, _) => await OpenLayerPropertyManagerAsync(_contextLayerNode);
             treeViewLayers.ContextMenuStrip = _layerContextMenu;
         }
@@ -5659,9 +5698,11 @@ namespace Land_Readjustment_Tool
             _mnuToggleLayerVisibility.Text = "Hidden";
             _mnuToggleLayerLock.Text = "Locked";
             _mnuToggleLayerLabels.Text = "Show Labels";
+            _mnuToggleFillTransparency.Text = "Show Transparency";
             _mnuToggleLayerVisibility.Checked = !layer.IsVisible;
             _mnuToggleLayerLock.Checked = layer.IsLocked;
             _mnuToggleLayerLabels.Checked = layer.ShowLabels;
+            _mnuToggleFillTransparency.Checked = layer.ShowFillTransparency;
 
             bool isProtectedDefaultLayer =
                 CanvasLayerTreeService.IsProtectedDefaultLayer(layer);
@@ -5680,6 +5721,7 @@ namespace Land_Readjustment_Tool
             _mnuToggleLayerVisibility.Enabled = true;
             _mnuToggleLayerLock.Enabled = true;
             _mnuToggleLayerLabels.Enabled = CanLayerDisplayLabels(layer);
+            _mnuToggleFillTransparency.Enabled = CanLayerUseFillTransparency(layer);
             _mnuLayerProperties.Enabled = true;
             ConfigureDefaultLayerTransferMenus(_contextLayerNode, layer);
         }
@@ -5758,8 +5800,10 @@ namespace Land_Readjustment_Tool
             Color outlineColor = ParseColorOrDefault(layer.BorderColor, Color.Black);
             bool hasFill =
                 !string.IsNullOrWhiteSpace(layer.FillColor) &&
-                !string.Equals(layer.FillStyle, "None", StringComparison.OrdinalIgnoreCase) &&
-                layer.FillTransparency < 100;
+                !string.Equals(layer.FillStyle, "None", StringComparison.OrdinalIgnoreCase);
+            int effectiveTransparency = layer.ShowFillTransparency
+                ? Math.Clamp(layer.FillTransparency, 0, 100)
+                : 0;
 
             Color rawFillColor = hasFill
                 ? ParseColorOrDefault(layer.FillColor, Color.White)
@@ -5772,7 +5816,7 @@ namespace Land_Readjustment_Tool
             }
 
             Color fillColor = hasFill
-                ? BlendColor(rawFillColor, backgroundColor, layer.FillTransparency / 100f)
+                ? BlendColor(rawFillColor, backgroundColor, effectiveTransparency / 100f)
                 : backgroundColor;
 
             Rectangle symbolRect = new(
@@ -5789,7 +5833,7 @@ namespace Land_Readjustment_Tool
                     layer.HatchPattern,
                     rawFillColor,
                     backgroundColor,
-                    layer.FillTransparency,
+                    effectiveTransparency,
                     layer.HatchScale,
                     backgroundColor);
             }
@@ -6063,6 +6107,7 @@ namespace Land_Readjustment_Tool
                 _mnuToggleLayerVisibility,
                 _mnuToggleLayerLock,
                 _mnuToggleLayerLabels,
+                _mnuToggleFillTransparency,
                 new ToolStripSeparator(),
                 _mnuLayerProperties
             ]);
@@ -6504,10 +6549,60 @@ namespace Land_Readjustment_Tool
             }
         }
 
+        private async Task ToggleLayerFillTransparencyAsync(TreeNode? node)
+        {
+            CanvasLayer? layer = GetLayerFromNode(node);
+            if (layer == null || !CanLayerUseFillTransparency(layer))
+            {
+                return;
+            }
+
+            try
+            {
+                CanvasLayer editableLayer = _layerCommandService.CreateEditableCopy(layer);
+                editableLayer.ShowFillTransparency = !layer.ShowFillTransparency;
+                editableLayer.FillTransparency = Math.Clamp(
+                    editableLayer.FillTransparency <= 0 ? 50 : editableLayer.FillTransparency,
+                    0,
+                    100);
+
+                CanvasLayer updatedLayer =
+                    await _layerCommandService.UpdatePropertiesAsync(
+                        AppServices.HasContext ? AppServices.Context.Session : null,
+                        editableLayer);
+
+                UpdateLayerNode(node!, updatedLayer, updateRasterStack: false);
+                mapCanvasControlMain.UpdateVectorLayer(updatedLayer);
+                MarkProjectModifiedIfOpen();
+                SetCanvasCommandStatus(updatedLayer.ShowFillTransparency
+                    ? $"Fill transparency shown: {updatedLayer.Name}"
+                    : $"Fill transparency hidden: {updatedLayer.Name}");
+                SelectLayerNodeById(updatedLayer.Id);
+            }
+            catch (Exception ex)
+            {
+                MessageBox.Show(
+                    $"Failed to update fill transparency: {ex.Message}",
+                    "Fill Transparency",
+                    MessageBoxButtons.OK,
+                    MessageBoxIcon.Error);
+            }
+        }
+
         private static bool CanLayerDisplayLabels(CanvasLayer layer)
         {
             return !IsRasterLayer(layer) &&
                    !CanvasLayerTreeService.IsAnnotationLayer(layer);
+        }
+
+        private static bool CanLayerUseFillTransparency(CanvasLayer layer)
+        {
+            return !IsRasterLayer(layer) &&
+                   !CanvasLayerTreeService.IsLineLayer(layer) &&
+                   !CanvasLayerTreeService.IsPointLayer(layer) &&
+                   !CanvasLayerTreeService.IsAnnotationLayer(layer) &&
+                   !string.Equals(layer.FillStyle, "None", StringComparison.OrdinalIgnoreCase) &&
+                   !string.IsNullOrWhiteSpace(layer.FillColor);
         }
 
         private async Task ToggleLayerGroupVisibilityAsync(TreeNode? groupNode)
@@ -6898,7 +6993,8 @@ namespace Land_Readjustment_Tool
                     LineStyle = "Solid",
                     LineTypeScale = 1.0,
                     FillColor = null,
-                    FillTransparency = 0,
+                    ShowFillTransparency = false,
+                    FillTransparency = 50,
                     FillStyle = "None",
                     HatchScale = 1.0,
                     PointSymbol = "Dot",

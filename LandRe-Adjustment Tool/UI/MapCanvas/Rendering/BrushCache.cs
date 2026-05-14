@@ -1,4 +1,5 @@
 using System.Drawing.Drawing2D;
+using Land_Readjustment_Tool.UI.MapCanvas.Services;
 
 namespace Land_Readjustment_Tool.UI.MapCanvas.Rendering
 {
@@ -6,6 +7,7 @@ namespace Land_Readjustment_Tool.UI.MapCanvas.Rendering
     {
         private readonly Dictionary<int, SolidBrush> _solidBrushes = new Dictionary<int, SolidBrush>();
         private readonly Dictionary<HatchBrushKey, HatchBrush> _hatchBrushes = new Dictionary<HatchBrushKey, HatchBrush>();
+        private readonly Dictionary<TextureHatchBrushKey, TextureHatchBrush> _textureHatchBrushes = new();
 
         public SolidBrush GetSolid(Color color)
         {
@@ -36,6 +38,32 @@ namespace Land_Readjustment_Tool.UI.MapCanvas.Rendering
             return brush;
         }
 
+        public TextureBrush GetTextureHatch(
+            string? patternKey,
+            Color hatchColor,
+            double hatchScale)
+        {
+            string normalizedPatternKey = HatchPatternService.NormalizePatternKey(patternKey);
+            int scaleKey = (int)Math.Round(Math.Clamp(hatchScale, 0.1, 25.0) * 1000.0);
+            TextureHatchBrushKey key = new(
+                normalizedPatternKey.ToUpperInvariant(),
+                hatchColor.ToArgb(),
+                scaleKey);
+
+            if (_textureHatchBrushes.TryGetValue(key, out TextureHatchBrush? cached))
+            {
+                return cached.Brush;
+            }
+
+            Bitmap tile = HatchPatternService.CreatePatternTile(
+                normalizedPatternKey,
+                hatchColor,
+                scaleKey / 1000.0);
+            TextureBrush brush = new(tile, WrapMode.Tile);
+            _textureHatchBrushes[key] = new TextureHatchBrush(tile, brush);
+            return brush;
+        }
+
         public void Dispose()
         {
             foreach (SolidBrush brush in _solidBrushes.Values)
@@ -44,13 +72,41 @@ namespace Land_Readjustment_Tool.UI.MapCanvas.Rendering
             foreach (HatchBrush brush in _hatchBrushes.Values)
                 brush.Dispose();
 
+            foreach (TextureHatchBrush textureHatchBrush in _textureHatchBrushes.Values)
+                textureHatchBrush.Dispose();
+
             _solidBrushes.Clear();
             _hatchBrushes.Clear();
+            _textureHatchBrushes.Clear();
         }
 
         private readonly record struct HatchBrushKey(
             HatchStyle HatchStyle,
             int ForeColorArgb,
             int BackColorArgb);
+
+        private readonly record struct TextureHatchBrushKey(
+            string PatternKey,
+            int HatchColorArgb,
+            int ScaleKey);
+
+        private sealed class TextureHatchBrush : IDisposable
+        {
+            private readonly Bitmap _tile;
+
+            public TextureHatchBrush(Bitmap tile, TextureBrush brush)
+            {
+                _tile = tile;
+                Brush = brush;
+            }
+
+            public TextureBrush Brush { get; }
+
+            public void Dispose()
+            {
+                Brush.Dispose();
+                _tile.Dispose();
+            }
+        }
     }
 }

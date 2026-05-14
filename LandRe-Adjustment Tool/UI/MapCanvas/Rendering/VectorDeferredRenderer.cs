@@ -86,7 +86,8 @@ namespace Land_Readjustment_Tool.UI.MapCanvas.Rendering
                         engine,
                         visibleBounds,
                         useLevelOfDetail: vectorRenderer.FeatureCount > LevelOfDetailThreshold,
-                        canvasSize: clampedSize);
+                        canvasSize: clampedSize,
+                        antiAliasingEnabled: antiAliasingEnabled);
                 }
 
                 if (cancellationToken.IsCancellationRequested)
@@ -423,24 +424,18 @@ namespace Land_Readjustment_Tool.UI.MapCanvas.Rendering
                 graphics.CompositingQuality = CompositingQuality.HighSpeed;
                 graphics.InterpolationMode = InterpolationMode.NearestNeighbor;
                 graphics.CompositingMode = CompositingMode.SourceOver;
+                graphics.TextRenderingHint = System.Drawing.Text.TextRenderingHint.SingleBitPerPixelGridFit;
                 return;
             }
 
-            if (featureCount <= 1_000)
-            {
-                graphics.SmoothingMode = SmoothingMode.AntiAlias;
-                graphics.PixelOffsetMode = PixelOffsetMode.HighQuality;
-                graphics.CompositingQuality = CompositingQuality.HighQuality;
-            }
-            else
-            {
-                graphics.SmoothingMode = SmoothingMode.HighSpeed;
-                graphics.PixelOffsetMode = PixelOffsetMode.HighSpeed;
-                graphics.CompositingQuality = CompositingQuality.HighSpeed;
-            }
-
+            graphics.SmoothingMode = SmoothingMode.AntiAlias;
+            graphics.PixelOffsetMode = PixelOffsetMode.HighQuality;
+            graphics.CompositingQuality = featureCount <= 1_000
+                ? CompositingQuality.HighQuality
+                : CompositingQuality.AssumeLinear;
             graphics.InterpolationMode = InterpolationMode.NearestNeighbor;
             graphics.CompositingMode = CompositingMode.SourceOver;
+            graphics.TextRenderingHint = System.Drawing.Text.TextRenderingHint.AntiAliasGridFit;
         }
 
         private static Size ClampSize(Size size)

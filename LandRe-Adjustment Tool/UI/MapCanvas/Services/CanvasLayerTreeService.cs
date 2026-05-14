@@ -206,7 +206,8 @@ namespace Land_Readjustment_Tool.UI.MapCanvas.Services
                     LineStyle = definition.LineStyle,
                     LineTypeScale = 1.0,
                     FillColor = definition.FillColor,
-                    FillTransparency = definition.FillTransparency,
+                    ShowFillTransparency = false,
+                    FillTransparency = 50,
                     FillStyle = string.IsNullOrWhiteSpace(definition.FillColor)
                         ? "None"
                         : "Solid",
@@ -282,9 +283,15 @@ namespace Land_Readjustment_Tool.UI.MapCanvas.Services
                     changed = true;
                 }
 
-                if (layer.FillTransparency != 0)
+                if (layer.ShowFillTransparency)
                 {
-                    layer.FillTransparency = 0;
+                    layer.ShowFillTransparency = false;
+                    changed = true;
+                }
+
+                if (layer.FillTransparency != 50)
+                {
+                    layer.FillTransparency = 50;
                     changed = true;
                 }
             }

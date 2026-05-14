@@ -11,15 +11,19 @@ namespace Land_Readjustment_Tool.UI.MapCanvas.Rendering
             PenCache penCache,
             BrushCache brushCache,
             double zoomScale,
+            bool antiAliasingEnabled = true,
             bool isPreview = false)
         {
             _penCache = penCache;
             _brushCache = brushCache;
             ZoomScale = zoomScale;
+            AntiAliasingEnabled = antiAliasingEnabled;
             IsPreview = isPreview;
         }
 
         public double ZoomScale { get; }
+
+        public bool AntiAliasingEnabled { get; }
 
         public bool IsPreview { get; }
 
@@ -34,6 +38,13 @@ namespace Land_Readjustment_Tool.UI.MapCanvas.Rendering
             DashStyle dashStyle = DashStyle.Solid) =>
             _penCache.Get(color, width, dashStyle);
 
+        public Pen GetPen(
+            Color color,
+            float width,
+            DashStyle dashStyle,
+            float lineTypeScale) =>
+            _penCache.Get(color, width, dashStyle, lineTypeScale);
+
         public SolidBrush GetSolidBrush(Color color) =>
             _brushCache.GetSolid(color);
 
@@ -42,5 +53,11 @@ namespace Land_Readjustment_Tool.UI.MapCanvas.Rendering
             Color foreColor,
             Color backColor) =>
             _brushCache.GetHatch(hatchStyle, foreColor, backColor);
+
+        public TextureBrush GetTextureHatchBrush(
+            string? patternKey,
+            Color hatchColor,
+            double hatchScale) =>
+            _brushCache.GetTextureHatch(patternKey, hatchColor, hatchScale);
     }
 }

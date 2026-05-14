@@ -202,6 +202,7 @@ namespace Land_Readjustment_Tool.Services.Canvas
                 LineStyle = source.LineStyle,
                 LineTypeScale = source.LineTypeScale,
                 FillColor = source.FillColor,
+                ShowFillTransparency = source.ShowFillTransparency,
                 FillTransparency = source.FillTransparency,
                 FillStyle = source.FillStyle,
                 HatchPattern = source.HatchPattern,

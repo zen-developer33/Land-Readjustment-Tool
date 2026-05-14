@@ -100,7 +100,8 @@ namespace Land_Readjustment_Tool.UI.MapCanvas.Rendering
             MapCanvasEngine engine,
             RectangleD visibleWorldBounds,
             bool useLevelOfDetail = false,
-            Size? canvasSize = null)
+            Size? canvasSize = null,
+            bool antiAliasingEnabled = true)
         {
             if (_features.Count == 0)
             {
@@ -129,7 +130,8 @@ namespace Land_Readjustment_Tool.UI.MapCanvas.Rendering
             VectorRenderContext context = new(
                 penCache,
                 brushCache,
-                engine.ZoomScale);
+                engine.ZoomScale,
+                antiAliasingEnabled);
 
             Stopwatch queryStopwatch = Stopwatch.StartNew();
             IReadOnlyList<CanvasFeature> queriedFeatures =
@@ -197,6 +199,7 @@ namespace Land_Readjustment_Tool.UI.MapCanvas.Rendering
                 penCache,
                 brushCache,
                 engine.ZoomScale,
+                antiAliasingEnabled: true,
                 isPreview: true);
 
             DrawShape(graphics, engine, previewShape, ResolveStyle(previewShape, previewLayer), context, layer: previewLayer);
@@ -398,7 +401,9 @@ namespace Land_Readjustment_Tool.UI.MapCanvas.Rendering
                 ParseColor(canvasObject?.FillColorOverride, shape.FillColor));
 
             int transparency = Math.Clamp(
-                layer?.FillTransparency ?? canvasObject?.FillTransparencyOverride ?? 100,
+                layer == null
+                    ? canvasObject?.FillTransparencyOverride ?? 0
+                    : layer.ShowFillTransparency ? layer.FillTransparency : 0,
                 0,
                 100);
             int alpha = (int)Math.Round(255 * ((100 - transparency) / 100.0));
@@ -512,13 +517,13 @@ namespace Land_Readjustment_Tool.UI.MapCanvas.Rendering
                 : Math.Max(0.25f, style.LineWidth);
             Color stroke = useDefaultSelectionStyle ? SelectionStrokeColor : style.StrokeColor;
             DashStyle dashStyle = useDefaultSelectionStyle ? DashStyle.Dash : style.DashStyle;
-            Pen? pen = shouldStroke ? context.GetPen(stroke, width, dashStyle) : null;
-
-            // Apply LineTypeScale to custom dash patterns
-            if (pen != null && !useDefaultSelectionStyle && style.LineTypeScale != 1.0f)
-            {
-                ApplyLineTypeScaleToPen(pen, dashStyle, style.LineTypeScale);
-            }
+            Pen? pen = shouldStroke
+                ? context.GetPen(
+                    stroke,
+                    width,
+                    dashStyle,
+                    useDefaultSelectionStyle ? 1.0f : style.LineTypeScale)
+                : null;
 
             switch (shape)
             {
@@ -549,25 +554,6 @@ namespace Land_Readjustment_Tool.UI.MapCanvas.Rendering
                 default:
                     shape.Draw(graphics, engine.WorldToScreen, context.IsPreview);
                     break;
-            }
-        }
-
-        private static void ApplyLineTypeScaleToPen(Pen pen, DashStyle dashStyle, float scale)
-        {
-            scale = Math.Clamp(scale, 0.1f, 100f);
-            switch (dashStyle)
-            {
-                case DashStyle.Dash:
-                    pen.DashPattern = new float[] { 4f * scale, 2f * scale };
-                    break;
-                case DashStyle.Dot:
-                    pen.DashPattern = new float[] { 1f * scale, 2f * scale };
-                    break;
-                case DashStyle.DashDot:
-                    pen.DashPattern = new float[] { 4f * scale, 2f * scale, 1f * scale, 2f * scale };
-                    break;
-                // Note: DashDotDot would be [4f * scale, 2f * scale, 1f * scale, 2f * scale, 1f * scale, 2f * scale]
-                // but GDI+ DashStyle enum doesn't have DashDotDot built-in
             }
         }
 
@@ -932,9 +918,12 @@ namespace Land_Readjustment_Tool.UI.MapCanvas.Rendering
             VectorShapeStyle style,
             VectorRenderContext context)
         {
-            HatchStyle hatchStyle = ResolveGdipHatchStyle(style.HatchPattern);
             Color foreColor = ResolveHatchColor(style);
-            HatchBrush brush = context.GetHatchBrush(hatchStyle, foreColor, Color.Transparent);
+            TextureBrush brush = context.GetTextureHatchBrush(
+                style.HatchPattern,
+                foreColor,
+                style.HatchScale);
+            brush.ResetTransform();
             graphics.FillPath(brush, path);
         }
 
@@ -1130,7 +1119,9 @@ namespace Land_Readjustment_Tool.UI.MapCanvas.Rendering
 
             Font labelFont = labelFontCache.Get(layer, context.ZoomScale);
             System.Drawing.Text.TextRenderingHint previousTextRenderingHint = graphics.TextRenderingHint;
-            graphics.TextRenderingHint = System.Drawing.Text.TextRenderingHint.AntiAliasGridFit;
+            graphics.TextRenderingHint = context.AntiAliasingEnabled
+                ? System.Drawing.Text.TextRenderingHint.AntiAliasGridFit
+                : System.Drawing.Text.TextRenderingHint.SingleBitPerPixelGridFit;
             try
             {
                 SizeF size = graphics.MeasureString(labelText, labelFont);

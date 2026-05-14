@@ -25,6 +25,7 @@ namespace Land_Readjustment_Tool.Forms
             _ownersFromDatabase = owners;
             _importedRecords = null;
             InitializeComponent();
+            ConfigureOwnerGridColumns();
             LoadOwners();
         }
 
@@ -34,7 +35,88 @@ namespace Land_Readjustment_Tool.Forms
             _ownersFromDatabase = null;
             _importedRecords = importedRecords;
             InitializeComponent();
+            ConfigureOwnerGridColumns();
             LoadOwnersFromImportedRecords();
+        }
+
+        private void ConfigureOwnerGridColumns()
+        {
+            dgvOwners.AutoGenerateColumns = false;
+            dgvOwners.Columns.Clear();
+
+            colIsPrimaryOwner = new DataGridViewRadioButtonColumn
+            {
+                Name = "colIsPrimaryOwner",
+                HeaderText = "Primary",
+                DataPropertyName = nameof(OwnerLookupDisplayModel.IsPrimaryOwner),
+                Width = 72,
+                TrueValue = true,
+                FalseValue = false,
+                SortMode = DataGridViewColumnSortMode.NotSortable
+            };
+
+            colIsCoOwner = new DataGridViewCheckBoxColumn
+            {
+                Name = "colIsCoOwner",
+                HeaderText = "Co-owner",
+                DataPropertyName = nameof(OwnerLookupDisplayModel.IsCoOwner),
+                Width = 82,
+                TrueValue = true,
+                FalseValue = false,
+                ThreeState = false,
+                SortMode = DataGridViewColumnSortMode.NotSortable
+            };
+
+            colLandOwnerId = new DataGridViewTextBoxColumn
+            {
+                Name = "colLandOwnerId",
+                HeaderText = "ID",
+                DataPropertyName = nameof(OwnerLookupDisplayModel.LandOwnerId),
+                Visible = false
+            };
+
+            colLandOwnersName = new DataGridViewTextBoxColumn
+            {
+                Name = "colLandOwnersName",
+                HeaderText = "Owner Name",
+                DataPropertyName = nameof(OwnerLookupDisplayModel.LandOwnersName),
+                AutoSizeMode = DataGridViewAutoSizeColumnMode.Fill,
+                FillWeight = 140
+            };
+
+            colFatherSpouse = new DataGridViewTextBoxColumn
+            {
+                Name = "colFatherSpouse",
+                HeaderText = "Father/Spouse",
+                DataPropertyName = nameof(OwnerLookupDisplayModel.FatherSpouse),
+                Width = 150
+            };
+
+            colCitizenshipNumber = new DataGridViewTextBoxColumn
+            {
+                Name = "colCitizenshipNumber",
+                HeaderText = "Citizenship",
+                DataPropertyName = nameof(OwnerLookupDisplayModel.CitizenshipNumber),
+                Width = 120
+            };
+
+            colPermanentAddress = new DataGridViewTextBoxColumn
+            {
+                Name = "colPermanentAddress",
+                HeaderText = "Address",
+                DataPropertyName = nameof(OwnerLookupDisplayModel.PermanentAddress),
+                AutoSizeMode = DataGridViewAutoSizeColumnMode.Fill,
+                FillWeight = 120
+            };
+
+            dgvOwners.Columns.AddRange(
+                colIsPrimaryOwner,
+                colIsCoOwner,
+                colLandOwnerId,
+                colLandOwnersName,
+                colFatherSpouse,
+                colCitizenshipNumber,
+                colPermanentAddress);
         }
 
         private void LoadOwners()
@@ -382,13 +464,35 @@ namespace Land_Readjustment_Tool.Forms
                     _primaryOwnerId = model.LandOwnerId;
                     model.IsPrimaryOwner = true;
                     row.Selected = true;
-                    dgvOwners.CurrentCell = row.Cells["colLandOwnersName"];
+                    dgvOwners.CurrentCell = row.Cells[ResolveOwnerNameColumnName()];
                     RefreshPrimaryColumn();
                     return;
                 }
             }
 
             UpdateSelectedOwnerPreview();
+        }
+
+        private string ResolveOwnerNameColumnName()
+        {
+            if (dgvOwners.Columns.Contains("colLandOwnersName"))
+                return "colLandOwnersName";
+
+            if (dgvOwners.Columns.Contains(nameof(OwnerLookupDisplayModel.LandOwnersName)))
+                return nameof(OwnerLookupDisplayModel.LandOwnersName);
+
+            return dgvOwners.Columns
+                .Cast<DataGridViewColumn>()
+                .FirstOrDefault(column =>
+                    string.Equals(
+                        column.DataPropertyName,
+                        nameof(OwnerLookupDisplayModel.LandOwnersName),
+                        StringComparison.OrdinalIgnoreCase))
+                ?.Name
+                ?? dgvOwners.Columns
+                    .Cast<DataGridViewColumn>()
+                    .First(column => column.Visible)
+                    .Name;
         }
 
         private void UpdateSelectedOwnerPreview()

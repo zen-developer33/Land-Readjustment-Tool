@@ -36,6 +36,7 @@ namespace Land_Readjustment_Tool.UI.Forms
         private Label _lblHatchPattern = null!;
         private Label _lblHatchScale = null!;
         private Label _lblTransparency = null!;
+        private CheckBox _chkShowFillTransparency = null!;
         private TextBox _txtTransparencyValue = null!;
         private Label _lblLabels = null!;
         private Label _lblFont = null!;
@@ -136,6 +137,7 @@ namespace Land_Readjustment_Tool.UI.Forms
             _btnHatchPattern = new Button();
             _lblHatchScale = new Label();
             _numHatchScale = new NumericUpDown();
+            _chkShowFillTransparency = new CheckBox();
             _lblTransparency = new Label();
             _transparencyLayout = new TableLayoutPanel();
             _trkTransparency = new TrackBar();
@@ -593,8 +595,9 @@ namespace Land_Readjustment_Tool.UI.Forms
             _fillLayout.Controls.Add(_fillColorPanel, 1, 1);
             _fillLayout.Controls.Add(_lblHatchPattern, 0, 2);
             _fillLayout.Controls.Add(_hatchPatternPanel, 1, 2);
-            _fillLayout.Controls.Add(_lblTransparency, 0, 3);
-            _fillLayout.Controls.Add(_transparencyLayout, 1, 3);
+            _fillLayout.Controls.Add(_chkShowFillTransparency, 1, 3);
+            _fillLayout.Controls.Add(_lblTransparency, 0, 4);
+            _fillLayout.Controls.Add(_transparencyLayout, 1, 4);
             _fillLayout.Dock = DockStyle.Fill;
             _fillLayout.Location = new Point(12, 12);
             _fillLayout.Name = "_fillLayout";
@@ -745,13 +748,25 @@ namespace Land_Readjustment_Tool.UI.Forms
             _numHatchScale.Value = new decimal(new int[] { 10, 0, 0, 65536 });
             _numHatchScale.ValueChanged += numHatchScale_ValueChanged;
             // 
+            // _chkShowFillTransparency
+            // 
+            _chkShowFillTransparency.AutoSize = true;
+            _chkShowFillTransparency.Location = new Point(110, 130);
+            _chkShowFillTransparency.Margin = new Padding(0, 8, 18, 0);
+            _chkShowFillTransparency.Name = "_chkShowFillTransparency";
+            _chkShowFillTransparency.Size = new Size(164, 24);
+            _chkShowFillTransparency.TabIndex = 6;
+            _chkShowFillTransparency.Text = "Show transparency";
+            _chkShowFillTransparency.UseVisualStyleBackColor = true;
+            _chkShowFillTransparency.CheckedChanged += chkShowFillTransparency_CheckedChanged;
+            // 
             // _lblTransparency
             // 
             _lblTransparency.Dock = DockStyle.Fill;
-            _lblTransparency.Location = new Point(3, 122);
+            _lblTransparency.Location = new Point(3, 160);
             _lblTransparency.Name = "_lblTransparency";
             _lblTransparency.Size = new Size(104, 38);
-            _lblTransparency.TabIndex = 6;
+            _lblTransparency.TabIndex = 7;
             _lblTransparency.Text = "Transparency";
             _lblTransparency.TextAlign = ContentAlignment.MiddleLeft;
             // 
@@ -763,13 +778,13 @@ namespace Land_Readjustment_Tool.UI.Forms
             _transparencyLayout.Controls.Add(_trkTransparency, 0, 0);
             _transparencyLayout.Controls.Add(_txtTransparencyValue, 1, 0);
             _transparencyLayout.Dock = DockStyle.Fill;
-            _transparencyLayout.Location = new Point(110, 122);
+            _transparencyLayout.Location = new Point(110, 160);
             _transparencyLayout.Margin = new Padding(0);
             _transparencyLayout.Name = "_transparencyLayout";
             _transparencyLayout.RowCount = 1;
             _transparencyLayout.RowStyles.Add(new RowStyle(SizeType.Percent, 100F));
             _transparencyLayout.Size = new Size(315, 38);
-            _transparencyLayout.TabIndex = 7;
+            _transparencyLayout.TabIndex = 8;
             // 
             // _trkTransparency
             // 
@@ -780,6 +795,7 @@ namespace Land_Readjustment_Tool.UI.Forms
             _trkTransparency.Size = new Size(165, 32);
             _trkTransparency.TabIndex = 0;
             _trkTransparency.TickFrequency = 10;
+            _trkTransparency.Value = 50;
             _trkTransparency.ValueChanged += trkTransparency_ValueChanged;
             // 
             // _txtTransparencyValue
@@ -789,7 +805,7 @@ namespace Land_Readjustment_Tool.UI.Forms
             _txtTransparencyValue.Name = "_txtTransparencyValue";
             _txtTransparencyValue.Size = new Size(42, 27);
             _txtTransparencyValue.TabIndex = 1;
-            _txtTransparencyValue.Text = "0";
+            _txtTransparencyValue.Text = "50";
             _txtTransparencyValue.TextAlign = HorizontalAlignment.Right;
             _txtTransparencyValue.KeyDown += txtTransparencyValue_KeyDown;
             _txtTransparencyValue.Leave += txtTransparencyValue_Leave;

@@ -2890,8 +2890,8 @@ namespace Land_Readjustment_Tool.UI.CustomControls
 
         private static bool IntersectsSelectionRectangle(RectangleD selectionBounds, IShape shape)
         {
-            NtsGeometry shapeGeometry = CreateSelectionGeometry(shape);
-            if (shapeGeometry.IsEmpty)
+            NtsGeometry selectionGeometry = CreateSelectionTestGeometry(shape);
+            if (selectionGeometry.IsEmpty)
             {
                 return false;
             }
@@ -2905,13 +2905,13 @@ namespace Land_Readjustment_Tool.UI.CustomControls
                     new NtsCoordinate(selectionBounds.Left, selectionBounds.Top)
                 ]);
 
-            return shapeGeometry.Intersects(selectionPolygon);
+            return selectionGeometry.Intersects(selectionPolygon);
         }
 
         private static bool ContainsSelectionGeometry(RectangleD selectionBounds, IShape shape)
         {
-            NtsGeometry shapeGeometry = CreateSelectionGeometry(shape);
-            if (shapeGeometry.IsEmpty)
+            NtsGeometry selectionGeometry = CreateSelectionTestGeometry(shape);
+            if (selectionGeometry.IsEmpty)
             {
                 return false;
             }
@@ -2925,7 +2925,15 @@ namespace Land_Readjustment_Tool.UI.CustomControls
                     new NtsCoordinate(selectionBounds.Left, selectionBounds.Top)
                 ]);
 
-            return selectionPolygon.Covers(shapeGeometry);
+            return selectionPolygon.Covers(selectionGeometry);
+        }
+
+        private static NtsGeometry CreateSelectionTestGeometry(IShape shape)
+        {
+            NtsGeometry shapeGeometry = CreateSelectionGeometry(shape);
+            return shapeGeometry is NtsPolygon or NetTopologySuite.Geometries.MultiPolygon
+                ? shapeGeometry.Boundary
+                : shapeGeometry;
         }
 
         private static NtsGeometry CreateSelectionGeometry(IShape shape)

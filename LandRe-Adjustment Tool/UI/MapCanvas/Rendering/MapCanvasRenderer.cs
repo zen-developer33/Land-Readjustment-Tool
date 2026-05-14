@@ -352,7 +352,8 @@ namespace Land_Readjustment_Tool.UI.MapCanvas.Rendering
                 _engine,
                 viewport.VisibleWorldBounds,
                 useLevelOfDetail: _vectorRenderer.FeatureCount > LevelOfDetailDirectRenderThreshold,
-                canvasSize: Size.Round(viewport.VisibleScreenBounds.Size));
+                canvasSize: Size.Round(viewport.VisibleScreenBounds.Size),
+                antiAliasingEnabled: _settings.AntiAliasingEnabled);
         }
 
         /// <summary>
