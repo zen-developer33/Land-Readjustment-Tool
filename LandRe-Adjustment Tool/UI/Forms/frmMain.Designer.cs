@@ -216,7 +216,6 @@ namespace Land_Readjustment_Tool
             mnuZoomWindow = new ToolStripButton();
             toolStripSeparator15 = new ToolStripSeparator();
             toolStripSeparator16 = new ToolStripSeparator();
-            toolStripComboBox1 = new ToolStripComboBox();
             tsProjectMenu = new ToolStrip();
             mainMenuStrip.SuspendLayout();
             ((System.ComponentModel.ISupportInitialize)leftSplitContainer).BeginInit();
@@ -1248,6 +1247,7 @@ namespace Land_Readjustment_Tool
             // 
             // tsCanvasTools
             // 
+            tsCanvasTools.CanOverflow = false;
             tsCanvasTools.Font = new Font("Segoe UI", 9F);
             tsCanvasTools.GripStyle = ToolStripGripStyle.Hidden;
             tsCanvasTools.ImageScalingSize = new Size(20, 20);
@@ -1612,11 +1612,12 @@ namespace Land_Readjustment_Tool
             // 
             // lblProjectName
             // 
+            lblProjectName.AutoSize = false;
             lblProjectName.Font = new Font("Segoe UI", 9F, FontStyle.Bold);
             lblProjectName.ForeColor = SystemColors.GrayText;
             lblProjectName.Margin = new Padding(4, 3, 6, 2);
             lblProjectName.Name = "lblProjectName";
-            lblProjectName.Size = new Size(96, 33);
+            lblProjectName.Size = new Size(270, 33);
             lblProjectName.Text = "● No Project";
             lblProjectName.TextAlign = ContentAlignment.MiddleLeft;
             // 
@@ -1631,7 +1632,7 @@ namespace Land_Readjustment_Tool
             lblActiveTool.BorderSides = ToolStripStatusLabelBorderSides.Right;
             lblActiveTool.Margin = new Padding(4, 3, 0, 2);
             lblActiveTool.Name = "lblActiveTool";
-            lblActiveTool.Size = new Size(165, 37);
+            lblActiveTool.Size = new Size(185, 37);
             lblActiveTool.Text = "Active Tool: Select";
             lblActiveTool.TextAlign = ContentAlignment.MiddleLeft;
             // 
@@ -1642,7 +1643,7 @@ namespace Land_Readjustment_Tool
             lblStatusMessage.ForeColor = SystemColors.ControlText;
             lblStatusMessage.Margin = new Padding(6, 3, 0, 2);
             lblStatusMessage.Name = "lblStatusMessage";
-            lblStatusMessage.Size = new Size(400, 37);
+            lblStatusMessage.Size = new Size(720, 37);
             lblStatusMessage.Spring = true;
             lblStatusMessage.Text = "Ready";
             lblStatusMessage.TextAlign = ContentAlignment.MiddleLeft;
@@ -1673,7 +1674,7 @@ namespace Land_Readjustment_Tool
             lblScale.BorderSides = ToolStripStatusLabelBorderSides.Left;
             lblScale.Margin = new Padding(0, 3, 4, 2);
             lblScale.Name = "lblScale";
-            lblScale.Size = new Size(100, 33);
+            lblScale.Size = new Size(132, 33);
             lblScale.Text = "Scale: 1:—";
             lblScale.TextAlign = ContentAlignment.MiddleRight;
             // 
@@ -1686,7 +1687,7 @@ namespace Land_Readjustment_Tool
             lblCanvasCoordinates.ForeColor = SystemColors.ControlText;
             lblCanvasCoordinates.Margin = new Padding(0, 3, 6, 2);
             lblCanvasCoordinates.Name = "lblCanvasCoordinates";
-            lblCanvasCoordinates.Size = new Size(220, 33);
+            lblCanvasCoordinates.Size = new Size(285, 33);
             lblCanvasCoordinates.Text = "E: 0.0000    N: 0.0000";
             lblCanvasCoordinates.TextAlign = ContentAlignment.MiddleRight;
             // 
@@ -1707,7 +1708,7 @@ namespace Land_Readjustment_Tool
             mnuNewProject.Image = Properties.Resources.icons8_file_501;
             mnuNewProject.ImageTransparentColor = Color.Magenta;
             mnuNewProject.Name = "mnuNewProject";
-            mnuNewProject.Size = new Size(29, 25);
+            mnuNewProject.Size = new Size(29, 24);
             mnuNewProject.Text = "New Project";
             // 
             // mnuOpenProject
@@ -1716,7 +1717,7 @@ namespace Land_Readjustment_Tool
             mnuOpenProject.Image = Properties.Resources.icons8_open_folder_50;
             mnuOpenProject.ImageTransparentColor = Color.Magenta;
             mnuOpenProject.Name = "mnuOpenProject";
-            mnuOpenProject.Size = new Size(29, 25);
+            mnuOpenProject.Size = new Size(29, 24);
             mnuOpenProject.Text = "Open Project";
             // 
             // mnuSaveProject
@@ -1725,7 +1726,7 @@ namespace Land_Readjustment_Tool
             mnuSaveProject.Image = Properties.Resources.icons8_save_50;
             mnuSaveProject.ImageTransparentColor = Color.Magenta;
             mnuSaveProject.Name = "mnuSaveProject";
-            mnuSaveProject.Size = new Size(29, 25);
+            mnuSaveProject.Size = new Size(29, 24);
             mnuSaveProject.Text = "Save Project";
             // 
             // mnuSaveAsProject
@@ -1734,7 +1735,7 @@ namespace Land_Readjustment_Tool
             mnuSaveAsProject.Image = Properties.Resources.icons8_save_as_50;
             mnuSaveAsProject.ImageTransparentColor = Color.Magenta;
             mnuSaveAsProject.Name = "mnuSaveAsProject";
-            mnuSaveAsProject.Size = new Size(29, 25);
+            mnuSaveAsProject.Size = new Size(29, 24);
             mnuSaveAsProject.Text = "Save As Project";
             mnuSaveAsProject.Click += mnuSaveAsProject_Click;
             // 
@@ -1744,7 +1745,7 @@ namespace Land_Readjustment_Tool
             mnuBackup.Image = Properties.Resources.icons8_database_export_502;
             mnuBackup.ImageTransparentColor = Color.Magenta;
             mnuBackup.Name = "mnuBackup";
-            mnuBackup.Size = new Size(29, 25);
+            mnuBackup.Size = new Size(29, 24);
             mnuBackup.Text = "Backup Project";
             // 
             // mnuRestoreBackup
@@ -1753,7 +1754,7 @@ namespace Land_Readjustment_Tool
             mnuRestoreBackup.Image = Properties.Resources.icons8_data_backup_503;
             mnuRestoreBackup.ImageTransparentColor = Color.Magenta;
             mnuRestoreBackup.Name = "mnuRestoreBackup";
-            mnuRestoreBackup.Size = new Size(29, 25);
+            mnuRestoreBackup.Size = new Size(29, 24);
             mnuRestoreBackup.Text = "Restore from Backup";
             // 
             // mnuCloseProject
@@ -1762,18 +1763,18 @@ namespace Land_Readjustment_Tool
             mnuCloseProject.Image = Properties.Resources.icons8_close_501;
             mnuCloseProject.ImageTransparentColor = Color.Magenta;
             mnuCloseProject.Name = "mnuCloseProject";
-            mnuCloseProject.Size = new Size(29, 25);
+            mnuCloseProject.Size = new Size(29, 24);
             mnuCloseProject.Text = "Close Project";
             // 
             // toolStripSeparator9
             // 
             toolStripSeparator9.Name = "toolStripSeparator9";
-            toolStripSeparator9.Size = new Size(6, 28);
+            toolStripSeparator9.Size = new Size(6, 27);
             // 
             // toolStripButton3
             // 
             toolStripButton3.Name = "toolStripButton3";
-            toolStripButton3.Size = new Size(6, 28);
+            toolStripButton3.Size = new Size(6, 27);
             // 
             // mnuProjectInfo
             // 
@@ -1781,7 +1782,7 @@ namespace Land_Readjustment_Tool
             mnuProjectInfo.Image = Properties.Resources.icons8_info_squared_501;
             mnuProjectInfo.ImageTransparentColor = Color.Magenta;
             mnuProjectInfo.Name = "mnuProjectInfo";
-            mnuProjectInfo.Size = new Size(29, 25);
+            mnuProjectInfo.Size = new Size(29, 24);
             mnuProjectInfo.Text = "Project Information";
             // 
             // mnuProjectSettings
@@ -1790,18 +1791,18 @@ namespace Land_Readjustment_Tool
             mnuProjectSettings.Image = Properties.Resources.icons8_wrench_501;
             mnuProjectSettings.ImageTransparentColor = Color.Magenta;
             mnuProjectSettings.Name = "mnuProjectSettings";
-            mnuProjectSettings.Size = new Size(29, 25);
+            mnuProjectSettings.Size = new Size(29, 24);
             mnuProjectSettings.Text = "Project Setting";
             // 
             // toolStripSeparator12
             // 
             toolStripSeparator12.Name = "toolStripSeparator12";
-            toolStripSeparator12.Size = new Size(6, 28);
+            toolStripSeparator12.Size = new Size(6, 27);
             // 
             // toolStripSeparator13
             // 
             toolStripSeparator13.Name = "toolStripSeparator13";
-            toolStripSeparator13.Size = new Size(6, 28);
+            toolStripSeparator13.Size = new Size(6, 27);
             // 
             // mnuUndo
             // 
@@ -1809,7 +1810,7 @@ namespace Land_Readjustment_Tool
             mnuUndo.Image = Properties.Resources.icons8_undo_502;
             mnuUndo.ImageTransparentColor = Color.Magenta;
             mnuUndo.Name = "mnuUndo";
-            mnuUndo.Size = new Size(29, 25);
+            mnuUndo.Size = new Size(29, 24);
             mnuUndo.Text = "Undo";
             // 
             // mnuRedo
@@ -1818,13 +1819,13 @@ namespace Land_Readjustment_Tool
             mnuRedo.Image = Properties.Resources.icons8_redo_502;
             mnuRedo.ImageTransparentColor = Color.Magenta;
             mnuRedo.Name = "mnuRedo";
-            mnuRedo.Size = new Size(29, 25);
+            mnuRedo.Size = new Size(29, 24);
             mnuRedo.Text = "Redo";
             // 
             // toolStripSeparator14
             // 
             toolStripSeparator14.Name = "toolStripSeparator14";
-            toolStripSeparator14.Size = new Size(6, 28);
+            toolStripSeparator14.Size = new Size(6, 27);
             // 
             // mnuPan
             // 
@@ -1832,7 +1833,7 @@ namespace Land_Readjustment_Tool
             mnuPan.Image = Properties.Resources.pngegg;
             mnuPan.ImageTransparentColor = Color.Magenta;
             mnuPan.Name = "mnuPan";
-            mnuPan.Size = new Size(29, 25);
+            mnuPan.Size = new Size(29, 24);
             mnuPan.Text = "Pan";
             mnuPan.Click += mnuPan_Click;
             // 
@@ -1842,7 +1843,7 @@ namespace Land_Readjustment_Tool
             mnuZoomIn.Image = Properties.Resources.icons8_zoom_in_502;
             mnuZoomIn.ImageTransparentColor = Color.Magenta;
             mnuZoomIn.Name = "mnuZoomIn";
-            mnuZoomIn.Size = new Size(29, 25);
+            mnuZoomIn.Size = new Size(29, 24);
             mnuZoomIn.Text = "Zoom In";
             // 
             // mnuZoomOut
@@ -1851,7 +1852,7 @@ namespace Land_Readjustment_Tool
             mnuZoomOut.Image = Properties.Resources.icons8_zoom_out_502;
             mnuZoomOut.ImageTransparentColor = Color.Magenta;
             mnuZoomOut.Name = "mnuZoomOut";
-            mnuZoomOut.Size = new Size(29, 25);
+            mnuZoomOut.Size = new Size(29, 24);
             mnuZoomOut.Text = "Zoom Out ";
             // 
             // mnuZoomExtent
@@ -1860,7 +1861,7 @@ namespace Land_Readjustment_Tool
             mnuZoomExtent.Image = Properties.Resources.icons8_zoom_to_extents_502;
             mnuZoomExtent.ImageTransparentColor = Color.Magenta;
             mnuZoomExtent.Name = "mnuZoomExtent";
-            mnuZoomExtent.Size = new Size(29, 25);
+            mnuZoomExtent.Size = new Size(29, 24);
             mnuZoomExtent.Text = "Zoom to Extents";
             // 
             // mnuZoomWindow
@@ -1869,33 +1870,27 @@ namespace Land_Readjustment_Tool
             mnuZoomWindow.Image = Properties.Resources.icons8_zoom_to_fit_502;
             mnuZoomWindow.ImageTransparentColor = Color.Magenta;
             mnuZoomWindow.Name = "mnuZoomWindow";
-            mnuZoomWindow.Size = new Size(29, 25);
+            mnuZoomWindow.Size = new Size(29, 24);
             mnuZoomWindow.Text = "Zoom Window";
             // 
             // toolStripSeparator15
             // 
             toolStripSeparator15.Name = "toolStripSeparator15";
-            toolStripSeparator15.Size = new Size(6, 28);
+            toolStripSeparator15.Size = new Size(6, 27);
             // 
             // toolStripSeparator16
             // 
             toolStripSeparator16.Name = "toolStripSeparator16";
-            toolStripSeparator16.Size = new Size(6, 28);
-            // 
-            // toolStripComboBox1
-            // 
-            toolStripComboBox1.FlatStyle = FlatStyle.Standard;
-            toolStripComboBox1.Name = "toolStripComboBox1";
-            toolStripComboBox1.Size = new Size(121, 28);
+            toolStripSeparator16.Size = new Size(6, 27);
             // 
             // tsProjectMenu
             // 
             tsProjectMenu.Font = new Font("Segoe UI", 9F);
             tsProjectMenu.ImageScalingSize = new Size(20, 20);
-            tsProjectMenu.Items.AddRange(new ToolStripItem[] { mnuNewProject, mnuOpenProject, mnuSaveProject, mnuSaveAsProject, mnuBackup, mnuRestoreBackup, mnuCloseProject, toolStripSeparator9, toolStripButton3, mnuProjectInfo, mnuProjectSettings, toolStripSeparator12, toolStripSeparator13, mnuUndo, mnuRedo, toolStripSeparator14, mnuPan, mnuZoomIn, mnuZoomOut, mnuZoomExtent, mnuZoomWindow, toolStripSeparator15, toolStripSeparator16, toolStripComboBox1 });
+            tsProjectMenu.Items.AddRange(new ToolStripItem[] { mnuNewProject, mnuOpenProject, mnuSaveProject, mnuSaveAsProject, mnuBackup, mnuRestoreBackup, mnuCloseProject, toolStripSeparator9, toolStripButton3, mnuProjectInfo, mnuProjectSettings, toolStripSeparator12, toolStripSeparator13, mnuUndo, mnuRedo, toolStripSeparator14, mnuPan, mnuZoomIn, mnuZoomOut, mnuZoomExtent, mnuZoomWindow, toolStripSeparator15, toolStripSeparator16 });
             tsProjectMenu.Location = new Point(0, 28);
             tsProjectMenu.Name = "tsProjectMenu";
-            tsProjectMenu.Size = new Size(1447, 28);
+            tsProjectMenu.Size = new Size(1447, 27);
             tsProjectMenu.TabIndex = 4;
             tsProjectMenu.Text = "Project Menu";
             // 
@@ -2090,7 +2085,6 @@ namespace Land_Readjustment_Tool
         private ToolStripButton mnuZoomWindow;
         private ToolStripSeparator toolStripSeparator15;
         private ToolStripSeparator toolStripSeparator16;
-        private ToolStripComboBox toolStripComboBox1;
         private ToolStrip tsProjectMenu;
         private ToolStrip tsCanvasTools;
         private ToolStripButton tsmExpandCollapseLeftPanel;

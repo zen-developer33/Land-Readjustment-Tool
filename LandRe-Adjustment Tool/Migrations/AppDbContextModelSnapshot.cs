@@ -45,7 +45,9 @@ namespace Land_Readjustment_Tool.Migrations
                         .HasColumnType("TEXT");
 
                     b.Property<int>("FillTransparency")
-                        .HasColumnType("INTEGER");
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("INTEGER")
+                        .HasDefaultValue(50);
 
                     b.Property<string>("HatchPattern")
                         .HasColumnType("TEXT");
@@ -117,6 +119,11 @@ namespace Land_Readjustment_Tool.Migrations
                     b.Property<string>("PointSymbol")
                         .IsRequired()
                         .HasColumnType("TEXT");
+
+                    b.Property<bool>("ShowFillTransparency")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("INTEGER")
+                        .HasDefaultValue(false);
 
                     b.Property<bool>("ShowLabels")
                         .HasColumnType("INTEGER");

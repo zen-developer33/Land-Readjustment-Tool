@@ -177,6 +177,19 @@ namespace Land_Readjustment_Tool.Repositories.Canvas
                     localTracked.State = EntityState.Detached;
                 }
 
+                if (entity.CanvasLayer != null)
+                    entity.CanvasLayerId = entity.CanvasLayer.Id;
+
+                // Persist the canvas object as scalar state only. Grip edits may
+                // arrive with no-tracking navigation objects from the map cache;
+                // attaching those can collide with already tracked layer/parcel
+                // instances in the shared project DbContext.
+                entity.CanvasLayer = null!;
+                entity.BaselineParcel = null;
+                entity.ReplottedParcel = null;
+                entity.Road = null;
+                entity.Block = null;
+
                 _dbSet.Attach(entity);
                 _context.Entry(entity).State = EntityState.Modified;
                 await _context.SaveChangesAsync(ct);

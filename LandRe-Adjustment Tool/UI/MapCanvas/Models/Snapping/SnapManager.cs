@@ -202,6 +202,16 @@ namespace Land_Readjustment_Tool.UI.MapCanvas.Models.Snapping
                             }
                         }
 
+                        if (polyline.IsClosed && polyline.Vertices.Count > 2)
+                        {
+                            PointD lastEnd = polyline.Segments[^1].End;
+                            PointD first = polyline.Vertices[0];
+                            if (Distance(lastEnd, first) > 1e-9)
+                            {
+                                segments.Add((lastEnd, first));
+                            }
+                        }
+
                         break;
                     }
 

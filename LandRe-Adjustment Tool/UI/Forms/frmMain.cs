@@ -30,11 +30,8 @@ using System.Drawing.Drawing2D;
 using System.Drawing.Imaging;
 using System.Reflection;
 using System.Text.Json;
-using NtsCoordinate = NetTopologySuite.Geometries.Coordinate;
+using System.Threading;
 using NtsEnvelope = NetTopologySuite.Geometries.Envelope;
-using NtsLineString = NetTopologySuite.Geometries.LineString;
-using NtsMultiPolygon = NetTopologySuite.Geometries.MultiPolygon;
-using NtsPolygon = NetTopologySuite.Geometries.Polygon;
 using VisualStyles = System.Windows.Forms.VisualStyles;
 
 namespace Land_Readjustment_Tool
@@ -123,6 +120,7 @@ namespace Land_Readjustment_Tool
         private int _currentPropertyGridSelectedCount;
         private bool _suppressSelectedPropertyObjectChanged;
         private readonly PersistedCanvasUndoRedoManager _canvasUndoManager = new();
+        private readonly SemaphoreSlim _shapeEditSaveLock = new(1, 1);
         private bool _canvasUndoRedoOperationInProgress;
         private const string AllSelectedObjectsComboText = "All Selected objects";
         private const string VariesPropertyValue = "*VARIES*";
@@ -304,6 +302,7 @@ namespace Land_Readjustment_Tool
                     lblStatusMessage.Text = prompt;
             };
             mapCanvasControlMain.ShapeCompleted += MapCanvasControlMain_ShapeCompleted;
+            mapCanvasControlMain.ShapeEdited += MapCanvasControlMain_ShapeEdited;
             mapCanvasControlMain.SelectToolRequested += () => ActivateCanvasTool(MapCanvasTool.Select);
             mapCanvasControlMain.SelectedObjectsDeleteRequested += MapCanvasControlMain_SelectedObjectsDeleteRequested;
             mapCanvasControlMain.SelectedObjectsAssignParcelDataRequested += MapCanvasControlMain_SelectedObjectsAssignParcelDataRequested;
@@ -358,10 +357,22 @@ namespace Land_Readjustment_Tool
 
         private void ConfigureStatusStripSizing()
         {
-            lblScale.AutoSize = true;
-            lblCanvasCoordinates.AutoSize = true;
+            lblProjectName.AutoSize = false;
+            lblProjectName.Width = 270;
+            lblActiveTool.AutoSize = false;
+            lblActiveTool.Width = 185;
+            lblStatusMessage.AutoSize = false;
+            lblStatusMessage.Width = 720;
+            lblStatusMessage.Spring = true;
+            lblStatusMessage.Overflow = ToolStripItemOverflow.Never;
+            lblScale.AutoSize = false;
+            lblScale.Width = 132;
+            lblCanvasCoordinates.AutoSize = false;
+            lblCanvasCoordinates.Width = 285;
             lblScale.TextAlign = ContentAlignment.MiddleRight;
             lblCanvasCoordinates.TextAlign = ContentAlignment.MiddleRight;
+            lblOperationProgressStatus.Visible = false;
+            hostProgressBarHost.Visible = false;
         }
 
         private void ConfigureLiveTileFetchStatusIndicator()
@@ -923,7 +934,7 @@ namespace Land_Readjustment_Tool
             mnuZoomExtent.Enabled = true;
             mnuZoomWindow.Enabled = true;
             SetDrawingToolButtonsEnabled(true);
-            toolStripComboBox1.Enabled = true;
+            cboCurrentDrawingLayer.Enabled = true;
             UpdateCanvasUndoRedoToolbar();
         }
 
@@ -966,7 +977,7 @@ namespace Land_Readjustment_Tool
             mnuZoomExtent.Enabled = false;
             mnuZoomWindow.Enabled = false;
             SetDrawingToolButtonsEnabled(false);
-            toolStripComboBox1.Enabled = false;
+            cboCurrentDrawingLayer.Enabled = false;
             UpdateCanvasUndoRedoToolbar();
         }
 
@@ -2166,6 +2177,70 @@ namespace Land_Readjustment_Tool
             }
         }
 
+        private async Task RefreshCurrentSelectedCanvasObjectPropertiesAsync(Guid? preferredObjectId = null)
+        {
+            if (_currentSelectedCanvasObjectIds.Count == 0)
+                return;
+
+            Guid? selectedComboObjectId = preferredObjectId;
+            bool keepAllSelected = false;
+            if (cboSelectedPropertyObject.SelectedItem is SelectedPropertyObjectComboItem selectedItem)
+            {
+                selectedComboObjectId ??= selectedItem.CanvasObjectId;
+                keepAllSelected = selectedItem.IsAll && !selectedComboObjectId.HasValue;
+            }
+
+            await LoadSelectedParcelPropertiesAsync(_currentSelectedCanvasObjectIds);
+
+            if (selectedComboObjectId.HasValue &&
+                TrySelectPropertyComboObject(selectedComboObjectId.Value))
+            {
+                return;
+            }
+
+            if (keepAllSelected && cboSelectedPropertyObject.Items.Count > 0)
+            {
+                _suppressSelectedPropertyObjectChanged = true;
+                try
+                {
+                    cboSelectedPropertyObject.SelectedIndex = 0;
+                }
+                finally
+                {
+                    _suppressSelectedPropertyObjectChanged = false;
+                }
+
+                PopulatePropertyGridForSelectedComboItem();
+                UpdateSelectedPropertyCycleButtons();
+            }
+        }
+
+        private bool TrySelectPropertyComboObject(Guid canvasObjectId)
+        {
+            for (int index = 0; index < cboSelectedPropertyObject.Items.Count; index++)
+            {
+                if (cboSelectedPropertyObject.Items[index] is SelectedPropertyObjectComboItem item &&
+                    item.CanvasObjectId == canvasObjectId)
+                {
+                    _suppressSelectedPropertyObjectChanged = true;
+                    try
+                    {
+                        cboSelectedPropertyObject.SelectedIndex = index;
+                    }
+                    finally
+                    {
+                        _suppressSelectedPropertyObjectChanged = false;
+                    }
+
+                    PopulatePropertyGridForSelectedComboItem();
+                    UpdateSelectedPropertyCycleButtons();
+                    return true;
+                }
+            }
+
+            return false;
+        }
+
         private static async Task LoadFallbackBaselineParcelsForSelectionAsync(
             AppDbContext context,
             IReadOnlyList<CanvasObject> selectedObjects)
@@ -2768,11 +2843,11 @@ namespace Land_Readjustment_Tool
                 new("geometry.type", "Other Geometry", "Geometry Type", false,
                     (canvasObject, _, _) => canvasObject.Shape?.GeometryType ?? canvasObject.ObjectType),
                 new("geometry.area", "Other Geometry", "Geometry Area", true,
-                    (canvasObject, _, _) => FormatArea(GetGeometryArea(canvasObject))),
+                    (canvasObject, _, _) => FormatArea(CanvasGeometryMetricsService.GetArea(canvasObject))),
                 new("geometry.length", "Other Geometry", "Length / Perimeter", true,
-                    (canvasObject, _, _) => FormatLength(GetGeometryLength(canvasObject))),
+                    (canvasObject, _, _) => FormatLength(CanvasGeometryMetricsService.GetLength(canvasObject))),
                 new("geometry.vertexCount", "Other Geometry", "Points / Vertices", true,
-                    (canvasObject, _, _) => GetGeometryPointCount(canvasObject)?.ToString("N0")),
+                    (canvasObject, _, _) => CanvasGeometryMetricsService.GetVertexCount(canvasObject)?.ToString("N0")),
                 new("geometry.bounds", "Other Geometry", "Bounds", true,
                     (canvasObject, _, _) => FormatGeometryBounds(canvasObject.Shape?.EnvelopeInternal)),
 
@@ -2928,7 +3003,7 @@ namespace Land_Readjustment_Tool
                 "area.originalRecord" => (canvasObject, metadata) =>
                     canvasObject.BaselineParcel?.OriginalAreaSqm ?? metadata?.RecordAreaSqm,
                 "geometry.area" => (canvasObject, _) =>
-                    GetGeometryArea(canvasObject),
+                    CanvasGeometryMetricsService.GetArea(canvasObject),
                 "area.fieldMeasured" => (canvasObject, _) =>
                     canvasObject.BaselineParcel?.FieldMeasuredAreaSqm,
                 "area.effective" => (canvasObject, _) =>
@@ -2975,7 +3050,7 @@ namespace Land_Readjustment_Tool
             }
 
             double total = selectedObjects
-                .Select(GetGeometryLength)
+                .Select(CanvasGeometryMetricsService.GetLength)
                 .Where(length => length.HasValue)
                 .Sum(length => Math.Abs(length!.Value));
 
@@ -2994,12 +3069,13 @@ namespace Land_Readjustment_Tool
                 return false;
             }
 
-            int total = selectedObjects
-                .Select(GetGeometryPointCount)
+            int?[] counts = selectedObjects
+                .Select(CanvasGeometryMetricsService.GetVertexCount)
                 .Where(count => count.HasValue)
-                .Sum(count => count!.Value);
+                .ToArray();
 
-            value = total > 0 ? total.ToString("N0") : null;
+            int total = counts.Sum(count => count!.Value);
+            value = counts.Length > 0 ? total.ToString("N0") : null;
             return true;
         }
 
@@ -3019,7 +3095,7 @@ namespace Land_Readjustment_Tool
             foreach (CanvasObject canvasObject in selectedObjects)
             {
                 NtsEnvelope? envelope = canvasObject.Shape?.EnvelopeInternal;
-                if (!IsUsableEnvelope(envelope))
+                if (!CanvasGeometryMetricsService.IsUsableEnvelope(envelope))
                     continue;
 
                 bounds.ExpandToInclude(envelope);
@@ -3218,83 +3294,14 @@ namespace Land_Readjustment_Tool
                 }));
         }
 
-        private static double? GetGeometryArea(CanvasObject canvasObject)
-        {
-            if (canvasObject.Shape == null || canvasObject.Shape.IsEmpty)
-                return null;
-
-            double area = Math.Abs(canvasObject.Shape.Area);
-            return area > 0 ? area : null;
-        }
-
-        private static double? GetGeometryLength(CanvasObject canvasObject)
-        {
-            if (canvasObject.Shape == null || canvasObject.Shape.IsEmpty)
-                return null;
-
-            double length = Math.Abs(canvasObject.Shape.Length);
-            return length > 0 ? length : null;
-        }
-
-        private static int? GetGeometryPointCount(CanvasObject canvasObject)
-        {
-            if (canvasObject.Shape == null || canvasObject.Shape.IsEmpty)
-                return null;
-
-            int pointCount = canvasObject.Shape switch
-            {
-                NtsPolygon polygon => CountPolygonVertices(polygon),
-                NtsMultiPolygon multiPolygon => multiPolygon.Geometries
-                    .OfType<NtsPolygon>()
-                    .Sum(CountPolygonVertices),
-                _ => canvasObject.Shape.NumPoints
-            };
-
-            return pointCount > 0 ? pointCount : null;
-        }
-
-        private static int CountPolygonVertices(NtsPolygon polygon)
-        {
-            int vertexCount = CountRingVertices(polygon.ExteriorRing);
-            for (int index = 0; index < polygon.NumInteriorRings; index++)
-            {
-                vertexCount += CountRingVertices(polygon.GetInteriorRingN(index));
-            }
-
-            return vertexCount;
-        }
-
-        private static int CountRingVertices(NtsLineString ring)
-        {
-            int count = ring.NumPoints;
-            if (count <= 1)
-                return count;
-
-            NtsCoordinate first = ring.GetCoordinateN(0);
-            NtsCoordinate last = ring.GetCoordinateN(count - 1);
-            return first.Equals2D(last) ? count - 1 : count;
-        }
-
         private static string? FormatGeometryBounds(NtsEnvelope? envelope)
         {
-            if (!IsUsableEnvelope(envelope))
+            if (!CanvasGeometryMetricsService.IsUsableEnvelope(envelope))
                 return null;
 
             double width = envelope!.Width;
             double height = envelope.Height;
             return $"W {width:N2} m, H {height:N2} m";
-        }
-
-        private static bool IsUsableEnvelope(NtsEnvelope? envelope)
-        {
-            return envelope != null &&
-                   !envelope.IsNull &&
-                   double.IsFinite(envelope.MinX) &&
-                   double.IsFinite(envelope.MinY) &&
-                   double.IsFinite(envelope.MaxX) &&
-                   double.IsFinite(envelope.MaxY) &&
-                   envelope.MaxX >= envelope.MinX &&
-                   envelope.MaxY >= envelope.MinY;
         }
 
         private static string? FormatArea(double? areaSqm)
@@ -6468,6 +6475,7 @@ namespace Land_Readjustment_Tool
 
             try
             {
+                CanvasLayer beforeSnapshot = CloneCanvasLayerSnapshot(nodeState.Layer);
                 CanvasLayer? updatedLayer =
                     await _layerCommandService.SetVisibilityAsync(
                         AppServices.HasContext ? AppServices.Context.Session : null,
@@ -6479,6 +6487,9 @@ namespace Land_Readjustment_Tool
                     return;
                 }
 
+                RegisterCanvasUndoCommand(new ModifyCanvasLayersCommand(
+                    [beforeSnapshot],
+                    [CloneCanvasLayerSnapshot(updatedLayer)]));
                 UpdateLayerNode(node, updatedLayer, updateRasterStack: false);
                 MarkProjectModifiedIfOpen();
                 if (IsRasterLayer(updatedLayer))
@@ -6521,6 +6532,7 @@ namespace Land_Readjustment_Tool
 
             try
             {
+                CanvasLayer beforeSnapshot = CloneCanvasLayerSnapshot(layer);
                 CanvasLayer editableLayer = _layerCommandService.CreateEditableCopy(layer);
                 editableLayer.ShowLabels = !layer.ShowLabels;
                 if (editableLayer.LabelFontSize <= 0)
@@ -6531,6 +6543,9 @@ namespace Land_Readjustment_Tool
                         AppServices.HasContext ? AppServices.Context.Session : null,
                         editableLayer);
 
+                RegisterCanvasUndoCommand(new ModifyCanvasLayersCommand(
+                    [beforeSnapshot],
+                    [CloneCanvasLayerSnapshot(updatedLayer)]));
                 UpdateLayerNode(node!, updatedLayer, updateRasterStack: false);
                 mapCanvasControlMain.UpdateVectorLayer(updatedLayer);
                 MarkProjectModifiedIfOpen();
@@ -6559,6 +6574,7 @@ namespace Land_Readjustment_Tool
 
             try
             {
+                CanvasLayer beforeSnapshot = CloneCanvasLayerSnapshot(layer);
                 CanvasLayer editableLayer = _layerCommandService.CreateEditableCopy(layer);
                 editableLayer.ShowFillTransparency = !layer.ShowFillTransparency;
                 editableLayer.FillTransparency = Math.Clamp(
@@ -6571,6 +6587,9 @@ namespace Land_Readjustment_Tool
                         AppServices.HasContext ? AppServices.Context.Session : null,
                         editableLayer);
 
+                RegisterCanvasUndoCommand(new ModifyCanvasLayersCommand(
+                    [beforeSnapshot],
+                    [CloneCanvasLayerSnapshot(updatedLayer)]));
                 UpdateLayerNode(node!, updatedLayer, updateRasterStack: false);
                 mapCanvasControlMain.UpdateVectorLayer(updatedLayer);
                 MarkProjectModifiedIfOpen();
@@ -6634,6 +6653,8 @@ namespace Land_Readjustment_Tool
             {
                 bool rasterStackDirty = false;
                 bool vectorStackDirty = false;
+                List<CanvasLayer> beforeSnapshots = new();
+                List<CanvasLayer> afterSnapshots = new();
 
                 foreach (TreeNode layerNode in layerNodes)
                 {
@@ -6641,6 +6662,7 @@ namespace Land_Readjustment_Tool
                     if (layer == null || layer.IsVisible == newVisibility)
                         continue;
 
+                    beforeSnapshots.Add(CloneCanvasLayerSnapshot(layer));
                     CanvasLayer? updatedLayer =
                         await _layerCommandService.SetVisibilityAsync(
                             AppServices.HasContext ? AppServices.Context.Session : null,
@@ -6650,6 +6672,7 @@ namespace Land_Readjustment_Tool
                     if (updatedLayer == null)
                         continue;
 
+                    afterSnapshots.Add(CloneCanvasLayerSnapshot(updatedLayer));
                     UpdateLayerNode(layerNode, updatedLayer, updateRasterStack: false);
                     if (IsRasterLayer(updatedLayer))
                     {
@@ -6660,6 +6683,9 @@ namespace Land_Readjustment_Tool
                         vectorStackDirty = true;
                     }
                 }
+
+                if (beforeSnapshots.Count > 0 && beforeSnapshots.Count == afterSnapshots.Count)
+                    RegisterCanvasUndoCommand(new ModifyCanvasLayersCommand(beforeSnapshots, afterSnapshots));
 
                 nodeState.IsGroupCheckedWhenEmpty = newVisibility;
                 MarkProjectModifiedIfOpen();
@@ -6712,6 +6738,7 @@ namespace Land_Readjustment_Tool
 
             try
             {
+                CanvasLayer beforeSnapshot = CloneCanvasLayerSnapshot(nodeState.Layer);
                 CanvasLayer? renamedLayer =
                     await _layerCommandService.RenameAsync(
                         AppServices.HasContext ? AppServices.Context.Session : null,
@@ -6723,6 +6750,9 @@ namespace Land_Readjustment_Tool
                     return;
                 }
 
+                RegisterCanvasUndoCommand(new ModifyCanvasLayersCommand(
+                    [beforeSnapshot],
+                    [CloneCanvasLayerSnapshot(renamedLayer)]));
                 UpdateLayerNode(node, renamedLayer);
                 MarkProjectModifiedIfOpen();
                 await RefreshMapCanvasAsync("Refreshing layer list");
@@ -6748,6 +6778,7 @@ namespace Land_Readjustment_Tool
 
             try
             {
+                CanvasLayer beforeSnapshot = CloneCanvasLayerSnapshot(layer);
                 CanvasLayer? updatedLayer =
                     await _layerCommandService.ToggleLockAsync(
                         AppServices.HasContext ? AppServices.Context.Session : null,
@@ -6758,6 +6789,9 @@ namespace Land_Readjustment_Tool
                     return;
                 }
 
+                RegisterCanvasUndoCommand(new ModifyCanvasLayersCommand(
+                    [beforeSnapshot],
+                    [CloneCanvasLayerSnapshot(updatedLayer)]));
                 UpdateLayerNode(node!, updatedLayer, updateRasterStack: false);
                 if (IsRasterLayer(updatedLayer))
                     UpdateRasterCanvasLayersFromTree();
@@ -7561,6 +7595,97 @@ namespace Land_Readjustment_Tool
             };
         }
 
+        /// <summary>
+        /// Restores persisted canvas layer scalar state and refreshes the layer UI/canvas bindings.
+        /// </summary>
+        /// <param name="snapshots">The layer snapshots to restore.</param>
+        private async Task RestoreCanvasLayerSnapshotsAsync(IReadOnlyList<CanvasLayer> snapshots)
+        {
+            if (!AppServices.HasContext || snapshots.Count == 0)
+            {
+                return;
+            }
+
+            AppDbContext context = AppServices.Context.Session.GetDbContext();
+
+            foreach (CanvasLayer snapshot in snapshots)
+            {
+                CanvasLayer entity = CloneCanvasLayerSnapshot(snapshot);
+                Microsoft.EntityFrameworkCore.ChangeTracking.EntityEntry<CanvasLayer>? localTracked =
+                    context.ChangeTracker
+                        .Entries<CanvasLayer>()
+                        .FirstOrDefault(entry => entry.Entity.Id == entity.Id);
+
+                if (localTracked != null)
+                {
+                    localTracked.State = EntityState.Detached;
+                }
+
+                bool exists = await context.CanvasLayers
+                    .AsNoTracking()
+                    .AnyAsync(item => item.Id == entity.Id);
+
+                if (exists)
+                {
+                    context.CanvasLayers.Update(entity);
+                }
+                else
+                {
+                    await context.CanvasLayers.AddAsync(entity);
+                }
+            }
+
+            await context.SaveChangesAsync();
+            MarkProjectModifiedIfOpen();
+            await RefreshLayerTreeAsync();
+            RefreshCurrentDrawingLayerCombo();
+
+            if (snapshots.Count == 1)
+                SelectLayerNodeById(snapshots[0].Id);
+        }
+
+        /// <summary>
+        /// Creates a detached scalar snapshot of a canvas layer for undo/redo persistence.
+        /// </summary>
+        /// <param name="source">The layer to snapshot.</param>
+        private static CanvasLayer CloneCanvasLayerSnapshot(CanvasLayer source)
+        {
+            return new CanvasLayer
+            {
+                Id = source.Id,
+                Name = source.Name,
+                LayerType = source.LayerType,
+                IsVisible = source.IsVisible,
+                IsLocked = source.IsLocked,
+                IsSelectable = source.IsSelectable,
+                IsPrintable = source.IsPrintable,
+                DisplayOrder = source.DisplayOrder,
+                BorderColor = source.BorderColor,
+                LineWeight = source.LineWeight,
+                LineStyle = source.LineStyle,
+                LineTypeScale = source.LineTypeScale,
+                FillColor = source.FillColor,
+                ShowFillTransparency = source.ShowFillTransparency,
+                FillTransparency = source.FillTransparency,
+                FillStyle = source.FillStyle,
+                HatchPattern = source.HatchPattern,
+                HatchScale = source.HatchScale,
+                ShowLabels = source.ShowLabels,
+                LabelFontName = source.LabelFontName,
+                LabelFontSize = source.LabelFontSize,
+                LabelColor = source.LabelColor,
+                LabelField = source.LabelField,
+                LabelScaleWithZoom = source.LabelScaleWithZoom,
+                PointSymbol = source.PointSymbol,
+                PointSize = source.PointSize,
+                SourceFile = source.SourceFile,
+                ImportedDate = source.ImportedDate,
+                CreatedDate = source.CreatedDate,
+                LastModifiedDate = source.LastModifiedDate,
+                Description = source.Description
+            };
+        }
+
         private async void MapCanvasControlMain_ShapeCompleted(IShape shape)
         {
             if (!AppServices.HasContext)
@@ -7595,6 +7720,71 @@ namespace Land_Readjustment_Tool
                     "Drawing Tools",
                     MessageBoxButtons.OK,
                     MessageBoxIcon.Error);
+            }
+        }
+
+        private async void MapCanvasControlMain_ShapeEdited(IShape shape)
+        {
+            if (!AppServices.HasContext)
+            {
+                return;
+            }
+
+            await _shapeEditSaveLock.WaitAsync();
+            try
+            {
+                AppDbContext context = AppServices.Context.Session.GetDbContext();
+                CanvasObject? existingObject = await context.CanvasObjects
+                    .AsNoTracking()
+                    .Include(item => item.CanvasLayer)
+                    .FirstOrDefaultAsync(item => item.Id == shape.Id);
+
+                if (existingObject == null)
+                {
+                    return;
+                }
+
+                if (existingObject.CanvasLayer?.IsLocked == true ||
+                    (existingObject.CanvasLayer != null &&
+                     !CanvasLayerTreeService.IsDrawingMarkupLayer(existingObject.CanvasLayer)))
+                {
+                    SetCanvasCommandStatus("Grip edit ignored because the object layer is not editable");
+                    await RefreshVectorCanvasFeaturesAsync();
+                    return;
+                }
+
+                CanvasObject beforeSnapshot = CloneCanvasObjectSnapshot(existingObject);
+                if (existingObject.CanvasLayer != null)
+                {
+                    shape.LayerName = existingObject.CanvasLayer.Name;
+                    shape.Properties[CanvasFeatureService.CanvasLayerIdPropertyKey] = existingObject.CanvasLayer.Id;
+                }
+
+                CanvasFeatureService featureService =
+                    _projectScopedFactory.CreateCanvasFeatureService(AppServices.Context.Session);
+                CanvasFeature feature = await featureService.SaveShapeAsync(
+                    shape,
+                    shape.LayerName);
+
+                CanvasObject afterSnapshot = CloneCanvasObjectSnapshot(feature.CanvasObject);
+                MarkProjectModifiedIfOpen();
+                await RefreshVectorCanvasFeaturesAsync();
+                await RefreshCurrentSelectedCanvasObjectPropertiesAsync(shape.Id);
+                RegisterCanvasUndoCommand(new ModifyCanvasObjectCommand(beforeSnapshot, afterSnapshot));
+                SetCanvasCommandStatus($"Edited {feature.CanvasObject.ObjectType}: {feature.Layer?.Name ?? shape.LayerName}");
+            }
+            catch (Exception ex)
+            {
+                MessageBox.Show(
+                    $"Failed to save the grip edit: {ex.Message}",
+                    "Grip Edit",
+                    MessageBoxButtons.OK,
+                    MessageBoxIcon.Error);
+                await RefreshVectorCanvasFeaturesAsync();
+            }
+            finally
+            {
+                _shapeEditSaveLock.Release();
             }
         }
 
@@ -8319,6 +8509,7 @@ namespace Land_Readjustment_Tool
                 return;
             }
 
+            CanvasLayer beforeSnapshot = CloneCanvasLayerSnapshot(nodeState.Layer);
             CanvasLayer editableLayer =
                 _layerCommandService.CreateEditableCopy(nodeState.Layer);
 
@@ -8335,6 +8526,9 @@ namespace Land_Readjustment_Tool
                         AppServices.HasContext ? AppServices.Context.Session : null,
                         editableLayer);
 
+                RegisterCanvasUndoCommand(new ModifyCanvasLayersCommand(
+                    [beforeSnapshot],
+                    [CloneCanvasLayerSnapshot(updatedLayer)]));
                 bool isRaster = IsRasterLayer(updatedLayer);
                 UpdateLayerNode(node, updatedLayer, updateRasterStack: !isRaster);
                 MarkProjectModifiedIfOpen();
@@ -8793,15 +8987,15 @@ namespace Land_Readjustment_Tool
             }
 
             _operationProgressActive = false;
-            lblOperationProgressStatus.Visible = true;
+            lblOperationProgressStatus.Visible = false;
             lblOperationProgressStatus.AutoSize = false;
             lblOperationProgressStatus.Width = CalculateOperationStatusWidth();
             lblOperationProgressStatus.TextAlign = ContentAlignment.MiddleRight;
             hostOperationProgress.Value = 0;
-            hostOperationProgress.Visible = true;
+            hostOperationProgress.Visible = false;
             hostOperationProgress.Invalidate();
             hostProgressBarHost.Size = new Size(154, 26);
-            hostProgressBarHost.Visible = true;
+            hostProgressBarHost.Visible = false;
             _operationProgressForm?.Close();
             _operationProgressForm = null;
             statusCanvas.PerformLayout();
@@ -9042,6 +9236,53 @@ namespace Land_Readjustment_Tool
         }
 
         /// <summary>
+        /// Undo command for one or more persisted canvas layer property changes.
+        /// </summary>
+        private sealed class ModifyCanvasLayersCommand : IPersistedCanvasUndoCommand
+        {
+            private readonly IReadOnlyList<CanvasLayer> _beforeSnapshots;
+            private readonly IReadOnlyList<CanvasLayer> _afterSnapshots;
+
+            /// <summary>
+            /// Creates a layer modification command from before/after layer states.
+            /// </summary>
+            /// <param name="beforeSnapshots">Layer states to restore on undo.</param>
+            /// <param name="afterSnapshots">Layer states to restore on redo.</param>
+            public ModifyCanvasLayersCommand(
+                IReadOnlyList<CanvasLayer> beforeSnapshots,
+                IReadOnlyList<CanvasLayer> afterSnapshots)
+            {
+                _beforeSnapshots = beforeSnapshots;
+                _afterSnapshots = afterSnapshots;
+            }
+
+            /// <summary>
+            /// Gets the operation name shown in undo/redo tooltips.
+            /// </summary>
+            public string Description => _afterSnapshots.Count == 1
+                ? $"Modify layer {_afterSnapshots[0].Name}"
+                : $"Modify {_afterSnapshots.Count} layers";
+
+            /// <summary>
+            /// Restores the previous layer state.
+            /// </summary>
+            /// <param name="owner">The main form that owns the active project services.</param>
+            public Task UndoAsync(frmMain owner)
+            {
+                return owner.RestoreCanvasLayerSnapshotsAsync(_beforeSnapshots);
+            }
+
+            /// <summary>
+            /// Restores the changed layer state.
+            /// </summary>
+            /// <param name="owner">The main form that owns the active project services.</param>
+            public Task RedoAsync(frmMain owner)
+            {
+                return owner.RestoreCanvasLayerSnapshotsAsync(_afterSnapshots);
+            }
+        }
+
+        /// <summary>
         /// Undo command for one or more newly created persisted canvas objects.
         /// </summary>
         private sealed class AddCanvasObjectsCommand : IPersistedCanvasUndoCommand
@@ -9080,6 +9321,49 @@ namespace Land_Readjustment_Tool
             public Task RedoAsync(frmMain owner)
             {
                 return owner.RestoreCanvasObjectSnapshotsAsync(_snapshots);
+            }
+        }
+
+        /// <summary>
+        /// Undo command for a persisted canvas geometry/style modification.
+        /// </summary>
+        private sealed class ModifyCanvasObjectCommand : IPersistedCanvasUndoCommand
+        {
+            private readonly CanvasObject _beforeSnapshot;
+            private readonly CanvasObject _afterSnapshot;
+
+            /// <summary>
+            /// Creates a modify command from the object state before and after the edit.
+            /// </summary>
+            /// <param name="beforeSnapshot">Object state to restore on undo.</param>
+            /// <param name="afterSnapshot">Object state to restore on redo.</param>
+            public ModifyCanvasObjectCommand(CanvasObject beforeSnapshot, CanvasObject afterSnapshot)
+            {
+                _beforeSnapshot = beforeSnapshot;
+                _afterSnapshot = afterSnapshot;
+            }
+
+            /// <summary>
+            /// Gets the operation name shown in undo/redo tooltips.
+            /// </summary>
+            public string Description => $"Modify {_afterSnapshot.ObjectType}";
+
+            /// <summary>
+            /// Restores the geometry before the edit.
+            /// </summary>
+            /// <param name="owner">The main form that owns the active project services.</param>
+            public Task UndoAsync(frmMain owner)
+            {
+                return owner.RestoreCanvasObjectSnapshotsAsync([_beforeSnapshot]);
+            }
+
+            /// <summary>
+            /// Restores the geometry after the edit.
+            /// </summary>
+            /// <param name="owner">The main form that owns the active project services.</param>
+            public Task RedoAsync(frmMain owner)
+            {
+                return owner.RestoreCanvasObjectSnapshotsAsync([_afterSnapshot]);
             }
         }
 

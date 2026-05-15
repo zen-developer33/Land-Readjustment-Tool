@@ -332,6 +332,16 @@ namespace Land_Readjustment_Tool.UI.MapCanvas.Models.Shapes
                     yield return segment;
                 }
 
+                if (IsClosed && Vertices.Count > 2)
+                {
+                    PointD lastEnd = Segments[^1].End;
+                    PointD first = Vertices[0];
+                    if (Distance(lastEnd, first) > 1e-9)
+                    {
+                        yield return new PolylineSegment(PolylineSegmentKind.Line, lastEnd, first);
+                    }
+                }
+
                 yield break;
             }
 

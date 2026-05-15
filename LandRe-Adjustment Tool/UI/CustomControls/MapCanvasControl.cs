@@ -44,12 +44,39 @@ namespace Land_Readjustment_Tool.UI.CustomControls
             ThreePointArc   // Arc through an explicit through-point picked by the user
         }
 
+        private enum SelectionGripKind
+        {
+            Vertex,
+            SegmentMidpoint,
+            ArcMidpoint,
+            CircleCenter,
+            CircleQuadrant,
+            EllipseCenter,
+            EllipseQuadrant,
+            TextPosition
+        }
+
+        private enum SelectionGripGlyph
+        {
+            Square,
+            SegmentRectangle,
+            Diamond
+        }
+
         private const int ZoomSettleIntervalMs = 150;
         private const int ObjectSelectionTolerancePixels = 3;
         private const int SnapQueryBoxPixels = 20;
+        private const double GripHitTolerancePixels = 8.0;
+        private const float GripSquareSizePixels = 8.0f;
+        private const float GripSegmentLengthPixels = 16.0f;
+        private const float GripSegmentThicknessPixels = 4.0f;
         private const double DefaultSnapPickTolerancePixels = 8.0;
         private const float DefaultSnapGlyphSizePixels = 14.0f;
+        private const double CommonGripToleranceWorld = 0.005;
+        private const double ActiveGripSnapSuppressionPixels = 4.0;
+        private const double VertexMergeToleranceWorld = 1e-7;
         private const double ScreenPixelsPerMetre = 96.0 / 0.0254;
+        private const double MaxSnapScaleDenominator = 50000.0;
         private const bool DefaultShowDebugOverlay = false;
         private static readonly double[] StandardScaleDenominators = BuildStandardScaleDenominators();
         private static readonly NtsGeometryFactory SelectionGeometryFactory = new(new NtsPrecisionModel(), 0);
@@ -70,6 +97,7 @@ namespace Land_Readjustment_Tool.UI.CustomControls
 
         public event Action<string, string, double>? StatusChanged;
         public event Action<IShape>? ShapeCompleted;
+        public event Action<IShape>? ShapeEdited;
         public event Action? SelectToolRequested;
         public event Action<IReadOnlyList<Guid>>? SelectedObjectsDeleteRequested;
         public event Action? SelectedObjectsAssignParcelDataRequested;
@@ -131,6 +159,8 @@ namespace Land_Readjustment_Tool.UI.CustomControls
         private bool _isSelectingObjects;
         private Point _objectSelectionStart;
         private Point _objectSelectionCurrent;
+        private SelectionGrip? _hoveredSelectionGrip;
+        private ActiveGripEdit? _activeGripEdit;
         private IShape? _previewShape;
         private string _activeDrawingLayerName = "Features";
         private CanvasLayer? _activeDrawingLayer;
@@ -161,6 +191,56 @@ namespace Land_Readjustment_Tool.UI.CustomControls
             _drawingOptionsContextMenu.Closed += (_, _) => canvasSurface.Focus();
             WireInteractionEvents();
             UpdateStatusBar();
+        }
+
+        private sealed class SelectionGrip
+        {
+            public required CanvasFeature Feature { get; init; }
+            public required IShape Shape { get; init; }
+            public required SelectionGripKind Kind { get; init; }
+            public required SelectionGripGlyph Glyph { get; init; }
+            public required PointD Position { get; init; }
+            public PointD SegmentStart { get; init; }
+            public PointD SegmentEnd { get; init; }
+            public int VertexIndex { get; init; } = -1;
+            public int SegmentIndex { get; init; } = -1;
+            public int AuxiliaryIndex { get; init; } = -1;
+        }
+
+        private sealed class ActiveGripEdit
+        {
+            public ActiveGripEdit(
+                SelectionGrip grip,
+                IShape originalShape,
+                Point startScreenPoint,
+                IReadOnlyList<LinkedGripEdit> linkedEdits)
+            {
+                Grip = grip;
+                OriginalShape = originalShape;
+                StartScreenPoint = startScreenPoint;
+                CurrentWorldPoint = grip.Position;
+                LinkedEdits = linkedEdits;
+            }
+
+            public SelectionGrip Grip { get; }
+            public IShape OriginalShape { get; }
+            public Point StartScreenPoint { get; }
+            public PointD CurrentWorldPoint { get; set; }
+            public bool HasPointerMoved { get; set; }
+            public bool AwaitingClickCommit { get; set; }
+            public IReadOnlyList<LinkedGripEdit> LinkedEdits { get; }
+        }
+
+        private sealed class LinkedGripEdit
+        {
+            public LinkedGripEdit(SelectionGrip grip)
+            {
+                Grip = grip;
+                OriginalShape = grip.Shape.Clone();
+            }
+
+            public SelectionGrip Grip { get; }
+            public IShape OriginalShape { get; }
         }
 
         /// <summary>
@@ -353,6 +433,8 @@ namespace Land_Readjustment_Tool.UI.CustomControls
         public void SetVectorFeatures(IEnumerable<CanvasFeature>? features)
         {
             _vectorFeatures = features?.ToList() ?? [];
+            _hoveredSelectionGrip = null;
+            _activeGripEdit = null;
             foreach (CanvasFeature feature in _vectorFeatures)
             {
                 feature.Shape.IsSelected = _selectedShapeIds.Contains(feature.Shape.Id);
@@ -453,6 +535,8 @@ namespace Land_Readjustment_Tool.UI.CustomControls
             _zoomWindowActive = false;
             _isSelectingZoomWindow = false;
             _isSelectingObjects = false;
+            _hoveredSelectionGrip = null;
+            CancelActiveGripEdit(restoreOriginal: true);
             _drawingVertices.Clear();
             _previewShape = null;
 
@@ -911,6 +995,8 @@ namespace Land_Readjustment_Tool.UI.CustomControls
                 _showDebugOverlay);
 
             DrawObjectSelectionRectangle(e.Graphics);
+            DrawActiveGripEditOverlay(e.Graphics);
+            DrawSelectionGrips(e.Graphics);
             DrawSnapGlyph(e.Graphics);
             // Diameter preview drawing is handled by the vector renderer when the
             // preview shape contains the CenterDiameterEndpoint property.
@@ -1021,7 +1107,7 @@ namespace Land_Readjustment_Tool.UI.CustomControls
                 e.Button == MouseButtons.Middle ||
                 (_panToolActive && e.Button == MouseButtons.Left);
 
-            if (isPanGesture && IsPanBlockedByZoomDebounce)
+            if (isPanGesture && IsPanBlockedByZoomDebounce && _activeGripEdit == null)
             {
                 return;
             }
@@ -1036,6 +1122,24 @@ namespace Land_Readjustment_Tool.UI.CustomControls
             {
                 HandleDrawingMouseDown(e);
                 return;
+            }
+
+            if (_activeTool == MapCanvasTool.Select &&
+                _activeGripEdit != null &&
+                _activeGripEdit.AwaitingClickCommit)
+            {
+                if (e.Button == MouseButtons.Left)
+                {
+                    ApplyActiveGripEdit(e.Location);
+                    CommitActiveGripEdit();
+                    return;
+                }
+
+                if (e.Button == MouseButtons.Right)
+                {
+                    CancelActiveGripEdit(restoreOriginal: true);
+                    return;
+                }
             }
 
             if (_zoomWindowActive && e.Button == MouseButtons.Left)
@@ -1083,6 +1187,11 @@ namespace Land_Readjustment_Tool.UI.CustomControls
 
             if (_activeTool == MapCanvasTool.Select && e.Button == MouseButtons.Left)
             {
+                if (_hoveredSelectionGrip != null && BeginGripEdit(_hoveredSelectionGrip, e.Location))
+                {
+                    return;
+                }
+
                 _isSelectingObjects = true;
                 _objectSelectionStart = e.Location;
                 _objectSelectionCurrent = e.Location;
@@ -1134,6 +1243,18 @@ namespace Land_Readjustment_Tool.UI.CustomControls
                 return;
             }
 
+            if (_activeGripEdit != null)
+            {
+                ApplyActiveGripEdit(e.Location);
+                if ((Control.MouseButtons & MouseButtons.Left) == MouseButtons.Left)
+                {
+                    _activeGripEdit.HasPointerMoved = true;
+                }
+
+                RequestRender();
+                return;
+            }
+
             if (_isSelectingObjects)
             {
                 _currentMouseWorld = _engine.ScreenToWorld(e.Location);
@@ -1151,6 +1272,7 @@ namespace Land_Readjustment_Tool.UI.CustomControls
             {
                 _currentMouseWorld = _currentSnapPoint?.Position ?? _engine.ScreenToWorld(e.Location);
             }
+            UpdateHoveredSelectionGrip(e.Location);
             UpdateDrawingPreview(e.Location);
             UpdateStatusBar();
         }
@@ -1199,6 +1321,25 @@ namespace Land_Readjustment_Tool.UI.CustomControls
                 return;
             }
 
+            if (_activeGripEdit != null && e.Button == MouseButtons.Left)
+            {
+                ApplyActiveGripEdit(e.Location);
+                if (_activeGripEdit.HasPointerMoved ||
+                    Distance(_activeGripEdit.StartScreenPoint, e.Location) > 2.0)
+                {
+                    CommitActiveGripEdit();
+                }
+                else
+                {
+                    _activeGripEdit.AwaitingClickCommit = true;
+                    canvasSurface.Capture = false;
+                    UpdateCanvasCursor();
+                    RequestRender();
+                }
+
+                return;
+            }
+
             if (_isSelectingObjects && e.Button == MouseButtons.Left)
             {
                 _isSelectingObjects = false;
@@ -1215,12 +1356,24 @@ namespace Land_Readjustment_Tool.UI.CustomControls
             if (!_isPanning && !_isSelectingZoomWindow)
             {
                 ClearCurrentSnapPoint();
+                if (_activeGripEdit == null)
+                {
+                    _hoveredSelectionGrip = null;
+                    UpdateCanvasCursor();
+                }
                 UpdateStatusBar();
             }
         }
 
         private void canvasSurface_KeyDown(object? sender, KeyEventArgs e)
         {
+            if (e.KeyCode == Keys.Escape && _activeGripEdit != null)
+            {
+                CancelActiveGripEdit(restoreOriginal: true);
+                e.Handled = true;
+                return;
+            }
+
             if (e.KeyCode == Keys.Delete && _selectedShapeIds.Count > 0)
             {
                 RequestDeleteSelectedObjects();
@@ -2296,10 +2449,12 @@ namespace Land_Readjustment_Tool.UI.CustomControls
 
         private void UpdateCurrentSnapPoint(Point screenPoint)
         {
+            bool isGripEditing = _activeGripEdit != null;
             if (!_snapEnabled ||
-                _activeTool == MapCanvasTool.Select ||
-                IsInteractiveNavigation ||
-                IsPanBlockedByZoomDebounce)
+                IsSnapTemporarilySuspendedForZoom() ||
+                (_activeTool == MapCanvasTool.Select && !isGripEditing) ||
+                (IsInteractiveNavigation && !isGripEditing) ||
+                (IsPanBlockedByZoomDebounce && !isGripEditing))
             {
                 ClearCurrentSnapPoint();
                 return;
@@ -2316,6 +2471,7 @@ namespace Land_Readjustment_Tool.UI.CustomControls
                 queryRadius * 2);
             RectangleD worldQuery = CreateWorldRectangle(screenQuery);
             PointD mouseWorld = _engine.ScreenToWorld(screenPoint);
+            SnapPoint? previousSnapPoint = _currentSnapPoint;
 
             List<IShape> nearbyShapes = _vectorFeatures
                 .Where(IsSnapCandidateFeature)
@@ -2334,7 +2490,6 @@ namespace Land_Readjustment_Tool.UI.CustomControls
                 .Where(snapPoint => !IsSuppressedPreviewSnapPoint(snapPoint))
                 .ToList();
 
-            SnapPoint? previousSnapPoint = _currentSnapPoint;
             _currentSnapPoint = _snapManager.FindNearestSnapPointFromList(
                 candidates,
                 screenPoint,
@@ -2352,6 +2507,19 @@ namespace Land_Readjustment_Tool.UI.CustomControls
             }
         }
 
+        private bool IsSnapTemporarilySuspendedForZoom()
+        {
+            double scaleDenominator = GetCurrentScaleDenominator();
+            return scaleDenominator > MaxSnapScaleDenominator;
+        }
+
+        private double GetCurrentScaleDenominator()
+        {
+            return _engine.ZoomScale > 0 && double.IsFinite(_engine.ZoomScale)
+                ? ScreenPixelsPerMetre / _engine.ZoomScale
+                : double.PositiveInfinity;
+        }
+
         private IEnumerable<SnapPoint> BuildInProgressSnapPoints(PointD mouseWorld)
         {
             // --- Committed vertex endpoint / midpoint snaps ---
@@ -2367,6 +2535,16 @@ namespace Land_Readjustment_Tool.UI.CustomControls
                         new PointD((previous.X + current.X) / 2.0, (previous.Y + current.Y) / 2.0),
                         null);
                 }
+            }
+
+            if (_activeTool == MapCanvasTool.Polygon && _drawingVertices.Count > 2)
+            {
+                PointD first = _drawingVertices[0];
+                PointD last = _drawingVertices[^1];
+                yield return new SnapPoint(
+                    SnapType.Midpoint,
+                    new PointD((first.X + last.X) / 2.0, (first.Y + last.Y) / 2.0),
+                    null);
             }
 
             // --- Self-intersection snaps on committed vertices ---
@@ -2417,6 +2595,184 @@ namespace Land_Readjustment_Tool.UI.CustomControls
                    _drawingVertices.Count > 0 &&
                    snapPoint.Type == SnapType.Quadrant &&
                    ReferenceEquals(snapPoint.ParentShape, _previewShape);
+        }
+
+        private bool IsActiveGripSnapPoint(SnapPoint snapPoint)
+        {
+            if (_activeGripEdit == null)
+            {
+                return false;
+            }
+
+            PointD snapScreen = _engine.WorldToScreen(snapPoint.Position);
+            PointD gripScreen = _engine.WorldToScreen(_activeGripEdit.Grip.Position);
+            if (!double.IsFinite(snapScreen.X) || !double.IsFinite(snapScreen.Y) ||
+                !double.IsFinite(gripScreen.X) || !double.IsFinite(gripScreen.Y))
+            {
+                return false;
+            }
+
+            double dx = snapScreen.X - gripScreen.X;
+            double dy = snapScreen.Y - gripScreen.Y;
+            return Math.Sqrt(dx * dx + dy * dy) <= ActiveGripSnapSuppressionPixels;
+        }
+
+        private static PointD? TryGetGripWorldPoint(SelectionGrip grip)
+        {
+            switch (grip.Shape)
+            {
+                case LineShape line:
+                    return grip.Kind switch
+                    {
+                        SelectionGripKind.Vertex when grip.VertexIndex == 0 => line.Start,
+                        SelectionGripKind.Vertex when grip.VertexIndex == 1 => line.End,
+                        SelectionGripKind.SegmentMidpoint => Midpoint(line.Start, line.End),
+                        _ => null
+                    };
+
+                case PolylineShape polyline:
+                    if (grip.Kind == SelectionGripKind.Vertex)
+                    {
+                        return grip.VertexIndex >= 0 && grip.VertexIndex < polyline.Vertices.Count
+                            ? polyline.Vertices[grip.VertexIndex]
+                            : null;
+                    }
+
+                    if (grip.Kind == SelectionGripKind.SegmentMidpoint)
+                    {
+                        if (polyline.Segments.Count > 0)
+                        {
+                            if (grip.SegmentIndex == -1)
+                            {
+                                if (polyline.Vertices.Count < 2)
+                                {
+                                    return null;
+                                }
+
+                                PointD lastEnd = polyline.Segments[^1].End;
+                                PointD first = polyline.Vertices[0];
+                                return Midpoint(lastEnd, first);
+                            }
+
+                            if (grip.SegmentIndex < 0 || grip.SegmentIndex >= polyline.Segments.Count)
+                            {
+                                return null;
+                            }
+
+                            PolylineShape.PolylineSegment segment = polyline.Segments[grip.SegmentIndex];
+                            return Midpoint(segment.Start, segment.End);
+                        }
+
+                        if (polyline.Vertices.Count < 2)
+                        {
+                            return null;
+                        }
+
+                        int segmentCount = polyline.IsClosed && polyline.Vertices.Count > 2
+                            ? polyline.Vertices.Count
+                            : polyline.Vertices.Count - 1;
+                        if (grip.SegmentIndex < 0 || grip.SegmentIndex >= segmentCount)
+                        {
+                            return null;
+                        }
+
+                        PointD start = polyline.Vertices[grip.SegmentIndex];
+                        PointD end = polyline.Vertices[(grip.SegmentIndex + 1) % polyline.Vertices.Count];
+                        return Midpoint(start, end);
+                    }
+
+                    if (grip.Kind == SelectionGripKind.ArcMidpoint &&
+                        grip.SegmentIndex >= 0 &&
+                        grip.SegmentIndex < polyline.Segments.Count)
+                    {
+                        PolylineShape.PolylineSegment segment = polyline.Segments[grip.SegmentIndex];
+                        return segment.Arc?.MidPoint;
+                    }
+
+                    return null;
+
+                case RectangleShape rectangle:
+                    PointD[] corners = GetRectangleCorners(rectangle);
+                    if (grip.Kind == SelectionGripKind.Vertex &&
+                        grip.VertexIndex >= 0 && grip.VertexIndex < corners.Length)
+                    {
+                        return corners[grip.VertexIndex];
+                    }
+
+                    if (grip.Kind == SelectionGripKind.SegmentMidpoint &&
+                        grip.SegmentIndex >= 0 && grip.SegmentIndex < corners.Length)
+                    {
+                        PointD start = corners[grip.SegmentIndex];
+                        PointD end = corners[(grip.SegmentIndex + 1) % corners.Length];
+                        return Midpoint(start, end);
+                    }
+
+                    return null;
+
+                case CircleShape circle:
+                    if (grip.Kind == SelectionGripKind.CircleCenter)
+                    {
+                        return circle.Center;
+                    }
+
+                    if (grip.Kind == SelectionGripKind.CircleQuadrant)
+                    {
+                        double radius = circle.GetRadius();
+                        double[] circleAngles = [0.0, Math.PI / 2.0, Math.PI, Math.PI * 1.5];
+                        int index = grip.AuxiliaryIndex;
+                        if (index < 0 || index >= circleAngles.Length)
+                        {
+                            return null;
+                        }
+
+                        double angle = circleAngles[index];
+                        return new PointD(
+                            circle.Center.X + radius * Math.Cos(angle),
+                            circle.Center.Y + radius * Math.Sin(angle));
+                    }
+
+                    return null;
+
+                case ArcShape arc:
+                    return grip.Kind switch
+                    {
+                        SelectionGripKind.Vertex when grip.VertexIndex == 0 => arc.StartPoint,
+                        SelectionGripKind.Vertex when grip.VertexIndex == 1 => arc.EndPoint,
+                        SelectionGripKind.ArcMidpoint => arc.MidPoint,
+                        _ => null
+                    };
+
+                case EllipseShape ellipse:
+                    RectangleD bounds = ellipse.GetBoundingBox();
+                    PointD center = new(bounds.Left + bounds.Width / 2.0, bounds.Bottom + bounds.Height / 2.0);
+                    if (grip.Kind == SelectionGripKind.EllipseCenter)
+                    {
+                        return center;
+                    }
+
+                    if (grip.Kind == SelectionGripKind.EllipseQuadrant)
+                    {
+                        PointD[] quadrants =
+                        [
+                            new PointD(bounds.Right, center.Y),
+                            new PointD(center.X, bounds.Top),
+                            new PointD(bounds.Left, center.Y),
+                            new PointD(center.X, bounds.Bottom)
+                        ];
+
+                        int index = grip.AuxiliaryIndex;
+                        return index >= 0 && index < quadrants.Length
+                            ? quadrants[index]
+                            : null;
+                    }
+
+                    return null;
+
+                case TextShape text:
+                    return grip.Kind == SelectionGripKind.TextPosition ? text.Position : null;
+            }
+
+            return null;
         }
 
         private bool ScreenQueryContainsSnapPoint(Rectangle screenQuery, SnapPoint snapPoint)
@@ -2470,9 +2826,1207 @@ namespace Land_Readjustment_Tool.UI.CustomControls
             return Math.Sqrt(dx * dx + dy * dy);
         }
 
+        private void UpdateHoveredSelectionGrip(Point screenPoint)
+        {
+            SelectionGrip? previousGrip = _hoveredSelectionGrip;
+            _hoveredSelectionGrip = _activeTool == MapCanvasTool.Select && _activeGripEdit == null
+                ? FindSelectionGripAtScreenPoint(screenPoint)
+                : null;
+
+            if (!SameSelectionGrip(previousGrip, _hoveredSelectionGrip))
+            {
+                UpdateCanvasCursor();
+                RequestRender();
+            }
+        }
+
+        private SelectionGrip? FindSelectionGripAtScreenPoint(Point screenPoint)
+        {
+            double nearestDistance = GripHitTolerancePixels;
+            SelectionGrip? nearest = null;
+
+            foreach (SelectionGrip grip in EnumerateSelectionGrips())
+            {
+                PointD screen = _engine.WorldToScreen(grip.Position);
+                if (!double.IsFinite(screen.X) || !double.IsFinite(screen.Y))
+                    continue;
+
+                double distance = Math.Sqrt(
+                    Math.Pow(screen.X - screenPoint.X, 2.0) +
+                    Math.Pow(screen.Y - screenPoint.Y, 2.0));
+                if (distance <= nearestDistance)
+                {
+                    nearestDistance = distance;
+                    nearest = grip;
+                }
+            }
+
+            return nearest;
+        }
+
+        private IEnumerable<SelectionGrip> EnumerateSelectionGrips()
+        {
+            foreach (CanvasFeature feature in _vectorFeatures)
+            {
+                if (!IsGripEditableFeature(feature))
+                    continue;
+
+                foreach (SelectionGrip grip in CreateSelectionGrips(feature))
+                {
+                    yield return grip;
+                }
+            }
+        }
+
+        private bool IsGripEditableFeature(CanvasFeature feature)
+        {
+            return _activeTool == MapCanvasTool.Select &&
+                   _selectedShapeIds.Contains(feature.Shape.Id) &&
+                   feature.Shape.IsVisible &&
+                   feature.Layer?.IsVisible != false &&
+                   feature.Layer?.IsLocked != true &&
+                   feature.Layer != null &&
+                   CanvasLayerTreeService.IsDrawingMarkupLayer(feature.Layer);
+        }
+
+        private IEnumerable<SelectionGrip> CreateSelectionGrips(CanvasFeature feature)
+        {
+            IShape shape = feature.Shape;
+            switch (shape)
+            {
+                case LineShape line:
+                    yield return CreateGrip(feature, SelectionGripKind.Vertex, SelectionGripGlyph.Square, line.Start, vertexIndex: 0);
+                    yield return CreateGrip(feature, SelectionGripKind.Vertex, SelectionGripGlyph.Square, line.End, vertexIndex: 1);
+                    yield return CreateGrip(
+                        feature,
+                        SelectionGripKind.SegmentMidpoint,
+                        SelectionGripGlyph.SegmentRectangle,
+                        Midpoint(line.Start, line.End),
+                        segmentStart: line.Start,
+                        segmentEnd: line.End,
+                        segmentIndex: 0);
+                    break;
+
+                case PolylineShape polyline:
+                    foreach (SelectionGrip grip in CreatePolylineSelectionGrips(feature, polyline))
+                        yield return grip;
+                    break;
+
+                case RectangleShape rectangle:
+                    foreach (SelectionGrip grip in CreateRectangleSelectionGrips(feature, rectangle))
+                        yield return grip;
+                    break;
+
+                case CircleShape circle:
+                    yield return CreateGrip(feature, SelectionGripKind.CircleCenter, SelectionGripGlyph.Square, circle.Center);
+                    double radius = circle.GetRadius();
+                    double[] circleAngles = [0.0, Math.PI / 2.0, Math.PI, Math.PI * 1.5];
+                    for (int i = 0; i < circleAngles.Length; i++)
+                    {
+                        double angle = circleAngles[i];
+                        yield return CreateGrip(
+                            feature,
+                            SelectionGripKind.CircleQuadrant,
+                            SelectionGripGlyph.Diamond,
+                            new PointD(
+                                circle.Center.X + radius * Math.Cos(angle),
+                                circle.Center.Y + radius * Math.Sin(angle)),
+                            auxiliaryIndex: i);
+                    }
+                    break;
+
+                case ArcShape arc:
+                    yield return CreateGrip(feature, SelectionGripKind.Vertex, SelectionGripGlyph.Square, arc.StartPoint, vertexIndex: 0);
+                    yield return CreateGrip(feature, SelectionGripKind.ArcMidpoint, SelectionGripGlyph.SegmentRectangle, arc.MidPoint, segmentIndex: 0);
+                    yield return CreateGrip(feature, SelectionGripKind.Vertex, SelectionGripGlyph.Square, arc.EndPoint, vertexIndex: 1);
+                    break;
+
+                case EllipseShape ellipse:
+                    foreach (SelectionGrip grip in CreateEllipseSelectionGrips(feature, ellipse))
+                        yield return grip;
+                    break;
+
+                case TextShape text:
+                    yield return CreateGrip(feature, SelectionGripKind.TextPosition, SelectionGripGlyph.Square, text.Position);
+                    break;
+            }
+        }
+
+        private IEnumerable<SelectionGrip> CreatePolylineSelectionGrips(CanvasFeature feature, PolylineShape polyline)
+        {
+            for (int i = 0; i < polyline.Vertices.Count; i++)
+            {
+                yield return CreateGrip(
+                    feature,
+                    SelectionGripKind.Vertex,
+                    SelectionGripGlyph.Square,
+                    polyline.Vertices[i],
+                    vertexIndex: i);
+            }
+
+            if (polyline.Segments.Count > 0)
+            {
+                for (int i = 0; i < polyline.Segments.Count; i++)
+                {
+                    PolylineShape.PolylineSegment segment = polyline.Segments[i];
+                    if (segment.Kind == PolylineShape.PolylineSegmentKind.Arc && segment.Arc != null)
+                    {
+                        yield return CreateGrip(
+                            feature,
+                            SelectionGripKind.ArcMidpoint,
+                            SelectionGripGlyph.SegmentRectangle,
+                            segment.Arc.MidPoint,
+                            segmentStart: segment.Start,
+                            segmentEnd: segment.End,
+                            segmentIndex: i);
+                        continue;
+                    }
+
+                    yield return CreateGrip(
+                        feature,
+                        SelectionGripKind.SegmentMidpoint,
+                        SelectionGripGlyph.SegmentRectangle,
+                        Midpoint(segment.Start, segment.End),
+                        segmentStart: segment.Start,
+                        segmentEnd: segment.End,
+                        segmentIndex: i);
+                }
+
+                if (polyline.IsClosed && polyline.Vertices.Count > 2)
+                {
+                    PointD lastEnd = polyline.Segments[^1].End;
+                    PointD first = polyline.Vertices[0];
+                    if (DistanceWorld(lastEnd, first) > 1e-9)
+                    {
+                        yield return CreateGrip(
+                            feature,
+                            SelectionGripKind.SegmentMidpoint,
+                            SelectionGripGlyph.SegmentRectangle,
+                            Midpoint(lastEnd, first),
+                            segmentStart: lastEnd,
+                            segmentEnd: first,
+                            segmentIndex: -1);
+                    }
+                }
+
+                yield break;
+            }
+
+            int segmentCount = polyline.IsClosed && polyline.Vertices.Count > 2
+                ? polyline.Vertices.Count
+                : Math.Max(0, polyline.Vertices.Count - 1);
+            for (int i = 0; i < segmentCount; i++)
+            {
+                PointD start = polyline.Vertices[i];
+                PointD end = polyline.Vertices[(i + 1) % polyline.Vertices.Count];
+                yield return CreateGrip(
+                    feature,
+                    SelectionGripKind.SegmentMidpoint,
+                    SelectionGripGlyph.SegmentRectangle,
+                    Midpoint(start, end),
+                    segmentStart: start,
+                    segmentEnd: end,
+                    segmentIndex: i);
+            }
+        }
+
+        private IEnumerable<SelectionGrip> CreateRectangleSelectionGrips(CanvasFeature feature, RectangleShape rectangle)
+        {
+            PointD[] corners = GetRectangleCorners(rectangle);
+            for (int i = 0; i < corners.Length; i++)
+            {
+                yield return CreateGrip(feature, SelectionGripKind.Vertex, SelectionGripGlyph.Square, corners[i], vertexIndex: i);
+            }
+
+            for (int i = 0; i < corners.Length; i++)
+            {
+                PointD start = corners[i];
+                PointD end = corners[(i + 1) % corners.Length];
+                yield return CreateGrip(
+                    feature,
+                    SelectionGripKind.SegmentMidpoint,
+                    SelectionGripGlyph.SegmentRectangle,
+                    Midpoint(start, end),
+                    segmentStart: start,
+                    segmentEnd: end,
+                    segmentIndex: i);
+            }
+        }
+
+        private IEnumerable<SelectionGrip> CreateEllipseSelectionGrips(CanvasFeature feature, EllipseShape ellipse)
+        {
+            RectangleD bounds = ellipse.GetBoundingBox();
+            PointD center = new(bounds.Left + bounds.Width / 2.0, bounds.Bottom + bounds.Height / 2.0);
+            PointD[] quadrants =
+            [
+                new PointD(bounds.Right, center.Y),
+                new PointD(center.X, bounds.Top),
+                new PointD(bounds.Left, center.Y),
+                new PointD(center.X, bounds.Bottom)
+            ];
+
+            yield return CreateGrip(feature, SelectionGripKind.EllipseCenter, SelectionGripGlyph.Square, center);
+            for (int i = 0; i < quadrants.Length; i++)
+            {
+                yield return CreateGrip(
+                    feature,
+                    SelectionGripKind.EllipseQuadrant,
+                    SelectionGripGlyph.Diamond,
+                    quadrants[i],
+                    auxiliaryIndex: i);
+            }
+        }
+
+        private static SelectionGrip CreateGrip(
+            CanvasFeature feature,
+            SelectionGripKind kind,
+            SelectionGripGlyph glyph,
+            PointD position,
+            PointD? segmentStart = null,
+            PointD? segmentEnd = null,
+            int vertexIndex = -1,
+            int segmentIndex = -1,
+            int auxiliaryIndex = -1)
+        {
+            return new SelectionGrip
+            {
+                Feature = feature,
+                Shape = feature.Shape,
+                Kind = kind,
+                Glyph = glyph,
+                Position = position,
+                SegmentStart = segmentStart ?? position,
+                SegmentEnd = segmentEnd ?? position,
+                VertexIndex = vertexIndex,
+                SegmentIndex = segmentIndex,
+                AuxiliaryIndex = auxiliaryIndex
+            };
+        }
+
+        private bool BeginGripEdit(SelectionGrip grip, Point screenPoint)
+        {
+            if (!IsGripEditableFeature(grip.Feature))
+                return false;
+
+            IReadOnlyList<LinkedGripEdit> linkedEdits = FindLinkedGripEdits(grip);
+            _activeGripEdit = new ActiveGripEdit(grip, grip.Shape.Clone(), screenPoint, linkedEdits);
+            _hoveredSelectionGrip = grip;
+            _currentMouseWorld = grip.Position;
+            _isSelectingObjects = false;
+            canvasSurface.Capture = true;
+            // Ensure we don't show glyph on the held grip
+            ClearCurrentSnapPoint();
+            UpdateCanvasCursor();
+            UpdateStatusBar();
+            RequestRender();
+            return true;
+        }
+
+        private void ApplyActiveGripEdit(Point screenPoint)
+        {
+            if (_activeGripEdit == null)
+                return;
+
+            UpdateCurrentSnapPoint(screenPoint);
+            PointD target;
+            bool snappedToCandidate = false;
+            if (_currentSnapPoint != null && !IsActiveGripSnapPoint(_currentSnapPoint))
+            {
+                snappedToCandidate = true;
+                target = _currentSnapPoint.Position;
+            }
+            else
+            {
+                target = _engine.ScreenToWorld(screenPoint);
+            }
+
+            if (!snappedToCandidate)
+            {
+                target = ApplyGripEditOrthoConstraint(_activeGripEdit.Grip, _activeGripEdit.OriginalShape, target);
+            }
+
+            _activeGripEdit.CurrentWorldPoint = target;
+            _currentMouseWorld = target;
+            RestoreShapeGeometry(_activeGripEdit.Grip.Shape, _activeGripEdit.OriginalShape);
+            ApplyGripGeometry(_activeGripEdit.Grip, _activeGripEdit.OriginalShape, target);
+
+            if (_activeGripEdit.LinkedEdits.Count > 0)
+            {
+                foreach (LinkedGripEdit linkedEdit in _activeGripEdit.LinkedEdits)
+                {
+                    RestoreShapeGeometry(linkedEdit.Grip.Shape, linkedEdit.OriginalShape);
+                    ApplyGripGeometry(linkedEdit.Grip, linkedEdit.OriginalShape, target);
+                }
+            }
+
+            UpdateStatusBar();
+        }
+
+        private PointD ApplyGripEditOrthoConstraint(
+            SelectionGrip grip,
+            IShape originalShape,
+            PointD target)
+        {
+            if (!_orthoModeEnabled)
+                return target;
+
+            if (TryResolveGripEditFixedAxis(grip, out OrthoConstraintAxis fixedAxis))
+            {
+                return OrthoConstraintService.Constrain(grip.Position, target, fixedAxis);
+            }
+
+            PointD anchor = ResolveGripEditOrthoAnchor(grip, originalShape);
+            return OrthoConstraintService.ConstrainToDominantAxis(anchor, target);
+        }
+
+        private static bool TryResolveGripEditFixedAxis(
+            SelectionGrip grip,
+            out OrthoConstraintAxis axis)
+        {
+            axis = OrthoConstraintAxis.Horizontal;
+
+            if (grip.Shape is not RectangleShape ||
+                grip.Kind != SelectionGripKind.SegmentMidpoint)
+            {
+                return false;
+            }
+
+            axis = grip.SegmentIndex is 1 or 3
+                ? OrthoConstraintAxis.Horizontal
+                : OrthoConstraintAxis.Vertical;
+            return true;
+        }
+
+        private static PointD ResolveGripEditOrthoAnchor(
+            SelectionGrip grip,
+            IShape originalShape)
+        {
+            if (grip.Kind == SelectionGripKind.CircleQuadrant &&
+                originalShape is CircleShape circle)
+            {
+                return circle.Center;
+            }
+
+            if (grip.Kind == SelectionGripKind.EllipseQuadrant &&
+                originalShape is EllipseShape ellipse)
+            {
+                RectangleD bounds = ellipse.GetBoundingBox();
+                return new PointD(
+                    bounds.Left + bounds.Width / 2.0,
+                    bounds.Bottom + bounds.Height / 2.0);
+            }
+
+            if (grip.Kind == SelectionGripKind.CircleCenter &&
+                originalShape is CircleShape centerCircle)
+            {
+                return centerCircle.Center;
+            }
+
+            if (grip.Kind == SelectionGripKind.EllipseCenter &&
+                originalShape is EllipseShape centerEllipse)
+            {
+                RectangleD bounds = centerEllipse.GetBoundingBox();
+                return new PointD(
+                    bounds.Left + bounds.Width / 2.0,
+                    bounds.Bottom + bounds.Height / 2.0);
+            }
+
+            return grip.Position;
+        }
+
+        private void CommitActiveGripEdit()
+        {
+            if (_activeGripEdit == null)
+                return;
+
+            SelectionGrip grip = _activeGripEdit.Grip;
+            IReadOnlyList<LinkedGripEdit> linkedEdits = _activeGripEdit.LinkedEdits;
+            _activeGripEdit = null;
+            _hoveredSelectionGrip = null;
+            canvasSurface.Capture = false;
+
+            if (grip.Feature.Layer != null)
+            {
+                grip.Shape.LayerName = grip.Feature.Layer.Name;
+                grip.Shape.Properties[CanvasFeatureService.CanvasLayerIdPropertyKey] = grip.Feature.Layer.Id;
+            }
+
+            if (linkedEdits.Count > 0)
+            {
+                foreach (LinkedGripEdit linkedEdit in linkedEdits)
+                {
+                    if (linkedEdit.Grip.Feature.Layer != null)
+                    {
+                        linkedEdit.Grip.Shape.LayerName = linkedEdit.Grip.Feature.Layer.Name;
+                        linkedEdit.Grip.Shape.Properties[CanvasFeatureService.CanvasLayerIdPropertyKey] = linkedEdit.Grip.Feature.Layer.Id;
+                    }
+                }
+            }
+
+            _renderer.UpdateVectorFeatures(_vectorFeatures);
+            UpdateWorldBounds();
+            RefreshVectorCacheForCurrentViewAsync();
+            UpdateCanvasCursor();
+            UpdateStatusBar();
+            RequestRender();
+
+            HashSet<Guid> editedShapeIds = new();
+            List<IShape> editedShapes = new();
+            if (editedShapeIds.Add(grip.Shape.Id))
+            {
+                editedShapes.Add(grip.Shape);
+            }
+
+            foreach (LinkedGripEdit linkedEdit in linkedEdits)
+            {
+                if (editedShapeIds.Add(linkedEdit.Grip.Shape.Id))
+                {
+                    editedShapes.Add(linkedEdit.Grip.Shape);
+                }
+            }
+
+            foreach (IShape editedShape in editedShapes)
+            {
+                ShapeEdited?.Invoke(editedShape);
+            }
+
+            if (editedShapes.Count > 1)
+            {
+                _commandService.LogCommand($"Edited {editedShapes.Count} objects");
+            }
+            else
+            {
+                _commandService.LogCommand($"Edited {grip.Feature.CanvasObject.ObjectType}");
+            }
+        }
+
+        private void CancelActiveGripEdit(bool restoreOriginal)
+        {
+            if (_activeGripEdit == null)
+                return;
+
+            if (restoreOriginal)
+            {
+                RestoreShapeGeometry(_activeGripEdit.Grip.Shape, _activeGripEdit.OriginalShape);
+
+                if (_activeGripEdit.LinkedEdits.Count > 0)
+                {
+                    foreach (LinkedGripEdit linkedEdit in _activeGripEdit.LinkedEdits)
+                    {
+                        RestoreShapeGeometry(linkedEdit.Grip.Shape, linkedEdit.OriginalShape);
+                    }
+                }
+
+                _renderer.UpdateVectorFeatures(_vectorFeatures);
+                UpdateWorldBounds();
+                RefreshVectorCacheForCurrentViewAsync();
+            }
+
+            _activeGripEdit = null;
+            _hoveredSelectionGrip = null;
+            canvasSurface.Capture = false;
+            UpdateCanvasCursor();
+            UpdateStatusBar();
+            RequestRender();
+        }
+
+        private IReadOnlyList<LinkedGripEdit> FindLinkedGripEdits(SelectionGrip grip)
+        {
+            if (_selectedShapeIds.Count <= 1)
+            {
+                return Array.Empty<LinkedGripEdit>();
+            }
+
+            Dictionary<Guid, SelectionGrip> linked = new();
+            PointD anchor = grip.Position;
+
+            foreach (SelectionGrip candidate in EnumerateSelectionGrips())
+            {
+                if (candidate.Shape.Id == grip.Shape.Id)
+                {
+                    continue;
+                }
+
+                if (DistanceWorld(candidate.Position, anchor) > CommonGripToleranceWorld)
+                {
+                    continue;
+                }
+
+                if (!linked.TryGetValue(candidate.Shape.Id, out SelectionGrip? existing) ||
+                    GetGripLinkPriority(candidate.Kind) < GetGripLinkPriority(existing.Kind))
+                {
+                    linked[candidate.Shape.Id] = candidate;
+                }
+            }
+
+            if (linked.Count == 0)
+            {
+                return Array.Empty<LinkedGripEdit>();
+            }
+
+            List<LinkedGripEdit> edits = new(linked.Count);
+            foreach (SelectionGrip candidate in linked.Values)
+            {
+                edits.Add(new LinkedGripEdit(candidate));
+            }
+
+            return edits;
+        }
+
+        private static int GetGripLinkPriority(SelectionGripKind kind)
+        {
+            return kind switch
+            {
+                SelectionGripKind.Vertex => 0,
+                SelectionGripKind.ArcMidpoint => 1,
+                SelectionGripKind.SegmentMidpoint => 2,
+                SelectionGripKind.TextPosition => 3,
+                SelectionGripKind.CircleCenter => 4,
+                SelectionGripKind.CircleQuadrant => 5,
+                SelectionGripKind.EllipseCenter => 6,
+                SelectionGripKind.EllipseQuadrant => 7,
+                _ => 8
+            };
+        }
+
+        private void ApplyGripGeometry(SelectionGrip grip, IShape originalShape, PointD target)
+        {
+            switch (grip.Shape)
+            {
+                case LineShape line when originalShape is LineShape originalLine:
+                    ApplyLineGrip(line, originalLine, grip, target);
+                    break;
+
+                case PolylineShape polyline when originalShape is PolylineShape originalPolyline:
+                    ApplyPolylineGrip(polyline, originalPolyline, grip, target);
+                    break;
+
+                case RectangleShape rectangle when originalShape is RectangleShape originalRectangle:
+                    ApplyRectangleGrip(rectangle, originalRectangle, grip, target);
+                    break;
+
+                case CircleShape circle when originalShape is CircleShape originalCircle:
+                    ApplyCircleGrip(circle, originalCircle, grip, target);
+                    break;
+
+                case ArcShape arc when originalShape is ArcShape originalArc:
+                    ApplyArcGrip(arc, originalArc, grip, target);
+                    break;
+
+                case EllipseShape ellipse when originalShape is EllipseShape originalEllipse:
+                    ApplyEllipseGrip(ellipse, originalEllipse, grip, target);
+                    break;
+
+                case TextShape text when originalShape is TextShape originalText:
+                    text.Translate(target - originalText.Position);
+                    break;
+            }
+        }
+
+        private static void ApplyLineGrip(LineShape line, LineShape originalLine, SelectionGrip grip, PointD target)
+        {
+            if (grip.Kind == SelectionGripKind.SegmentMidpoint)
+            {
+                PointD delta = target - grip.Position;
+                line.Start = originalLine.Start + delta;
+                line.End = originalLine.End + delta;
+                return;
+            }
+
+            if (grip.VertexIndex == 0)
+            {
+                line.Start = target;
+            }
+            else if (grip.VertexIndex == 1)
+            {
+                line.End = target;
+            }
+        }
+
+        private static void ApplyPolylineGrip(
+            PolylineShape polyline,
+            PolylineShape originalPolyline,
+            SelectionGrip grip,
+            PointD target)
+        {
+            if (grip.Kind == SelectionGripKind.Vertex)
+            {
+                if (grip.VertexIndex < 0 || grip.VertexIndex >= polyline.Vertices.Count)
+                    return;
+
+                polyline.Vertices[grip.VertexIndex] = target;
+                MergeMovedPolylineVertexIfCoincident(polyline, originalPolyline, grip.VertexIndex);
+                SynchronizePolylineSegmentsFromVertices(polyline, originalPolyline);
+                return;
+            }
+
+            if (grip.Kind == SelectionGripKind.SegmentMidpoint)
+            {
+                PointD delta = target - grip.Position;
+                if (polyline.Segments.Count > 0)
+                {
+                    MovePolylineSegmentVertices(polyline, grip.SegmentIndex, delta);
+                    SynchronizePolylineSegmentsFromVertices(polyline, originalPolyline);
+                    return;
+                }
+
+                int startIndex = grip.SegmentIndex;
+                int endIndex = (grip.SegmentIndex + 1) % Math.Max(1, polyline.Vertices.Count);
+                if (startIndex >= 0 && startIndex < polyline.Vertices.Count)
+                {
+                    polyline.Vertices[startIndex] = originalPolyline.Vertices[startIndex] + delta;
+                }
+
+                if (endIndex >= 0 && endIndex < polyline.Vertices.Count && endIndex != startIndex)
+                {
+                    polyline.Vertices[endIndex] = originalPolyline.Vertices[endIndex] + delta;
+                }
+
+                return;
+            }
+
+            if (grip.Kind == SelectionGripKind.ArcMidpoint &&
+                grip.SegmentIndex >= 0 &&
+                grip.SegmentIndex < polyline.Segments.Count)
+            {
+                PolylineShape.PolylineSegment segment = polyline.Segments[grip.SegmentIndex];
+                PolylineShape.PolylineSegment originalSegment = originalPolyline.Segments[grip.SegmentIndex];
+                if (originalSegment.Arc == null)
+                    return;
+
+                ArcShape? newArc = ArcShape.FromThreePoints(
+                    originalSegment.Start,
+                    target,
+                    originalSegment.End);
+                if (newArc == null)
+                    return;
+
+                segment.Kind = PolylineShape.PolylineSegmentKind.Arc;
+                segment.Start = originalSegment.Start;
+                segment.End = originalSegment.End;
+                segment.Arc = newArc;
+            }
+        }
+
+        private static void MovePolylineSegmentVertices(PolylineShape polyline, int segmentIndex, PointD delta)
+        {
+            if (segmentIndex == -1)
+            {
+                if (polyline.Vertices.Count >= 2)
+                {
+                    polyline.Vertices[^1] += delta;
+                    polyline.Vertices[0] += delta;
+                }
+
+                return;
+            }
+
+            if (segmentIndex < 0 || segmentIndex >= polyline.Segments.Count)
+                return;
+
+            if (segmentIndex < polyline.Vertices.Count)
+            {
+                polyline.Vertices[segmentIndex] += delta;
+            }
+
+            int endIndex = segmentIndex + 1;
+            if (endIndex < polyline.Vertices.Count)
+            {
+                polyline.Vertices[endIndex] += delta;
+            }
+        }
+
+        private static void MergeMovedPolylineVertexIfCoincident(
+            PolylineShape polyline,
+            PolylineShape originalPolyline,
+            int movedVertexIndex)
+        {
+            int minimumVertexCount = polyline.IsClosed ? 3 : 2;
+            if (movedVertexIndex < 0 ||
+                movedVertexIndex >= polyline.Vertices.Count ||
+                polyline.Vertices.Count <= minimumVertexCount)
+            {
+                return;
+            }
+
+            PointD movedVertex = polyline.Vertices[movedVertexIndex];
+            int mergeTargetIndex = -1;
+            double nearestDistance = VertexMergeToleranceWorld;
+
+            for (int index = 0; index < polyline.Vertices.Count; index++)
+            {
+                if (index == movedVertexIndex)
+                    continue;
+
+                double distance = DistanceWorld(movedVertex, polyline.Vertices[index]);
+                if (distance <= nearestDistance)
+                {
+                    nearestDistance = distance;
+                    mergeTargetIndex = index;
+                }
+            }
+
+            if (mergeTargetIndex < 0)
+            {
+                return;
+            }
+
+            polyline.Vertices[movedVertexIndex] = polyline.Vertices[mergeTargetIndex];
+            polyline.Vertices.RemoveAt(movedVertexIndex);
+
+            if (polyline.Segments.Count == 0)
+            {
+                return;
+            }
+
+            RebuildPolylineSegmentsAfterVertexMerge(polyline, originalPolyline);
+        }
+
+        private static void RebuildPolylineSegmentsAfterVertexMerge(
+            PolylineShape polyline,
+            PolylineShape originalPolyline)
+        {
+            int requiredSegmentCount = polyline.IsClosed
+                ? polyline.Vertices.Count
+                : Math.Max(0, polyline.Vertices.Count - 1);
+
+            if (requiredSegmentCount == 0)
+            {
+                polyline.Segments.Clear();
+                return;
+            }
+
+            List<PolylineShape.PolylineSegment> rebuiltSegments = new(requiredSegmentCount);
+            for (int index = 0; index < requiredSegmentCount; index++)
+            {
+                PointD start = polyline.Vertices[index];
+                PointD end = polyline.Vertices[(index + 1) % polyline.Vertices.Count];
+                PolylineShape.PolylineSegment? originalSegment = index < originalPolyline.Segments.Count
+                    ? originalPolyline.Segments[index]
+                    : null;
+
+                ArcShape? arc = null;
+                PolylineShape.PolylineSegmentKind kind = PolylineShape.PolylineSegmentKind.Line;
+                if (originalSegment?.Kind == PolylineShape.PolylineSegmentKind.Arc &&
+                    originalSegment.Arc != null)
+                {
+                    arc = ArcShape.FromThreePoints(start, originalSegment.Arc.MidPoint, end);
+                    if (arc != null)
+                    {
+                        kind = PolylineShape.PolylineSegmentKind.Arc;
+                    }
+                }
+
+                rebuiltSegments.Add(new PolylineShape.PolylineSegment(kind, start, end, arc));
+            }
+
+            polyline.Segments = rebuiltSegments;
+        }
+
+        private static void SynchronizePolylineSegmentsFromVertices(
+            PolylineShape polyline,
+            PolylineShape originalPolyline)
+        {
+            if (polyline.Segments.Count == 0)
+                return;
+
+            int segmentCount = Math.Min(polyline.Segments.Count, originalPolyline.Segments.Count);
+            for (int i = 0; i < segmentCount; i++)
+            {
+                if (i >= polyline.Vertices.Count)
+                    break;
+
+                PolylineShape.PolylineSegment segment = polyline.Segments[i];
+                PolylineShape.PolylineSegment originalSegment = originalPolyline.Segments[i];
+                PointD start = polyline.Vertices[i];
+                PointD end = i + 1 < polyline.Vertices.Count
+                    ? polyline.Vertices[i + 1]
+                    : segment.End;
+
+                segment.Start = start;
+                segment.End = end;
+
+                if (segment.Kind == PolylineShape.PolylineSegmentKind.Arc && originalSegment.Arc != null)
+                {
+                    segment.Arc = ArcShape.FromThreePoints(
+                        start,
+                        originalSegment.Arc.MidPoint,
+                        end);
+                    if (segment.Arc == null)
+                    {
+                        segment.Kind = PolylineShape.PolylineSegmentKind.Line;
+                    }
+                }
+            }
+        }
+
+        private static void ApplyRectangleGrip(
+            RectangleShape rectangle,
+            RectangleShape originalRectangle,
+            SelectionGrip grip,
+            PointD target)
+        {
+            RectangleD bounds = originalRectangle.GetBoundingBox();
+            double left = bounds.Left;
+            double right = bounds.Right;
+            double bottom = bounds.Bottom;
+            double top = bounds.Top;
+
+            if (grip.Kind == SelectionGripKind.Vertex)
+            {
+                switch (grip.VertexIndex)
+                {
+                    case 0:
+                        left = target.X;
+                        bottom = target.Y;
+                        break;
+                    case 1:
+                        right = target.X;
+                        bottom = target.Y;
+                        break;
+                    case 2:
+                        right = target.X;
+                        top = target.Y;
+                        break;
+                    case 3:
+                        left = target.X;
+                        top = target.Y;
+                        break;
+                }
+            }
+            else if (grip.Kind == SelectionGripKind.SegmentMidpoint)
+            {
+                switch (grip.SegmentIndex)
+                {
+                    case 0:
+                        bottom = target.Y;
+                        break;
+                    case 1:
+                        right = target.X;
+                        break;
+                    case 2:
+                        top = target.Y;
+                        break;
+                    case 3:
+                        left = target.X;
+                        break;
+                }
+            }
+
+            rectangle.Start = new PointD(left, bottom);
+            rectangle.End = new PointD(right, top);
+        }
+
+        private static void ApplyCircleGrip(CircleShape circle, CircleShape originalCircle, SelectionGrip grip, PointD target)
+        {
+            if (grip.Kind == SelectionGripKind.CircleCenter)
+            {
+                PointD delta = target - originalCircle.Center;
+                circle.Center = originalCircle.Center + delta;
+                circle.RadiusPoint = originalCircle.RadiusPoint + delta;
+                return;
+            }
+
+            if (grip.Kind == SelectionGripKind.CircleQuadrant &&
+                DistanceWorld(originalCircle.Center, target) > 1e-9)
+            {
+                circle.Center = originalCircle.Center;
+                circle.RadiusPoint = target;
+            }
+        }
+
+        private static void ApplyArcGrip(ArcShape arc, ArcShape originalArc, SelectionGrip grip, PointD target)
+        {
+            ArcShape? newArc = grip.Kind switch
+            {
+                SelectionGripKind.Vertex when grip.VertexIndex == 0 => ArcShape.FromThreePoints(
+                    target,
+                    originalArc.MidPoint,
+                    originalArc.EndPoint),
+                SelectionGripKind.Vertex when grip.VertexIndex == 1 => ArcShape.FromThreePoints(
+                    originalArc.StartPoint,
+                    originalArc.MidPoint,
+                    target),
+                SelectionGripKind.ArcMidpoint => ArcShape.FromThreePoints(
+                    originalArc.StartPoint,
+                    target,
+                    originalArc.EndPoint),
+                _ => null
+            };
+
+            if (newArc == null)
+                return;
+
+            arc.Center = newArc.Center;
+            arc.Radius = newArc.Radius;
+            arc.StartAngleRadians = newArc.StartAngleRadians;
+            arc.SweepAngleRadians = newArc.SweepAngleRadians;
+        }
+
+        private static void ApplyEllipseGrip(
+            EllipseShape ellipse,
+            EllipseShape originalEllipse,
+            SelectionGrip grip,
+            PointD target)
+        {
+            RectangleD bounds = originalEllipse.GetBoundingBox();
+            double left = bounds.Left;
+            double right = bounds.Right;
+            double bottom = bounds.Bottom;
+            double top = bounds.Top;
+            PointD center = new(left + bounds.Width / 2.0, bottom + bounds.Height / 2.0);
+
+            if (grip.Kind == SelectionGripKind.EllipseCenter)
+            {
+                PointD delta = target - center;
+                ellipse.Start = originalEllipse.Start + delta;
+                ellipse.End = originalEllipse.End + delta;
+                return;
+            }
+
+            if (grip.Kind != SelectionGripKind.EllipseQuadrant)
+                return;
+
+            switch (grip.AuxiliaryIndex)
+            {
+                case 0:
+                    right = target.X;
+                    left = center.X - (right - center.X);
+                    break;
+                case 1:
+                    top = target.Y;
+                    bottom = center.Y - (top - center.Y);
+                    break;
+                case 2:
+                    left = target.X;
+                    right = center.X + (center.X - left);
+                    break;
+                case 3:
+                    bottom = target.Y;
+                    top = center.Y + (center.Y - bottom);
+                    break;
+            }
+
+            ellipse.Start = new PointD(left, bottom);
+            ellipse.End = new PointD(right, top);
+        }
+
+        private static void RestoreShapeGeometry(IShape target, IShape source)
+        {
+            switch (target, source)
+            {
+                case (LineShape targetLine, LineShape sourceLine):
+                    targetLine.Start = sourceLine.Start;
+                    targetLine.End = sourceLine.End;
+                    break;
+
+                case (PolylineShape targetPolyline, PolylineShape sourcePolyline):
+                    targetPolyline.Vertices = sourcePolyline.Vertices.ToList();
+                    targetPolyline.Segments = sourcePolyline.Segments
+                        .Select(ClonePolylineSegment)
+                        .ToList();
+                    targetPolyline.IsClosed = sourcePolyline.IsClosed;
+                    break;
+
+                case (RectangleShape targetRectangle, RectangleShape sourceRectangle):
+                    targetRectangle.Start = sourceRectangle.Start;
+                    targetRectangle.End = sourceRectangle.End;
+                    break;
+
+                case (CircleShape targetCircle, CircleShape sourceCircle):
+                    targetCircle.Center = sourceCircle.Center;
+                    targetCircle.RadiusPoint = sourceCircle.RadiusPoint;
+                    break;
+
+                case (ArcShape targetArc, ArcShape sourceArc):
+                    targetArc.Center = sourceArc.Center;
+                    targetArc.Radius = sourceArc.Radius;
+                    targetArc.StartAngleRadians = sourceArc.StartAngleRadians;
+                    targetArc.SweepAngleRadians = sourceArc.SweepAngleRadians;
+                    break;
+
+                case (EllipseShape targetEllipse, EllipseShape sourceEllipse):
+                    targetEllipse.Start = sourceEllipse.Start;
+                    targetEllipse.End = sourceEllipse.End;
+                    break;
+
+                case (TextShape targetText, TextShape sourceText):
+                    targetText.Translate(sourceText.Position - targetText.Position);
+                    break;
+            }
+        }
+
+        private static PolylineShape.PolylineSegment ClonePolylineSegment(PolylineShape.PolylineSegment segment)
+        {
+            return new PolylineShape.PolylineSegment(
+                segment.Kind,
+                segment.Start,
+                segment.End,
+                segment.Arc == null
+                    ? null
+                    : new ArcShape(
+                        segment.Arc.Center,
+                        segment.Arc.Radius,
+                        segment.Arc.StartAngleRadians,
+                        segment.Arc.SweepAngleRadians));
+        }
+
+        private void DrawSelectionGrips(Graphics graphics)
+        {
+            if (_activeTool != MapCanvasTool.Select || _selectedShapeIds.Count == 0)
+                return;
+
+            SmoothingMode previousSmoothingMode = graphics.SmoothingMode;
+            graphics.SmoothingMode = SmoothingMode.None;
+            try
+            {
+                foreach (SelectionGrip grip in EnumerateSelectionGrips())
+                {
+                    bool isHot = SameSelectionGrip(grip, _hoveredSelectionGrip) ||
+                                 (_activeGripEdit != null && SameSelectionGrip(grip, _activeGripEdit.Grip));
+                    DrawSelectionGrip(graphics, grip, isHot);
+                }
+            }
+            finally
+            {
+                graphics.SmoothingMode = previousSmoothingMode;
+            }
+        }
+
+        private void DrawActiveGripEditOverlay(Graphics graphics)
+        {
+            if (_activeGripEdit == null)
+                return;
+
+            _renderer.RenderTransientShape(
+                graphics,
+                _activeGripEdit.Grip.Shape,
+                _activeGripEdit.Grip.Feature.Layer);
+
+            foreach (LinkedGripEdit linkedEdit in _activeGripEdit.LinkedEdits)
+            {
+                _renderer.RenderTransientShape(
+                    graphics,
+                    linkedEdit.Grip.Shape,
+                    linkedEdit.Grip.Feature.Layer);
+            }
+        }
+
+        private void DrawSelectionGrip(Graphics graphics, SelectionGrip grip, bool isHot)
+        {
+            PointD screen = _engine.WorldToScreen(grip.Position);
+            if (!double.IsFinite(screen.X) || !double.IsFinite(screen.Y))
+                return;
+
+            Color fillColor = isHot
+                ? Color.FromArgb(255, 255, 96, 32)
+                : Color.FromArgb(255, 0, 122, 204);
+            Color outlineColor = isHot
+                ? Color.FromArgb(255, 120, 36, 0)
+                : Color.FromArgb(255, 0, 60, 115);
+
+            using SolidBrush brush = new(fillColor);
+            using Pen pen = new(outlineColor, 1.0f);
+            PointF center = new((float)screen.X, (float)screen.Y);
+
+            switch (grip.Glyph)
+            {
+                case SelectionGripGlyph.Diamond:
+                    DrawDiamondGrip(graphics, center, brush, pen);
+                    break;
+                case SelectionGripGlyph.SegmentRectangle:
+                    DrawSegmentRectangleGrip(graphics, grip, center, brush, pen);
+                    break;
+                default:
+                    DrawSquareGrip(graphics, center, brush, pen);
+                    break;
+            }
+        }
+
+        private static void DrawSquareGrip(Graphics graphics, PointF center, Brush brush, Pen pen)
+        {
+            float half = GripSquareSizePixels / 2.0f;
+            RectangleF rect = new(center.X - half, center.Y - half, GripSquareSizePixels, GripSquareSizePixels);
+            graphics.FillRectangle(brush, rect);
+            graphics.DrawRectangle(pen, rect.X, rect.Y, rect.Width, rect.Height);
+        }
+
+        private static void DrawDiamondGrip(Graphics graphics, PointF center, Brush brush, Pen pen)
+        {
+            float half = GripSquareSizePixels / 2.0f;
+            PointF[] points =
+            [
+                new(center.X, center.Y - half),
+                new(center.X + half, center.Y),
+                new(center.X, center.Y + half),
+                new(center.X - half, center.Y)
+            ];
+            graphics.FillPolygon(brush, points);
+            graphics.DrawPolygon(pen, points);
+        }
+
+        private void DrawSegmentRectangleGrip(Graphics graphics, SelectionGrip grip, PointF center, Brush brush, Pen pen)
+        {
+            PointF start = ToScreenPointF(grip.SegmentStart);
+            PointF end = ToScreenPointF(grip.SegmentEnd);
+            double dx = end.X - start.X;
+            double dy = end.Y - start.Y;
+            double length = Math.Sqrt(dx * dx + dy * dy);
+            if (length <= 0.0001)
+            {
+                DrawSquareGrip(graphics, center, brush, pen);
+                return;
+            }
+
+            float ux = (float)(dx / length);
+            float uy = (float)(dy / length);
+            float nx = -uy;
+            float ny = ux;
+            float halfLength = GripSegmentLengthPixels / 2.0f;
+            float halfThickness = GripSegmentThicknessPixels / 2.0f;
+            PointF[] points =
+            [
+                new(center.X - ux * halfLength - nx * halfThickness, center.Y - uy * halfLength - ny * halfThickness),
+                new(center.X + ux * halfLength - nx * halfThickness, center.Y + uy * halfLength - ny * halfThickness),
+                new(center.X + ux * halfLength + nx * halfThickness, center.Y + uy * halfLength + ny * halfThickness),
+                new(center.X - ux * halfLength + nx * halfThickness, center.Y - uy * halfLength + ny * halfThickness)
+            ];
+            graphics.FillPolygon(brush, points);
+            graphics.DrawPolygon(pen, points);
+        }
+
+        private static bool SameSelectionGrip(SelectionGrip? first, SelectionGrip? second)
+        {
+            if (first == null || second == null)
+                return first == null && second == null;
+
+            return first.Shape.Id == second.Shape.Id &&
+                   first.Kind == second.Kind &&
+                   first.VertexIndex == second.VertexIndex &&
+                   first.SegmentIndex == second.SegmentIndex &&
+                   first.AuxiliaryIndex == second.AuxiliaryIndex;
+        }
+
+        private static PointD Midpoint(PointD first, PointD second)
+        {
+            return new PointD((first.X + second.X) / 2.0, (first.Y + second.Y) / 2.0);
+        }
+
+        private static PointD[] GetRectangleCorners(RectangleShape rectangle)
+        {
+            RectangleD bounds = rectangle.GetBoundingBox();
+            return
+            [
+                new PointD(bounds.Left, bounds.Bottom),
+                new PointD(bounds.Right, bounds.Bottom),
+                new PointD(bounds.Right, bounds.Top),
+                new PointD(bounds.Left, bounds.Top)
+            ];
+        }
+
         private void DrawSnapGlyph(Graphics graphics)
         {
-            if (_currentSnapPoint == null)
+            if (_currentSnapPoint == null || IsActiveGripSnapPoint(_currentSnapPoint))
             {
                 return;
             }
@@ -2730,6 +4284,8 @@ namespace Land_Readjustment_Tool.UI.CustomControls
 
         private void ReplaceSelectedObjects(IEnumerable<CanvasFeature> selectedFeatures)
         {
+            CancelActiveGripEdit(restoreOriginal: true);
+            _hoveredSelectionGrip = null;
             _selectedShapeIds.Clear();
             foreach (CanvasFeature feature in selectedFeatures)
             {
@@ -2783,6 +4339,7 @@ namespace Land_Readjustment_Tool.UI.CustomControls
 
         private void AddSelectedObjects(IEnumerable<CanvasFeature> selectedFeatures)
         {
+            _hoveredSelectionGrip = null;
             bool changed = false;
             foreach (CanvasFeature feature in selectedFeatures)
             {
@@ -2805,6 +4362,8 @@ namespace Land_Readjustment_Tool.UI.CustomControls
             if (_selectedShapeIds.Count == 0)
                 return;
 
+            CancelActiveGripEdit(restoreOriginal: true);
+            _hoveredSelectionGrip = null;
             _selectedShapeIds.Clear();
             ApplySelectedShapeFlags();
             RefreshVectorCacheForCurrentViewAsync();
@@ -2849,6 +4408,8 @@ namespace Land_Readjustment_Tool.UI.CustomControls
 
         public void ClearSelectionAfterDelete()
         {
+            CancelActiveGripEdit(restoreOriginal: false);
+            _hoveredSelectionGrip = null;
             _selectedShapeIds.Clear();
             ApplySelectedShapeFlags();
             NotifySelectedCanvasObjectsChanged();
@@ -3219,7 +4780,7 @@ namespace Land_Readjustment_Tool.UI.CustomControls
                 : Color.FromArgb(40, 30, 168, 50);
 
             using SolidBrush fillBrush = new(fillColor);
-            using Pen borderPen = new(borderColor, 1.4f);
+            using Pen borderPen = new(borderColor, 1.0f);
             if (!isWindowSelection)
             {
                 borderPen.DashStyle = System.Drawing.Drawing2D.DashStyle.Dash;
@@ -3263,7 +4824,11 @@ namespace Land_Readjustment_Tool.UI.CustomControls
 
         private void UpdateCanvasCursor()
         {
-            if (_isPanning || _panToolActive)
+            if (_activeGripEdit != null || _hoveredSelectionGrip != null)
+            {
+                canvasSurface.Cursor = Cursors.SizeAll;
+            }
+            else if (_isPanning || _panToolActive)
             {
                 canvasSurface.Cursor = GetPanCursor();
             }
@@ -3351,11 +4916,26 @@ namespace Land_Readjustment_Tool.UI.CustomControls
             if (_isPanning || _panToolActive)
                 return "Mode: Pan";
 
+            if (_activeGripEdit != null)
+                return "Mode: Grip Edit";
+
             return "Mode: Ready";
         }
 
         private string GetCommandPromptText()
         {
+            if (_activeGripEdit != null)
+            {
+                return _activeGripEdit.AwaitingClickCommit
+                    ? "Grip edit: click final position  [Esc/right-click to cancel]"
+                    : "Grip edit: drag to modify  [Esc to cancel]";
+            }
+
+            if (_hoveredSelectionGrip != null)
+            {
+                return "Grip: click to edit selected geometry";
+            }
+
             if (_activeTool == MapCanvasTool.Select || _activeTool == MapCanvasTool.Point)
                 return "Ready";
 
@@ -3444,6 +5024,7 @@ namespace Land_Readjustment_Tool.UI.CustomControls
         private bool ShouldDeferDirectVectorRendering =>
             _isPanning ||
             _isZooming ||
+            _activeGripEdit != null ||
             _vectorCacheRefreshPending ||
             _holdVectorPanFrameUntilRefresh ||
             _holdVectorZoomFrameUntilRefresh;
@@ -3584,9 +5165,8 @@ namespace Land_Readjustment_Tool.UI.CustomControls
             DeferredRendererDebugState rasterState = _rasterDeferredRenderer.GetDebugState();
             VectorRenderStats vectorStats = rendererState.VectorStats;
             RectangleD viewport = _engine.GetVisibleWorldBounds();
-            double scaleDenominator = _engine.ZoomScale > 0
-                ? ScreenPixelsPerMetre / _engine.ZoomScale
-                : 0.0;
+            double scaleDenominator = GetCurrentScaleDenominator();
+            bool snapSuspendedForZoom = IsSnapTemporarilySuspendedForZoom();
 
             List<string> lines =
             [
@@ -3596,7 +5176,7 @@ namespace Land_Readjustment_Tool.UI.CustomControls
                 $"Raster layers {rendererState.VisibleRasterLayerCount}/{rendererState.RasterLayerCount}  draw {rasterFrameSource}  cache {(rasterState.CacheValid ? "valid" : "cold")}  pan {(rasterState.PanBufferValid ? "ready" : "no")}  zoom {(rasterState.ZoomFrameAvailable ? "held" : "no")}  refresh {rasterState.LastRefreshElapsedMs:0.0} ms  pending {_rasterCacheRefreshPending}",
                 $"Vector layers {rendererState.VectorLayerCount}  features {vectorStats.TotalFeatureCount}  STRtree {vectorStats.SpatialIndexEntryCount}  draw {vectorFrameSource}  cache {(rendererState.VectorCache.CacheValid ? "valid" : "cold")}  pan {(rendererState.VectorCache.PanBufferValid ? "ready" : "no")}  refresh {rendererState.VectorCache.LastRefreshElapsedMs:0.0} ms",
                 $"Vector query {vectorStats.QueryCandidateCount} in {vectorStats.QueryElapsedMs:0.00} ms  rendered {vectorStats.RenderedFeatureCount}  hidden {vectorStats.HiddenSkippedCount}  LOD {(vectorStats.LevelOfDetailEnabled ? "on" : "off")} skipped {vectorStats.LodSkippedCount} min {vectorStats.MinimumVisibleWorldSize:0.###}",
-                $"Snap {(_snapEnabled ? "on" : "off")}  Ortho {(_orthoModeEnabled ? "on" : "off")}  glyph {_snapGlyphSizePixels:0.#} px  tolerance {_snapPickTolerancePixels:0.#} px  query features {_lastSnapQueryFeatureCount}  candidates {_lastSnapCandidateCount}  {_lastSnapQueryElapsedMs:0.00} ms  current {_currentSnapPoint?.Type.ToString() ?? "none"}",
+                $"Snap {(_snapEnabled ? (snapSuspendedForZoom ? "suspended" : "on") : "off")}  max scale 1:{MaxSnapScaleDenominator:0}  Ortho {(_orthoModeEnabled ? "on" : "off")}  glyph {_snapGlyphSizePixels:0.#} px  tolerance {_snapPickTolerancePixels:0.#} px  query features {_lastSnapQueryFeatureCount}  candidates {_lastSnapCandidateCount}  {_lastSnapQueryElapsedMs:0.00} ms  current {_currentSnapPoint?.Type.ToString() ?? "none"}",
                 $"Interaction tool {_activeTool}  pan {_isPanning}  zoom {_isZooming} {_zoomDirection ?? ""}  raster deferred {ShouldDeferDirectRasterRendering}  vector deferred {ShouldDeferDirectVectorRendering}  live pending {_liveTileRefreshPending}"
             ];
 
@@ -3720,7 +5300,7 @@ namespace Land_Readjustment_Tool.UI.CustomControls
 
         private void BeginZoomNavigation(string direction)
         {
-            CancelActiveCanvasGesture();
+            CancelActiveCanvasGesture(preserveActiveGripEdit: true);
             CancelLiveTileLoading();
             SetLiveTileInternetFetchingSuspended(true);
             _suppressStaleRasterFrameUntilFreshRender = false;
@@ -3866,8 +5446,13 @@ namespace Land_Readjustment_Tool.UI.CustomControls
             }
         }
 
-        private void CancelActiveCanvasGesture()
+        private void CancelActiveCanvasGesture(bool preserveActiveGripEdit = false)
         {
+            if (!preserveActiveGripEdit)
+            {
+                CancelActiveGripEdit(restoreOriginal: true);
+            }
+
             if (_isPanning)
             {
                 _isPanning = false;

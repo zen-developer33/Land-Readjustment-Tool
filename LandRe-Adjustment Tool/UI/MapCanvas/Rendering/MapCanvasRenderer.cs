@@ -170,6 +170,24 @@ namespace Land_Readjustment_Tool.UI.MapCanvas.Rendering
             _vectorDeferredRenderer.Resize(canvasSize);
         }
 
+        public void RenderTransientShape(
+            Graphics graphics,
+            IShape? shape,
+            CanvasLayer? layer = null)
+        {
+            if (shape == null)
+            {
+                return;
+            }
+
+            ConfigureVectorGraphics(graphics);
+            _vectorRenderer.RenderPreview(
+                graphics,
+                _engine,
+                shape,
+                layer);
+        }
+
         public void InvalidateVectorCache()
         {
             _vectorDeferredRenderer.Invalidate();
