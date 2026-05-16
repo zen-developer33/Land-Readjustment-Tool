@@ -49,6 +49,7 @@ namespace Land_Readjustment_Tool.UI.MapCanvas.Services
                 MultiPolygon multiPolygon => multiPolygon.Geometries
                     .OfType<Polygon>()
                     .Sum(CountPolygonVertices),
+                LineString lineString when IsPolygonObject(canvasObject) => CountRingVertices(lineString),
                 _ => canvasObject.Shape.NumPoints
             };
 
@@ -189,14 +190,20 @@ namespace Land_Readjustment_Tool.UI.MapCanvas.Services
             }
 
             if (vertices.Count > 1 &&
-                (metadata.IsClosed ||
-                 metadata.ShapeType.Equals("Polygon", StringComparison.OrdinalIgnoreCase)) &&
+                metadata.ShapeType.Equals("Polygon", StringComparison.OrdinalIgnoreCase) &&
                 SameCoordinate(vertices[0], vertices[^1]))
             {
                 vertices.RemoveAt(vertices.Count - 1);
             }
 
             return vertices.Count;
+        }
+
+        private static bool IsPolygonObject(CanvasObject canvasObject)
+        {
+            return canvasObject.ObjectType.Equals("Polygon", StringComparison.OrdinalIgnoreCase) ||
+                   canvasObject.ObjectType.Equals("Rectangle", StringComparison.OrdinalIgnoreCase) ||
+                   canvasObject.ObjectType.Equals("Circle", StringComparison.OrdinalIgnoreCase);
         }
 
         private static bool SameCoordinate(Coordinate first, Coordinate second)

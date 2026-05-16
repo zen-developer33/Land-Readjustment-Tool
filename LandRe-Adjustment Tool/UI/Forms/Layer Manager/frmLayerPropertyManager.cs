@@ -13,6 +13,11 @@ namespace Land_Readjustment_Tool.UI.Forms
         private const decimal MinLabelFontSize = 1.0m;
         private const decimal MaxFixedLabelFontSize = 72.0m;
         private const decimal MaxScaledLabelFontSize = 120.0m;
+        private const int PropertyLabelLeft = 12;
+        private const int PropertyValueLeft = 144;
+        private const int PropertyLabelWidth = 122;
+        private const int PropertyValueWidth = 332;
+        private const int PropertyRowHeight = 38;
 
         public CanvasLayer Layer { get; }
         private readonly IHatchPatternService _hatchPatternService;
@@ -56,6 +61,7 @@ namespace Land_Readjustment_Tool.UI.Forms
             _rdoFontScalesWithZoom.CheckedChanged += FontScalingRadio_CheckedChanged;
             _chkLocked.CheckedChanged += (_, _) => ConfigureLockedControlState();
             ConfigureLockedControlState();
+            ArrangeAllPropertyPanels();
         }
 
         /// <summary>
@@ -110,16 +116,15 @@ namespace Land_Readjustment_Tool.UI.Forms
             if (!string.IsNullOrEmpty(labelField) &&
                 labelField.StartsWith("static:", StringComparison.OrdinalIgnoreCase))
             {
-                _rdoLabelFixed.Checked = true;
                 _txtLabelFixedText.Text = labelField["static:".Length..];
+                SetComboText(_cboLabelField, string.Empty);
             }
             else
             {
-                _rdoLabelFromField.Checked = true;
                 SetComboText(_cboLabelField, labelField ?? string.Empty);
             }
 
-            // Annotation default text (shown in the General tab for annotation layers).
+            // Annotation default text.
             string? annotationStaticField = Layer.LabelField;
             if (!string.IsNullOrEmpty(annotationStaticField) &&
                 annotationStaticField.StartsWith("static:", StringComparison.OrdinalIgnoreCase))
@@ -128,8 +133,6 @@ namespace Land_Readjustment_Tool.UI.Forms
             }
 
             UpdateLabelSourceControlVisibility();
-            _rdoLabelFixed.CheckedChanged += (_, _) => UpdateLabelSourceControlVisibility();
-            _rdoLabelFromField.CheckedChanged += (_, _) => UpdateLabelSourceControlVisibility();
         }
 
         /// <summary>
@@ -177,8 +180,6 @@ namespace Land_Readjustment_Tool.UI.Forms
             SetControlVisible(_pnlLinePreview, false);
             SetControlVisible(_lblLineWeight, false);
             SetControlVisible(_numLineWeight, false);
-            _generalLayout.SetRow(_lblState, 2);
-            _generalLayout.SetRow(_statePanel, 2);
 
             SetControlVisible(_lblFillStyle, false);
             SetControlVisible(_cboFillStyle, false);
@@ -187,11 +188,10 @@ namespace Land_Readjustment_Tool.UI.Forms
             SetControlVisible(_lblHatchPattern, false);
             SetControlVisible(_hatchPatternPanel, false);
             SetControlVisible(_chkShowFillTransparency, false);
-            _fillLayout.SetRow(_lblTransparency, 0);
-            _fillLayout.SetRow(_transparencyLayout, 0);
 
             _lblTransparency.Text = "Raster Transparency";
             _trkTransparency.Enabled = true;
+            ArrangeAllPropertyPanels();
         }
 
         private void pnlBorderColor_Click(object? sender, EventArgs e)
@@ -441,12 +441,11 @@ namespace Land_Readjustment_Tool.UI.Forms
             _pnlHatchPatternPreview.Enabled = canEdit && showHatchPattern;
             _btnHatchPattern.Enabled = canEdit && showHatchPattern;
             _numHatchScale.Enabled = canEdit && showHatchPattern;
-            SetFillRowHeight(2, showHatchPattern ? 38F : 0F);
-            SetFillRowHeight(3, hasFill ? 38F : 0F);
-            SetFillRowHeight(4, hasFill ? 38F : 0F);
 
             if (isHatched && string.IsNullOrWhiteSpace(_selectedHatchPatternKey))
                 _selectedHatchPatternKey = _hatchPatternService.GetPatterns()[0].Key;
+
+            ArrangeAllPropertyPanels();
         }
 
         private void ConfigureLockedControlState()
@@ -623,15 +622,9 @@ namespace Land_Readjustment_Tool.UI.Forms
                         ? null
                         : $"static:{defaultText}";
                 }
-                else if (_rdoLabelFixed.Checked)
-                {
-                    string fixedText = _txtLabelFixedText.Text.Trim();
-                    Layer.LabelField = string.IsNullOrEmpty(fixedText)
-                        ? null
-                        : $"static:{fixedText}";
-                }
                 else
                 {
+                    // Field-based label; fixed-text falls back to cboLabelField.
                     Layer.LabelField = string.IsNullOrWhiteSpace(_cboLabelField.Text)
                         ? null
                         : _cboLabelField.Text.Trim();
@@ -718,7 +711,10 @@ namespace Land_Readjustment_Tool.UI.Forms
         private void UpdateLayerKindPresentation()
         {
             if (_isRasterLayer)
+            {
+                ArrangeAllPropertyPanels();
                 return;
+            }
 
             string layerType = NormalizeDrawingLayerType(_cboLayerKind.Text);
             bool isPoint = string.Equals(layerType, CanvasLayerTreeService.PointLayerType, StringComparison.OrdinalIgnoreCase);
@@ -753,6 +749,7 @@ namespace Land_Readjustment_Tool.UI.Forms
                 SetControlVisible(_borderColorPanel, false);
                 SetControlVisible(_lblPointMarker, false);
                 SetControlVisible(_pointMarkerPanel, false);
+                ArrangeAllPropertyPanels();
                 return;
             }
 
@@ -765,14 +762,9 @@ namespace Land_Readjustment_Tool.UI.Forms
             SetControlVisible(_numLineWeight, !isPoint && !isAnnotation);
             SetControlVisible(_lblBorderColor, !isAnnotation);
             SetControlVisible(_borderColorPanel, !isAnnotation);
-            SetGeneralRowHeight(2, isAnnotation ? 0F : 38F);
-            SetGeneralRowHeight(3, isPoint || isAnnotation ? 0F : 38F);
-            SetGeneralRowHeight(4, isPoint || isAnnotation ? 0F : 38F);
-            SetGeneralRowHeight(5, isPoint || isAnnotation ? 0F : 38F);
 
             SetControlVisible(_lblPointMarker, isPoint);
             SetControlVisible(_pointMarkerPanel, isPoint);
-            SetGeneralRowHeight(6, isPoint ? 38F : 0F);
 
             if (_tabs.TabPages.Contains(_tabFill) && !isPolygon)
             {
@@ -783,82 +775,65 @@ namespace Land_Readjustment_Tool.UI.Forms
                 int insertIndex = Math.Min(1, _tabs.TabPages.Count);
                 _tabs.TabPages.Insert(insertIndex, _tabFill);
             }
+
+            ArrangeAllPropertyPanels();
         }
 
         private void ConfigureAnnotationPropertyLayout(bool isAnnotation)
         {
             if (isAnnotation)
             {
-                if (_tabs.TabPages.Contains(_tabFill))
-                    _tabs.TabPages.Remove(_tabFill);
+                // Remove all standard tabs — annotation layers get only the Annotation tab.
+                if (_tabs.TabPages.Contains(_tabGeneral)) _tabs.TabPages.Remove(_tabGeneral);
+                if (_tabs.TabPages.Contains(_tabFill))    _tabs.TabPages.Remove(_tabFill);
+                if (_tabs.TabPages.Contains(_tabLabel))   _tabs.TabPages.Remove(_tabLabel);
 
-                if (_tabs.TabPages.Contains(_tabLabel))
-                    _tabs.TabPages.Remove(_tabLabel);
+                if (!_tabs.TabPages.Contains(_tabAnnotation))
+                    _tabs.TabPages.Add(_tabAnnotation);
 
-                MoveControlToLayout(_generalLayout, _lblFont, 0, 2);
-                MoveControlToLayout(_generalLayout, _fontPanel, 1, 2);
-                MoveControlToLayout(_generalLayout, _lblFontSize, 0, 3);
-                MoveControlToLayout(_generalLayout, _numFontSize, 1, 3);
-                MoveControlToLayout(_generalLayout, _lblTextColor, 0, 4);
-                MoveControlToLayout(_generalLayout, _labelColorPanel, 1, 4);
-                MoveControlToLayout(_generalLayout, _lblTextAlignment, 0, 5);
-                MoveControlToLayout(_generalLayout, _cboTextAlignment, 1, 5);
-                MoveControlToLayout(_generalLayout, _lblState, 0, 6);
-                MoveControlToLayout(_generalLayout, _statePanel, 1, 6);
+                // Reparent annotation-relevant controls into _annPanel.
+                // WinForms automatically removes each control from its previous parent.
+                _annPanel.Controls.AddRange([
+                    _lblName, _txtName,
+                    _lblFont, _fontPanel,
+                    _lblFontSize, _numFontSize,
+                    _lblTextColor, _labelColorPanel,
+                    _lblTextAlignment, _cboTextAlignment,
+                    _lblAnnotationText, _txtAnnotationText,
+                    _lblFontScaling, _fontScalingPanel,
+                    _lblState, _statePanel
+                ]);
 
-                SetControlVisible(_lblFont, true);
-                SetControlVisible(_fontPanel, true);
-                SetControlVisible(_lblFontSize, true);
-                SetControlVisible(_numFontSize, true);
-                SetControlVisible(_lblTextColor, true);
-                SetControlVisible(_labelColorPanel, true);
-                SetControlVisible(_lblTextAlignment, true);
-                SetControlVisible(_cboTextAlignment, true);
-                SetControlVisible(_lblLabels, false);
-                SetControlVisible(_chkShowLabels, false);
-                SetControlVisible(_lblLabelField, false);
-                SetControlVisible(_cboLabelField, false);
-                SetControlVisible(_lblLabelSource, false);
-                SetControlVisible(_labelSourcePanel, false);
-                SetControlVisible(_lblLabelFixedText, false);
-                SetControlVisible(_txtLabelFixedText, false);
-                SetControlVisible(_lblFontScaling, false);
-                SetControlVisible(_fontScalingPanel, false);
-                SetControlVisible(_lblAnnotationText, true);
-                SetControlVisible(_txtAnnotationText, true);
+                // Make all annotation rows visible.
+                foreach (Control c in _annPanel.Controls)
+                    c.Visible = true;
 
-                SetGeneralRowHeight(2, 38F);
-                SetGeneralRowHeight(3, 38F);
-                SetGeneralRowHeight(4, 38F);
-                SetGeneralRowHeight(5, 38F);
-                SetGeneralRowHeight(6, 38F);
-                SetGeneralRowHeight(7, 0F);
-                SetGeneralRowHeight(8, 0F);
+                ArrangeAnnotationPanel();
                 return;
             }
 
+            // Restore controls that were reparented into _annPanel back to their home panels.
+            if (_tabs.TabPages.Contains(_tabAnnotation))
+            {
+                // Only restore what was moved (General: Name + State; Label: text properties).
+                _generalLayout.Controls.AddRange([_lblName, _txtName, _lblState, _statePanel]);
+                _labelLayout.Controls.AddRange([
+                    _lblFont, _fontPanel,
+                    _lblFontSize, _numFontSize,
+                    _lblTextColor, _labelColorPanel,
+                    _lblTextAlignment, _cboTextAlignment,
+                    _lblFontScaling, _fontScalingPanel,
+                    _lblAnnotationText, _txtAnnotationText
+                ]);
+                _tabs.TabPages.Remove(_tabAnnotation);
+            }
+
+            if (!_tabs.TabPages.Contains(_tabGeneral))
+                _tabs.TabPages.Insert(0, _tabGeneral);
             if (!_tabs.TabPages.Contains(_tabLabel) && !_isRasterLayer)
                 _tabs.TabPages.Add(_tabLabel);
 
-            MoveControlToLayout(_labelLayout, _lblFont, 0, 1);
-            MoveControlToLayout(_labelLayout, _fontPanel, 1, 1);
-            MoveControlToLayout(_labelLayout, _lblFontSize, 0, 2);
-            MoveControlToLayout(_labelLayout, _numFontSize, 1, 2);
-            MoveControlToLayout(_labelLayout, _lblTextColor, 0, 3);
-            MoveControlToLayout(_labelLayout, _labelColorPanel, 1, 3);
-            MoveControlToLayout(_labelLayout, _lblTextAlignment, 0, 4);
-            MoveControlToLayout(_labelLayout, _cboTextAlignment, 1, 4);
-            MoveControlToLayout(_labelLayout, _lblLabelSource, 0, 5);
-            MoveControlToLayout(_labelLayout, _labelSourcePanel, 1, 5);
-            MoveControlToLayout(_labelLayout, _lblLabelField, 0, 6);
-            MoveControlToLayout(_labelLayout, _cboLabelField, 1, 6);
-            MoveControlToLayout(_labelLayout, _lblLabelFixedText, 0, 7);
-            MoveControlToLayout(_labelLayout, _txtLabelFixedText, 1, 7);
-            MoveControlToLayout(_labelLayout, _lblFontScaling, 0, 8);
-            MoveControlToLayout(_labelLayout, _fontScalingPanel, 1, 8);
-            MoveControlToLayout(_generalLayout, _lblState, 0, 7);
-            MoveControlToLayout(_generalLayout, _statePanel, 1, 7);
-
+            _tabLabel.Text = "Label";
             SetControlVisible(_lblFont, true);
             SetControlVisible(_fontPanel, true);
             SetControlVisible(_lblFontSize, true);
@@ -869,36 +844,26 @@ namespace Land_Readjustment_Tool.UI.Forms
             SetControlVisible(_cboTextAlignment, false);
             SetControlVisible(_lblLabels, true);
             SetControlVisible(_chkShowLabels, true);
-            SetControlVisible(_lblLabelSource, true);
-            SetControlVisible(_labelSourcePanel, true);
             SetControlVisible(_lblFontScaling, true);
             SetControlVisible(_fontScalingPanel, true);
             SetControlVisible(_lblAnnotationText, false);
             SetControlVisible(_txtAnnotationText, false);
             UpdateLabelSourceControlVisibility();
-
-            SetGeneralRowHeight(2, 38F);
-            SetGeneralRowHeight(3, 38F);
-            SetGeneralRowHeight(4, 38F);
-            SetGeneralRowHeight(5, 38F);
-            SetGeneralRowHeight(7, 37F);
-            SetGeneralRowHeight(8, 38F);
+            ArrangeAllPropertyPanels();
         }
 
-        private static void MoveControlToLayout(
-            TableLayoutPanel layout,
-            Control control,
-            int column,
-            int row)
+        private void ArrangeAnnotationPanel()
         {
-            if (control.Parent != layout)
-            {
-                layout.Controls.Add(control, column, row);
-                return;
-            }
-
-            layout.SetColumn(control, column);
-            layout.SetRow(control, row);
+            ArrangeRows(
+                _annPanel,
+                (_lblName, _txtName),
+                (_lblFont, _fontPanel),
+                (_lblFontSize, _numFontSize),
+                (_lblTextColor, _labelColorPanel),
+                (_lblTextAlignment, _cboTextAlignment),
+                (_lblAnnotationText, _txtAnnotationText),
+                (_lblFontScaling, _fontScalingPanel),
+                (_lblState, _statePanel));
         }
 
         private static string NormalizeDrawingLayerType(string? layerType)
@@ -1001,35 +966,108 @@ namespace Land_Readjustment_Tool.UI.Forms
 
         private void UpdateLabelSourceControlVisibility()
         {
-            bool isFixed = _rdoLabelFixed.Checked;
-            SetControlVisible(_lblLabelField, !isFixed);
-            SetControlVisible(_cboLabelField, !isFixed);
-            SetControlVisible(_lblLabelFixedText, isFixed);
-            SetControlVisible(_txtLabelFixedText, isFixed);
+            SetControlVisible(_lblLabelField, true);
+            SetControlVisible(_cboLabelField, true);
+            SetControlVisible(_lblLabelFixedText, false);
+            SetControlVisible(_txtLabelFixedText, false);
+            ArrangeAllPropertyPanels();
         }
 
-        private static void SetControlVisible(Control control, bool visible)
+        private void SetControlVisible(Control control, bool visible)
         {
             control.Visible = visible;
-            control.Enabled = visible;
         }
 
-        private void SetFillRowHeight(int rowIndex, float height)
+        private void ArrangeAllPropertyPanels()
         {
-            if (rowIndex < 0 || rowIndex >= _fillLayout.RowStyles.Count)
+            if (_tabs.TabPages.Contains(_tabAnnotation))
+            {
+                ArrangeAnnotationPanel();
                 return;
-
-            _fillLayout.RowStyles[rowIndex].SizeType = SizeType.Absolute;
-            _fillLayout.RowStyles[rowIndex].Height = height;
+            }
+            ArrangeGeneralPanel();
+            ArrangeFillPanel();
+            ArrangeLabelPanel();
         }
 
-        private void SetGeneralRowHeight(int rowIndex, float height)
+        private void ArrangeGeneralPanel()
         {
-            if (rowIndex < 0 || rowIndex >= _generalLayout.RowStyles.Count)
-                return;
+            ArrangeRows(
+                _generalLayout,
+                (_lblName, _txtName),
+                (_lblLayerKind, _cboLayerKind),
+                (_lblBorderColor, _borderColorPanel),
+                (_lblLineStyle, _lineTypePanel),
+                (_lblLinePreview, _pnlLinePreview),
+                (_lblLineWeight, _numLineWeight),
+                (_lblPointMarker, _pointMarkerPanel),
+                (_lblState, _statePanel));
+        }
 
-            _generalLayout.RowStyles[rowIndex].SizeType = SizeType.Absolute;
-            _generalLayout.RowStyles[rowIndex].Height = height;
+        private void ArrangeFillPanel()
+        {
+            ArrangeRows(
+                _fillLayout,
+                (_lblFillStyle, _cboFillStyle),
+                (_lblFillColor, _fillColorPanel),
+                (_lblHatchPattern, _hatchPatternPanel),
+                (null, _chkShowFillTransparency),
+                (_lblTransparency, _transparencyLayout));
+        }
+
+        private void ArrangeLabelPanel()
+        {
+            ArrangeRows(
+                _labelLayout,
+                (_lblLabels, _chkShowLabels),
+                (_lblFont, _fontPanel),
+                (_lblFontSize, _numFontSize),
+                (_lblTextColor, _labelColorPanel),
+                (_lblTextAlignment, _cboTextAlignment),
+                (_lblLabelField, _cboLabelField),
+                (_lblLabelFixedText, _txtLabelFixedText),
+                (_lblFontScaling, _fontScalingPanel),
+                (_lblAnnotationText, _txtAnnotationText));
+        }
+
+        private static void ArrangeRows(Panel panel, params (Control? Label, Control Value)[] rows)
+        {
+            int y = 10;
+            foreach ((Control? label, Control value) in rows)
+            {
+                // Skip if the control has been reparented away from this panel.
+                if (value.Parent != panel) continue;
+
+                bool visible = value.Visible && (label == null || label.Visible);
+                if (!visible)
+                    continue;
+
+                int rowHeight = GetPreferredRowHeight(value);
+                int labelTop = y + Math.Max(0, (rowHeight - 27) / 2);
+                if (label != null)
+                {
+                    label.SetBounds(PropertyLabelLeft, labelTop, PropertyLabelWidth, 27);
+                }
+
+                value.SetBounds(PropertyValueLeft, y, PropertyValueWidth, rowHeight);
+                y += rowHeight + 8;
+            }
+
+            panel.AutoScrollMinSize = new Size(0, y + 6);
+        }
+
+        private static int GetPreferredRowHeight(Control control)
+        {
+            if (control is TrackBar)
+                return 40;
+
+            if (control is Panel panel && panel.Controls.OfType<TrackBar>().Any())
+                return 40;
+
+            if (control.Height > PropertyRowHeight)
+                return control.Height;
+
+            return PropertyRowHeight;
         }
 
         private static void SetComboText(ComboBox comboBox, string value)

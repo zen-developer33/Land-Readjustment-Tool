@@ -121,7 +121,8 @@ namespace Land_Readjustment_Tool.UI.MapCanvas.Rendering
             Rectangle? zoomWindowRectangle,
             IShape? previewShape = null,
             CanvasLayer? previewLayer = null,
-            bool showDebugOverlay = false)
+            bool showDebugOverlay = false,
+            bool suppressDecorations = false)
         {
             ArgumentNullException.ThrowIfNull(graphics);
             _debugOverlayRequested = showDebugOverlay;
@@ -165,7 +166,8 @@ namespace Land_Readjustment_Tool.UI.MapCanvas.Rendering
                         RenderInteractionOverlay(
                             graphics,
                             viewport,
-                            zoomWindowRectangle);
+                            zoomWindowRectangle,
+                            suppressDecorations);
                         break;
                 }
             }
@@ -392,19 +394,20 @@ namespace Land_Readjustment_Tool.UI.MapCanvas.Rendering
         private void RenderInteractionOverlay(
             Graphics graphics,
             MapCanvasRenderViewport viewport,
-            Rectangle? zoomWindowRectangle)
+            Rectangle? zoomWindowRectangle,
+            bool suppressDecorations = false)
         {
             if (zoomWindowRectangle.HasValue)
             {
                 RenderZoomWindow(graphics, zoomWindowRectangle.Value);
             }
 
-            if (_settings.ShowAxisLines || _settings.ShowOriginMarker)
+            if (!suppressDecorations && (_settings.ShowAxisLines || _settings.ShowOriginMarker))
             {
                 RenderAxisAndOriginMarker(graphics, viewport);
             }
 
-            if (_settings.ShowNorthMarker)
+            if (!suppressDecorations && _settings.ShowNorthMarker)
             {
                 RenderNorthMarker(graphics, viewport.VisibleScreenBounds);
             }

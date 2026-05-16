@@ -31,6 +31,7 @@ using System.Drawing.Imaging;
 using System.Reflection;
 using System.Text.Json;
 using System.Threading;
+using System.Globalization;
 using NtsEnvelope = NetTopologySuite.Geometries.Envelope;
 using VisualStyles = System.Windows.Forms.VisualStyles;
 
@@ -110,6 +111,7 @@ namespace Land_Readjustment_Tool
             "geometry.length",
             "geometry.vertexCount",
             "geometry.bounds",
+            "text.value",
             "tenancy.hasTenant",
             "tenancy.tenantName"
         };
@@ -2110,7 +2112,7 @@ namespace Land_Readjustment_Tool
             if (!AppServices.HasContext)
             {
                 ClearCurrentPropertyGridSelection();
-                ShowPropertyGridMessage("Open a project to inspect parcel properties.");
+                ShowPropertyGridMessage("Open a project to inspect object properties.");
                 return;
             }
 
@@ -2153,6 +2155,12 @@ namespace Land_Readjustment_Tool
                     .Include(item => item.BaselineParcel)
                         .ThenInclude(parcel => parcel!.ParcelContributions)
                             .ThenInclude(contribution => contribution.ContributionCategory)
+                    .Include(item => item.Road)
+                    .Include(item => item.Block)
+                    .Include(item => item.ReplottedParcel)
+                        .ThenInclude(parcel => parcel!.Block)
+                    .Include(item => item.ReplottedParcel)
+                        .ThenInclude(parcel => parcel!.PlotType)
                     .Where(item => selectedIds.Contains(item.Id))
                     .ToListAsync();
 
@@ -2179,7 +2187,7 @@ namespace Land_Readjustment_Tool
             catch (Exception ex)
             {
                 ClearCurrentPropertyGridSelection();
-                ShowPropertyGridMessage($"Could not load selected parcel properties. {ex.Message}");
+                ShowPropertyGridMessage($"Could not load selected object properties. {ex.Message}");
             }
         }
 
@@ -2338,24 +2346,53 @@ namespace Land_Readjustment_Tool
             string? uniqueCode = FirstNonEmpty(canvasObject.BaselineParcel?.FullUniqueParcelCode, metadata?.FullUniqueParcelCode);
 
             if (!string.IsNullOrWhiteSpace(mapSheetNo) && !string.IsNullOrWhiteSpace(parcelNo))
-                return $"{mapSheetNo} - {parcelNo}";
+                return $"Parcel {mapSheetNo} - {parcelNo}";
 
             if (!string.IsNullOrWhiteSpace(uniqueCode))
-                return uniqueCode;
+                return $"Parcel {uniqueCode}";
+
+            if (canvasObject.ReplottedParcel != null)
+            {
+                string? number = FirstNonEmpty(
+                    canvasObject.ReplottedParcel.BlockSequenceNumber,
+                    canvasObject.ReplottedParcel.DerivedNumber,
+                    canvasObject.ReplottedParcel.SystemGeneratedNumber);
+                return string.IsNullOrWhiteSpace(number)
+                    ? $"Replotted Parcel #{canvasObject.ReplottedParcel.Id}"
+                    : $"Replotted Parcel {number}";
+            }
+
+            if (canvasObject.Road != null)
+                return string.IsNullOrWhiteSpace(canvasObject.Road.RoadName)
+                    ? $"Road #{canvasObject.Road.Id}"
+                    : $"Road {canvasObject.Road.RoadName}";
+
+            if (canvasObject.Block != null)
+                return string.IsNullOrWhiteSpace(canvasObject.Block.BlockName)
+                    ? $"Block #{canvasObject.Block.Id}"
+                    : $"Block {canvasObject.Block.BlockName}";
+
+            if (IsTextObject(canvasObject))
+            {
+                string? text = FirstNonEmpty(canvasObject.LabelText, canvasObject.ObjectDescription);
+                return string.IsNullOrWhiteSpace(text)
+                    ? "Text"
+                    : $"Text - {TrimForDisplay(text, 40)}";
+            }
 
             string layerName = canvasObject.CanvasLayer?.Name ?? "No layer";
-            return $"{FirstNonEmpty(canvasObject.ObjectType, "Object")} - {layerName}";
+            return $"{GetDisplayObjectType(canvasObject)} - {layerName}";
         }
 
-        private void PopulateParcelPropertyGrid(IReadOnlyList<CanvasObject> selectedObjects, int selectedCount)
+        private void PopulateSelectedObjectPropertyGrid(IReadOnlyList<CanvasObject> selectedObjects, int selectedCount)
         {
             if (selectedObjects.Count > 1)
             {
-                PopulateMultipleSelectionPropertyGrid(selectedObjects, selectedCount);
+                PopulateMultipleObjectPropertyGrid(selectedObjects, selectedCount);
                 return;
             }
 
-            PopulateSingleParcelPropertyGrid(selectedObjects[0], selectedCount);
+            PopulateSingleObjectPropertyGrid(selectedObjects[0], selectedCount);
         }
 
         private void PopulateSelectedPropertyObjectCombo(IReadOnlyList<CanvasObject> selectedObjects)
@@ -2404,12 +2441,29 @@ namespace Land_Readjustment_Tool
                     .FirstOrDefault(canvasObject => canvasObject.Id == item.CanvasObjectId.Value);
                 if (selectedObject != null)
                 {
-                    PopulateSingleParcelPropertyGrid(selectedObject, 1);
+                    PopulateSingleObjectPropertyGrid(selectedObject, 1);
                     return;
                 }
             }
 
-            PopulateParcelPropertyGrid(_currentPropertyGridObjects, _currentPropertyGridSelectedCount);
+            PopulateSelectedObjectPropertyGrid(_currentPropertyGridObjects, _currentPropertyGridSelectedCount);
+        }
+
+        private CanvasObject? GetCurrentSinglePropertyGridObject()
+        {
+            if (_currentPropertyGridObjects.Count == 0)
+                return null;
+
+            if (cboSelectedPropertyObject.SelectedItem is SelectedPropertyObjectComboItem { IsAll: false } item &&
+                item.CanvasObjectId.HasValue)
+            {
+                return _currentPropertyGridObjects
+                    .FirstOrDefault(canvasObject => canvasObject.Id == item.CanvasObjectId.Value);
+            }
+
+            return _currentPropertyGridObjects.Count == 1
+                ? _currentPropertyGridObjects[0]
+                : null;
         }
 
         private void cboSelectedPropertyObject_SelectedIndexChanged(object? sender, EventArgs e)
@@ -2560,12 +2614,19 @@ namespace Land_Readjustment_Tool
             mapCanvasControlMain.ZoomToWorldBounds(new RectangleD(minX, minY, maxX - minX, maxY - minY));
         }
 
-        private void PopulateMultipleSelectionPropertyGrid(IReadOnlyList<CanvasObject> selectedObjects, int selectedCount)
+        private void PopulateMultipleObjectPropertyGrid(IReadOnlyList<CanvasObject> selectedObjects, int selectedCount)
+        {
+            PopulateObjectPropertySections(BuildMultipleObjectPropertySections(selectedObjects, selectedCount));
+        }
+
+        private void PopulateSingleObjectPropertyGrid(CanvasObject canvasObject, int selectedCount)
+        {
+            PopulateObjectPropertySections(BuildSingleObjectPropertySections(canvasObject, selectedCount));
+        }
+
+        private void PopulateObjectPropertySections(IReadOnlyList<ObjectPropertySection> sections)
         {
             var selectedKeys = new HashSet<string>(_visibleParcelPropertyFieldKeys, StringComparer.OrdinalIgnoreCase);
-            var fields = GetParcelPropertyFields()
-                .Where(field => selectedKeys.Contains(field.Key))
-                .ToList();
 
             dgvParcelObjProperty.SuspendLayout();
             try
@@ -2573,17 +2634,19 @@ namespace Land_Readjustment_Tool
                 dgvParcelObjProperty.Rows.Clear();
                 SetPropertiesPanelTitle();
 
-                foreach (var categoryGroup in fields.GroupBy(field => field.Category))
+                foreach (ObjectPropertySection section in sections)
                 {
                     int categoryIndex = dgvParcelObjProperty.Rows.Count;
-                    AddPropertyCategory(categoryGroup.Key);
+                    AddPropertyCategory(section.Title);
 
-                    foreach (var field in categoryGroup)
+                    foreach (ObjectPropertyRow row in section.Rows.Where(row => selectedKeys.Contains(row.Key)))
                     {
                         AddPropertyRow(
-                            field.Label,
-                            GetAggregatedFieldValue(selectedObjects, field, selectedCount),
-                            field.IncludeWhenEmpty || field.Category == "Selection");
+                            row.Key,
+                            row.Label,
+                            row.Value,
+                            row.IncludeWhenEmpty,
+                            IsPropertyRowEditable(row));
                     }
 
                     if (dgvParcelObjProperty.Rows.Count == categoryIndex + 1)
@@ -2607,62 +2670,400 @@ namespace Land_Readjustment_Tool
             }
         }
 
-        private void PopulateSingleParcelPropertyGrid(CanvasObject canvasObject, int selectedCount)
+        private IReadOnlyList<ObjectPropertySection> BuildMultipleObjectPropertySections(
+            IReadOnlyList<CanvasObject> selectedObjects,
+            int selectedCount)
         {
-            CadastralCanvasMetadata? metadata = ReadCadastralMetadata(canvasObject.GeometryMetadataJson);
-            var parcel = canvasObject.BaselineParcel;
-            var selectedKeys = new HashSet<string>(_visibleParcelPropertyFieldKeys, StringComparer.OrdinalIgnoreCase);
-            var fields = GetParcelPropertyFields()
-                .Where(field => selectedKeys.Contains(field.Key))
+            List<ObjectPropertySection> sections = new();
+            HashSet<string> relevantKeys = GetRelevantFieldKeys(selectedObjects);
+            List<ParcelPropertyField> fields = GetParcelPropertyFields()
+                .Where(field => relevantKeys.Contains(field.Key))
                 .ToList();
 
-            dgvParcelObjProperty.SuspendLayout();
-            try
+            foreach (IGrouping<string, ParcelPropertyField> categoryGroup in fields.GroupBy(field => field.Category))
             {
-                dgvParcelObjProperty.Rows.Clear();
-                SetPropertiesPanelTitle();
-
-                foreach (var categoryGroup in fields.GroupBy(field => field.Category))
+                List<ObjectPropertyRow> rows = new();
+                foreach (ParcelPropertyField field in categoryGroup)
                 {
-                    int categoryIndex = dgvParcelObjProperty.Rows.Count;
-                    AddPropertyCategory(categoryGroup.Key);
+                    IReadOnlyList<CanvasObject> applicableObjects = field.Key.StartsWith("selection.", StringComparison.OrdinalIgnoreCase) ||
+                                                                    field.Key.StartsWith("object.", StringComparison.OrdinalIgnoreCase) ||
+                                                                    field.Key.StartsWith("canvas.", StringComparison.OrdinalIgnoreCase)
+                        ? selectedObjects
+                        : selectedObjects
+                            .Where(canvasObject => IsFieldRelevantToObject(field.Key, canvasObject))
+                            .ToList();
 
-                    foreach (var field in categoryGroup)
-                    {
-                        AddPropertyRow(
-                            field.Label,
-                            field.GetValue(canvasObject, metadata, selectedCount),
-                            field.IncludeWhenEmpty);
-                    }
+                    if (applicableObjects.Count == 0)
+                        continue;
 
-                    if (dgvParcelObjProperty.Rows.Count == categoryIndex + 1)
-                    {
-                        dgvParcelObjProperty.Rows.RemoveAt(categoryIndex);
-                    }
+                    string? value = GetAggregatedFieldValue(applicableObjects, field, applicableObjects.Count);
+                    rows.Add(new ObjectPropertyRow(
+                        field.Key,
+                        field.Label,
+                        value,
+                        field.IncludeWhenEmpty || field.Category == "Selection"));
                 }
 
-                if (dgvParcelObjProperty.Rows.Count == 0)
+                AddOptionalSection(sections, new ObjectPropertySection(
+                    NormalizePropertySectionTitle(categoryGroup.Key),
+                    rows));
+            }
+
+            return sections;
+        }
+
+        private IReadOnlyList<ObjectPropertySection> BuildSingleObjectPropertySections(CanvasObject canvasObject, int selectedCount)
+        {
+            CadastralCanvasMetadata? metadata = ReadCadastralMetadata(canvasObject.GeometryMetadataJson);
+            List<ObjectPropertySection> sections = new();
+
+            sections.Add(BuildObjectSection(canvasObject, metadata, selectedCount));
+
+            if (IsTextObject(canvasObject))
+            {
+                sections.Add(BuildTextSection(canvasObject));
+                return sections;
+            }
+
+            if (ShouldShowGeometrySection(canvasObject))
+            {
+                sections.Add(BuildGeometrySection(canvasObject));
+            }
+
+            if (IsOriginalParcelObject(canvasObject))
+            {
+                sections.Add(BuildOriginalParcelSection(canvasObject, metadata));
+                sections.Add(BuildOwnerSection(canvasObject, metadata));
+                sections.Add(BuildParcelAreaSection(canvasObject, metadata));
+                AddOptionalSection(sections, BuildTenancySection(canvasObject));
+                AddOptionalSection(sections, BuildLandRecordSection(canvasObject));
+                AddOptionalSection(sections, BuildParcelFrontageSection(canvasObject));
+                AddOptionalSection(sections, BuildContributionSection(canvasObject));
+                AddOptionalSection(sections, BuildLabelSection(canvasObject));
+                AddOptionalSection(sections, BuildSourceSection(canvasObject, metadata));
+                return sections;
+            }
+
+            if (canvasObject.ReplottedParcel != null || canvasObject.ReplottedParcelId.HasValue)
+            {
+                AddOptionalSection(sections, BuildReplottedParcelSection(canvasObject));
+            }
+
+            if (canvasObject.Road != null || canvasObject.RoadId.HasValue)
+            {
+                AddOptionalSection(sections, BuildRoadSection(canvasObject));
+            }
+
+            if (canvasObject.Block != null || canvasObject.BlockId.HasValue)
+            {
+                AddOptionalSection(sections, BuildBlockSection(canvasObject));
+            }
+
+            AddOptionalSection(sections, BuildLabelSection(canvasObject));
+            AddOptionalSection(sections, BuildDrawingStyleSection(canvasObject));
+            AddOptionalSection(sections, BuildSourceSection(canvasObject, metadata));
+
+            return sections;
+        }
+
+        private static ObjectPropertySection BuildObjectSection(
+            CanvasObject canvasObject,
+            CadastralCanvasMetadata? metadata,
+            int selectedCount)
+        {
+            return new ObjectPropertySection("Object",
+            [
+                new("selection.selectedObjects", "Selected Objects", selectedCount.ToString("N0"), true),
+                new("selection.objectType", "Type", GetDisplayObjectType(canvasObject), true),
+                new("selection.layer", "Layer", canvasObject.CanvasLayer?.Name, true),
+                new("object.layerType", "Layer Type", canvasObject.CanvasLayer?.LayerType, false),
+                new("object.description", "Description", canvasObject.ObjectDescription, false),
+                new("selection.assignment", "Assignment", GetAssignmentValue(canvasObject, metadata), true),
+                new("canvas.visible", "Visible", FormatBoolean(canvasObject.IsVisible), true),
+                new("canvas.locked", "Locked", FormatBoolean(canvasObject.IsLocked || canvasObject.CanvasLayer?.IsLocked == true), true),
+                new("object.dataLink", "Data Link", GetDataLinkDisplay(canvasObject, metadata), false),
+                new("canvas.objectId", "Object ID", canvasObject.Id.ToString(), false),
+                new("canvas.created", "Created", FormatDate(canvasObject.CreatedDate), false),
+                new("canvas.modified", "Last Modified", FormatDate(canvasObject.LastModifiedDate), false)
+            ]);
+        }
+
+        private static ObjectPropertySection BuildTextSection(CanvasObject canvasObject)
+        {
+            return new ObjectPropertySection("Text",
+            [
+                new("text.value", "Text", canvasObject.LabelText, true),
+                new("text.insertionPoint", "Insertion Point", FormatPoint(canvasObject.Shape?.Coordinate), false),
+                new("text.alignment", "Alignment", ReadMetadataString(canvasObject.GeometryMetadataJson, "TextAlignment"), false),
+                new("text.source", "Label Source", "Manual text", true)
+            ]);
+        }
+
+        private static ObjectPropertySection? BuildLabelSection(CanvasObject canvasObject)
+        {
+            CanvasLayer? layer = canvasObject.CanvasLayer;
+            if (layer == null || !layer.ShowLabels)
+                return null;
+
+            string? labelField = layer.LabelField;
+            string labelValue;
+            string labelSource;
+
+            if (!string.IsNullOrEmpty(labelField) &&
+                labelField.StartsWith("static:", StringComparison.OrdinalIgnoreCase))
+            {
+                labelValue = labelField["static:".Length..];
+                labelSource = "Fixed text";
+            }
+            else if (!string.IsNullOrEmpty(canvasObject.LabelText))
+            {
+                labelValue = canvasObject.LabelText;
+                labelSource = "Manual text";
+            }
+            else if (!string.IsNullOrEmpty(labelField))
+            {
+                // Auto label from object data field — show as <FieldName>
+                string display = labelField.StartsWith("template:", StringComparison.OrdinalIgnoreCase)
+                    ? labelField
+                    : $"<{labelField}>";
+                labelValue = display;
+                labelSource = "Object data";
+            }
+            else
+            {
+                return null;
+            }
+
+            return new ObjectPropertySection("Label",
+            [
+                new("label.value", "Label", labelValue, true),
+                new("label.source", "Source", labelSource, false)
+            ]);
+        }
+
+        private static ObjectPropertySection BuildGeometrySection(CanvasObject canvasObject)
+        {
+            List<ObjectPropertyRow> rows =
+            [
+                new("geometry.type", "Geometry Type", canvasObject.Shape?.GeometryType ?? canvasObject.ObjectType, true),
+                new("geometry.vertexCount", "Points / Vertices", CanvasGeometryMetricsService.GetVertexCount(canvasObject)?.ToString("N0"), false),
+                new("geometry.bounds", "Bounds", FormatGeometryBounds(canvasObject.Shape?.EnvelopeInternal), false)
+            ];
+
+            if (IsPointGeometry(canvasObject))
+            {
+                rows.Insert(1, new ObjectPropertyRow("geometry.coordinate", "Coordinate", FormatPoint(canvasObject.Shape?.Coordinate), true));
+            }
+            else
+            {
+                rows.Insert(1, new ObjectPropertyRow("geometry.length", "Length / Perimeter", FormatLength(CanvasGeometryMetricsService.GetLength(canvasObject)), false));
+                if (ShouldShowArea(canvasObject))
                 {
-                    ShowPropertyGridMessage("No displayable properties were found for this selection.");
-                }
-                else
-                {
-                    dgvParcelObjProperty.ClearSelection();
+                    rows.Insert(2, new ObjectPropertyRow("geometry.area", "Area", FormatArea(CanvasGeometryMetricsService.GetArea(canvasObject)), false));
                 }
             }
-            finally
+
+            return new ObjectPropertySection("Geometry", rows);
+        }
+
+        private static ObjectPropertySection BuildOriginalParcelSection(CanvasObject canvasObject, CadastralCanvasMetadata? metadata)
+        {
+            return new ObjectPropertySection("Original Parcel",
+            [
+                new("parcel.parcelNo", "Parcel No.", FirstNonEmpty(canvasObject.BaselineParcel?.ParcelNo, metadata?.ParcelNo), true),
+                new("parcel.mapSheetNo", "Map Sheet No.", FirstNonEmpty(canvasObject.BaselineParcel?.MapSheetNo, metadata?.MapSheetNo), true),
+                new("parcel.uniqueCode", "Unique Code", FirstNonEmpty(canvasObject.BaselineParcel?.FullUniqueParcelCode, metadata?.FullUniqueParcelCode), true),
+                new("parcel.ownershipType", "Ownership Type", canvasObject.BaselineParcel?.LandOwnershipType, false),
+                new("parcel.landUse", "Land Use", FirstNonEmpty(canvasObject.BaselineParcel?.LandUse, metadata?.LandUse), false),
+                new("parcel.remarks", "Remarks", canvasObject.BaselineParcel?.Remarks, false),
+                new("parcel.recordId", "Parcel Record ID", canvasObject.BaselineParcel?.Id.ToString(), false)
+            ]);
+        }
+
+        private static ObjectPropertySection BuildOwnerSection(CanvasObject canvasObject, CadastralCanvasMetadata? metadata)
+        {
+            return new ObjectPropertySection("Owner",
+            [
+                new("owner.primaryOwner", "Primary Owner", FirstNonEmpty(canvasObject.BaselineParcel?.LandOwner?.FullName, metadata?.OwnerName), true),
+                new("owner.coOwners", "Co-Owners", FormatCoOwners(canvasObject.BaselineParcel), true),
+                new("owner.fatherSpouse", "Father/Spouse", canvasObject.BaselineParcel?.LandOwner?.FatherOrSpouseName, false),
+                new("owner.gender", "Gender", canvasObject.BaselineParcel?.LandOwner?.Gender, false),
+                new("owner.citizenshipNo", "Citizenship No.", canvasObject.BaselineParcel?.LandOwner?.CitizenshipNumber, false),
+                new("owner.contact", "Contact", canvasObject.BaselineParcel?.LandOwner?.ContactNumber, false),
+                new("owner.email", "Email", canvasObject.BaselineParcel?.LandOwner?.Email, false)
+            ]);
+        }
+
+        private static ObjectPropertySection BuildParcelAreaSection(CanvasObject canvasObject, CadastralCanvasMetadata? metadata)
+        {
+            return new ObjectPropertySection("Parcel Area",
+            [
+                new("area.originalRecord", "Original Area (Land Records)", FormatArea(canvasObject.BaselineParcel?.OriginalAreaSqm ?? metadata?.RecordAreaSqm), true),
+                new("area.fieldMeasured", "Area (Measured in Field)", FormatArea(canvasObject.BaselineParcel?.FieldMeasuredAreaSqm), false),
+                new("area.effective", "Effective Area", FormatArea(canvasObject.BaselineParcel?.EffectiveAreaSqm), false),
+                new("area.effectiveMode", "Effective Area Mode", canvasObject.BaselineParcel == null
+                    ? null
+                    : canvasObject.BaselineParcel.IsEffectiveAreaManual ? "Manual" : "Calculated", false),
+                new("area.imported", "Imported Area", FormatArea(metadata?.CalculatedAreaSqm), false),
+                new("geometry.area", "Canvas Geometry Area", FormatArea(CanvasGeometryMetricsService.GetArea(canvasObject)), false)
+            ]);
+        }
+
+        private static ObjectPropertySection BuildTenancySection(CanvasObject canvasObject)
+        {
+            return new ObjectPropertySection("Tenancy",
+            [
+                new("tenancy.hasTenant", "Has Tenant", canvasObject.BaselineParcel == null ? null : FormatBoolean(canvasObject.BaselineParcel.HasTenant), false),
+                new("tenancy.tenantName", "Tenant Name", canvasObject.BaselineParcel?.TenantName, false)
+            ]);
+        }
+
+        private static ObjectPropertySection BuildLandRecordSection(CanvasObject canvasObject)
+        {
+            return new ObjectPropertySection("Land Record",
+            [
+                new("landRecord.mothNo", "Moth No.", canvasObject.BaselineParcel?.MalpotReference?.MothNo, false),
+                new("landRecord.paanaNo", "Paana No.", canvasObject.BaselineParcel?.MalpotReference?.PaanaNo, false)
+            ]);
+        }
+
+        private static ObjectPropertySection BuildParcelFrontageSection(CanvasObject canvasObject)
+        {
+            return new ObjectPropertySection("Frontage",
+            [
+                new("frontage.roads", "Road Frontages", FormatFrontages(canvasObject.BaselineParcel), false)
+            ]);
+        }
+
+        private static ObjectPropertySection BuildContributionSection(CanvasObject canvasObject)
+        {
+            var summary = canvasObject.BaselineParcel?.ParcelContributionSummary;
+            return new ObjectPropertySection("Contribution",
+            [
+                new("contribution.general", "General Contribution", FormatArea(summary?.TotalGeneralContributionSqm), false),
+                new("contribution.specific", "Specific Contribution", FormatArea(summary?.TotalSpecificContributionSqm), false),
+                new("contribution.total", "Total Contribution", FormatArea(summary?.TotalContributionSqm), false),
+                new("contribution.percent", "Contribution Percent", FormatPercent(summary?.TotalContributionPercent), false),
+                new("contribution.netReturnable", "Net Returnable Area", FormatArea(summary?.NetReturnableAreaSqm), false),
+                new("contribution.replottedAssigned", "Replotted Area Assigned", FormatArea(summary?.ReplottedAreaAssignedSqm), false)
+            ]);
+        }
+
+        private static ObjectPropertySection BuildReplottedParcelSection(CanvasObject canvasObject)
+        {
+            var parcel = canvasObject.ReplottedParcel;
+            return new ObjectPropertySection("Replotted Parcel",
+            [
+                new("replotted.systemNumber", "System Number", parcel?.SystemGeneratedNumber, false),
+                new("replotted.derivedNumber", "Derived Number", parcel?.DerivedNumber, false),
+                new("replotted.blockSequence", "Block Sequence", parcel?.BlockSequenceNumber, false),
+                new("replotted.activeNumberType", "Active Number Type", parcel?.ActiveNumberType, false),
+                new("replotted.plotType", "Plot Type", parcel?.PlotType?.TypeName, false),
+                new("replotted.block", "Block", parcel?.Block?.BlockName, false),
+                new("replotted.plotArea", "Plot Area", FormatArea(parcel?.PlotAreaSqm), false),
+                new("replotted.notes", "Notes", parcel?.Notes, false),
+                new("replotted.recordId", "Record ID", parcel?.Id.ToString() ?? canvasObject.ReplottedParcelId?.ToString(), false)
+            ]);
+        }
+
+        private static ObjectPropertySection BuildRoadSection(CanvasObject canvasObject)
+        {
+            var road = canvasObject.Road;
+            return new ObjectPropertySection("Road",
+            [
+                new("road.name", "Name", road?.RoadName, true),
+                new("road.code", "Code", road?.RoadCode, false),
+                new("road.status", "Status", road?.RoadStatus, false),
+                new("road.type", "Type", road?.RoadType, false),
+                new("road.surface", "Surface", road?.SurfaceType, false),
+                new("road.width", "Road Width", FormatLength(road?.RoadWidth), false),
+                new("road.rightOfWay", "Right of Way", FormatLength(road?.RightOfWayWidth), false),
+                new("road.description", "Description", road?.Description, false),
+                new("road.recordId", "Record ID", road?.Id.ToString() ?? canvasObject.RoadId?.ToString(), false)
+            ]);
+        }
+
+        private static ObjectPropertySection BuildBlockSection(CanvasObject canvasObject)
+        {
+            var block = canvasObject.Block;
+            return new ObjectPropertySection("Block",
+            [
+                new("block.name", "Name", block?.BlockName, true),
+                new("block.code", "Code", block?.BlockCode, false),
+                new("block.depth", "Depth", FormatLength(block?.BlockDepth), false),
+                new("block.landUse", "Land Use", block?.BlockLandUse, false),
+                new("block.area", "Block Area", FormatArea(block?.BlockArea), false),
+                new("block.description", "Description", block?.Description, false),
+                new("block.recordId", "Record ID", block?.Id.ToString() ?? canvasObject.BlockId?.ToString(), false)
+            ]);
+        }
+
+        private static ObjectPropertySection BuildDrawingStyleSection(CanvasObject canvasObject)
+        {
+            return new ObjectPropertySection("Style",
+            [
+                new("style.borderColor", "Border Color", FirstNonEmpty(canvasObject.BorderColorOverride, canvasObject.CanvasLayer?.BorderColor), false),
+                new("style.lineWeight", "Line Weight", FormatNumber(canvasObject.LineWeightOverride ?? canvasObject.CanvasLayer?.LineWeight), false),
+                new("style.lineStyle", "Line Style", FirstNonEmpty(canvasObject.LineStyleOverride, canvasObject.CanvasLayer?.LineStyle), false),
+                new("style.fillColor", "Fill Color", FirstNonEmpty(canvasObject.FillColorOverride, canvasObject.CanvasLayer?.FillColor), false),
+                new("style.fillTransparency", "Fill Transparency", (canvasObject.FillTransparencyOverride ?? canvasObject.CanvasLayer?.FillTransparency)?.ToString(), false)
+            ]);
+        }
+
+        private static ObjectPropertySection BuildSourceSection(CanvasObject canvasObject, CadastralCanvasMetadata? metadata)
+        {
+            return new ObjectPropertySection("Source",
+            [
+                new("source.format", "Source Format", metadata?.SourceFormat, false),
+                new("source.file", "Source File", metadata?.SourceFileName, false),
+                new("source.layer", "Source Layer", metadata?.SourceLayer, false),
+                new("source.matchedText", "Matched Text", metadata?.MatchedText, false),
+                new("source.handle", "Source Handle", FirstNonEmpty(metadata?.SourceHandle, canvasObject.SourceDxfHandle), false),
+                new("source.importedAt", "Imported At", FormatDate(metadata?.ImportedAt), false)
+            ]);
+        }
+
+        private static void AddOptionalSection(List<ObjectPropertySection> sections, ObjectPropertySection? section)
+        {
+            if (section?.Rows == null)
+                return;
+
+            List<ObjectPropertyRow> rows = section.Rows
+                .Where(row => row != null)
+                .ToList();
+            if (rows.Count == 0)
+                return;
+
+            if (rows.Any(row => row.IncludeWhenEmpty || !string.IsNullOrWhiteSpace(row.Value)))
             {
-                dgvParcelObjProperty.ResumeLayout();
+                sections.Add(section with { Rows = rows });
             }
+        }
+
+        private static string NormalizePropertySectionTitle(string? title)
+        {
+            if (string.IsNullOrWhiteSpace(title))
+                return "Properties";
+
+            // Replace delimiters with spaces and convert to title case for display
+            string cleaned = title.Replace('.', ' ').Replace('_', ' ').Trim();
+            return CultureInfo.CurrentCulture.TextInfo.ToTitleCase(cleaned.ToLowerInvariant());
         }
 
         private async void btnConfigureParcelProperties_Click(object? sender, EventArgs e)
         {
+            IReadOnlyList<CanvasObject> contextObjects = GetPropertyFieldContextObjects();
+            HashSet<string> relevantFieldKeys = GetRelevantFieldKeys(contextObjects);
             var fieldOptions = GetParcelPropertyFields()
+                .Where(field => relevantFieldKeys.Contains(field.Key))
                 .Select(field => new ParcelPropertyFieldSelectorItem(field.Key, field.Category, field.Label))
                 .ToList();
 
-            using var form = new frmParcelPropertyFieldSelector(fieldOptions, _visibleParcelPropertyFieldKeys);
+            // Keep only visible keys that are still valid for this object type.
+            var validKeys = fieldOptions.Select(f => f.Key).ToHashSet(StringComparer.OrdinalIgnoreCase);
+            var filteredVisible = _visibleParcelPropertyFieldKeys.Where(k => validKeys.Contains(k)).ToList();
+
+            using var form = new frmParcelPropertyFieldSelector(fieldOptions, filteredVisible);
             if (form.ShowDialog(this) != DialogResult.OK)
                 return;
 
@@ -2790,6 +3191,105 @@ namespace Land_Readjustment_Tool
             }
         }
 
+        private IReadOnlyList<CanvasObject> GetPropertyFieldContextObjects()
+        {
+            CanvasObject? singleObject = GetCurrentSinglePropertyGridObject();
+            if (singleObject != null)
+                return [singleObject];
+
+            return _currentPropertyGridObjects;
+        }
+
+        private static HashSet<string> GetRelevantFieldKeys(IReadOnlyList<CanvasObject> objects)
+        {
+            IReadOnlyList<ParcelPropertyField> fields = GetParcelPropertyFields();
+            if (objects.Count == 0)
+            {
+                return fields
+                    .Select(field => field.Key)
+                    .ToHashSet(StringComparer.OrdinalIgnoreCase);
+            }
+
+            HashSet<string> keys = new(StringComparer.OrdinalIgnoreCase)
+            {
+                "selection.selectedObjects",
+                "selection.objectType",
+                "selection.layer",
+                "selection.assignment"
+            };
+
+            foreach (CanvasObject canvasObject in objects)
+            {
+                foreach (ParcelPropertyField field in fields)
+                {
+                    if (IsFieldRelevantToObject(field.Key, canvasObject))
+                    {
+                        keys.Add(field.Key);
+                    }
+                }
+            }
+
+            return keys;
+        }
+
+        private static bool IsFieldRelevantToObject(string fieldKey, CanvasObject canvasObject)
+        {
+            if (fieldKey.StartsWith("selection.", StringComparison.OrdinalIgnoreCase) ||
+                fieldKey.StartsWith("object.", StringComparison.OrdinalIgnoreCase) ||
+                fieldKey.StartsWith("canvas.", StringComparison.OrdinalIgnoreCase))
+            {
+                return true;
+            }
+
+            if (fieldKey.StartsWith("text.", StringComparison.OrdinalIgnoreCase))
+                return IsTextObject(canvasObject);
+
+            if (fieldKey.StartsWith("road.", StringComparison.OrdinalIgnoreCase))
+                return canvasObject.Road != null || canvasObject.RoadId.HasValue;
+
+            if (fieldKey.StartsWith("block.", StringComparison.OrdinalIgnoreCase))
+                return canvasObject.Block != null || canvasObject.BlockId.HasValue;
+
+            if (fieldKey.StartsWith("replotted.", StringComparison.OrdinalIgnoreCase))
+                return canvasObject.ReplottedParcel != null || canvasObject.ReplottedParcelId.HasValue;
+
+            if (fieldKey.StartsWith("parcel.", StringComparison.OrdinalIgnoreCase) ||
+                fieldKey.StartsWith("owner.", StringComparison.OrdinalIgnoreCase) ||
+                fieldKey.StartsWith("area.", StringComparison.OrdinalIgnoreCase) ||
+                fieldKey.StartsWith("tenancy.", StringComparison.OrdinalIgnoreCase) ||
+                fieldKey.StartsWith("location.", StringComparison.OrdinalIgnoreCase) ||
+                fieldKey.StartsWith("landRecord.", StringComparison.OrdinalIgnoreCase) ||
+                fieldKey.StartsWith("frontage.", StringComparison.OrdinalIgnoreCase) ||
+                fieldKey.StartsWith("contribution.", StringComparison.OrdinalIgnoreCase))
+            {
+                return IsOriginalParcelObject(canvasObject);
+            }
+
+            if (fieldKey.StartsWith("geometry.", StringComparison.OrdinalIgnoreCase))
+            {
+                if (!ShouldShowGeometrySection(canvasObject))
+                    return false;
+
+                return fieldKey switch
+                {
+                    "geometry.coordinate" => IsPointGeometry(canvasObject),
+                    "geometry.area" => ShouldShowArea(canvasObject),
+                    "geometry.length" => !IsPointGeometry(canvasObject),
+                    _ => true
+                };
+            }
+
+            if (fieldKey.StartsWith("style.", StringComparison.OrdinalIgnoreCase))
+                return !IsTextObject(canvasObject);
+
+            if (fieldKey.StartsWith("label.", StringComparison.OrdinalIgnoreCase))
+                return !IsTextObject(canvasObject);
+
+            if (fieldKey.StartsWith("source.", StringComparison.OrdinalIgnoreCase))
+                return HasSourceProperties(canvasObject);
+
+            return false;
+        }
         private static IReadOnlyList<ParcelPropertyField> GetParcelPropertyFields()
         {
             return
@@ -2802,6 +3302,12 @@ namespace Land_Readjustment_Tool
                     (canvasObject, _, _) => canvasObject.CanvasLayer?.Name),
                 new("selection.assignment", "Selection", "Assignment", true,
                     (canvasObject, metadata, _) => GetAssignmentValue(canvasObject, metadata)),
+                new("object.layerType", "Object", "Layer Type", false,
+                    (canvasObject, _, _) => canvasObject.CanvasLayer?.LayerType),
+                new("object.description", "Object", "Description", false,
+                    (canvasObject, _, _) => canvasObject.ObjectDescription),
+                new("object.dataLink", "Object", "Data Link", false,
+                    (canvasObject, metadata, _) => GetDataLinkDisplay(canvasObject, metadata)),
 
                 new("parcel.parcelNo", "Original Parcel", "Parcel No.", true,
                     (canvasObject, metadata, _) => FirstNonEmpty(canvasObject.BaselineParcel?.ParcelNo, metadata?.ParcelNo)),
@@ -2848,6 +3354,8 @@ namespace Land_Readjustment_Tool
 
                 new("geometry.type", "Other Geometry", "Geometry Type", false,
                     (canvasObject, _, _) => canvasObject.Shape?.GeometryType ?? canvasObject.ObjectType),
+                new("geometry.coordinate", "Other Geometry", "Coordinate", false,
+                    (canvasObject, _, _) => FormatPoint(canvasObject.Shape?.Coordinate)),
                 new("geometry.area", "Other Geometry", "Geometry Area", true,
                     (canvasObject, _, _) => FormatArea(CanvasGeometryMetricsService.GetArea(canvasObject))),
                 new("geometry.length", "Other Geometry", "Length / Perimeter", true,
@@ -2876,6 +3384,90 @@ namespace Land_Readjustment_Tool
                 new("landRecord.paanaNo", "Land Record", "Paana No.", false,
                     (canvasObject, _, _) => canvasObject.BaselineParcel?.MalpotReference?.PaanaNo),
 
+                new("frontage.roads", "Frontage", "Road Frontages", false,
+                    (canvasObject, _, _) => FormatFrontages(canvasObject.BaselineParcel)),
+
+                new("contribution.general", "Contribution", "General Contribution", false,
+                    (canvasObject, _, _) => FormatArea(canvasObject.BaselineParcel?.ParcelContributionSummary?.TotalGeneralContributionSqm)),
+                new("contribution.specific", "Contribution", "Specific Contribution", false,
+                    (canvasObject, _, _) => FormatArea(canvasObject.BaselineParcel?.ParcelContributionSummary?.TotalSpecificContributionSqm)),
+                new("contribution.total", "Contribution", "Total Contribution", false,
+                    (canvasObject, _, _) => FormatArea(canvasObject.BaselineParcel?.ParcelContributionSummary?.TotalContributionSqm)),
+                new("contribution.percent", "Contribution", "Contribution Percent", false,
+                    (canvasObject, _, _) => FormatPercent(canvasObject.BaselineParcel?.ParcelContributionSummary?.TotalContributionPercent)),
+                new("contribution.netReturnable", "Contribution", "Net Returnable Area", false,
+                    (canvasObject, _, _) => FormatArea(canvasObject.BaselineParcel?.ParcelContributionSummary?.NetReturnableAreaSqm)),
+                new("contribution.replottedAssigned", "Contribution", "Replotted Area Assigned", false,
+                    (canvasObject, _, _) => FormatArea(canvasObject.BaselineParcel?.ParcelContributionSummary?.ReplottedAreaAssignedSqm)),
+
+                new("text.count", "Text", "Text Objects", false,
+                    (_, _, selectedCount) => selectedCount.ToString("N0")),
+                new("text.value", "Text", "Text", false,
+                    (canvasObject, _, _) => canvasObject.LabelText),
+                new("text.insertionPoint", "Text", "Insertion Point", false,
+                    (canvasObject, _, _) => FormatPoint(canvasObject.Shape?.Coordinate)),
+                new("text.alignment", "Text", "Alignment", false,
+                    (canvasObject, _, _) => ReadMetadataString(canvasObject.GeometryMetadataJson, "TextAlignment")),
+                new("text.source", "Text", "Label Source", false,
+                    (_, _, _) => "Manual text"),
+
+                new("road.count", "Road", "Road Objects", false,
+                    (_, _, selectedCount) => selectedCount.ToString("N0")),
+                new("road.name", "Road", "Name", false,
+                    (canvasObject, _, _) => canvasObject.Road?.RoadName),
+                new("road.code", "Road", "Code", false,
+                    (canvasObject, _, _) => canvasObject.Road?.RoadCode),
+                new("road.status", "Road", "Status", false,
+                    (canvasObject, _, _) => canvasObject.Road?.RoadStatus),
+                new("road.type", "Road", "Type", false,
+                    (canvasObject, _, _) => canvasObject.Road?.RoadType),
+                new("road.surface", "Road", "Surface", false,
+                    (canvasObject, _, _) => canvasObject.Road?.SurfaceType),
+                new("road.width", "Road", "Road Width", false,
+                    (canvasObject, _, _) => FormatLength(canvasObject.Road?.RoadWidth)),
+                new("road.rightOfWay", "Road", "Right of Way", false,
+                    (canvasObject, _, _) => FormatLength(canvasObject.Road?.RightOfWayWidth)),
+                new("road.description", "Road", "Description", false,
+                    (canvasObject, _, _) => canvasObject.Road?.Description),
+                new("road.recordId", "Road", "Record ID", false,
+                    (canvasObject, _, _) => canvasObject.Road?.Id.ToString() ?? canvasObject.RoadId?.ToString()),
+
+                new("block.count", "Block", "Block Objects", false,
+                    (_, _, selectedCount) => selectedCount.ToString("N0")),
+                new("block.name", "Block", "Name", false,
+                    (canvasObject, _, _) => canvasObject.Block?.BlockName),
+                new("block.code", "Block", "Code", false,
+                    (canvasObject, _, _) => canvasObject.Block?.BlockCode),
+                new("block.depth", "Block", "Depth", false,
+                    (canvasObject, _, _) => FormatLength(canvasObject.Block?.BlockDepth)),
+                new("block.landUse", "Block", "Land Use", false,
+                    (canvasObject, _, _) => canvasObject.Block?.BlockLandUse),
+                new("block.area", "Block", "Block Area", false,
+                    (canvasObject, _, _) => FormatArea(canvasObject.Block?.BlockArea)),
+                new("block.description", "Block", "Description", false,
+                    (canvasObject, _, _) => canvasObject.Block?.Description),
+                new("block.recordId", "Block", "Record ID", false,
+                    (canvasObject, _, _) => canvasObject.Block?.Id.ToString() ?? canvasObject.BlockId?.ToString()),
+
+                new("replotted.systemNumber", "Replotted Parcel", "System Number", false,
+                    (canvasObject, _, _) => canvasObject.ReplottedParcel?.SystemGeneratedNumber),
+                new("replotted.derivedNumber", "Replotted Parcel", "Derived Number", false,
+                    (canvasObject, _, _) => canvasObject.ReplottedParcel?.DerivedNumber),
+                new("replotted.blockSequence", "Replotted Parcel", "Block Sequence", false,
+                    (canvasObject, _, _) => canvasObject.ReplottedParcel?.BlockSequenceNumber),
+                new("replotted.activeNumberType", "Replotted Parcel", "Active Number Type", false,
+                    (canvasObject, _, _) => canvasObject.ReplottedParcel?.ActiveNumberType),
+                new("replotted.plotType", "Replotted Parcel", "Plot Type", false,
+                    (canvasObject, _, _) => canvasObject.ReplottedParcel?.PlotType?.TypeName),
+                new("replotted.block", "Replotted Parcel", "Block", false,
+                    (canvasObject, _, _) => canvasObject.ReplottedParcel?.Block?.BlockName),
+                new("replotted.plotArea", "Replotted Parcel", "Plot Area", false,
+                    (canvasObject, _, _) => FormatArea(canvasObject.ReplottedParcel?.PlotAreaSqm)),
+                new("replotted.notes", "Replotted Parcel", "Notes", false,
+                    (canvasObject, _, _) => canvasObject.ReplottedParcel?.Notes),
+                new("replotted.recordId", "Replotted Parcel", "Record ID", false,
+                    (canvasObject, _, _) => canvasObject.ReplottedParcel?.Id.ToString() ?? canvasObject.ReplottedParcelId?.ToString()),
+
                 new("source.format", "Source", "Source Format", false,
                     (_, metadata, _) => metadata?.SourceFormat),
                 new("source.file", "Source", "Source File", false,
@@ -2900,7 +3492,18 @@ namespace Land_Readjustment_Tool
                 new("canvas.created", "Canvas", "Created", false,
                     (canvasObject, _, _) => FormatDate(canvasObject.CreatedDate)),
                 new("canvas.modified", "Canvas", "Last Modified", false,
-                    (canvasObject, _, _) => FormatDate(canvasObject.LastModifiedDate))
+                    (canvasObject, _, _) => FormatDate(canvasObject.LastModifiedDate)),
+
+                new("style.borderColor", "Style", "Border Color", false,
+                    (canvasObject, _, _) => FirstNonEmpty(canvasObject.BorderColorOverride, canvasObject.CanvasLayer?.BorderColor)),
+                new("style.lineWeight", "Style", "Line Weight", false,
+                    (canvasObject, _, _) => FormatNumber(canvasObject.LineWeightOverride ?? canvasObject.CanvasLayer?.LineWeight)),
+                new("style.lineStyle", "Style", "Line Style", false,
+                    (canvasObject, _, _) => FirstNonEmpty(canvasObject.LineStyleOverride, canvasObject.CanvasLayer?.LineStyle)),
+                new("style.fillColor", "Style", "Fill Color", false,
+                    (canvasObject, _, _) => FirstNonEmpty(canvasObject.FillColorOverride, canvasObject.CanvasLayer?.FillColor)),
+                new("style.fillTransparency", "Style", "Fill Transparency", false,
+                    (canvasObject, _, _) => (canvasObject.FillTransparencyOverride ?? canvasObject.CanvasLayer?.FillTransparency)?.ToString())
             ];
         }
 
@@ -3152,10 +3755,11 @@ namespace Land_Readjustment_Tool
                 "canvas.locked";
         }
 
-        private static string JoinDistinctValues(IEnumerable<string> values)
+        private static string JoinDistinctValues(IEnumerable<string?> values)
         {
             List<string> distinct = values
                 .Where(value => !string.IsNullOrWhiteSpace(value))
+                .Select(value => value!.Trim())
                 .Distinct(StringComparer.OrdinalIgnoreCase)
                 .OrderBy(value => value, StringComparer.OrdinalIgnoreCase)
                 .ToList();
@@ -3182,7 +3786,7 @@ namespace Land_Readjustment_Tool
 
         private void ShowNoParcelSelection()
         {
-            ShowPropertyGridMessage("Select a parcel on the map to view its properties.");
+            ShowPropertyGridMessage("Select an object on the map to view its properties.");
         }
 
         private void ShowLargeSelectionPropertyMessage(int selectedCount)
@@ -3232,7 +3836,21 @@ namespace Land_Readjustment_Tool
             row.Cells[0].Style.SelectionForeColor = row.DefaultCellStyle.ForeColor;
         }
 
-        private void AddPropertyRow(string field, string? value, bool includeWhenEmpty = false)
+        private bool IsPropertyRowEditable(ObjectPropertyRow row)
+        {
+            if (!string.Equals(row.Key, "text.value", StringComparison.OrdinalIgnoreCase))
+                return false;
+
+            CanvasObject? canvasObject = GetCurrentSinglePropertyGridObject();
+            return canvasObject != null && IsTextObject(canvasObject);
+        }
+
+        private void AddPropertyRow(
+            string key,
+            string field,
+            string? value,
+            bool includeWhenEmpty = false,
+            bool editable = false)
         {
             string displayValue = string.IsNullOrWhiteSpace(value) ? "--" : value.Trim();
             if (!includeWhenEmpty && displayValue == "--")
@@ -3240,8 +3858,218 @@ namespace Land_Readjustment_Tool
 
             int index = dgvParcelObjProperty.Rows.Add(field, displayValue);
             DataGridViewRow row = dgvParcelObjProperty.Rows[index];
-            row.ReadOnly = true;
+            row.Tag = key;
+            row.ReadOnly = false;
+            row.Cells[0].ReadOnly = true;
+            row.Cells[1].ReadOnly = !editable;
             row.DefaultCellStyle.BackColor = Color.White;
+            if (editable)
+            {
+                row.Cells[1].Style.BackColor = Color.FromArgb(255, 252, 232);
+            }
+        }
+
+        private static bool IsOriginalParcelObject(CanvasObject canvasObject)
+        {
+            if (canvasObject.BaselineParcel != null || canvasObject.BaselineParcelId.HasValue)
+                return true;
+
+            if (canvasObject.CanvasLayer != null &&
+                CanvasLayerTreeService.IsDrawingMarkupLayer(canvasObject.CanvasLayer))
+            {
+                return false;
+            }
+
+            return ReadCadastralMetadata(canvasObject.GeometryMetadataJson) != null;
+        }
+
+        private static bool IsTextObject(CanvasObject canvasObject)
+        {
+            return string.Equals(canvasObject.ObjectType, "Text", StringComparison.OrdinalIgnoreCase) ||
+                   string.Equals(canvasObject.CanvasLayer?.LayerType, "Annotation", StringComparison.OrdinalIgnoreCase);
+        }
+
+        private static bool ShouldShowGeometrySection(CanvasObject canvasObject)
+        {
+            return !IsTextObject(canvasObject) &&
+                   canvasObject.Shape != null &&
+                   !canvasObject.Shape.IsEmpty;
+        }
+
+        private static bool ShouldShowArea(CanvasObject canvasObject)
+        {
+            string objectType = canvasObject.ObjectType ?? string.Empty;
+            string? geometryType = canvasObject.Shape?.GeometryType;
+            return IsOriginalParcelObject(canvasObject) ||
+                   canvasObject.ReplottedParcel != null ||
+                   canvasObject.Block != null ||
+                   objectType.Equals("Polygon", StringComparison.OrdinalIgnoreCase) ||
+                   objectType.Equals("Circle", StringComparison.OrdinalIgnoreCase) ||
+                   string.Equals(geometryType, "Polygon", StringComparison.OrdinalIgnoreCase) ||
+                   string.Equals(geometryType, "MultiPolygon", StringComparison.OrdinalIgnoreCase);
+        }
+
+        private static bool IsPointGeometry(CanvasObject canvasObject)
+        {
+            return string.Equals(canvasObject.ObjectType, "Point", StringComparison.OrdinalIgnoreCase) ||
+                   string.Equals(canvasObject.Shape?.GeometryType, "Point", StringComparison.OrdinalIgnoreCase);
+        }
+
+        private static string GetDisplayObjectType(CanvasObject canvasObject)
+        {
+            if (IsTextObject(canvasObject))
+                return "Text";
+
+            if (canvasObject.ReplottedParcel != null || canvasObject.ReplottedParcelId.HasValue)
+                return "Replotted Parcel";
+
+            if (canvasObject.Road != null || canvasObject.RoadId.HasValue)
+                return "Road";
+
+            if (canvasObject.Block != null || canvasObject.BlockId.HasValue)
+                return "Block";
+
+            if (IsOriginalParcelObject(canvasObject))
+                return "Original Parcel";
+
+            return FirstNonEmpty(canvasObject.ObjectType, canvasObject.Shape?.GeometryType, "Object") ?? "Object";
+        }
+
+        private static string? GetDataLinkDisplay(CanvasObject canvasObject, CadastralCanvasMetadata? metadata)
+        {
+            if (canvasObject.ReplottedParcel != null || canvasObject.ReplottedParcelId.HasValue)
+                return $"Replotted parcel: {canvasObject.ReplottedParcel?.Id.ToString() ?? canvasObject.ReplottedParcelId?.ToString()}";
+
+            if (canvasObject.Road != null || canvasObject.RoadId.HasValue)
+                return $"Road: {FirstNonEmpty(canvasObject.Road?.RoadName, canvasObject.RoadId?.ToString())}";
+
+            if (canvasObject.Block != null || canvasObject.BlockId.HasValue)
+                return $"Block: {FirstNonEmpty(canvasObject.Block?.BlockName, canvasObject.BlockId?.ToString())}";
+
+            if (IsOriginalParcelObject(canvasObject))
+            {
+                string? code = FirstNonEmpty(
+                    canvasObject.BaselineParcel?.FullUniqueParcelCode,
+                    metadata?.FullUniqueParcelCode);
+                return string.IsNullOrWhiteSpace(code) ? "Original parcel" : $"Original parcel: {code}";
+            }
+
+            return null;
+        }
+
+        private static bool HasSourceProperties(CanvasObject canvasObject)
+        {
+            if (!string.IsNullOrWhiteSpace(canvasObject.SourceDxfHandle))
+                return true;
+
+            CadastralCanvasMetadata? metadata = ReadCadastralMetadata(canvasObject.GeometryMetadataJson);
+            return metadata != null &&
+                   (!string.IsNullOrWhiteSpace(metadata.SourceFormat) ||
+                    !string.IsNullOrWhiteSpace(metadata.SourceFileName) ||
+                    !string.IsNullOrWhiteSpace(metadata.SourceLayer) ||
+                    !string.IsNullOrWhiteSpace(metadata.MatchedText) ||
+                    !string.IsNullOrWhiteSpace(metadata.SourceHandle));
+        }
+
+        private static string? FormatObjectTypeCounts(IReadOnlyList<CanvasObject> canvasObjects)
+        {
+            return string.Join(", ", canvasObjects
+                .GroupBy(GetDisplayObjectType, StringComparer.OrdinalIgnoreCase)
+                .OrderByDescending(group => group.Count())
+                .ThenBy(group => group.Key, StringComparer.OrdinalIgnoreCase)
+                .Select(group => $"{group.Key}: {group.Count():N0}"));
+        }
+
+        private static string? FormatTotalLength(IReadOnlyList<CanvasObject> canvasObjects)
+        {
+            double total = canvasObjects
+                .Select(CanvasGeometryMetricsService.GetLength)
+                .Where(value => value.HasValue)
+                .Sum(value => Math.Abs(value!.Value));
+
+            return total > 0 ? FormatLength(total) : null;
+        }
+
+        private static string? FormatTotalArea(IReadOnlyList<CanvasObject> canvasObjects)
+        {
+            double total = canvasObjects
+                .Where(ShouldShowArea)
+                .Select(CanvasGeometryMetricsService.GetArea)
+                .Where(value => value.HasValue)
+                .Sum(value => Math.Abs(value!.Value));
+
+            return total > 0 ? FormatArea(total) : null;
+        }
+
+        private static string? FormatTotalVertexCount(IReadOnlyList<CanvasObject> canvasObjects)
+        {
+            int total = canvasObjects
+                .Select(CanvasGeometryMetricsService.GetVertexCount)
+                .Where(value => value.HasValue)
+                .Sum(value => value!.Value);
+
+            return total > 0 ? total.ToString("N0") : null;
+        }
+
+        private static string? FormatCombinedBounds(IReadOnlyList<CanvasObject> canvasObjects)
+        {
+            NtsEnvelope bounds = new();
+            bool hasBounds = false;
+            foreach (CanvasObject canvasObject in canvasObjects)
+            {
+                NtsEnvelope? envelope = canvasObject.Shape?.EnvelopeInternal;
+                if (!CanvasGeometryMetricsService.IsUsableEnvelope(envelope))
+                    continue;
+
+                bounds.ExpandToInclude(envelope);
+                hasBounds = true;
+            }
+
+            return hasBounds ? FormatGeometryBounds(bounds) : null;
+        }
+
+        private static string? FormatPoint(NetTopologySuite.Geometries.Coordinate? coordinate)
+        {
+            if (coordinate == null ||
+                !double.IsFinite(coordinate.X) ||
+                !double.IsFinite(coordinate.Y))
+            {
+                return null;
+            }
+
+            return $"X {coordinate.X:N3}, Y {coordinate.Y:N3}";
+        }
+
+        private static string? ReadMetadataString(string? json, string propertyName)
+        {
+            if (string.IsNullOrWhiteSpace(json))
+                return null;
+
+            try
+            {
+                using JsonDocument document = JsonDocument.Parse(json);
+                return document.RootElement.TryGetProperty(propertyName, out JsonElement element)
+                    ? element.GetString()
+                    : null;
+            }
+            catch
+            {
+                return null;
+            }
+        }
+
+        private static string? GetOwnerDisplayName(CanvasObject canvasObject)
+        {
+            CadastralCanvasMetadata? metadata = ReadCadastralMetadata(canvasObject.GeometryMetadataJson);
+            return FirstNonEmpty(canvasObject.BaselineParcel?.LandOwner?.FullName, metadata?.OwnerName);
+        }
+
+        private static string TrimForDisplay(string value, int maxLength)
+        {
+            string trimmed = value.Trim().ReplaceLineEndings(" ");
+            return trimmed.Length <= maxLength
+                ? trimmed
+                : $"{trimmed[..Math.Max(0, maxLength - 3)]}...";
         }
 
         private static CadastralCanvasMetadata? ReadCadastralMetadata(string? json)
@@ -3398,6 +4226,10 @@ namespace Land_Readjustment_Tool
                 return Text;
             }
         }
+
+        private sealed record ObjectPropertySection(string Title, IReadOnlyList<ObjectPropertyRow> Rows);
+
+        private sealed record ObjectPropertyRow(string Key, string Label, string? Value, bool IncludeWhenEmpty);
 
         private sealed class ParcelPropertyField
         {
@@ -5378,8 +6210,87 @@ namespace Land_Readjustment_Tool
         {
             grpParcelObjProp.ForeColor = Color.FromArgb(39, 55, 77);
             grpParcelObjProp.Padding = new Padding(8);
+            dgvParcelObjProperty.ReadOnly = false;
+            dgvParcelObjProperty.EditMode = DataGridViewEditMode.EditOnEnter;
+            if (dgvParcelObjProperty.Columns.Count > 1)
+            {
+                dgvParcelObjProperty.Columns[0].ReadOnly = true;
+                dgvParcelObjProperty.Columns[1].ReadOnly = false;
+            }
+
+            dgvParcelObjProperty.CellBeginEdit -= dgvParcelObjProperty_CellBeginEdit;
+            dgvParcelObjProperty.CellBeginEdit += dgvParcelObjProperty_CellBeginEdit;
+            dgvParcelObjProperty.CellEndEdit -= dgvParcelObjProperty_CellEndEdit;
+            dgvParcelObjProperty.CellEndEdit += dgvParcelObjProperty_CellEndEdit;
             SetPropertiesPanelTitle();
             ShowNoParcelSelection();
+        }
+
+        private void dgvParcelObjProperty_CellBeginEdit(object? sender, DataGridViewCellCancelEventArgs e)
+        {
+            if (e.RowIndex < 0 || e.ColumnIndex != 1)
+            {
+                e.Cancel = true;
+                return;
+            }
+
+            DataGridViewRow row = dgvParcelObjProperty.Rows[e.RowIndex];
+            e.Cancel = row.Tag is not string key ||
+                       !string.Equals(key, "text.value", StringComparison.OrdinalIgnoreCase) ||
+                       row.Cells[1].ReadOnly;
+        }
+
+        private async void dgvParcelObjProperty_CellEndEdit(object? sender, DataGridViewCellEventArgs e)
+        {
+            if (e.RowIndex < 0 || e.ColumnIndex != 1)
+                return;
+
+            DataGridViewRow row = dgvParcelObjProperty.Rows[e.RowIndex];
+            if (row.Tag is not string key ||
+                !string.Equals(key, "text.value", StringComparison.OrdinalIgnoreCase))
+            {
+                return;
+            }
+
+            string newText = row.Cells[1].Value?.ToString() ?? string.Empty;
+            await UpdateSelectedTextObjectValueAsync(newText);
+        }
+
+        private async Task UpdateSelectedTextObjectValueAsync(string newText)
+        {
+            CanvasObject? selectedObject = GetCurrentSinglePropertyGridObject();
+            if (selectedObject == null || !IsTextObject(selectedObject) || !AppServices.HasContext)
+                return;
+
+            AppDbContext context = AppServices.Context.Session.GetDbContext();
+            CanvasObject? entity = await context.CanvasObjects
+                .Include(item => item.CanvasLayer)
+                .FirstOrDefaultAsync(item => item.Id == selectedObject.Id);
+            if (entity == null)
+                return;
+
+            if (entity.CanvasLayer?.IsLocked == true || entity.IsLocked)
+            {
+                SetCanvasCommandStatus("Text edit ignored because the object or layer is locked");
+                await RefreshCurrentSelectedCanvasObjectPropertiesAsync(selectedObject.Id);
+                return;
+            }
+
+            string text = newText.Trim();
+            if (string.Equals(entity.LabelText ?? string.Empty, text, StringComparison.Ordinal))
+                return;
+
+            CanvasObject beforeSnapshot = CloneCanvasObjectSnapshot(entity);
+            entity.LabelText = text;
+            entity.LastModifiedDate = DateTime.Now;
+            await context.SaveChangesAsync();
+
+            CanvasObject afterSnapshot = CloneCanvasObjectSnapshot(entity);
+            MarkProjectModifiedIfOpen();
+            await RefreshVectorCanvasFeaturesAsync();
+            await RefreshCurrentSelectedCanvasObjectPropertiesAsync(entity.Id);
+            RegisterCanvasUndoCommand(new ModifyCanvasObjectCommand(beforeSnapshot, afterSnapshot));
+            SetCanvasCommandStatus("Updated text object");
         }
 
         private void treeViewLayers_DrawNode(object? sender, DrawTreeNodeEventArgs e)

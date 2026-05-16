@@ -14,11 +14,17 @@ namespace Land_Readjustment_Tool.UI.MapCanvas.Models.Shapes
         public Color FillColor { get; set; } = Color.Transparent;
         public bool IsSelected { get; set; }
         public bool IsVisible { get; set; } = true;
+        public bool IsBeingEdited { get; set; }
         public string LayerName { get; set; } = "Default";
         public Dictionary<string, object> Properties { get; } = new Dictionary<string, object>();
 
         // Set during Draw() — used for accurate screen-space hit-testing.
         public RectangleF? LastRenderedBounds { get; private set; }
+
+        public void SetLastRenderedBounds(RectangleF bounds)
+        {
+            LastRenderedBounds = bounds;
+        }
 
         public TextShape(PointD position, string text, Font? font = null, string horizontalAlignment = "Left")
         {
@@ -54,7 +60,7 @@ namespace Land_Readjustment_Tool.UI.MapCanvas.Models.Shapes
 
         public void Draw(Graphics g, Func<PointD, PointF> worldToScreen, bool isPrinting = false)
         {
-            if (!IsVisible) return;
+            if (!IsVisible || IsBeingEdited) return;
             try
             {
                 PointF screenPos = worldToScreen(Position);
@@ -91,7 +97,7 @@ namespace Land_Readjustment_Tool.UI.MapCanvas.Models.Shapes
 
         public void Draw(Graphics g, Func<PointD, PointD> worldToScreen, bool isPrinting = false)
         {
-            if (!IsVisible) return;
+            if (!IsVisible || IsBeingEdited) return;
             PointD screenPosD = worldToScreen(Position);
             PointF screenPos = new((float)screenPosD.X, (float)screenPosD.Y);
 

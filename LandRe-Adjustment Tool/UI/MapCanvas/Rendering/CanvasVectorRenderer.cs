@@ -151,9 +151,12 @@ namespace Land_Readjustment_Tool.UI.MapCanvas.Rendering
             int hiddenSkippedCount = 0;
             int lodSkippedCount = 0;
 
-            foreach (CanvasFeature feature in queriedFeatures
+            List<CanvasFeature> orderedFeatures = queriedFeatures
                 .OrderBy(GetDisplayOrder)
-                .ThenBy(feature => feature.CanvasObject.Id))
+                .ThenBy(f => f.CanvasObject.Id)
+                .ToList();
+
+            foreach (CanvasFeature feature in orderedFeatures)
             {
                 if (_excludedShapeIds.Contains(feature.Shape.Id))
                 {
@@ -175,9 +178,19 @@ namespace Land_Readjustment_Tool.UI.MapCanvas.Rendering
                     continue;
                 }
 
-                DrawShape(graphics, engine, feature.Shape, ResolveStyle(feature, layer), context, feature, layer);
+                DrawShape(graphics, engine, feature.Shape, ResolveStyle(feature, layer), context, feature, layer, suppressParcelHighlight: true);
                 DrawLabelIfNeeded(graphics, engine, visibleWorldBounds, feature, layer, context, labelFontCache);
                 renderedCount++;
+            }
+
+            // Second pass: draw cadastral parcel selection highlights on top of all features.
+            foreach (CanvasFeature feature in orderedFeatures)
+            {
+                if (_excludedShapeIds.Contains(feature.Shape.Id)) continue;
+                if (!IsSelectedCadastralParcelFeature(feature, feature.Shape)) continue;
+                CanvasLayer? layer = ResolveLayer(feature);
+                if (!IsRenderable(feature, layer, visibleWorldBounds)) continue;
+                DrawCadastralParcelHighlightOnly(graphics, engine, feature.Shape);
             }
 
             renderStopwatch.Stop();
@@ -524,7 +537,8 @@ namespace Land_Readjustment_Tool.UI.MapCanvas.Rendering
             VectorShapeStyle style,
             VectorRenderContext context,
             CanvasFeature? feature = null,
-            CanvasLayer? layer = null)
+            CanvasLayer? layer = null,
+            bool suppressParcelHighlight = false)
         {
             if (style.IsPointStyle && shape is CircleShape pointCircle)
             {
@@ -532,7 +546,7 @@ namespace Land_Readjustment_Tool.UI.MapCanvas.Rendering
                 return;
             }
 
-            bool isCadastralParcelSelection = IsSelectedCadastralParcelFeature(feature, shape);
+            bool isCadastralParcelSelection = !suppressParcelHighlight && IsSelectedCadastralParcelFeature(feature, shape);
             bool useDefaultSelectionStyle = shape.IsSelected && !isCadastralParcelSelection;
             bool shouldStroke = style.HasStroke || shape.IsSelected;
             float width = useDefaultSelectionStyle
@@ -844,6 +858,51 @@ namespace Land_Readjustment_Tool.UI.MapCanvas.Rendering
             }
         }
 
+        private static void DrawCadastralParcelHighlightOnly(
+            Graphics graphics,
+            MapCanvasEngine engine,
+            IShape shape)
+        {
+            switch (shape)
+            {
+                case DonutPolygonShape donut:
+                {
+                    if (donut.ExteriorRing.Count < 3) return;
+                    using GraphicsPath path = donut.CreateScreenPath(engine.WorldToScreen);
+                    if (path.PointCount == 0) return;
+                    RectangleF bounds = path.GetBounds();
+                    if (IsValidPathBounds(bounds) && IsValidRectangle(bounds) &&
+                        Math.Abs(bounds.Left) <= MaxGdiCoordinate &&
+                        Math.Abs(bounds.Top) <= MaxGdiCoordinate)
+                        DrawCadastralParcelSelectionHighlight(graphics, path, bounds);
+                    break;
+                }
+                case PolylineShape polyline:
+                {
+                    if (!polyline.IsClosed || polyline.Vertices.Count <= 2) return;
+                    using GraphicsPath path = polyline.CreateScreenPath(engine.WorldToScreen);
+                    if (path.PointCount == 0) return;
+                    RectangleF bounds = path.GetBounds();
+                    if (IsValidPathBounds(bounds) && IsValidRectangle(bounds) &&
+                        Math.Abs(bounds.Left) <= MaxGdiCoordinate &&
+                        Math.Abs(bounds.Top) <= MaxGdiCoordinate)
+                        DrawCadastralParcelSelectionHighlight(graphics, path, bounds);
+                    break;
+                }
+                case RectangleShape rectangle:
+                {
+                    PointF start = ToScreenPointF(engine.WorldToScreen(rectangle.Start));
+                    PointF end = ToScreenPointF(engine.WorldToScreen(rectangle.End));
+                    RectangleF rect = CreateScreenRectangle(start, end);
+                    if (!IsValidRectangle(rect)) return;
+                    using GraphicsPath path = new();
+                    path.AddRectangle(rect);
+                    DrawCadastralParcelSelectionHighlight(graphics, path, rect);
+                    break;
+                }
+            }
+        }
+
         private static void DrawCircle(
             Graphics graphics,
             MapCanvasEngine engine,
@@ -1042,17 +1101,28 @@ namespace Land_Readjustment_Tool.UI.MapCanvas.Rendering
             if (layer?.IsLocked == true)
                 color = FadeLockedLayerColor(color);
 
-            using Font? layerFont = CreateAnnotationTextFont(layer);
+            using Font? layerFont = CreateAnnotationTextFont(layer, engine.ZoomScale);
             using StringFormat format = new()
             {
                 Alignment = TextShape.ToStringAlignment(layer?.TextAlignment ?? text.HorizontalAlignment),
                 LineAlignment = StringAlignment.Near,
                 FormatFlags = StringFormatFlags.NoClip
             };
-            graphics.DrawString(text.Text, layerFont ?? text.Font, context.GetSolidBrush(color), position, format);
+
+            Font effectiveFont = layerFont ?? text.Font;
+            SizeF textSize = graphics.MeasureString(string.IsNullOrEmpty(text.Text) ? " " : text.Text, effectiveFont);
+            float left = format.Alignment switch
+            {
+                StringAlignment.Center => position.X - textSize.Width / 2f,
+                StringAlignment.Far => position.X - textSize.Width,
+                _ => position.X
+            };
+            text.SetLastRenderedBounds(new RectangleF(left, position.Y, textSize.Width, textSize.Height));
+
+            graphics.DrawString(text.Text, effectiveFont, context.GetSolidBrush(color), position, format);
         }
 
-        private static Font? CreateAnnotationTextFont(CanvasLayer? layer)
+        private static Font? CreateAnnotationTextFont(CanvasLayer? layer, double zoomScale)
         {
             if (layer == null || !CanvasLayerTreeService.IsAnnotationLayer(layer))
                 return null;
@@ -1060,7 +1130,13 @@ namespace Land_Readjustment_Tool.UI.MapCanvas.Rendering
             string fontName = string.IsNullOrWhiteSpace(layer.LabelFontName)
                 ? DefaultCanvasLabelFontName
                 : layer.LabelFontName.Trim();
-            float fontSize = (float)Math.Clamp(layer.LabelFontSize <= 0 ? 6.0 : layer.LabelFontSize, MinLabelFontSizePt, 72.0);
+            double zoomFactor = double.IsFinite(zoomScale)
+                ? Math.Clamp(zoomScale, MinLabelZoomFactor, MaxLabelZoomFactor)
+                : 1.0;
+            float fontSize = (float)Math.Clamp(
+                (layer.LabelFontSize <= 0 ? 6.0 : layer.LabelFontSize) * zoomFactor,
+                MinLabelFontSizePt,
+                MaxScaledLabelFontSizePt);
 
             try
             {

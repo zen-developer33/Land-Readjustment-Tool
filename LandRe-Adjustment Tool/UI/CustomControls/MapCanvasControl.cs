@@ -172,9 +172,15 @@ namespace Land_Readjustment_Tool.UI.CustomControls
         private readonly ContextMenuStrip _drawingOptionsContextMenu = new();
         private readonly ToolStripMenuItem _mnuAssignParcelData = new("Assign Parcel Data...");
         private readonly ToolStripMenuItem _mnuDeleteSelectedObjects = new("Delete Selected Object(s)");
+        private readonly ToolStripMenuItem _mnuEditText = new("Edit Text");
         private TextBox? _activeTextEditor;
         private PointD? _activeTextAnchorWorld;
+        private string _activeTextEditorFontName = "Nirmala UI";
+        private float _activeTextEditorBaseFontSize = 6.0f;
+        private string _activeTextEditorAlignment = "Left";
         private bool _textEditorCompleting;
+        private bool _textEditorJustCancelled;
+        private bool _suppressNextCanvasMouseDownAfterTextCancel;
         private CanvasFeature? _editingTextFeature;
         private readonly System.Windows.Forms.Timer _zoomingStatusTimer = new()
         {
@@ -192,6 +198,9 @@ namespace Land_Readjustment_Tool.UI.CustomControls
             _objectSelectionContextMenu.Opening += ObjectSelectionContextMenu_Opening;
             _mnuAssignParcelData.Click += (_, _) => SelectedObjectsAssignParcelDataRequested?.Invoke();
             _mnuDeleteSelectedObjects.Click += (_, _) => RequestDeleteSelectedObjects();
+            _mnuEditText.Click += (_, _) => BeginTextEditFromContextMenu();
+            _objectSelectionContextMenu.Items.Add(_mnuEditText);
+            _objectSelectionContextMenu.Items.Add(new ToolStripSeparator());
             _objectSelectionContextMenu.Items.Add(_mnuAssignParcelData);
             _objectSelectionContextMenu.Items.Add(new ToolStripSeparator());
             _objectSelectionContextMenu.Items.Add(_mnuDeleteSelectedObjects);
@@ -627,40 +636,28 @@ namespace Land_Readjustment_Tool.UI.CustomControls
 
         public void ZoomIn()
         {
-            if (IsCanvasInteractionLocked)
-            {
-                return;
-            }
-
             BeginZoomNavigation("In");
             ZoomAtCanvasCenter(zoomIn: true);
+            RefreshActiveTextEditorMetrics();
             RequestRender();
             ArmZoomSettleTimer();
         }
 
         public void ZoomOut()
         {
-            if (IsCanvasInteractionLocked)
-            {
-                return;
-            }
-
             BeginZoomNavigation("Out");
             ZoomAtCanvasCenter(zoomIn: false);
+            RefreshActiveTextEditorMetrics();
             RequestRender();
             ArmZoomSettleTimer();
         }
 
         public void ZoomExtents()
         {
-            if (IsCanvasInteractionLocked)
-            {
-                return;
-            }
-
             _engine.ZoomToExtents();
             RefreshRasterCacheForCurrentViewAsync();
             RefreshVectorCacheForCurrentViewAsync();
+            RefreshActiveTextEditorMetrics();
             RequestRender();
         }
 
@@ -669,7 +666,7 @@ namespace Land_Readjustment_Tool.UI.CustomControls
         /// </summary>
         public void ZoomToScale(double scaleFactor)
         {
-            if (IsCanvasInteractionLocked || scaleFactor <= 0)
+            if (scaleFactor <= 0)
             {
                 return;
             }
@@ -683,6 +680,7 @@ namespace Land_Readjustment_Tool.UI.CustomControls
             _engine.SetViewport(centerWorld, scaleFactor);
             RefreshRasterCacheForCurrentViewAsync();
             RefreshVectorCacheForCurrentViewAsync();
+            RefreshActiveTextEditorMetrics();
             RequestRender();
         }
 
@@ -703,8 +701,7 @@ namespace Land_Readjustment_Tool.UI.CustomControls
 
         private void ZoomToWorldBounds(RectangleD worldBounds, double padding)
         {
-            if (IsCanvasInteractionLocked ||
-                !TryNormalizeZoomWorldBounds(worldBounds, out RectangleD zoomBounds))
+            if (!TryNormalizeZoomWorldBounds(worldBounds, out RectangleD zoomBounds))
             {
                 return;
             }
@@ -713,6 +710,7 @@ namespace Land_Readjustment_Tool.UI.CustomControls
             _engine.ZoomToExtents(zoomBounds, padding);
             RefreshRasterCacheForCurrentViewAsync();
             RefreshVectorCacheForCurrentViewAsync();
+            RefreshActiveTextEditorMetrics();
             RequestRender();
         }
 
@@ -752,11 +750,6 @@ namespace Land_Readjustment_Tool.UI.CustomControls
 
         public bool ZoomToRasterLayer(int layerId)
         {
-            if (IsCanvasInteractionLocked)
-            {
-                return false;
-            }
-
             IRasterRenderLayer? rasterLayer = _rasterRenderLayers
                 .FirstOrDefault(layer => layer.LayerId == layerId);
             if (rasterLayer == null ||
@@ -769,6 +762,7 @@ namespace Land_Readjustment_Tool.UI.CustomControls
             _engine.ZoomToExtents(bounds);
             RefreshRasterCacheForCurrentViewAsync();
             RefreshVectorCacheForCurrentViewAsync();
+            RefreshActiveTextEditorMetrics();
             RequestRender();
             return true;
         }
@@ -1053,7 +1047,8 @@ namespace Land_Readjustment_Tool.UI.CustomControls
                 GetZoomWindowRectangle(),
                 _previewShape,
                 _activeDrawingLayer,
-                _showDebugOverlay);
+                _showDebugOverlay,
+                suppressDecorations: _activeTextEditor != null);
 
             DrawActiveGripOriginalOverlay(e.Graphics);
             DrawObjectSelectionRectangle(e.Graphics);
@@ -1074,6 +1069,7 @@ namespace Land_Readjustment_Tool.UI.CustomControls
 
             ZoomAtPoint(e.Location, e.Delta > 0, zoomFactor);
             _currentMouseWorld = _engine.ScreenToWorld(e.Location);
+            RefreshActiveTextEditorMetrics();
             RequestRender();
             
             // Redraw the precise raster shortly after the last wheel event.
@@ -1223,12 +1219,22 @@ namespace Land_Readjustment_Tool.UI.CustomControls
                 return;
             }
 
-            if (_activeTool == MapCanvasTool.Select &&
-                e.Button == MouseButtons.Right &&
-                _selectedShapeIds.Count > 0)
+            if (_activeTool == MapCanvasTool.Select && e.Button == MouseButtons.Right)
             {
-                _objectSelectionContextMenu.Show(canvasSurface, e.Location);
-                return;
+                // Right-click on a TextShape: select it immediately, then show menu.
+                CanvasFeature? textHit = FindTextShapeHitAtScreenPoint(e.Location);
+                if (textHit != null && textHit.Shape is TextShape)
+                {
+                    ReplaceSelectedObjects([textHit]);
+                    _objectSelectionContextMenu.Show(canvasSurface, e.Location);
+                    return;
+                }
+
+                if (_selectedShapeIds.Count > 0)
+                {
+                    _objectSelectionContextMenu.Show(canvasSurface, e.Location);
+                    return;
+                }
             }
 
             if (isPanGesture)
@@ -1328,6 +1334,7 @@ namespace Land_Readjustment_Tool.UI.CustomControls
                     _panStartWorldOrigin,
                     totalDx,
                     totalDy);
+                RefreshActiveTextEditorMetrics();
                 RequestRender();
                 return;
             }
@@ -1368,6 +1375,27 @@ namespace Land_Readjustment_Tool.UI.CustomControls
 
         private void canvasSurface_MouseUp(object? sender, MouseEventArgs e)
         {
+            // Always release an in-progress pan, even when the text editor is active.
+            if (_isPanning)
+            {
+                PointF finalPanDelta = _totalPanDelta;
+                _isPanning = false;
+                canvasSurface.Capture = false;
+                _currentMouseWorld = _engine.ScreenToWorld(e.Location);
+                _panStartWorld = null;
+                _heldVectorPanDelta = finalPanDelta;
+                _holdVectorPanFrameUntilRefresh = true;
+                _totalPanDelta = PointF.Empty;
+                SetLiveTileInternetFetchingSuspended(false);
+                _suppressStaleRasterFrameUntilFreshRender = true;
+                RefreshRasterCacheForCurrentViewAsync();
+                RefreshVectorCacheForCurrentViewAsync();
+                RefreshActiveTextEditorMetrics();
+                UpdateCanvasCursor();
+                RequestRender();
+                return;
+            }
+
             if (IsCanvasInteractionLocked)
             {
                 return;
@@ -1386,25 +1414,6 @@ namespace Land_Readjustment_Tool.UI.CustomControls
                     RefreshVectorCacheForCurrentViewAsync();
                 }
 
-                UpdateCanvasCursor();
-                RequestRender();
-                return;
-            }
-
-            if (_isPanning)
-            {
-                PointF finalPanDelta = _totalPanDelta;
-                _isPanning = false;
-                canvasSurface.Capture = false;
-                _currentMouseWorld = _engine.ScreenToWorld(e.Location);
-                _panStartWorld = null;
-                _heldVectorPanDelta = finalPanDelta;
-                _holdVectorPanFrameUntilRefresh = true;
-                _totalPanDelta = PointF.Empty;
-                SetLiveTileInternetFetchingSuspended(false);
-                _suppressStaleRasterFrameUntilFreshRender = true;
-                RefreshRasterCacheForCurrentViewAsync();
-                RefreshVectorCacheForCurrentViewAsync();
                 UpdateCanvasCursor();
                 RequestRender();
                 return;
@@ -1456,6 +1465,12 @@ namespace Land_Readjustment_Tool.UI.CustomControls
 
         private void canvasSurface_KeyDown(object? sender, KeyEventArgs e)
         {
+            if (_textEditorJustCancelled)
+            {
+                e.Handled = true;
+                return;
+            }
+
             if (e.KeyCode == Keys.Escape && _activeGripEdit != null)
             {
                 CancelActiveGripEdit(restoreOriginal: true);
@@ -1758,9 +1773,9 @@ namespace Land_Readjustment_Tool.UI.CustomControls
             CancelActiveTextEditor();
 
             string alignment = GetActiveTextAlignment();
-            Font editorFont = CreateActiveTextEditorFont();
+            (string fontName, float baseFontSize) = GetTextEditorFontSpec(_activeDrawingLayer);
             _editingTextFeature = null;
-            SpawnTextEditor(worldPoint, screenPoint, alignment, editorFont, string.Empty, ResolveActiveTextColor());
+            SpawnTextEditor(worldPoint, screenPoint, alignment, fontName, baseFontSize, string.Empty, ResolveActiveTextColor());
         }
 
         private void BeginTextEditExisting(CanvasFeature feature, TextShape textShape, Point screenPoint)
@@ -1768,20 +1783,26 @@ namespace Land_Readjustment_Tool.UI.CustomControls
             CancelActiveTextEditor();
 
             string alignment = textShape.HorizontalAlignment;
-            Font editorFont = CreateFontFromTextShape(textShape);
+            (string fontName, float baseFontSize) = GetTextEditorFontSpec(feature.Layer, textShape);
             Color textColor = textShape.FillColor == Color.Transparent ? Color.Black : textShape.FillColor;
             _editingTextFeature = feature;
-            SpawnTextEditor(textShape.Position, screenPoint, alignment, editorFont, textShape.Text, textColor);
+            textShape.IsBeingEdited = true;
+            SpawnTextEditor(textShape.Position, screenPoint, alignment, fontName, baseFontSize, textShape.Text, textColor);
         }
 
         private void SpawnTextEditor(
             PointD worldPoint,
             Point screenPoint,
             string alignment,
-            Font font,
+            string fontName,
+            float baseFontSize,
             string initialText,
             Color textColor)
         {
+            _activeTextEditorFontName = fontName;
+            _activeTextEditorBaseFontSize = Math.Clamp(baseFontSize, 1.0f, 120.0f);
+            _activeTextEditorAlignment = TextShape.NormalizeHorizontalAlignment(alignment);
+            Font font = CreateScaledTextEditorFont();
             int initialWidth = Math.Max(120,
                 TextRenderer.MeasureText(string.IsNullOrEmpty(initialText) ? "W" : initialText, font).Width + 16);
 
@@ -1809,31 +1830,44 @@ namespace Land_Readjustment_Tool.UI.CustomControls
             editor.BringToFront();
             editor.SelectAll();
             editor.Focus();
+            RefreshActiveTextEditorMetrics();
             UpdateStatusBar();
         }
 
-        private Font CreateActiveTextEditorFont()
+        private (string FontName, float BaseFontSize) GetTextEditorFontSpec(
+            CanvasLayer? layer,
+            TextShape? textShape = null)
         {
-            CanvasLayer? layer = _activeDrawingLayer;
             string fontName = string.IsNullOrWhiteSpace(layer?.LabelFontName)
-                ? "Nirmala UI"
+                ? textShape?.Font.FontFamily.Name ?? "Nirmala UI"
                 : layer.LabelFontName.Trim();
-            float fontSize = (float)Math.Clamp(layer?.LabelFontSize > 0 ? layer.LabelFontSize : 10.0, 1.0, 72.0);
+            float fontSize = (float)Math.Clamp(
+                layer?.LabelFontSize > 0 ? layer.LabelFontSize : textShape?.Font.Size ?? 6.0,
+                1.0,
+                120.0);
 
-            try { return new Font(fontName, fontSize); }
-            catch { return new Font("Nirmala UI", fontSize); }
+            return (fontName, fontSize);
         }
 
-        private static Font CreateFontFromTextShape(TextShape textShape)
+        private Font CreateScaledTextEditorFont()
         {
+            float fontSize = ResolveScaledTextEditorFontSize();
             try
             {
-                return textShape.Font is { } f ? (Font)f.Clone() : SystemFonts.DefaultFont;
+                return new Font(_activeTextEditorFontName, fontSize);
             }
             catch
             {
-                return SystemFonts.DefaultFont;
+                return new Font("Nirmala UI", fontSize);
             }
+        }
+
+        private float ResolveScaledTextEditorFontSize()
+        {
+            double zoomFactor = double.IsFinite(_engine.ZoomScale)
+                ? Math.Clamp(_engine.ZoomScale, 0.25, 12.0)
+                : 1.0;
+            return (float)Math.Clamp(_activeTextEditorBaseFontSize * zoomFactor, 4.0, 180.0);
         }
 
         private Color ResolveActiveTextColor()
@@ -1880,18 +1914,42 @@ namespace Land_Readjustment_Tool.UI.CustomControls
 
         private void ActiveTextEditor_TextChanged(object? sender, EventArgs e)
         {
+            RefreshActiveTextEditorMetrics();
+        }
+
+        private void RefreshActiveTextEditorMetrics()
+        {
             if (_activeTextEditor == null)
                 return;
 
+            Font replacementFont = CreateScaledTextEditorFont();
+            Font oldFont = _activeTextEditor.Font;
+            bool fontChanged =
+                !string.Equals(oldFont.FontFamily.Name, replacementFont.FontFamily.Name, StringComparison.OrdinalIgnoreCase) ||
+                Math.Abs(oldFont.Size - replacementFont.Size) > 0.1f;
+
+            if (fontChanged)
+            {
+                _activeTextEditor.Font = replacementFont;
+                oldFont.Dispose();
+            }
+            else
+            {
+                replacementFont.Dispose();
+            }
+
+            int scaledMinWidth = Math.Max(120, _activeTextEditor.Font.Height * 6);
             int measuredWidth = TextRenderer.MeasureText(
-                string.IsNullOrEmpty(_activeTextEditor.Text) ? "W" : _activeTextEditor.Text,
-                _activeTextEditor.Font).Width + 16;
-            int width = Math.Clamp(measuredWidth, 80, 600);
+                string.IsNullOrEmpty(_activeTextEditor.Text) ? "WWWWWWW" : _activeTextEditor.Text,
+                _activeTextEditor.Font).Width + 20;
+            int width = Math.Clamp(measuredWidth, scaledMinWidth, 1600);
+            int height = Math.Max(24, _activeTextEditor.Font.Height + 10);
             Point anchorScreen = _activeTextAnchorWorld.HasValue
                 ? ToScreenPoint(_activeTextAnchorWorld.Value)
                 : _activeTextEditor.Location;
-            _activeTextEditor.Width = width;
-            _activeTextEditor.Location = GetTextEditorLocation(anchorScreen, GetActiveTextAlignment(), width);
+
+            _activeTextEditor.Size = new Size(width, height);
+            _activeTextEditor.Location = GetTextEditorLocation(anchorScreen, _activeTextEditorAlignment, width);
         }
 
         private void ActiveTextEditor_KeyDown(object? sender, KeyEventArgs e)
@@ -1907,6 +1965,7 @@ namespace Land_Readjustment_Tool.UI.CustomControls
             if (e.KeyCode == Keys.Escape)
             {
                 _editingTextFeature = null;
+                _suppressNextCanvasMouseDownAfterTextCancel = true;
                 CancelActiveTextEditor();
                 e.SuppressKeyPress = true;
                 e.Handled = true;
@@ -1955,6 +2014,9 @@ namespace Land_Readjustment_Tool.UI.CustomControls
                 : GetActiveTextAlignment();
             CanvasFeature? editTarget = _editingTextFeature;
 
+            if (editTarget?.Shape is TextShape editingTs)
+                editingTs.IsBeingEdited = false;
+
             _editingTextFeature = null;
             CancelActiveTextEditor();
 
@@ -1983,7 +2045,11 @@ namespace Land_Readjustment_Tool.UI.CustomControls
             if (editor == null)
                 return;
 
+            if (_editingTextFeature?.Shape is TextShape ts)
+                ts.IsBeingEdited = false;
+
             _textEditorCompleting = true;
+            _textEditorJustCancelled = true;
             editor.KeyDown -= ActiveTextEditor_KeyDown;
             editor.TextChanged -= ActiveTextEditor_TextChanged;
             editor.LostFocus -= ActiveTextEditor_LostFocus;
@@ -1992,6 +2058,7 @@ namespace Land_Readjustment_Tool.UI.CustomControls
             _activeTextEditor = null;
             _activeTextAnchorWorld = null;
             _textEditorCompleting = false;
+            BeginInvoke(() => _textEditorJustCancelled = false);
             UpdateStatusBar();
             RequestRender();
         }
@@ -2114,6 +2181,12 @@ namespace Land_Readjustment_Tool.UI.CustomControls
                 Enabled = false,
                 Font = new Font(SystemFonts.MenuFont ?? SystemFonts.DefaultFont, FontStyle.Bold)
             };
+                if (_suppressNextCanvasMouseDownAfterTextCancel)
+                {
+                    _suppressNextCanvasMouseDownAfterTextCancel = false;
+                    return;
+                }
+
             _drawingOptionsContextMenu.Items.Add(header);
         }
 
@@ -4465,6 +4538,12 @@ namespace Land_Readjustment_Tool.UI.CustomControls
                     DrawDiamondGrip(graphics, center, brush, pen);
                     break;
                 case SelectionGripGlyph.SegmentRectangle:
+                    if (grip.Kind == SelectionGripKind.ArcMidpoint)
+                    {
+                        DrawArcSegmentGrip(graphics, grip, center, brush, pen);
+                        break;
+                    }
+
                     DrawSegmentRectangleGrip(graphics, grip, center, brush, pen);
                     break;
                 default:
@@ -4523,6 +4602,56 @@ namespace Land_Readjustment_Tool.UI.CustomControls
             ];
             graphics.FillPolygon(brush, points);
             graphics.DrawPolygon(pen, points);
+        }
+
+        private void DrawArcSegmentGrip(Graphics graphics, SelectionGrip grip, PointF center, Brush brush, Pen pen)
+        {
+            ArcShape? arc = ArcShape.FromThreePoints(grip.SegmentStart, grip.Position, grip.SegmentEnd);
+            if (arc == null)
+            {
+                DrawSegmentRectangleGrip(graphics, grip, center, brush, pen);
+                return;
+            }
+
+            PointD centerScreenD = _engine.WorldToScreen(arc.Center);
+            PointD radiusScreenD = _engine.WorldToScreen(new PointD(arc.Center.X + arc.Radius, arc.Center.Y));
+            float centerX = (float)centerScreenD.X;
+            float centerY = (float)centerScreenD.Y;
+            float dx = (float)(radiusScreenD.X - centerScreenD.X);
+            float dy = (float)(radiusScreenD.Y - centerScreenD.Y);
+            float radius = (float)Math.Sqrt((dx * dx) + (dy * dy));
+            if (!float.IsFinite(centerX) ||
+                !float.IsFinite(centerY) ||
+                !float.IsFinite(radius) ||
+                radius <= 0.5f)
+            {
+                DrawSquareGrip(graphics, center, brush, pen);
+                return;
+            }
+
+            RectangleF bounds = new(
+                centerX - radius,
+                centerY - radius,
+                radius * 2.0f,
+                radius * 2.0f);
+            float startAngleDegrees = (float)(-arc.StartAngleRadians * 180.0 / Math.PI);
+            float sweepAngleDegrees = (float)(-arc.SweepAngleRadians * 180.0 / Math.PI);
+            if (!float.IsFinite(startAngleDegrees) ||
+                !float.IsFinite(sweepAngleDegrees) ||
+                Math.Abs(sweepAngleDegrees) < 0.001f)
+            {
+                DrawSquareGrip(graphics, center, brush, pen);
+                return;
+            }
+
+            using Pen arcPen = new(pen.Color, Math.Max(1.5f, GripSegmentThicknessPixels * 0.75f))
+            {
+                StartCap = LineCap.Round,
+                EndCap = LineCap.Round,
+                LineJoin = LineJoin.Round
+            };
+
+            graphics.DrawArc(arcPen, bounds, startAngleDegrees, sweepAngleDegrees);
         }
 
         private static bool SameSelectionGrip(SelectionGrip? first, SelectionGrip? second)
@@ -4952,8 +5081,39 @@ namespace Land_Readjustment_Tool.UI.CustomControls
 
         private void ObjectSelectionContextMenu_Opening(object? sender, CancelEventArgs e)
         {
+            bool hasSingleText = SelectionContainsSingleTextShape(out _);
+            _mnuEditText.Visible = hasSingleText;
             _mnuAssignParcelData.Enabled = SelectionContainsImportedCadastralParcel();
             _mnuDeleteSelectedObjects.Enabled = SelectionContainsEditableObject();
+        }
+
+        private bool SelectionContainsSingleTextShape(out CanvasFeature? textFeature)
+        {
+            var selected = _vectorFeatures
+                .Where(f => _selectedShapeIds.Contains(f.Shape.Id) && IsSelectableDrawingFeature(f))
+                .ToList();
+            if (selected.Count == 1 && selected[0].Shape is TextShape)
+            {
+                textFeature = selected[0];
+                return true;
+            }
+            textFeature = null;
+            return false;
+        }
+
+        private void BeginTextEditFromContextMenu()
+        {
+            if (!SelectionContainsSingleTextShape(out CanvasFeature? feature) ||
+                feature?.Shape is not TextShape textShape)
+                return;
+
+            Point screenCenter = canvasSurface.PointToClient(Cursor.Position);
+            if (textShape.LastRenderedBounds.HasValue)
+            {
+                var b = textShape.LastRenderedBounds.Value;
+                screenCenter = new Point((int)b.Left, (int)b.Top);
+            }
+            BeginTextEditExisting(feature, textShape, screenCenter);
         }
 
         private bool SelectionContainsImportedCadastralParcel()
@@ -5421,6 +5581,7 @@ namespace Land_Readjustment_Tool.UI.CustomControls
             double top = Math.Max(topLeft.Y, bottomRight.Y);
 
             _engine.ZoomToExtents(new RectangleD(left, bottom, right - left, top - bottom), padding: 1.0);
+            RefreshActiveTextEditorMetrics();
         }
 
         private void UpdateCanvasCursor()

@@ -164,7 +164,7 @@ namespace Land_Readjustment_Tool.UI.Forms
             ShowIcon = false;
             ShowInTaskbar = false;
             StartPosition = FormStartPosition.CenterParent;
-            Text = "Parcel Property Fields";
+            Text = "Object Property Fields";
             grpFields.ResumeLayout(false);
             grpFields.PerformLayout();
             pnlButtons.ResumeLayout(false);
