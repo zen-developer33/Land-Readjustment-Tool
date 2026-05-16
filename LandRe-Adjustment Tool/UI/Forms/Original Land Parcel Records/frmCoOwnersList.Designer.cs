@@ -119,6 +119,7 @@ namespace Land_Readjustment_Tool.Forms
             Text = "Co-Owners";
             ((System.ComponentModel.ISupportInitialize)dgv).EndInit();
             pnlButtons.ResumeLayout(false);
+            Land_Readjustment_Tool.UI.Forms.RecordFormTheme.Apply(this);
             ResumeLayout(false);
             PerformLayout();
         }

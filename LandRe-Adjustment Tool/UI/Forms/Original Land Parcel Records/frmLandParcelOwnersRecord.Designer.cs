@@ -1,4 +1,4 @@
-﻿namespace Land_Readjustment_Tool.Forms.LandOwnersRecord_Managerment
+namespace Land_Readjustment_Tool.Forms.LandOwnersRecord_Managerment
 {
     partial class frmLandParcelOwnersRecord
     {
@@ -753,6 +753,7 @@
             panel2.ResumeLayout(false);
             toolStrip1.ResumeLayout(false);
             toolStrip1.PerformLayout();
+            Land_Readjustment_Tool.UI.Forms.RecordFormTheme.Apply(this);
             ResumeLayout(false);
         }
 

@@ -59,6 +59,7 @@ namespace Land_Readjustment_Tool.Forms
             Text = "Unique Owners Preview";
             Load += frmUniqueOwnersPreview_Load;
             ((System.ComponentModel.ISupportInitialize)dgvUniqueOwners).EndInit();
+            Land_Readjustment_Tool.UI.Forms.RecordFormTheme.Apply(this);
             ResumeLayout(false);
         }
     }

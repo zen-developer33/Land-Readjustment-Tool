@@ -123,6 +123,7 @@ namespace Land_Readjustment_Tool.UI.MapCanvas.Services
                 : layers.Max(layer => layer.DisplayOrder) + 1;
 
             Color paletteColor = GetRandomPaletteColor();
+            bool isTextLayer = shape is TextShape;
             CanvasLayer newLayer = new()
             {
                 Name = normalizedName,
@@ -134,13 +135,18 @@ namespace Land_Readjustment_Tool.UI.MapCanvas.Services
                 DisplayOrder = nextDisplayOrder,
                 BorderColor = ToHtml(Darken(paletteColor, 0.58f)),
                 FillColor = ToHtml(paletteColor),
-                LineWeight = 1.0,
+                LineWeight = isTextLayer ? 0.0 : 1.0,
                 LineStyle = "Solid",
                 LineTypeScale = 1.0,
-                LabelColor = "#000000",
+                LabelColor = isTextLayer ? ToHtml(Darken(paletteColor, 0.58f)) : "#000000",
                 LabelFontName = "Nirmala UI",
-                LabelFontSize = 2.0,
-                LabelScaleWithZoom = true,
+                LabelFontSize = isTextLayer ? 10.0 : 2.0,
+                LabelScaleWithZoom = !isTextLayer,
+                TextAlignment = isTextLayer
+                    ? TextShape.NormalizeHorizontalAlignment(shape.Properties.TryGetValue("TextAlignment", out object? alignment)
+                        ? alignment?.ToString()
+                        : null)
+                    : "Left",
                 FillStyle = "Solid",
                 ShowFillTransparency = false,
                 FillTransparency = 50,

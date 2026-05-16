@@ -590,6 +590,7 @@
             groupBox1.PerformLayout();
             grpSummary.ResumeLayout(false);
             groupBox2.ResumeLayout(false);
+            Land_Readjustment_Tool.UI.Forms.RecordFormTheme.Apply(this);
             ResumeLayout(false);
             PerformLayout();
         }

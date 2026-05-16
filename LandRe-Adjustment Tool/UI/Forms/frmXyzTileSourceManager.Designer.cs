@@ -236,6 +236,7 @@ namespace Land_Readjustment_Tool.UI.Forms
             layout.ResumeLayout(false);
             ((System.ComponentModel.ISupportInitialize)dgvSources).EndInit();
             buttonLayout.ResumeLayout(false);
+            Land_Readjustment_Tool.UI.Forms.RecordFormTheme.Apply(this);
             ResumeLayout(false);
         }
     }

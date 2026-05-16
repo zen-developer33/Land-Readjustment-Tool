@@ -66,7 +66,7 @@ namespace Land_Readjustment_Tool.Services
             //   tblDatumTransformations (Nagarkot, Kalianpur, SurveyDept)
             //   tblPlotTypes (via migration seed if present)
             await context.Database.MigrateAsync();
-            await EnsureProjectSettingsCompatibilityColumnsAsync(context);
+            await ProjectDatabaseCompatibility.EnsureAsync(context);
 
             // Step 2 — Seed PlotTypes if not already seeded
             // (PlotTypes may not be in migrations on older versions)
@@ -155,7 +155,7 @@ namespace Land_Readjustment_Tool.Services
         {
             using var context = new AppDbContext(projectFilePath);
             await context.Database.MigrateAsync();
-            await EnsureProjectSettingsCompatibilityColumnsAsync(context);
+            await ProjectDatabaseCompatibility.EnsureAsync(context);
             return await context.ProjectInfo.FirstOrDefaultAsync();
         }
 
@@ -216,33 +216,5 @@ namespace Land_Readjustment_Tool.Services
             await context.SaveChangesAsync();
         }
 
-        private static async Task EnsureProjectSettingsCompatibilityColumnsAsync(
-            AppDbContext context)
-        {
-            HashSet<string> columns = new(StringComparer.OrdinalIgnoreCase);
-            await using var command = context.Database.GetDbConnection().CreateCommand();
-            command.CommandText = "PRAGMA table_info('tblProjectSettings');";
-
-            if (command.Connection?.State != System.Data.ConnectionState.Open)
-                await context.Database.OpenConnectionAsync();
-
-            await using (var reader = await command.ExecuteReaderAsync())
-            {
-                while (await reader.ReadAsync())
-                    columns.Add(reader.GetString(1));
-            }
-
-            if (!columns.Contains("CanvasZoomBehavior"))
-            {
-                await context.Database.ExecuteSqlRawAsync(
-                    "ALTER TABLE tblProjectSettings ADD COLUMN CanvasZoomBehavior TEXT NOT NULL DEFAULT 'StandardScaleSteps';");
-            }
-
-            if (!columns.Contains("CanvasGridMode"))
-            {
-                await context.Database.ExecuteSqlRawAsync(
-                    "ALTER TABLE tblProjectSettings ADD COLUMN CanvasGridMode TEXT NOT NULL DEFAULT 'MajorOnly';");
-            }
-        }
     }
 }

@@ -1,4 +1,4 @@
-﻿namespace Land_Readjustment_Tool.Forms
+namespace Land_Readjustment_Tool.Forms
 {
     partial class frmOwnerDocuments
     {
@@ -160,6 +160,7 @@
             toolStrip1.ResumeLayout(false);
             toolStrip1.PerformLayout();
             ((System.ComponentModel.ISupportInitialize)dgvDocuments).EndInit();
+            Land_Readjustment_Tool.UI.Forms.RecordFormTheme.Apply(this);
             ResumeLayout(false);
         }
 

@@ -331,9 +331,11 @@ namespace Land_Readjustment_Tool.UI.MapCanvas.Services
             if (objectType.Equals("Text", StringComparison.OrdinalIgnoreCase) &&
                 simplified is NtsPoint textPoint)
             {
+                string textAlignment = ReadTextAlignment(metadataJson);
                 return new TextShape(
                     new PointD(textPoint.X, textPoint.Y),
-                    labelText ?? string.Empty);
+                    labelText ?? string.Empty,
+                    horizontalAlignment: textAlignment);
             }
 
             return simplified switch
@@ -519,6 +521,12 @@ namespace Land_Readjustment_Tool.UI.MapCanvas.Services
                         arc.StartAngleRadians,
                         arc.SweepAngleRadians)),
                     PolylineShape polyline => CreatePolylineMetadataJson(polyline),
+                    TextShape text => JsonSerializer.Serialize(new TextMetadata(
+                        "Text",
+                        TextShape.NormalizeHorizontalAlignment(
+                            text.Properties.TryGetValue("TextAlignment", out object? alignment)
+                                ? alignment?.ToString()
+                                : text.HorizontalAlignment))),
                     _ => null
                 };
             }
@@ -819,6 +827,10 @@ namespace Land_Readjustment_Tool.UI.MapCanvas.Services
             bool IsClosed,
             List<PolylineSegmentMetadata> Segments);
 
+        private sealed record TextMetadata(
+            string ShapeType,
+            string Alignment);
+
         private sealed record PolylineSegmentMetadata(
             string Kind,
             double StartX,
@@ -889,6 +901,28 @@ namespace Land_Readjustment_Tool.UI.MapCanvas.Services
         {
             result = 0;
             return value != null && int.TryParse(value.ToString(), out result);
+        }
+
+        private static string ReadTextAlignment(string? metadataJson)
+        {
+            if (string.IsNullOrWhiteSpace(metadataJson))
+            {
+                return "Left";
+            }
+
+            try
+            {
+                TextMetadata? metadata = JsonSerializer.Deserialize<TextMetadata>(
+                    metadataJson,
+                    MetadataJsonOptions);
+                return metadata?.ShapeType.Equals("Text", StringComparison.OrdinalIgnoreCase) == true
+                    ? TextShape.NormalizeHorizontalAlignment(metadata.Alignment)
+                    : "Left";
+            }
+            catch
+            {
+                return "Left";
+            }
         }
 
         private static bool NearlyEqual(double a, double b)

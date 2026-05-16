@@ -270,6 +270,7 @@ namespace Land_Readjustment_Tool.Forms
             ((System.ComponentModel.ISupportInitialize)dgvGroups).EndInit();
             ((System.ComponentModel.ISupportInitialize)dgvOwners).EndInit();
             pnlButtons.ResumeLayout(false);
+            Land_Readjustment_Tool.UI.Forms.RecordFormTheme.Apply(this);
             ResumeLayout(false);
         }
 

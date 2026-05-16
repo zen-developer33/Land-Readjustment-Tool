@@ -213,6 +213,7 @@ namespace Land_Readjustment_Tool.Services.Canvas
                 LabelColor = source.LabelColor,
                 LabelField = source.LabelField,
                 LabelScaleWithZoom = source.LabelScaleWithZoom,
+                TextAlignment = source.TextAlignment,
                 PointSymbol = source.PointSymbol,
                 PointSize = source.PointSize,
                 SourceFile = source.SourceFile,

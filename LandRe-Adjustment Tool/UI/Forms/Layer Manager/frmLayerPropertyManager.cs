@@ -101,9 +101,35 @@ namespace Land_Readjustment_Tool.UI.Forms
                 : (decimal)Layer.LabelFontSize;
             _numFontSize.Value = ClampDecimal(labelFontSize, _numFontSize);
             _pnlLabelColor.BackColor = ParseColorOrDefault(Layer.LabelColor, Color.Black);
-            SetComboText(_cboLabelField, Layer.LabelField ?? string.Empty);
+            SetComboText(_cboTextAlignment, NormalizeTextAlignment(Layer.TextAlignment));
             _rdoFontScalesWithZoom.Checked = Layer.LabelScaleWithZoom;
             _rdoFontFixedSize.Checked = !Layer.LabelScaleWithZoom;
+
+            // Label source: "static:text" = fixed text, anything else = from object data.
+            string? labelField = Layer.LabelField;
+            if (!string.IsNullOrEmpty(labelField) &&
+                labelField.StartsWith("static:", StringComparison.OrdinalIgnoreCase))
+            {
+                _rdoLabelFixed.Checked = true;
+                _txtLabelFixedText.Text = labelField["static:".Length..];
+            }
+            else
+            {
+                _rdoLabelFromField.Checked = true;
+                SetComboText(_cboLabelField, labelField ?? string.Empty);
+            }
+
+            // Annotation default text (shown in the General tab for annotation layers).
+            string? annotationStaticField = Layer.LabelField;
+            if (!string.IsNullOrEmpty(annotationStaticField) &&
+                annotationStaticField.StartsWith("static:", StringComparison.OrdinalIgnoreCase))
+            {
+                _txtAnnotationText.Text = annotationStaticField["static:".Length..];
+            }
+
+            UpdateLabelSourceControlVisibility();
+            _rdoLabelFixed.CheckedChanged += (_, _) => UpdateLabelSourceControlVisibility();
+            _rdoLabelFromField.CheckedChanged += (_, _) => UpdateLabelSourceControlVisibility();
         }
 
         /// <summary>
@@ -460,6 +486,7 @@ namespace Land_Readjustment_Tool.UI.Forms
             _numFontSize.Enabled = canEdit;
             _pnlLabelColor.Enabled = canEdit;
             _btnLabelColor.Enabled = canEdit;
+            _cboTextAlignment.Enabled = canEdit && isAnnotation;
             _cboLabelField.Enabled = canEdit;
             _fontScalingPanel.Enabled = canEdit;
             _rdoFontFixedSize.Enabled = canEdit;
@@ -585,10 +612,30 @@ namespace Land_Readjustment_Tool.UI.Forms
                     : _txtFontName.Text.Trim();
                 Layer.LabelFontSize = (double)_numFontSize.Value;
                 Layer.LabelColor = ColorTranslator.ToHtml(_pnlLabelColor.BackColor);
-                Layer.LabelField = selectedAnnotation || string.IsNullOrWhiteSpace(_cboLabelField.Text)
-                    ? null
-                    : _cboLabelField.Text.Trim();
+                Layer.TextAlignment = NormalizeTextAlignment(_cboTextAlignment.Text);
                 Layer.LabelScaleWithZoom = !selectedAnnotation && _rdoFontScalesWithZoom.Checked;
+
+                if (selectedAnnotation)
+                {
+                    // Annotation (text) layer — store optional default text in LabelField.
+                    string defaultText = _txtAnnotationText.Text.Trim();
+                    Layer.LabelField = string.IsNullOrEmpty(defaultText)
+                        ? null
+                        : $"static:{defaultText}";
+                }
+                else if (_rdoLabelFixed.Checked)
+                {
+                    string fixedText = _txtLabelFixedText.Text.Trim();
+                    Layer.LabelField = string.IsNullOrEmpty(fixedText)
+                        ? null
+                        : $"static:{fixedText}";
+                }
+                else
+                {
+                    Layer.LabelField = string.IsNullOrWhiteSpace(_cboLabelField.Text)
+                        ? null
+                        : _cboLabelField.Text.Trim();
+                }
 
                 if (selectedAnnotation)
                 {
@@ -754,8 +801,10 @@ namespace Land_Readjustment_Tool.UI.Forms
                 MoveControlToLayout(_generalLayout, _numFontSize, 1, 3);
                 MoveControlToLayout(_generalLayout, _lblTextColor, 0, 4);
                 MoveControlToLayout(_generalLayout, _labelColorPanel, 1, 4);
-                MoveControlToLayout(_generalLayout, _lblState, 0, 5);
-                MoveControlToLayout(_generalLayout, _statePanel, 1, 5);
+                MoveControlToLayout(_generalLayout, _lblTextAlignment, 0, 5);
+                MoveControlToLayout(_generalLayout, _cboTextAlignment, 1, 5);
+                MoveControlToLayout(_generalLayout, _lblState, 0, 6);
+                MoveControlToLayout(_generalLayout, _statePanel, 1, 6);
 
                 SetControlVisible(_lblFont, true);
                 SetControlVisible(_fontPanel, true);
@@ -763,18 +812,26 @@ namespace Land_Readjustment_Tool.UI.Forms
                 SetControlVisible(_numFontSize, true);
                 SetControlVisible(_lblTextColor, true);
                 SetControlVisible(_labelColorPanel, true);
+                SetControlVisible(_lblTextAlignment, true);
+                SetControlVisible(_cboTextAlignment, true);
                 SetControlVisible(_lblLabels, false);
                 SetControlVisible(_chkShowLabels, false);
                 SetControlVisible(_lblLabelField, false);
                 SetControlVisible(_cboLabelField, false);
+                SetControlVisible(_lblLabelSource, false);
+                SetControlVisible(_labelSourcePanel, false);
+                SetControlVisible(_lblLabelFixedText, false);
+                SetControlVisible(_txtLabelFixedText, false);
                 SetControlVisible(_lblFontScaling, false);
                 SetControlVisible(_fontScalingPanel, false);
+                SetControlVisible(_lblAnnotationText, true);
+                SetControlVisible(_txtAnnotationText, true);
 
                 SetGeneralRowHeight(2, 38F);
                 SetGeneralRowHeight(3, 38F);
                 SetGeneralRowHeight(4, 38F);
                 SetGeneralRowHeight(5, 38F);
-                SetGeneralRowHeight(6, 0F);
+                SetGeneralRowHeight(6, 38F);
                 SetGeneralRowHeight(7, 0F);
                 SetGeneralRowHeight(8, 0F);
                 return;
@@ -789,6 +846,16 @@ namespace Land_Readjustment_Tool.UI.Forms
             MoveControlToLayout(_labelLayout, _numFontSize, 1, 2);
             MoveControlToLayout(_labelLayout, _lblTextColor, 0, 3);
             MoveControlToLayout(_labelLayout, _labelColorPanel, 1, 3);
+            MoveControlToLayout(_labelLayout, _lblTextAlignment, 0, 4);
+            MoveControlToLayout(_labelLayout, _cboTextAlignment, 1, 4);
+            MoveControlToLayout(_labelLayout, _lblLabelSource, 0, 5);
+            MoveControlToLayout(_labelLayout, _labelSourcePanel, 1, 5);
+            MoveControlToLayout(_labelLayout, _lblLabelField, 0, 6);
+            MoveControlToLayout(_labelLayout, _cboLabelField, 1, 6);
+            MoveControlToLayout(_labelLayout, _lblLabelFixedText, 0, 7);
+            MoveControlToLayout(_labelLayout, _txtLabelFixedText, 1, 7);
+            MoveControlToLayout(_labelLayout, _lblFontScaling, 0, 8);
+            MoveControlToLayout(_labelLayout, _fontScalingPanel, 1, 8);
             MoveControlToLayout(_generalLayout, _lblState, 0, 7);
             MoveControlToLayout(_generalLayout, _statePanel, 1, 7);
 
@@ -798,12 +865,17 @@ namespace Land_Readjustment_Tool.UI.Forms
             SetControlVisible(_numFontSize, true);
             SetControlVisible(_lblTextColor, true);
             SetControlVisible(_labelColorPanel, true);
+            SetControlVisible(_lblTextAlignment, false);
+            SetControlVisible(_cboTextAlignment, false);
             SetControlVisible(_lblLabels, true);
             SetControlVisible(_chkShowLabels, true);
-            SetControlVisible(_lblLabelField, true);
-            SetControlVisible(_cboLabelField, true);
+            SetControlVisible(_lblLabelSource, true);
+            SetControlVisible(_labelSourcePanel, true);
             SetControlVisible(_lblFontScaling, true);
             SetControlVisible(_fontScalingPanel, true);
+            SetControlVisible(_lblAnnotationText, false);
+            SetControlVisible(_txtAnnotationText, false);
+            UpdateLabelSourceControlVisibility();
 
             SetGeneralRowHeight(2, 38F);
             SetGeneralRowHeight(3, 38F);
@@ -915,6 +987,25 @@ namespace Land_Readjustment_Tool.UI.Forms
                 "DOT" => "DOTTED",
                 _ => normalized
             };
+        }
+
+        private static string NormalizeTextAlignment(string? alignment)
+        {
+            return alignment?.Trim().ToLowerInvariant() switch
+            {
+                "center" or "centre" or "middle" => "Center",
+                "right" => "Right",
+                _ => "Left"
+            };
+        }
+
+        private void UpdateLabelSourceControlVisibility()
+        {
+            bool isFixed = _rdoLabelFixed.Checked;
+            SetControlVisible(_lblLabelField, !isFixed);
+            SetControlVisible(_cboLabelField, !isFixed);
+            SetControlVisible(_lblLabelFixedText, isFixed);
+            SetControlVisible(_txtLabelFixedText, isFixed);
         }
 
         private static void SetControlVisible(Control control, bool visible)

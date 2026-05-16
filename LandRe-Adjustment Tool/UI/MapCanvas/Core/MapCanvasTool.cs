@@ -9,6 +9,7 @@ namespace Land_Readjustment_Tool.UI.MapCanvas.Core
         Polygon,
         Rectangle,
         Circle,
-        Arc
+        Arc,
+        Text
     }
 }

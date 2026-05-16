@@ -118,6 +118,10 @@ namespace Land_Readjustment_Tool.Data
                 .Property(layer => layer.LabelScaleWithZoom)
                 .HasDefaultValue(true);
 
+            modelBuilder.Entity<CanvasLayer>()
+                .Property(layer => layer.TextAlignment)
+                .HasDefaultValue("Left");
+
             modelBuilder.Entity<CanvasObject>()
                 .Property(canvasObject => canvasObject.IsLocked)
                 .HasDefaultValue(false);

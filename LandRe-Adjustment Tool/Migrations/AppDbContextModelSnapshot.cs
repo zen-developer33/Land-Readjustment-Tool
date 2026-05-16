@@ -131,6 +131,12 @@ namespace Land_Readjustment_Tool.Migrations
                     b.Property<string>("SourceFile")
                         .HasColumnType("TEXT");
 
+                    b.Property<string>("TextAlignment")
+                        .IsRequired()
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("TEXT")
+                        .HasDefaultValue("Left");
+
                     b.HasKey("Id");
 
                     b.ToTable("tblCanvasLayers");

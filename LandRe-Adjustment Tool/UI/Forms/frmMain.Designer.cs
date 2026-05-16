@@ -164,6 +164,7 @@ namespace Land_Readjustment_Tool
             mnuDrawPolygon = new ToolStripButton();
             mnuDrawCircle = new ToolStripButton();
             mnuDrawArc = new ToolStripButton();
+            mnuDrawText = new ToolStripButton();
             toolStripSeparator17 = new ToolStripSeparator();
             lblCurrentDrawingLayer = new ToolStripLabel();
             cboCurrentDrawingLayer = new ToolStripComboBox();
@@ -1251,7 +1252,7 @@ namespace Land_Readjustment_Tool
             tsCanvasTools.Font = new Font("Segoe UI", 9F);
             tsCanvasTools.GripStyle = ToolStripGripStyle.Hidden;
             tsCanvasTools.ImageScalingSize = new Size(20, 20);
-            tsCanvasTools.Items.AddRange(new ToolStripItem[] { tsmExpandCollapseLeftPanel, toolStripSeparator10, mnuSelectTool, mnuDrawPoint, mnuDrawLine, mnuDrawPolyline, mnuDrawRectangle, mnuDrawPolygon, mnuDrawCircle, mnuDrawArc, toolStripSeparator17, lblCurrentDrawingLayer, cboCurrentDrawingLayer, mnuCanvasDebugOverlay, toolStripLabel1, tsmExpandCollapseRightPanel, mnuOrthoToggle, toolStripSeparator11, mnuOSnapToggle });
+            tsCanvasTools.Items.AddRange(new ToolStripItem[] { tsmExpandCollapseLeftPanel, toolStripSeparator10, mnuSelectTool, mnuDrawPoint, mnuDrawLine, mnuDrawPolyline, mnuDrawRectangle, mnuDrawPolygon, mnuDrawCircle, mnuDrawArc, mnuDrawText, toolStripSeparator17, lblCurrentDrawingLayer, cboCurrentDrawingLayer, mnuCanvasDebugOverlay, toolStripLabel1, tsmExpandCollapseRightPanel, mnuOrthoToggle, toolStripSeparator11, mnuOSnapToggle });
             tsCanvasTools.Location = new Point(0, 0);
             tsCanvasTools.Name = "tsCanvasTools";
             tsCanvasTools.Size = new Size(905, 28);
@@ -1365,6 +1366,17 @@ namespace Land_Readjustment_Tool
             mnuDrawArc.Text = "Arc";
             mnuDrawArc.ToolTipText = "Draw 3-Point Arc";
             mnuDrawArc.Click += mnuDrawArc_Click;
+            // 
+            // mnuDrawText
+            // 
+            mnuDrawText.CheckOnClick = true;
+            mnuDrawText.DisplayStyle = ToolStripItemDisplayStyle.Text;
+            mnuDrawText.ImageTransparentColor = Color.Magenta;
+            mnuDrawText.Name = "mnuDrawText";
+            mnuDrawText.Size = new Size(38, 25);
+            mnuDrawText.Text = "Text";
+            mnuDrawText.ToolTipText = "Draw Single Line Text";
+            mnuDrawText.Click += mnuDrawText_Click;
             // 
             // toolStripSeparator17
             // 
@@ -2100,6 +2112,7 @@ namespace Land_Readjustment_Tool
         private ToolStripButton mnuDrawRectangle;
         private ToolStripButton mnuDrawCircle;
         private ToolStripButton mnuDrawArc;
+        private ToolStripButton mnuDrawText;
         private ToolStripButton mnuCanvasDebugOverlay;
         private ToolStripButton mnuOSnapToggle;
         private ToolStripButton mnuOrthoToggle;

@@ -668,6 +668,7 @@ namespace Land_Readjustment_Tool.Forms
             SCImportManager.ResumeLayout(false);
             pnlStepStatus.ResumeLayout(false);
             pnlStepStatus.PerformLayout();
+            Land_Readjustment_Tool.UI.Forms.RecordFormTheme.Apply(this);
             ResumeLayout(false);
             PerformLayout();
         }

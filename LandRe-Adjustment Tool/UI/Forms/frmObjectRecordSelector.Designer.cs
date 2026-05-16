@@ -567,6 +567,7 @@ namespace Land_Readjustment_Tool.UI.Forms
             footerPanel.ResumeLayout(false);
             footerPanel.PerformLayout();
             actionPanel.ResumeLayout(false);
+            Land_Readjustment_Tool.UI.Forms.RecordFormTheme.Apply(this);
             ResumeLayout(false);
         }
     }

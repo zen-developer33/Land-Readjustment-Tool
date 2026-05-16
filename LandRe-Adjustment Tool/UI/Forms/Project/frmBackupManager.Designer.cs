@@ -1,4 +1,4 @@
-﻿namespace Land_Readjustment_Tool.Forms
+namespace Land_Readjustment_Tool.Forms
 {
     partial class frmBackupManager
     {
@@ -118,6 +118,7 @@
             StartPosition = FormStartPosition.CenterParent;
             Text = "Restore from Backup";
             Load += frmBackupManager_Load;
+            Land_Readjustment_Tool.UI.Forms.RecordFormTheme.Apply(this);
             ResumeLayout(false);
             PerformLayout();
 

@@ -104,6 +104,7 @@ namespace Land_Readjustment_Tool.Forms
             pnlTop.ResumeLayout(false);
             pnlTop.PerformLayout();
             ((System.ComponentModel.ISupportInitialize)dgvParcels).EndInit();
+            Land_Readjustment_Tool.UI.Forms.RecordFormTheme.Apply(this);
             ResumeLayout(false);
         }
 

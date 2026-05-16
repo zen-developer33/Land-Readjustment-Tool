@@ -42,6 +42,7 @@ namespace Land_Readjustment_Tool.UI.Forms
         private Label _lblFont = null!;
         private Label _lblFontSize = null!;
         private Label _lblTextColor = null!;
+        private Label _lblTextAlignment = null!;
         private Label _lblLabelField = null!;
         private Label _lblFontScaling = null!;
 
@@ -70,9 +71,18 @@ namespace Land_Readjustment_Tool.UI.Forms
         private Button _btnFont = null!;
         private NumericUpDown _numFontSize = null!;
         private Panel _pnlLabelColor = null!;
+        private ComboBox _cboTextAlignment = null!;
         private ComboBox _cboLabelField = null!;
         private RadioButton _rdoFontFixedSize = null!;
         private RadioButton _rdoFontScalesWithZoom = null!;
+        private RadioButton _rdoLabelFromField = null!;
+        private RadioButton _rdoLabelFixed = null!;
+        private FlowLayoutPanel _labelSourcePanel = null!;
+        private TextBox _txtLabelFixedText = null!;
+        private Label _lblLabelSource = null!;
+        private Label _lblLabelFixedText = null!;
+        private Label _lblAnnotationText = null!;
+        private TextBox _txtAnnotationText = null!;
         private Button _btnBorderColor = null!;
         private Button _btnFillColor = null!;
         private Button _btnHatchPattern = null!;
@@ -156,12 +166,22 @@ namespace Land_Readjustment_Tool.UI.Forms
             _labelColorPanel = new FlowLayoutPanel();
             _pnlLabelColor = new Panel();
             _btnLabelColor = new Button();
+            _lblTextAlignment = new Label();
+            _cboTextAlignment = new ComboBox();
             _lblLabelField = new Label();
             _cboLabelField = new ComboBox();
             _lblFontScaling = new Label();
             _fontScalingPanel = new FlowLayoutPanel();
             _rdoFontFixedSize = new RadioButton();
             _rdoFontScalesWithZoom = new RadioButton();
+            _lblLabelSource = new Label();
+            _labelSourcePanel = new FlowLayoutPanel();
+            _rdoLabelFromField = new RadioButton();
+            _rdoLabelFixed = new RadioButton();
+            _lblLabelFixedText = new Label();
+            _txtLabelFixedText = new TextBox();
+            _lblAnnotationText = new Label();
+            _txtAnnotationText = new TextBox();
             _footerPanel = new FlowLayoutPanel();
             _btnOk = new Button();
             _btnCancel = new Button();
@@ -835,22 +855,33 @@ namespace Land_Readjustment_Tool.UI.Forms
             _labelLayout.Controls.Add(_numFontSize, 1, 2);
             _labelLayout.Controls.Add(_lblTextColor, 0, 3);
             _labelLayout.Controls.Add(_labelColorPanel, 1, 3);
-            _labelLayout.Controls.Add(_lblLabelField, 0, 4);
-            _labelLayout.Controls.Add(_cboLabelField, 1, 4);
-            _labelLayout.Controls.Add(_lblFontScaling, 0, 5);
-            _labelLayout.Controls.Add(_fontScalingPanel, 1, 5);
+            _labelLayout.Controls.Add(_lblTextAlignment, 0, 4);
+            _labelLayout.Controls.Add(_cboTextAlignment, 1, 4);
+            _labelLayout.Controls.Add(_lblLabelSource, 0, 5);
+            _labelLayout.Controls.Add(_labelSourcePanel, 1, 5);
+            _labelLayout.Controls.Add(_lblLabelField, 0, 6);
+            _labelLayout.Controls.Add(_cboLabelField, 1, 6);
+            _labelLayout.Controls.Add(_lblLabelFixedText, 0, 7);
+            _labelLayout.Controls.Add(_txtLabelFixedText, 1, 7);
+            _labelLayout.Controls.Add(_lblFontScaling, 0, 8);
+            _labelLayout.Controls.Add(_fontScalingPanel, 1, 8);
+            _labelLayout.Controls.Add(_lblAnnotationText, 0, 9);
+            _labelLayout.Controls.Add(_txtAnnotationText, 1, 9);
             _labelLayout.Dock = DockStyle.Fill;
             _labelLayout.Location = new Point(12, 12);
             _labelLayout.Name = "_labelLayout";
-            _labelLayout.RowCount = 8;
-            _labelLayout.RowStyles.Add(new RowStyle(SizeType.Absolute, 38F));
-            _labelLayout.RowStyles.Add(new RowStyle(SizeType.Absolute, 38F));
-            _labelLayout.RowStyles.Add(new RowStyle(SizeType.Absolute, 38F));
-            _labelLayout.RowStyles.Add(new RowStyle(SizeType.Absolute, 38F));
-            _labelLayout.RowStyles.Add(new RowStyle(SizeType.Absolute, 38F));
-            _labelLayout.RowStyles.Add(new RowStyle(SizeType.Absolute, 38F));
-            _labelLayout.RowStyles.Add(new RowStyle(SizeType.Absolute, 38F));
-            _labelLayout.RowStyles.Add(new RowStyle(SizeType.Percent, 100F));
+            _labelLayout.RowCount = 11;
+            _labelLayout.RowStyles.Add(new RowStyle(SizeType.Absolute, 38F)); // 0 Show Labels
+            _labelLayout.RowStyles.Add(new RowStyle(SizeType.Absolute, 38F)); // 1 Font
+            _labelLayout.RowStyles.Add(new RowStyle(SizeType.Absolute, 38F)); // 2 Font size
+            _labelLayout.RowStyles.Add(new RowStyle(SizeType.Absolute, 38F)); // 3 Text color
+            _labelLayout.RowStyles.Add(new RowStyle(SizeType.Absolute, 38F)); // 4 Text alignment
+            _labelLayout.RowStyles.Add(new RowStyle(SizeType.Absolute, 38F)); // 5 Label from (radio)
+            _labelLayout.RowStyles.Add(new RowStyle(SizeType.Absolute, 38F)); // 6 Label field dropdown
+            _labelLayout.RowStyles.Add(new RowStyle(SizeType.Absolute, 38F)); // 7 Fixed text input
+            _labelLayout.RowStyles.Add(new RowStyle(SizeType.Absolute, 38F)); // 8 Font scaling
+            _labelLayout.RowStyles.Add(new RowStyle(SizeType.Absolute, 38F)); // 9 Annotation default text
+            _labelLayout.RowStyles.Add(new RowStyle(SizeType.Percent, 100F)); // 10 remainder
             _labelLayout.Size = new Size(425, 326);
             _labelLayout.TabIndex = 0;
             // 
@@ -991,13 +1022,33 @@ namespace Land_Readjustment_Tool.UI.Forms
             _btnLabelColor.UseVisualStyleBackColor = true;
             _btnLabelColor.Click += btnLabelColor_Click;
             // 
+            // _lblTextAlignment
+            // 
+            _lblTextAlignment.Dock = DockStyle.Fill;
+            _lblTextAlignment.Location = new Point(3, 152);
+            _lblTextAlignment.Name = "_lblTextAlignment";
+            _lblTextAlignment.Size = new Size(104, 38);
+            _lblTextAlignment.TabIndex = 8;
+            _lblTextAlignment.Text = "Alignment";
+            _lblTextAlignment.TextAlign = ContentAlignment.MiddleLeft;
+            // 
+            // _cboTextAlignment
+            // 
+            _cboTextAlignment.DropDownStyle = ComboBoxStyle.DropDownList;
+            _cboTextAlignment.Items.AddRange(new object[] { "Left", "Center", "Right" });
+            _cboTextAlignment.Location = new Point(110, 156);
+            _cboTextAlignment.Margin = new Padding(0, 4, 0, 4);
+            _cboTextAlignment.Name = "_cboTextAlignment";
+            _cboTextAlignment.Size = new Size(160, 28);
+            _cboTextAlignment.TabIndex = 9;
+            // 
             // _lblLabelField
             // 
             _lblLabelField.Dock = DockStyle.Fill;
-            _lblLabelField.Location = new Point(3, 152);
+            _lblLabelField.Location = new Point(3, 190);
             _lblLabelField.Name = "_lblLabelField";
             _lblLabelField.Size = new Size(104, 38);
-            _lblLabelField.TabIndex = 8;
+            _lblLabelField.TabIndex = 10;
             _lblLabelField.Text = "Label Style";
             _lblLabelField.TextAlign = ContentAlignment.MiddleLeft;
             // 
@@ -1005,19 +1056,19 @@ namespace Land_Readjustment_Tool.UI.Forms
             // 
             _cboLabelField.Dock = DockStyle.Fill;
             _cboLabelField.Items.AddRange(new object[] { "ParcelNo", "ParcelNo + AreaSqm", "ParcelNo + AreaRAPD", "MapSheet + ParcelNo + AreaSqm", "MapSheet + ParcelNo + AreaRAPD", "ParcelNo + OwnerName", "ParcelNo + LandUse", "MapSheetNo", "MapSheetParcelNo", "OwnerName", "AreaSqm", "CalculatedAreaSqm", "AreaRAPD", "AreaBKD", "LandUse", "PlotNumber", "AssignmentStatus", "SourceLayer", "LabelText", "ObjectDescription", "template:{ParcelNo}\\nArea: {AreaSqm} sq.m" });
-            _cboLabelField.Location = new Point(110, 156);
+            _cboLabelField.Location = new Point(110, 194);
             _cboLabelField.Margin = new Padding(0, 4, 0, 4);
             _cboLabelField.Name = "_cboLabelField";
             _cboLabelField.Size = new Size(315, 28);
-            _cboLabelField.TabIndex = 9;
+            _cboLabelField.TabIndex = 11;
             //
             // _lblFontScaling
             //
             _lblFontScaling.Dock = DockStyle.Fill;
-            _lblFontScaling.Location = new Point(3, 190);
+            _lblFontScaling.Location = new Point(3, 228);
             _lblFontScaling.Name = "_lblFontScaling";
             _lblFontScaling.Size = new Size(104, 38);
-            _lblFontScaling.TabIndex = 10;
+            _lblFontScaling.TabIndex = 12;
             _lblFontScaling.Text = "Font Scaling";
             _lblFontScaling.TextAlign = ContentAlignment.MiddleLeft;
             //
@@ -1026,11 +1077,11 @@ namespace Land_Readjustment_Tool.UI.Forms
             _fontScalingPanel.Controls.Add(_rdoFontFixedSize);
             _fontScalingPanel.Controls.Add(_rdoFontScalesWithZoom);
             _fontScalingPanel.Dock = DockStyle.Fill;
-            _fontScalingPanel.Location = new Point(110, 190);
+            _fontScalingPanel.Location = new Point(110, 228);
             _fontScalingPanel.Margin = new Padding(0);
             _fontScalingPanel.Name = "_fontScalingPanel";
             _fontScalingPanel.Size = new Size(315, 38);
-            _fontScalingPanel.TabIndex = 11;
+            _fontScalingPanel.TabIndex = 13;
             _fontScalingPanel.WrapContents = false;
             //
             // _rdoFontFixedSize
@@ -1056,9 +1107,71 @@ namespace Land_Readjustment_Tool.UI.Forms
             _rdoFontScalesWithZoom.TabStop = true;
             _rdoFontScalesWithZoom.Text = "Scale with zoom";
             _rdoFontScalesWithZoom.UseVisualStyleBackColor = true;
-            // 
+            //
+            // _lblLabelSource
+            //
+            _lblLabelSource.Dock = DockStyle.Fill;
+            _lblLabelSource.Name = "_lblLabelSource";
+            _lblLabelSource.Text = "Label from";
+            _lblLabelSource.TextAlign = ContentAlignment.MiddleLeft;
+            //
+            // _labelSourcePanel
+            //
+            _labelSourcePanel.Controls.Add(_rdoLabelFromField);
+            _labelSourcePanel.Controls.Add(_rdoLabelFixed);
+            _labelSourcePanel.Dock = DockStyle.Fill;
+            _labelSourcePanel.Name = "_labelSourcePanel";
+            _labelSourcePanel.WrapContents = false;
+            _labelSourcePanel.Margin = new Padding(0);
+            //
+            // _rdoLabelFromField
+            //
+            _rdoLabelFromField.AutoSize = true;
+            _rdoLabelFromField.Checked = true;
+            _rdoLabelFromField.TabStop = true;
+            _rdoLabelFromField.Margin = new Padding(0, 7, 18, 0);
+            _rdoLabelFromField.Name = "_rdoLabelFromField";
+            _rdoLabelFromField.Text = "Object data";
+            _rdoLabelFromField.UseVisualStyleBackColor = true;
+            //
+            // _rdoLabelFixed
+            //
+            _rdoLabelFixed.AutoSize = true;
+            _rdoLabelFixed.Margin = new Padding(0, 7, 0, 0);
+            _rdoLabelFixed.Name = "_rdoLabelFixed";
+            _rdoLabelFixed.Text = "Fixed text";
+            _rdoLabelFixed.UseVisualStyleBackColor = true;
+            //
+            // _lblLabelFixedText
+            //
+            _lblLabelFixedText.Dock = DockStyle.Fill;
+            _lblLabelFixedText.Name = "_lblLabelFixedText";
+            _lblLabelFixedText.Text = "Fixed text";
+            _lblLabelFixedText.TextAlign = ContentAlignment.MiddleLeft;
+            //
+            // _txtLabelFixedText
+            //
+            _txtLabelFixedText.Dock = DockStyle.Fill;
+            _txtLabelFixedText.Margin = new Padding(0, 4, 0, 4);
+            _txtLabelFixedText.Name = "_txtLabelFixedText";
+            _txtLabelFixedText.PlaceholderText = "Text shown on every object";
+            //
+            // _lblAnnotationText
+            //
+            _lblAnnotationText.Dock = DockStyle.Fill;
+            _lblAnnotationText.Name = "_lblAnnotationText";
+            _lblAnnotationText.Text = "Default text";
+            _lblAnnotationText.TextAlign = ContentAlignment.MiddleLeft;
+            //
+            // _txtAnnotationText
+            //
+            _txtAnnotationText.Dock = DockStyle.Fill;
+            _txtAnnotationText.Margin = new Padding(0, 4, 0, 4);
+            _txtAnnotationText.Name = "_txtAnnotationText";
+            _txtAnnotationText.PlaceholderText = "Text placed when clicking (optional)";
+            //
             // _footerPanel
-            // 
+            //
             _footerPanel.Controls.Add(_btnOk);
             _footerPanel.Controls.Add(_btnCancel);
             _footerPanel.Dock = DockStyle.Bottom;

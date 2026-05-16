@@ -18,6 +18,7 @@ namespace Land_Readjustment_Tool.UI.CustomControls
                 DisposeRasterRenderLayers();
                 _rasterDeferredRenderer?.Dispose();
                 _renderer?.Dispose();
+                _activeTextEditor?.Dispose();
                 _panCursor?.Dispose();
                 _debugOverlayFont?.Dispose();
             }

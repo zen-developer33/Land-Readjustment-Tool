@@ -392,6 +392,7 @@ namespace Land_Readjustment_Tool.Forms
             grpComparison.ResumeLayout(false);
             grpComparison.PerformLayout();
             ((System.ComponentModel.ISupportInitialize)dgvGroupOwners).EndInit();
+            Land_Readjustment_Tool.UI.Forms.RecordFormTheme.Apply(this);
             ResumeLayout(false);
         }
 

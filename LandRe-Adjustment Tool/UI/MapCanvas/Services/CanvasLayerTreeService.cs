@@ -212,6 +212,7 @@ namespace Land_Readjustment_Tool.UI.MapCanvas.Services
                         ? "None"
                         : "Solid",
                     LabelColor = "#000000",
+                    TextAlignment = "Left",
                     PointSymbol = "Dot",
                     PointSize = 5.0,
                     CreatedDate = DateTime.Now,

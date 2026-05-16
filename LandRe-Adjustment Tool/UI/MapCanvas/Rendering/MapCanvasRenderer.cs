@@ -90,6 +90,12 @@ namespace Land_Readjustment_Tool.UI.MapCanvas.Rendering
             _vectorDeferredRenderer.Invalidate();
         }
 
+        public void SetVectorRenderExclusions(IEnumerable<Guid>? shapeIds)
+        {
+            _vectorRenderer.SetExcludedShapeIds(shapeIds);
+            _vectorDeferredRenderer.Invalidate();
+        }
+
         public RectangleD? GetVectorFeatureBounds() =>
             _vectorRenderer.GetFeatureBounds();
 
@@ -173,7 +179,8 @@ namespace Land_Readjustment_Tool.UI.MapCanvas.Rendering
         public void RenderTransientShape(
             Graphics graphics,
             IShape? shape,
-            CanvasLayer? layer = null)
+            CanvasLayer? layer = null,
+            CanvasObject? canvasObject = null)
         {
             if (shape == null)
             {
@@ -185,7 +192,9 @@ namespace Land_Readjustment_Tool.UI.MapCanvas.Rendering
                 graphics,
                 _engine,
                 shape,
-                layer);
+                layer,
+                canvasObject,
+                drawAsPreview: false);
         }
 
         public void InvalidateVectorCache()

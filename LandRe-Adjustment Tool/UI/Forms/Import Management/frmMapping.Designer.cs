@@ -1,4 +1,4 @@
-﻿namespace Land_Readjustment_Tool.Forms
+namespace Land_Readjustment_Tool.Forms
 {
     partial class frmMapping
     {
@@ -116,6 +116,7 @@
             Text = "Data Mapping";
             Load += frmMapping_Load;
             ((System.ComponentModel.ISupportInitialize)dgvMapping).EndInit();
+            Land_Readjustment_Tool.UI.Forms.RecordFormTheme.Apply(this);
             ResumeLayout(false);
             PerformLayout();
         }

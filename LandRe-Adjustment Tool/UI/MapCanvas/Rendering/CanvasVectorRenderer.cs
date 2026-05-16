@@ -32,6 +32,7 @@ namespace Land_Readjustment_Tool.UI.MapCanvas.Rendering
         private IReadOnlyList<CanvasFeature> _features = Array.Empty<CanvasFeature>();
         private IReadOnlyDictionary<int, CanvasLayer> _layersById =
             new Dictionary<int, CanvasLayer>();
+        private IReadOnlySet<Guid> _excludedShapeIds = new HashSet<Guid>();
         private VectorRenderStats _lastRenderStats = VectorRenderStats.Empty;
         private readonly ConcurrentDictionary<Guid, PointD> _labelAnchorCache = new();
         private static readonly GeometryFactory LabelGeometryFactory = new(new PrecisionModel(), 0);
@@ -65,6 +66,14 @@ namespace Land_Readjustment_Tool.UI.MapCanvas.Rendering
                 [layer.Id] = layer
             };
             _layersById = copy;
+        }
+
+        public void SetExcludedShapeIds(IEnumerable<Guid>? shapeIds)
+        {
+            _excludedShapeIds = shapeIds?
+                .Where(id => id != Guid.Empty)
+                .ToHashSet()
+                ?? new HashSet<Guid>();
         }
 
         public RectangleD? GetFeatureBounds()
@@ -146,6 +155,12 @@ namespace Land_Readjustment_Tool.UI.MapCanvas.Rendering
                 .OrderBy(GetDisplayOrder)
                 .ThenBy(feature => feature.CanvasObject.Id))
             {
+                if (_excludedShapeIds.Contains(feature.Shape.Id))
+                {
+                    hiddenSkippedCount++;
+                    continue;
+                }
+
                 CanvasLayer? layer = ResolveLayer(feature);
                 if (!IsRenderable(feature, layer, visibleWorldBounds))
                 {
@@ -186,7 +201,9 @@ namespace Land_Readjustment_Tool.UI.MapCanvas.Rendering
             Graphics graphics,
             MapCanvasEngine engine,
             IShape? previewShape,
-            CanvasLayer? previewLayer)
+            CanvasLayer? previewLayer,
+            CanvasObject? canvasObject = null,
+            bool drawAsPreview = true)
         {
             if (previewShape == null)
             {
@@ -200,11 +217,17 @@ namespace Land_Readjustment_Tool.UI.MapCanvas.Rendering
                 brushCache,
                 engine.ZoomScale,
                 antiAliasingEnabled: true,
-                isPreview: true);
+                isPreview: drawAsPreview);
 
-            DrawShape(graphics, engine, previewShape, ResolveStyle(previewShape, previewLayer), context, layer: previewLayer);
+            DrawShape(
+                graphics,
+                engine,
+                previewShape,
+                ResolveStyle(previewShape, previewLayer, canvasObject),
+                context,
+                layer: previewLayer);
 
-            if (previewShape is CircleShape circle)
+            if (drawAsPreview && previewShape is CircleShape circle)
             {
                 DrawCircleRadiusPreview(graphics, engine, circle, context);
             }
@@ -1020,7 +1043,13 @@ namespace Land_Readjustment_Tool.UI.MapCanvas.Rendering
                 color = FadeLockedLayerColor(color);
 
             using Font? layerFont = CreateAnnotationTextFont(layer);
-            graphics.DrawString(text.Text, layerFont ?? text.Font, context.GetSolidBrush(color), position);
+            using StringFormat format = new()
+            {
+                Alignment = TextShape.ToStringAlignment(layer?.TextAlignment ?? text.HorizontalAlignment),
+                LineAlignment = StringAlignment.Near,
+                FormatFlags = StringFormatFlags.NoClip
+            };
+            graphics.DrawString(text.Text, layerFont ?? text.Font, context.GetSolidBrush(color), position, format);
         }
 
         private static Font? CreateAnnotationTextFont(CanvasLayer? layer)
@@ -1302,6 +1331,10 @@ namespace Land_Readjustment_Tool.UI.MapCanvas.Rendering
             string? labelField = layer.LabelField?.Trim();
             if (!string.IsNullOrWhiteSpace(labelField))
             {
+                // "static:Some fixed text" — same text for every object on the layer.
+                if (labelField.StartsWith("static:", StringComparison.OrdinalIgnoreCase))
+                    return labelField["static:".Length..];
+
                 string? presetTemplate = ResolveLabelPresetTemplate(labelField);
                 if (!string.IsNullOrWhiteSpace(presetTemplate))
                     return ResolveLabelTemplate(feature, presetTemplate);

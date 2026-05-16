@@ -120,6 +120,7 @@ namespace Land_Readjustment_Tool.Forms
             Text = "Resolve Joint Ownership";
             ((System.ComponentModel.ISupportInitialize)dgvOwners).EndInit();
             pnlButtons.ResumeLayout(false);
+            Land_Readjustment_Tool.UI.Forms.RecordFormTheme.Apply(this);
             ResumeLayout(false);
             PerformLayout();
         }

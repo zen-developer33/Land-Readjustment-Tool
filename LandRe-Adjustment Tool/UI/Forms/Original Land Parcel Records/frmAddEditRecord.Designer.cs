@@ -902,6 +902,7 @@ namespace Land_Readjustment_Tool.Forms
             grpRegistryRef.PerformLayout();
             groupBox6.ResumeLayout(false);
             groupBox6.PerformLayout();
+            Land_Readjustment_Tool.UI.Forms.RecordFormTheme.Apply(this);
             ResumeLayout(false);
         }
 

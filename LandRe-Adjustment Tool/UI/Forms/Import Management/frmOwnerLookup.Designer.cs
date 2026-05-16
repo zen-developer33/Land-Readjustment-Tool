@@ -519,6 +519,7 @@ namespace Land_Readjustment_Tool.Forms
             cardLayout.ResumeLayout(false);
             ((System.ComponentModel.ISupportInitialize)picOwner).EndInit();
             pnlActions.ResumeLayout(false);
+            Land_Readjustment_Tool.UI.Forms.RecordFormTheme.Apply(this);
             ResumeLayout(false);
         }
     }

@@ -75,6 +75,7 @@ namespace Land_Readjustment_Tool.Core.Entities.Canvas
         public string LabelColor { get; set; } = "#000000";
         public string? LabelField { get; set; }
         public bool LabelScaleWithZoom { get; set; } = true;
+        public string TextAlignment { get; set; } = "Left";
         // Which field to show as label
         // e.g. "ParcelNo", "OwnerName", "AreaSqm"
 

@@ -63,6 +63,9 @@ namespace Land_Readjustment_Tool.Services.Project
             {
                 session = _sessionFactory.CreateSession(projectFilePath);
                 await session.GetDbContext().Database.MigrateAsync(ct);
+                await ProjectDatabaseCompatibility.EnsureAsync(
+                    session.GetDbContext(),
+                    ct);
 
                 var service = _projectScopedFactory.CreateProjectInfoService(session);
                 var info = await service.GetAsync();

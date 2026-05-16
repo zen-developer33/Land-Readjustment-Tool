@@ -424,6 +424,11 @@ namespace Land_Readjustment_Tool
             await ActivateCanvasDrawingToolAsync(MapCanvasTool.Arc);
         }
 
+        private async void mnuDrawText_Click(object sender, EventArgs e)
+        {
+            await ActivateCanvasDrawingToolAsync(MapCanvasTool.Text);
+        }
+
         private void cboCurrentDrawingLayer_Click(object sender, EventArgs e)
         {
             try
@@ -991,6 +996,7 @@ namespace Land_Readjustment_Tool
             mnuDrawRectangle.Enabled = enabled;
             mnuDrawCircle.Enabled = enabled;
             mnuDrawArc.Enabled = enabled;
+            mnuDrawText.Enabled = enabled;
             lblCurrentDrawingLayer.Enabled = enabled;
             cboCurrentDrawingLayer.Enabled = enabled;
 
@@ -4706,6 +4712,8 @@ namespace Land_Readjustment_Tool
                 mnuDrawPolygon.Checked = false;
                 mnuDrawRectangle.Checked = false;
                 mnuDrawCircle.Checked = false;
+                mnuDrawArc.Checked = false;
+                mnuDrawText.Checked = false;
             }
             mapCanvasControlMain.SetPanToolActive(mnuPan.Checked);
         }
@@ -4913,6 +4921,7 @@ namespace Land_Readjustment_Tool
             mnuDrawRectangle.Checked = tool == MapCanvasTool.Rectangle;
             mnuDrawCircle.Checked = tool == MapCanvasTool.Circle;
             mnuDrawArc.Checked = tool == MapCanvasTool.Arc;
+            mnuDrawText.Checked = tool == MapCanvasTool.Text;
         }
 
         private async Task<CanvasLayer?> ResolveCurrentDrawingLayerForToolAsync(
@@ -4957,6 +4966,7 @@ namespace Land_Readjustment_Tool
                 layers);
 
             string drawingColor = GetCanvasContrastDrawingColorHex();
+            bool isTextLayer = tool == MapCanvasTool.Text;
             CanvasLayer newLayer = new()
             {
                 Name = layerName,
@@ -4969,14 +4979,18 @@ namespace Land_Readjustment_Tool
                     ? 0
                     : layers.Max(layer => layer.DisplayOrder) + 1,
                 BorderColor = drawingColor,
-                LineWeight = 1.3,
+                LineWeight = isTextLayer ? 0.0 : 1.3,
                 LineStyle = "Solid",
                 LineTypeScale = 1.0,
                 FillColor = null,
                 ShowFillTransparency = false,
                 FillTransparency = 50,
                 FillStyle = "None",
-                LabelColor = "#000000",
+                LabelColor = isTextLayer ? drawingColor : "#000000",
+                LabelFontName = "Nirmala UI",
+                LabelFontSize = isTextLayer ? 10.0 : 2.0,
+                LabelScaleWithZoom = !isTextLayer,
+                TextAlignment = "Left",
                 PointSymbol = "Dot",
                 PointSize = 5.0,
                 CreatedDate = DateTime.Now,
@@ -5077,6 +5091,7 @@ namespace Land_Readjustment_Tool
                 MapCanvasTool.Rectangle => "Rectangle Markup",
                 MapCanvasTool.Polygon => "Polygon Markup",
                 MapCanvasTool.Circle => "Circle Markup",
+                MapCanvasTool.Text => "Text Markup",
                 _ => "Markup"
             };
         }
@@ -5088,6 +5103,7 @@ namespace Land_Readjustment_Tool
                 MapCanvasTool.Point => CanvasLayerTreeService.PointLayerType,
                 MapCanvasTool.Line or MapCanvasTool.Polyline or MapCanvasTool.Arc => CanvasLayerTreeService.PolylineLayerType,
                 MapCanvasTool.Rectangle or MapCanvasTool.Polygon or MapCanvasTool.Circle => CanvasLayerTreeService.PolygonLayerType,
+                MapCanvasTool.Text => CanvasLayerTreeService.AnnotationLayerType,
                 _ => CanvasLayerTreeService.PolylineLayerType
             };
         }
@@ -5119,6 +5135,9 @@ namespace Land_Readjustment_Tool
             mnuDrawCircle.Enabled = enabled &&
                                     (allowAllForAutoLayerCreation ||
                                      IsDrawingLayerCompatibleWithTool(selectedLayer, MapCanvasTool.Circle));
+            mnuDrawText.Enabled = enabled &&
+                                  (allowAllForAutoLayerCreation ||
+                                   IsDrawingLayerCompatibleWithTool(selectedLayer, MapCanvasTool.Text));
 
             if (_currentCanvasTool != MapCanvasTool.Select &&
                 selectedLayer != null &&
@@ -6290,7 +6309,10 @@ namespace Land_Readjustment_Tool
                 {
                     foreach (CanvasObject sourceObject in sourceObjects)
                     {
-                        CanvasObject copy = CloneCanvasObjectForLayer(sourceObject, targetLayer.Id, now);
+                        CanvasObject copy = CreateTransferredCanvasObjectForLayer(
+                            sourceObject,
+                            targetLayer,
+                            now);
                         await context.CanvasObjects.AddAsync(copy);
                     }
                 }
@@ -6298,9 +6320,14 @@ namespace Land_Readjustment_Tool
                 {
                     foreach (CanvasObject sourceObject in sourceObjects)
                     {
-                        sourceObject.CanvasLayerId = targetLayer.Id;
-                        sourceObject.LastModifiedDate = now;
+                        CanvasObject movedObject = CreateTransferredCanvasObjectForLayer(
+                            sourceObject,
+                            targetLayer,
+                            now);
+                        await context.CanvasObjects.AddAsync(movedObject);
                     }
+
+                    context.CanvasObjects.RemoveRange(sourceObjects);
                 }
 
                 await context.SaveChangesAsync();
@@ -6320,35 +6347,131 @@ namespace Land_Readjustment_Tool
             }
         }
 
-        private static CanvasObject CloneCanvasObjectForLayer(
+        private static CanvasObject CreateTransferredCanvasObjectForLayer(
             CanvasObject source,
-            int targetLayerId,
+            CanvasLayer targetLayer,
             DateTime timestamp)
         {
+            NetTopologySuite.Geometries.Geometry targetGeometry = source.Shape.Copy();
+            string targetObjectType = ResolveTransferredObjectType(source, targetLayer);
             return new CanvasObject
             {
                 Id = Guid.NewGuid(),
-                CanvasLayerId = targetLayerId,
-                ObjectType = source.ObjectType,
-                Shape = source.Shape.Copy(),
-                GeometryMetadataJson = source.GeometryMetadataJson,
-                BorderColorOverride = source.BorderColorOverride,
-                FillColorOverride = source.FillColorOverride,
-                FillTransparencyOverride = source.FillTransparencyOverride,
-                LineWeightOverride = source.LineWeightOverride,
-                LineStyleOverride = source.LineStyleOverride,
-                LabelText = source.LabelText,
-                ObjectDescription = source.ObjectDescription,
+                CanvasLayerId = targetLayer.Id,
+                ObjectType = targetObjectType,
+                Shape = targetGeometry,
+                GeometryMetadataJson = CreateTransferredGeometryMetadataJson(
+                    source,
+                    targetLayer,
+                    targetGeometry,
+                    timestamp),
+                BorderColorOverride = null,
+                FillColorOverride = null,
+                FillTransparencyOverride = null,
+                LineWeightOverride = null,
+                LineStyleOverride = null,
+                LabelText = null,
+                ObjectDescription = CreateTransferredObjectDescription(source, targetLayer),
                 IsVisible = source.IsVisible,
                 IsLocked = false,
                 BaselineParcelId = null,
                 ReplottedParcelId = null,
                 RoadId = null,
                 BlockId = null,
-                SourceDxfHandle = source.SourceDxfHandle,
+                SourceDxfHandle = null,
                 CreatedDate = timestamp,
                 LastModifiedDate = timestamp
             };
+        }
+
+        private static string ResolveTransferredObjectType(CanvasObject source, CanvasLayer targetLayer)
+        {
+            if (IsPolygonTransferTargetLayer(targetLayer))
+            {
+                return "Polygon";
+            }
+
+            if (CanvasLayerTreeService.IsLineLayer(targetLayer))
+            {
+                return source.Shape.OgcGeometryType == NetTopologySuite.Geometries.OgcGeometryType.LineString ||
+                       source.Shape.OgcGeometryType == NetTopologySuite.Geometries.OgcGeometryType.MultiLineString
+                    ? "Polyline"
+                    : source.ObjectType;
+            }
+
+            if (CanvasLayerTreeService.IsPointLayer(targetLayer))
+            {
+                return "Point";
+            }
+
+            if (CanvasLayerTreeService.IsAnnotationLayer(targetLayer))
+            {
+                return "Text";
+            }
+
+            return string.IsNullOrWhiteSpace(source.ObjectType)
+                ? source.Shape.OgcGeometryType.ToString()
+                : source.ObjectType;
+        }
+
+        private static bool IsPolygonTransferTargetLayer(CanvasLayer layer)
+        {
+            if (string.Equals(layer.LayerType, "ProjectBoundary", StringComparison.OrdinalIgnoreCase) ||
+                IsCadastralCanvasLayer(layer) ||
+                CanvasLayerTreeService.IsPolygonLayer(layer))
+            {
+                return true;
+            }
+
+            return string.Equals(layer.LayerType, "Block", StringComparison.OrdinalIgnoreCase) ||
+                   string.Equals(layer.LayerType, "RoadParcel", StringComparison.OrdinalIgnoreCase) ||
+                   string.Equals(layer.LayerType, "ReplottedParcel", StringComparison.OrdinalIgnoreCase) ||
+                   string.Equals(layer.LayerType, "PrivateReplotParcel", StringComparison.OrdinalIgnoreCase) ||
+                   string.Equals(layer.LayerType, "PublicFacility", StringComparison.OrdinalIgnoreCase) ||
+                   string.Equals(layer.LayerType, "OpenSpace", StringComparison.OrdinalIgnoreCase) ||
+                   string.Equals(layer.LayerType, "ServiceSalesPlot", StringComparison.OrdinalIgnoreCase);
+        }
+
+        private static string? CreateTransferredGeometryMetadataJson(
+            CanvasObject source,
+            CanvasLayer targetLayer,
+            NetTopologySuite.Geometries.Geometry targetGeometry,
+            DateTime timestamp)
+        {
+            if (!IsCadastralCanvasLayer(targetLayer))
+            {
+                return null;
+            }
+
+            CadastralCanvasMetadata metadata = new()
+            {
+                SourceFormat = "CanvasTransfer",
+                SourceFileName = string.Empty,
+                SourceLayer = targetLayer.Name,
+                CalculatedAreaSqm = targetGeometry.Area,
+                SourceHandle = source.SourceDxfHandle,
+                AssignmentStatus = "Unassigned",
+                ImportedAt = timestamp
+            };
+
+            return JsonSerializer.Serialize(metadata, CadastralMetadataJsonOptions);
+        }
+
+        private static string CreateTransferredObjectDescription(
+            CanvasObject source,
+            CanvasLayer targetLayer)
+        {
+            if (string.Equals(targetLayer.LayerType, "ProjectBoundary", StringComparison.OrdinalIgnoreCase))
+            {
+                return "Project Boundary";
+            }
+
+            if (IsCadastralCanvasLayer(targetLayer))
+            {
+                return $"Cadastral parcel created from {source.ObjectDescription ?? source.ObjectType}";
+            }
+
+            return $"{targetLayer.Name} object";
         }
 
         private void BeginLayerRename(TreeNode? node)
@@ -7676,6 +7799,7 @@ namespace Land_Readjustment_Tool
                 LabelColor = source.LabelColor,
                 LabelField = source.LabelField,
                 LabelScaleWithZoom = source.LabelScaleWithZoom,
+                TextAlignment = source.TextAlignment,
                 PointSymbol = source.PointSymbol,
                 PointSize = source.PointSize,
                 SourceFile = source.SourceFile,

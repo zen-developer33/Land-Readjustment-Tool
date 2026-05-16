@@ -245,6 +245,7 @@ namespace Land_Readjustment_Tool.UI.Forms.Project
             pnlFooter.ResumeLayout(false);
             pnlFooter.PerformLayout();
             ((System.ComponentModel.ISupportInitialize)dgvCRS).EndInit();
+            Land_Readjustment_Tool.UI.Forms.RecordFormTheme.Apply(this);
             ResumeLayout(false);
         }
 

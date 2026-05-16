@@ -128,6 +128,7 @@ namespace Land_Readjustment_Tool.Forms
             Text = "Validation Errors";
             Load += frmValidationErrors_Load;
             ((System.ComponentModel.ISupportInitialize)dgvErrors).EndInit();
+            Land_Readjustment_Tool.UI.Forms.RecordFormTheme.Apply(this);
             ResumeLayout(false);
             PerformLayout();
         }

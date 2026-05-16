@@ -253,6 +253,7 @@ namespace Land_Readjustment_Tool.UI.Forms.Project
             ((System.ComponentModel.ISupportInitialize)dgvDatum).EndInit();
             pnlFooter.ResumeLayout(false);
             pnlFooter.PerformLayout();
+            Land_Readjustment_Tool.UI.Forms.RecordFormTheme.Apply(this);
             ResumeLayout(false);
         }
 
