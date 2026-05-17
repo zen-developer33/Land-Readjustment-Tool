@@ -1,5 +1,6 @@
 using System.Drawing;
 using System.Drawing.Drawing2D;
+using System.Drawing.Imaging;
 using System.ComponentModel;
 using System.Diagnostics;
 using System.Globalization;
@@ -138,6 +139,7 @@ namespace Land_Readjustment_Tool.UI.CustomControls
         private bool _holdVectorPanFrameUntilRefresh;
         private bool _holdVectorZoomFrameUntilRefresh;
         private PointF _heldVectorPanDelta;
+        private Bitmap? _compositePanBitmap;
         private bool _snapEnabled = true;
         private bool _orthoModeEnabled;
         private double _snapPickTolerancePixels = DefaultSnapPickTolerancePixels;
@@ -1171,6 +1173,12 @@ namespace Land_Readjustment_Tool.UI.CustomControls
 
             canvasSurface.Focus();
 
+            if (_suppressNextCanvasMouseDownAfterTextCancel)
+            {
+                _suppressNextCanvasMouseDownAfterTextCancel = false;
+                return;
+            }
+
             bool isPanGesture =
                 e.Button == MouseButtons.Middle ||
                 (_panToolActive && e.Button == MouseButtons.Left);
@@ -1264,17 +1272,30 @@ namespace Land_Readjustment_Tool.UI.CustomControls
             CancelPendingVectorRender();
             CancelLiveTileLoading();
             SetLiveTileInternetFetchingSuspended(true);
-            _isPanning = true;
-            _holdVectorPanFrameUntilRefresh = false;
-            _holdZoomStartFrameUntilRasterRefresh = false;
+
             _lastPanPoint = location;
             _totalPanDelta = PointF.Empty;
             _panStartWorld = _engine.ScreenToWorld(location);
             _panStartPoint = location;
             _panStartWorldOrigin = _engine.ViewOriginWorld;
             _currentMouseWorld = _panStartWorld;
+
+            // Snapshot exactly what is on screen right now into one composite bitmap.
+            // _isPanning is still false here so GetRasterRenderFrame / GetVectorRenderFrame
+            // return the same frames that were used in the last paint call.
+            BuildCompositePanBuffer(canvasSurface.Size);
+
+            // Clear prior hold flags AFTER building the composite so the composite
+            // correctly captures the held pan/zoom frames that were visible on screen.
+            _holdVectorPanFrameUntilRefresh = false;
+            _holdZoomStartFrameUntilRasterRefresh = false;
+            _isPanning = true;
+
+            // Keep the separate deferred buffers as fallback for when the composite
+            // build failed (e.g. insufficient memory).
             _rasterDeferredRenderer.BeginPan(canvasSurface.Size, _rasterRenderLayers, _engine);
             EnsureVectorPanSnapshot();
+
             canvasSurface.Capture = true;
             UpdateCanvasCursor();
             UpdateStatusBar();
@@ -1467,6 +1488,7 @@ namespace Land_Readjustment_Tool.UI.CustomControls
         {
             if (_textEditorJustCancelled)
             {
+                _textEditorJustCancelled = false;
                 e.Handled = true;
                 return;
             }
@@ -1771,6 +1793,8 @@ namespace Land_Readjustment_Tool.UI.CustomControls
         private void BeginSingleLineTextInput(PointD worldPoint, Point screenPoint)
         {
             CancelActiveTextEditor();
+            _isSelectingObjects = false;
+            canvasSurface.Capture = false;
 
             string alignment = GetActiveTextAlignment();
             (string fontName, float baseFontSize) = GetTextEditorFontSpec(_activeDrawingLayer);
@@ -1781,6 +1805,8 @@ namespace Land_Readjustment_Tool.UI.CustomControls
         private void BeginTextEditExisting(CanvasFeature feature, TextShape textShape, Point screenPoint)
         {
             CancelActiveTextEditor();
+            _isSelectingObjects = false;
+            canvasSurface.Capture = false;
 
             // Prefer the layer's full combined alignment ("Center Middle") so the textbox
             // is anchored exactly where the rendered text sits.
@@ -1989,6 +2015,7 @@ namespace Land_Readjustment_Tool.UI.CustomControls
         {
             if (e.KeyCode == Keys.Enter || e.KeyCode == Keys.Return)
             {
+                _suppressNextCanvasMouseDownAfterTextCancel = true;
                 CommitActiveTextEditor();
                 e.SuppressKeyPress = true;
                 e.Handled = true;
@@ -1997,7 +2024,8 @@ namespace Land_Readjustment_Tool.UI.CustomControls
 
             if (e.KeyCode == Keys.Escape)
             {
-                _editingTextFeature = null;
+                // _editingTextFeature is cleared inside CancelActiveTextEditor so the shape's
+                // IsBeingEdited is reset (restoring the old text) before the reference is lost.
                 _suppressNextCanvasMouseDownAfterTextCancel = true;
                 CancelActiveTextEditor();
                 e.SuppressKeyPress = true;
@@ -2027,7 +2055,7 @@ namespace Land_Readjustment_Tool.UI.CustomControls
 
             if (string.IsNullOrWhiteSpace(_activeTextEditor.Text))
             {
-                _editingTextFeature = null;
+                // CancelActiveTextEditor resets IsBeingEdited, restoring old text for existing shapes.
                 CancelActiveTextEditor();
                 return;
             }
@@ -2047,12 +2075,10 @@ namespace Land_Readjustment_Tool.UI.CustomControls
                 : GetActiveTextAlignment();
             CanvasFeature? editTarget = _editingTextFeature;
 
-            // Reject whitespace-only input — treat it the same as cancelling.
+            // Reject whitespace-only input.
+            // CancelActiveTextEditor resets IsBeingEdited, restoring old text for existing shapes.
             if (!text.Any(c => !char.IsWhiteSpace(c)))
             {
-                if (editTarget?.Shape is TextShape editingTsBlank)
-                    editingTsBlank.IsBeingEdited = false;
-                _editingTextFeature = null;
                 CancelActiveTextEditor();
                 return;
             }
@@ -2085,8 +2111,10 @@ namespace Land_Readjustment_Tool.UI.CustomControls
             if (editor == null)
                 return;
 
+            // Restore IsBeingEdited on the shape being edited so it renders again with its old text.
             if (_editingTextFeature?.Shape is TextShape ts)
                 ts.IsBeingEdited = false;
+            _editingTextFeature = null;
 
             _textEditorCompleting = true;
             _textEditorJustCancelled = true;
@@ -2098,7 +2126,8 @@ namespace Land_Readjustment_Tool.UI.CustomControls
             _activeTextEditor = null;
             _activeTextAnchorWorld = null;
             _textEditorCompleting = false;
-            BeginInvoke(() => _textEditorJustCancelled = false);
+            // _textEditorJustCancelled is cleared by the next canvas KeyDown event, not via BeginInvoke,
+            // to avoid a timing race where the canvas Escape reaches KeyDown after the flag clears.
             UpdateStatusBar();
             RequestRender();
         }
@@ -2221,12 +2250,6 @@ namespace Land_Readjustment_Tool.UI.CustomControls
                 Enabled = false,
                 Font = new Font(SystemFonts.MenuFont ?? SystemFonts.DefaultFont, FontStyle.Bold)
             };
-                if (_suppressNextCanvasMouseDownAfterTextCancel)
-                {
-                    _suppressNextCanvasMouseDownAfterTextCancel = false;
-                    return;
-                }
-
             _drawingOptionsContextMenu.Items.Add(header);
         }
 
@@ -3929,6 +3952,7 @@ namespace Land_Readjustment_Tool.UI.CustomControls
                 _holdVectorPanFrameUntilRefresh = false;
                 _holdVectorZoomFrameUntilRefresh = false;
                 _heldVectorPanDelta = PointF.Empty;
+                DisposeCompositePanBitmap();
             }
             catch (OperationCanceledException)
             {
@@ -4868,22 +4892,34 @@ namespace Land_Readjustment_Tool.UI.CustomControls
         {
             NtsGeometry pickPoint = SelectionGeometryFactory.CreatePoint(
                 new NtsCoordinate(worldPoint.X, worldPoint.Y));
+
+            // Build candidates in render order (topmost layer first) to match the visual
+            // stacking: markup layers > data layers, higher DisplayOrder > lower, then by Id.
             List<(CanvasFeature Feature, NtsGeometry Geometry)> candidates = _vectorFeatures
                 .Where(IsSelectableDrawingFeature)
-                .Reverse()
+                .OrderByDescending(GetSelectionRenderPass)
+                .ThenByDescending(GetSelectionDisplayOrder)
+                .ThenByDescending(f => f.CanvasObject.Id)
                 .Select(feature => (Feature: feature, Geometry: CreateSelectionGeometry(feature.Shape)))
                 .Where(candidate => !candidate.Geometry.IsEmpty)
                 .ToList();
 
+            // Exact hit: point lies inside a cadastral polygon.
+            // Topmost-rendered layer wins; within the same layer the smallest polygon
+            // (most spatially specific) is preferred.
             CanvasFeature? exactHit = candidates
                 .Where(candidate => IsSelectableImportedCadastralParcel(candidate.Feature) &&
                                     candidate.Geometry.Covers(pickPoint))
-                .OrderBy(candidate => GetSelectionGeometryPickArea(candidate.Geometry))
+                .OrderByDescending(candidate => GetSelectionRenderPass(candidate.Feature))
+                .ThenByDescending(candidate => GetSelectionDisplayOrder(candidate.Feature))
+                .ThenBy(candidate => GetSelectionGeometryPickArea(candidate.Geometry))
                 .Select(candidate => candidate.Feature)
                 .FirstOrDefault();
             if (exactHit != null)
                 return exactHit;
 
+            // Tolerance hit: nearest feature within pick tolerance.
+            // Among features at the same distance, the topmost-rendered layer wins.
             return candidates
                 .Select(candidate => new
                 {
@@ -4900,10 +4936,21 @@ namespace Land_Readjustment_Tool.UI.CustomControls
                 })
                 .Where(candidate => candidate.Distance <= toleranceWorld)
                 .OrderBy(candidate => candidate.Distance)
+                .ThenByDescending(candidate => GetSelectionRenderPass(candidate.Feature))
+                .ThenByDescending(candidate => GetSelectionDisplayOrder(candidate.Feature))
                 .ThenBy(candidate => GetSelectionGeometryPickArea(candidate.Geometry))
                 .Select(candidate => candidate.Feature)
                 .FirstOrDefault();
         }
+
+        private static int GetSelectionRenderPass(CanvasFeature feature)
+        {
+            CanvasLayer? layer = feature.Layer;
+            return layer != null && CanvasLayerTreeService.IsDrawingMarkupLayer(layer) ? 1 : 0;
+        }
+
+        private static int GetSelectionDisplayOrder(CanvasFeature feature) =>
+            feature.Layer?.DisplayOrder ?? int.MinValue;
 
         private static NtsGeometry CreateClickSelectionGeometry(CanvasFeature feature, NtsGeometry selectionGeometry)
         {
@@ -5508,7 +5555,7 @@ namespace Land_Readjustment_Tool.UI.CustomControls
 
         private void DrawObjectSelectionRectangle(Graphics graphics)
         {
-            if (!_isSelectingObjects)
+            if (!_isSelectingObjects || _activeTextEditor != null)
                 return;
 
             Rectangle rect = CreateScreenRectangle(_objectSelectionStart, _objectSelectionCurrent);
@@ -5773,6 +5820,7 @@ namespace Land_Readjustment_Tool.UI.CustomControls
 
         private bool ShouldDeferDirectRasterRendering =>
             IsInteractiveNavigation ||
+            (_compositePanBitmap != null && _holdVectorPanFrameUntilRefresh) ||
             (_rasterCacheRefreshPending &&
              !_suppressStaleRasterFrameUntilFreshRender);
 
@@ -5788,6 +5836,22 @@ namespace Land_Readjustment_Tool.UI.CustomControls
         {
             source = CanvasFrameSource.None;
 
+            // Composite bitmap contains both raster and vector baked together at pan start.
+            // Use it during the active pan and in the post-pan hold period so both layers
+            // always shift by exactly the same pixel delta (fixes Bug 1 and Bug 2).
+            if (_compositePanBitmap != null &&
+                (_isPanning || _holdVectorPanFrameUntilRefresh))
+            {
+                PointF delta = _isPanning ? _totalPanDelta : _heldVectorPanDelta;
+                source = CanvasFrameSource.PanCache;
+                return new RasterRenderFrame(
+                    _compositePanBitmap,
+                    new RectangleF(delta.X, delta.Y, _compositePanBitmap.Width, _compositePanBitmap.Height),
+                    _compositePanBitmap,
+                    () => { });
+            }
+
+            // Fallback: separate raster pan frame when the composite was not available.
             if (_isPanning &&
                 _rasterDeferredRenderer.TryGetPanFrame(
                     _totalPanDelta,
@@ -5835,6 +5899,17 @@ namespace Land_Readjustment_Tool.UI.CustomControls
         {
             source = CanvasFrameSource.None;
 
+            // Composite bitmap already has both raster and vector merged.
+            // Signal PanCache so the paint loop skips the direct-render path,
+            // but return null so RenderVectorContent draws nothing separately.
+            if (_compositePanBitmap != null &&
+                (_isPanning || _holdVectorPanFrameUntilRefresh))
+            {
+                source = CanvasFrameSource.PanCache;
+                return null;
+            }
+
+            // Fallback: separate vector pan frame when composite is not available.
             if (_isPanning &&
                 _renderer.TryGetVectorPanFrame(
                     _totalPanDelta,
@@ -6156,6 +6231,65 @@ namespace Land_Readjustment_Tool.UI.CustomControls
             }
         }
 
+        /// <summary>
+        /// Renders the current visible map state (raster + vector) into a single
+        /// composite bitmap that is shifted as one unit during panning. This
+        /// eliminates the independent-shift artefact that arises when the two
+        /// deferred caches were captured from different viewport positions.
+        /// Must be called while _isPanning is still false.
+        /// </summary>
+        private void BuildCompositePanBuffer(Size canvasSize)
+        {
+            DisposeCompositePanBitmap();
+
+            if (canvasSize.Width <= 0 || canvasSize.Height <= 0)
+                return;
+
+            Bitmap composite = new(canvasSize.Width, canvasSize.Height, PixelFormat.Format32bppPArgb);
+            try
+            {
+                using Graphics g = Graphics.FromImage(composite);
+
+                // GetRasterRenderFrame / GetVectorRenderFrame behave as they would
+                // in the last paint call because _isPanning is false here.
+                RasterRenderFrame? rasterFrame = GetRasterRenderFrame(out _);
+                RasterRenderFrame? vectorFrame = GetVectorRenderFrame(out _);
+
+                bool deferRaster = rasterFrame == null && ShouldDeferDirectRasterRendering;
+                bool deferVector = vectorFrame == null && ShouldDeferDirectVectorRendering;
+
+                _renderer.Render(
+                    g,
+                    rasterFrame,
+                    deferRaster,
+                    vectorFrame,
+                    deferVector,
+                    zoomWindowRectangle: null,
+                    previewShape: null,
+                    previewLayer: null,
+                    showDebugOverlay: false,
+                    suppressDecorations: true);
+
+                rasterFrame?.Dispose();
+                vectorFrame?.Dispose();
+            }
+            catch (Exception ex)
+            {
+                System.Diagnostics.Debug.WriteLine(
+                    $"[MapCanvas] Composite pan buffer build failed: {ex.Message}");
+                composite.Dispose();
+                return;
+            }
+
+            _compositePanBitmap = composite;
+        }
+
+        private void DisposeCompositePanBitmap()
+        {
+            _compositePanBitmap?.Dispose();
+            _compositePanBitmap = null;
+        }
+
         private void EnsureVectorZoomSnapshot()
         {
             if (_renderer.BeginVectorZoom(canvasSurface.Size))
@@ -6218,6 +6352,7 @@ namespace Land_Readjustment_Tool.UI.CustomControls
                 _heldVectorPanDelta = PointF.Empty;
                 _holdZoomStartFrameUntilRasterRefresh = false;
                 _suppressStaleRasterFrameUntilFreshRender = false;
+                DisposeCompositePanBitmap();
                 canvasSurface.Capture = false;
                 _rasterDeferredRenderer.Invalidate();
                 _renderer.InvalidateVectorCache();
@@ -6262,6 +6397,7 @@ namespace Land_Readjustment_Tool.UI.CustomControls
                 _totalPanDelta = PointF.Empty;
                 _heldVectorPanDelta = PointF.Empty;
                 _holdVectorPanFrameUntilRefresh = false;
+                DisposeCompositePanBitmap();
                 canvasSurface.Capture = false;
                 _rasterDeferredRenderer.Invalidate();
                 _renderer.InvalidateVectorCache();
@@ -6367,6 +6503,7 @@ namespace Land_Readjustment_Tool.UI.CustomControls
                 _holdVectorPanFrameUntilRefresh = false;
                 _holdVectorZoomFrameUntilRefresh = false;
                 _heldVectorPanDelta = PointF.Empty;
+                DisposeCompositePanBitmap();
 
                 if (IsHandleCreated)
                 {

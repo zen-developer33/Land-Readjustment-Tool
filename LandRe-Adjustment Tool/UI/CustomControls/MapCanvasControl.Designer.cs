@@ -21,6 +21,7 @@ namespace Land_Readjustment_Tool.UI.CustomControls
                 _activeTextEditor?.Dispose();
                 _panCursor?.Dispose();
                 _debugOverlayFont?.Dispose();
+                _compositePanBitmap?.Dispose();
             }
 
             base.Dispose(disposing);
