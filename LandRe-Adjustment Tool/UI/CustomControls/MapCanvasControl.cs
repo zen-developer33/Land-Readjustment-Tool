@@ -177,7 +177,7 @@ namespace Land_Readjustment_Tool.UI.CustomControls
         private PointD? _activeTextAnchorWorld;
         private string _activeTextEditorFontName = "Nirmala UI";
         private float _activeTextEditorBaseFontSize = 6.0f;
-        private string _activeTextEditorAlignment = "Left";
+        private string _activeTextEditorAlignment = "Left Top";
         private bool _textEditorCompleting;
         private bool _textEditorJustCancelled;
         private bool _suppressNextCanvasMouseDownAfterTextCancel;
@@ -1782,11 +1782,14 @@ namespace Land_Readjustment_Tool.UI.CustomControls
         {
             CancelActiveTextEditor();
 
-            string alignment = textShape.HorizontalAlignment;
+            // Prefer the layer's full combined alignment ("Center Middle") so the textbox
+            // is anchored exactly where the rendered text sits.
+            string alignment = feature.Layer?.TextAlignment ?? textShape.HorizontalAlignment;
             (string fontName, float baseFontSize) = GetTextEditorFontSpec(feature.Layer, textShape);
             Color textColor = textShape.FillColor == Color.Transparent ? Color.Black : textShape.FillColor;
             _editingTextFeature = feature;
             textShape.IsBeingEdited = true;
+            RequestRender(); // erase background text immediately before editor appears
             SpawnTextEditor(textShape.Position, screenPoint, alignment, fontName, baseFontSize, textShape.Text, textColor);
         }
 
@@ -1801,21 +1804,22 @@ namespace Land_Readjustment_Tool.UI.CustomControls
         {
             _activeTextEditorFontName = fontName;
             _activeTextEditorBaseFontSize = Math.Clamp(baseFontSize, 1.0f, 120.0f);
-            _activeTextEditorAlignment = TextShape.NormalizeHorizontalAlignment(alignment);
+            _activeTextEditorAlignment = NormalizeFullAlignment(alignment);
             Font font = CreateScaledTextEditorFont();
             int initialWidth = Math.Max(120,
                 TextRenderer.MeasureText(string.IsNullOrEmpty(initialText) ? "W" : initialText, font).Width + 16);
+            int initialHeight = font.Height + 8;
 
             TextBox editor = new()
             {
                 BorderStyle = BorderStyle.FixedSingle,
                 Font = font,
-                TextAlign = ToHorizontalAlignment(alignment),
+                TextAlign = ToHorizontalAlignment(_activeTextEditorAlignment),
                 BackColor = canvasSurface.BackColor,
                 ForeColor = textColor,
                 Text = initialText,
-                Location = GetTextEditorLocation(screenPoint, alignment, initialWidth),
-                Size = new Size(initialWidth, font.Height + 8),
+                Location = GetTextEditorLocation(screenPoint, _activeTextEditorAlignment, initialWidth, initialHeight),
+                Size = new Size(initialWidth, initialHeight),
                 TabStop = false
             };
 
@@ -1887,7 +1891,26 @@ namespace Land_Readjustment_Tool.UI.CustomControls
 
         private string GetActiveTextAlignment()
         {
-            return TextShape.NormalizeHorizontalAlignment(_activeDrawingLayer?.TextAlignment);
+            return _activeDrawingLayer?.TextAlignment ?? "Left";
+        }
+
+        private static string NormalizeFullAlignment(string? alignment)
+        {
+            if (string.IsNullOrWhiteSpace(alignment)) return "Left Top";
+            string[] parts = alignment.Trim().Split(' ', 2, StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries);
+            string h = (parts.Length > 0 ? parts[0] : "").ToLowerInvariant() switch
+            {
+                "center" or "centre" or "middle" => "Center",
+                "right" => "Right",
+                _ => "Left"
+            };
+            string v = (parts.Length > 1 ? parts[1] : "").ToLowerInvariant() switch
+            {
+                "middle" or "center" or "centre" => "Middle",
+                "bottom" => "Bottom",
+                _ => "Top"
+            };
+            return $"{h} {v}";
         }
 
         private static HorizontalAlignment ToHorizontalAlignment(string alignment)
@@ -1900,16 +1923,26 @@ namespace Land_Readjustment_Tool.UI.CustomControls
             };
         }
 
-        private static Point GetTextEditorLocation(Point anchorScreenPoint, string alignment, int width)
+        private static Point GetTextEditorLocation(Point anchorScreenPoint, string alignment, int width, int height = 0)
         {
-            int x = TextShape.NormalizeHorizontalAlignment(alignment) switch
+            string[] parts = alignment.Trim().Split(' ', 2, StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries);
+            string h = (parts.Length > 0 ? parts[0] : "").ToLowerInvariant();
+            string v = (parts.Length > 1 ? parts[1] : "").ToLowerInvariant();
+
+            int x = h switch
             {
-                "Center" => anchorScreenPoint.X - width / 2,
-                "Right"  => anchorScreenPoint.X - width,
-                _ => anchorScreenPoint.X
+                "center" or "centre" => anchorScreenPoint.X - width / 2,
+                "right"              => anchorScreenPoint.X - width,
+                _                   => anchorScreenPoint.X
+            };
+            int y = v switch
+            {
+                "middle" or "center" => anchorScreenPoint.Y - height / 2,
+                "bottom"             => anchorScreenPoint.Y - height,
+                _                   => anchorScreenPoint.Y - 2
             };
 
-            return new Point(x, anchorScreenPoint.Y - 2);
+            return new Point(x, y);
         }
 
         private void ActiveTextEditor_TextChanged(object? sender, EventArgs e)
@@ -1949,7 +1982,7 @@ namespace Land_Readjustment_Tool.UI.CustomControls
                 : _activeTextEditor.Location;
 
             _activeTextEditor.Size = new Size(width, height);
-            _activeTextEditor.Location = GetTextEditorLocation(anchorScreen, _activeTextEditorAlignment, width);
+            _activeTextEditor.Location = GetTextEditorLocation(anchorScreen, _activeTextEditorAlignment, width, height);
         }
 
         private void ActiveTextEditor_KeyDown(object? sender, KeyEventArgs e)
@@ -2007,21 +2040,28 @@ namespace Land_Readjustment_Tool.UI.CustomControls
             if (_activeTextEditor == null || !_activeTextAnchorWorld.HasValue)
                 return;
 
-            string text = _activeTextEditor.Text.TrimEnd();
+            string text = _activeTextEditor.Text.Trim();
             PointD anchor = _activeTextAnchorWorld.Value;
             string alignment = _editingTextFeature?.Shape is TextShape existing
                 ? existing.HorizontalAlignment
                 : GetActiveTextAlignment();
             CanvasFeature? editTarget = _editingTextFeature;
 
+            // Reject whitespace-only input — treat it the same as cancelling.
+            if (!text.Any(c => !char.IsWhiteSpace(c)))
+            {
+                if (editTarget?.Shape is TextShape editingTsBlank)
+                    editingTsBlank.IsBeingEdited = false;
+                _editingTextFeature = null;
+                CancelActiveTextEditor();
+                return;
+            }
+
             if (editTarget?.Shape is TextShape editingTs)
                 editingTs.IsBeingEdited = false;
 
             _editingTextFeature = null;
             CancelActiveTextEditor();
-
-            if (string.IsNullOrWhiteSpace(text))
-                return;
 
             if (editTarget?.Shape is TextShape targetTextShape)
             {
@@ -2895,7 +2935,6 @@ namespace Land_Readjustment_Tool.UI.CustomControls
 
             List<IShape> nearbyShapes = _vectorFeatures
                 .Where(IsSnapCandidateFeature)
-                .Where(feature => !IsActiveGripEditedShape(feature.Shape))
                 .Select(feature => feature.Shape)
                 .Where(shape => ShapeIntersectsWorldQuery(shape, worldQuery))
                 .Take(250)
@@ -3067,8 +3106,7 @@ namespace Land_Readjustment_Tool.UI.CustomControls
                 return false;
             }
 
-            if (IsGripEditPreviewShape(snapPoint.ParentShape) ||
-                IsActiveGripEditedShape(snapPoint.ParentShape))
+            if (IsGripEditPreviewShape(snapPoint.ParentShape))
             {
                 return true;
             }
@@ -3429,7 +3467,8 @@ namespace Land_Readjustment_Tool.UI.CustomControls
 
                 case ArcShape arc:
                     yield return CreateGrip(feature, SelectionGripKind.Vertex, SelectionGripGlyph.Square, arc.StartPoint, vertexIndex: 0);
-                    yield return CreateGrip(feature, SelectionGripKind.ArcMidpoint, SelectionGripGlyph.SegmentRectangle, arc.MidPoint, segmentIndex: 0);
+                    yield return CreateGrip(feature, SelectionGripKind.ArcMidpoint, SelectionGripGlyph.SegmentRectangle, arc.MidPoint,
+                        segmentStart: arc.StartPoint, segmentEnd: arc.EndPoint, segmentIndex: 0);
                     yield return CreateGrip(feature, SelectionGripKind.Vertex, SelectionGripGlyph.Square, arc.EndPoint, vertexIndex: 1);
                     break;
 
@@ -4538,12 +4577,6 @@ namespace Land_Readjustment_Tool.UI.CustomControls
                     DrawDiamondGrip(graphics, center, brush, pen);
                     break;
                 case SelectionGripGlyph.SegmentRectangle:
-                    if (grip.Kind == SelectionGripKind.ArcMidpoint)
-                    {
-                        DrawArcSegmentGrip(graphics, grip, center, brush, pen);
-                        break;
-                    }
-
                     DrawSegmentRectangleGrip(graphics, grip, center, brush, pen);
                     break;
                 default:
@@ -4602,56 +4635,6 @@ namespace Land_Readjustment_Tool.UI.CustomControls
             ];
             graphics.FillPolygon(brush, points);
             graphics.DrawPolygon(pen, points);
-        }
-
-        private void DrawArcSegmentGrip(Graphics graphics, SelectionGrip grip, PointF center, Brush brush, Pen pen)
-        {
-            ArcShape? arc = ArcShape.FromThreePoints(grip.SegmentStart, grip.Position, grip.SegmentEnd);
-            if (arc == null)
-            {
-                DrawSegmentRectangleGrip(graphics, grip, center, brush, pen);
-                return;
-            }
-
-            PointD centerScreenD = _engine.WorldToScreen(arc.Center);
-            PointD radiusScreenD = _engine.WorldToScreen(new PointD(arc.Center.X + arc.Radius, arc.Center.Y));
-            float centerX = (float)centerScreenD.X;
-            float centerY = (float)centerScreenD.Y;
-            float dx = (float)(radiusScreenD.X - centerScreenD.X);
-            float dy = (float)(radiusScreenD.Y - centerScreenD.Y);
-            float radius = (float)Math.Sqrt((dx * dx) + (dy * dy));
-            if (!float.IsFinite(centerX) ||
-                !float.IsFinite(centerY) ||
-                !float.IsFinite(radius) ||
-                radius <= 0.5f)
-            {
-                DrawSquareGrip(graphics, center, brush, pen);
-                return;
-            }
-
-            RectangleF bounds = new(
-                centerX - radius,
-                centerY - radius,
-                radius * 2.0f,
-                radius * 2.0f);
-            float startAngleDegrees = (float)(-arc.StartAngleRadians * 180.0 / Math.PI);
-            float sweepAngleDegrees = (float)(-arc.SweepAngleRadians * 180.0 / Math.PI);
-            if (!float.IsFinite(startAngleDegrees) ||
-                !float.IsFinite(sweepAngleDegrees) ||
-                Math.Abs(sweepAngleDegrees) < 0.001f)
-            {
-                DrawSquareGrip(graphics, center, brush, pen);
-                return;
-            }
-
-            using Pen arcPen = new(pen.Color, Math.Max(1.5f, GripSegmentThicknessPixels * 0.75f))
-            {
-                StartCap = LineCap.Round,
-                EndCap = LineCap.Round,
-                LineJoin = LineJoin.Round
-            };
-
-            graphics.DrawArc(arcPen, bounds, startAngleDegrees, sweepAngleDegrees);
         }
 
         private static bool SameSelectionGrip(SelectionGrip? first, SelectionGrip? second)

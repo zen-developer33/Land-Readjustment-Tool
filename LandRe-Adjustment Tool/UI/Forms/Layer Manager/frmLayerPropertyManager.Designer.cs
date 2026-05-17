@@ -916,7 +916,11 @@ namespace Land_Readjustment_Tool.UI.Forms
             // _cboTextAlignment
             // 
             _cboTextAlignment.DropDownStyle = ComboBoxStyle.DropDownList;
-            _cboTextAlignment.Items.AddRange(new object[] { "Left", "Center", "Right" });
+            _cboTextAlignment.Items.AddRange(new object[] {
+                "Left Top", "Center Top", "Right Top",
+                "Left Middle", "Center Middle", "Right Middle",
+                "Left Bottom", "Center Bottom", "Right Bottom"
+            });
             _cboTextAlignment.Location = new Point(144, 164);
             _cboTextAlignment.Name = "_cboTextAlignment";
             _cboTextAlignment.Size = new Size(160, 28);

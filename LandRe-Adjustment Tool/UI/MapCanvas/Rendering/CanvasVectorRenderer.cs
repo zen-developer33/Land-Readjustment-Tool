@@ -152,7 +152,8 @@ namespace Land_Readjustment_Tool.UI.MapCanvas.Rendering
             int lodSkippedCount = 0;
 
             List<CanvasFeature> orderedFeatures = queriedFeatures
-                .OrderBy(GetDisplayOrder)
+                .OrderBy(GetDrawingMarkupRenderPass)
+                .ThenBy(GetDisplayOrder)
                 .ThenBy(f => f.CanvasObject.Id)
                 .ToList();
 
@@ -171,8 +172,10 @@ namespace Land_Readjustment_Tool.UI.MapCanvas.Rendering
                     continue;
                 }
 
+                RectangleD featureBounds = feature.Shape.GetBoundingBox();
                 if (minimumVisibleWorldSize > 0.0 &&
-                    IsBelowLevelOfDetail(feature.Shape.GetBoundingBox(), minimumVisibleWorldSize))
+                    (featureBounds.Width > 0 || featureBounds.Height > 0) &&
+                    IsBelowLevelOfDetail(featureBounds, minimumVisibleWorldSize))
                 {
                     lodSkippedCount++;
                     continue;
@@ -183,12 +186,12 @@ namespace Land_Readjustment_Tool.UI.MapCanvas.Rendering
                 renderedCount++;
             }
 
-            // Second pass: draw cadastral parcel selection highlights on top of all features.
+            // Second pass: draw selection highlights for data-layer polygon features on top of all features.
             foreach (CanvasFeature feature in orderedFeatures)
             {
                 if (_excludedShapeIds.Contains(feature.Shape.Id)) continue;
-                if (!IsSelectedCadastralParcelFeature(feature, feature.Shape)) continue;
                 CanvasLayer? layer = ResolveLayer(feature);
+                if (!IsDataLayerPolygonFeature(feature, feature.Shape, layer)) continue;
                 if (!IsRenderable(feature, layer, visibleWorldBounds)) continue;
                 DrawCadastralParcelHighlightOnly(graphics, engine, feature.Shape);
             }
@@ -402,6 +405,12 @@ namespace Land_Readjustment_Tool.UI.MapCanvas.Rendering
             return Math.Max(bounds.Width, bounds.Height) < minimumVisibleWorldSize;
         }
 
+        private int GetDrawingMarkupRenderPass(CanvasFeature feature)
+        {
+            CanvasLayer? layer = ResolveLayer(feature);
+            return layer != null && CanvasLayerTreeService.IsDrawingMarkupLayer(layer) ? 1 : 0;
+        }
+
         private int GetDisplayOrder(CanvasFeature feature) =>
             ResolveLayer(feature)?.DisplayOrder ?? int.MaxValue;
 
@@ -546,8 +555,10 @@ namespace Land_Readjustment_Tool.UI.MapCanvas.Rendering
                 return;
             }
 
-            bool isCadastralParcelSelection = !suppressParcelHighlight && IsSelectedCadastralParcelFeature(feature, shape);
-            bool useDefaultSelectionStyle = shape.IsSelected && !isCadastralParcelSelection;
+            bool isDataLayerPolygon = IsDataLayerPolygonFeature(feature, shape, layer);
+            bool isCadastralParcelSelection = !suppressParcelHighlight && isDataLayerPolygon;
+            // Data-layer polygons always use their normal stroke — the glow is drawn in the second pass.
+            bool useDefaultSelectionStyle = shape.IsSelected && !isDataLayerPolygon;
             bool shouldStroke = style.HasStroke || shape.IsSelected;
             float width = useDefaultSelectionStyle
                 ? SelectionLineWidthPx
@@ -659,7 +670,7 @@ namespace Land_Readjustment_Tool.UI.MapCanvas.Rendering
         {
             if (polyline.Vertices.Count == 1)
             {
-                DrawPointMarker(graphics, engine, polyline.Vertices[0], style);
+                DrawPointMarker(graphics, engine, polyline.Vertices[0], style, polyline.IsSelected);
                 return;
             }
 
@@ -705,7 +716,49 @@ namespace Land_Readjustment_Tool.UI.MapCanvas.Rendering
                 return;
             }
 
-            graphics.DrawPath(pen, path);
+            if (polyline.Segments.Count > 0)
+            {
+                DrawPolylineSegmentsWithPen(graphics, engine, polyline, pen);
+            }
+            else
+            {
+                graphics.DrawPath(pen, path);
+            }
+        }
+
+        private static void DrawPolylineSegmentsWithPen(
+            Graphics graphics,
+            MapCanvasEngine engine,
+            PolylineShape polyline,
+            Pen pen)
+        {
+            foreach (PolylineShape.PolylineSegment segment in polyline.Segments)
+            {
+                if (segment.Kind == PolylineShape.PolylineSegmentKind.Arc && segment.Arc != null)
+                {
+                    DrawArc(graphics, engine, segment.Arc, pen);
+                }
+                else
+                {
+                    PointF start = ToScreenPointF(engine.WorldToScreen(segment.Start));
+                    PointF end = ToScreenPointF(engine.WorldToScreen(segment.End));
+                    if (IsValidPoint(start) && IsValidPoint(end))
+                        graphics.DrawLine(pen, start, end);
+                }
+            }
+
+            if (polyline.IsClosed && polyline.Vertices.Count > 2)
+            {
+                PointD lastEndWorld = polyline.Segments[^1].End;
+                PointF last = ToScreenPointF(engine.WorldToScreen(lastEndWorld));
+                PointF first = ToScreenPointF(engine.WorldToScreen(polyline.Vertices[0]));
+                if (IsValidPoint(last) && IsValidPoint(first))
+                {
+                    double dist = Math.Sqrt(Math.Pow(last.X - first.X, 2) + Math.Pow(last.Y - first.Y, 2));
+                    if (dist > 0.5)
+                        graphics.DrawLine(pen, last, first);
+                }
+            }
         }
 
         private static void DrawDonutPolygon(
@@ -812,14 +865,17 @@ namespace Land_Readjustment_Tool.UI.MapCanvas.Rendering
             }
         }
 
-        private static bool IsSelectedCadastralParcelFeature(CanvasFeature? feature, IShape shape)
+        private static bool IsDataLayerPolygonFeature(CanvasFeature? feature, IShape shape, CanvasLayer? layer = null)
         {
             return shape.IsSelected &&
                    feature != null &&
                    string.Equals(feature.CanvasObject.ObjectType, "Polygon", StringComparison.OrdinalIgnoreCase) &&
-                   !string.IsNullOrWhiteSpace(feature.CanvasObject.GeometryMetadataJson) &&
-                   feature.CanvasObject.GeometryMetadataJson.Contains("CadastralParcel", StringComparison.OrdinalIgnoreCase);
+                   (layer == null || (!CanvasLayerTreeService.IsAnnotationLayer(layer) &&
+                                      !CanvasLayerTreeService.IsDrawingMarkupLayer(layer)));
         }
+
+        // Selection highlight color: cyan-blue (R=0, G=168, B=232).
+        private static readonly Color SelectionHighlightColor = Color.FromArgb(0, 168, 232);
 
         private static void DrawCadastralParcelSelectionHighlight(
             Graphics graphics,
@@ -834,23 +890,37 @@ namespace Land_Readjustment_Tool.UI.MapCanvas.Rendering
             GraphicsState state = graphics.Save();
             try
             {
-                graphics.SetClip(path, CombineMode.Intersect);
-
-                using SolidBrush fillBrush = new(Color.FromArgb(42, 255, 193, 7));
+                // Transparent fill — slightly more visible than before.
+                using SolidBrush fillBrush = new(Color.FromArgb(55, SelectionHighlightColor));
                 graphics.FillPath(fillBrush, path);
 
-                float bufferWidth = Math.Clamp(
-                    Math.Min(bounds.Width, bounds.Height) * 0.18f,
-                    7.0f,
-                    18.0f);
-                using Pen bufferPen = new(Color.FromArgb(140, 255, 193, 7), bufferWidth)
+                // Inner glow — half the previous width, clipped so nothing bleeds outside.
+                float glowWidth = Math.Clamp(
+                    Math.Min(bounds.Width, bounds.Height) * 0.05f,
+                    2.0f,
+                    5.0f);
+
+                graphics.SetClip(path, System.Drawing.Drawing2D.CombineMode.Intersect);
+
+                // Outer zone (25% opacity): covers full glowWidth inward from the border.
+                using Pen outerPen = new(Color.FromArgb(64, SelectionHighlightColor), glowWidth * 2f)
                 {
                     Alignment = PenAlignment.Center,
                     LineJoin = LineJoin.Round,
                     StartCap = LineCap.Round,
                     EndCap = LineCap.Round
                 };
-                graphics.DrawPath(bufferPen, path);
+                graphics.DrawPath(outerPen, path);
+
+                // Near-border zone (75% opacity): tight band right at the border edge.
+                using Pen innerPen = new(Color.FromArgb(191, SelectionHighlightColor), glowWidth)
+                {
+                    Alignment = PenAlignment.Center,
+                    LineJoin = LineJoin.Round,
+                    StartCap = LineCap.Round,
+                    EndCap = LineCap.Round
+                };
+                graphics.DrawPath(innerPen, path);
             }
             finally
             {
@@ -1086,6 +1156,9 @@ namespace Land_Readjustment_Tool.UI.MapCanvas.Rendering
             VectorRenderContext context,
             CanvasLayer? layer)
         {
+            if (text.IsBeingEdited)
+                return;
+
             PointF position = ToScreenPointF(engine.WorldToScreen(text.Position));
             if (!IsValidPoint(position))
             {
@@ -1100,26 +1173,58 @@ namespace Land_Readjustment_Tool.UI.MapCanvas.Rendering
                 : text.FillColor;
             if (layer?.IsLocked == true)
                 color = FadeLockedLayerColor(color);
+            if (text.IsSelected)
+                color = SelectionHighlightColor;
 
             using Font? layerFont = CreateAnnotationTextFont(layer, engine.ZoomScale);
+
+            string combinedAlignment = layer?.TextAlignment ?? text.HorizontalAlignment;
+            (StringAlignment hAlign, StringAlignment vAlign) = ParseCombinedTextAlignment(combinedAlignment);
             using StringFormat format = new()
             {
-                Alignment = TextShape.ToStringAlignment(layer?.TextAlignment ?? text.HorizontalAlignment),
-                LineAlignment = StringAlignment.Near,
+                Alignment = hAlign,
+                LineAlignment = vAlign,
                 FormatFlags = StringFormatFlags.NoClip
             };
 
             Font effectiveFont = layerFont ?? text.Font;
             SizeF textSize = graphics.MeasureString(string.IsNullOrEmpty(text.Text) ? " " : text.Text, effectiveFont);
-            float left = format.Alignment switch
+            float left = hAlign switch
             {
                 StringAlignment.Center => position.X - textSize.Width / 2f,
                 StringAlignment.Far => position.X - textSize.Width,
                 _ => position.X
             };
-            text.SetLastRenderedBounds(new RectangleF(left, position.Y, textSize.Width, textSize.Height));
+            float top = vAlign switch
+            {
+                StringAlignment.Center => position.Y - textSize.Height / 2f,
+                StringAlignment.Far => position.Y - textSize.Height,
+                _ => position.Y
+            };
+            text.SetLastRenderedBounds(new RectangleF(left, top, textSize.Width, textSize.Height));
 
             graphics.DrawString(text.Text, effectiveFont, context.GetSolidBrush(color), position, format);
+        }
+
+        private static (StringAlignment Horizontal, StringAlignment Vertical) ParseCombinedTextAlignment(string? alignment)
+        {
+            if (string.IsNullOrWhiteSpace(alignment))
+                return (StringAlignment.Near, StringAlignment.Near);
+
+            string[] parts = alignment.Trim().Split(' ', 2, StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries);
+            StringAlignment h = (parts.Length > 0 ? parts[0] : "").ToLowerInvariant() switch
+            {
+                "center" or "centre" => StringAlignment.Center,
+                "right" => StringAlignment.Far,
+                _ => StringAlignment.Near
+            };
+            StringAlignment v = (parts.Length > 1 ? parts[1] : "").ToLowerInvariant() switch
+            {
+                "middle" or "center" or "centre" => StringAlignment.Center,
+                "bottom" => StringAlignment.Far,
+                _ => StringAlignment.Near
+            };
+            return (h, v);
         }
 
         private static Font? CreateAnnotationTextFont(CanvasLayer? layer, double zoomScale)
@@ -1229,13 +1334,22 @@ namespace Land_Readjustment_Tool.UI.MapCanvas.Rendering
                 : System.Drawing.Text.TextRenderingHint.SingleBitPerPixelGridFit;
             try
             {
+                using StringFormat sf = new()
+                {
+                    Alignment = StringAlignment.Center,
+                    LineAlignment = StringAlignment.Center,
+                    FormatFlags = StringFormatFlags.NoClip
+                };
                 SizeF size = graphics.MeasureString(labelText, labelFont);
-                graphics.DrawString(
-                    labelText,
-                    labelFont,
-                    context.GetSolidBrush(labelColor),
-                    position.X - size.Width / 2.0f,
-                    position.Y - size.Height / 2.0f);
+                // Use a layout rectangle wide enough that Center alignment independently
+                // centers each line around position.X (not just the block as a whole).
+                float layoutWidth = Math.Max(size.Width * 2f, 400f);
+                RectangleF layoutRect = new(
+                    position.X - layoutWidth / 2f,
+                    position.Y - size.Height / 2f,
+                    layoutWidth,
+                    size.Height);
+                graphics.DrawString(labelText, labelFont, context.GetSolidBrush(labelColor), layoutRect, sf);
             }
             finally
             {

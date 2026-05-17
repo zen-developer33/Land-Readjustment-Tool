@@ -93,30 +93,53 @@ namespace Land_Readjustment_Tool
         {
             PropertyNameCaseInsensitive = true
         };
-        private static readonly string[] DefaultParcelPropertyFieldKeys =
+        private static readonly string PropertyFieldProfilesFilePath =
+            Path.Combine(Application.UserAppDataPath, "property_field_profiles.json");
+
+        private static readonly Dictionary<string, List<string>> DefaultPropertyFieldProfiles = new()
         {
-            "selection.selectedObjects",
-            "selection.objectType",
-            "selection.layer",
-            "selection.assignment",
-            "parcel.parcelNo",
-            "parcel.mapSheetNo",
-            "parcel.uniqueCode",
-            "parcel.ownershipType",
-            "owner.primaryOwner",
-            "owner.coOwners",
-            "area.originalRecord",
-            "area.fieldMeasured",
-            "geometry.area",
-            "geometry.length",
-            "geometry.vertexCount",
-            "geometry.bounds",
-            "text.value",
-            "tenancy.hasTenant",
-            "tenancy.tenantName"
+            ["originalParcel"] =
+            [
+                "selection.selectedObjects", "selection.objectType", "selection.layer", "selection.assignment",
+                "parcel.parcelNo", "parcel.mapSheetNo", "parcel.uniqueCode", "parcel.ownershipType",
+                "owner.primaryOwner", "owner.coOwners",
+                "area.originalRecord", "area.fieldMeasured",
+                "geometry.area", "geometry.length", "geometry.vertexCount", "geometry.bounds",
+                "tenancy.hasTenant", "tenancy.tenantName"
+            ],
+            ["road"] =
+            [
+                "selection.selectedObjects", "selection.objectType", "selection.layer", "selection.assignment",
+                "road.name", "road.code", "road.status", "road.type", "road.width", "road.rightOfWay",
+                "geometry.length", "geometry.bounds"
+            ],
+            ["block"] =
+            [
+                "selection.selectedObjects", "selection.objectType", "selection.layer", "selection.assignment",
+                "block.name", "block.code", "block.landUse", "block.area", "block.depth",
+                "geometry.area", "geometry.bounds"
+            ],
+            ["replottedParcel"] =
+            [
+                "selection.selectedObjects", "selection.objectType", "selection.layer", "selection.assignment",
+                "replotted.systemNumber", "replotted.derivedNumber", "replotted.blockSequence",
+                "replotted.activeNumberType", "replotted.plotType", "replotted.block", "replotted.plotArea",
+                "geometry.area", "geometry.bounds"
+            ],
+            ["text"] =
+            [
+                "selection.selectedObjects", "selection.objectType", "selection.layer", "selection.assignment",
+                "text.value", "text.insertionPoint", "text.alignment"
+            ],
+            ["general"] =
+            [
+                "selection.selectedObjects", "selection.objectType", "selection.layer", "selection.assignment",
+                "geometry.type", "geometry.area", "geometry.length", "geometry.vertexCount", "geometry.bounds"
+            ]
         };
 
-        private readonly List<string> _visibleParcelPropertyFieldKeys = new(DefaultParcelPropertyFieldKeys);
+        private Dictionary<string, List<string>> _propertyFieldProfiles =
+            DefaultPropertyFieldProfiles.ToDictionary(kv => kv.Key, kv => new List<string>(kv.Value));
         private IReadOnlyList<Guid> _currentSelectedCanvasObjectIds = Array.Empty<Guid>();
         private IReadOnlyList<CanvasObject> _currentPropertyGridObjects = Array.Empty<CanvasObject>();
         private int _currentPropertyGridSelectedCount;
@@ -292,6 +315,7 @@ namespace Land_Readjustment_Tool
             hostOperationProgress = hostProgressBarHost;
             NumericUpDownSelectAllBehavior.AttachTo(this);
             _startupFilePath = startupFilePath;
+            LoadPropertyFieldProfiles();
             ConfigureSmoothSplitterLayout();
             ConfigureStatusStripSizing();
             ConfigureLiveTileFetchStatusIndicator();
@@ -2626,7 +2650,9 @@ namespace Land_Readjustment_Tool
 
         private void PopulateObjectPropertySections(IReadOnlyList<ObjectPropertySection> sections)
         {
-            var selectedKeys = new HashSet<string>(_visibleParcelPropertyFieldKeys, StringComparer.OrdinalIgnoreCase);
+            string profileKey = GetObjectTypeProfileKey(_currentPropertyGridObjects);
+            List<string> profileKeys = GetOrCreateProfile(profileKey);
+            var selectedKeys = new HashSet<string>(profileKeys, StringComparer.OrdinalIgnoreCase);
 
             dgvParcelObjProperty.SuspendLayout();
             try
@@ -2641,11 +2667,12 @@ namespace Land_Readjustment_Tool
 
                     foreach (ObjectPropertyRow row in section.Rows.Where(row => selectedKeys.Contains(row.Key)))
                     {
+                        // Always show user-selected fields, even when the value is empty.
                         AddPropertyRow(
                             row.Key,
                             row.Label,
                             row.Value,
-                            row.IncludeWhenEmpty,
+                            includeWhenEmpty: true,
                             IsPropertyRowEditable(row));
                     }
 
@@ -2740,6 +2767,7 @@ namespace Land_Readjustment_Tool
                 AddOptionalSection(sections, BuildParcelFrontageSection(canvasObject));
                 AddOptionalSection(sections, BuildContributionSection(canvasObject));
                 AddOptionalSection(sections, BuildLabelSection(canvasObject));
+                AddOptionalSection(sections, BuildDrawingStyleSection(canvasObject));
                 AddOptionalSection(sections, BuildSourceSection(canvasObject, metadata));
                 return sections;
             }
@@ -2922,8 +2950,8 @@ namespace Land_Readjustment_Tool
         {
             return new ObjectPropertySection("Land Record",
             [
-                new("landRecord.mothNo", "Moth No.", canvasObject.BaselineParcel?.MalpotReference?.MothNo, false),
-                new("landRecord.paanaNo", "Paana No.", canvasObject.BaselineParcel?.MalpotReference?.PaanaNo, false)
+                new("landRecord.mothNo", "Moth No.", canvasObject.BaselineParcel?.MalpotReference?.MothNo, true),
+                new("landRecord.paanaNo", "Paana No.", canvasObject.BaselineParcel?.MalpotReference?.PaanaNo, true)
             ]);
         }
 
@@ -3053,22 +3081,24 @@ namespace Land_Readjustment_Tool
         private async void btnConfigureParcelProperties_Click(object? sender, EventArgs e)
         {
             IReadOnlyList<CanvasObject> contextObjects = GetPropertyFieldContextObjects();
+            string profileKey = GetObjectTypeProfileKey(contextObjects);
+            List<string> currentProfile = GetOrCreateProfile(profileKey);
+
             HashSet<string> relevantFieldKeys = GetRelevantFieldKeys(contextObjects);
             var fieldOptions = GetParcelPropertyFields()
                 .Where(field => relevantFieldKeys.Contains(field.Key))
                 .Select(field => new ParcelPropertyFieldSelectorItem(field.Key, field.Category, field.Label))
                 .ToList();
 
-            // Keep only visible keys that are still valid for this object type.
             var validKeys = fieldOptions.Select(f => f.Key).ToHashSet(StringComparer.OrdinalIgnoreCase);
-            var filteredVisible = _visibleParcelPropertyFieldKeys.Where(k => validKeys.Contains(k)).ToList();
+            var filteredVisible = currentProfile.Where(k => validKeys.Contains(k)).ToList();
 
             using var form = new frmParcelPropertyFieldSelector(fieldOptions, filteredVisible);
             if (form.ShowDialog(this) != DialogResult.OK)
                 return;
 
-            _visibleParcelPropertyFieldKeys.Clear();
-            _visibleParcelPropertyFieldKeys.AddRange(form.SelectedFieldKeys);
+            _propertyFieldProfiles[profileKey] = [.. form.SelectedFieldKeys];
+            SavePropertyFieldProfiles();
 
             if (_currentPropertyGridObjects.Count > 0)
             {
@@ -3077,6 +3107,86 @@ namespace Land_Readjustment_Tool
             }
 
             await LoadSelectedParcelPropertiesAsync(_currentSelectedCanvasObjectIds);
+        }
+
+        private static string GetObjectTypeProfileKey(IReadOnlyList<CanvasObject> objects)
+        {
+            if (objects.Count == 0)
+                return "general";
+
+            bool hasParcel = objects.Any(IsOriginalParcelObject);
+            bool hasRoad = objects.Any(o => o.Road != null || o.RoadId.HasValue);
+            bool hasBlock = objects.Any(o => o.Block != null || o.BlockId.HasValue);
+            bool hasReplotted = objects.Any(o => o.ReplottedParcel != null || o.ReplottedParcelId.HasValue);
+            bool hasText = objects.Any(IsTextObject);
+
+            int distinctTypes = (hasParcel ? 1 : 0) + (hasRoad ? 1 : 0) + (hasBlock ? 1 : 0)
+                              + (hasReplotted ? 1 : 0) + (hasText ? 1 : 0);
+            if (distinctTypes != 1)
+                return "general";
+
+            if (hasParcel) return "originalParcel";
+            if (hasRoad) return "road";
+            if (hasBlock) return "block";
+            if (hasReplotted) return "replottedParcel";
+            if (hasText) return "text";
+            return "general";
+        }
+
+        private List<string> GetOrCreateProfile(string profileKey)
+        {
+            if (!_propertyFieldProfiles.TryGetValue(profileKey, out List<string>? profile))
+            {
+                profile = DefaultPropertyFieldProfiles.TryGetValue(profileKey, out List<string>? defaults)
+                    ? new List<string>(defaults)
+                    : new List<string>(DefaultPropertyFieldProfiles["general"]);
+                _propertyFieldProfiles[profileKey] = profile;
+            }
+
+            return profile;
+        }
+
+        private void LoadPropertyFieldProfiles()
+        {
+            try
+            {
+                if (!File.Exists(PropertyFieldProfilesFilePath))
+                    return;
+
+                string json = File.ReadAllText(PropertyFieldProfilesFilePath);
+                var loaded = JsonSerializer.Deserialize<Dictionary<string, List<string>>>(json);
+                if (loaded == null)
+                    return;
+
+                foreach (var (key, value) in loaded)
+                {
+                    if (value != null)
+                        _propertyFieldProfiles[key] = value;
+                }
+            }
+            catch
+            {
+                // Use defaults if saved profiles cannot be loaded.
+            }
+        }
+
+        private void SavePropertyFieldProfiles()
+        {
+            try
+            {
+                string? dir = Path.GetDirectoryName(PropertyFieldProfilesFilePath);
+                if (!string.IsNullOrEmpty(dir))
+                    Directory.CreateDirectory(dir);
+
+                string json = JsonSerializer.Serialize(
+                    _propertyFieldProfiles,
+                    new JsonSerializerOptions { WriteIndented = true });
+                File.WriteAllText(PropertyFieldProfilesFilePath, json);
+            }
+            catch
+            {
+                // Profile saving is non-critical; ignore errors.
+            }
         }
 
         private async void btnSelectFromRecords_Click(object? sender, EventArgs e)
@@ -3808,11 +3918,11 @@ namespace Land_Readjustment_Tool
             try
             {
                 dgvParcelObjProperty.Rows.Clear();
-                int index = dgvParcelObjProperty.Rows.Add("Status", message);
+                int index = dgvParcelObjProperty.Rows.Add(string.Empty, message);
                 DataGridViewRow row = dgvParcelObjProperty.Rows[index];
                 row.DefaultCellStyle.ForeColor = Color.FromArgb(85, 96, 110);
                 row.DefaultCellStyle.BackColor = Color.FromArgb(248, 250, 252);
-                row.Height = 36;
+                row.DefaultCellStyle.Alignment = DataGridViewContentAlignment.TopLeft;
                 dgvParcelObjProperty.ClearSelection();
             }
             finally
@@ -6196,8 +6306,8 @@ namespace Land_Readjustment_Tool
                 if (layer != null)
                     SetCurrentDrawingLayer(layer);
             };
-            _mnuMoveLayerUp.Click += async (_, _) => await MoveRasterLayerInDisplayOrderAsync(_contextLayerNode, -1);
-            _mnuMoveLayerDown.Click += async (_, _) => await MoveRasterLayerInDisplayOrderAsync(_contextLayerNode, 1);
+            _mnuMoveLayerUp.Click += async (_, _) => await MoveLayerInDisplayOrderAsync(_contextLayerNode, -1);
+            _mnuMoveLayerDown.Click += async (_, _) => await MoveLayerInDisplayOrderAsync(_contextLayerNode, 1);
             _mnuToggleLayerVisibility.Click += async (_, _) => await ToggleLayerNodeVisibilityAsync(_contextLayerNode);
             _mnuToggleLayerLock.Click += async (_, _) => await ToggleLayerLockAsync(_contextLayerNode);
             _mnuToggleLayerLabels.Click += async (_, _) => await ToggleLayerLabelsAsync(_contextLayerNode);
@@ -6649,12 +6759,13 @@ namespace Land_Readjustment_Tool
             bool canReorderRaster =
                 IsRasterLayer(layer) &&
                 !IsOnlineBasemapLayer(_contextLayerNode);
+            bool canReorderDrawing = CanvasLayerTreeService.IsDrawingMarkupLayer(layer);
             _mnuMoveLayerUp.Enabled =
-                canReorderRaster &&
-                CanMoveRasterLayerInDisplayOrder(_contextLayerNode, -1);
+                (canReorderRaster && CanMoveRasterLayerInDisplayOrder(_contextLayerNode, -1)) ||
+                (canReorderDrawing && CanMoveDrawingLayerInDisplayOrder(_contextLayerNode, -1));
             _mnuMoveLayerDown.Enabled =
-                canReorderRaster &&
-                CanMoveRasterLayerInDisplayOrder(_contextLayerNode, 1);
+                (canReorderRaster && CanMoveRasterLayerInDisplayOrder(_contextLayerNode, 1)) ||
+                (canReorderDrawing && CanMoveDrawingLayerInDisplayOrder(_contextLayerNode, 1));
             _mnuToggleLayerVisibility.Enabled = true;
             _mnuToggleLayerLock.Enabled = true;
             _mnuToggleLayerLabels.Enabled = CanLayerDisplayLabels(layer);
@@ -7907,6 +8018,74 @@ namespace Land_Readjustment_Tool
 
             CanvasLayer movedLayer = visualLayers[targetIndex];
             await PersistRasterVisualOrderAsync(visualLayers);
+            MarkProjectModifiedIfOpen();
+            await RefreshLayerTreeAsync();
+            SelectLayerNodeById(movedLayer.Id);
+            SetCanvasCommandStatus($"Layer order updated: {movedLayer.Name}");
+        }
+
+        private async Task MoveLayerInDisplayOrderAsync(TreeNode? node, int visualDirection)
+        {
+            CanvasLayer? layer = GetLayerFromNode(node);
+            if (layer != null && CanvasLayerTreeService.IsDrawingMarkupLayer(layer))
+                await MoveDrawingLayerInDisplayOrderAsync(node, visualDirection);
+            else
+                await MoveRasterLayerInDisplayOrderAsync(node, visualDirection);
+        }
+
+        private bool CanMoveDrawingLayerInDisplayOrder(TreeNode? node, int visualDirection)
+        {
+            if (node?.Parent == null ||
+                !CanvasLayerTreeService.IsDrawingMarkupLayer(GetLayerFromNode(node)))
+            {
+                return false;
+            }
+
+            int targetIndex = node.Index + Math.Sign(visualDirection);
+            if (targetIndex < 0 || targetIndex >= node.Parent.Nodes.Count)
+                return false;
+
+            return CanvasLayerTreeService.IsDrawingMarkupLayer(
+                GetLayerFromNode(node.Parent.Nodes[targetIndex]));
+        }
+
+        private async Task MoveDrawingLayerInDisplayOrderAsync(TreeNode? node, int visualDirection)
+        {
+            if (!CanMoveDrawingLayerInDisplayOrder(node, visualDirection) || node?.Parent == null)
+                return;
+
+            List<CanvasLayer> siblings = node.Parent.Nodes
+                .Cast<TreeNode>()
+                .Select(GetLayerFromNode)
+                .Where(l => l != null && CanvasLayerTreeService.IsDrawingMarkupLayer(l))
+                .Select(l => l!)
+                .ToList();
+
+            CanvasLayer? currentLayer = GetLayerFromNode(node);
+            int currentIndex = siblings.FindIndex(l => l.Id == currentLayer?.Id);
+            int targetIndex = currentIndex + Math.Sign(visualDirection);
+            if (currentIndex < 0 || targetIndex < 0 || targetIndex >= siblings.Count)
+                return;
+
+            (siblings[currentIndex].DisplayOrder, siblings[targetIndex].DisplayOrder) =
+                (siblings[targetIndex].DisplayOrder, siblings[currentIndex].DisplayOrder);
+
+            CanvasLayer movedLayer = siblings[targetIndex];
+
+            if (AppServices.HasContext)
+            {
+                var repository = _projectScopedFactory.CreateCanvasLayerRepository(
+                    AppServices.Context.Session);
+                foreach (CanvasLayer sibling in siblings)
+                {
+                    if (sibling.Id > 0)
+                    {
+                        sibling.LastModifiedDate = DateTime.Now;
+                        await repository.UpdateAsync(sibling);
+                    }
+                }
+            }
+
             MarkProjectModifiedIfOpen();
             await RefreshLayerTreeAsync();
             SelectLayerNodeById(movedLayer.Id);

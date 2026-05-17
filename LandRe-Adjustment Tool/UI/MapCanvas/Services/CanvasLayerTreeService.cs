@@ -212,7 +212,7 @@ namespace Land_Readjustment_Tool.UI.MapCanvas.Services
                         ? "None"
                         : "Solid",
                     LabelColor = "#000000",
-                    TextAlignment = "Left",
+                    TextAlignment = "Center Middle",
                     PointSymbol = "Dot",
                     PointSize = 5.0,
                     CreatedDate = DateTime.Now,
@@ -269,6 +269,15 @@ namespace Land_Readjustment_Tool.UI.MapCanvas.Services
 
             if (layer.LineTypeScale <= 0)
                 layer.LineTypeScale = 1.0;
+
+            if (string.IsNullOrWhiteSpace(layer.TextAlignment) ||
+                string.Equals(layer.TextAlignment.Trim(), "Left", StringComparison.OrdinalIgnoreCase) ||
+                string.Equals(layer.TextAlignment.Trim(), "Center", StringComparison.OrdinalIgnoreCase) ||
+                string.Equals(layer.TextAlignment.Trim(), "Right", StringComparison.OrdinalIgnoreCase))
+            {
+                layer.TextAlignment = "Center Middle";
+                changed = true;
+            }
 
             if (string.Equals(definition.LayerType, "ProjectBoundary", StringComparison.OrdinalIgnoreCase))
             {

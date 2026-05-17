@@ -5,6 +5,7 @@ namespace Land_Readjustment_Tool.UI.MapCanvas.Models.Shapes
 {
     public class TextShape : IShape
     {
+        private static readonly Color SelectionColor = Color.FromArgb(0, 168, 232);
         public Guid Id { get; set; } = Guid.NewGuid();
         public PointD Position { get; private set; }
         public string Text { get; set; }
@@ -68,7 +69,9 @@ namespace Land_Readjustment_Tool.UI.MapCanvas.Models.Shapes
                     float.IsInfinity(screenPos.X) || float.IsInfinity(screenPos.Y))
                     return;
 
-                Color textColor = FillColor == Color.Transparent ? Color.Black : FillColor;
+                Color textColor = IsSelected
+                    ? SelectionColor
+                    : FillColor == Color.Transparent ? Color.Black : FillColor;
                 using SolidBrush brush = new(textColor);
                 using StringFormat format = CreateStringFormat(HorizontalAlignment);
 
@@ -84,11 +87,11 @@ namespace Land_Readjustment_Tool.UI.MapCanvas.Models.Shapes
 
                 g.DrawString(Text, Font, brush, screenPos, format);
 
-                if (IsSelected)
+                if (IsSelected && LastRenderedBounds.HasValue)
                 {
                     RectangleF bounds = LastRenderedBounds.Value;
                     bounds.Inflate(2, 2);
-                    using Pen pen = new(BorderColor, 1f);
+                    using Pen pen = new(SelectionColor, 1f);
                     g.DrawRectangle(pen, bounds.X, bounds.Y, bounds.Width, bounds.Height);
                 }
             }
@@ -101,7 +104,9 @@ namespace Land_Readjustment_Tool.UI.MapCanvas.Models.Shapes
             PointD screenPosD = worldToScreen(Position);
             PointF screenPos = new((float)screenPosD.X, (float)screenPosD.Y);
 
-            Color textColor = FillColor == Color.Transparent ? Color.Black : FillColor;
+            Color textColor = IsSelected
+                ? SelectionColor
+                : FillColor == Color.Transparent ? Color.Black : FillColor;
             using SolidBrush brush = new(textColor);
             using StringFormat format = CreateStringFormat(HorizontalAlignment);
 
@@ -117,11 +122,11 @@ namespace Land_Readjustment_Tool.UI.MapCanvas.Models.Shapes
 
             g.DrawString(Text, Font, brush, screenPos, format);
 
-            if (IsSelected)
+            if (IsSelected && LastRenderedBounds.HasValue)
             {
                 RectangleF bounds = LastRenderedBounds.Value;
                 bounds.Inflate(2, 2);
-                using Pen pen = new(BorderColor, 1f);
+                using Pen pen = new(SelectionColor, 1f);
                 g.DrawRectangle(pen, bounds.X, bounds.Y, bounds.Width, bounds.Height);
             }
         }
@@ -153,7 +158,9 @@ namespace Land_Readjustment_Tool.UI.MapCanvas.Models.Shapes
 
         public static string NormalizeHorizontalAlignment(string? alignment)
         {
-            return alignment?.Trim().ToLowerInvariant() switch
+            // Handle combined "H V" strings like "Center Middle" — extract first word only.
+            string? first = alignment?.Trim().Split(' ')[0].ToLowerInvariant();
+            return first switch
             {
                 "center" or "centre" or "middle" => "Center",
                 "right" => "Right",

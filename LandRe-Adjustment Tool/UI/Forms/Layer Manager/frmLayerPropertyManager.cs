@@ -956,12 +956,23 @@ namespace Land_Readjustment_Tool.UI.Forms
 
         private static string NormalizeTextAlignment(string? alignment)
         {
-            return alignment?.Trim().ToLowerInvariant() switch
+            if (string.IsNullOrWhiteSpace(alignment))
+                return "Left Top";
+
+            string[] parts = alignment.Trim().Split(' ', 2, StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries);
+            string h = (parts.Length > 0 ? parts[0] : "").ToLowerInvariant() switch
             {
                 "center" or "centre" or "middle" => "Center",
                 "right" => "Right",
                 _ => "Left"
             };
+            string v = (parts.Length > 1 ? parts[1] : "").ToLowerInvariant() switch
+            {
+                "middle" or "center" or "centre" => "Middle",
+                "bottom" => "Bottom",
+                _ => "Top"
+            };
+            return $"{h} {v}";
         }
 
         private void UpdateLabelSourceControlVisibility()
