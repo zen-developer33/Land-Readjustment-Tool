@@ -480,6 +480,17 @@ namespace Land_Readjustment_Tool.UI.CustomControls
                    feature.Layer;
         }
 
+        private CanvasLayer? ResolveShapeLayer(IShape? shape)
+        {
+            if (shape == null)
+            {
+                return null;
+            }
+
+            return _vectorLayers.FirstOrDefault(layer =>
+                string.Equals(layer.Name, shape.LayerName, StringComparison.OrdinalIgnoreCase));
+        }
+
         public void SetVectorFeatures(IEnumerable<CanvasFeature>? features)
         {
             _vectorFeatures = features?.ToList() ?? [];
@@ -2963,6 +2974,37 @@ namespace Land_Readjustment_Tool.UI.CustomControls
                 .Take(250)
                 .ToList();
 
+            // When grip editing, exclude original edited shapes and use only preview shapes
+            // to avoid duplicate/conflicting snap candidates from both versions
+            if (_activeGripEdit != null)
+            {
+                // Remove the original edited shape from candidates (we'll add the preview)
+                nearbyShapes.RemoveAll(s => ReferenceEquals(s, _activeGripEdit.Grip.Shape));
+
+                // Remove any linked edited shapes
+                foreach (var linkedEdit in _activeGripEdit.LinkedEdits)
+                {
+                    nearbyShapes.RemoveAll(s => ReferenceEquals(s, linkedEdit.Grip.Shape));
+                }
+
+                // Add the preview shape if it intersects the query area
+                if (ShapeIntersectsWorldQuery(_activeGripEdit.PreviewShape, worldQuery) &&
+                    !nearbyShapes.Any(s => ReferenceEquals(s, _activeGripEdit.PreviewShape)))
+                {
+                    nearbyShapes.Add(_activeGripEdit.PreviewShape);
+                }
+
+                // Add any linked edited preview shapes if they intersect the query area
+                foreach (var linkedEdit in _activeGripEdit.LinkedEdits)
+                {
+                    if (ShapeIntersectsWorldQuery(linkedEdit.PreviewShape, worldQuery) &&
+                        !nearbyShapes.Any(s => ReferenceEquals(s, linkedEdit.PreviewShape)))
+                    {
+                        nearbyShapes.Add(linkedEdit.PreviewShape);
+                    }
+                }
+            }
+
             PointD? fromPoint = _drawingVertices.Count > 0 ? _drawingVertices[^1] : null;
             List<SnapPoint> candidates = _snapManager
                 .GetSnapCandidates(
@@ -3077,6 +3119,14 @@ namespace Land_Readjustment_Tool.UI.CustomControls
         {
             if (IsGripEditPreviewShape(snapPoint.ParentShape))
             {
+                // For edited shapes in drawing/markup layers, allow snap candidates
+                CanvasLayer? layer = ResolveShapeLayer(snapPoint.ParentShape);
+                if (layer != null && CanvasLayerTreeService.IsDrawingMarkupLayer(layer))
+                {
+                    return false;  // Allow snap from drawing/markup layer edited shapes
+                }
+
+                // For edited shapes in other layers, suppress snap during polyline drawing
                 return true;
             }
 
@@ -3129,19 +3179,30 @@ namespace Land_Readjustment_Tool.UI.CustomControls
                 return false;
             }
 
-            if (IsGripEditPreviewShape(snapPoint.ParentShape))
-            {
-                return true;
-            }
-
+            // Exclude the original grip position (before the drag started)
             if (IsSnapNearScreenPoint(snapPoint.Position, _activeGripEdit.Grip.Position))
             {
                 return true;
             }
 
+            // Exclude the dragged vertex itself as it moves — the preview shape's vertex sits
+            // at CurrentWorldPoint, not at Grip.Position, so the original check above misses it.
+            if (ReferenceEquals(snapPoint.ParentShape, _activeGripEdit.PreviewShape) &&
+                IsSnapNearScreenPoint(snapPoint.Position, _activeGripEdit.CurrentWorldPoint))
+            {
+                return true;
+            }
+
+            // Exclude linked grip original positions and their current preview-shape vertices
             foreach (LinkedGripEdit linkedEdit in _activeGripEdit.LinkedEdits)
             {
                 if (IsSnapNearScreenPoint(snapPoint.Position, linkedEdit.Grip.Position))
+                {
+                    return true;
+                }
+
+                if (ReferenceEquals(snapPoint.ParentShape, linkedEdit.PreviewShape) &&
+                    IsSnapNearScreenPoint(snapPoint.Position, _activeGripEdit.CurrentWorldPoint))
                 {
                     return true;
                 }
@@ -4098,8 +4159,11 @@ namespace Land_Readjustment_Tool.UI.CustomControls
                     return;
 
                 polyline.Vertices[grip.VertexIndex] = target;
-                MergeMovedPolylineVertexIfCoincident(polyline, originalPolyline, grip.VertexIndex);
-                SynchronizePolylineSegmentsFromVertices(polyline, originalPolyline);
+                bool merged = MergeMovedPolylineVertexIfCoincident(polyline, originalPolyline, grip.VertexIndex);
+                if (!merged)
+                {
+                    SynchronizePolylineSegmentsFromVertices(polyline, originalPolyline);
+                }
                 return;
             }
 
@@ -4179,7 +4243,7 @@ namespace Land_Readjustment_Tool.UI.CustomControls
             }
         }
 
-        private static void MergeMovedPolylineVertexIfCoincident(
+        private static bool MergeMovedPolylineVertexIfCoincident(
             PolylineShape polyline,
             PolylineShape originalPolyline,
             int movedVertexIndex)
@@ -4189,7 +4253,7 @@ namespace Land_Readjustment_Tool.UI.CustomControls
                 movedVertexIndex >= polyline.Vertices.Count ||
                 polyline.Vertices.Count <= minimumVertexCount)
             {
-                return;
+                return false;
             }
 
             PointD movedVertex = polyline.Vertices[movedVertexIndex];
@@ -4211,23 +4275,24 @@ namespace Land_Readjustment_Tool.UI.CustomControls
 
             if (mergeTargetIndex < 0)
             {
-                return;
+                return false;
             }
 
             polyline.Vertices[movedVertexIndex] = polyline.Vertices[mergeTargetIndex];
             polyline.Vertices.RemoveAt(movedVertexIndex);
 
-            if (polyline.Segments.Count == 0)
+            if (polyline.Segments.Count > 0)
             {
-                return;
+                RebuildPolylineSegmentsAfterVertexMerge(polyline, originalPolyline, movedVertexIndex);
             }
 
-            RebuildPolylineSegmentsAfterVertexMerge(polyline, originalPolyline);
+            return true;
         }
 
         private static void RebuildPolylineSegmentsAfterVertexMerge(
             PolylineShape polyline,
-            PolylineShape originalPolyline)
+            PolylineShape originalPolyline,
+            int removedVertexIndex)
         {
             int requiredSegmentCount = polyline.IsClosed
                 ? polyline.Vertices.Count
@@ -4244,8 +4309,12 @@ namespace Land_Readjustment_Tool.UI.CustomControls
             {
                 PointD start = polyline.Vertices[index];
                 PointD end = polyline.Vertices[(index + 1) % polyline.Vertices.Count];
-                PolylineShape.PolylineSegment? originalSegment = index < originalPolyline.Segments.Count
-                    ? originalPolyline.Segments[index]
+
+                // After removing the vertex at removedVertexIndex, every new segment at index >= that
+                // position corresponds to the original segment one slot higher (the segments shifted left).
+                int originalIndex = index < removedVertexIndex ? index : index + 1;
+                PolylineShape.PolylineSegment? originalSegment = originalIndex < originalPolyline.Segments.Count
+                    ? originalPolyline.Segments[originalIndex]
                     : null;
 
                 ArcShape? arc = null;
@@ -4253,7 +4322,11 @@ namespace Land_Readjustment_Tool.UI.CustomControls
                 if (originalSegment?.Kind == PolylineShape.PolylineSegmentKind.Arc &&
                     originalSegment.Arc != null)
                 {
-                    arc = ArcShape.FromThreePoints(start, originalSegment.Arc.MidPoint, end);
+                    PointD adaptedMid = ComputeAdaptedArcMidPoint(
+                        originalSegment.Arc.MidPoint,
+                        originalSegment.Start, originalSegment.End,
+                        start, end);
+                    arc = ArcShape.FromThreePoints(start, adaptedMid, end);
                     if (arc != null)
                     {
                         kind = PolylineShape.PolylineSegmentKind.Arc;
@@ -4282,25 +4355,68 @@ namespace Land_Readjustment_Tool.UI.CustomControls
                 PolylineShape.PolylineSegment segment = polyline.Segments[i];
                 PolylineShape.PolylineSegment originalSegment = originalPolyline.Segments[i];
                 PointD start = polyline.Vertices[i];
-                PointD end = i + 1 < polyline.Vertices.Count
-                    ? polyline.Vertices[i + 1]
-                    : segment.End;
+                PointD end;
+                if (i + 1 < polyline.Vertices.Count)
+                    end = polyline.Vertices[i + 1];
+                else if (polyline.IsClosed && polyline.Vertices.Count > 0)
+                    end = polyline.Vertices[0];
+                else
+                    end = segment.End;
 
                 segment.Start = start;
                 segment.End = end;
 
                 if (segment.Kind == PolylineShape.PolylineSegmentKind.Arc && originalSegment.Arc != null)
                 {
-                    segment.Arc = ArcShape.FromThreePoints(
-                        start,
+                    PointD adaptedMid = ComputeAdaptedArcMidPoint(
                         originalSegment.Arc.MidPoint,
-                        end);
+                        originalSegment.Start, originalSegment.End,
+                        start, end);
+                    segment.Arc = ArcShape.FromThreePoints(start, adaptedMid, end);
                     if (segment.Arc == null)
                     {
                         segment.Kind = PolylineShape.PolylineSegmentKind.Line;
                     }
                 }
             }
+        }
+
+        private static PointD ComputeAdaptedArcMidPoint(
+            PointD originalArcMidPoint,
+            PointD originalStart, PointD originalEnd,
+            PointD newStart, PointD newEnd)
+        {
+            // Preserve the sagitta-to-chord ratio so the arc curvature character survives
+            // as the vertex moves, even when the original midpoint would be collinear with
+            // the new endpoints.
+            double origDx = originalEnd.X - originalStart.X;
+            double origDy = originalEnd.Y - originalStart.Y;
+            double origChordLen = Math.Sqrt(origDx * origDx + origDy * origDy);
+            if (origChordLen < 1e-9)
+                return originalArcMidPoint;
+
+            double origPerpX = -origDy / origChordLen;
+            double origPerpY = origDx / origChordLen;
+
+            double origMidX = (originalStart.X + originalEnd.X) * 0.5;
+            double origMidY = (originalStart.Y + originalEnd.Y) * 0.5;
+            double sagX = originalArcMidPoint.X - origMidX;
+            double sagY = originalArcMidPoint.Y - origMidY;
+            double ratio = (sagX * origPerpX + sagY * origPerpY) / origChordLen;
+
+            double newDx = newEnd.X - newStart.X;
+            double newDy = newEnd.Y - newStart.Y;
+            double newChordLen = Math.Sqrt(newDx * newDx + newDy * newDy);
+            if (newChordLen < 1e-9)
+                return originalArcMidPoint;
+
+            double newPerpX = -newDy / newChordLen;
+            double newPerpY = newDx / newChordLen;
+
+            double newSagitta = ratio * newChordLen;
+            return new PointD(
+                (newStart.X + newEnd.X) * 0.5 + newPerpX * newSagitta,
+                (newStart.Y + newEnd.Y) * 0.5 + newPerpY * newSagitta);
         }
 
         private static void ApplyRectangleGrip(
@@ -4989,7 +5105,7 @@ namespace Land_Readjustment_Tool.UI.CustomControls
             NotifySelectedCanvasObjectsChanged();
         }
 
-        private static bool TryGetCombinedFeatureBounds(
+        private bool TryGetCombinedFeatureBounds(
             IReadOnlyList<CanvasFeature> features,
             out RectangleD bounds)
         {
@@ -5002,8 +5118,16 @@ namespace Land_Readjustment_Tool.UI.CustomControls
 
             foreach (CanvasFeature feature in features)
             {
-                if (!TryNormalizeZoomWorldBounds(feature.Shape.GetBoundingBox(), out RectangleD featureBounds))
+                RectangleD featureBounds;
+                if (feature.Shape is TextShape textShape &&
+                    textShape.LastRenderedBounds.HasValue)
+                {
+                    featureBounds = ConvertScreenBoundsToWorldBounds(textShape.LastRenderedBounds.Value);
+                }
+                else if (!TryNormalizeZoomWorldBounds(feature.Shape.GetBoundingBox(), out featureBounds))
+                {
                     continue;
+                }
 
                 if (!hasBounds)
                 {
@@ -5056,6 +5180,17 @@ namespace Land_Readjustment_Tool.UI.CustomControls
                 centerY - expandedHeight / 2.0,
                 expandedWidth,
                 expandedHeight);
+        }
+
+        private RectangleD ConvertScreenBoundsToWorldBounds(RectangleF screenBounds)
+        {
+            PointD worldTopLeft = _engine.ScreenToWorld(new PointD(screenBounds.Left, screenBounds.Top));
+            PointD worldBottomRight = _engine.ScreenToWorld(new PointD(screenBounds.Right, screenBounds.Bottom));
+            double left = Math.Min(worldTopLeft.X, worldBottomRight.X);
+            double right = Math.Max(worldTopLeft.X, worldBottomRight.X);
+            double bottom = Math.Min(worldTopLeft.Y, worldBottomRight.Y);
+            double top = Math.Max(worldTopLeft.Y, worldBottomRight.Y);
+            return new RectangleD(left, bottom, right - left, top - bottom);
         }
 
         private void AddSelectedObjects(IEnumerable<CanvasFeature> selectedFeatures)
