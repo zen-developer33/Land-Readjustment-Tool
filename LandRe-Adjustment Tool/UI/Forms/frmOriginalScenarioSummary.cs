@@ -27,6 +27,7 @@ namespace Land_Readjustment_Tool.UI.Forms
         private readonly Button _btnExport = new();
         private readonly Button _btnClose = new();
         private SummaryBook _summaryBook = new();
+        private int _sqmPrecision = 3;
 
         public frmOriginalScenarioSummary(ProjectSession session, string projectFilePath)
         {
@@ -150,6 +151,12 @@ namespace Land_Readjustment_Tool.UI.Forms
         private async Task<SummaryBook> BuildSummaryBookAsync()
         {
             AppDbContext context = _session.GetDbContext();
+
+            var precisionSetting = await context.ProjectSettings
+                .AsNoTracking()
+                .Select(ps => (int?)ps.AreaSqmDecimalPlaces)
+                .FirstOrDefaultAsync();
+            _sqmPrecision = precisionSetting ?? 3;
 
             List<BaselineParcel> parcels = await context.BaselineParcels
                 .AsNoTracking()
@@ -1069,14 +1076,14 @@ namespace Land_Readjustment_Tool.UI.Forms
             };
         }
 
-        private static string FormatAreaCompact(double areaSqm)
+        private string FormatAreaCompact(double areaSqm)
         {
-            return $"{areaSqm:N0} sq.m";
+            return $"{areaSqm.ToString($"F{_sqmPrecision}", CultureInfo.InvariantCulture)} sq.m";
         }
 
-        private static string FormatAreaLong(double areaSqm)
+        private string FormatAreaLong(double areaSqm)
         {
-            return $"{areaSqm:N2} sq.m / {ToRopani(areaSqm):N2} ropani";
+            return $"{areaSqm.ToString($"F{_sqmPrecision}", CultureInfo.InvariantCulture)} sq.m / {ToRopani(areaSqm):N2} ropani";
         }
 
         private static string FormatPercent(double percent)

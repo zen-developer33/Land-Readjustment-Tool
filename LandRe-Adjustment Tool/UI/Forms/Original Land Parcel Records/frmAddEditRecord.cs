@@ -425,9 +425,10 @@ namespace Land_Readjustment_Tool.Forms
             // Parse AreaInSqm and auto-calculate RAPD and BKD
             if (double.TryParse(txtAreaInSqm.Text.Trim(), out double area))
             {
+                var (_, tradPrec) = _landRecordsService?.GetAreaPrecisionSettings() ?? (3, 2);
                 record.AreaInSqm = area;
-                record.AreaInRAPD = AreaConverterService.SqmToRAPDString(area);
-                record.AreaInBKD = AreaConverterService.SqmToBKDString(area);
+                record.AreaInRAPD = AreaConverterService.SqmToRAPDString(area, tradPrec);
+                record.AreaInBKD = AreaConverterService.SqmToBKDString(area, tradPrec);
             }
 
             if (double.TryParse(txtFieldMeasuredAreaSqm.Text.Trim(), out double fieldMeasuredArea))
@@ -619,8 +620,9 @@ namespace Land_Readjustment_Tool.Forms
         {
             if (double.TryParse(txtAreaInSqm.Text.Trim(), out double area) && area > 0)
             {
-                txtAreaInRAPD.Text = AreaConverterService.SqmToRAPDString(area);
-                txtAreaInBKD.Text = AreaConverterService.SqmToBKDString(area);
+                var (_, tradPrec) = _landRecordsService?.GetAreaPrecisionSettings() ?? (3, 2);
+                txtAreaInRAPD.Text = AreaConverterService.SqmToRAPDString(area, tradPrec);
+                txtAreaInBKD.Text = AreaConverterService.SqmToBKDString(area, tradPrec);
             }
             else
             {

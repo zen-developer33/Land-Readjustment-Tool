@@ -81,6 +81,15 @@ namespace Land_Readjustment_Tool.Services.LandData
                 : "RAPD";
         }
 
+        public (int SqmPrecision, int TraditionalPrecision) GetAreaPrecisionSettings()
+        {
+            var s = _context.ProjectSettings
+                .AsNoTracking()
+                .Select(ps => new { ps.AreaSqmDecimalPlaces, ps.TraditionalAreaLowestUnitDecimalPlaces })
+                .FirstOrDefault();
+            return s == null ? (3, 2) : (s.AreaSqmDecimalPlaces, s.TraditionalAreaLowestUnitDecimalPlaces);
+        }
+
         public List<LegacyParcel> GetAllParcelsWithOwners()
         {
             var parcels = _context.BaselineParcels
@@ -93,7 +102,8 @@ namespace Land_Readjustment_Tool.Services.LandData
                 .ThenBy(p => p.ParcelNo)
                 .ToList();
 
-            return parcels.Select(MapParcel).ToList();
+            var (sqmPrec, tradPrec) = GetAreaPrecisionSettings();
+            return parcels.Select(p => MapParcel(p, sqmPrec, tradPrec)).ToList();
         }
 
         public List<LegacyParcel> GetParcelsByOwnerId(int ownerId)
@@ -109,7 +119,8 @@ namespace Land_Readjustment_Tool.Services.LandData
                 .ThenBy(p => p.ParcelNo)
                 .ToList();
 
-            return parcels.Select(MapParcel).ToList();
+            var (sqmPrec, tradPrec) = GetAreaPrecisionSettings();
+            return parcels.Select(p => MapParcel(p, sqmPrec, tradPrec)).ToList();
         }
 
         public double GetTotalAreaByOwnerId(int ownerId)
@@ -906,7 +917,7 @@ namespace Land_Readjustment_Tool.Services.LandData
             return new string(converted.ToString().Where(char.IsLetterOrDigit).ToArray()).ToUpperInvariant();
         }
 
-        private LegacyParcel MapParcel(BaselineParcel parcel)
+        private LegacyParcel MapParcel(BaselineParcel parcel, int sqmPrecision = 3, int traditionalPrecision = 2)
         {
             var areaSqm = parcel.OriginalAreaSqm;
             var owner = MapOwner(parcel.LandOwner);
@@ -927,8 +938,8 @@ namespace Land_Readjustment_Tool.Services.LandData
                 LandOwnershipType = parcel.LandOwnershipType,
                 AreaInSqm = areaSqm,
                 FieldMeasuredAreaSqm = parcel.FieldMeasuredAreaSqm,
-                AreaInRAPD = AreaConverterService.SqmToRAPDString(areaSqm),
-                AreaInBKD = AreaConverterService.SqmToBKDString(areaSqm),
+                AreaInRAPD = AreaConverterService.SqmToRAPDString(areaSqm, traditionalPrecision),
+                AreaInBKD = AreaConverterService.SqmToBKDString(areaSqm, traditionalPrecision),
                 MothNo = parcel.MalpotReference?.MothNo,
                 PaanaNo = parcel.MalpotReference?.PaanaNo,
                 Remarks = parcel.Remarks,

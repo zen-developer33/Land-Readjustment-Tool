@@ -54,7 +54,8 @@ namespace Land_Readjustment_Tool.UI.CustomControls
             CircleQuadrant,
             EllipseCenter,
             EllipseQuadrant,
-            TextPosition
+            TextPosition,
+            GeometricCenter
         }
 
         private enum SelectionGripGlyph
@@ -75,7 +76,6 @@ namespace Land_Readjustment_Tool.UI.CustomControls
         private const float DefaultSnapGlyphSizePixels = 14.0f;
         private const double CommonGripToleranceWorld = 0.005;
         private const double ActiveGripSnapSuppressionPixels = 4.0;
-        private const double VertexMergeToleranceWorld = 1e-7;
         private const double ScreenPixelsPerMetre = 96.0 / 0.0254;
         private const double MaxSnapScaleDenominator = 50000.0;
         private const double SelectionZoomPadding = 0.72;
@@ -140,6 +140,8 @@ namespace Land_Readjustment_Tool.UI.CustomControls
         private bool _holdVectorZoomFrameUntilRefresh;
         private PointF _heldVectorPanDelta;
         private Bitmap? _compositePanBitmap;
+        private Bitmap? _gridPanBitmap;
+        private GridPanPadding _gridPanPadding;
         private bool _snapEnabled = true;
         private bool _orthoModeEnabled;
         private double _snapPickTolerancePixels = DefaultSnapPickTolerancePixels;
@@ -164,6 +166,7 @@ namespace Land_Readjustment_Tool.UI.CustomControls
         private bool _isSelectingObjects;
         private Point _objectSelectionStart;
         private Point _objectSelectionCurrent;
+        private IReadOnlyList<CanvasFeature> _immediateEditedOverlayFeatures = Array.Empty<CanvasFeature>();
         private SelectionGrip? _hoveredSelectionGrip;
         private ActiveGripEdit? _activeGripEdit;
         private IShape? _previewShape;
@@ -175,10 +178,16 @@ namespace Land_Readjustment_Tool.UI.CustomControls
         private readonly ToolStripMenuItem _mnuAssignParcelData = new("Assign Parcel Data...");
         private readonly ToolStripMenuItem _mnuDeleteSelectedObjects = new("Delete Selected Object(s)");
         private readonly ToolStripMenuItem _mnuEditText = new("Edit Text");
+        private readonly ToolStripMenuItem _mnuMoveSelectedObjects = new("Move (Reference → Destination)");
+        private MoveOperation? _activeMoveOperation;
+        private Bitmap? _movePreviewBitmap;
+        private PointF _movePreviewBitmapReferenceScreen;
+        private double _movePreviewBitmapScale;
         private TextBox? _activeTextEditor;
         private PointD? _activeTextAnchorWorld;
         private string _activeTextEditorFontName = "Nirmala UI";
         private float _activeTextEditorBaseFontSize = 6.0f;
+        private bool _activeTextEditorScalesWithZoom = true;
         private string _activeTextEditorAlignment = "Left Top";
         private bool _textEditorCompleting;
         private bool _textEditorJustCancelled;
@@ -201,8 +210,10 @@ namespace Land_Readjustment_Tool.UI.CustomControls
             _mnuAssignParcelData.Click += (_, _) => SelectedObjectsAssignParcelDataRequested?.Invoke();
             _mnuDeleteSelectedObjects.Click += (_, _) => RequestDeleteSelectedObjects();
             _mnuEditText.Click += (_, _) => BeginTextEditFromContextMenu();
+            _mnuMoveSelectedObjects.Click += (_, _) => BeginMoveSelectedObjectsFromContextMenu();
             _objectSelectionContextMenu.Items.Add(_mnuEditText);
             _objectSelectionContextMenu.Items.Add(new ToolStripSeparator());
+            _objectSelectionContextMenu.Items.Add(_mnuMoveSelectedObjects);
             _objectSelectionContextMenu.Items.Add(_mnuAssignParcelData);
             _objectSelectionContextMenu.Items.Add(new ToolStripSeparator());
             _objectSelectionContextMenu.Items.Add(_mnuDeleteSelectedObjects);
@@ -269,6 +280,25 @@ namespace Land_Readjustment_Tool.UI.CustomControls
             public IShape OriginalShape { get; }
             public IShape PreviewShape { get; }
             public SelectionGrip PreviewGrip { get; }
+        }
+
+        private enum MoveOperationPhase
+        {
+            AwaitingReference,
+            AwaitingDestination
+        }
+
+        private sealed class MoveOperation
+        {
+            public required IReadOnlyList<MoveItem> Items { get; init; }
+            public MoveOperationPhase Phase { get; set; } = MoveOperationPhase.AwaitingReference;
+            public PointD ReferenceWorld { get; set; }
+        }
+
+        private sealed class MoveItem
+        {
+            public required CanvasFeature Feature { get; init; }
+            public required IShape OriginalShape { get; init; }
         }
 
         /// <summary>
@@ -395,6 +425,12 @@ namespace Land_Readjustment_Tool.UI.CustomControls
             RequestRender();
         }
 
+        public void UpdateAreaPrecisionSettings(int sqmPrecision, int traditionalPrecision)
+        {
+            _renderer.UpdateAreaPrecisionSettings(sqmPrecision, traditionalPrecision);
+            RequestRender();
+        }
+
         [Browsable(false)]
         [DesignerSerializationVisibility(DesignerSerializationVisibility.Hidden)]
         public bool SnapEnabled => _snapEnabled;
@@ -496,6 +532,9 @@ namespace Land_Readjustment_Tool.UI.CustomControls
             _vectorFeatures = features?.ToList() ?? [];
             _hoveredSelectionGrip = null;
             _activeGripEdit = null;
+            _immediateEditedOverlayFeatures = Array.Empty<CanvasFeature>();
+            _activeMoveOperation = null;
+            DisposeMovePreviewBitmap();
             _renderer.SetVectorRenderExclusions(null);
             PruneSelectionToSelectableFeatures();
             foreach (CanvasFeature feature in _vectorFeatures)
@@ -507,6 +546,8 @@ namespace Land_Readjustment_Tool.UI.CustomControls
 
             _renderer.UpdateVectorFeatures(_vectorFeatures);
             UpdateWorldBounds();
+            EnsureVectorZoomSnapshot();
+            _holdVectorZoomFrameUntilRefresh = true;
             RefreshVectorCacheForCurrentViewAsync();
             RequestRender();
         }
@@ -1038,6 +1079,7 @@ namespace Land_Readjustment_Tool.UI.CustomControls
             Stopwatch frameStopwatch = Stopwatch.StartNew();
             RasterRenderFrame? rasterFrame = GetRasterRenderFrame(out CanvasFrameSource rasterFrameSource);
             RasterRenderFrame? vectorFrame = GetVectorRenderFrame(out CanvasFrameSource vectorFrameSource);
+            RasterRenderFrame? fixedReferenceFrame = GetFixedReferenceRenderFrame();
 
             if (rasterFrameSource == CanvasFrameSource.None &&
                 !ShouldDeferDirectRasterRendering)
@@ -1061,11 +1103,16 @@ namespace Land_Readjustment_Tool.UI.CustomControls
                 _previewShape,
                 _activeDrawingLayer,
                 _showDebugOverlay,
-                suppressDecorations: _activeTextEditor != null);
+                suppressDecorations: _activeTextEditor != null,
+                suppressGridLabels: IsInteractiveNavigation,
+                suppressFixedReferenceLayers: IsInteractiveNavigation && fixedReferenceFrame == null,
+                fixedReferenceFrame: fixedReferenceFrame);
 
+            DrawImmediateEditedFeatureOverlay(e.Graphics);
             DrawActiveGripOriginalOverlay(e.Graphics);
             DrawObjectSelectionRectangle(e.Graphics);
             DrawActiveGripEditOverlay(e.Graphics);
+            DrawMoveOperationOverlay(e.Graphics);
             DrawSelectionGrips(e.Graphics);
             DrawSnapGlyph(e.Graphics);
             // Diameter preview drawing is handled by the vector renderer when the
@@ -1190,6 +1237,26 @@ namespace Land_Readjustment_Tool.UI.CustomControls
                 return;
             }
 
+            // Move-operation click handling takes precedence over everything else — the user has
+            // explicitly entered a two-click placement mode and other selection/grip gestures must
+            // be ignored until they pick the destination or cancel via Escape / right-click.
+            if (_activeMoveOperation != null)
+            {
+                if (e.Button == MouseButtons.Right)
+                {
+                    CancelMoveOperation();
+                    return;
+                }
+                if (e.Button == MouseButtons.Left && HandleMoveOperationClick(e.Location))
+                {
+                    return;
+                }
+                if (e.Button != MouseButtons.Middle)
+                {
+                    return;
+                }
+            }
+
             bool isPanGesture =
                 e.Button == MouseButtons.Middle ||
                 (_panToolActive && e.Button == MouseButtons.Left);
@@ -1295,6 +1362,7 @@ namespace Land_Readjustment_Tool.UI.CustomControls
             // _isPanning is still false here so GetRasterRenderFrame / GetVectorRenderFrame
             // return the same frames that were used in the last paint call.
             BuildCompositePanBuffer(canvasSurface.Size);
+            BuildGridPanBuffer(canvasSurface.Size);
 
             // Clear prior hold flags AFTER building the composite so the composite
             // correctly captures the held pan/zoom frames that were visible on screen.
@@ -1400,6 +1468,14 @@ namespace Land_Readjustment_Tool.UI.CustomControls
             {
                 _currentMouseWorld = _currentSnapPoint?.Position ?? _engine.ScreenToWorld(e.Location);
             }
+
+            if (_activeMoveOperation != null)
+            {
+                RequestRender();
+                UpdateStatusBar();
+                return;
+            }
+
             UpdateHoveredSelectionGrip(e.Location);
             UpdateDrawingPreview(e.Location);
             UpdateStatusBar();
@@ -1500,6 +1576,13 @@ namespace Land_Readjustment_Tool.UI.CustomControls
             if (_textEditorJustCancelled)
             {
                 _textEditorJustCancelled = false;
+                e.Handled = true;
+                return;
+            }
+
+            if (e.KeyCode == Keys.Escape && _activeMoveOperation != null)
+            {
+                CancelMoveOperation();
                 e.Handled = true;
                 return;
             }
@@ -1808,9 +1891,9 @@ namespace Land_Readjustment_Tool.UI.CustomControls
             canvasSurface.Capture = false;
 
             string alignment = GetActiveTextAlignment();
-            (string fontName, float baseFontSize) = GetTextEditorFontSpec(_activeDrawingLayer);
+            (string fontName, float baseFontSize, bool scaleWithZoom) = GetTextEditorFontSpec(_activeDrawingLayer);
             _editingTextFeature = null;
-            SpawnTextEditor(worldPoint, screenPoint, alignment, fontName, baseFontSize, string.Empty, ResolveActiveTextColor());
+            SpawnTextEditor(worldPoint, screenPoint, alignment, fontName, baseFontSize, scaleWithZoom, string.Empty, ResolveActiveTextColor());
         }
 
         private void BeginTextEditExisting(CanvasFeature feature, TextShape textShape, Point screenPoint)
@@ -1822,12 +1905,12 @@ namespace Land_Readjustment_Tool.UI.CustomControls
             // Prefer the layer's full combined alignment ("Center Middle") so the textbox
             // is anchored exactly where the rendered text sits.
             string alignment = feature.Layer?.TextAlignment ?? textShape.HorizontalAlignment;
-            (string fontName, float baseFontSize) = GetTextEditorFontSpec(feature.Layer, textShape);
+            (string fontName, float baseFontSize, bool scaleWithZoom) = GetTextEditorFontSpec(feature.Layer, textShape);
             Color textColor = textShape.FillColor == Color.Transparent ? Color.Black : textShape.FillColor;
             _editingTextFeature = feature;
             textShape.IsBeingEdited = true;
             RequestRender(); // erase background text immediately before editor appears
-            SpawnTextEditor(textShape.Position, screenPoint, alignment, fontName, baseFontSize, textShape.Text, textColor);
+            SpawnTextEditor(textShape.Position, screenPoint, alignment, fontName, baseFontSize, scaleWithZoom, textShape.Text, textColor);
         }
 
         private void SpawnTextEditor(
@@ -1836,11 +1919,13 @@ namespace Land_Readjustment_Tool.UI.CustomControls
             string alignment,
             string fontName,
             float baseFontSize,
+            bool scaleWithZoom,
             string initialText,
             Color textColor)
         {
             _activeTextEditorFontName = fontName;
             _activeTextEditorBaseFontSize = Math.Clamp(baseFontSize, 1.0f, 120.0f);
+            _activeTextEditorScalesWithZoom = scaleWithZoom;
             _activeTextEditorAlignment = NormalizeFullAlignment(alignment);
             Font font = CreateScaledTextEditorFont();
             int initialWidth = Math.Max(120,
@@ -1875,7 +1960,7 @@ namespace Land_Readjustment_Tool.UI.CustomControls
             UpdateStatusBar();
         }
 
-        private (string FontName, float BaseFontSize) GetTextEditorFontSpec(
+        private (string FontName, float BaseFontSize, bool ScaleWithZoom) GetTextEditorFontSpec(
             CanvasLayer? layer,
             TextShape? textShape = null)
         {
@@ -1883,11 +1968,12 @@ namespace Land_Readjustment_Tool.UI.CustomControls
                 ? textShape?.Font.FontFamily.Name ?? "Nirmala UI"
                 : layer.LabelFontName.Trim();
             float fontSize = (float)Math.Clamp(
-                layer?.LabelFontSize > 0 ? layer.LabelFontSize : textShape?.Font.Size ?? 6.0,
+                layer?.LabelFontSize > 0 ? layer.LabelFontSize : textShape?.Font.Size ?? 10.0,
                 1.0,
                 120.0);
+            bool scaleWithZoom = layer?.LabelScaleWithZoom ?? true;
 
-            return (fontName, fontSize);
+            return (fontName, fontSize, scaleWithZoom);
         }
 
         private Font CreateScaledTextEditorFont()
@@ -1905,6 +1991,9 @@ namespace Land_Readjustment_Tool.UI.CustomControls
 
         private float ResolveScaledTextEditorFontSize()
         {
+            if (!_activeTextEditorScalesWithZoom)
+                return Math.Clamp(_activeTextEditorBaseFontSize, 1.0f, 120.0f);
+
             double zoomFactor = double.IsFinite(_engine.ZoomScale)
                 ? Math.Clamp(_engine.ZoomScale, 0.25, 12.0)
                 : 1.0;
@@ -2105,6 +2194,8 @@ namespace Land_Readjustment_Tool.UI.CustomControls
                 // Update existing text shape and fire ShapeEdited.
                 targetTextShape.Text = text;
                 ShapeEdited?.Invoke(targetTextShape);
+                EnsureVectorZoomSnapshot();
+                _holdVectorZoomFrameUntilRefresh = true;
                 RefreshVectorCacheForCurrentViewAsync();
                 RequestRender();
                 return;
@@ -2944,11 +3035,12 @@ namespace Land_Readjustment_Tool.UI.CustomControls
         private void UpdateCurrentSnapPoint(Point screenPoint)
         {
             bool isGripEditing = _activeGripEdit != null;
+            bool isMoving = _activeMoveOperation != null;
             if (!_snapEnabled ||
                 IsSnapTemporarilySuspendedForZoom() ||
-                (_activeTool == MapCanvasTool.Select && !isGripEditing) ||
-                (IsInteractiveNavigation && !isGripEditing) ||
-                (IsPanBlockedByZoomDebounce && !isGripEditing))
+                (_activeTool == MapCanvasTool.Select && !isGripEditing && !isMoving) ||
+                (IsInteractiveNavigation && !isGripEditing && !isMoving) ||
+                (IsPanBlockedByZoomDebounce && !isGripEditing && !isMoving))
             {
                 ClearCurrentSnapPoint();
                 return;
@@ -2974,34 +3066,15 @@ namespace Land_Readjustment_Tool.UI.CustomControls
                 .Take(250)
                 .ToList();
 
-            // When grip editing, exclude original edited shapes and use only preview shapes
-            // to avoid duplicate/conflicting snap candidates from both versions
+            // During grip editing, snap only to other visible objects. The edited shapes are
+            // drawn as an overlay and must not feed their original or preview geometry back
+            // into snapping; otherwise the grip can capture itself while it is being dragged.
             if (_activeGripEdit != null)
             {
-                // Remove the original edited shape from candidates (we'll add the preview)
                 nearbyShapes.RemoveAll(s => ReferenceEquals(s, _activeGripEdit.Grip.Shape));
-
-                // Remove any linked edited shapes
                 foreach (var linkedEdit in _activeGripEdit.LinkedEdits)
                 {
                     nearbyShapes.RemoveAll(s => ReferenceEquals(s, linkedEdit.Grip.Shape));
-                }
-
-                // Add the preview shape if it intersects the query area
-                if (ShapeIntersectsWorldQuery(_activeGripEdit.PreviewShape, worldQuery) &&
-                    !nearbyShapes.Any(s => ReferenceEquals(s, _activeGripEdit.PreviewShape)))
-                {
-                    nearbyShapes.Add(_activeGripEdit.PreviewShape);
-                }
-
-                // Add any linked edited preview shapes if they intersect the query area
-                foreach (var linkedEdit in _activeGripEdit.LinkedEdits)
-                {
-                    if (ShapeIntersectsWorldQuery(linkedEdit.PreviewShape, worldQuery) &&
-                        !nearbyShapes.Any(s => ReferenceEquals(s, linkedEdit.PreviewShape)))
-                    {
-                        nearbyShapes.Add(linkedEdit.PreviewShape);
-                    }
                 }
             }
 
@@ -3117,16 +3190,10 @@ namespace Land_Readjustment_Tool.UI.CustomControls
 
         private bool IsSuppressedPreviewSnapPoint(SnapPoint snapPoint)
         {
+            // Grip-edit preview geometry is never a snap source. This keeps the live edited
+            // shape from capturing its own grips while the user is dragging.
             if (IsGripEditPreviewShape(snapPoint.ParentShape))
             {
-                // For edited shapes in drawing/markup layers, allow snap candidates
-                CanvasLayer? layer = ResolveShapeLayer(snapPoint.ParentShape);
-                if (layer != null && CanvasLayerTreeService.IsDrawingMarkupLayer(layer))
-                {
-                    return false;  // Allow snap from drawing/markup layer edited shapes
-                }
-
-                // For edited shapes in other layers, suppress snap during polyline drawing
                 return true;
             }
 
@@ -3179,36 +3246,89 @@ namespace Land_Readjustment_Tool.UI.CustomControls
                 return false;
             }
 
-            // Exclude the original grip position (before the drag started)
-            if (IsSnapNearScreenPoint(snapPoint.Position, _activeGripEdit.Grip.Position))
-            {
-                return true;
-            }
-
-            // Exclude the dragged vertex itself as it moves — the preview shape's vertex sits
-            // at CurrentWorldPoint, not at Grip.Position, so the original check above misses it.
+            // Only suppress the SPECIFIC handle being dragged (identified by index in its preview
+            // shape, not by world position). All other vertices, midpoints, arc centers, etc. of
+            // the edited shape remain valid snap targets. This is the only correct way to keep
+            // the snap engaged when the dragged vertex sits on top of another vertex of the same
+            // shape (the typical "snap onto neighbor" workflow).
             if (ReferenceEquals(snapPoint.ParentShape, _activeGripEdit.PreviewShape) &&
-                IsSnapNearScreenPoint(snapPoint.Position, _activeGripEdit.CurrentWorldPoint))
+                IsDraggedHandleSnapPoint(snapPoint, _activeGripEdit.PreviewShape, _activeGripEdit.Grip))
             {
                 return true;
             }
 
-            // Exclude linked grip original positions and their current preview-shape vertices
             foreach (LinkedGripEdit linkedEdit in _activeGripEdit.LinkedEdits)
             {
-                if (IsSnapNearScreenPoint(snapPoint.Position, linkedEdit.Grip.Position))
-                {
-                    return true;
-                }
-
                 if (ReferenceEquals(snapPoint.ParentShape, linkedEdit.PreviewShape) &&
-                    IsSnapNearScreenPoint(snapPoint.Position, _activeGripEdit.CurrentWorldPoint))
+                    IsDraggedHandleSnapPoint(snapPoint, linkedEdit.PreviewShape, linkedEdit.Grip))
                 {
                     return true;
                 }
             }
 
             return false;
+        }
+
+        private static bool IsDraggedHandleSnapPoint(
+            SnapPoint snapPoint,
+            IShape previewShape,
+            SelectionGrip grip)
+        {
+            // Polyline / polygon vertex grip: identify the dragged vertex by INDEX so that a
+            // coincident neighbour (e.g. after snapping the dragged vertex onto another vertex)
+            // still contributes a valid Endpoint snap candidate.
+            if (grip.Kind == SelectionGripKind.Vertex && previewShape is PolylineShape pl &&
+                grip.VertexIndex >= 0 && grip.VertexIndex < pl.Vertices.Count)
+            {
+                if (snapPoint.Type != SnapType.Endpoint)
+                    return false;
+
+                PointD draggedPos = pl.Vertices[grip.VertexIndex];
+                if (!IsSameWorldPoint(snapPoint.Position, draggedPos))
+                    return false;
+
+                // If another vertex of the same shape sits at the same world position, we cannot
+                // tell which of the identical Endpoint snap points was generated from the dragged
+                // index — keep both so the snap glyph stays anchored on the coincident neighbour.
+                for (int i = 0; i < pl.Vertices.Count; i++)
+                {
+                    if (i == grip.VertexIndex) continue;
+                    if (IsSameWorldPoint(pl.Vertices[i], draggedPos))
+                        return false;
+                }
+                return true;
+            }
+
+            // Line endpoint grip: index 0 = Start, index 1 = End.
+            if (grip.Kind == SelectionGripKind.Vertex && previewShape is LineShape ln)
+            {
+                if (snapPoint.Type != SnapType.Endpoint)
+                    return false;
+                PointD draggedPos = grip.VertexIndex == 0 ? ln.Start : ln.End;
+                return IsSameWorldPoint(snapPoint.Position, draggedPos);
+            }
+
+            // For other grip kinds (segment midpoint, arc midpoint, circle/ellipse handles, etc.),
+            // suppress a snap point only when it sits exactly on the live grip position.
+            PointD? handlePos = TryGetGripWorldPoint(new SelectionGrip
+            {
+                Feature = grip.Feature,
+                Shape = previewShape,
+                Kind = grip.Kind,
+                Glyph = grip.Glyph,
+                Position = grip.Position,
+                SegmentStart = grip.SegmentStart,
+                SegmentEnd = grip.SegmentEnd,
+                VertexIndex = grip.VertexIndex,
+                SegmentIndex = grip.SegmentIndex,
+                AuxiliaryIndex = grip.AuxiliaryIndex
+            });
+            return handlePos.HasValue && IsSameWorldPoint(snapPoint.Position, handlePos.Value);
+        }
+
+        private static bool IsSameWorldPoint(PointD a, PointD b)
+        {
+            return Math.Abs(a.X - b.X) < 1e-9 && Math.Abs(a.Y - b.Y) < 1e-9;
         }
 
         private bool IsSnapNearScreenPoint(PointD snapWorld, PointD referenceWorld)
@@ -3240,6 +3360,13 @@ namespace Land_Readjustment_Tool.UI.CustomControls
                     };
 
                 case PolylineShape polyline:
+                    if (grip.Kind == SelectionGripKind.GeometricCenter)
+                    {
+                        return polyline.Vertices.Count >= 2
+                            ? ComputePolylineGeometricCenter(polyline)
+                            : (PointD?)null;
+                    }
+
                     if (grip.Kind == SelectionGripKind.Vertex)
                     {
                         return grip.VertexIndex >= 0 && grip.VertexIndex < polyline.Vertices.Count
@@ -3301,6 +3428,11 @@ namespace Land_Readjustment_Tool.UI.CustomControls
                     return null;
 
                 case RectangleShape rectangle:
+                    if (grip.Kind == SelectionGripKind.GeometricCenter)
+                    {
+                        return ComputeRectangleCenter(rectangle);
+                    }
+
                     PointD[] corners = GetRectangleCorners(rectangle);
                     if (grip.Kind == SelectionGripKind.Vertex &&
                         grip.VertexIndex >= 0 && grip.VertexIndex < corners.Length)
@@ -3399,8 +3531,7 @@ namespace Land_Readjustment_Tool.UI.CustomControls
             return feature.Shape.IsVisible &&
                    feature.CanvasObject.IsVisible &&
                    layer?.IsVisible == true &&
-                   layer.IsSelectable &&
-                   layer.IsLocked != true;
+                   !IsActiveGripEditedShape(feature.Shape);
         }
 
         private static bool ShapeIntersectsWorldQuery(IShape shape, RectangleD worldQuery)
@@ -3569,6 +3700,15 @@ namespace Land_Readjustment_Tool.UI.CustomControls
 
         private IEnumerable<SelectionGrip> CreatePolylineSelectionGrips(CanvasFeature feature, PolylineShape polyline)
         {
+            if (polyline.Vertices.Count >= 2)
+            {
+                yield return CreateGrip(
+                    feature,
+                    SelectionGripKind.GeometricCenter,
+                    SelectionGripGlyph.Diamond,
+                    ComputePolylineGeometricCenter(polyline));
+            }
+
             for (int i = 0; i < polyline.Vertices.Count; i++)
             {
                 yield return CreateGrip(
@@ -3648,6 +3788,13 @@ namespace Land_Readjustment_Tool.UI.CustomControls
         private IEnumerable<SelectionGrip> CreateRectangleSelectionGrips(CanvasFeature feature, RectangleShape rectangle)
         {
             PointD[] corners = GetRectangleCorners(rectangle);
+
+            yield return CreateGrip(
+                feature,
+                SelectionGripKind.GeometricCenter,
+                SelectionGripGlyph.Diamond,
+                ComputeRectangleCenter(rectangle));
+
             for (int i = 0; i < corners.Length; i++)
             {
                 yield return CreateGrip(feature, SelectionGripKind.Vertex, SelectionGripGlyph.Square, corners[i], vertexIndex: i);
@@ -3891,6 +4038,7 @@ namespace Land_Readjustment_Tool.UI.CustomControls
 
             SelectionGrip grip = _activeGripEdit.Grip;
             IReadOnlyList<LinkedGripEdit> linkedEdits = _activeGripEdit.LinkedEdits;
+            List<CanvasFeature> editedFeatures = GetActiveGripEditedFeatures(grip, linkedEdits);
             RestoreShapeGeometry(grip.Shape, _activeGripEdit.PreviewShape);
             foreach (LinkedGripEdit linkedEdit in linkedEdits)
             {
@@ -3921,8 +4069,9 @@ namespace Land_Readjustment_Tool.UI.CustomControls
                 }
             }
 
-            _renderer.SetVectorRenderExclusions(null);
-            _renderer.UpdateVectorFeatures(_vectorFeatures);
+            _immediateEditedOverlayFeatures = editedFeatures;
+            _renderer.SetVectorRenderExclusions(null, invalidateCache: false);
+            _renderer.UpdateVectorFeatures(_vectorFeatures, invalidateCache: false);
             UpdateWorldBounds();
             RefreshVectorCacheForCurrentViewAsync();
             UpdateCanvasCursor();
@@ -3968,10 +4117,34 @@ namespace Land_Readjustment_Tool.UI.CustomControls
             _hoveredSelectionGrip = null;
             canvasSurface.Capture = false;
             _renderer.SetVectorRenderExclusions(null);
+            EnsureVectorZoomSnapshot();
+            _holdVectorZoomFrameUntilRefresh = true;
             RefreshVectorCacheForCurrentViewAsync();
             UpdateCanvasCursor();
             UpdateStatusBar();
             RequestRender();
+        }
+
+        private static List<CanvasFeature> GetActiveGripEditedFeatures(
+            SelectionGrip grip,
+            IReadOnlyList<LinkedGripEdit> linkedEdits)
+        {
+            HashSet<Guid> editedShapeIds = new();
+            List<CanvasFeature> editedFeatures = new();
+            if (editedShapeIds.Add(grip.Shape.Id))
+            {
+                editedFeatures.Add(grip.Feature);
+            }
+
+            foreach (LinkedGripEdit linkedEdit in linkedEdits)
+            {
+                if (editedShapeIds.Add(linkedEdit.Grip.Shape.Id))
+                {
+                    editedFeatures.Add(linkedEdit.Grip.Feature);
+                }
+            }
+
+            return editedFeatures;
         }
 
         private void ApplyGripEditVectorRenderExclusions()
@@ -4153,17 +4326,44 @@ namespace Land_Readjustment_Tool.UI.CustomControls
             SelectionGrip grip,
             PointD target)
         {
+            if (grip.Kind == SelectionGripKind.GeometricCenter)
+            {
+                PointD originalCenter = ComputePolylineGeometricCenter(originalPolyline);
+                PointD delta = target - originalCenter;
+                for (int i = 0; i < polyline.Vertices.Count && i < originalPolyline.Vertices.Count; i++)
+                {
+                    polyline.Vertices[i] = originalPolyline.Vertices[i] + delta;
+                }
+                for (int i = 0; i < polyline.Segments.Count && i < originalPolyline.Segments.Count; i++)
+                {
+                    PolylineShape.PolylineSegment src = originalPolyline.Segments[i];
+                    PolylineShape.PolylineSegment dst = polyline.Segments[i];
+                    dst.Kind = src.Kind;
+                    dst.Start = src.Start + delta;
+                    dst.End = src.End + delta;
+                    if (src.Arc != null)
+                    {
+                        dst.Arc = new ArcShape(
+                            src.Arc.Center + delta,
+                            src.Arc.Radius,
+                            src.Arc.StartAngleRadians,
+                            src.Arc.SweepAngleRadians);
+                    }
+                    else
+                    {
+                        dst.Arc = null;
+                    }
+                }
+                return;
+            }
+
             if (grip.Kind == SelectionGripKind.Vertex)
             {
                 if (grip.VertexIndex < 0 || grip.VertexIndex >= polyline.Vertices.Count)
                     return;
 
                 polyline.Vertices[grip.VertexIndex] = target;
-                bool merged = MergeMovedPolylineVertexIfCoincident(polyline, originalPolyline, grip.VertexIndex);
-                if (!merged)
-                {
-                    SynchronizePolylineSegmentsFromVertices(polyline, originalPolyline);
-                }
+                SynchronizePolylineSegmentsFromVertices(polyline, originalPolyline);
                 return;
             }
 
@@ -4241,102 +4441,6 @@ namespace Land_Readjustment_Tool.UI.CustomControls
             {
                 polyline.Vertices[endIndex] += delta;
             }
-        }
-
-        private static bool MergeMovedPolylineVertexIfCoincident(
-            PolylineShape polyline,
-            PolylineShape originalPolyline,
-            int movedVertexIndex)
-        {
-            int minimumVertexCount = polyline.IsClosed ? 3 : 2;
-            if (movedVertexIndex < 0 ||
-                movedVertexIndex >= polyline.Vertices.Count ||
-                polyline.Vertices.Count <= minimumVertexCount)
-            {
-                return false;
-            }
-
-            PointD movedVertex = polyline.Vertices[movedVertexIndex];
-            int mergeTargetIndex = -1;
-            double nearestDistance = VertexMergeToleranceWorld;
-
-            for (int index = 0; index < polyline.Vertices.Count; index++)
-            {
-                if (index == movedVertexIndex)
-                    continue;
-
-                double distance = DistanceWorld(movedVertex, polyline.Vertices[index]);
-                if (distance <= nearestDistance)
-                {
-                    nearestDistance = distance;
-                    mergeTargetIndex = index;
-                }
-            }
-
-            if (mergeTargetIndex < 0)
-            {
-                return false;
-            }
-
-            polyline.Vertices[movedVertexIndex] = polyline.Vertices[mergeTargetIndex];
-            polyline.Vertices.RemoveAt(movedVertexIndex);
-
-            if (polyline.Segments.Count > 0)
-            {
-                RebuildPolylineSegmentsAfterVertexMerge(polyline, originalPolyline, movedVertexIndex);
-            }
-
-            return true;
-        }
-
-        private static void RebuildPolylineSegmentsAfterVertexMerge(
-            PolylineShape polyline,
-            PolylineShape originalPolyline,
-            int removedVertexIndex)
-        {
-            int requiredSegmentCount = polyline.IsClosed
-                ? polyline.Vertices.Count
-                : Math.Max(0, polyline.Vertices.Count - 1);
-
-            if (requiredSegmentCount == 0)
-            {
-                polyline.Segments.Clear();
-                return;
-            }
-
-            List<PolylineShape.PolylineSegment> rebuiltSegments = new(requiredSegmentCount);
-            for (int index = 0; index < requiredSegmentCount; index++)
-            {
-                PointD start = polyline.Vertices[index];
-                PointD end = polyline.Vertices[(index + 1) % polyline.Vertices.Count];
-
-                // After removing the vertex at removedVertexIndex, every new segment at index >= that
-                // position corresponds to the original segment one slot higher (the segments shifted left).
-                int originalIndex = index < removedVertexIndex ? index : index + 1;
-                PolylineShape.PolylineSegment? originalSegment = originalIndex < originalPolyline.Segments.Count
-                    ? originalPolyline.Segments[originalIndex]
-                    : null;
-
-                ArcShape? arc = null;
-                PolylineShape.PolylineSegmentKind kind = PolylineShape.PolylineSegmentKind.Line;
-                if (originalSegment?.Kind == PolylineShape.PolylineSegmentKind.Arc &&
-                    originalSegment.Arc != null)
-                {
-                    PointD adaptedMid = ComputeAdaptedArcMidPoint(
-                        originalSegment.Arc.MidPoint,
-                        originalSegment.Start, originalSegment.End,
-                        start, end);
-                    arc = ArcShape.FromThreePoints(start, adaptedMid, end);
-                    if (arc != null)
-                    {
-                        kind = PolylineShape.PolylineSegmentKind.Arc;
-                    }
-                }
-
-                rebuiltSegments.Add(new PolylineShape.PolylineSegment(kind, start, end, arc));
-            }
-
-            polyline.Segments = rebuiltSegments;
         }
 
         private static void SynchronizePolylineSegmentsFromVertices(
@@ -4430,6 +4534,15 @@ namespace Land_Readjustment_Tool.UI.CustomControls
             double right = bounds.Right;
             double bottom = bounds.Bottom;
             double top = bounds.Top;
+
+            if (grip.Kind == SelectionGripKind.GeometricCenter)
+            {
+                PointD originalCenter = ComputeRectangleCenter(originalRectangle);
+                PointD delta = target - originalCenter;
+                rectangle.Start = new PointD(left + delta.X, bottom + delta.Y);
+                rectangle.End = new PointD(right + delta.X, top + delta.Y);
+                return;
+            }
 
             if (grip.Kind == SelectionGripKind.Vertex)
             {
@@ -4673,6 +4786,23 @@ namespace Land_Readjustment_Tool.UI.CustomControls
             }
         }
 
+        private void DrawImmediateEditedFeatureOverlay(Graphics graphics)
+        {
+            if (_immediateEditedOverlayFeatures.Count == 0)
+            {
+                return;
+            }
+
+            foreach (CanvasFeature feature in _immediateEditedOverlayFeatures)
+            {
+                _renderer.RenderTransientShape(
+                    graphics,
+                    feature.Shape,
+                    ResolveFeatureLayer(feature),
+                    feature.CanvasObject);
+            }
+        }
+
         private void DrawActiveGripOriginalOverlay(Graphics graphics)
         {
             if (_activeGripEdit == null)
@@ -4804,6 +4934,55 @@ namespace Land_Readjustment_Tool.UI.CustomControls
                 new PointD(bounds.Right, bounds.Top),
                 new PointD(bounds.Left, bounds.Top)
             ];
+        }
+
+        private static PointD ComputeRectangleCenter(RectangleShape rectangle)
+        {
+            RectangleD bounds = rectangle.GetBoundingBox();
+            return new PointD(
+                bounds.Left + bounds.Width / 2.0,
+                bounds.Bottom + bounds.Height / 2.0);
+        }
+
+        private static PointD ComputePolylineGeometricCenter(PolylineShape polyline)
+        {
+            // Closed polygons (>= 3 vertices) use the area-weighted (shoelace) centroid so the
+            // grip lands inside the shape's actual interior. Open polylines and degenerate cases
+            // fall back to the vertex average.
+            var vertices = polyline.Vertices;
+            if (vertices.Count == 0)
+                return new PointD(0, 0);
+
+            if (polyline.IsClosed && vertices.Count >= 3)
+            {
+                double area = 0.0;
+                double cx = 0.0;
+                double cy = 0.0;
+                for (int i = 0; i < vertices.Count; i++)
+                {
+                    PointD a = vertices[i];
+                    PointD b = vertices[(i + 1) % vertices.Count];
+                    double cross = a.X * b.Y - b.X * a.Y;
+                    area += cross;
+                    cx += (a.X + b.X) * cross;
+                    cy += (a.Y + b.Y) * cross;
+                }
+                area *= 0.5;
+                if (Math.Abs(area) > 1e-12)
+                {
+                    cx /= 6.0 * area;
+                    cy /= 6.0 * area;
+                    return new PointD(cx, cy);
+                }
+            }
+
+            double sx = 0, sy = 0;
+            foreach (PointD v in vertices)
+            {
+                sx += v.X;
+                sy += v.Y;
+            }
+            return new PointD(sx / vertices.Count, sy / vertices.Count);
         }
 
         private void DrawSnapGlyph(Graphics graphics)
@@ -5250,6 +5429,9 @@ namespace Land_Readjustment_Tool.UI.CustomControls
             _mnuEditText.Visible = hasSingleText;
             _mnuAssignParcelData.Enabled = SelectionContainsImportedCadastralParcel();
             _mnuDeleteSelectedObjects.Enabled = SelectionContainsEditableObject();
+            _mnuMoveSelectedObjects.Enabled = _activeMoveOperation == null &&
+                                              _activeGripEdit == null &&
+                                              SelectionContainsMovableObject();
         }
 
         private bool SelectionContainsSingleTextShape(out CanvasFeature? textFeature)
@@ -5289,12 +5471,224 @@ namespace Land_Readjustment_Tool.UI.CustomControls
                 IsSelectableImportedCadastralParcel(feature));
         }
 
+        private void BeginMoveSelectedObjectsFromContextMenu()
+        {
+            if (_activeMoveOperation != null || _activeGripEdit != null)
+                return;
+
+            List<MoveItem> items = new();
+            foreach (CanvasFeature feature in _vectorFeatures)
+            {
+                if (!_selectedShapeIds.Contains(feature.Shape.Id))
+                    continue;
+                if (!IsSelectableDrawingFeature(feature))
+                    continue;
+                if (IsSelectableImportedCadastralParcel(feature))
+                    continue;
+                CanvasLayer? layer = ResolveFeatureLayer(feature);
+                if (layer == null || layer.IsLocked == true)
+                    continue;
+                if (!CanvasLayerTreeService.IsDrawingMarkupLayer(layer))
+                    continue;
+
+                items.Add(new MoveItem
+                {
+                    Feature = feature,
+                    OriginalShape = feature.Shape.Clone()
+                });
+            }
+
+            if (items.Count == 0)
+                return;
+
+            _activeMoveOperation = new MoveOperation { Items = items };
+            canvasSurface.Focus();
+            UpdateStatusBar();
+            RequestRender();
+        }
+
+        private void CaptureMovePreviewBitmap()
+        {
+            DisposeMovePreviewBitmap();
+
+            if (_activeMoveOperation == null)
+                return;
+
+            Size canvasSize = canvasSurface.Size;
+            if (canvasSize.Width <= 0 || canvasSize.Height <= 0)
+                return;
+
+            Bitmap bmp = new(canvasSize.Width, canvasSize.Height, PixelFormat.Format32bppPArgb);
+            try
+            {
+                using Graphics g = Graphics.FromImage(bmp);
+                g.Clear(Color.Transparent);
+                foreach (MoveItem item in _activeMoveOperation.Items)
+                {
+                    _renderer.RenderTransientShape(
+                        g,
+                        item.Feature.Shape,
+                        ResolveFeatureLayer(item.Feature),
+                        item.Feature.CanvasObject);
+                }
+            }
+            catch
+            {
+                bmp.Dispose();
+                return;
+            }
+
+            _movePreviewBitmap = bmp;
+            _movePreviewBitmapScale = _engine.ZoomScale;
+            PointD refScreen = _engine.WorldToScreen(_activeMoveOperation.ReferenceWorld);
+            _movePreviewBitmapReferenceScreen = new PointF((float)refScreen.X, (float)refScreen.Y);
+        }
+
+        private void DisposeMovePreviewBitmap()
+        {
+            _movePreviewBitmap?.Dispose();
+            _movePreviewBitmap = null;
+        }
+
+        private void CommitMoveOperation()
+        {
+            if (_activeMoveOperation == null ||
+                _activeMoveOperation.Phase != MoveOperationPhase.AwaitingDestination ||
+                !_currentMouseWorld.HasValue)
+                return;
+
+            PointD cursor = _currentMouseWorld.Value;
+            PointD delta = new(
+                cursor.X - _activeMoveOperation.ReferenceWorld.X,
+                cursor.Y - _activeMoveOperation.ReferenceWorld.Y);
+
+            List<IShape> editedShapes = new();
+            foreach (MoveItem item in _activeMoveOperation.Items)
+            {
+                // Reset live shape to its pre-move state, then translate by the final delta.
+                RestoreShapeGeometry(item.Feature.Shape, item.OriginalShape);
+                item.Feature.Shape.Translate(delta);
+                editedShapes.Add(item.Feature.Shape);
+            }
+
+            _activeMoveOperation = null;
+            DisposeMovePreviewBitmap();
+            _renderer.UpdateVectorFeatures(_vectorFeatures);
+            UpdateWorldBounds();
+            // Snapshot the just-rendered committed state into the zoom buffer so paint has
+            // something to show while the async cache rebuild runs (no blank-frame flicker).
+            EnsureVectorZoomSnapshot();
+            _holdVectorZoomFrameUntilRefresh = true;
+            RefreshVectorCacheForCurrentViewAsync();
+            UpdateStatusBar();
+            RequestRender();
+
+            foreach (IShape shape in editedShapes)
+                ShapeEdited?.Invoke(shape);
+
+            if (editedShapes.Count > 0)
+            {
+                _commandService.LogCommand(editedShapes.Count > 1
+                    ? $"Moved {editedShapes.Count} objects"
+                    : "Moved object");
+            }
+        }
+
+        private void CancelMoveOperation()
+        {
+            if (_activeMoveOperation == null)
+                return;
+
+            // Restore live shapes from the pre-move snapshot (no-op if we never entered
+            // AwaitingDestination, but safe to run unconditionally).
+            foreach (MoveItem item in _activeMoveOperation.Items)
+            {
+                RestoreShapeGeometry(item.Feature.Shape, item.OriginalShape);
+            }
+
+            _activeMoveOperation = null;
+            DisposeMovePreviewBitmap();
+            _renderer.UpdateVectorFeatures(_vectorFeatures);
+            EnsureVectorZoomSnapshot();
+            _holdVectorZoomFrameUntilRefresh = true;
+            RefreshVectorCacheForCurrentViewAsync();
+            UpdateStatusBar();
+            RequestRender();
+        }
+
+        private void DrawMoveOperationOverlay(Graphics graphics)
+        {
+            if (_activeMoveOperation == null ||
+                _activeMoveOperation.Phase != MoveOperationPhase.AwaitingDestination ||
+                !_currentMouseWorld.HasValue ||
+                _isPanning)
+                return;
+
+            // Re-capture bitmap when zoom scale changes (pan-only changes are handled by offset math).
+            if (_movePreviewBitmap == null ||
+                Math.Abs(_engine.ZoomScale - _movePreviewBitmapScale) > _movePreviewBitmapScale * 1e-9)
+            {
+                CaptureMovePreviewBitmap();
+            }
+
+            if (_movePreviewBitmap == null)
+                return;
+
+            // offset = screen(cursor) − screen(reference at capture)
+            // This formula is correct for any pan offset; only breaks for zoom (handled above).
+            PointD cursorScreen = _engine.WorldToScreen(_currentMouseWorld.Value);
+            float dx = (float)cursorScreen.X - _movePreviewBitmapReferenceScreen.X;
+            float dy = (float)cursorScreen.Y - _movePreviewBitmapReferenceScreen.Y;
+
+            graphics.DrawImage(_movePreviewBitmap, dx, dy,
+                _movePreviewBitmap.Width, _movePreviewBitmap.Height);
+        }
+
+        private bool HandleMoveOperationClick(Point screenPoint)
+        {
+            if (_activeMoveOperation == null)
+                return false;
+
+            // Use the snapped cursor world point when available; otherwise the raw cursor.
+            PointD picked = _currentSnapPoint?.Position ?? _engine.ScreenToWorld(screenPoint);
+
+            if (_activeMoveOperation.Phase == MoveOperationPhase.AwaitingReference)
+            {
+                _activeMoveOperation.ReferenceWorld = picked;
+                _activeMoveOperation.Phase = MoveOperationPhase.AwaitingDestination;
+                _currentMouseWorld = picked;
+
+                // Capture shapes at their original positions into a bitmap.
+                // The originals remain visible in the vector cache (selection highlight + grips).
+                CaptureMovePreviewBitmap();
+                UpdateStatusBar();
+                RequestRender();
+                return true;
+            }
+
+            // Destination click — commit the translation.
+            _currentMouseWorld = picked;
+            CommitMoveOperation();
+            return true;
+        }
+
         private bool SelectionContainsEditableObject()
         {
             return _vectorFeatures.Any(feature =>
                 _selectedShapeIds.Contains(feature.Shape.Id) &&
                 IsSelectableDrawingFeature(feature) &&
                 ResolveFeatureLayer(feature)?.IsLocked != true);
+        }
+
+        private bool SelectionContainsMovableObject()
+        {
+            return _vectorFeatures.Any(feature =>
+                _selectedShapeIds.Contains(feature.Shape.Id) &&
+                IsSelectableDrawingFeature(feature) &&
+                !IsSelectableImportedCadastralParcel(feature) &&
+                ResolveFeatureLayer(feature) is CanvasLayer ml &&
+                ml.IsLocked != true &&
+                CanvasLayerTreeService.IsDrawingMarkupLayer(ml));
         }
 
         public void ClearSelectionAfterDelete()
@@ -5849,11 +6243,21 @@ namespace Land_Readjustment_Tool.UI.CustomControls
             if (_activeGripEdit != null)
                 return "Mode: Grip Edit";
 
+            if (_activeMoveOperation != null)
+                return "Mode: Move";
+
             return "Mode: Ready";
         }
 
         private string GetCommandPromptText()
         {
+            if (_activeMoveOperation != null)
+            {
+                return _activeMoveOperation.Phase == MoveOperationPhase.AwaitingReference
+                    ? "Move: click reference point  [Esc/right-click to cancel]"
+                    : "Move: click destination point  [Esc/right-click to cancel]";
+            }
+
             if (_activeGripEdit != null)
             {
                 return _activeGripEdit.AwaitingClickCommit
@@ -6028,6 +6432,26 @@ namespace Land_Readjustment_Tool.UI.CustomControls
             }
 
             return null;
+        }
+
+        private RasterRenderFrame? GetFixedReferenceRenderFrame()
+        {
+            if (_gridPanBitmap == null ||
+                (!_isPanning && !_holdVectorPanFrameUntilRefresh))
+            {
+                return null;
+            }
+
+            PointF delta = _isPanning ? _totalPanDelta : _heldVectorPanDelta;
+            return new RasterRenderFrame(
+                _gridPanBitmap,
+                new RectangleF(
+                    delta.X - _gridPanPadding.Left,
+                    delta.Y - _gridPanPadding.Top,
+                    _gridPanBitmap.Width,
+                    _gridPanBitmap.Height),
+                _gridPanBitmap,
+                () => { });
         }
 
         private RasterRenderFrame? GetVectorRenderFrame(out CanvasFrameSource source)
@@ -6403,7 +6827,10 @@ namespace Land_Readjustment_Tool.UI.CustomControls
                     previewShape: null,
                     previewLayer: null,
                     showDebugOverlay: false,
-                    suppressDecorations: true);
+                    suppressDecorations: true,
+                    suppressGridLabels: true,
+                    suppressFixedReferenceLayers: true,
+                    suppressBackgroundClear: true);
 
                 rasterFrame?.Dispose();
                 vectorFrame?.Dispose();
@@ -6419,10 +6846,59 @@ namespace Land_Readjustment_Tool.UI.CustomControls
             _compositePanBitmap = composite;
         }
 
+        private void BuildGridPanBuffer(Size canvasSize)
+        {
+            DisposeGridPanBitmap();
+
+            GridPanPadding padding = _renderer.GetGridPanPadding(canvasSize);
+            if (padding.IsEmpty || canvasSize.Width <= 0 || canvasSize.Height <= 0)
+            {
+                return;
+            }
+
+            Size paddedSize = new(
+                checked(canvasSize.Width + padding.Horizontal),
+                checked(canvasSize.Height + padding.Vertical));
+            Bitmap gridBitmap = new(paddedSize.Width, paddedSize.Height, PixelFormat.Format32bppPArgb);
+
+            try
+            {
+                MapCanvasEngine gridEngine = _engine.CreateSnapshot();
+                gridEngine.UpdateCanvasSize(paddedSize);
+                gridEngine.SetViewOriginFromPanStart(
+                    _engine.ViewOriginWorld,
+                    padding.Left,
+                    -padding.Bottom);
+
+                using MapCanvasRenderer gridRenderer = new(gridEngine, _renderSettings);
+                using Graphics g = Graphics.FromImage(gridBitmap);
+                g.Clear(Color.Transparent);
+                gridRenderer.RenderFixedReferences(g, suppressGridLabels: true);
+            }
+            catch (Exception ex)
+            {
+                System.Diagnostics.Debug.WriteLine(
+                    $"[MapCanvas] Grid pan buffer build failed: {ex.Message}");
+                gridBitmap.Dispose();
+                return;
+            }
+
+            _gridPanBitmap = gridBitmap;
+            _gridPanPadding = padding;
+        }
+
         private void DisposeCompositePanBitmap()
         {
             _compositePanBitmap?.Dispose();
             _compositePanBitmap = null;
+            DisposeGridPanBitmap();
+        }
+
+        private void DisposeGridPanBitmap()
+        {
+            _gridPanBitmap?.Dispose();
+            _gridPanBitmap = null;
+            _gridPanPadding = GridPanPadding.Empty;
         }
 
         private void EnsureVectorZoomSnapshot()
@@ -6476,6 +6952,8 @@ namespace Land_Readjustment_Tool.UI.CustomControls
             {
                 CancelActiveGripEdit(restoreOriginal: true);
             }
+
+            CancelMoveOperation();
 
             if (_isPanning)
             {
@@ -6638,6 +7116,7 @@ namespace Land_Readjustment_Tool.UI.CustomControls
                 _holdVectorPanFrameUntilRefresh = false;
                 _holdVectorZoomFrameUntilRefresh = false;
                 _heldVectorPanDelta = PointF.Empty;
+                _immediateEditedOverlayFeatures = Array.Empty<CanvasFeature>();
                 DisposeCompositePanBitmap();
 
                 if (IsHandleCreated)

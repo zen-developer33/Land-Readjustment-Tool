@@ -107,6 +107,46 @@ namespace Land_Readjustment_Tool.Services.Import
                     StringComparison.OrdinalIgnoreCase));
         }
 
+        /// <summary>
+        /// Reverses a previous <see cref="ApplyJointOwnership"/> call for the given group:
+        /// removes the co-owner entries that were added to the primary record and resets all
+        /// group records to independent (non-co-owner) rows.
+        /// </summary>
+        public static void UndoJointOwnership(ParcelDuplicateGroup group)
+        {
+            if (group == null) throw new ArgumentNullException(nameof(group));
+            if (group.Records.Count < 2) return;
+
+            // The primary is whichever record was NOT flagged as a co-owner row after merge.
+            var primary = group.Records.FirstOrDefault(r => !r.IsJointCoOwnerRow);
+            if (primary == null)
+                return; // nothing to undo
+
+            // Remove from the primary's JointCoOwners the entries that came from other group records.
+            foreach (var coRecord in group.Records.Where(r => r != primary))
+            {
+                var identity = BuildOwnerIdentity(coRecord.LandOwnersName, coRecord.FatherSpouse, coRecord.CitizenshipNumber);
+                var match = primary.JointCoOwners.FirstOrDefault(co =>
+                    string.Equals(
+                        BuildOwnerIdentity(co.OwnerName, co.FatherSpouse, co.CitizenshipNumber),
+                        identity,
+                        StringComparison.OrdinalIgnoreCase));
+                if (match != null)
+                    primary.JointCoOwners.Remove(match);
+            }
+
+            // Revert the ownership type when no joint co-owners remain.
+            if (primary.JointCoOwners.Count == 0 &&
+                string.Equals(primary.LandOwnershipType, "Private (Joint)", StringComparison.OrdinalIgnoreCase))
+            {
+                primary.LandOwnershipType = "Private";
+            }
+
+            // Un-flag every group record so they are all treated as independent rows again.
+            foreach (var record in group.Records)
+                record.IsJointCoOwnerRow = false;
+        }
+
         private static bool IsSameOwner(BaselineLandParcelRecord primary, CoOwnerRecord candidate)
         {
             return string.Equals(

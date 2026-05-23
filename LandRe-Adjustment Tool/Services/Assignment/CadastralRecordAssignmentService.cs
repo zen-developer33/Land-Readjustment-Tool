@@ -104,19 +104,35 @@ namespace Land_Readjustment_Tool.Services.Assignment
             if (string.IsNullOrWhiteSpace(mapSheetNo))
                 return [];
 
-            return await session.GetDbContext()
-                .BaselineParcels
+            var db = session.GetDbContext();
+
+            var sqmPrec = await db.ProjectSettings
+                .AsNoTracking()
+                .Select(ps => (int?)ps.AreaSqmDecimalPlaces)
+                .FirstOrDefaultAsync(ct) ?? 3;
+
+            var rows = await db.BaselineParcels
                 .AsNoTracking()
                 .Where(parcel => parcel.MapSheetNo == mapSheetNo)
                 .OrderBy(parcel => parcel.ParcelNo)
-                .Select(parcel => new CadastralParcelRecordChoice(
+                .Select(parcel => new
+                {
                     parcel.Id,
                     parcel.MapSheetNo,
                     parcel.ParcelNo,
-                    $"{parcel.ParcelNo}  |  {parcel.OriginalAreaSqm:0.##} sq.m",
                     parcel.OriginalAreaSqm,
-                    parcel.CanvasObjectId))
+                    parcel.CanvasObjectId
+                })
                 .ToListAsync(ct);
+
+            return rows.Select(parcel => new CadastralParcelRecordChoice(
+                parcel.Id,
+                parcel.MapSheetNo,
+                parcel.ParcelNo,
+                $"{parcel.ParcelNo}  |  {parcel.OriginalAreaSqm.ToString($"F{sqmPrec}", System.Globalization.CultureInfo.InvariantCulture)} sq.m",
+                parcel.OriginalAreaSqm,
+                parcel.CanvasObjectId))
+                .ToList();
         }
 
         public async Task<CadastralAssignmentResult> AutoAssignAsync(

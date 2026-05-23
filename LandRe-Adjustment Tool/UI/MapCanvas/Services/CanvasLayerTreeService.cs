@@ -41,7 +41,7 @@ namespace Land_Readjustment_Tool.UI.MapCanvas.Services
         private static readonly IReadOnlyList<DefaultLayerDefinition> DefaultLayers =
         [
             // Colours follow the ArcMap-style palette used elsewhere in the app.
-            new(OriginalDataGroupKey, "Project Boundary", "ProjectBoundary", "#CF7C82", null, 0, 2.0, "Solid", "Boundary"),
+            new(OriginalDataGroupKey, "Project Boundary", "ProjectBoundary", "#FF0000", null, 0, 2.0, "Solid", "Boundary"),
             new(BlockLayoutGroupKey, "Blocks", "Block", "#D99A5A", "#F6C766", 35, 1.5, "Solid", null),
             new(RoadsGroupKey, "Road Parcel", "RoadParcel", "#D99A5A", "#F6C766", 20, 1.5, "Solid", "Proposed Roads"),
             new(RoadsGroupKey, "Road Centerline", RoadCenterlineLayerType, "#C76E78", null, 100, 1.4, "Centerline", null),
@@ -281,6 +281,13 @@ namespace Land_Readjustment_Tool.UI.MapCanvas.Services
 
             if (string.Equals(definition.LayerType, "ProjectBoundary", StringComparison.OrdinalIgnoreCase))
             {
+                if (string.IsNullOrWhiteSpace(layer.BorderColor) ||
+                    string.Equals(layer.BorderColor, "#CF7C82", StringComparison.OrdinalIgnoreCase))
+                {
+                    layer.BorderColor = definition.BorderColor;
+                    changed = true;
+                }
+
                 if (!string.Equals(layer.FillStyle, "None", StringComparison.OrdinalIgnoreCase))
                 {
                     layer.FillStyle = "None";

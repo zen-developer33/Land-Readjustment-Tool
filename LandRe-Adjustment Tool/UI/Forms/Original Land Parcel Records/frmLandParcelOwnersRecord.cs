@@ -640,6 +640,10 @@ namespace Land_Readjustment_Tool.Forms.LandOwnersRecord_Managerment
 
             _displayedRecords = new BindingList<LandParcelDisplayModel>(displayModels);
             dgvRecords.DataSource = _displayedRecords;
+
+            var (sqmPrec, _) = _landRecordsService.GetAreaPrecisionSettings();
+            if (dgvRecords.Columns["AreaInSqm"] is DataGridViewColumn sqmCol)
+                sqmCol.DefaultCellStyle.Format = $"F{sqmPrec}";
         }
 
         #endregion

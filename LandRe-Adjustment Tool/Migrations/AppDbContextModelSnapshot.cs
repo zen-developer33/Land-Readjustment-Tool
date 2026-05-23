@@ -1035,6 +1035,9 @@ namespace Land_Readjustment_Tool.Migrations
                         .ValueGeneratedOnAdd()
                         .HasColumnType("INTEGER");
 
+                    b.Property<int>("AreaSqmDecimalPlaces")
+                        .HasColumnType("INTEGER");
+
                     b.Property<bool>("CanvasAntiAliasingEnabled")
                         .HasColumnType("INTEGER");
 
@@ -1165,6 +1168,9 @@ namespace Land_Readjustment_Tool.Migrations
 
                     b.Property<double>("SnapTolerancePx")
                         .HasColumnType("REAL");
+
+                    b.Property<int>("TraditionalAreaLowestUnitDecimalPlaces")
+                        .HasColumnType("INTEGER");
 
                     b.Property<string>("TraditionalAreaUnit")
                         .IsRequired()

@@ -36,6 +36,8 @@ namespace Land_Readjustment_Tool.UI.MapCanvas.Rendering
         private VectorRenderStats _lastRenderStats = VectorRenderStats.Empty;
         private readonly ConcurrentDictionary<Guid, PointD> _labelAnchorCache = new();
         private static readonly GeometryFactory LabelGeometryFactory = new(new PrecisionModel(), 0);
+        private int _sqmPrecision = 3;
+        private int _traditionalPrecision = 2;
 
         public int FeatureCount => _features.Count;
 
@@ -66,6 +68,12 @@ namespace Land_Readjustment_Tool.UI.MapCanvas.Rendering
                 [layer.Id] = layer
             };
             _layersById = copy;
+        }
+
+        public void UpdateAreaPrecisionSettings(int sqmPrecision, int traditionalPrecision)
+        {
+            _sqmPrecision = sqmPrecision;
+            _traditionalPrecision = traditionalPrecision;
         }
 
         public void SetExcludedShapeIds(IEnumerable<Guid>? shapeIds)
@@ -1235,13 +1243,7 @@ namespace Land_Readjustment_Tool.UI.MapCanvas.Rendering
             string fontName = string.IsNullOrWhiteSpace(layer.LabelFontName)
                 ? DefaultCanvasLabelFontName
                 : layer.LabelFontName.Trim();
-            double zoomFactor = double.IsFinite(zoomScale)
-                ? Math.Clamp(zoomScale, MinLabelZoomFactor, MaxLabelZoomFactor)
-                : 1.0;
-            float fontSize = (float)Math.Clamp(
-                (layer.LabelFontSize <= 0 ? 6.0 : layer.LabelFontSize) * zoomFactor,
-                MinLabelFontSizePt,
-                MaxScaledLabelFontSizePt);
+            float fontSize = ResolveLayerLabelFontSize(layer, zoomScale);
 
             try
             {
@@ -1273,7 +1275,7 @@ namespace Land_Readjustment_Tool.UI.MapCanvas.Rendering
         private static float ResolveLayerLabelFontSize(CanvasLayer layer, double zoomScale)
         {
             double baseSize = layer.LabelFontSize <= 0
-                ? layer.LabelScaleWithZoom ? 2.0 : 6.0
+                ? GetDefaultLayerLabelFontSize(layer)
                 : layer.LabelFontSize;
             double maxSize = layer.LabelScaleWithZoom
                 ? MaxScaledLabelFontSizePt
@@ -1288,6 +1290,14 @@ namespace Land_Readjustment_Tool.UI.MapCanvas.Rendering
             }
 
             return (float)Math.Clamp(baseSize, MinLabelFontSizePt, maxSize);
+        }
+
+        private static double GetDefaultLayerLabelFontSize(CanvasLayer layer)
+        {
+            if (CanvasLayerTreeService.IsAnnotationLayer(layer))
+                return 10.0;
+
+            return layer.LabelScaleWithZoom ? 2.0 : 6.0;
         }
 
         private void DrawLabelIfNeeded(
@@ -1305,7 +1315,7 @@ namespace Land_Readjustment_Tool.UI.MapCanvas.Rendering
                 return;
             }
 
-            string? labelText = ResolveLabelText(feature, layer);
+            string? labelText = ResolveLabelText(feature, layer, _sqmPrecision, _traditionalPrecision);
             if (string.IsNullOrWhiteSpace(labelText))
             {
                 return;
@@ -1334,21 +1344,35 @@ namespace Land_Readjustment_Tool.UI.MapCanvas.Rendering
                 : System.Drawing.Text.TextRenderingHint.SingleBitPerPixelGridFit;
             try
             {
+                string alignStr = string.IsNullOrWhiteSpace(layer.TextAlignment)
+                    ? "Center Middle"
+                    : layer.TextAlignment;
+                (StringAlignment hAlign, StringAlignment vAlign) = ParseCombinedTextAlignment(alignStr);
+
                 using StringFormat sf = new()
                 {
-                    Alignment = StringAlignment.Center,
-                    LineAlignment = StringAlignment.Center,
-                    FormatFlags = StringFormatFlags.NoClip
+                    Alignment     = hAlign,
+                    LineAlignment = vAlign,
+                    FormatFlags   = StringFormatFlags.NoClip
                 };
+
                 SizeF size = graphics.MeasureString(labelText, labelFont);
-                // Use a layout rectangle wide enough that Center alignment independently
-                // centers each line around position.X (not just the block as a whole).
+                // Use a layout rectangle wide enough that the chosen horizontal alignment
+                // independently aligns each line of text around the anchor point.
                 float layoutWidth = Math.Max(size.Width * 2f, 400f);
-                RectangleF layoutRect = new(
-                    position.X - layoutWidth / 2f,
-                    position.Y - size.Height / 2f,
-                    layoutWidth,
-                    size.Height);
+                float layoutX = hAlign switch
+                {
+                    StringAlignment.Center => position.X - layoutWidth / 2f,
+                    StringAlignment.Far    => position.X - layoutWidth,
+                    _                      => position.X,
+                };
+                float layoutY = vAlign switch
+                {
+                    StringAlignment.Center => position.Y - size.Height / 2f,
+                    StringAlignment.Far    => position.Y - size.Height,
+                    _                      => position.Y,
+                };
+                RectangleF layoutRect = new(layoutX, layoutY, layoutWidth, size.Height);
                 graphics.DrawString(labelText, labelFont, context.GetSolidBrush(labelColor), layoutRect, sf);
             }
             finally
@@ -1516,7 +1540,7 @@ namespace Land_Readjustment_Tool.UI.MapCanvas.Rendering
         private static double MaxY(RectangleD bounds) => Math.Max(bounds.Top, bounds.Bottom);
 
 
-        private static string? ResolveLabelText(CanvasFeature feature, CanvasLayer layer)
+        private static string? ResolveLabelText(CanvasFeature feature, CanvasLayer layer, int sqmPrecision = 3, int traditionalPrecision = 2)
         {
             string? labelField = layer.LabelField?.Trim();
             if (!string.IsNullOrWhiteSpace(labelField))
@@ -1527,15 +1551,15 @@ namespace Land_Readjustment_Tool.UI.MapCanvas.Rendering
 
                 string? presetTemplate = ResolveLabelPresetTemplate(labelField);
                 if (!string.IsNullOrWhiteSpace(presetTemplate))
-                    return ResolveLabelTemplate(feature, presetTemplate);
+                    return ResolveLabelTemplate(feature, presetTemplate, sqmPrecision, traditionalPrecision);
 
                 if (labelField.StartsWith("template:", StringComparison.OrdinalIgnoreCase))
-                    return ResolveLabelTemplate(feature, labelField["template:".Length..]);
+                    return ResolveLabelTemplate(feature, labelField["template:".Length..], sqmPrecision, traditionalPrecision);
 
                 if (labelField.Contains('{') && labelField.Contains('}'))
-                    return ResolveLabelTemplate(feature, labelField);
+                    return ResolveLabelTemplate(feature, labelField, sqmPrecision, traditionalPrecision);
 
-                return ResolveLabelFieldValue(feature, labelField);
+                return ResolveLabelFieldValue(feature, labelField, sqmPrecision, traditionalPrecision);
             }
 
             if (!string.IsNullOrWhiteSpace(feature.CanvasObject.LabelText))
@@ -1569,7 +1593,7 @@ namespace Land_Readjustment_Tool.UI.MapCanvas.Rendering
             };
         }
 
-        private static string? ResolveLabelTemplate(CanvasFeature feature, string template)
+        private static string? ResolveLabelTemplate(CanvasFeature feature, string template, int sqmPrecision = 3, int traditionalPrecision = 2)
         {
             if (string.IsNullOrWhiteSpace(template))
                 return null;
@@ -1581,7 +1605,7 @@ namespace Land_Readjustment_Tool.UI.MapCanvas.Rendering
                 match =>
                 {
                     string field = match.Groups["field"].Value.Trim();
-                    return ResolveLabelFieldValue(feature, field) ?? string.Empty;
+                    return ResolveLabelFieldValue(feature, field, sqmPrecision, traditionalPrecision) ?? string.Empty;
                 });
 
             string[] lines = expanded
@@ -1593,7 +1617,7 @@ namespace Land_Readjustment_Tool.UI.MapCanvas.Rendering
             return lines.Length == 0 ? null : string.Join(Environment.NewLine, lines);
         }
 
-        private static string? ResolveLabelFieldValue(CanvasFeature feature, string labelField)
+        private static string? ResolveLabelFieldValue(CanvasFeature feature, string labelField, int sqmPrecision = 3, int traditionalPrecision = 2)
         {
             if (string.IsNullOrWhiteSpace(labelField))
                 return null;
@@ -1604,61 +1628,136 @@ namespace Land_Readjustment_Tool.UI.MapCanvas.Rendering
 
             object? value = normalized switch
             {
-                "labeltext" => canvasObject.LabelText,
-                "objectdescription" or "description" => canvasObject.ObjectDescription,
-                "objecttype" => canvasObject.ObjectType,
-                "layername" or "canvaslayer" => feature.Layer?.Name ?? canvasObject.CanvasLayer?.Name ?? feature.Shape.LayerName,
-                "id" or "canvasobjectid" => canvasObject.Id,
-                "baselineparcelid" => canvasObject.BaselineParcelId ?? metadata?.BaselineParcelId,
-                "parcelno" or "parcelnumber" or "plotnumber" or "plotno" => ResolveFirst(
+                // ── Canvas / layer fields ──────────────────────────────────────────
+                "labeltext"                                                         => canvasObject.LabelText,
+                "objectdescription" or "description"                               => canvasObject.ObjectDescription,
+                "objecttype"                                                        => canvasObject.ObjectType,
+                "layername" or "canvaslayer"                                        => feature.Layer?.Name ?? canvasObject.CanvasLayer?.Name ?? feature.Shape.LayerName,
+                "id" or "canvasobjectid"                                            => canvasObject.Id,
+                "baselineparcelid"                                                  => canvasObject.BaselineParcelId ?? metadata?.BaselineParcelId,
+
+                // ── Geometry metrics ───────────────────────────────────────────────
+                "perimeter"                                                         => canvasObject.Shape?.Length,
+                "length"                                                            => canvasObject.Shape?.Length,
+                "x"                                                                 => canvasObject.Shape?.Centroid?.X,
+                "y"                                                                 => canvasObject.Shape?.Centroid?.Y,
+
+                // ── BaselineParcel — identification ────────────────────────────────
+                "parcelno" or "parcelnumber" or "plotnumber" or "plotno"            => ResolveFirst(
                     metadata?.ParcelNo,
                     GetPropertyValue(canvasObject.BaselineParcel, "ParcelNo"),
                     canvasObject.LabelText),
-                "mapsheetno" or "mapsheet" or "sheetno" => ResolveFirst(
+                "mapsheetno" or "mapsheet" or "sheetno"                             => ResolveFirst(
                     metadata?.MapSheetNo,
                     GetPropertyValue(canvasObject.BaselineParcel, "MapSheetNo")),
-                "mapsheetparcelno" or "fulluniqueparcelcode" or "uniqueparcelcode" => ResolveFirst(
+                "mapsheetparcelno" or "fulluniqueparcelcode" or "uniqueparcelcode"  => ResolveFirst(
                     metadata?.FullUniqueParcelCode,
                     GetPropertyValue(canvasObject.BaselineParcel, "FullUniqueParcelCode"),
                     CombineMapSheetAndParcel(metadata)),
-                "ownername" or "landowner" or "landownersname" => ResolveFirst(
+
+                // ── BaselineParcel — owner ─────────────────────────────────────────
+                "ownername" or "landowner" or "landownersname"                      => ResolveFirst(
                     metadata?.OwnerName,
                     GetPropertyValue(canvasObject.BaselineParcel?.LandOwner, "FullName")),
-                "landuse" => ResolveFirst(
+                "ownerfatherspouse" or "fatherspousename" or "fathername"           => GetPropertyValue(canvasObject.BaselineParcel?.LandOwner, "FatherOrSpouseName"),
+                "ownershiptype" or "landownershiptype"                              => GetPropertyValue(canvasObject.BaselineParcel, "LandOwnershipType"),
+                "hastenant"                                                         => canvasObject.BaselineParcel != null
+                    ? (canvasObject.BaselineParcel.HasTenant ? "Yes" : "No")
+                    : (object?)null,
+                "tenantname"                                                        => GetPropertyValue(canvasObject.BaselineParcel, "TenantName"),
+
+                // ── BaselineParcel — area (from records) ───────────────────────────
+                "areasqm" or "originalareasqm" or "recordareasqm"                   => FormatSqmArea(ResolveFirst(
+                    metadata?.RecordAreaSqm,
+                    GetPropertyValue(canvasObject.BaselineParcel, "OriginalAreaSqm"),
+                    GetAttributeValue(metadata, labelField)), sqmPrecision),
+                "arearapd" or "localarea"                                           => FormatTraditionalArea(ResolveFirst(
+                    metadata?.RecordAreaSqm,
+                    GetPropertyValue(canvasObject.BaselineParcel, "OriginalAreaSqm"),
+                    metadata?.CalculatedAreaSqm), traditionalPrecision: traditionalPrecision),
+                "areabkd"                                                           => FormatTraditionalArea(ResolveFirst(
+                    metadata?.RecordAreaSqm,
+                    GetPropertyValue(canvasObject.BaselineParcel, "OriginalAreaSqm"),
+                    metadata?.CalculatedAreaSqm), useBkd: true, traditionalPrecision: traditionalPrecision),
+                "fieldmeasuredareasqm"                                              => FormatSqmArea(
+                    GetPropertyValue(canvasObject.BaselineParcel, "FieldMeasuredAreaSqm"), sqmPrecision),
+                "effectiveareasqm"                                                  => FormatSqmArea(
+                    GetPropertyValue(canvasObject.BaselineParcel, "EffectiveAreaSqm"), sqmPrecision),
+
+                // ── BaselineParcel — area (from map / geometry) ────────────────────
+                "calculatedareasqm" or "geometryareasqm" or "geometryarea"         => FormatSqmArea(ResolveFirst(
+                    metadata?.CalculatedAreaSqm,
+                    Math.Abs(canvasObject.Shape?.Area ?? feature.Shape.GetBoundingBox().Width * feature.Shape.GetBoundingBox().Height)), sqmPrecision),
+
+                // ── BaselineParcel — location ──────────────────────────────────────
+                "province"                                                          => GetPropertyValue(canvasObject.BaselineParcel, "Province"),
+                "district"                                                          => GetPropertyValue(canvasObject.BaselineParcel, "District"),
+                "municipality"                                                      => GetPropertyValue(canvasObject.BaselineParcel, "Municipality"),
+                "wardno" or "ward"                                                  => GetPropertyValue(canvasObject.BaselineParcel, "WardNo"),
+                "landuse"                                                           => ResolveFirst(
                     metadata?.LandUse,
                     GetPropertyValue(canvasObject.BaselineParcel, "LandUse")),
-                "areasqm" or "originalareasqm" or "recordareasqm" => ResolveFirst(
-                    metadata?.RecordAreaSqm,
-                    GetPropertyValue(canvasObject.BaselineParcel, "OriginalAreaSqm"),
-                    GetAttributeValue(metadata, labelField)),
-                "arearapd" or "localarea" => FormatTraditionalArea(ResolveFirst(
-                    metadata?.RecordAreaSqm,
-                    GetPropertyValue(canvasObject.BaselineParcel, "OriginalAreaSqm"),
-                    metadata?.CalculatedAreaSqm)),
-                "areabkd" => FormatTraditionalArea(ResolveFirst(
-                    metadata?.RecordAreaSqm,
-                    GetPropertyValue(canvasObject.BaselineParcel, "OriginalAreaSqm"),
-                    metadata?.CalculatedAreaSqm), useBkd: true),
-                "effectiveareasqm" => GetPropertyValue(canvasObject.BaselineParcel, "EffectiveAreaSqm"),
-                "calculatedareasqm" or "geometryareasqm" or "geometryarea" => ResolveFirst(
-                    metadata?.CalculatedAreaSqm,
-                    Math.Abs(canvasObject.Shape?.Area ?? feature.Shape.GetBoundingBox().Width * feature.Shape.GetBoundingBox().Height)),
-                "assignmentstatus" or "status" => metadata?.AssignmentStatus,
-                "sourcelayer" => metadata?.SourceLayer,
-                "sourcefilename" or "sourcefile" => metadata?.SourceFileName,
-                "sourceformat" => metadata?.SourceFormat,
-                "matchedtext" => metadata?.MatchedText,
+
+                // ── BaselineParcel — land record (Malpot) ──────────────────────────
+                "mothno" or "moth"                                                  => GetPropertyValue(canvasObject.BaselineParcel?.MalpotReference, "MothNo"),
+                "paanano" or "paana"                                                => GetPropertyValue(canvasObject.BaselineParcel?.MalpotReference, "PaanaNo"),
+
+                // ── BaselineParcel — status ────────────────────────────────────────
+                "assignmentstatus" or "status"                                      => metadata?.AssignmentStatus,
+
+                // ── Road fields ────────────────────────────────────────────────────
+                "roadname"                                                          => GetPropertyValue(canvasObject.Road, "RoadName"),
+                "roadcode"                                                          => GetPropertyValue(canvasObject.Road, "RoadCode"),
+                "roadstatus"                                                        => GetPropertyValue(canvasObject.Road, "RoadStatus"),
+                "roadtype"                                                          => GetPropertyValue(canvasObject.Road, "RoadType"),
+                "surfacetype"                                                       => GetPropertyValue(canvasObject.Road, "SurfaceType"),
+                "roadwidth"                                                         => GetPropertyValue(canvasObject.Road, "RoadWidth"),
+                "rightofwaywidth" or "rowwidth"                                     => GetPropertyValue(canvasObject.Road, "RightOfWayWidth"),
+                "roaddescription"                                                   => GetPropertyValue(canvasObject.Road, "Description"),
+
+                // ── Block fields ───────────────────────────────────────────────────
+                "blockname"                                                         => GetPropertyValue(canvasObject.Block, "BlockName"),
+                "blockcode"                                                         => GetPropertyValue(canvasObject.Block, "BlockCode"),
+                "blocklanduse"                                                      => GetPropertyValue(canvasObject.Block, "BlockLandUse"),
+                "blockdepth"                                                        => GetPropertyValue(canvasObject.Block, "BlockDepth"),
+                "blockareasqm" or "blockarea"                                       => FormatSqmArea(GetPropertyValue(canvasObject.Block, "BlockArea"), sqmPrecision),
+                "blockarearapd"                                                     => FormatTraditionalArea(GetPropertyValue(canvasObject.Block, "BlockArea"), traditionalPrecision: traditionalPrecision),
+                "blockareabkd"                                                      => FormatTraditionalArea(GetPropertyValue(canvasObject.Block, "BlockArea"), useBkd: true, traditionalPrecision: traditionalPrecision),
+                "blockdescription"                                                  => GetPropertyValue(canvasObject.Block, "Description"),
+
+                // ── ReplottedParcel fields ─────────────────────────────────────────
+                "replottedparcelno" or "activeplotnumber"                           => GetActivePlotNumber(canvasObject.ReplottedParcel),
+                "systemgeneratednumber"                                             => GetPropertyValue(canvasObject.ReplottedParcel, "SystemGeneratedNumber"),
+                "derivednumber"                                                     => GetPropertyValue(canvasObject.ReplottedParcel, "DerivedNumber"),
+                "blocksequencenumber"                                               => GetPropertyValue(canvasObject.ReplottedParcel, "BlockSequenceNumber"),
+                "plottypename" or "plottype"                                        => GetPropertyValue(canvasObject.ReplottedParcel?.PlotType, "TypeName"),
+                "plotblockname" or "plotblock"                                      => GetPropertyValue(canvasObject.ReplottedParcel?.Block, "BlockName"),
+                "plotareasqm"                                                       => FormatSqmArea(GetPropertyValue(canvasObject.ReplottedParcel, "PlotAreaSqm"), sqmPrecision),
+                "plotarearapd"                                                      => FormatTraditionalArea(GetPropertyValue(canvasObject.ReplottedParcel, "PlotAreaSqm"), traditionalPrecision: traditionalPrecision),
+                "plotareabkd"                                                       => FormatTraditionalArea(GetPropertyValue(canvasObject.ReplottedParcel, "PlotAreaSqm"), useBkd: true, traditionalPrecision: traditionalPrecision),
+                "plotnotes"                                                         => GetPropertyValue(canvasObject.ReplottedParcel, "Notes"),
+
+                // ── Import / tracing ───────────────────────────────────────────────
+                "sourcelayer"                                                       => metadata?.SourceLayer,
+                "sourcefilename" or "sourcefile"                                    => metadata?.SourceFileName,
+                "sourceformat"                                                      => metadata?.SourceFormat,
+                "matchedtext"                                                       => metadata?.MatchedText,
+
+                // ── Fallback — try all linked entities via reflection ───────────────
                 _ => ResolveFirst(
                     GetAttributeValue(metadata, labelField),
                     GetPropertyValue(canvasObject.BaselineParcel, labelField),
                     GetPropertyValue(canvasObject.BaselineParcel?.LandOwner, labelField),
+                    GetPropertyValue(canvasObject.Road, labelField),
+                    GetPropertyValue(canvasObject.Block, labelField),
+                    GetPropertyValue(canvasObject.ReplottedParcel, labelField),
                     TryGetShapeProperty(feature, labelField, out object? shapeValue) ? shapeValue : null)
             };
 
             return FormatLabelValue(value);
         }
 
-        private static string? FormatTraditionalArea(object? value, bool useBkd = false)
+        private static string? FormatTraditionalArea(object? value, bool useBkd = false, int traditionalPrecision = 2)
         {
             if (value == null)
                 return null;
@@ -1674,8 +1773,25 @@ namespace Land_Readjustment_Tool.UI.MapCanvas.Rendering
             }
 
             return useBkd
-                ? AreaConverterService.SqmToBKDString(areaSqm)
-                : AreaConverterService.SqmToRAPDString(areaSqm);
+                ? AreaConverterService.SqmToBKDString(areaSqm, traditionalPrecision)
+                : AreaConverterService.SqmToRAPDString(areaSqm, traditionalPrecision);
+        }
+
+        private static string? FormatSqmArea(object? value, int sqmPrecision = 3)
+        {
+            if (value == null)
+                return null;
+
+            if (!double.TryParse(
+                    Convert.ToString(value, CultureInfo.InvariantCulture),
+                    NumberStyles.Float,
+                    CultureInfo.InvariantCulture,
+                    out double areaSqm))
+            {
+                return null;
+            }
+
+            return areaSqm.ToString($"F{sqmPrecision}", CultureInfo.InvariantCulture);
         }
 
         private static string? CombineMapSheetAndParcel(CadastralCanvasMetadata? metadata)
@@ -1762,6 +1878,14 @@ namespace Land_Readjustment_Tool.UI.MapCanvas.Rendering
 
             return property?.GetValue(source);
         }
+
+        private static string? GetActivePlotNumber(Land_Readjustment_Tool.Core.Entities.Replotting.ReplottedParcel? rp) =>
+            rp?.ActiveNumberType switch
+            {
+                "Derived"       => rp.DerivedNumber,
+                "BlockSequence" => rp.BlockSequenceNumber,
+                _               => rp?.SystemGeneratedNumber,
+            };
 
         private static bool TryGetShapeProperty(
             CanvasFeature feature,

@@ -707,14 +707,24 @@ namespace Land_Readjustment_Tool
         }
 
 
-        private void InitializeProjectWorkspace()
+        private void InitializeProjectWorkspace(bool showWorkspace = true)
         {
-            mainSplitContainer.Visible = true;
+            mainSplitContainer.Visible = showWorkspace;
             ClearCanvasUndoRedoHistory();
             EnableProjectMenuItems();
             _layerTreeService = AppServices.HasContext
                 ? _projectScopedFactory.CreateCanvasLayerTreeService(AppServices.Context.Session)
                 : null;
+        }
+
+        private void ShowProjectWorkspace()
+        {
+            if (!mainSplitContainer.Visible)
+            {
+                mainSplitContainer.Visible = true;
+            }
+
+            mapCanvasControlMain.RequestRender();
         }
 
         private void UnloadProjectWorkspace()
@@ -1304,6 +1314,9 @@ namespace Land_Readjustment_Tool
                 mnuOSnapToggle.Checked = settings.SnapEnabled;
                 mapCanvasControlMain.OrthoModeEnabled = settings.OrthoEnabled;
                 mnuOrthoToggle.Checked = settings.OrthoEnabled;
+                mapCanvasControlMain.UpdateAreaPrecisionSettings(
+                    settings.AreaSqmDecimalPlaces,
+                    settings.TraditionalAreaLowestUnitDecimalPlaces);
 
                 if (_workspaceCanvas != null && !_workspaceCanvas.IsDisposed)
                 {
@@ -1319,6 +1332,9 @@ namespace Land_Readjustment_Tool
                         settings.SnapTolerancePx,
                         settings.SnapGlyphSizePx);
                     _workspaceCanvas.OrthoModeEnabled = settings.OrthoEnabled;
+                    _workspaceCanvas.UpdateAreaPrecisionSettings(
+                        settings.AreaSqmDecimalPlaces,
+                        settings.TraditionalAreaLowestUnitDecimalPlaces);
                 }
 
                 if (updateRasterProjection)
@@ -3279,7 +3295,8 @@ namespace Land_Readjustment_Tool
                         parcel.LandOwner?.FullName ?? string.Empty,
                         parcel.OriginalAreaSqm,
                         canvasObject?.Id,
-                        canvasObject?.CanvasLayer?.Name);
+                        canvasObject?.CanvasLayer?.Name,
+                        GetAreaPrecisionSettingsStatic().SqmPrecision);
                 })
                 .ToList();
         }
@@ -4255,11 +4272,32 @@ namespace Land_Readjustment_Tool
 
             double sqm = areaSqm.Value;
             string traditionalUnit = GetTraditionalAreaUnit();
+            var (sqmPrec, tradPrec) = GetAreaPrecisionSettingsStatic();
             string traditionalArea = string.Equals(traditionalUnit, "BKD", StringComparison.OrdinalIgnoreCase)
-                ? AreaConverterService.SqmToBKDString(sqm)
-                : AreaConverterService.SqmToRAPDString(sqm);
+                ? AreaConverterService.SqmToBKDString(sqm, tradPrec)
+                : AreaConverterService.SqmToRAPDString(sqm, tradPrec);
 
-            return $"{sqm:N2} sq.m ({traditionalUnit}: {traditionalArea})";
+            return $"{sqm.ToString($"F{sqmPrec}")} sq.m ({traditionalUnit}: {traditionalArea})";
+        }
+
+        private static (int SqmPrecision, int TraditionalPrecision) GetAreaPrecisionSettingsStatic()
+        {
+            try
+            {
+                if (!AppServices.HasContext)
+                    return (3, 2);
+
+                var s = AppServices.Context.Session.GetDbContext()
+                    .ProjectSettings
+                    .AsNoTracking()
+                    .Select(ps => new { ps.AreaSqmDecimalPlaces, ps.TraditionalAreaLowestUnitDecimalPlaces })
+                    .FirstOrDefault();
+                return s == null ? (3, 2) : (s.AreaSqmDecimalPlaces, s.TraditionalAreaLowestUnitDecimalPlaces);
+            }
+            catch
+            {
+                return (3, 2);
+            }
         }
 
         private static string? FormatLength(double? lengthMeters)
@@ -5150,14 +5188,15 @@ namespace Land_Readjustment_Tool
                 EnableProjectMenuItems();
                 UpdateWindowTitle();
                 SetOperationProgress(70, "Preparing map canvas");
-                InitializeProjectWorkspace();
+                InitializeProjectWorkspace(showWorkspace: false);
                 await _rasterImportFileManagementService
                     .RepairRasterLayerReferencesAsync(context);
                 await _rasterImportFileManagementService
                     .CleanupUnreferencedProjectRastersAsync(context);
                 await ApplySettingsAsync(showRefreshProgress: false);
-                await RefreshMapCanvasAsync("Opening project canvas", 75);
                 await RestoreCanvasViewportStateAsync();
+                await RefreshMapCanvasAsync("Opening project canvas", 75);
+                ShowProjectWorkspace();
             }
             catch (Exception ex)
             {
@@ -9727,8 +9766,59 @@ namespace Land_Readjustment_Tool
             CanvasLayer editableLayer =
                 _layerCommandService.CreateEditableCopy(nodeState.Layer);
 
-            using var frm = new frmLayerPropertyManager(editableLayer, _hatchPatternService);
+            var sampleRecords = await GetLayerSampleRecordsAsync(nodeState.Layer);
+            using var frm = new frmLayerPropertyManager(editableLayer, _hatchPatternService, sampleRecords);
             PositionLayerPropertyManager(frm);
+
+            frm.LayerApplied += async (_, _) =>
+            {
+                try
+                {
+                    CanvasLayer snapshotBeforeApply = CloneCanvasLayerSnapshot(beforeSnapshot);
+                    CanvasLayer updatedLayer =
+                        await _layerCommandService.UpdatePropertiesAsync(
+                            AppServices.HasContext ? AppServices.Context.Session : null,
+                            editableLayer);
+
+                    RegisterCanvasUndoCommand(new ModifyCanvasLayersCommand(
+                        [snapshotBeforeApply],
+                        [CloneCanvasLayerSnapshot(updatedLayer)]));
+                    beforeSnapshot = CloneCanvasLayerSnapshot(updatedLayer);
+
+                    bool isRaster = IsRasterLayer(updatedLayer);
+                    UpdateLayerNode(node, updatedLayer, updateRasterStack: !isRaster);
+                    MarkProjectModifiedIfOpen();
+
+                    if (isRaster)
+                    {
+                        if (!mapCanvasControlMain.SetRasterLayerRenderState(
+                            updatedLayer.Id,
+                            updatedLayer.IsVisible,
+                            updatedLayer.FillTransparency))
+                        {
+                            UpdateRasterCanvasLayersFromTree();
+                        }
+
+                        SetCanvasCommandStatus($"Raster layer applied: {updatedLayer.Name}");
+                    }
+                    else
+                    {
+                        mapCanvasControlMain.UpdateVectorLayer(updatedLayer);
+                        RefreshCurrentDrawingLayerCombo();
+                        SetCanvasCommandStatus($"Layer properties applied: {updatedLayer.Name}");
+                    }
+
+                    SelectLayerNodeById(updatedLayer.Id);
+                }
+                catch (Exception ex)
+                {
+                    MessageBox.Show(
+                        $"Failed to apply layer properties: {ex.Message}",
+                        "Layer Properties",
+                        MessageBoxButtons.OK,
+                        MessageBoxIcon.Error);
+                }
+            };
 
             if (frm.ShowDialog(this) != DialogResult.OK)
                 return;
@@ -9780,6 +9870,150 @@ namespace Land_Readjustment_Tool
                     "Layer Properties",
                     MessageBoxButtons.OK,
                     MessageBoxIcon.Error);
+            }
+        }
+
+        private async Task<IReadOnlyList<IReadOnlyDictionary<string, string>>?> GetLayerSampleRecordsAsync(
+            CanvasLayer layer,
+            int maxSamples = 10)
+        {
+            if (!AppServices.HasContext)
+                return null;
+
+            try
+            {
+                var repo = _projectScopedFactory.CreateCanvasObjectRepository(AppServices.Context.Session);
+                List<Core.Entities.Canvas.CanvasObject> objects =
+                    await repo.GetByLayerIdAsync(layer.Id);
+
+                if (objects.Count == 0)
+                    return null;
+
+                var rng = new Random();
+                var sampled = objects.OrderBy(_ => rng.Next()).Take(maxSamples).ToList();
+                var result  = new List<IReadOnlyDictionary<string, string>>(sampled.Count);
+                var (sampleSqmPrec, sampleTradPrec) = GetAreaPrecisionSettingsStatic();
+
+                foreach (var obj in sampled)
+                {
+                    Core.Models.Import.CadastralCanvasMetadata? meta = null;
+                    if (!string.IsNullOrWhiteSpace(obj.GeometryMetadataJson))
+                    {
+                        try
+                        {
+                            meta = JsonSerializer.Deserialize<Core.Models.Import.CadastralCanvasMetadata>(
+                                obj.GeometryMetadataJson,
+                                new JsonSerializerOptions { PropertyNameCaseInsensitive = true });
+                        }
+                        catch { /* ignore */ }
+                    }
+
+                    double? areaSqm = meta?.RecordAreaSqm
+                        ?? (meta != null && meta.CalculatedAreaSqm > 0 ? (double?)meta.CalculatedAreaSqm : null);
+
+                    // Geometry-computed fields (safe — Shape may be null if NTS not loaded)
+                    string geoLength    = string.Empty;
+                    string geoPerimeter = string.Empty;
+                    string geoX         = string.Empty;
+                    string geoY         = string.Empty;
+                    try
+                    {
+                        if (obj.Shape != null)
+                        {
+                            string ot = (obj.ObjectType ?? string.Empty).ToLowerInvariant();
+                            if (ot is "polyline" or "line" or "arc")
+                                geoLength = obj.Shape.Length.ToString("F2", CultureInfo.InvariantCulture);
+                            if (ot is "polygon" or "circle")
+                                geoPerimeter = obj.Shape.Length.ToString("F2", CultureInfo.InvariantCulture);
+                            if (ot == "point")
+                            {
+                                geoX = obj.Shape.Coordinate?.X.ToString("F4", CultureInfo.InvariantCulture) ?? string.Empty;
+                                geoY = obj.Shape.Coordinate?.Y.ToString("F4", CultureInfo.InvariantCulture) ?? string.Empty;
+                            }
+                        }
+                    }
+                    catch { /* Shape access failed — leave empty */ }
+
+                    // Resolve parcel entity fields from loaded navigation properties.
+                    // GetByLayerIdAsync includes BaselineParcel + LandOwner.
+                    var bp    = obj.BaselineParcel;
+                    var owner = bp?.LandOwner;
+
+                    // Record area: prefer entity value → metadata → null
+                    double? recordAreaSqm = bp != null
+                        ? (double?)bp.OriginalAreaSqm
+                        : meta?.RecordAreaSqm;
+
+                    string FormatSqmSample(double? v) =>
+                        v.HasValue && v.Value > 0
+                            ? v.Value.ToString($"F{sampleSqmPrec}", CultureInfo.InvariantCulture)
+                            : string.Empty;
+                    string FormatRAPD(double? v) =>
+                        v.HasValue && v.Value > 0
+                            ? Services.AreaConverterService.SqmToRAPDString(v.Value, sampleTradPrec)
+                            : string.Empty;
+                    string FormatBKD(double? v) =>
+                        v.HasValue && v.Value > 0
+                            ? Services.AreaConverterService.SqmToBKDString(v.Value, sampleTradPrec)
+                            : string.Empty;
+
+                    var dict = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase)
+                    {
+                        // ── Parcel identification ──────────────────────────────────
+                        ["ParcelNo"]             = bp?.ParcelNo ?? meta?.ParcelNo ?? string.Empty,
+                        ["MapSheetNo"]           = bp?.MapSheetNo ?? meta?.MapSheetNo ?? string.Empty,
+                        ["FullUniqueParcelCode"]  = bp?.FullUniqueParcelCode ?? meta?.FullUniqueParcelCode ?? string.Empty,
+                        // ── Owner ──────────────────────────────────────────────────
+                        ["OwnerName"]            = owner?.FullName ?? meta?.OwnerName ?? string.Empty,
+                        ["OwnerFatherSpouse"]    = owner?.FatherOrSpouseName ?? string.Empty,
+                        ["OwnershipType"]        = bp?.LandOwnershipType ?? string.Empty,
+                        ["HasTenant"]            = bp != null ? (bp.HasTenant ? "Yes" : "No") : string.Empty,
+                        ["TenantName"]           = bp?.TenantName ?? string.Empty,
+                        // ── Area — from records ────────────────────────────────────
+                        ["AreaSqm"]              = FormatSqmSample(recordAreaSqm ?? areaSqm),
+                        ["AreaRAPD"]             = FormatRAPD(recordAreaSqm ?? areaSqm),
+                        ["AreaBKD"]              = FormatBKD(recordAreaSqm ?? areaSqm),
+                        ["FieldMeasuredAreaSqm"] = FormatSqmSample(bp?.FieldMeasuredAreaSqm),
+                        ["EffectiveAreaSqm"]     = FormatSqmSample(bp?.EffectiveAreaSqm),
+                        // ── Area — from map ────────────────────────────────────────
+                        ["CalculatedAreaSqm"]    = meta != null && meta.CalculatedAreaSqm > 0
+                            ? meta.CalculatedAreaSqm.ToString("F2", CultureInfo.InvariantCulture)
+                            : string.Empty,
+                        // ── Location ───────────────────────────────────────────────
+                        ["Province"]             = bp?.Province ?? string.Empty,
+                        ["District"]             = bp?.District ?? string.Empty,
+                        ["Municipality"]         = bp?.Municipality ?? string.Empty,
+                        ["WardNo"]               = bp?.WardNo ?? string.Empty,
+                        ["LandUse"]              = bp?.LandUse ?? meta?.LandUse ?? string.Empty,
+                        // ── Status ─────────────────────────────────────────────────
+                        ["AssignmentStatus"]     = meta?.AssignmentStatus ?? string.Empty,
+                        // ── Object / layer ─────────────────────────────────────────
+                        ["LabelText"]            = obj.LabelText ?? string.Empty,
+                        ["ObjectDescription"]    = obj.ObjectDescription ?? string.Empty,
+                        ["ObjectType"]           = obj.ObjectType ?? string.Empty,
+                        ["LayerName"]            = layer.Name ?? string.Empty,
+                        ["SourceLayer"]          = meta?.SourceLayer ?? string.Empty,
+                        ["SourceFileName"]       = meta?.SourceFileName ?? string.Empty,
+                        ["SourceFormat"]         = meta?.SourceFormat ?? string.Empty,
+                        ["MatchedText"]          = meta?.MatchedText ?? string.Empty,
+                        ["Id"]                   = obj.Id.ToString(),
+                        ["BaselineParcelId"]     = (obj.BaselineParcelId ?? meta?.BaselineParcelId)?.ToString()
+                            ?? string.Empty,
+                        // ── Geometry ───────────────────────────────────────────────
+                        ["Length"]               = geoLength,
+                        ["Perimeter"]            = geoPerimeter,
+                        ["X"]                    = geoX,
+                        ["Y"]                    = geoY,
+                    };
+
+                    result.Add(dict);
+                }
+
+                return result.Count > 0 ? result : null;
+            }
+            catch
+            {
+                return null;
             }
         }
 

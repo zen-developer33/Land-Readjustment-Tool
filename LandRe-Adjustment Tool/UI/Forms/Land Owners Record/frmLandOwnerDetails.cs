@@ -212,6 +212,7 @@ namespace Land_Readjustment_Tool.Forms.Land_Owners_Record
             double totalAreaSqm = _landRecordsService.GetTotalAreaByOwnerId(_landOwnerId);
             int documentCount = _landRecordsService.GetDocumentCountByOwnerId(_landOwnerId);
             string traditionalUnit = _landRecordsService.GetTraditionalAreaUnit();
+            var (sqmPrec, tradPrec) = _landRecordsService.GetAreaPrecisionSettings();
 
             // Update summary labels
             if (parcelCount == 0)
@@ -223,10 +224,10 @@ namespace Land_Readjustment_Tool.Forms.Land_Owners_Record
             else
             {
                 string areaTraditional = string.Equals(traditionalUnit, "BKD", StringComparison.OrdinalIgnoreCase)
-                    ? AreaConverterService.SqmToBKDString(totalAreaSqm)
-                    : AreaConverterService.SqmToRAPDString(totalAreaSqm);
+                    ? AreaConverterService.SqmToBKDString(totalAreaSqm, tradPrec)
+                    : AreaConverterService.SqmToRAPDString(totalAreaSqm, tradPrec);
                 lblParcelCount.Text = parcelCount.ToString();
-                lblAreasqm.Text = $"{totalAreaSqm:F2} sq.m";
+                lblAreasqm.Text = $"{totalAreaSqm.ToString($"F{sqmPrec}")} sq.m";
                 lblAreaLocal.Text = areaTraditional;
             }
 

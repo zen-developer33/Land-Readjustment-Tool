@@ -310,7 +310,8 @@ namespace Land_Readjustment_Tool.UI.Forms
             string ownerName,
             double areaSqm,
             Guid? canvasObjectId,
-            string? layerName)
+            string? layerName,
+            int sqmPrecision = 3)
         {
             RecordId = recordId;
             MapSheetNo = mapSheetNo;
@@ -320,6 +321,7 @@ namespace Land_Readjustment_Tool.UI.Forms
             AreaSqm = areaSqm;
             CanvasObjectId = canvasObjectId;
             LayerName = string.IsNullOrWhiteSpace(layerName) ? "--" : layerName;
+            SqmPrecision = sqmPrecision;
         }
 
         public int RecordId { get; }
@@ -334,6 +336,8 @@ namespace Land_Readjustment_Tool.UI.Forms
 
         public double AreaSqm { get; }
 
+        public int SqmPrecision { get; }
+
         public Guid? CanvasObjectId { get; }
 
         public string LayerName { get; }
@@ -343,7 +347,7 @@ namespace Land_Readjustment_Tool.UI.Forms
         public string Status => CanSelect ? "Mapped" : "No map object";
 
         public string DisplayArea => AreaSqm > 0
-            ? $"{AreaSqm.ToString("N2", CultureInfo.CurrentCulture)} sq.m"
+            ? $"{AreaSqm.ToString($"F{SqmPrecision}", CultureInfo.InvariantCulture)} sq.m"
             : "--";
 
         public bool Matches(string searchText)

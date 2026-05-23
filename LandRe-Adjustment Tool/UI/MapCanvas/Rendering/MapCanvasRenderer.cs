@@ -84,15 +84,27 @@ namespace Land_Readjustment_Tool.UI.MapCanvas.Rendering
             _vectorDeferredRenderer.Invalidate();
         }
 
-        public void UpdateVectorFeatures(IEnumerable<CanvasFeature>? features)
+        public void UpdateVectorFeatures(IEnumerable<CanvasFeature>? features, bool invalidateCache = true)
         {
             _vectorRenderer.UpdateFeatures(features);
-            _vectorDeferredRenderer.Invalidate();
+            if (invalidateCache)
+            {
+                _vectorDeferredRenderer.Invalidate();
+            }
         }
 
-        public void SetVectorRenderExclusions(IEnumerable<Guid>? shapeIds)
+        public void SetVectorRenderExclusions(IEnumerable<Guid>? shapeIds, bool invalidateCache = true)
         {
             _vectorRenderer.SetExcludedShapeIds(shapeIds);
+            if (invalidateCache)
+            {
+                _vectorDeferredRenderer.Invalidate();
+            }
+        }
+
+        public void UpdateAreaPrecisionSettings(int sqmPrecision, int traditionalPrecision)
+        {
+            _vectorRenderer.UpdateAreaPrecisionSettings(sqmPrecision, traditionalPrecision);
             _vectorDeferredRenderer.Invalidate();
         }
 
@@ -122,20 +134,32 @@ namespace Land_Readjustment_Tool.UI.MapCanvas.Rendering
             IShape? previewShape = null,
             CanvasLayer? previewLayer = null,
             bool showDebugOverlay = false,
-            bool suppressDecorations = false)
+            bool suppressDecorations = false,
+            bool suppressGridLabels = false,
+            bool suppressFixedReferenceLayers = false,
+            RasterRenderFrame? fixedReferenceFrame = null,
+            bool suppressBackgroundClear = false)
         {
             ArgumentNullException.ThrowIfNull(graphics);
             _debugOverlayRequested = showDebugOverlay;
 
-            graphics.Clear(_settings.BackgroundColor);
+            if (!suppressBackgroundClear)
+            {
+                graphics.Clear(_settings.BackgroundColor);
+            }
+
             MapCanvasRenderViewport viewport = CreateViewport(graphics);
             foreach (MapCanvasRenderStage stage in _renderOrderService.GetFrameStages())
             {
                 switch (stage)
                 {
                     case MapCanvasRenderStage.FixedReference:
-                        ConfigureVectorGraphics(graphics);
-                        RenderFixedReferenceLayers(graphics, viewport);
+                        RenderFixedReferenceContent(
+                            graphics,
+                            viewport,
+                            fixedReferenceFrame,
+                            suppressGridLabels,
+                            suppressFixedReferenceLayers);
                         break;
 
                     case MapCanvasRenderStage.RasterContent:
@@ -293,12 +317,134 @@ namespace Land_Readjustment_Tool.UI.MapCanvas.Rendering
         /// <param name="viewport">Current world and screen viewport.</param>
         private void RenderFixedReferenceLayers(
             Graphics graphics,
-            MapCanvasRenderViewport viewport)
+            MapCanvasRenderViewport viewport,
+            bool suppressGridLabels = false)
         {
             if (_settings.ShowGrid)
             {
-                RenderGrid(graphics, viewport);
+                RenderGrid(graphics, viewport, suppressGridLabels);
             }
+        }
+
+        private void RenderFixedReferenceContent(
+            Graphics graphics,
+            MapCanvasRenderViewport viewport,
+            RasterRenderFrame? fixedReferenceFrame,
+            bool suppressGridLabels,
+            bool suppressFixedReferenceLayers)
+        {
+            if (fixedReferenceFrame.HasValue)
+            {
+                RasterRenderFrame frame = fixedReferenceFrame.Value;
+                try
+                {
+                    DrawCachedFrame(
+                        graphics,
+                        frame,
+                        InterpolationMode.NearestNeighbor);
+                }
+                finally
+                {
+                    frame.Dispose();
+                }
+
+                return;
+            }
+
+            if (suppressFixedReferenceLayers)
+            {
+                return;
+            }
+
+            ConfigureVectorGraphics(graphics);
+            RenderFixedReferenceLayers(
+                graphics,
+                viewport,
+                suppressGridLabels);
+        }
+
+        public void RenderFixedReferences(Graphics graphics, bool suppressGridLabels = false)
+        {
+            ArgumentNullException.ThrowIfNull(graphics);
+
+            ConfigureVectorGraphics(graphics);
+            RenderFixedReferenceLayers(
+                graphics,
+                CreateViewport(graphics),
+                suppressGridLabels);
+        }
+
+        public GridPanPadding GetGridPanPadding(Size canvasSize)
+        {
+            if (!_settings.ShowGrid ||
+                canvasSize.Width <= 0 ||
+                canvasSize.Height <= 0 ||
+                _engine.ZoomScale < 0.001 ||
+                _engine.ZoomScale > 100000)
+            {
+                return GridPanPadding.Empty;
+            }
+
+            const int majorDivisions = 5;
+
+            double minorWorldSize = ResolveAdaptiveMinorSize(_engine.ZoomScale);
+            double majorWorldSize = minorWorldSize * majorDivisions;
+            if (!double.IsFinite(majorWorldSize) || majorWorldSize <= 0)
+            {
+                return GridPanPadding.Empty;
+            }
+
+            RectangleD visibleWorld = _engine.GetVisibleWorldBounds();
+            double worldLeft = visibleWorld.Left;
+            double worldRight = visibleWorld.Right;
+            double worldBottom = Math.Min(visibleWorld.Top, visibleWorld.Bottom);
+            double worldTop = Math.Max(visibleWorld.Top, visibleWorld.Bottom);
+
+            double leftMajor = Math.Floor(worldLeft / majorWorldSize) * majorWorldSize;
+            if (leftMajor >= worldLeft - 1e-9)
+            {
+                leftMajor -= majorWorldSize;
+            }
+
+            double rightMajor = Math.Ceiling(worldRight / majorWorldSize) * majorWorldSize;
+            if (rightMajor <= worldRight + 1e-9)
+            {
+                rightMajor += majorWorldSize;
+            }
+
+            double topMajor = Math.Ceiling(worldTop / majorWorldSize) * majorWorldSize;
+            if (topMajor <= worldTop + 1e-9)
+            {
+                topMajor += majorWorldSize;
+            }
+
+            double bottomMajor = Math.Floor(worldBottom / majorWorldSize) * majorWorldSize;
+            if (bottomMajor >= worldBottom - 1e-9)
+            {
+                bottomMajor -= majorWorldSize;
+            }
+
+            PointD leftScreen = _engine.WorldToScreen(new PointD(leftMajor, worldBottom));
+            PointD rightScreen = _engine.WorldToScreen(new PointD(rightMajor, worldBottom));
+            PointD topScreen = _engine.WorldToScreen(new PointD(worldLeft, topMajor));
+            PointD bottomScreen = _engine.WorldToScreen(new PointD(worldLeft, bottomMajor));
+
+            return new GridPanPadding(
+                GetBoundedGridPadding(-leftScreen.X),
+                GetBoundedGridPadding(-topScreen.Y),
+                GetBoundedGridPadding(rightScreen.X - canvasSize.Width),
+                GetBoundedGridPadding(bottomScreen.Y - canvasSize.Height));
+        }
+
+        private static int GetBoundedGridPadding(double value)
+        {
+            if (!double.IsFinite(value) || value <= 0)
+            {
+                return 0;
+            }
+
+            const int maximumPadding = 4096;
+            return Math.Clamp((int)Math.Ceiling(value) + 1, 0, maximumPadding);
         }
 
         /// <summary>
@@ -702,7 +848,8 @@ namespace Land_Readjustment_Tool.UI.MapCanvas.Rendering
         /// <param name="viewport">Current world and screen viewport.</param>
         private void RenderGrid(
             Graphics graphics,
-            MapCanvasRenderViewport viewport)
+            MapCanvasRenderViewport viewport,
+            bool suppressLabels = false)
         {
             double zoomScale = _engine.ZoomScale;
             if (zoomScale < 0.001 || zoomScale > 100000)
@@ -722,31 +869,11 @@ namespace Land_Readjustment_Tool.UI.MapCanvas.Rendering
             const int majorDivisions = 5;
             const double minMinorPixels = 10.0;
             const double maxMinorPixels = 32.0;
-            const double minMinorWorld = 1e-9;
-            const double maxMinorWorld = 1e12;
-
-            double adaptiveMinorSize = _lastAdaptiveMinorSize > 0
-                ? _lastAdaptiveMinorSize
-                : SnapToNiceStep(16.0 / zoomScale);
-
-            adaptiveMinorSize = SnapToNiceStep(adaptiveMinorSize);
-            double minorGridPixels = adaptiveMinorSize * zoomScale;
-
-            while (minorGridPixels < minMinorPixels && adaptiveMinorSize < maxMinorWorld)
-            {
-                adaptiveMinorSize = NextNiceStep(adaptiveMinorSize);
-                minorGridPixels = adaptiveMinorSize * zoomScale;
-            }
-
-            while (minorGridPixels > maxMinorPixels && adaptiveMinorSize > minMinorWorld)
-            {
-                adaptiveMinorSize = PrevNiceStep(adaptiveMinorSize);
-                minorGridPixels = adaptiveMinorSize * zoomScale;
-            }
-
-            adaptiveMinorSize = Math.Max(minMinorWorld, Math.Min(maxMinorWorld, adaptiveMinorSize));
+            double adaptiveMinorSize = ResolveAdaptiveMinorSize(
+                zoomScale,
+                minMinorPixels,
+                maxMinorPixels);
             double adaptiveMajorSize = adaptiveMinorSize * majorDivisions;
-            _lastAdaptiveMinorSize = adaptiveMinorSize;
 
             double worldWidth = worldRight - worldLeft;
             double worldHeight = worldTop - worldBottom;
@@ -764,6 +891,7 @@ namespace Land_Readjustment_Tool.UI.MapCanvas.Rendering
             double startY = Math.Floor(worldBottom / adaptiveMajorSize) * adaptiveMajorSize;
             double endY = Math.Ceiling(worldTop / adaptiveMajorSize) * adaptiveMajorSize;
             bool showLabels =
+                !suppressLabels &&
                 _settings.ShowGridLabels &&
                 zoomScale > 0.00001 &&
                 zoomScale < 10000 &&
@@ -842,6 +970,38 @@ namespace Land_Readjustment_Tool.UI.MapCanvas.Rendering
                         sf);
                 }
             }
+        }
+
+        private double ResolveAdaptiveMinorSize(
+            double zoomScale,
+            double minMinorPixels = 10.0,
+            double maxMinorPixels = 32.0)
+        {
+            const double minMinorWorld = 1e-9;
+            const double maxMinorWorld = 1e12;
+
+            double adaptiveMinorSize = _lastAdaptiveMinorSize > 0
+                ? _lastAdaptiveMinorSize
+                : SnapToNiceStep(16.0 / zoomScale);
+
+            adaptiveMinorSize = SnapToNiceStep(adaptiveMinorSize);
+            double minorGridPixels = adaptiveMinorSize * zoomScale;
+
+            while (minorGridPixels < minMinorPixels && adaptiveMinorSize < maxMinorWorld)
+            {
+                adaptiveMinorSize = NextNiceStep(adaptiveMinorSize);
+                minorGridPixels = adaptiveMinorSize * zoomScale;
+            }
+
+            while (minorGridPixels > maxMinorPixels && adaptiveMinorSize > minMinorWorld)
+            {
+                adaptiveMinorSize = PrevNiceStep(adaptiveMinorSize);
+                minorGridPixels = adaptiveMinorSize * zoomScale;
+            }
+
+            adaptiveMinorSize = Math.Max(minMinorWorld, Math.Min(maxMinorWorld, adaptiveMinorSize));
+            _lastAdaptiveMinorSize = adaptiveMinorSize;
+            return adaptiveMinorSize;
         }
 
         /// <summary>
@@ -1149,5 +1309,16 @@ namespace Land_Readjustment_Tool.UI.MapCanvas.Rendering
         {
             Release?.Invoke();
         }
+    }
+
+    public readonly record struct GridPanPadding(int Left, int Top, int Right, int Bottom)
+    {
+        public static GridPanPadding Empty { get; } = new(0, 0, 0, 0);
+
+        public int Horizontal => Left + Right;
+
+        public int Vertical => Top + Bottom;
+
+        public bool IsEmpty => Left <= 0 && Top <= 0 && Right <= 0 && Bottom <= 0;
     }
 }

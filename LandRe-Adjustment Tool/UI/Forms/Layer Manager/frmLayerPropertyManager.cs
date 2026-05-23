@@ -10,6 +10,7 @@ namespace Land_Readjustment_Tool.UI.Forms
         private const string DefaultCanvasLabelFontName = "Nirmala UI";
         private const decimal DefaultFixedLabelFontSize = 6.0m;
         private const decimal DefaultScaledLabelFontSize = 2.0m;
+        private const decimal DefaultAnnotationLabelFontSize = 10.0m;
         private const decimal MinLabelFontSize = 1.0m;
         private const decimal MaxFixedLabelFontSize = 72.0m;
         private const decimal MaxScaledLabelFontSize = 120.0m;
@@ -27,6 +28,9 @@ namespace Land_Readjustment_Tool.UI.Forms
         private readonly bool _allowRename;
         private string _selectedHatchPatternKey = string.Empty;
         private string _selectedPointMarkerKey = "Dot";
+        private string _lastSelectedLayerKind = string.Empty;
+        private bool _isLoadingLayer;
+        private IReadOnlyList<IReadOnlyDictionary<string, string>>? _sampleRecords;
 
         public frmLayerPropertyManager(CanvasLayer layer)
             : this(layer, new HatchPatternService())
@@ -56,6 +60,7 @@ namespace Land_Readjustment_Tool.UI.Forms
             InitializeComponent();
             NumericUpDownSelectAllBehavior.AttachTo(this);
             LoadLayer();
+            _lastSelectedLayerKind = NormalizeDrawingLayerType(_cboLayerKind.Text);
             ConfigureApplicableControls();
             _rdoFontFixedSize.CheckedChanged += FontScalingRadio_CheckedChanged;
             _rdoFontScalesWithZoom.CheckedChanged += FontScalingRadio_CheckedChanged;
@@ -64,11 +69,21 @@ namespace Land_Readjustment_Tool.UI.Forms
             ArrangeAllPropertyPanels();
         }
 
+        public frmLayerPropertyManager(
+            CanvasLayer layer,
+            IHatchPatternService hatchPatternService,
+            IReadOnlyList<IReadOnlyDictionary<string, string>>? sampleRecords)
+            : this(layer, hatchPatternService, allowRename: false)
+        {
+            _sampleRecords = sampleRecords;
+        }
+
         /// <summary>
         /// Loads persisted layer values into the editable property controls.
         /// </summary>
         private void LoadLayer()
         {
+            _isLoadingLayer = true;
             _txtName.Text = Layer.Name;
             SetComboText(_cboLayerKind, GetLayerKindText(Layer));
             _pnlBorderColor.BackColor = ParseColorOrDefault(Layer.BorderColor, Color.Black);
@@ -113,6 +128,14 @@ namespace Land_Readjustment_Tool.UI.Forms
 
             // Label source: "static:text" = fixed text, anything else = from object data.
             string? labelField = Layer.LabelField;
+
+            // Pre-fill the parcel number expression for BaselineParcel layers that have no label set yet.
+            if (string.IsNullOrEmpty(labelField) &&
+                string.Equals(Layer.LayerType, "BaselineParcel", StringComparison.OrdinalIgnoreCase))
+            {
+                labelField = "{ParcelNo}";
+            }
+
             if (!string.IsNullOrEmpty(labelField) &&
                 labelField.StartsWith("static:", StringComparison.OrdinalIgnoreCase))
             {
@@ -133,6 +156,7 @@ namespace Land_Readjustment_Tool.UI.Forms
             }
 
             UpdateLabelSourceControlVisibility();
+            _isLoadingLayer = false;
         }
 
         /// <summary>
@@ -234,7 +258,18 @@ namespace Land_Readjustment_Tool.UI.Forms
 
         private void cboLayerKind_SelectedIndexChanged(object? sender, EventArgs e)
         {
+            string selectedLayerKind = NormalizeDrawingLayerType(_cboLayerKind.Text);
+
             UpdateLayerKindPresentation();
+            if (!_isLoadingLayer &&
+                IsAnnotationLayerType(selectedLayerKind) &&
+                !IsAnnotationLayerType(_lastSelectedLayerKind) &&
+                IsDefaultNonAnnotationLabelFontSize(_numFontSize.Value))
+            {
+                _numFontSize.Value = ClampDecimal(DefaultAnnotationLabelFontSize, _numFontSize);
+            }
+
+            _lastSelectedLayerKind = selectedLayerKind;
             ConfigureLockedControlState();
             UpdateFillControlState();
             _pnlLinePreview.Invalidate();
@@ -260,6 +295,30 @@ namespace Land_Readjustment_Tool.UI.Forms
         private void btnLabelColor_Click(object? sender, EventArgs e)
         {
             PickColor(_pnlLabelColor);
+        }
+
+        private void btnLabelExpression_Click(object? sender, EventArgs e)
+        {
+            string current          = _cboLabelField.Text.Trim();
+            string currentAlignment = NormalizeTextAlignment(_cboTextAlignment.Text);
+
+            using frmLabelExpressionEditor editor = new(current, currentAlignment, _sampleRecords, Layer.LayerType);
+            if (editor.ShowDialog(this) != DialogResult.OK)
+                return;
+
+            string expression = editor.LabelExpression;
+            if (!string.IsNullOrWhiteSpace(expression) &&
+                !_cboLabelField.Items.Cast<object>().Any(item =>
+                    string.Equals(item?.ToString(), expression, StringComparison.Ordinal)))
+            {
+                _cboLabelField.Items.Add(expression);
+            }
+
+            _cboLabelField.Text = expression;
+
+            // Apply the alignment the user chose in the expression editor
+            if (!string.IsNullOrWhiteSpace(editor.TextAlignment))
+                SetComboText(_cboTextAlignment, editor.TextAlignment);
         }
 
         private void PickColor(Panel swatch)
@@ -450,50 +509,68 @@ namespace Land_Readjustment_Tool.UI.Forms
 
         private void ConfigureLockedControlState()
         {
+            // Lock state only changes which controls are editable — it never changes
+            // which rows are visible or their layout positions.  Do NOT call
+            // UpdateLayerKindPresentation or UpdateFillControlState here: both
+            // ultimately call ArrangeAllPropertyPanels → SetBounds on every row,
+            // which physically moves all controls mid-click and causes the visual
+            // "position shift" the user sees when toggling the Locked checkbox.
             bool canEdit = !_chkLocked.Checked;
 
+            // General tab controls
             _txtName.ReadOnly = !_allowRename;
             _txtName.Enabled = canEdit && _allowRename;
-            // Layer type can only be changed for NEW drawing layers, not existing ones
             _cboLayerKind.Enabled = canEdit && _isDrawingMarkupLayer && _allowRename;
             _chkVisible.Enabled = canEdit;
 
-            bool isPoint = IsSelectedPointLayerType();
+            bool isPoint      = IsSelectedPointLayerType();
             bool isAnnotation = IsSelectedAnnotationLayerType();
-            bool hasBorder = !_chkNoBorder.Checked;
-            _pnlBorderColor.Enabled = canEdit && !isAnnotation && (hasBorder || isPoint);
-            _btnBorderColor.Enabled = canEdit && !isAnnotation && (hasBorder || isPoint);
-            _chkNoBorder.Enabled = canEdit && !isPoint && !isAnnotation;
-            _lineTypePanel.Enabled = canEdit && hasBorder && !isPoint && !isAnnotation;
-            _cboLineStyle.Enabled = canEdit && hasBorder && !isPoint && !isAnnotation;
-            _numLineTypeScale.Enabled = canEdit && hasBorder && !isPoint && !isAnnotation;
-            _numLineWeight.Enabled = canEdit && hasBorder && !isPoint && !isAnnotation;
+            bool hasBorder    = !_chkNoBorder.Checked;
+            _pnlBorderColor.Enabled      = canEdit && !isAnnotation && (hasBorder || isPoint);
+            _btnBorderColor.Enabled      = canEdit && !isAnnotation && (hasBorder || isPoint);
+            _chkNoBorder.Enabled         = canEdit && !isPoint && !isAnnotation;
+            _lineTypePanel.Enabled       = canEdit && hasBorder && !isPoint && !isAnnotation;
+            _cboLineStyle.Enabled        = canEdit && hasBorder && !isPoint && !isAnnotation;
+            _numLineTypeScale.Enabled    = canEdit && hasBorder && !isPoint && !isAnnotation;
+            _numLineWeight.Enabled       = canEdit && hasBorder && !isPoint && !isAnnotation;
             _pnlPointMarkerPreview.Enabled = canEdit && isPoint;
-            _btnPointMarker.Enabled = canEdit && isPoint;
-            _numPointSize.Enabled = canEdit && isPoint;
+            _btnPointMarker.Enabled      = canEdit && isPoint;
+            _numPointSize.Enabled        = canEdit && isPoint;
 
-            _cboFillStyle.Enabled = canEdit && !isAnnotation;
-            _pnlFillColor.Enabled = canEdit && !isAnnotation;
-            _btnFillColor.Enabled = canEdit && !isAnnotation;
-            _numHatchScale.Enabled = canEdit && !isAnnotation;
+            // Fill tab controls
+            _cboFillStyle.Enabled          = canEdit && !isAnnotation;
+            _pnlFillColor.Enabled          = canEdit && !isAnnotation;
+            _btnFillColor.Enabled          = canEdit && !isAnnotation;
+            _numHatchScale.Enabled         = canEdit && !isAnnotation;
+            _pnlHatchPatternPreview.Enabled = canEdit && !isAnnotation;
+            _btnHatchPattern.Enabled        = canEdit && !isAnnotation;
             _chkShowFillTransparency.Enabled = canEdit && !isAnnotation;
-            _trkTransparency.Enabled = canEdit && !isAnnotation && _chkShowFillTransparency.Checked;
-            _txtTransparencyValue.Enabled = canEdit && !isAnnotation && _chkShowFillTransparency.Checked;
+            _trkTransparency.Enabled       = canEdit && !isAnnotation && _chkShowFillTransparency.Checked;
+            _txtTransparencyValue.Enabled  = canEdit && !isAnnotation && _chkShowFillTransparency.Checked;
 
-            _chkShowLabels.Enabled = canEdit;
-            _btnFont.Enabled = canEdit;
-            _numFontSize.Enabled = canEdit;
-            _pnlLabelColor.Enabled = canEdit;
-            _btnLabelColor.Enabled = canEdit;
-            _cboTextAlignment.Enabled = canEdit && isAnnotation;
-            _cboLabelField.Enabled = canEdit;
-            _fontScalingPanel.Enabled = canEdit;
-            _rdoFontFixedSize.Enabled = canEdit;
+            // Label tab controls
+            _chkShowLabels.Enabled      = canEdit;
+            _btnFont.Enabled            = canEdit;
+            _numFontSize.Enabled        = canEdit;
+            _pnlLabelColor.Enabled      = canEdit;
+            _btnLabelColor.Enabled      = canEdit;
+            _cboTextAlignment.Enabled   = canEdit && isAnnotation;
+            _cboLabelField.Enabled      = canEdit;
+            _btnLabelExpression.Enabled = canEdit;
+            _fontScalingPanel.Enabled   = canEdit;
+            _rdoFontFixedSize.Enabled   = canEdit;
             _rdoFontScalesWithZoom.Enabled = canEdit;
 
+            // Keep the Locked checkbox itself always interactable
             _chkLocked.Enabled = true;
-            UpdateLayerKindPresentation();
-            UpdateFillControlState();
+        }
+
+        public event EventHandler<CanvasLayer>? LayerApplied;
+
+        private void btnApply_Click(object? sender, EventArgs e)
+        {
+            if (ApplyChanges())
+                LayerApplied?.Invoke(this, Layer);
         }
 
         protected override void OnFormClosing(FormClosingEventArgs e)
@@ -534,8 +611,11 @@ namespace Land_Readjustment_Tool.UI.Forms
                 : ClampDecimal(currentValue, _numFontSize);
         }
 
-        private static decimal GetDefaultLabelFontSize(bool scaleWithZoom)
+        private decimal GetDefaultLabelFontSize(bool scaleWithZoom)
         {
+            if (IsSelectedAnnotationLayerType())
+                return DefaultAnnotationLabelFontSize;
+
             return scaleWithZoom
                 ? DefaultScaledLabelFontSize
                 : DefaultFixedLabelFontSize;
@@ -612,7 +692,7 @@ namespace Land_Readjustment_Tool.UI.Forms
                 Layer.LabelFontSize = (double)_numFontSize.Value;
                 Layer.LabelColor = ColorTranslator.ToHtml(_pnlLabelColor.BackColor);
                 Layer.TextAlignment = NormalizeTextAlignment(_cboTextAlignment.Text);
-                Layer.LabelScaleWithZoom = !selectedAnnotation && _rdoFontScalesWithZoom.Checked;
+                Layer.LabelScaleWithZoom = _rdoFontScalesWithZoom.Checked;
 
                 if (selectedAnnotation)
                 {
@@ -889,10 +969,21 @@ namespace Land_Readjustment_Tool.UI.Forms
 
         private bool IsSelectedAnnotationLayerType()
         {
+            return IsAnnotationLayerType(NormalizeDrawingLayerType(_cboLayerKind.Text));
+        }
+
+        private static bool IsAnnotationLayerType(string? layerType)
+        {
             return string.Equals(
-                NormalizeDrawingLayerType(_cboLayerKind.Text),
+                layerType,
                 CanvasLayerTreeService.AnnotationLayerType,
                 StringComparison.OrdinalIgnoreCase);
+        }
+
+        private static bool IsDefaultNonAnnotationLabelFontSize(decimal fontSize)
+        {
+            return fontSize == DefaultScaledLabelFontSize ||
+                   fontSize == DefaultFixedLabelFontSize;
         }
 
         private static double NormalizeLineTypeScale(double scale)
@@ -957,7 +1048,7 @@ namespace Land_Readjustment_Tool.UI.Forms
         private static string NormalizeTextAlignment(string? alignment)
         {
             if (string.IsNullOrWhiteSpace(alignment))
-                return "Left Top";
+                return "Center Middle";
 
             string[] parts = alignment.Trim().Split(' ', 2, StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries);
             string h = (parts.Length > 0 ? parts[0] : "").ToLowerInvariant() switch
@@ -978,6 +1069,7 @@ namespace Land_Readjustment_Tool.UI.Forms
         private void UpdateLabelSourceControlVisibility()
         {
             SetControlVisible(_lblLabelField, true);
+            SetControlVisible(_labelFieldRow, true);
             SetControlVisible(_cboLabelField, true);
             SetControlVisible(_lblLabelFixedText, false);
             SetControlVisible(_txtLabelFixedText, false);
@@ -1035,7 +1127,7 @@ namespace Land_Readjustment_Tool.UI.Forms
                 (_lblFontSize, _numFontSize),
                 (_lblTextColor, _labelColorPanel),
                 (_lblTextAlignment, _cboTextAlignment),
-                (_lblLabelField, _cboLabelField),
+                (_lblLabelField, _labelFieldRow),
                 (_lblLabelFixedText, _txtLabelFixedText),
                 (_lblFontScaling, _fontScalingPanel),
                 (_lblAnnotationText, _txtAnnotationText));

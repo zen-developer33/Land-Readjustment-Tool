@@ -12,6 +12,7 @@ namespace Land_Readjustment_Tool.UI.Forms.Project
     {
         private readonly IDatumTransformationRepository _repo;
         private List<DatumTransformation> _items = [];
+        private bool _hasChanges = false;
 
         public frmManageDatumTransformations(
             IDatumTransformationRepository repo)
@@ -164,7 +165,10 @@ namespace Land_Readjustment_Tool.UI.Forms.Project
             using var frm = new frmAddEditDatumTransformation(
                 null, _repo);
             if (frm.ShowDialog() == DialogResult.OK)
+            {
                 await LoadAsync();
+                MarkChanged();
+            }
         }
 
         private async void btnCopyNew_Click(
@@ -199,7 +203,10 @@ namespace Land_Readjustment_Tool.UI.Forms.Project
             using var frm = new frmAddEditDatumTransformation(
                 copy, _repo);
             if (frm.ShowDialog() == DialogResult.OK)
+            {
                 await LoadAsync();
+                MarkChanged();
+            }
         }
 
         private async void btnEdit_Click(
@@ -211,7 +218,10 @@ namespace Land_Readjustment_Tool.UI.Forms.Project
             using var frm = new frmAddEditDatumTransformation(
                 d, _repo);
             if (frm.ShowDialog() == DialogResult.OK)
+            {
                 await LoadAsync();
+                MarkChanged();
+            }
         }
 
         private async void btnDelete_Click(
@@ -232,6 +242,7 @@ namespace Land_Readjustment_Tool.UI.Forms.Project
             {
                 await _repo.DeleteAsync(d.Id);
                 await LoadAsync();
+                MarkChanged();
             }
             catch (Exception ex)
             {
@@ -243,10 +254,24 @@ namespace Land_Readjustment_Tool.UI.Forms.Project
             }
         }
 
+        private void btnSaveChanges_Click(
+            object? sender, EventArgs e)
+        {
+            DialogResult = DialogResult.OK;
+            Close();
+        }
+
         private void btnClose_Click(
             object? sender, EventArgs e)
         {
+            DialogResult = _hasChanges ? DialogResult.OK : DialogResult.Cancel;
             Close();
+        }
+
+        private void MarkChanged()
+        {
+            _hasChanges = true;
+            btnSaveChanges.Enabled = true;
         }
     }
 }

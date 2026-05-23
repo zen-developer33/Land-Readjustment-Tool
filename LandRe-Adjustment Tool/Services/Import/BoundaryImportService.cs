@@ -144,8 +144,7 @@ namespace Land_Readjustment_Tool.Services.Import
             layer.ShowFillTransparency = false;
             layer.FillTransparency = 50;
 
-            if (string.IsNullOrWhiteSpace(layer.BorderColor))
-                layer.BorderColor = "#CF7C82";
+            layer.BorderColor = "#FF0000";
 
             if (layer.LineWeight <= 0)
                 layer.LineWeight = 2.0;
@@ -207,7 +206,7 @@ namespace Land_Readjustment_Tool.Services.Import
                 IsSelectable = true,
                 IsPrintable = true,
                 DisplayOrder = displayOrder,
-                BorderColor = "#CF7C82",
+                BorderColor = "#FF0000",
                 LineWeight = 2.0,
                 LineStyle = "Solid",
                 LineTypeScale = 1.0,

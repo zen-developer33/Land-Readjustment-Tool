@@ -240,6 +240,8 @@ namespace Land_Readjustment_Tool.UI.Forms.Project
             // ── AREA UNIT ────────────────────────────
             cmbTraditionalUnit.SelectedIndex =
                 s.TraditionalAreaUnit == "BKD" ? 1 : 0;
+            nudSqmDecimalPlaces.Value = ClampToRange(nudSqmDecimalPlaces, s.AreaSqmDecimalPlaces);
+            nudTraditionalDecimalPlaces.Value = ClampToRange(nudTraditionalDecimalPlaces, s.TraditionalAreaLowestUnitDecimalPlaces);
 
             // ── CANVAS ───────────────────────────────
             pnlBgColor.BackColor =
@@ -296,6 +298,8 @@ namespace Land_Readjustment_Tool.UI.Forms.Project
 
             s.TraditionalAreaUnit =
                 cmbTraditionalUnit.SelectedIndex == 1 ? "BKD" : "RAPD";
+            s.AreaSqmDecimalPlaces = (int)nudSqmDecimalPlaces.Value;
+            s.TraditionalAreaLowestUnitDecimalPlaces = (int)nudTraditionalDecimalPlaces.Value;
 
             s.CanvasBackgroundColor =
                 ColorTranslator.ToHtml(pnlBgColor.BackColor);
@@ -396,11 +400,17 @@ namespace Land_Readjustment_Tool.UI.Forms.Project
             var repo = new DatumTransformationRepository(session);
 
             using var frm = new frmManageDatumTransformations(repo);
-            frm.ShowDialog();
+            var result = frm.ShowDialog();
 
             _datumList = await _datumRepo.GetAllActiveAsync();
             RefreshDatumUiForSelectedCrs(
                 preserveSelection: selectedId.HasValue);
+
+            if (result == DialogResult.OK && !_settingsModified)
+            {
+                _settingsModified = true;
+                UpdateApplyButtonState();
+            }
         }
 
         // ── COLOR PICKER ─────────────────────────────────────────────────────
@@ -651,6 +661,8 @@ namespace Land_Readjustment_Tool.UI.Forms.Project
 
             // Area settings
             cmbTraditionalUnit.SelectedIndex = 0; // RAPD
+            nudSqmDecimalPlaces.Value = ClampToRange(nudSqmDecimalPlaces, 3m);
+            nudTraditionalDecimalPlaces.Value = ClampToRange(nudTraditionalDecimalPlaces, 2m);
 
             // Canvas settings
             _suppressCanvasThemeEvents = true;

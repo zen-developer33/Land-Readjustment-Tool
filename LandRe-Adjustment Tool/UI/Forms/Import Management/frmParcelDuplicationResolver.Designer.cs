@@ -10,6 +10,7 @@ namespace Land_Readjustment_Tool.Forms
         private Panel pnlButtons;
         private Button btnResolveSelected;
         private Button btnSetSelectedJointOwnership;
+        private Button btnUnmergeSelected;
         private Button btnResolveAll;
         private Button btnClose;
 
@@ -43,6 +44,7 @@ namespace Land_Readjustment_Tool.Forms
             dataGridViewTextBoxColumn8 = new DataGridViewTextBoxColumn();
             dataGridViewTextBoxColumn9 = new DataGridViewTextBoxColumn();
             btnSetSelectedJointOwnership = new Button();
+            btnUnmergeSelected = new Button();
             ((System.ComponentModel.ISupportInitialize)splitContainer).BeginInit();
             splitContainer.Panel1.SuspendLayout();
             splitContainer.Panel2.SuspendLayout();
@@ -151,6 +153,7 @@ namespace Land_Readjustment_Tool.Forms
             // 
             // pnlButtons
             // 
+            pnlButtons.Controls.Add(btnUnmergeSelected);
             pnlButtons.Controls.Add(btnSetSelectedJointOwnership);
             pnlButtons.Controls.Add(btnResolveSelected);
             pnlButtons.Controls.Add(btnResolveAll);
@@ -175,8 +178,8 @@ namespace Land_Readjustment_Tool.Forms
             btnResolveSelected.Click += BtnResolveSelected_Click;
             // 
             // btnResolveAll
-            // 
-            btnResolveAll.Location = new Point(423, 19);
+            //
+            btnResolveAll.Location = new Point(625, 19);
             btnResolveAll.Margin = new Padding(3, 4, 3, 4);
             btnResolveAll.Name = "btnResolveAll";
             btnResolveAll.Size = new Size(240, 45);
@@ -239,15 +242,27 @@ namespace Land_Readjustment_Tool.Forms
             dataGridViewTextBoxColumn9.Width = 125;
             // 
             // btnSetSelectedJointOwnership
-            // 
+            //
             btnSetSelectedJointOwnership.Location = new Point(189, 19);
             btnSetSelectedJointOwnership.Margin = new Padding(3, 4, 3, 4);
             btnSetSelectedJointOwnership.Name = "btnSetSelectedJointOwnership";
             btnSetSelectedJointOwnership.Size = new Size(228, 45);
             btnSetSelectedJointOwnership.TabIndex = 3;
-            btnSetSelectedJointOwnership.Text = "Set Selected As Joint Ownership";
+            btnSetSelectedJointOwnership.Text = "Set Selected As Joint";
             btnSetSelectedJointOwnership.UseVisualStyleBackColor = true;
             btnSetSelectedJointOwnership.Click += BtnSetSelectedJointOwnership_Click;
+            //
+            // btnUnmergeSelected
+            //
+            btnUnmergeSelected.Location = new Point(423, 19);
+            btnUnmergeSelected.Margin = new Padding(3, 4, 3, 4);
+            btnUnmergeSelected.Name = "btnUnmergeSelected";
+            btnUnmergeSelected.Size = new Size(196, 45);
+            btnUnmergeSelected.TabIndex = 4;
+            btnUnmergeSelected.Text = "Unmerge Selected";
+            btnUnmergeSelected.UseVisualStyleBackColor = true;
+            btnUnmergeSelected.Enabled = false;
+            btnUnmergeSelected.Click += BtnUnmergeSelected_Click;
             // 
             // frmParcelDuplicationResolver
             // 

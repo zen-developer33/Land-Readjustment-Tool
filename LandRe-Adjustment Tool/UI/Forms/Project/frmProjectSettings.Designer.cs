@@ -32,6 +32,11 @@ namespace Land_Readjustment_Tool.UI.Forms.Project
             lblTraditionalUnit = new Label();
             cmbTraditionalUnit = new ComboBox();
             lblAreaNote = new Label();
+            grpAreaPrecision = new GroupBox();
+            lblSqmPrecision = new Label();
+            nudSqmDecimalPlaces = new NumericUpDown();
+            lblTraditionalPrecision = new Label();
+            nudTraditionalDecimalPlaces = new NumericUpDown();
             tabMapCanvas = new TabPage();
             grpGraphics = new GroupBox();
             chkAntiAliasing = new CheckBox();
@@ -97,6 +102,9 @@ namespace Land_Readjustment_Tool.UI.Forms.Project
             grpDatumTransformation.SuspendLayout();
             tabArea.SuspendLayout();
             grpAreaUnit.SuspendLayout();
+            grpAreaPrecision.SuspendLayout();
+            ((System.ComponentModel.ISupportInitialize)nudSqmDecimalPlaces).BeginInit();
+            ((System.ComponentModel.ISupportInitialize)nudTraditionalDecimalPlaces).BeginInit();
             tabMapCanvas.SuspendLayout();
             grpGraphics.SuspendLayout();
             grpSnap.SuspendLayout();
@@ -252,6 +260,7 @@ namespace Land_Readjustment_Tool.UI.Forms.Project
             // tabArea
             // 
             tabArea.Controls.Add(grpAreaUnit);
+            tabArea.Controls.Add(grpAreaPrecision);
             tabArea.Location = new Point(4, 31);
             tabArea.Name = "tabArea";
             tabArea.Padding = new Padding(8);
@@ -301,9 +310,63 @@ namespace Land_Readjustment_Tool.UI.Forms.Project
             lblAreaNote.Size = new Size(475, 29);
             lblAreaNote.TabIndex = 1;
             lblAreaNote.Text = "All internal calculations always use Square Meters.";
-            // 
+            //
+            // grpAreaPrecision
+            //
+            grpAreaPrecision.Controls.Add(lblSqmPrecision);
+            grpAreaPrecision.Controls.Add(nudSqmDecimalPlaces);
+            grpAreaPrecision.Controls.Add(lblTraditionalPrecision);
+            grpAreaPrecision.Controls.Add(nudTraditionalDecimalPlaces);
+            grpAreaPrecision.Font = new Font("Segoe UI", 9F, FontStyle.Bold);
+            grpAreaPrecision.Location = new Point(8, 152);
+            grpAreaPrecision.Name = "grpAreaPrecision";
+            grpAreaPrecision.Size = new Size(536, 100);
+            grpAreaPrecision.TabIndex = 1;
+            grpAreaPrecision.TabStop = false;
+            grpAreaPrecision.Text = "Unit Precision (Decimal Places)";
+            //
+            // lblSqmPrecision
+            //
+            lblSqmPrecision.Font = new Font("Segoe UI", 9F);
+            lblSqmPrecision.Location = new Point(11, 30);
+            lblSqmPrecision.Name = "lblSqmPrecision";
+            lblSqmPrecision.Size = new Size(185, 20);
+            lblSqmPrecision.TabIndex = 0;
+            lblSqmPrecision.Text = "Square Meters:";
+            //
+            // nudSqmDecimalPlaces
+            //
+            nudSqmDecimalPlaces.Font = new Font("Segoe UI", 9F);
+            nudSqmDecimalPlaces.Location = new Point(200, 27);
+            nudSqmDecimalPlaces.Maximum = new decimal(new int[] { 6, 0, 0, 0 });
+            nudSqmDecimalPlaces.Minimum = new decimal(new int[] { 0, 0, 0, 0 });
+            nudSqmDecimalPlaces.Name = "nudSqmDecimalPlaces";
+            nudSqmDecimalPlaces.Size = new Size(59, 27);
+            nudSqmDecimalPlaces.TabIndex = 0;
+            nudSqmDecimalPlaces.Value = new decimal(new int[] { 3, 0, 0, 0 });
+            //
+            // lblTraditionalPrecision
+            //
+            lblTraditionalPrecision.Font = new Font("Segoe UI", 9F);
+            lblTraditionalPrecision.Location = new Point(11, 64);
+            lblTraditionalPrecision.Name = "lblTraditionalPrecision";
+            lblTraditionalPrecision.Size = new Size(185, 20);
+            lblTraditionalPrecision.TabIndex = 1;
+            lblTraditionalPrecision.Text = "Lowest Unit [Daam / Dhur]:";
+            //
+            // nudTraditionalDecimalPlaces
+            //
+            nudTraditionalDecimalPlaces.Font = new Font("Segoe UI", 9F);
+            nudTraditionalDecimalPlaces.Location = new Point(200, 61);
+            nudTraditionalDecimalPlaces.Maximum = new decimal(new int[] { 6, 0, 0, 0 });
+            nudTraditionalDecimalPlaces.Minimum = new decimal(new int[] { 0, 0, 0, 0 });
+            nudTraditionalDecimalPlaces.Name = "nudTraditionalDecimalPlaces";
+            nudTraditionalDecimalPlaces.Size = new Size(59, 27);
+            nudTraditionalDecimalPlaces.TabIndex = 1;
+            nudTraditionalDecimalPlaces.Value = new decimal(new int[] { 2, 0, 0, 0 });
+            //
             // tabMapCanvas
-            // 
+            //
             tabMapCanvas.Controls.Add(grpGraphics);
             tabMapCanvas.Controls.Add(grpSnap);
             tabMapCanvas.Controls.Add(grpOther);
@@ -955,6 +1018,9 @@ namespace Land_Readjustment_Tool.UI.Forms.Project
             grpDatumTransformation.ResumeLayout(false);
             tabArea.ResumeLayout(false);
             grpAreaUnit.ResumeLayout(false);
+            grpAreaPrecision.ResumeLayout(false);
+            ((System.ComponentModel.ISupportInitialize)nudSqmDecimalPlaces).EndInit();
+            ((System.ComponentModel.ISupportInitialize)nudTraditionalDecimalPlaces).EndInit();
             tabMapCanvas.ResumeLayout(false);
             grpGraphics.ResumeLayout(false);
             grpSnap.ResumeLayout(false);
@@ -1009,6 +1075,11 @@ namespace Land_Readjustment_Tool.UI.Forms.Project
         private Label lblTraditionalUnit;
         private ComboBox cmbTraditionalUnit;
         private Label lblAreaNote;
+        private GroupBox grpAreaPrecision;
+        private Label lblSqmPrecision;
+        private NumericUpDown nudSqmDecimalPlaces;
+        private Label lblTraditionalPrecision;
+        private NumericUpDown nudTraditionalDecimalPlaces;
         private GroupBox grpCanvasTheme;
         private Label lblCanvasTheme;
         private ComboBox cmbCanvasTheme;

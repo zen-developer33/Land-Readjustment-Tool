@@ -140,6 +140,16 @@ namespace Land_Readjustment_Tool.Repositories.Base
                 Logger.LogInfo(
                     $"[{typeof(T).Name}] updated and saved.");
             }
+            catch (DbUpdateConcurrencyException)
+            {
+                // SaveChanges affected 0 rows. No entity in this codebase uses
+                // [ConcurrencyCheck] / [Timestamp], so this exclusively means the
+                // row Id doesn't exist in the database (stale in-memory reference).
+                // Detach cleanly and skip — the caller's in-memory state is still valid.
+                try { Context.Entry(entity).State = EntityState.Detached; } catch { /* ignore */ }
+                Logger.LogWarning(
+                    $"[{typeof(T).Name}] UpdateAsync: row not found in database — update skipped.");
+            }
             catch (Exception ex)
             {
                 Logger.LogError(

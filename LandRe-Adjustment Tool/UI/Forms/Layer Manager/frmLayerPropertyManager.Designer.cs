@@ -79,12 +79,15 @@ namespace Land_Readjustment_Tool.UI.Forms
         private RadioButton _rdoFontScalesWithZoom = null!;
         private TextBox _txtLabelFixedText = null!;
         private Label _lblLabelFixedText = null!;
+        private FlowLayoutPanel _labelFieldRow = null!;
+        private Button _btnLabelExpression = null!;
         private Button _btnBorderColor = null!;
         private Button _btnFillColor = null!;
         private Button _btnHatchPattern = null!;
         private Button _btnLabelColor = null!;
         private Button _btnOk = null!;
         private Button _btnCancel = null!;
+        private Button _btnApply = null!;
         private ColorDialog _colorDialog = null!;
         private FontDialog _fontDialog = null!;
 
@@ -168,6 +171,8 @@ namespace Land_Readjustment_Tool.UI.Forms
             _cboLabelField = new ComboBox();
             _lblLabelFixedText = new Label();
             _txtLabelFixedText = new TextBox();
+            _labelFieldRow = new FlowLayoutPanel();
+            _btnLabelExpression = new Button();
             _lblFontScaling = new Label();
             _fontScalingPanel = new FlowLayoutPanel();
             _rdoFontFixedSize = new RadioButton();
@@ -177,6 +182,7 @@ namespace Land_Readjustment_Tool.UI.Forms
             _footerPanel = new FlowLayoutPanel();
             _btnOk = new Button();
             _btnCancel = new Button();
+            _btnApply = new Button();
             _colorDialog = new ColorDialog();
             _fontDialog = new FontDialog();
             _tabAnnotation = new TabPage();
@@ -204,6 +210,7 @@ namespace Land_Readjustment_Tool.UI.Forms
             ((System.ComponentModel.ISupportInitialize)_numFontSize).BeginInit();
             _labelColorPanel.SuspendLayout();
             _fontScalingPanel.SuspendLayout();
+            _labelFieldRow.SuspendLayout();
             _footerPanel.SuspendLayout();
             _tabAnnotation.SuspendLayout();
             SuspendLayout();
@@ -774,7 +781,7 @@ namespace Land_Readjustment_Tool.UI.Forms
             _labelLayout.Controls.Add(_lblTextAlignment);
             _labelLayout.Controls.Add(_cboTextAlignment);
             _labelLayout.Controls.Add(_lblLabelField);
-            _labelLayout.Controls.Add(_cboLabelField);
+            _labelLayout.Controls.Add(_labelFieldRow);
             _labelLayout.Controls.Add(_lblLabelFixedText);
             _labelLayout.Controls.Add(_txtLabelFixedText);
             _labelLayout.Controls.Add(_lblFontScaling);
@@ -932,18 +939,46 @@ namespace Land_Readjustment_Tool.UI.Forms
             _lblLabelField.Name = "_lblLabelField";
             _lblLabelField.Size = new Size(122, 27);
             _lblLabelField.TabIndex = 12;
-            _lblLabelField.Text = "Label FIeld";
+            _lblLabelField.Text = "Label Field";
             _lblLabelField.TextAlign = ContentAlignment.MiddleLeft;
-            // 
-            // _cboLabelField
-            // 
-            _cboLabelField.Anchor = AnchorStyles.Top | AnchorStyles.Left | AnchorStyles.Right;
-            _cboLabelField.Items.AddRange(new object[] { "ParcelNo", "ParcelNo + AreaSqm", "ParcelNo + AreaRAPD", "MapSheet + ParcelNo + AreaSqm", "MapSheet + ParcelNo + AreaRAPD", "ParcelNo + OwnerName", "ParcelNo + LandUse", "MapSheetNo", "MapSheetParcelNo", "OwnerName", "AreaSqm", "CalculatedAreaSqm", "AreaRAPD", "AreaBKD", "LandUse", "PlotNumber", "AssignmentStatus", "SourceLayer", "LabelText", "ObjectDescription", "template:{ParcelNo}\\nArea: {AreaSqm} sq.m" });
-            _cboLabelField.Location = new Point(144, 198);
+            //
+            // _cboLabelField  (lives inside _labelFieldRow)
+            //
+            _cboLabelField.Items.AddRange(new object[]
+            {
+                "{ParcelNo}",
+                "{ParcelNo}\\nArea: {AreaSqm} sq.m",
+                "{ParcelNo}\\n{AreaRAPD}",
+                "{ParcelNo}\\n{OwnerName}",
+                "{MapSheetNo}-{ParcelNo}\\n{OwnerName}\\nArea: {AreaSqm} sq.m",
+            });
+            _cboLabelField.Location = new Point(0, 3);
+            _cboLabelField.Margin = new Padding(0, 3, 6, 0);
             _cboLabelField.Name = "_cboLabelField";
-            _cboLabelField.Size = new Size(333, 28);
-            _cboLabelField.TabIndex = 13;
-            // 
+            _cboLabelField.Size = new Size(214, 28);
+            _cboLabelField.TabIndex = 0;
+            //
+            // _labelFieldRow
+            //
+            _labelFieldRow.Controls.Add(_cboLabelField);
+            _labelFieldRow.Controls.Add(_btnLabelExpression);
+            _labelFieldRow.Location = new Point(144, 198);
+            _labelFieldRow.Name = "_labelFieldRow";
+            _labelFieldRow.Size = new Size(333, 34);
+            _labelFieldRow.TabIndex = 13;
+            _labelFieldRow.WrapContents = false;
+            //
+            // _btnLabelExpression
+            //
+            _btnLabelExpression.Location = new Point(220, 3);
+            _btnLabelExpression.Margin = new Padding(0, 3, 0, 0);
+            _btnLabelExpression.Name = "_btnLabelExpression";
+            _btnLabelExpression.Size = new Size(113, 29);
+            _btnLabelExpression.TabIndex = 1;
+            _btnLabelExpression.Text = "Expression...";
+            _btnLabelExpression.UseVisualStyleBackColor = true;
+            _btnLabelExpression.Click += btnLabelExpression_Click;
+            //
             // _lblLabelFixedText
             // 
             _lblLabelFixedText.Location = new Point(12, 199);
@@ -1029,6 +1064,7 @@ namespace Land_Readjustment_Tool.UI.Forms
             _footerPanel.Anchor = AnchorStyles.Bottom | AnchorStyles.Left | AnchorStyles.Right;
             _footerPanel.Controls.Add(_btnOk);
             _footerPanel.Controls.Add(_btnCancel);
+            _footerPanel.Controls.Add(_btnApply);
             _footerPanel.FlowDirection = FlowDirection.RightToLeft;
             _footerPanel.Location = new Point(12, 483);
             _footerPanel.Name = "_footerPanel";
@@ -1057,7 +1093,17 @@ namespace Land_Readjustment_Tool.UI.Forms
             _btnCancel.TabIndex = 1;
             _btnCancel.Text = "Cancel";
             _btnCancel.UseVisualStyleBackColor = true;
-            // 
+            //
+            // _btnApply
+            //
+            _btnApply.Margin = new Padding(8, 4, 0, 0);
+            _btnApply.Name = "_btnApply";
+            _btnApply.Size = new Size(88, 30);
+            _btnApply.TabIndex = 2;
+            _btnApply.Text = "Apply";
+            _btnApply.UseVisualStyleBackColor = true;
+            _btnApply.Click += btnApply_Click;
+            //
             // _colorDialog
             // 
             _colorDialog.FullOpen = true;
@@ -1131,6 +1177,7 @@ namespace Land_Readjustment_Tool.UI.Forms
             _fontPanel.PerformLayout();
             ((System.ComponentModel.ISupportInitialize)_numFontSize).EndInit();
             _labelColorPanel.ResumeLayout(false);
+            _labelFieldRow.ResumeLayout(false);
             _fontScalingPanel.ResumeLayout(false);
             _fontScalingPanel.PerformLayout();
             _footerPanel.ResumeLayout(false);

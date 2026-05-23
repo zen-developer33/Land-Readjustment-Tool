@@ -31,6 +31,7 @@ namespace Land_Readjustment_Tool.Forms
         private HashSet<int> _editedRowIndices = new();
         private bool _isValidated = false;
         private bool _isDeduplicationDone = false;
+        private bool _isParcelDeduplicationDone = false;
         private OwnerDeduplicationService.DeduplicationResult? _deduplicationResult = null;
         private BackgroundWorker _backgroundWorker;
         private ContextMenuStrip _contextMenu;
@@ -1025,8 +1026,11 @@ namespace Land_Readjustment_Tool.Forms
             var duplicateGroups = ParcelDuplicateResolutionService.FindDuplicateGroups(_importedRecords);
             if (duplicateGroups.Count == 0)
             {
-                MessageBox.Show("No duplicate parcels were found in the current import data.",
-                    "No Parcel Duplicates", MessageBoxButtons.OK, MessageBoxIcon.Information);
+                // No duplicates — trivially resolved.
+                _isParcelDeduplicationDone = true;
+                UpdateStepStatus(4, StepStatus.InProgress, "Ready to save");
+                UpdateStatusBar("No duplicate parcels found — parcel data is clean.");
+                UpdateValidationStatus();
                 return;
             }
 
@@ -1036,20 +1040,13 @@ namespace Land_Readjustment_Tool.Forms
                 return;
 
             RemoveAbsorbedJointOwnerRows();
-            InvalidateOwnerDeduplication();
-
             RefreshDataGridView();
-            RevalidateCurrentRecords();
+            RevalidateCurrentRecords();   // → UpdateParcelDuplicationState → UpdateValidationStatus
             UpdateRecordCount();
-
-            MessageBox.Show(
-                "Parcel duplication has been resolved.\n\n" +
-                "Duplicate parcel rows were converted into joint co-owners. The import grid now shows only unique parcels.",
-                "Parcel Resolution Complete",
-                MessageBoxButtons.OK,
-                MessageBoxIcon.Information);
-
-            UpdateStatusBar("Parcel duplicates resolved. Please run owner deduplication again before saving.");
+            // Parcel joint-ownership merging never introduces new owner-name duplicates,
+            // so the existing owner dedup result stays valid. Save enables immediately
+            // once both dedup flags are true and there are no validation errors.
+            UpdateStatusBar("Parcel duplicates resolved.");
         }
 
         private void btnSetSelectedJointOwnership_Click(object sender, EventArgs e)
@@ -1115,17 +1112,55 @@ namespace Land_Readjustment_Tool.Forms
             }
             else
             {
-                UpdateStepStatus(3, StepStatus.InProgress, "Review & deduplicate");
-                UpdateStepStatus(4, StepStatus.Pending, "Run owner dedupe");
+                // Reflect the real owner-dedup state rather than always showing "pending".
+                if (_isDeduplicationDone)
+                    UpdateStepStatus(3, StepStatus.Success, "Deduplicated");
+                else
+                    UpdateStepStatus(3, StepStatus.InProgress, "Review & deduplicate");
+                // Step 4 label is set by UpdateParcelDuplicationState() below.
             }
 
-            UpdateValidationStatus();
+            // Re-check parcel duplicate state after any record change.
+            UpdateParcelDuplicationState();
         }
 
         private void InvalidateOwnerDeduplication()
         {
             _isDeduplicationDone = false;
+            _isParcelDeduplicationDone = false;
             _deduplicationResult = null;
+        }
+
+        /// <summary>
+        /// Checks whether any parcel duplicates currently exist and updates
+        /// <see cref="_isParcelDeduplicationDone"/> accordingly.
+        /// If no duplicates exist the flag is set automatically — the user does not need
+        /// to open the resolver. Also refreshes the Step-4 status label.
+        /// </summary>
+        private void UpdateParcelDuplicationState()
+        {
+            if (_importedRecords.Count == 0)
+            {
+                _isParcelDeduplicationDone = false;
+                UpdateParcelDuplicationButtonState();
+                return;
+            }
+
+            bool hasParcelDups = ParcelDuplicateResolutionService
+                .FindDuplicateGroups(_importedRecords).Count > 0;
+
+            _isParcelDeduplicationDone = !hasParcelDups;
+            UpdateParcelDuplicationButtonState();
+
+            if (_isDeduplicationDone)
+            {
+                if (_isParcelDeduplicationDone)
+                    UpdateStepStatus(4, StepStatus.InProgress, "Ready to save");
+                else
+                    UpdateStepStatus(4, StepStatus.Pending, "Resolve parcel dups");
+            }
+
+            UpdateValidationStatus();
         }
 
         private void DgvRecords_SelectionChanged(object sender, EventArgs e)
@@ -1182,6 +1217,50 @@ namespace Land_Readjustment_Tool.Forms
             });
         }
 
+        // Faint button-highlight colours — match the theme's existing blue/green palette.
+        private static readonly Color _btnHintBack   = Color.FromArgb(219, 234, 254); // soft blue  — "do this next"
+        private static readonly Color _btnHintBorder = Color.FromArgb(147, 197, 253); // medium blue border
+        private static readonly Color _btnReadyBack  = Color.FromArgb(209, 250, 229); // soft green — "ready to save"
+        private static readonly Color _btnReadyBorder= Color.FromArgb(110, 231, 183); // medium green border
+        private static readonly Color _btnDefaultBack  = Color.White;
+        private static readonly Color _btnDefaultBorder= Color.FromArgb(203, 213, 225);
+
+        /// <summary>
+        /// Highlights the next-action button with a faint colour so the user always
+        /// knows which step to take. Only one button is highlighted at a time.
+        /// </summary>
+        private void UpdateButtonHighlights()
+        {
+            SetButtonHighlight(btnResolveOwnerDuplication,  _btnDefaultBack,  _btnDefaultBorder);
+            SetButtonHighlight(btnResolveParcelDuplication, _btnDefaultBack,  _btnDefaultBorder);
+            SetButtonHighlight(btnSaveToDatabase,           _btnDefaultBack,  _btnDefaultBorder);
+
+            // Only guide after validation has been run and records are clean.
+            if (!_isValidated || _validationErrors.Any())
+                return;
+
+            if (!_isDeduplicationDone)
+            {
+                SetButtonHighlight(btnResolveOwnerDuplication, _btnHintBack, _btnHintBorder);
+            }
+            else if (!_isParcelDeduplicationDone && btnResolveParcelDuplication.Enabled)
+            {
+                SetButtonHighlight(btnResolveParcelDuplication, _btnHintBack, _btnHintBorder);
+            }
+            else if (_isDeduplicationDone && _isParcelDeduplicationDone)
+            {
+                SetButtonHighlight(btnSaveToDatabase, _btnReadyBack, _btnReadyBorder);
+            }
+        }
+
+        private static void SetButtonHighlight(Button btn, Color back, Color border)
+        {
+            btn.BackColor = back;
+            // FlatStyle.Flat is set by RecordFormTheme — safe to adjust FlatAppearance.
+            if (btn.FlatStyle == FlatStyle.Flat)
+                btn.FlatAppearance.BorderColor = border;
+        }
+
         private void UpdateValidationStatus()
         {
             UpdateParcelDuplicationButtonState();
@@ -1212,11 +1291,13 @@ namespace Land_Readjustment_Tool.Forms
                 {
                     lblValidationStatus.Text = "All Valid!";
                     lblValidationStatus.ForeColor = SystemColors.ControlText;
-                    // Only enable save button if deduplication is also done
-                    btnSaveToDatabase.Enabled = _isDeduplicationDone;
+                    // All three gates must be clear before Save is allowed.
+                    btnSaveToDatabase.Enabled = _isDeduplicationDone && _isParcelDeduplicationDone;
                     ClearRowColors();
                 }
             }
+
+            UpdateButtonHighlights();
         }
 
         private void UpdateParcelDuplicationButtonState()
@@ -1297,9 +1378,19 @@ namespace Land_Readjustment_Tool.Forms
 
             if (!_isDeduplicationDone)
             {
-                MessageBox.Show("Please resolve owner duplication before saving.\n\n" +
-                    "Click 'Resolve Owner Duplication' button to check for and merge duplicate owners.",
-                    "Deduplication Required", MessageBoxButtons.OK, MessageBoxIcon.Warning);
+                MessageBox.Show(
+                    "Owner deduplication has not been completed.\n\n" +
+                    "Click 'Owner Dedupe' to review and merge duplicate owners before saving.",
+                    "Owner Deduplication Required", MessageBoxButtons.OK, MessageBoxIcon.Warning);
+                return;
+            }
+
+            if (!_isParcelDeduplicationDone)
+            {
+                MessageBox.Show(
+                    "Parcel duplication has not been resolved.\n\n" +
+                    "Click 'Parcel Dedupe' to merge duplicate parcel entries before saving.",
+                    "Parcel Deduplication Required", MessageBoxButtons.OK, MessageBoxIcon.Warning);
                 return;
             }
 
@@ -1322,69 +1413,27 @@ namespace Land_Readjustment_Tool.Forms
                 return;
             }
 
-            bool replaceExisting = false;
-
-            if (existingParcelCount > 0 || existingOwnerCount > 0)
-            {
-                var warningResult = MessageBox.Show(
-                    $"⚠️ WARNING: Existing Data Detected!\n\n" +
-                    $"The database already contains:\n" +
-                    $"• {existingOwnerCount} Landowner(s)\n" +
-                    $"• {existingParcelCount} Land Parcel(s)\n\n" +
-                    $"How would you like to proceed?\n\n" +
-                    $"• Click 'Yes' to REPLACE all existing data with new import\n" +
-                    $"• Click 'No' to ADD to existing data (duplicates will be skipped)\n" +
-                    $"• Click 'Cancel' to abort the import",
-                    "Existing Data Warning",
-                    MessageBoxButtons.YesNoCancel,
-                    MessageBoxIcon.Warning);
-
-                if (warningResult == DialogResult.Cancel)
-                    return;
-
-                replaceExisting = (warningResult == DialogResult.Yes);
-
-                if (replaceExisting)
-                {
-                    var confirmReplace = MessageBox.Show(
-                        $"⚠️ CONFIRM DATA REPLACEMENT\n\n" +
-                        $"You are about to DELETE:\n" +
-                        $"• {existingOwnerCount} Landowner(s)\n" +
-                        $"• {existingParcelCount} Land Parcel(s)\n\n" +
-                        $"This action CANNOT be undone!\n\n" +
-                        $"Are you absolutely sure you want to proceed?",
-                        "Confirm Replace",
-                        MessageBoxButtons.YesNo,
-                        MessageBoxIcon.Exclamation);
-
-                    if (confirmReplace != DialogResult.Yes)
-                        return;
-                }
-            }
-
-            // Show summary before saving
+            // Show the unified confirm form: import summary + replace-vs-add choice when conflict exists.
             int uniqueOwnerCount = _deduplicationResult?.UniqueOwners.Count ?? 0;
-            var result = MessageBox.Show(
-                $"Ready to save to database:\n\n" +
-                $"- Unique Landowners: {uniqueOwnerCount}\n" +
-                $"- Land Parcels: {_importedRecords.Count}\n\n" +
-                $"Do you want to continue?",
-                "Confirm Save",
-                MessageBoxButtons.YesNo,
-                MessageBoxIcon.Question);
+            var sourceFilePath = txtFilePath.Text;
+            var sourceFileName = Path.GetFileName(sourceFilePath);
+            if (string.IsNullOrWhiteSpace(sourceFileName))
+                sourceFileName = "ManualImport.xlsx";
 
-            if (result != DialogResult.Yes) return;
+            var summaryText = BuildImportSummary(
+                sourceFileName,
+                cbSelectSheet.SelectedItem?.ToString() ?? "—",
+                uniqueOwnerCount);
+
+            using var confirmForm = new frmImportConfirm(summaryText, existingOwnerCount, existingParcelCount);
+            if (confirmForm.ShowDialog(this) != DialogResult.OK)
+                return;
+
+            bool replaceExisting = confirmForm.ReplaceExisting;
 
             Cursor = Cursors.WaitCursor;
             progressBar.Style = ProgressBarStyle.Marquee;
             UpdateStatusBar("Saving to database...");
-
-            var sourceFilePath = txtFilePath.Text;
-            var sourceFileName = Path.GetFileName(sourceFilePath);
-            if (string.IsNullOrWhiteSpace(sourceFileName))
-            {
-                sourceFileName = "ManualImport.xlsx";
-            }
 
             _backgroundWorker.RunWorkerAsync(new BackgroundOperation
             {
@@ -1706,42 +1755,27 @@ namespace Land_Readjustment_Tool.Forms
             _validationErrors = result.ValidationErrors;
             _isValidated = true;
             _isDeduplicationDone = false;
+            _isParcelDeduplicationDone = false;
 
             DisableStep2();
             EnableStep3();
             EnableStep4();
 
-            // Update step statuses
             UpdateStepStatus(2, StepStatus.Success, $"Mapped ({result.TotalRecords} records)");
-
-            if (result.HasErrors)
-            {
-                UpdateStepStatus(3, StepStatus.Error, $"{result.InvalidRecords.Count} errors");
-                UpdateStepStatus(4, StepStatus.Pending, "Fix errors first");
-            }
-            else
-            {
-                UpdateStepStatus(3, StepStatus.InProgress, "Review & deduplicate");
-                UpdateStepStatus(4, StepStatus.Pending, "Ready when validated");
-            }
+            UpdateStepStatus(3, StepStatus.InProgress, "Resolving owner duplicates…");
+            UpdateStepStatus(4, StepStatus.Pending, "Complete steps above");
 
             string skippedInfo = result.SkippedRows > 0
-                ? $"Skipped Rows (empty/missing required fields): {result.SkippedRows}\n"
-                : "";
+                ? $"  Skipped rows (missing required fields): {result.SkippedRows}"
+                : string.Empty;
 
-            string message = $"Data transformation complete!\n\n" +
-                            $"Total Records Imported: {result.TotalRecords}\n" +
-                            $"Valid Records: {result.ValidRecords.Count}\n" +
-                            $"Invalid Records: {result.InvalidRecords.Count}\n" +
-                            skippedInfo + "\n" +
-                            $"Next Steps:\n" +
-                            $"1. Review and fix any validation errors\n" +
-                            $"2. Click 'Resolve Owner Duplication' to merge duplicate owners\n" +
-                            $"3. Save to database";
+            UpdateStatusBar(
+                $"Import complete — {result.TotalRecords} records loaded" +
+                (skippedInfo.Length > 0 ? $", {result.SkippedRows} skipped" : string.Empty) +
+                ". Opening owner deduplication…");
 
-            MessageBox.Show(message, "Transformation Complete",
-                MessageBoxButtons.OK,
-                result.HasErrors ? MessageBoxIcon.Warning : MessageBoxIcon.Information);
+            // Defer to let the form render the DGV before opening the modal.
+            BeginInvoke(RunOwnerDeduplication);
         }
 
         // ==================== POST-IMPORT PROCESSING ====================
@@ -1753,13 +1787,28 @@ namespace Land_Readjustment_Tool.Forms
         /// </summary>
         private void PostProcessImportedRecords()
         {
+            int tradPrec = 2;
+            try
+            {
+                if (AppServices.HasContext)
+                {
+                    var ps = AppServices.Context.Session.GetDbContext()
+                        .ProjectSettings
+                        .AsNoTracking()
+                        .Select(s => (int?)s.TraditionalAreaLowestUnitDecimalPlaces)
+                        .FirstOrDefault();
+                    tradPrec = ps ?? 2;
+                }
+            }
+            catch { /* fall back to default 2 */ }
+
             foreach (var record in _importedRecords)
             {
                 // Auto-calculate Area (R-A-P-D) and Area (B-K-D) from AreaInSqm
                 if (record.AreaInSqm.HasValue && record.AreaInSqm.Value > 0)
                 {
-                    record.AreaInRAPD = AreaConverterService.SqmToRAPDString(record.AreaInSqm.Value);
-                    record.AreaInBKD = AreaConverterService.SqmToBKDString(record.AreaInSqm.Value);
+                    record.AreaInRAPD = AreaConverterService.SqmToRAPDString(record.AreaInSqm.Value, tradPrec);
+                    record.AreaInBKD = AreaConverterService.SqmToBKDString(record.AreaInSqm.Value, tradPrec);
                 }
 
                 // Auto-detect Ownership Type if not already set
@@ -1827,14 +1876,7 @@ namespace Land_Readjustment_Tool.Forms
                 return "Trust (Guthi)";
 
             // Check for Public (Government) keywords
-            string[] publicKeywords =
-            [
-                "public", "government", "govt", "sarkar",
-                "नेपाल सरकार", "सरकार", "सरकारी",
-                "सार्वजनिक", "सार्वाजनिक", "सार्वाजिनिक",
-                "नगरपालिका", "गाउँपालिका", "गाउपालिका", "गा.पा", "न.पा",
-                "मन्त्रालय", "विभाग", "कार्यालय"
-            ];
+            string[] publicKeywords = ["नेपाल सरकार", "नेपाल सरकार सार्वजनिक बाटो", "बाटो"];
             if (publicKeywords.Any(k => combined.Contains(k, StringComparison.OrdinalIgnoreCase)))
                 return "Public (Government)";
 
@@ -1917,11 +1959,26 @@ namespace Land_Readjustment_Tool.Forms
                 AppServices.Context.MarkAsModified();
             }
 
-            MessageBox.Show(message, "Save Complete",
-                MessageBoxButtons.OK, MessageBoxIcon.Information);
-
             this.DialogResult = DialogResult.OK;
             this.Close();
+        }
+
+        /// <summary>
+        /// Builds a human-readable multi-line summary of what is about to be imported.
+        /// Displayed inside the <see cref="frmImportConfirm"/> text box.
+        /// </summary>
+        private string BuildImportSummary(string fileName, string sheetName, int uniqueOwnerCount)
+        {
+            var sb = new StringBuilder();
+            sb.AppendLine($"  File          :  {fileName}");
+            sb.AppendLine($"  Sheet         :  {sheetName}");
+            sb.AppendLine();
+            sb.AppendLine($"  Land Parcels  :  {_importedRecords.Count:N0}");
+            sb.AppendLine($"  Unique Owners :  {uniqueOwnerCount:N0}");
+            sb.AppendLine();
+            sb.AppendLine($"  Validation    :  {(_validationErrors.Count == 0 ? "✓  No errors" : $"✗  {_validationErrors.Count} error(s)")}");
+            sb.AppendLine($"  Deduplication :  {(_isDeduplicationDone ? "✓  Completed" : "⚠  Not completed")}");
+            return sb.ToString();
         }
 
         private void UpdateRecordCount()
@@ -1986,21 +2043,6 @@ namespace Land_Readjustment_Tool.Forms
                 return;
             }
 
-            if (_validationErrors.Any())
-            {
-                var result = MessageBox.Show(
-                    $"There are {_validationErrors.Count} validation error(s) in the data.\n\n" +
-                    "It is recommended to fix all errors before resolving duplicates.\n\n" +
-                    "Do you want to continue anyway?",
-                    "Validation Errors Present",
-                    MessageBoxButtons.YesNo,
-                    MessageBoxIcon.Warning);
-
-                if (result != DialogResult.Yes)
-                    return;
-            }
-
-            // No warning needed when re-running - just run fresh analysis
             RunOwnerDeduplication();
             UpdateValidationStatus();
         }
@@ -2008,101 +2050,48 @@ namespace Land_Readjustment_Tool.Forms
         private void RunOwnerDeduplication()
         {
             Cursor = Cursors.WaitCursor;
-            UpdateStatusBar("Analyzing records for duplicate owners...");
+            UpdateStatusBar("Analysing records for duplicate owners…");
             progressBar.Style = ProgressBarStyle.Marquee;
 
             try
             {
-                // STEP 1: Extract unique owners with confidence-based matching on current data
-                // On subsequent runs (when _isDeduplicationDone is true), exclude anonymous owners from matching
+                // On re-runs, exclude anonymous owners from matching
                 bool excludeAnonymous = _isDeduplicationDone;
-                _deduplicationResult = OwnerDeduplicationService.ExtractUniqueOwners(_importedRecords.ToList(), excludeAnonymous);
+                _deduplicationResult = OwnerDeduplicationService.ExtractUniqueOwners(
+                    _importedRecords.ToList(), excludeAnonymous);
 
-                // STEP 2: Count actual duplicates
-                int autoMergedCount = _deduplicationResult.AutoMergedCount;
+                int autoMergedCount   = _deduplicationResult.AutoMergedCount;
                 int reviewNeededCount = _deduplicationResult.DuplicatesNeedingReview
                     .Count(g => !g.IsAutoMerged && g.Owners.Count > 1);
-                int totalDuplicateGroups = autoMergedCount + reviewNeededCount;
 
-                // STEP 3: Check if any duplicates were found
-                if (totalDuplicateGroups == 0)
+                if (autoMergedCount + reviewNeededCount == 0)
                 {
-                    // No duplicates found at all
-                    string noDupMessage = _isDeduplicationDone
-                        ? "Re-analysis complete!\n\n" +
-                          $"✅ No remaining duplicates found.\n" +
-                          $"🔍 Unique Landowners: {_deduplicationResult.UniqueOwners.Count}\n" +
-                          $"📌 Note: Anonymous/Unknown owners were excluded from this analysis.\n\n" +
-                          "All records are properly deduplicated."
-                        : "Deduplication Analysis Complete!\n\n" +
-                          $"✅ No duplicates found in the data.\n" +
-                          $"🔍 Unique Landowners: {_deduplicationResult.UniqueOwners.Count}\n" +
-                          $"👤 Anonymous Owners: {_deduplicationResult.AnonymousOwnersCreated}\n\n" +
-                          "No action needed.";
-
-                    MessageBox.Show(noDupMessage, "No Duplicates Found",
-                        MessageBoxButtons.OK, MessageBoxIcon.Information);
-
+                    // No duplicates — mark as done immediately, no dialog needed.
                     _isDeduplicationDone = true;
+                    RefreshDataGridView();
                     UpdateStepStatus(3, StepStatus.Success, "No duplicates");
-                    UpdateStepStatus(4, StepStatus.InProgress, "Ready to save");
-                    UpdateStatusBar("No duplicates found - records are clean.");
+                    UpdateStatusBar(
+                        $"No owner duplicates found — {_deduplicationResult.UniqueOwners.Count} unique owners.");
+                    UpdateParcelDuplicationState();
                     return;
                 }
 
-                // STEP 4: Show comprehensive results
-                string message = $"Owner Deduplication Analysis Complete!\n\n" +
-                                $"═══════════════════════════\n" +
-                                $"🔍 Unique Landowners Found: {_deduplicationResult.UniqueOwners.Count}\n" +
-                                $"👤 Anonymous(Unknown) Owners: {_deduplicationResult.AnonymousOwnersCreated}\n" +
-                                $"🔗 Auto-Merged (High Confidence): {autoMergedCount}\n" +
-                                $"⚠ Needs Review (Medium Confidence): {reviewNeededCount}";
-                
-                // Add note if this is a re-run
-                if (excludeAnonymous)
+                // Open the review form directly — no pre-flight summary MessageBox.
+                using var reviewForm = new frmReviewDuplicates(_deduplicationResult, _importedRecords);
+                if (reviewForm.ShowDialog() == DialogResult.OK)
                 {
-                    message += $"\n\n📌 Note: Anonymous/Unknown owners were excluded from this analysis.";
+                    _isDeduplicationDone = true;
+                    RefreshDataGridView();
+                    UpdateStepStatus(3, StepStatus.Success, "Deduplicated");
+                    UpdateStatusBar(
+                        $"Owner deduplication complete — {_deduplicationResult.UniqueOwners.Count} unique owners.");
+                    UpdateParcelDuplicationState();
                 }
-
-                message += "\n\nClick OK to open duplicate review.";
-                MessageBox.Show(message, "Deduplication Results",
-                    MessageBoxButtons.OK, MessageBoxIcon.Information);
-
-                // Always allow manual review, including auto-merged groups.
-                using (var reviewForm = new frmReviewDuplicates(_deduplicationResult, _importedRecords))
+                else
                 {
-                    if (reviewForm.ShowDialog() == DialogResult.OK)
-                    {
-                        if (reviewForm.ChangesWereMade)
-                        {
-                            _isDeduplicationDone = true;
-                            RefreshDataGridView();
-
-                            UpdateStepStatus(3, StepStatus.Success, "Deduplicated");
-                            UpdateStepStatus(4, StepStatus.InProgress, "Ready to save");
-
-                            MessageBox.Show(
-                                "Duplicate resolution complete!\n\n" +
-                                "Owner data has been normalized and deduplication decisions have been applied.\n\n" +
-                                "You can:\n" +
-                                "• Edit records if needed\n" +
-                                "• Run 'Resolve Owner Duplication' again to re-check duplicates\n" +
-                                "• Save the data to the database when satisfied",
-                                "Resolution Complete",
-                                MessageBoxButtons.OK,
-                                MessageBoxIcon.Information);
-
-                            UpdateStatusBar("Owner deduplication review completed successfully.");
-                        }
-                        else
-                        {
-                            UpdateStatusBar("Duplicate review completed.");
-                        }
-                    }
-                    else
-                    {
-                        UpdateStatusBar("Duplicate review cancelled.");
-                    }
+                    // User dismissed the review form without confirming.
+                    UpdateStatusBar("Owner deduplication review dismissed — resolve duplicates before saving.");
+                    UpdateValidationStatus();
                 }
             }
             catch (Exception ex)

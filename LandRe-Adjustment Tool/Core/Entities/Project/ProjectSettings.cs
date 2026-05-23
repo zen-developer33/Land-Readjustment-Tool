@@ -21,6 +21,11 @@ namespace Land_Readjustment_Tool.Core.Entities.Project
         // Controls display only — all calculations use Sqm internally
         [Required]
         public string TraditionalAreaUnit { get; set; } = "RAPD";
+
+        // ── AREA DISPLAY PRECISION ──────────────────
+        // Controls decimal places for area display only
+        public int AreaSqmDecimalPlaces { get; set; } = 3;
+        public int TraditionalAreaLowestUnitDecimalPlaces { get; set; } = 2;
         // "RAPD" → Ropani-Aana-Paisa-Daam (hilly areas)
         // "BKD"  → Bigha-Kattha-Dhur (terai areas)
 

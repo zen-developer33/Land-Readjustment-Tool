@@ -30,6 +30,7 @@ namespace Land_Readjustment_Tool.UI.Forms.Project
             colTarget = new DataGridViewTextBoxColumn();
             colApplies = new DataGridViewTextBoxColumn();
             colEntryType = new DataGridViewTextBoxColumn();
+            btnSaveChanges = new Button();
             btnClose = new Button();
             lblHint = new Label();
             pnlFooter = new Panel();
@@ -200,14 +201,25 @@ namespace Land_Readjustment_Tool.UI.Forms.Project
             colEntryType.MinimumWidth = 6;
             colEntryType.Name = "colEntryType";
             colEntryType.ReadOnly = true;
-            // 
+            //
+            // btnSaveChanges
+            //
+            btnSaveChanges.Anchor = AnchorStyles.Top | AnchorStyles.Right;
+            btnSaveChanges.Enabled = false;
+            btnSaveChanges.Location = new Point(700, 6);
+            btnSaveChanges.Name = "btnSaveChanges";
+            btnSaveChanges.Size = new Size(110, 26);
+            btnSaveChanges.TabIndex = 2;
+            btnSaveChanges.Text = "Save Changes";
+            btnSaveChanges.Click += btnSaveChanges_Click;
+            //
             // btnClose
-            // 
+            //
             btnClose.Anchor = AnchorStyles.Top | AnchorStyles.Right;
-            btnClose.Location = new Point(1478, 6);
+            btnClose.Location = new Point(816, 6);
             btnClose.Name = "btnClose";
-            btnClose.Size = new Size(75, 26);
-            btnClose.TabIndex = 1;
+            btnClose.Size = new Size(67, 26);
+            btnClose.TabIndex = 3;
             btnClose.Text = "Close";
             btnClose.Click += btnClose_Click;
             // 
@@ -225,6 +237,7 @@ namespace Land_Readjustment_Tool.UI.Forms.Project
             // pnlFooter
             // 
             pnlFooter.Controls.Add(lblHint);
+            pnlFooter.Controls.Add(btnSaveChanges);
             pnlFooter.Controls.Add(btnClose);
             pnlFooter.Dock = DockStyle.Bottom;
             pnlFooter.Location = new Point(0, 484);
@@ -274,6 +287,7 @@ namespace Land_Readjustment_Tool.UI.Forms.Project
         private DataGridViewTextBoxColumn colTarget;
         private DataGridViewTextBoxColumn colApplies;
         private DataGridViewTextBoxColumn colEntryType;
+        private Button btnSaveChanges;
         private Button btnClose;
         private Label lblHint;
         private Panel pnlFooter;

@@ -113,14 +113,15 @@ namespace Land_Readjustment_Tool.Forms
             try
             {
                 var parcels = _landRecordsService.GetParcelsByOwnerId(_owner.LandOwnerId);
-                
+                var (sqmPrec, _) = _landRecordsService.GetAreaPrecisionSettings();
+
                 // Transform data to include formatted location
                 var displayData = parcels.Select(p => new
                 {
                     p.ParcelNo,
                     p.MapSheetNo,
                     FormattedLocation = FormatLocation(p.Province, p.District, p.MunicipalityVillage, p.WardNo),
-                    p.AreaInSqm,
+                    AreaInSqm = p.AreaInSqm.HasValue ? p.AreaInSqm.Value.ToString($"F{sqmPrec}") : "",
                     p.AreaInRAPD,
                     p.AreaInBKD,
                     p.LandUse,
