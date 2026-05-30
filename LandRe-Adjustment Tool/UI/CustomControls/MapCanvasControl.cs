@@ -5618,7 +5618,7 @@ namespace Land_Readjustment_Tool.UI.CustomControls
 
             Guid[] editableShapeIds = _vectorFeatures
                 .Where(feature => _selectedShapeIds.Contains(feature.Shape.Id) &&
-                                  IsEditableDrawingFeature(feature))
+                                  IsDeletableSelectedFeature(feature))
                 .Select(feature => feature.Shape.Id)
                 .ToArray();
             if (editableShapeIds.Length == 0)
@@ -5632,7 +5632,7 @@ namespace Land_Readjustment_Tool.UI.CustomControls
             bool hasSingleText = SelectionContainsSingleTextShape(out _);
             _mnuEditText.Visible = hasSingleText;
             _mnuAssignParcelData.Enabled = SelectionContainsImportedCadastralParcel();
-            _mnuDeleteSelectedObjects.Enabled = SelectionContainsEditableObject();
+            _mnuDeleteSelectedObjects.Enabled = SelectionContainsDeletableObject();
             _mnuMoveSelectedObjects.Enabled = _activeMoveOperation == null &&
                                               _activeGripEdit == null &&
                                               SelectionContainsMovableObject();
@@ -5961,6 +5961,13 @@ namespace Land_Readjustment_Tool.UI.CustomControls
                 IsEditableDrawingFeature(feature));
         }
 
+        private bool SelectionContainsDeletableObject()
+        {
+            return _vectorFeatures.Any(feature =>
+                _selectedShapeIds.Contains(feature.Shape.Id) &&
+                IsDeletableSelectedFeature(feature));
+        }
+
         private bool SelectionContainsMovableObject()
         {
             return _vectorFeatures.Any(feature =>
@@ -6009,6 +6016,19 @@ namespace Land_Readjustment_Tool.UI.CustomControls
                    layer.IsSelectable &&
                    layer.IsLocked != true &&
                    CanvasLayerTreeService.IsDrawingMarkupLayer(layer);
+        }
+
+        private bool IsDeletableSelectedFeature(CanvasFeature feature)
+        {
+            CanvasLayer? layer = ResolveFeatureLayer(feature);
+            return feature.Shape.IsVisible &&
+                   feature.CanvasObject.IsVisible &&
+                   layer?.IsVisible == true &&
+                   layer.IsSelectable &&
+                   layer.IsLocked != true &&
+                   (CanvasLayerTreeService.IsDrawingMarkupLayer(layer) ||
+                    IsSelectableImportedCadastralParcel(feature) ||
+                    IsSelectableRePlotDataFeature(feature));
         }
 
         private bool UsesAreaClickSelection(CanvasFeature feature)

@@ -76,12 +76,13 @@ namespace Land_Readjustment_Tool
             viewEditRecordToolStripMenuItem = new ToolStripMenuItem();
             landOwnerDataToolStripMenuItem = new ToolStripMenuItem();
             toolStripSeparator18 = new ToolStripSeparator();
-            assignmentToolStripMenuItem = new ToolStripMenuItem();
-            projectBoundaryAssignmentToolStripMenuItem = new ToolStripMenuItem();
-            cadastralRecordsAssignmentToolStripMenuItem = new ToolStripMenuItem();
             assignToolStripMenuItem = new ToolStripMenuItem();
             roadDataToolStripMenuItem = new ToolStripMenuItem();
             blockDataToolStripMenuItem = new ToolStripMenuItem();
+            toolStripSeparator19 = new ToolStripSeparator();
+            assignmentToolStripMenuItem = new ToolStripMenuItem();
+            projectBoundaryAssignmentToolStripMenuItem = new ToolStripMenuItem();
+            cadastralRecordsAssignmentToolStripMenuItem = new ToolStripMenuItem();
             contributionToolStripMenuItem = new ToolStripMenuItem();
             contributionSettingsToolStripMenuItem = new ToolStripMenuItem();
             calculateContributionToolStripMenuItem = new ToolStripMenuItem();
@@ -218,7 +219,7 @@ namespace Land_Readjustment_Tool
             toolStripSeparator15 = new ToolStripSeparator();
             toolStripSeparator16 = new ToolStripSeparator();
             tsProjectMenu = new ToolStrip();
-            toolStripSeparator19 = new ToolStripSeparator();
+            mnuImportBlockLayoutPlan = new ToolStripMenuItem();
             mainMenuStrip.SuspendLayout();
             ((System.ComponentModel.ISupportInitialize)leftSplitContainer).BeginInit();
             leftSplitContainer.Panel1.SuspendLayout();
@@ -408,7 +409,7 @@ namespace Land_Readjustment_Tool
             // 
             // importDataToolStripMenuItem1
             // 
-            importDataToolStripMenuItem1.DropDownItems.AddRange(new ToolStripItem[] { ImportParcelOwnerShipRecords, toolStripSeparator5, ImportProjectBoundaryDXFDWGToolStripMenuItem, importCadastralDataDXFDWGShapefileToolStripMenuItem, toolStripSeparator6, baseMapsToolStripMenuItem });
+            importDataToolStripMenuItem1.DropDownItems.AddRange(new ToolStripItem[] { ImportParcelOwnerShipRecords, toolStripSeparator5, ImportProjectBoundaryDXFDWGToolStripMenuItem, importCadastralDataDXFDWGShapefileToolStripMenuItem, mnuImportBlockLayoutPlan, toolStripSeparator6, baseMapsToolStripMenuItem });
             importDataToolStripMenuItem1.Name = "importDataToolStripMenuItem1";
             importDataToolStripMenuItem1.Size = new Size(224, 26);
             importDataToolStripMenuItem1.Text = "Import...";
@@ -477,26 +478,6 @@ namespace Land_Readjustment_Tool
             toolStripSeparator18.Name = "toolStripSeparator18";
             toolStripSeparator18.Size = new Size(221, 6);
             // 
-            // assignmentToolStripMenuItem
-            // 
-            assignmentToolStripMenuItem.DropDownItems.AddRange(new ToolStripItem[] { projectBoundaryAssignmentToolStripMenuItem, cadastralRecordsAssignmentToolStripMenuItem });
-            assignmentToolStripMenuItem.Name = "assignmentToolStripMenuItem";
-            assignmentToolStripMenuItem.Size = new Size(224, 26);
-            assignmentToolStripMenuItem.Text = "Assign...";
-            // 
-            // projectBoundaryAssignmentToolStripMenuItem
-            // 
-            projectBoundaryAssignmentToolStripMenuItem.Name = "projectBoundaryAssignmentToolStripMenuItem";
-            projectBoundaryAssignmentToolStripMenuItem.Size = new Size(211, 26);
-            projectBoundaryAssignmentToolStripMenuItem.Text = "Project Boundary";
-            // 
-            // cadastralRecordsAssignmentToolStripMenuItem
-            // 
-            cadastralRecordsAssignmentToolStripMenuItem.Name = "cadastralRecordsAssignmentToolStripMenuItem";
-            cadastralRecordsAssignmentToolStripMenuItem.Size = new Size(211, 26);
-            cadastralRecordsAssignmentToolStripMenuItem.Text = "Cadastral Records";
-            cadastralRecordsAssignmentToolStripMenuItem.Click += CadastralRecordsAssignmentToolStripMenuItem_Click;
-            // 
             // assignToolStripMenuItem
             // 
             assignToolStripMenuItem.DropDownItems.AddRange(new ToolStripItem[] { roadDataToolStripMenuItem, blockDataToolStripMenuItem });
@@ -515,6 +496,31 @@ namespace Land_Readjustment_Tool
             blockDataToolStripMenuItem.Name = "blockDataToolStripMenuItem";
             blockDataToolStripMenuItem.Size = new Size(231, 26);
             blockDataToolStripMenuItem.Text = "Proposed Block Data";
+            // 
+            // toolStripSeparator19
+            // 
+            toolStripSeparator19.Name = "toolStripSeparator19";
+            toolStripSeparator19.Size = new Size(221, 6);
+            // 
+            // assignmentToolStripMenuItem
+            // 
+            assignmentToolStripMenuItem.DropDownItems.AddRange(new ToolStripItem[] { projectBoundaryAssignmentToolStripMenuItem, cadastralRecordsAssignmentToolStripMenuItem });
+            assignmentToolStripMenuItem.Name = "assignmentToolStripMenuItem";
+            assignmentToolStripMenuItem.Size = new Size(224, 26);
+            assignmentToolStripMenuItem.Text = "Assign...";
+            // 
+            // projectBoundaryAssignmentToolStripMenuItem
+            // 
+            projectBoundaryAssignmentToolStripMenuItem.Name = "projectBoundaryAssignmentToolStripMenuItem";
+            projectBoundaryAssignmentToolStripMenuItem.Size = new Size(224, 26);
+            projectBoundaryAssignmentToolStripMenuItem.Text = "Project Boundary";
+            // 
+            // cadastralRecordsAssignmentToolStripMenuItem
+            // 
+            cadastralRecordsAssignmentToolStripMenuItem.Name = "cadastralRecordsAssignmentToolStripMenuItem";
+            cadastralRecordsAssignmentToolStripMenuItem.Size = new Size(224, 26);
+            cadastralRecordsAssignmentToolStripMenuItem.Text = "Cadastral Records";
+            cadastralRecordsAssignmentToolStripMenuItem.Click += CadastralRecordsAssignmentToolStripMenuItem_Click;
             // 
             // contributionToolStripMenuItem
             // 
@@ -1913,10 +1919,11 @@ namespace Land_Readjustment_Tool
             tsProjectMenu.TabIndex = 4;
             tsProjectMenu.Text = "Project Menu";
             // 
-            // toolStripSeparator19
+            // mnuImportBlockLayoutPlan
             // 
-            toolStripSeparator19.Name = "toolStripSeparator19";
-            toolStripSeparator19.Size = new Size(221, 6);
+            mnuImportBlockLayoutPlan.Name = "mnuImportBlockLayoutPlan";
+            mnuImportBlockLayoutPlan.Size = new Size(385, 26);
+            mnuImportBlockLayoutPlan.Text = "Block Layout Plan (DXF/DWG)";
             // 
             // frmMain
             // 
@@ -2149,5 +2156,6 @@ namespace Land_Readjustment_Tool
         private ToolStripMenuItem roadDataToolStripMenuItem;
         private Button btnConfigureParcelProperties;
         private ToolStripSeparator toolStripSeparator19;
+        private ToolStripMenuItem mnuImportBlockLayoutPlan;
     }
 }

@@ -42,6 +42,7 @@ namespace Land_Readjustment_Tool.UI.MapCanvas.Services
         [
             // Colours follow the ArcMap-style palette used elsewhere in the app.
             new(OriginalDataGroupKey, "Project Boundary", "ProjectBoundary", "#FF0000", null, 0, 2.0, "Solid", "Boundary"),
+            new(OriginalDataGroupKey, "Building Footprint", "BuildingFootprint", "#6B7280", "#C7D2FE", 40, 1.2, "Solid", null),
             new(BlockLayoutGroupKey, "Blocks", "Block", "#D99A5A", "#F6C766", 35, 1.5, "Solid", null),
             new(RoadsGroupKey, "Road Parcel", "RoadParcel", "#D99A5A", "#F6C766", 20, 1.5, "Solid", "Proposed Roads"),
             new(RoadsGroupKey, "Road Centerline", RoadCenterlineLayerType, "#C76E78", null, 100, 1.4, "Centerline", null),
@@ -155,6 +156,7 @@ namespace Land_Readjustment_Tool.UI.MapCanvas.Services
                 "BaselineParcel" => OriginalDataGroupKey,
                 "ExistingRoad" => OriginalDataGroupKey,
                 "ProjectBoundary" => OriginalDataGroupKey,
+                "BuildingFootprint" => OriginalDataGroupKey,
                 "Block" => BlockLayoutGroupKey,
                 "RoadParcel" => RoadsGroupKey,
                 "ProposedRoad" => RoadsGroupKey,

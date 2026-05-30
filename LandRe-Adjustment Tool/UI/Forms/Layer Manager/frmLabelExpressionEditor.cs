@@ -1,3 +1,4 @@
+using System.Globalization;
 using System.Text.RegularExpressions;
 
 namespace Land_Readjustment_Tool.UI.Forms
@@ -13,6 +14,7 @@ namespace Land_Readjustment_Tool.UI.Forms
         private const string CatPoint           = "Point";
         private const string CatText            = "Text";
         private const string CatGeneric         = "Generic";
+        private const string NoDataPreviewText  = "NO DATA AVAILABLE";
 
         // ── Fields per entity / layer category ────────────────────────────────
         private static (string Display, string FieldKey)[] GetAvailableFields(string category) =>
@@ -190,11 +192,9 @@ namespace Land_Readjustment_Tool.UI.Forms
                 CatRoad =>
                 [
                     ("— Select a preset template —",                              ""),
+                    ("Road Width (ROW)",                                          "{RightOfWayWidth}m Road"),
                     ("Road Name",                                                 "{RoadName}"),
-                    ("Road Name + Type",                                          "{RoadName}\\n({RoadType})"),
-                    ("Road Name + Width",                                         "{RoadName}\\nWidth: {RoadWidth} m"),
-                    ("Road Name + Status",                                        "{RoadName} ({RoadStatus})"),
-                    ("Road Name + Length",                                        "{RoadName}\\n{Length} m"),
+                    ("Road Name + ROW",                                           "{RoadName}\\n{RightOfWayWidth}m Road"),
                 ],
 
                 CatBlock =>
@@ -654,19 +654,36 @@ namespace Land_Readjustment_Tool.UI.Forms
 
             IReadOnlyDictionary<string, string> sample = GetCurrentSample();
             string expanded = expression.Replace("\\n", "\n", StringComparison.Ordinal);
+            bool hasMissingFieldValue = false;
             expanded = Regex.Replace(
                 expanded,
                 @"\{(?<field>[^{}]+)\}",
                 match =>
                 {
                     string field = match.Groups["field"].Value.Trim();
-                    return sample.TryGetValue(field, out string? val) && !string.IsNullOrEmpty(val)
-                        ? val
-                        : $"[{field}]";
+                    if (sample.TryGetValue(field, out string? val) && !string.IsNullOrWhiteSpace(val))
+                        return FormatPreviewFieldValue(field, val);
+
+                    hasMissingFieldValue = true;
+                    return string.Empty;
                 });
 
             _lblPreviewOutput.ForeColor = Color.Black;
-            _lblPreviewOutput.Text = expanded.Replace("\n", Environment.NewLine, StringComparison.Ordinal);
+            _lblPreviewOutput.Text = hasMissingFieldValue || string.IsNullOrWhiteSpace(expanded)
+                ? NoDataPreviewText
+                : expanded.Replace("\n", Environment.NewLine, StringComparison.Ordinal);
+        }
+
+        private static string FormatPreviewFieldValue(string field, string value)
+        {
+            if ((string.Equals(field, "RoadWidth", StringComparison.OrdinalIgnoreCase) ||
+                 string.Equals(field, "RightOfWayWidth", StringComparison.OrdinalIgnoreCase)) &&
+                double.TryParse(value, NumberStyles.Float, CultureInfo.InvariantCulture, out double width))
+            {
+                return width.ToString("0.##", CultureInfo.InvariantCulture);
+            }
+
+            return value;
         }
 
         private ContentAlignment GetPreviewContentAlignment()

@@ -1,4 +1,5 @@
 ﻿using Land_Readjustment_Tool.Core.Entities.Canvas;
+using Land_Readjustment_Tool.Core.Entities.Buildings;
 using Land_Readjustment_Tool.Core.Entities.Contribution;
 using Land_Readjustment_Tool.Core.Entities.Import;
 using Land_Readjustment_Tool.Core.Entities.LandData;
@@ -56,6 +57,9 @@ namespace Land_Readjustment_Tool.Data
         public DbSet<RoadParcel> RoadParcels { get; set; }
         public DbSet<RoadIsland> RoadIslands { get; set; }
         public DbSet<Parcel> Parcels { get; set; }
+        public DbSet<BuildingInventory> BuildingInventories { get; set; }
+        public DbSet<BuildingPhoto> BuildingPhotos { get; set; }
+        public DbSet<BuildingOpening> BuildingOpenings { get; set; }
 
         // Contribution
         public DbSet<ContributionCategory> ContributionCategories { get; set; }
@@ -331,6 +335,53 @@ namespace Land_Readjustment_Tool.Data
                     .HasMaxLength(40);
                 entity.HasIndex(parcel => parcel.ParcelNumber)
                     .IsUnique();
+            });
+
+            // ── BUILDING INVENTORY ──────────────────
+
+            modelBuilder.Entity<BuildingInventory>(entity =>
+            {
+                entity.HasKey(building => building.Id);
+                entity.HasIndex(building => building.BuildingCode)
+                    .IsUnique()
+                    .HasFilter("BuildingCode IS NOT NULL AND BuildingCode <> ''");
+                entity.HasIndex(building => building.CanvasObjectId)
+                    .IsUnique()
+                    .HasFilter("CanvasObjectId IS NOT NULL");
+
+                entity.Property(building => building.SurveyDate)
+                    .HasDefaultValueSql("CURRENT_TIMESTAMP");
+                entity.Property(building => building.CreatedDate)
+                    .HasDefaultValueSql("CURRENT_TIMESTAMP");
+                entity.Property(building => building.LastModifiedDate)
+                    .HasDefaultValueSql("CURRENT_TIMESTAMP");
+
+                entity.HasOne(building => building.CanvasObject)
+                    .WithMany()
+                    .HasForeignKey(building => building.CanvasObjectId)
+                    .OnDelete(DeleteBehavior.SetNull);
+
+                entity.HasMany(building => building.Photos)
+                    .WithOne(photo => photo.BuildingInventory)
+                    .HasForeignKey(photo => photo.BuildingInventoryId)
+                    .OnDelete(DeleteBehavior.Cascade);
+
+                entity.HasMany(building => building.Openings)
+                    .WithOne(opening => opening.BuildingInventory)
+                    .HasForeignKey(opening => opening.BuildingInventoryId)
+                    .OnDelete(DeleteBehavior.Cascade);
+            });
+
+            modelBuilder.Entity<BuildingPhoto>(entity =>
+            {
+                entity.HasKey(photo => photo.Id);
+                entity.HasIndex(photo => new { photo.BuildingInventoryId, photo.Direction });
+            });
+
+            modelBuilder.Entity<BuildingOpening>(entity =>
+            {
+                entity.HasKey(opening => opening.Id);
+                entity.HasIndex(opening => new { opening.BuildingInventoryId, opening.Side, opening.OpeningType });
             });
 
             // ── SEED DATA ────────────────────────────

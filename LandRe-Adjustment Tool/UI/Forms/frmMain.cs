@@ -94,6 +94,7 @@ namespace Land_Readjustment_Tool
         private const int LayerNodeColorBoxGap = 4;
         private const int CurrentDrawingLayerComboItemHeight = 24;
         private const int CurrentDrawingLayerComboPadding = 4;
+        private const double ClosedPolylineTransferTolerance = 0.50;
         private static readonly JsonSerializerOptions CadastralMetadataJsonOptions = new()
         {
             PropertyNameCaseInsensitive = true
@@ -7830,8 +7831,13 @@ namespace Land_Readjustment_Tool
             if (string.Equals(sourceKind, targetKind, StringComparison.OrdinalIgnoreCase))
                 return true;
 
-            return string.Equals(sourceKind, "Polyline", StringComparison.OrdinalIgnoreCase) &&
-                   string.Equals(targetKind, "Polyline", StringComparison.OrdinalIgnoreCase);
+            if (string.Equals(sourceKind, "Polyline", StringComparison.OrdinalIgnoreCase))
+            {
+                return string.Equals(targetKind, "Polyline", StringComparison.OrdinalIgnoreCase) ||
+                       string.Equals(targetKind, "Polygon", StringComparison.OrdinalIgnoreCase);
+            }
+
+            return false;
         }
 
         private static string NormalizeTransferLayerKind(CanvasLayer layer)
@@ -7956,8 +7962,13 @@ namespace Land_Readjustment_Tool
                 .ToList();
             if (compatibleSourceObjects.Count == 0)
             {
+                string message = CreateFeatureCompatibilityMessage(
+                    sourceObjects,
+                    compatibleSourceObjects,
+                    targetLayer,
+                    noCompatibleObjects: true);
                 MessageBox.Show(
-                    $"No compatible drawing object geometry was found for '{targetLayer.Name}'.",
+                    message,
                     "Create Features",
                     MessageBoxButtons.OK,
                     MessageBoxIcon.Information);
@@ -7966,35 +7977,93 @@ namespace Land_Readjustment_Tool
 
             if (compatibleSourceObjects.Count < sourceObjects.Count)
             {
+                string message = CreateFeatureCompatibilityMessage(
+                    sourceObjects,
+                    compatibleSourceObjects,
+                    targetLayer,
+                    noCompatibleObjects: false);
                 MessageBox.Show(
-                    $"{sourceObjects.Count - compatibleSourceObjects.Count:N0} drawing object(s) do not match '{targetLayer.Name}' and will be skipped.",
+                    message,
                     "Create Features",
                     MessageBoxButtons.OK,
                     MessageBoxIcon.Information);
             }
 
+            DateTime now = DateTime.Now;
+            List<(CanvasObject Source, CanvasObject Created)> transferPairs = compatibleSourceObjects
+                .Select(sourceObject => (
+                    Source: sourceObject,
+                    Created: CreateTransferredCanvasObjectForLayer(
+                        sourceObject,
+                        targetLayer,
+                        now)))
+                .ToList();
+            Dictionary<Guid, CanvasObject> sourceByCreatedObjectId = transferPairs
+                .ToDictionary(pair => pair.Created.Id, pair => pair.Source);
+            List<CanvasObject> createdObjects = transferPairs
+                .Select(pair => pair.Created)
+                .ToList();
+
+            int duplicateSourceGeometryCount = RemoveDuplicateCreatedGeometries(createdObjects);
+            List<CanvasObject> duplicateTargetSnapshots = [];
+            if (ShouldPreventDuplicateDefaultLayerGeometries(targetLayer))
+            {
+                DuplicateFeatureGeometryResolution? duplicateResolution =
+                    await ResolveDuplicateFeatureGeometriesAsync(context, createdObjects, targetLayer);
+                if (duplicateResolution == null)
+                    return;
+
+                createdObjects = duplicateResolution.ObjectsToCreate;
+                duplicateTargetSnapshots = duplicateResolution.ObjectsToReplace
+                    .Select(CloneCanvasObjectSnapshot)
+                    .ToList();
+            }
+
+            if (createdObjects.Count == 0)
+            {
+                MessageBox.Show(
+                    duplicateSourceGeometryCount > 0
+                        ? "No new feature geometry was created because every converted object duplicated another object."
+                        : $"No new feature geometry was created because the matching geometry already exists in '{targetLayer.Name}'.",
+                    "Create Features",
+                    MessageBoxButtons.OK,
+                    MessageBoxIcon.Information);
+                return;
+            }
+
             bool? keepSourceObjects = PromptKeepDrawingObjectsAfterFeatureCreation(
                 sourceDescription,
                 targetLayer.Name,
-                compatibleSourceObjects.Count);
+                createdObjects.Count);
             if (!keepSourceObjects.HasValue)
                 return;
 
-            DateTime now = DateTime.Now;
-            List<CanvasObject> createdObjects = compatibleSourceObjects
-                .Select(sourceObject => CreateTransferredCanvasObjectForLayer(
-                    sourceObject,
-                    targetLayer,
-                    now))
-                .ToList();
-            List<CanvasObject> deletedObjectSnapshots = keepSourceObjects.Value
+            List<CanvasObject> sourceObjectsToRemove = keepSourceObjects.Value
                 ? []
-                : compatibleSourceObjects.Select(CloneCanvasObjectSnapshot).ToList();
+                : createdObjects
+                    .Select(createdObject => sourceByCreatedObjectId[createdObject.Id])
+                    .DistinctBy(sourceObject => sourceObject.Id)
+                    .ToList();
+            List<CanvasObject> deletedObjectSnapshots = keepSourceObjects.Value
+                ? duplicateTargetSnapshots
+                : sourceObjectsToRemove
+                    .Select(CloneCanvasObjectSnapshot)
+                    .Concat(duplicateTargetSnapshots)
+                    .ToList();
 
             await context.CanvasObjects.AddRangeAsync(createdObjects);
+            if (duplicateTargetSnapshots.Count > 0)
+            {
+                Guid[] duplicateIds = duplicateTargetSnapshots.Select(item => item.Id).ToArray();
+                List<CanvasObject> duplicateTargets = await context.CanvasObjects
+                    .Where(item => duplicateIds.Contains(item.Id))
+                    .ToListAsync();
+                context.CanvasObjects.RemoveRange(duplicateTargets);
+            }
+
             if (!keepSourceObjects.Value)
             {
-                context.CanvasObjects.RemoveRange(compatibleSourceObjects);
+                context.CanvasObjects.RemoveRange(sourceObjectsToRemove);
             }
 
             await context.SaveChangesAsync();
@@ -8010,14 +8079,133 @@ namespace Land_Readjustment_Tool
             List<CanvasObject> createdSnapshots = createdObjects
                 .Select(CloneCanvasObjectSnapshot)
                 .ToList();
-            IPersistedCanvasUndoCommand undoCommand = keepSourceObjects.Value
+            IPersistedCanvasUndoCommand undoCommand = deletedObjectSnapshots.Count == 0
                 ? new AddCanvasObjectsCommand(createdSnapshots)
                 : new CreateFeaturesFromCanvasObjectsCommand(createdSnapshots, deletedObjectSnapshots);
             RegisterCanvasUndoCommand(undoCommand);
 
+            string duplicateSuffix = duplicateTargetSnapshots.Count > 0
+                ? $"; replaced {duplicateTargetSnapshots.Count} duplicate feature(s)"
+                : duplicateSourceGeometryCount > 0
+                    ? $"; skipped {duplicateSourceGeometryCount} duplicate source geometry item(s)"
+                    : string.Empty;
             SetCanvasCommandStatus(keepSourceObjects.Value
-                ? $"Created {createdObjects.Count} feature(s) in {targetLayer.Name}; kept drawing object(s)"
-                : $"Created {createdObjects.Count} feature(s) in {targetLayer.Name}; removed drawing object(s)");
+                ? $"Created {createdObjects.Count} feature(s) in {targetLayer.Name}; kept drawing object(s){duplicateSuffix}"
+                : $"Created {createdObjects.Count} feature(s) in {targetLayer.Name}; removed drawing object(s){duplicateSuffix}");
+        }
+
+        private static int RemoveDuplicateCreatedGeometries(List<CanvasObject> createdObjects)
+        {
+            int removedCount = 0;
+            for (int i = createdObjects.Count - 1; i >= 0; i--)
+            {
+                CanvasObject current = createdObjects[i];
+                bool duplicate = createdObjects
+                    .Take(i)
+                    .Any(existing => AreGeometriesExactlyEqual(existing.Shape, current.Shape));
+                if (!duplicate)
+                    continue;
+
+                createdObjects.RemoveAt(i);
+                removedCount++;
+            }
+
+            return removedCount;
+        }
+
+        private async Task<DuplicateFeatureGeometryResolution?> ResolveDuplicateFeatureGeometriesAsync(
+            AppDbContext context,
+            List<CanvasObject> createdObjects,
+            CanvasLayer targetLayer)
+        {
+            List<CanvasObject> existingTargetObjects = await context.CanvasObjects
+                .Where(item => item.CanvasLayerId == targetLayer.Id)
+                .ToListAsync();
+            if (existingTargetObjects.Count == 0)
+                return new DuplicateFeatureGeometryResolution(createdObjects, []);
+
+            List<CanvasObject> objectsToCreate = [];
+            List<CanvasObject> objectsWithExistingDuplicates = [];
+            Dictionary<Guid, CanvasObject> duplicateTargetsById = [];
+
+            foreach (CanvasObject createdObject in createdObjects)
+            {
+                List<CanvasObject> matches = existingTargetObjects
+                    .Where(existing => AreGeometriesExactlyEqual(existing.Shape, createdObject.Shape))
+                    .ToList();
+                if (matches.Count == 0)
+                {
+                    objectsToCreate.Add(createdObject);
+                    continue;
+                }
+
+                objectsWithExistingDuplicates.Add(createdObject);
+                foreach (CanvasObject match in matches)
+                    duplicateTargetsById.TryAdd(match.Id, match);
+            }
+
+            if (objectsWithExistingDuplicates.Count == 0)
+                return new DuplicateFeatureGeometryResolution(objectsToCreate, []);
+
+            DuplicateFeatureGeometryChoice choice = PromptDuplicateFeatureGeometryChoice(
+                targetLayer.Name,
+                objectsWithExistingDuplicates.Count,
+                duplicateTargetsById.Count);
+            return choice switch
+            {
+                DuplicateFeatureGeometryChoice.Replace => new DuplicateFeatureGeometryResolution(
+                    objectsToCreate.Concat(objectsWithExistingDuplicates).ToList(),
+                    duplicateTargetsById.Values.ToList()),
+                DuplicateFeatureGeometryChoice.Skip => new DuplicateFeatureGeometryResolution(objectsToCreate, []),
+                _ => null
+            };
+        }
+
+        private static DuplicateFeatureGeometryChoice PromptDuplicateFeatureGeometryChoice(
+            string targetLayerName,
+            int incomingDuplicateCount,
+            int existingDuplicateCount)
+        {
+            DialogResult result = MessageBox.Show(
+                $"{incomingDuplicateCount:N0} incoming feature geometry item(s) already exist in '{targetLayerName}'.\n\n" +
+                $"Replace the existing {existingDuplicateCount:N0} duplicate object(s)?\n\n" +
+                "Choose Yes to replace existing geometry.\n" +
+                "Choose No to skip duplicate incoming geometry.",
+                "Duplicate Geometry",
+                MessageBoxButtons.YesNoCancel,
+                MessageBoxIcon.Question,
+                MessageBoxDefaultButton.Button2);
+
+            return result switch
+            {
+                DialogResult.Yes => DuplicateFeatureGeometryChoice.Replace,
+                DialogResult.No => DuplicateFeatureGeometryChoice.Skip,
+                _ => DuplicateFeatureGeometryChoice.Cancel
+            };
+        }
+
+        private static bool ShouldPreventDuplicateDefaultLayerGeometries(CanvasLayer targetLayer)
+        {
+            return CanvasLayerTreeService.IsProtectedDefaultLayer(targetLayer) ||
+                   CanvasLayerTreeService.IsRePlotDataLayer(targetLayer) ||
+                   IsCadastralCanvasLayer(targetLayer);
+        }
+
+        private static bool AreGeometriesExactlyEqual(
+            NetTopologySuite.Geometries.Geometry? left,
+            NetTopologySuite.Geometries.Geometry? right)
+        {
+            if (left == null || right == null)
+                return false;
+
+            if (left.EqualsExact(right, 0.0))
+                return true;
+
+            NetTopologySuite.Geometries.Geometry leftCopy = left.Copy();
+            NetTopologySuite.Geometries.Geometry rightCopy = right.Copy();
+            leftCopy.Normalize();
+            rightCopy.Normalize();
+            return leftCopy.EqualsExact(rightCopy, 0.0);
         }
 
         private static bool? PromptKeepDrawingObjectsAfterFeatureCreation(
@@ -8052,7 +8240,8 @@ namespace Land_Readjustment_Tool
             if (IsPolygonTransferTargetLayer(targetLayer))
             {
                 return geometryType is NetTopologySuite.Geometries.OgcGeometryType.Polygon
-                    or NetTopologySuite.Geometries.OgcGeometryType.MultiPolygon;
+                    or NetTopologySuite.Geometries.OgcGeometryType.MultiPolygon ||
+                    IsClosedPolylineCanvasObject(sourceObject);
             }
 
             if (CanvasLayerTreeService.IsLineLayer(targetLayer))
@@ -8075,12 +8264,192 @@ namespace Land_Readjustment_Tool
             return false;
         }
 
+        private static string CreateFeatureCompatibilityMessage(
+            IReadOnlyList<CanvasObject> sourceObjects,
+            IReadOnlyList<CanvasObject> compatibleSourceObjects,
+            CanvasLayer targetLayer,
+            bool noCompatibleObjects)
+        {
+            int skippedCount = sourceObjects.Count - compatibleSourceObjects.Count;
+            if (IsPolygonTransferTargetLayer(targetLayer))
+            {
+                int openPolylineCount = sourceObjects.Count(sourceObject =>
+                    IsPolylineLikeTransferSource(sourceObject) &&
+                    !IsClosedPolylineCanvasObject(sourceObject));
+
+                if (openPolylineCount > 0)
+                {
+                    return noCompatibleObjects
+                        ? $"No closed polyline or polygon geometry was found for '{targetLayer.Name}'. Open polyline object(s) cannot be converted to polygon features."
+                        : $"{skippedCount:N0} drawing object(s) will be skipped. Only closed polylines are converted to polygon features for '{targetLayer.Name}'.";
+                }
+            }
+
+            return noCompatibleObjects
+                ? $"No compatible drawing object geometry was found for '{targetLayer.Name}'."
+                : $"{skippedCount:N0} drawing object(s) do not match '{targetLayer.Name}' and will be skipped.";
+        }
+
+        private static bool IsPolylineLikeTransferSource(CanvasObject sourceObject)
+        {
+            return string.Equals(sourceObject.ObjectType, "Polyline", StringComparison.OrdinalIgnoreCase) ||
+                   string.Equals(sourceObject.ObjectType, "Line", StringComparison.OrdinalIgnoreCase) ||
+                   sourceObject.Shape.OgcGeometryType is NetTopologySuite.Geometries.OgcGeometryType.LineString
+                       or NetTopologySuite.Geometries.OgcGeometryType.MultiLineString;
+        }
+
+        private static bool IsClosedPolylineCanvasObject(CanvasObject sourceObject)
+        {
+            if (!IsPolylineLikeTransferSource(sourceObject))
+                return false;
+
+            return sourceObject.Shape switch
+            {
+                NetTopologySuite.Geometries.LineString lineString => CanConvertLineStringToPolygon(sourceObject, lineString),
+                NetTopologySuite.Geometries.MultiLineString multiLineString => multiLineString.Geometries
+                    .OfType<NetTopologySuite.Geometries.LineString>()
+                    .Any(IsClosedLineString),
+                _ => false
+            };
+        }
+
+        private static bool TryReadPolylineMetadataClosed(string? metadataJson, out bool isClosed)
+        {
+            isClosed = false;
+            if (string.IsNullOrWhiteSpace(metadataJson))
+                return false;
+
+            try
+            {
+                using JsonDocument document = JsonDocument.Parse(metadataJson);
+                JsonElement root = document.RootElement;
+                string? shapeType = root.TryGetProperty("ShapeType", out JsonElement shapeTypeElement)
+                    ? shapeTypeElement.GetString()
+                    : null;
+                if (!string.Equals(shapeType, "Polyline", StringComparison.OrdinalIgnoreCase) &&
+                    !string.Equals(shapeType, "Polygon", StringComparison.OrdinalIgnoreCase))
+                {
+                    return false;
+                }
+
+                if (string.Equals(shapeType, "Polygon", StringComparison.OrdinalIgnoreCase))
+                {
+                    isClosed = true;
+                    return true;
+                }
+
+                if (root.TryGetProperty("IsClosed", out JsonElement isClosedElement) &&
+                    (isClosedElement.ValueKind == JsonValueKind.True ||
+                     isClosedElement.ValueKind == JsonValueKind.False))
+                {
+                    isClosed = isClosedElement.GetBoolean();
+                    return true;
+                }
+            }
+            catch
+            {
+                return false;
+            }
+
+            return false;
+        }
+
+        private static bool IsClosedLineString(NetTopologySuite.Geometries.LineString lineString)
+        {
+            return lineString.NumPoints >= 4 &&
+                   lineString.StartPoint != null &&
+                   lineString.EndPoint != null &&
+                   lineString.StartPoint.Coordinate.Distance(lineString.EndPoint.Coordinate) <= ClosedPolylineTransferTolerance;
+        }
+
+        private static NetTopologySuite.Geometries.Geometry CreateTransferredTargetGeometry(
+            CanvasObject source,
+            CanvasLayer targetLayer)
+        {
+            if (IsPolygonTransferTargetLayer(targetLayer) &&
+                TryCreatePolygonGeometryFromClosedPolyline(source, out NetTopologySuite.Geometries.Geometry? polygonGeometry))
+            {
+                return polygonGeometry!;
+            }
+
+            return source.Shape.Copy();
+        }
+
+        private static bool TryCreatePolygonGeometryFromClosedPolyline(
+            CanvasObject source,
+            out NetTopologySuite.Geometries.Geometry? polygonGeometry)
+        {
+            polygonGeometry = null;
+            switch (source.Shape)
+            {
+                case NetTopologySuite.Geometries.LineString lineString
+                    when CanConvertLineStringToPolygon(source, lineString):
+                    polygonGeometry = lineString.Factory.CreatePolygon(
+                        CreateClosedRingCoordinates(lineString));
+                    return true;
+
+                case NetTopologySuite.Geometries.MultiLineString multiLineString:
+                    NetTopologySuite.Geometries.Polygon[] polygons = multiLineString.Geometries
+                        .OfType<NetTopologySuite.Geometries.LineString>()
+                        .Where(IsClosedLineString)
+                        .Select(line => line.Factory.CreatePolygon(
+                            CreateClosedRingCoordinates(line)))
+                        .ToArray();
+                    if (polygons.Length == 0)
+                        return false;
+
+                    polygonGeometry = multiLineString.Factory.CreateMultiPolygon(polygons);
+                    return true;
+
+                default:
+                    return false;
+            }
+        }
+
+        private static bool CanConvertLineStringToPolygon(
+            CanvasObject source,
+            NetTopologySuite.Geometries.LineString lineString)
+        {
+            if (IsClosedLineString(lineString))
+                return true;
+
+            return lineString.NumPoints >= 3 &&
+                   TryReadPolylineMetadataClosed(source.GeometryMetadataJson, out bool metadataClosed) &&
+                   metadataClosed;
+        }
+
+        private static NetTopologySuite.Geometries.Coordinate[] CreateClosedRingCoordinates(
+            NetTopologySuite.Geometries.LineString lineString)
+        {
+            List<NetTopologySuite.Geometries.Coordinate> coordinates = lineString.Coordinates
+                .Select(coordinate => new NetTopologySuite.Geometries.Coordinate(coordinate.X, coordinate.Y))
+                .ToList();
+
+            if (coordinates.Count == 0)
+                return [];
+
+            NetTopologySuite.Geometries.Coordinate first = coordinates[0];
+            NetTopologySuite.Geometries.Coordinate last = coordinates[^1];
+            if (first.Distance(last) <= ClosedPolylineTransferTolerance)
+            {
+                coordinates[^1] = new NetTopologySuite.Geometries.Coordinate(first.X, first.Y);
+            }
+            else
+            {
+                coordinates.Add(new NetTopologySuite.Geometries.Coordinate(first.X, first.Y));
+            }
+
+            return coordinates.ToArray();
+        }
+
         private static CanvasObject CreateTransferredCanvasObjectForLayer(
             CanvasObject source,
             CanvasLayer targetLayer,
             DateTime timestamp)
         {
-            NetTopologySuite.Geometries.Geometry targetGeometry = source.Shape.Copy();
+            NetTopologySuite.Geometries.Geometry targetGeometry = CreateTransferredTargetGeometry(
+                source,
+                targetLayer);
             string targetObjectType = ResolveTransferredObjectType(source, targetLayer);
             return new CanvasObject
             {
@@ -8152,6 +8521,7 @@ namespace Land_Readjustment_Tool
             }
 
             return string.Equals(layer.LayerType, "Block", StringComparison.OrdinalIgnoreCase) ||
+                   string.Equals(layer.LayerType, "BuildingFootprint", StringComparison.OrdinalIgnoreCase) ||
                    string.Equals(layer.LayerType, "RoadParcel", StringComparison.OrdinalIgnoreCase) ||
                    string.Equals(layer.LayerType, "ReplottedParcel", StringComparison.OrdinalIgnoreCase) ||
                    string.Equals(layer.LayerType, "PrivateReplotParcel", StringComparison.OrdinalIgnoreCase) ||
@@ -8927,6 +9297,12 @@ namespace Land_Readjustment_Tool
                 return;
             }
 
+            if (ShouldClearLayerObjectsInsteadOfDeletingLayer(layer))
+            {
+                await DeleteObjectsFromDefaultLayerAsync(layer);
+                return;
+            }
+
             DialogResult result = MessageBox.Show(
                 $"Delete layer '{layer.Name}'?\n\nThis will remove the layer and its objects from the project.",
                 "Delete Layer",
@@ -8991,8 +9367,20 @@ namespace Land_Readjustment_Tool
                 return;
             }
 
+            string? groupKey = GetLayerGroupKeyForGroupNode(groupNode);
+            bool isCadastralGroup = string.Equals(
+                groupKey,
+                CadastralMapGroupKey,
+                StringComparison.OrdinalIgnoreCase);
+
+            if (!isCadastralGroup)
+            {
+                await DeleteObjectsFromDefaultLayerGroupAsync(groupNode!, layers);
+                return;
+            }
+
             DialogResult result = MessageBox.Show(
-                $"Delete layer group '{groupNode!.Text}'?\n\nThis will remove all layer nodes and objects under this group.",
+                $"Delete all cadastral map child layers under '{groupNode!.Text}'?\n\nThis will remove all cadastral child layer nodes and their objects.",
                 "Delete Layer Group",
                 MessageBoxButtons.YesNo,
                 MessageBoxIcon.Warning,
@@ -10036,9 +10424,9 @@ namespace Land_Readjustment_Tool
 
             DialogResult result = MessageBox.Show(
                 shapeIds.Count == 1
-                    ? "Delete the selected drawing object?"
-                    : $"Delete {shapeIds.Count} selected drawing objects?",
-                "Delete Drawing Object",
+                    ? "Delete the selected object?"
+                    : $"Delete {shapeIds.Count} selected objects?",
+                "Delete Object",
                 MessageBoxButtons.YesNo,
                 MessageBoxIcon.Warning,
                 MessageBoxDefaultButton.Button2);
@@ -10059,14 +10447,12 @@ namespace Land_Readjustment_Tool
 
                 CanvasObject? lockedObject = selectedObjects.FirstOrDefault(item =>
                     item.CanvasLayer?.IsLocked == true ||
-                    (item.CanvasLayer != null &&
-                     CanvasLayerTreeService.IsProtectedDefaultLayer(item.CanvasLayer) &&
-                     !IsCadastralCanvasLayer(item.CanvasLayer)));
+                    item.IsLocked);
                 if (lockedObject != null)
                 {
                     MessageBox.Show(
-                        $"Object deletion is blocked because layer '{lockedObject.CanvasLayer?.Name ?? "Unknown"}' is locked.\n\nMove or copy editable objects into default layers through the layer menu instead.",
-                        "Delete Drawing Object",
+                        $"Object deletion is blocked because layer '{lockedObject.CanvasLayer?.Name ?? "Unknown"}' or the selected object is locked.",
+                        "Delete Object",
                         MessageBoxButtons.OK,
                         MessageBoxIcon.Information);
                     return;
@@ -10106,14 +10492,14 @@ namespace Land_Readjustment_Tool
                 await RefreshVectorCanvasFeaturesAsync();
                 RegisterCanvasUndoCommand(new DeleteCanvasObjectsCommand(deletedObjectSnapshots));
                 SetCanvasCommandStatus(shapeIds.Count == 1
-                    ? "Deleted selected drawing object"
-                    : $"Deleted {shapeIds.Count} selected drawing objects");
+                    ? "Deleted selected object"
+                    : $"Deleted {shapeIds.Count} selected objects");
             }
             catch (Exception ex)
             {
                 MessageBox.Show(
-                    $"Failed to delete the selected drawing objects: {ex.Message}",
-                    "Delete Drawing Object",
+                    $"Failed to delete the selected objects: {ex.Message}",
+                    "Delete Object",
                     MessageBoxButtons.OK,
                     MessageBoxIcon.Error);
             }
@@ -11016,9 +11402,23 @@ namespace Land_Readjustment_Tool
 
             try
             {
-                var repo = _projectScopedFactory.CreateCanvasObjectRepository(AppServices.Context.Session);
+                AppDbContext context = AppServices.Context.Session.GetDbContext();
                 List<Core.Entities.Canvas.CanvasObject> objects =
-                    await repo.GetByLayerIdAsync(layer.Id);
+                    await context.CanvasObjects
+                        .AsNoTracking()
+                        .Include(item => item.CanvasLayer)
+                        .Include(item => item.BaselineParcel)
+                            .ThenInclude(parcel => parcel!.LandOwner)
+                        .Include(item => item.BaselineParcel)
+                            .ThenInclude(parcel => parcel!.MalpotReference)
+                        .Include(item => item.Road)
+                        .Include(item => item.Block)
+                        .Include(item => item.ReplottedParcel)
+                            .ThenInclude(parcel => parcel!.Block)
+                        .Include(item => item.ReplottedParcel)
+                            .ThenInclude(parcel => parcel!.PlotType)
+                        .Where(item => item.CanvasLayerId == layer.Id)
+                        .ToListAsync();
 
                 if (objects.Count == 0)
                     return null;
@@ -11068,10 +11468,12 @@ namespace Land_Readjustment_Tool
                     }
                     catch { /* Shape access failed — leave empty */ }
 
-                    // Resolve parcel entity fields from loaded navigation properties.
-                    // GetByLayerIdAsync includes BaselineParcel + LandOwner.
+                    // Resolve data-linked fields from loaded navigation properties.
                     var bp    = obj.BaselineParcel;
                     var owner = bp?.LandOwner;
+                    var road  = obj.Road;
+                    var block = obj.Block;
+                    var plot  = obj.ReplottedParcel;
 
                     // Record area: prefer entity value → metadata → null
                     double? recordAreaSqm = bp != null
@@ -11090,6 +11492,22 @@ namespace Land_Readjustment_Tool
                         v.HasValue && v.Value > 0
                             ? Services.AreaConverterService.SqmToBKDString(v.Value, sampleTradPrec)
                             : string.Empty;
+                    string FormatNumberSample(double? v) =>
+                        v.HasValue && v.Value > 0
+                            ? v.Value.ToString("0.##", CultureInfo.InvariantCulture)
+                            : string.Empty;
+                    string ResolveReplottedParcelNumber()
+                    {
+                        if (plot == null)
+                            return string.Empty;
+
+                        return plot.ActiveNumberType switch
+                        {
+                            "Derived" => plot.DerivedNumber ?? string.Empty,
+                            "BlockSequence" => plot.BlockSequenceNumber ?? string.Empty,
+                            _ => plot.SystemGeneratedNumber ?? string.Empty
+                        };
+                    }
 
                     var dict = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase)
                     {
@@ -11123,6 +11541,32 @@ namespace Land_Readjustment_Tool
                         ["PaanaNo"]              = bp?.MalpotReference?.PaanaNo ?? string.Empty,
                         // ── Status ─────────────────────────────────────────────────
                         ["AssignmentStatus"]     = meta?.AssignmentStatus ?? string.Empty,
+                        ["RoadName"]             = road?.RoadName ?? string.Empty,
+                        ["RoadCode"]             = road?.RoadCode ?? string.Empty,
+                        ["RoadStatus"]           = road?.RoadStatus ?? string.Empty,
+                        ["RoadType"]             = road?.RoadType ?? string.Empty,
+                        ["SurfaceType"]          = road?.SurfaceType ?? string.Empty,
+                        ["RoadWidth"]            = road != null ? FormatNumberSample(road.RoadWidth) : string.Empty,
+                        ["RightOfWayWidth"]      = FormatNumberSample(road?.RightOfWayWidth),
+                        ["RoadDescription"]      = road?.Description ?? string.Empty,
+                        ["BlockName"]            = block?.BlockName ?? string.Empty,
+                        ["BlockCode"]            = block?.BlockCode ?? string.Empty,
+                        ["BlockLandUse"]         = block?.BlockLandUse ?? string.Empty,
+                        ["BlockDepth"]           = block != null ? FormatNumberSample(block.BlockDepth) : string.Empty,
+                        ["BlockAreaSqm"]         = block != null ? FormatSqmSample(block.BlockArea) : string.Empty,
+                        ["BlockAreaRAPD"]        = block != null ? FormatRAPD(block.BlockArea) : string.Empty,
+                        ["BlockAreaBKD"]         = block != null ? FormatBKD(block.BlockArea) : string.Empty,
+                        ["BlockDescription"]     = block?.Description ?? string.Empty,
+                        ["ReplottedParcelNo"]     = ResolveReplottedParcelNumber(),
+                        ["SystemGeneratedNumber"] = plot?.SystemGeneratedNumber ?? string.Empty,
+                        ["DerivedNumber"]         = plot?.DerivedNumber ?? string.Empty,
+                        ["BlockSequenceNumber"]   = plot?.BlockSequenceNumber ?? string.Empty,
+                        ["PlotTypeName"]          = plot?.PlotType?.TypeName ?? string.Empty,
+                        ["PlotBlockName"]         = plot?.Block?.BlockName ?? string.Empty,
+                        ["PlotAreaSqm"]           = plot != null ? FormatSqmSample(plot.PlotAreaSqm) : string.Empty,
+                        ["PlotAreaRAPD"]          = plot != null ? FormatRAPD(plot.PlotAreaSqm) : string.Empty,
+                        ["PlotAreaBKD"]           = plot != null ? FormatBKD(plot.PlotAreaSqm) : string.Empty,
+                        ["PlotNotes"]             = plot?.Notes ?? string.Empty,
                         // ── Object / layer ─────────────────────────────────────────
                         ["LabelText"]            = obj.LabelText ?? string.Empty,
                         ["ObjectDescription"]    = obj.ObjectDescription ?? string.Empty,
@@ -11993,6 +12437,115 @@ namespace Land_Readjustment_Tool
                 return owner.DeleteCanvasObjectsForUndoRedoAsync(_snapshots.Select(item => item.Id).ToArray());
             }
         }
+
+        private static bool ShouldClearLayerObjectsInsteadOfDeletingLayer(CanvasLayer layer)
+        {
+            return (CanvasLayerTreeService.IsProtectedDefaultLayer(layer) ||
+                    CanvasLayerTreeService.IsRePlotDataLayer(layer)) &&
+                   !CanvasLayerTreeService.IsDrawingMarkupLayer(layer);
+        }
+
+        private async Task DeleteObjectsFromDefaultLayerAsync(CanvasLayer layer)
+        {
+            DialogResult result = MessageBox.Show(
+                $"Delete all objects in layer '{layer.Name}'?\n\nThe layer node will remain in the layer tree.",
+                "Delete Layer Objects",
+                MessageBoxButtons.YesNo,
+                MessageBoxIcon.Warning,
+                MessageBoxDefaultButton.Button2);
+
+            if (result != DialogResult.Yes)
+                return;
+
+            await DeleteObjectsFromLayersAsync([layer], $"Deleted all objects from layer '{layer.Name}'");
+        }
+
+        private async Task DeleteObjectsFromDefaultLayerGroupAsync(TreeNode groupNode, IReadOnlyList<CanvasLayer> layers)
+        {
+            DialogResult result = MessageBox.Show(
+                $"Delete all objects in layer group '{groupNode.Text}'?\n\nThe layer nodes will remain in the layer tree.",
+                "Delete Layer Objects",
+                MessageBoxButtons.YesNo,
+                MessageBoxIcon.Warning,
+                MessageBoxDefaultButton.Button2);
+
+            if (result != DialogResult.Yes)
+                return;
+
+            await DeleteObjectsFromLayersAsync(layers, $"Deleted all objects from layer group '{groupNode.Text}'");
+        }
+
+        private async Task DeleteObjectsFromLayersAsync(IReadOnlyList<CanvasLayer> layers, string successStatus)
+        {
+            if (layers.Count == 0)
+                return;
+
+            if (!AppServices.HasContext)
+            {
+                await RefreshMapCanvasAsync("Refreshing map canvas");
+                return;
+            }
+
+            try
+            {
+                int[] layerIds = layers
+                    .Where(layer => layer.Id > 0)
+                    .Select(layer => layer.Id)
+                    .Distinct()
+                    .ToArray();
+                if (layerIds.Length == 0)
+                    return;
+
+                AppDbContext context = AppServices.Context.Session.GetDbContext();
+                List<Guid> objectIds = await context.CanvasObjects
+                    .AsNoTracking()
+                    .Where(item => layerIds.Contains(item.CanvasLayerId))
+                    .Select(item => item.Id)
+                    .ToListAsync();
+
+                if (objectIds.Count == 0)
+                {
+                    MessageBox.Show(
+                        "There are no objects to delete in the selected layer.",
+                        "Delete Layer Objects",
+                        MessageBoxButtons.OK,
+                        MessageBoxIcon.Information);
+                    return;
+                }
+
+                CanvasFeatureService featureService =
+                    _projectScopedFactory.CreateCanvasFeatureService(AppServices.Context.Session);
+                foreach (Guid objectId in objectIds.Distinct())
+                {
+                    await featureService.DeleteShapeAsync(objectId);
+                }
+
+                mapCanvasControlMain.ClearSelectionAfterDelete();
+                MarkProjectModifiedIfOpen();
+                await RefreshMapCanvasAsync("Refreshing map canvas");
+                await RefreshCurrentSelectedCanvasObjectPropertiesAsync();
+                SetCanvasCommandStatus(successStatus);
+            }
+            catch (Exception ex)
+            {
+                MessageBox.Show(
+                    $"Failed to delete layer objects: {ex.Message}",
+                    "Delete Layer Objects",
+                    MessageBoxButtons.OK,
+                    MessageBoxIcon.Error);
+            }
+        }
+
+        private enum DuplicateFeatureGeometryChoice
+        {
+            Replace,
+            Skip,
+            Cancel
+        }
+
+        private sealed record DuplicateFeatureGeometryResolution(
+            List<CanvasObject> ObjectsToCreate,
+            List<CanvasObject> ObjectsToReplace);
 
         /// <summary>
         /// Undo command for converting drawing objects into feature objects while removing originals.

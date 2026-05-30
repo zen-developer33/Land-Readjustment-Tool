@@ -21,6 +21,7 @@ namespace Land_Readjustment_Tool.Services.Project
             await EnsureCanvasLayerColumnsAsync(context, ct);
             await EnsureCanvasObjectColumnsAsync(context, ct);
             await EnsureBlockColumnsAsync(context, ct);
+            await EnsureBuildingInventoryTablesAsync(context, ct);
         }
 
         private static async Task EnsureProjectSettingsColumnsAsync(
@@ -136,6 +137,83 @@ namespace Land_Readjustment_Tool.Services.Project
                     "ALTER TABLE tblBlocks ADD COLUMN BlockLength REAL NOT NULL DEFAULT 0;",
                     ct);
             }
+        }
+
+        private static async Task EnsureBuildingInventoryTablesAsync(
+            AppDbContext context,
+            CancellationToken ct)
+        {
+            await context.Database.ExecuteSqlRawAsync(
+                """
+                CREATE TABLE IF NOT EXISTS tblBuildingInventories (
+                    Id INTEGER NOT NULL CONSTRAINT PK_tblBuildingInventories PRIMARY KEY AUTOINCREMENT,
+                    CanvasObjectId TEXT NULL,
+                    BuildingCode TEXT NOT NULL DEFAULT '',
+                    BuildingName TEXT NULL,
+                    OwnerName TEXT NULL,
+                    BuildingUse TEXT NULL,
+                    ConstructionType TEXT NULL,
+                    StoreyCount INTEGER NULL,
+                    PlinthAreaSqm REAL NULL,
+                    BuildingCondition TEXT NULL,
+                    Notes TEXT NULL,
+                    SurveyDate TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
+                    CreatedDate TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
+                    LastModifiedDate TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
+                    CONSTRAINT FK_tblBuildingInventories_tblCanvasObjects_CanvasObjectId
+                        FOREIGN KEY (CanvasObjectId) REFERENCES tblCanvasObjects (Id) ON DELETE SET NULL
+                );
+                """,
+                ct);
+
+            await context.Database.ExecuteSqlRawAsync(
+                """
+                CREATE TABLE IF NOT EXISTS tblBuildingPhotos (
+                    Id INTEGER NOT NULL CONSTRAINT PK_tblBuildingPhotos PRIMARY KEY AUTOINCREMENT,
+                    BuildingInventoryId INTEGER NOT NULL,
+                    Direction TEXT NOT NULL DEFAULT '',
+                    FileName TEXT NULL,
+                    ContentType TEXT NULL,
+                    ImageData BLOB NOT NULL DEFAULT X'',
+                    CapturedDate TEXT NULL,
+                    Notes TEXT NULL,
+                    CONSTRAINT FK_tblBuildingPhotos_tblBuildingInventories_BuildingInventoryId
+                        FOREIGN KEY (BuildingInventoryId) REFERENCES tblBuildingInventories (Id) ON DELETE CASCADE
+                );
+                """,
+                ct);
+
+            await context.Database.ExecuteSqlRawAsync(
+                """
+                CREATE TABLE IF NOT EXISTS tblBuildingOpenings (
+                    Id INTEGER NOT NULL CONSTRAINT PK_tblBuildingOpenings PRIMARY KEY AUTOINCREMENT,
+                    BuildingInventoryId INTEGER NOT NULL,
+                    Side TEXT NOT NULL DEFAULT '',
+                    OpeningType TEXT NOT NULL DEFAULT '',
+                    Label TEXT NULL,
+                    OffsetFromLeftM REAL NULL,
+                    SillHeightM REAL NULL,
+                    WidthM REAL NULL,
+                    HeightM REAL NULL,
+                    Notes TEXT NULL,
+                    CONSTRAINT FK_tblBuildingOpenings_tblBuildingInventories_BuildingInventoryId
+                        FOREIGN KEY (BuildingInventoryId) REFERENCES tblBuildingInventories (Id) ON DELETE CASCADE
+                );
+                """,
+                ct);
+
+            await context.Database.ExecuteSqlRawAsync(
+                "CREATE UNIQUE INDEX IF NOT EXISTS IX_tblBuildingInventories_BuildingCode ON tblBuildingInventories (BuildingCode) WHERE BuildingCode IS NOT NULL AND BuildingCode <> '';",
+                ct);
+            await context.Database.ExecuteSqlRawAsync(
+                "CREATE UNIQUE INDEX IF NOT EXISTS IX_tblBuildingInventories_CanvasObjectId ON tblBuildingInventories (CanvasObjectId) WHERE CanvasObjectId IS NOT NULL;",
+                ct);
+            await context.Database.ExecuteSqlRawAsync(
+                "CREATE INDEX IF NOT EXISTS IX_tblBuildingPhotos_BuildingInventoryId_Direction ON tblBuildingPhotos (BuildingInventoryId, Direction);",
+                ct);
+            await context.Database.ExecuteSqlRawAsync(
+                "CREATE INDEX IF NOT EXISTS IX_tblBuildingOpenings_BuildingInventoryId_Side_OpeningType ON tblBuildingOpenings (BuildingInventoryId, Side, OpeningType);",
+                ct);
         }
 
         private static async Task<HashSet<string>> ReadTableColumnsAsync(
