@@ -66,6 +66,7 @@ namespace Land_Readjustment_Tool.UI.MapCanvas.Rendering
         private const int MaxCachedTiles = 512;
         private const int MaxTilesPerFrame = 256;
         private const int MaxBootstrapTilesPerFrame = 16;
+        private const int MaxFallbackTilesPerFrame = 64;
         private const int MaxConcurrentFetches = 6;
         private const int DebounceMilliseconds = 50;
         private const int FetchCompleteQuietMilliseconds = 500;
@@ -179,7 +180,7 @@ namespace Land_Readjustment_Tool.UI.MapCanvas.Rendering
             LayerId = layer.Id;
             Name = layer.Name;
             FilePath = filePath;
-            Transparency = Math.Clamp(layer.FillTransparency, 0, 100);
+            Transparency = 0;
             IsVisible = layer.IsVisible;
             WorldBounds = worldBounds;
             _validProjectExtent = ExpandExtent(worldBounds, 0.5);
@@ -335,6 +336,7 @@ namespace Land_Readjustment_Tool.UI.MapCanvas.Rendering
             bool lastInteractive = interactive;
             bool lastViewportAllowed = false;
             bool fetchSuspended = false;
+            HashSet<TileKey>? fallbackFetchCandidates = null;
 
             lock (_renderSync)
             {
@@ -407,13 +409,15 @@ namespace Land_Readjustment_Tool.UI.MapCanvas.Rendering
                 else
                 {
                     // ── Settled: rebuild composite from cached tiles, then blit 1:1. ────
+                    fallbackFetchCandidates = new HashSet<TileKey>();
                     drawnAny = RebuildCompositeAndDraw(
                         graphics,
                         engine,
                         visibleWorldBounds,
                         tileRange,
                         canvasSize,
-                        cancellationToken);
+                        cancellationToken,
+                        fallbackFetchCandidates);
                 }
             }
 
@@ -431,6 +435,7 @@ namespace Land_Readjustment_Tool.UI.MapCanvas.Rendering
 
                 if (!lastInteractive && lastViewportAllowed)
                 {
+                    QueueFallbackFetches(fallbackFetchCandidates);
                     _debounceTimer.Change(DebounceMilliseconds, Timeout.Infinite);
                 }
             }
@@ -503,7 +508,8 @@ namespace Land_Readjustment_Tool.UI.MapCanvas.Rendering
             RectangleD visibleWorldBounds,
             TileRange tileRange,
             Size canvasSize,
-            CancellationToken cancellationToken)
+            CancellationToken cancellationToken,
+            HashSet<TileKey>? fallbackFetchCandidates)
         {
             cancellationToken.ThrowIfCancellationRequested();
 
@@ -541,7 +547,12 @@ namespace Land_Readjustment_Tool.UI.MapCanvas.Rendering
                     ApplyAsiaScreenClip(cg, engine);
 
                     drawnAny = DrawVisibleTileMosaic(
-                        cg, engine, visibleWorldBounds, tileRange, cancellationToken);
+                        cg,
+                        engine,
+                        visibleWorldBounds,
+                        tileRange,
+                        cancellationToken,
+                        fallbackFetchCandidates);
                 }
 
                 cancellationToken.ThrowIfCancellationRequested();
@@ -585,7 +596,12 @@ namespace Land_Readjustment_Tool.UI.MapCanvas.Rendering
                     graphics.CompositingMode = CompositingMode.SourceCopy;
 
                     drawnAny = DrawVisibleTileMosaic(
-                        graphics, engine, visibleWorldBounds, tileRange, cancellationToken);
+                        graphics,
+                        engine,
+                        visibleWorldBounds,
+                        tileRange,
+                        cancellationToken,
+                        fallbackFetchCandidates);
                 }
                 finally
                 {
@@ -646,7 +662,7 @@ namespace Land_Readjustment_Tool.UI.MapCanvas.Rendering
             lock (_renderSync)
             {
                 IsVisible = isVisible;
-                Transparency = Math.Clamp(transparency, 0, 100);
+                Transparency = 0;
                 UpdateOpacityAttributes();
             }
         }
@@ -752,7 +768,8 @@ namespace Land_Readjustment_Tool.UI.MapCanvas.Rendering
             MapCanvasEngine engine,
             RectangleD visibleWorldBounds,
             TileRange tileRange,
-            CancellationToken cancellationToken)
+            CancellationToken cancellationToken,
+            HashSet<TileKey>? fallbackFetchCandidates)
         {
             int columns = tileRange.MaxX - tileRange.MinX + 1;
             int rows = tileRange.MaxY - tileRange.MinY + 1;
@@ -813,7 +830,6 @@ namespace Land_Readjustment_Tool.UI.MapCanvas.Rendering
                         if (_allowParentPlaceholders &&
                             TryGetParentPlaceholder(
                                 key,
-                                maxLevelsUp: 4,
                                 out Bitmap? parentBitmap,
                                 out RectangleF parentSource) &&
                             parentBitmap != null)
@@ -828,6 +844,9 @@ namespace Land_Readjustment_Tool.UI.MapCanvas.Rendering
                             continue;
                         }
 
+                        CollectParentFallbackFetchCandidates(
+                            key,
+                            fallbackFetchCandidates);
                         allCellsCovered = false;
                     }
                 }
@@ -1224,7 +1243,7 @@ namespace Land_Readjustment_Tool.UI.MapCanvas.Rendering
         }
 
         /// <summary>
-        /// Walks up to 3 zoom levels looking for a cached ancestor tile and draws its
+        /// Walks down the zoom pyramid looking for a cached ancestor tile and draws its
         /// sub-region scaled to fill <paramref name="missingProjectBounds"/>.
         /// This gives the user a blurry-but-visible placeholder while the correct tile
         /// loads, exactly as Google Maps and QGIS do.
@@ -1239,7 +1258,7 @@ namespace Land_Readjustment_Tool.UI.MapCanvas.Rendering
             TileKey missingKey,
             RectangleD missingProjectBounds)
         {
-            for (int dz = 1; dz <= 3; dz++)
+            for (int dz = 1; dz <= missingKey.Z; dz++)
             {
                 int parentZoom = missingKey.Z - dz;
                 if (parentZoom < 0)
@@ -1252,8 +1271,11 @@ namespace Land_Readjustment_Tool.UI.MapCanvas.Rendering
                 int parentY = missingKey.Y / scale;
                 TileKey parentKey = new TileKey(parentZoom, parentX, parentY);
 
-                if (!_tileCache.TryGetValue(parentKey, out Bitmap? parentBitmap))
+                if (!TryGetCachedTileBitmap(parentKey, out Bitmap? parentBitmap) ||
+                    parentBitmap == null)
+                {
                     continue;
+                }
 
                 // Compute which sub-region of the 256×256 parent bitmap covers
                 // the missing child tile.
@@ -1283,14 +1305,13 @@ namespace Land_Readjustment_Tool.UI.MapCanvas.Rendering
 
         private bool TryGetParentPlaceholder(
             TileKey missingKey,
-            int maxLevelsUp,
             out Bitmap? bitmap,
             out RectangleF sourceRect)
         {
             bitmap = null;
             sourceRect = default;
 
-            for (int dz = 1; dz <= maxLevelsUp; dz++)
+            for (int dz = 1; dz <= missingKey.Z; dz++)
             {
                 int parentZoom = missingKey.Z - dz;
                 if (parentZoom < 0)
@@ -1324,6 +1345,43 @@ namespace Land_Readjustment_Tool.UI.MapCanvas.Rendering
             }
 
             return false;
+        }
+
+        private void CollectParentFallbackFetchCandidates(
+            TileKey missingKey,
+            HashSet<TileKey>? fallbackFetchCandidates)
+        {
+            if (fallbackFetchCandidates == null)
+            {
+                return;
+            }
+
+            for (int dz = 1; dz <= missingKey.Z; dz++)
+            {
+                int factor = 1 << dz;
+                TileKey parentKey = new(
+                    missingKey.Z - dz,
+                    missingKey.X / factor,
+                    missingKey.Y / factor);
+
+                if (TryGetCachedTileBitmap(parentKey, out Bitmap? parentBitmap) &&
+                    parentBitmap != null)
+                {
+                    return;
+                }
+
+                if (_noDataTiles.Contains(parentKey))
+                {
+                    continue;
+                }
+
+                if (_pendingFetches.ContainsKey(parentKey))
+                {
+                    continue;
+                }
+
+                fallbackFetchCandidates.Add(parentKey);
+            }
         }
 
         private bool DrawParentBitmapRegion(
@@ -1485,6 +1543,56 @@ namespace Land_Readjustment_Tool.UI.MapCanvas.Rendering
                 MaxBootstrapTilesPerFrame);
         }
 
+        private void QueueFallbackFetches(HashSet<TileKey>? fallbackFetchCandidates)
+        {
+            if (fallbackFetchCandidates == null || fallbackFetchCandidates.Count == 0)
+            {
+                return;
+            }
+
+            List<TileKey> missing = new();
+            int pendingGeneration;
+
+            lock (_renderSync)
+            {
+                if (_disposed || _internetFetchSuspended)
+                {
+                    return;
+                }
+
+                pendingGeneration = _pendingFetchGeneration;
+
+                foreach (TileKey key in fallbackFetchCandidates
+                             .OrderBy(candidate => candidate.Z)
+                             .ThenBy(candidate => candidate.Y)
+                             .ThenBy(candidate => candidate.X))
+                {
+                    if (missing.Count >= MaxFallbackTilesPerFrame)
+                    {
+                        break;
+                    }
+
+                    if (!TryGetCachedTileBitmap(key, out _) &&
+                        !_noDataTiles.Contains(key) &&
+                        !_pendingFetches.ContainsKey(key))
+                    {
+                        _pendingFetches[key] = pendingGeneration;
+                        missing.Add(key);
+                    }
+                }
+            }
+
+            if (missing.Count == 0)
+            {
+                return;
+            }
+
+            _ = FetchRegisteredTilesAsync(
+                missing,
+                pendingGeneration,
+                CancellationToken.None);
+        }
+
         private static int SelectBootstrapZoom(
             RectangleD webMercatorBounds,
             int desiredZoom)
@@ -1604,6 +1712,57 @@ namespace Land_Readjustment_Tool.UI.MapCanvas.Rendering
             {
                 System.Diagnostics.Debug.WriteLine(
                     $"[XyzLiveTileRenderLayer] Tile batch error: {ex.Message}");
+            }
+            finally
+            {
+                ReportFetchStatus(tileCountDelta: -missing.Count);
+            }
+        }
+
+        private async Task FetchRegisteredTilesAsync(
+            IReadOnlyCollection<TileKey> missing,
+            int pendingGeneration,
+            CancellationToken cancellationToken)
+        {
+            bool internetAvailable;
+            try
+            {
+                internetAvailable = await HasInternetConnectionAsync(cancellationToken)
+                    .ConfigureAwait(false);
+            }
+            catch (OperationCanceledException)
+            {
+                RemovePendingFetches(missing, pendingGeneration);
+                return;
+            }
+
+            if (!internetAvailable)
+            {
+                RemovePendingFetches(missing, pendingGeneration);
+                ReportFetchDisconnected();
+                return;
+            }
+
+            IEnumerable<Task> tasks =
+                missing.Select(key =>
+                    FetchAndCacheTileAsync(
+                        key,
+                        pendingGeneration,
+                        cancellationToken));
+
+            ReportFetchStatus(tileCountDelta: missing.Count);
+            try
+            {
+                await Task.WhenAll(tasks).ConfigureAwait(false);
+            }
+            catch (OperationCanceledException)
+            {
+                // Expected on pan/zoom - a new viewport CTS will be issued.
+            }
+            catch (Exception ex)
+            {
+                System.Diagnostics.Debug.WriteLine(
+                    $"[XyzLiveTileRenderLayer] Tile fallback batch error: {ex.Message}");
             }
             finally
             {

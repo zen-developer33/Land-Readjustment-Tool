@@ -34,6 +34,8 @@ namespace Land_Readjustment_Tool.Repositories.Canvas
                     .Include(item => item.CanvasLayer)
                     .Include(item => item.BaselineParcel)
                         .ThenInclude(parcel => parcel!.LandOwner)
+                    .Include(item => item.BaselineParcel)
+                        .ThenInclude(parcel => parcel!.MalpotReference)
                     .FirstOrDefaultAsync(item => item.Id == id, ct);
             }
             catch (Exception ex)
@@ -53,6 +55,8 @@ namespace Land_Readjustment_Tool.Repositories.Canvas
                     .Include(item => item.CanvasLayer)
                     .Include(item => item.BaselineParcel)
                         .ThenInclude(parcel => parcel!.LandOwner)
+                    .Include(item => item.BaselineParcel)
+                        .ThenInclude(parcel => parcel!.MalpotReference)
                     .ToListAsync(ct);
             }
             catch (Exception ex)
@@ -72,6 +76,8 @@ namespace Land_Readjustment_Tool.Repositories.Canvas
                     .Include(item => item.CanvasLayer)
                     .Include(item => item.BaselineParcel)
                         .ThenInclude(parcel => parcel!.LandOwner)
+                    .Include(item => item.BaselineParcel)
+                        .ThenInclude(parcel => parcel!.MalpotReference)
                     .Where(item => item.IsVisible)
                     .ToListAsync(ct);
             }
@@ -93,6 +99,8 @@ namespace Land_Readjustment_Tool.Repositories.Canvas
                     .Include(item => item.CanvasLayer)
                     .Include(item => item.BaselineParcel)
                         .ThenInclude(parcel => parcel!.LandOwner)
+                    .Include(item => item.BaselineParcel)
+                        .ThenInclude(parcel => parcel!.MalpotReference)
                     .Where(item => item.CanvasLayerId == canvasLayerId)
                     .ToListAsync(ct);
             }
@@ -118,6 +126,8 @@ namespace Land_Readjustment_Tool.Repositories.Canvas
                     .Include(item => item.CanvasLayer)
                     .Include(item => item.BaselineParcel)
                         .ThenInclude(parcel => parcel!.LandOwner)
+                    .Include(item => item.BaselineParcel)
+                        .ThenInclude(parcel => parcel!.MalpotReference)
                     .Where(item => item.IsVisible)
                     .ToListAsync(ct);
 

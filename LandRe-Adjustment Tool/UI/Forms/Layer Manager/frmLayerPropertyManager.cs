@@ -25,11 +25,17 @@ namespace Land_Readjustment_Tool.UI.Forms
         private readonly bool _isRasterLayer;
         private readonly bool _isLineLayer;
         private readonly bool _isDrawingMarkupLayer;
+        private readonly bool _isExternalLayer;
         private readonly bool _allowRename;
+        private readonly bool _allowLayerKindChange;
+        private readonly Func<string, string>? _layerNameSuggestionProvider;
         private string _selectedHatchPatternKey = string.Empty;
         private string _selectedPointMarkerKey = "Dot";
         private string _lastSelectedLayerKind = string.Empty;
+        private string _lastSuggestedLayerName = string.Empty;
         private bool _isLoadingLayer;
+        private bool _suppressLayerNameTextChanged;
+        private bool _layerNameEditedByUser;
         private IReadOnlyList<IReadOnlyDictionary<string, string>>? _sampleRecords;
 
         public frmLayerPropertyManager(CanvasLayer layer)
@@ -48,6 +54,20 @@ namespace Land_Readjustment_Tool.UI.Forms
             CanvasLayer layer,
             IHatchPatternService hatchPatternService,
             bool allowRename)
+            : this(
+                layer,
+                hatchPatternService,
+                allowRename,
+                allowLayerKindChange: allowRename)
+        {
+        }
+
+        public frmLayerPropertyManager(
+            CanvasLayer layer,
+            IHatchPatternService hatchPatternService,
+            bool allowRename,
+            bool allowLayerKindChange,
+            Func<string, string>? layerNameSuggestionProvider = null)
         {
             Layer = layer ?? throw new ArgumentNullException(nameof(layer));
             _hatchPatternService = hatchPatternService
@@ -55,16 +75,22 @@ namespace Land_Readjustment_Tool.UI.Forms
             _isRasterLayer = IsRasterLayer(layer);
             _isLineLayer = CanvasLayerTreeService.IsLineLayer(layer);
             _isDrawingMarkupLayer = CanvasLayerTreeService.IsDrawingMarkupLayer(layer);
+            _isExternalLayer = CanvasLayerTreeService.IsExternalImportedLayer(layer);
             _allowRename = allowRename;
+            _allowLayerKindChange = allowLayerKindChange;
+            _layerNameSuggestionProvider = layerNameSuggestionProvider;
 
             InitializeComponent();
             NumericUpDownSelectAllBehavior.AttachTo(this);
             LoadLayer();
             _lastSelectedLayerKind = NormalizeDrawingLayerType(_cboLayerKind.Text);
+            _lastSuggestedLayerName = _txtName.Text.Trim();
+            _txtName.TextChanged += txtName_TextChanged;
             ConfigureApplicableControls();
             _rdoFontFixedSize.CheckedChanged += FontScalingRadio_CheckedChanged;
             _rdoFontScalesWithZoom.CheckedChanged += FontScalingRadio_CheckedChanged;
             _chkLocked.CheckedChanged += (_, _) => ConfigureLockedControlState();
+            _tabs.SelectedIndexChanged += (_, _) => ArrangeAllPropertyPanels();
             ConfigureLockedControlState();
             ArrangeAllPropertyPanels();
         }
@@ -73,7 +99,37 @@ namespace Land_Readjustment_Tool.UI.Forms
             CanvasLayer layer,
             IHatchPatternService hatchPatternService,
             IReadOnlyList<IReadOnlyDictionary<string, string>>? sampleRecords)
-            : this(layer, hatchPatternService, allowRename: false)
+            : this(layer, hatchPatternService, sampleRecords, allowRename: false)
+        {
+        }
+
+        public frmLayerPropertyManager(
+            CanvasLayer layer,
+            IHatchPatternService hatchPatternService,
+            IReadOnlyList<IReadOnlyDictionary<string, string>>? sampleRecords,
+            bool allowRename)
+            : this(
+                layer,
+                hatchPatternService,
+                sampleRecords,
+                allowRename,
+                allowLayerKindChange: false)
+        {
+        }
+
+        public frmLayerPropertyManager(
+            CanvasLayer layer,
+            IHatchPatternService hatchPatternService,
+            IReadOnlyList<IReadOnlyDictionary<string, string>>? sampleRecords,
+            bool allowRename,
+            bool allowLayerKindChange,
+            Func<string, string>? layerNameSuggestionProvider = null)
+            : this(
+                layer,
+                hatchPatternService,
+                allowRename,
+                allowLayerKindChange,
+                layerNameSuggestionProvider)
         {
             _sampleRecords = sampleRecords;
         }
@@ -164,6 +220,11 @@ namespace Land_Readjustment_Tool.UI.Forms
         /// </summary>
         private void ConfigureApplicableControls()
         {
+            if (_isExternalLayer && _tabs.TabPages.Contains(_tabLabel))
+            {
+                _tabs.TabPages.Remove(_tabLabel);
+            }
+
             if (_isDrawingMarkupLayer)
             {
                 UpdateLayerKindPresentation();
@@ -189,7 +250,7 @@ namespace Land_Readjustment_Tool.UI.Forms
                 return;
 
             Text = "Raster Layer Properties";
-            _tabFill.Text = "Raster";
+            _tabs.TabPages.Remove(_tabFill);
             _tabs.TabPages.Remove(_tabLabel);
 
             SetControlVisible(_lblLayerKind, true);
@@ -212,9 +273,6 @@ namespace Land_Readjustment_Tool.UI.Forms
             SetControlVisible(_lblHatchPattern, false);
             SetControlVisible(_hatchPatternPanel, false);
             SetControlVisible(_chkShowFillTransparency, false);
-
-            _lblTransparency.Text = "Raster Transparency";
-            _trkTransparency.Enabled = true;
             ArrangeAllPropertyPanels();
         }
 
@@ -256,10 +314,29 @@ namespace Land_Readjustment_Tool.UI.Forms
             _pnlPointMarkerPreview.Invalidate();
         }
 
+        private void txtName_TextChanged(object? sender, EventArgs e)
+        {
+            if (_isLoadingLayer ||
+                _suppressLayerNameTextChanged ||
+                _layerNameSuggestionProvider == null)
+            {
+                return;
+            }
+
+            if (!string.Equals(
+                    _txtName.Text.Trim(),
+                    _lastSuggestedLayerName,
+                    StringComparison.OrdinalIgnoreCase))
+            {
+                _layerNameEditedByUser = true;
+            }
+        }
+
         private void cboLayerKind_SelectedIndexChanged(object? sender, EventArgs e)
         {
             string selectedLayerKind = NormalizeDrawingLayerType(_cboLayerKind.Text);
 
+            UpdateSuggestedLayerNameForKind(selectedLayerKind);
             UpdateLayerKindPresentation();
             if (!_isLoadingLayer &&
                 IsAnnotationLayerType(selectedLayerKind) &&
@@ -274,6 +351,44 @@ namespace Land_Readjustment_Tool.UI.Forms
             UpdateFillControlState();
             _pnlLinePreview.Invalidate();
             _pnlPointMarkerPreview.Invalidate();
+        }
+
+        private void UpdateSuggestedLayerNameForKind(string layerKind)
+        {
+            if (_isLoadingLayer ||
+                !_allowRename ||
+                !_allowLayerKindChange ||
+                _layerNameSuggestionProvider == null)
+            {
+                return;
+            }
+
+            string currentName = _txtName.Text.Trim();
+            if (_layerNameEditedByUser &&
+                !string.Equals(currentName, _lastSuggestedLayerName, StringComparison.OrdinalIgnoreCase))
+            {
+                return;
+            }
+
+            string suggestedName = _layerNameSuggestionProvider(layerKind).Trim();
+            if (string.IsNullOrWhiteSpace(suggestedName) ||
+                string.Equals(currentName, suggestedName, StringComparison.OrdinalIgnoreCase))
+            {
+                _lastSuggestedLayerName = suggestedName;
+                return;
+            }
+
+            _suppressLayerNameTextChanged = true;
+            try
+            {
+                _txtName.Text = suggestedName;
+                _lastSuggestedLayerName = suggestedName;
+                _layerNameEditedByUser = false;
+            }
+            finally
+            {
+                _suppressLayerNameTextChanged = false;
+            }
         }
 
         private void chkNoBorder_CheckedChanged(object? sender, EventArgs e)
@@ -474,8 +589,10 @@ namespace Land_Readjustment_Tool.UI.Forms
             if (_isRasterLayer)
             {
                 SetControlVisible(_chkShowFillTransparency, false);
-                _trkTransparency.Enabled = canEdit;
-                _txtTransparencyValue.Enabled = canEdit;
+                SetControlVisible(_lblTransparency, false);
+                SetControlVisible(_transparencyLayout, false);
+                _trkTransparency.Enabled = false;
+                _txtTransparencyValue.Enabled = false;
                 return;
             }
 
@@ -520,7 +637,7 @@ namespace Land_Readjustment_Tool.UI.Forms
             // General tab controls
             _txtName.ReadOnly = !_allowRename;
             _txtName.Enabled = canEdit && _allowRename;
-            _cboLayerKind.Enabled = canEdit && _isDrawingMarkupLayer && _allowRename;
+            _cboLayerKind.Enabled = canEdit && _isDrawingMarkupLayer && _allowLayerKindChange;
             _chkVisible.Enabled = canEdit;
 
             bool isPoint      = IsSelectedPointLayerType();
@@ -625,7 +742,7 @@ namespace Land_Readjustment_Tool.UI.Forms
         {
             Layer.IsVisible = _chkVisible.Checked;
             Layer.IsLocked = _chkLocked.Checked;
-            Layer.FillTransparency = _trkTransparency.Value;
+            Layer.FillTransparency = _isRasterLayer ? 0 : _trkTransparency.Value;
             Layer.ShowFillTransparency = !_isRasterLayer && _chkShowFillTransparency.Checked;
             if (_allowRename && !string.IsNullOrWhiteSpace(_txtName.Text))
             {
@@ -636,7 +753,10 @@ namespace Land_Readjustment_Tool.UI.Forms
             {
                 if (_isDrawingMarkupLayer)
                 {
-                    Layer.LayerType = NormalizeDrawingLayerType(_cboLayerKind.Text);
+                    if (_allowLayerKindChange)
+                    {
+                        Layer.LayerType = NormalizeDrawingLayerType(_cboLayerKind.Text);
+                    }
                 }
 
                 Layer.BorderColor = ColorTranslator.ToHtml(_pnlBorderColor.BackColor);
@@ -685,7 +805,9 @@ namespace Land_Readjustment_Tool.UI.Forms
                         : 1.0;
                 }
 
-                Layer.ShowLabels = selectedAnnotation ? false : _chkShowLabels.Checked;
+                if (!_isExternalLayer)
+                {
+                    Layer.ShowLabels = selectedAnnotation ? false : _chkShowLabels.Checked;
                 Layer.LabelFontName = string.IsNullOrWhiteSpace(_txtFontName.Text)
                     ? DefaultCanvasLabelFontName
                     : _txtFontName.Text.Trim();
@@ -713,6 +835,7 @@ namespace Land_Readjustment_Tool.UI.Forms
                 if (selectedAnnotation)
                 {
                     Layer.BorderColor = Layer.LabelColor;
+                }
                 }
             }
 
@@ -874,6 +997,7 @@ namespace Land_Readjustment_Tool.UI.Forms
                 // Reparent annotation-relevant controls into _annPanel.
                 // WinForms automatically removes each control from its previous parent.
                 _annPanel.Controls.AddRange([
+                    _lblLayerKind, _cboLayerKind,
                     _lblName, _txtName,
                     _lblFont, _fontPanel,
                     _lblFontSize, _numFontSize,
@@ -896,7 +1020,11 @@ namespace Land_Readjustment_Tool.UI.Forms
             if (_tabs.TabPages.Contains(_tabAnnotation))
             {
                 // Only restore what was moved (General: Name + State; Label: text properties).
-                _generalLayout.Controls.AddRange([_lblName, _txtName, _lblState, _statePanel]);
+                _generalLayout.Controls.AddRange([
+                    _lblLayerKind, _cboLayerKind,
+                    _lblName, _txtName,
+                    _lblState, _statePanel
+                ]);
                 _labelLayout.Controls.AddRange([
                     _lblFont, _fontPanel,
                     _lblFontSize, _numFontSize,
@@ -936,6 +1064,7 @@ namespace Land_Readjustment_Tool.UI.Forms
         {
             ArrangeRows(
                 _annPanel,
+                (_lblLayerKind, _cboLayerKind),
                 (_lblName, _txtName),
                 (_lblFont, _fontPanel),
                 (_lblFontSize, _numFontSize),
@@ -1081,6 +1210,22 @@ namespace Land_Readjustment_Tool.UI.Forms
             control.Visible = visible;
         }
 
+        public void FocusLayerNameTextBox()
+        {
+            BeginInvoke((Action)(() =>
+            {
+                if (_txtName.IsDisposed ||
+                    !_txtName.Visible ||
+                    !_txtName.Enabled)
+                {
+                    return;
+                }
+
+                _txtName.Focus();
+                _txtName.SelectAll();
+            }));
+        }
+
         private void ArrangeAllPropertyPanels()
         {
             if (_tabs.TabPages.Contains(_tabAnnotation))
@@ -1097,8 +1242,8 @@ namespace Land_Readjustment_Tool.UI.Forms
         {
             ArrangeRows(
                 _generalLayout,
-                (_lblName, _txtName),
                 (_lblLayerKind, _cboLayerKind),
+                (_lblName, _txtName),
                 (_lblBorderColor, _borderColorPanel),
                 (_lblLineStyle, _lineTypePanel),
                 (_lblLinePreview, _pnlLinePreview),
@@ -1135,7 +1280,15 @@ namespace Land_Readjustment_Tool.UI.Forms
 
         private static void ArrangeRows(Panel panel, params (Control? Label, Control Value)[] rows)
         {
+            panel.SuspendLayout();
+            panel.AutoScroll = false;
+            panel.AutoScrollMinSize = Size.Empty;
+
             int y = 10;
+            int valueWidth = Math.Min(
+                PropertyValueWidth,
+                Math.Max(80, panel.ClientSize.Width - PropertyValueLeft - 12));
+
             foreach ((Control? label, Control value) in rows)
             {
                 // Skip if the control has been reparented away from this panel.
@@ -1152,11 +1305,10 @@ namespace Land_Readjustment_Tool.UI.Forms
                     label.SetBounds(PropertyLabelLeft, labelTop, PropertyLabelWidth, 27);
                 }
 
-                value.SetBounds(PropertyValueLeft, y, PropertyValueWidth, rowHeight);
+                value.SetBounds(PropertyValueLeft, y, valueWidth, rowHeight);
                 y += rowHeight + 8;
             }
-
-            panel.AutoScrollMinSize = new Size(0, y + 6);
+            panel.ResumeLayout(performLayout: true);
         }
 
         private static int GetPreferredRowHeight(Control control)
@@ -1213,7 +1365,7 @@ namespace Land_Readjustment_Tool.UI.Forms
 
         private void frmLayerPropertyManager_Load(object sender, EventArgs e)
         {
-
+            ArrangeAllPropertyPanels();
         }
     }
 }

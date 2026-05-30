@@ -144,6 +144,11 @@ namespace Land_Readjustment_Tool.UI.MapCanvas.Services
                 return OriginalDataGroupKey;
             }
 
+            if (IsExternalImportedLayer(layer))
+            {
+                return ExternalGroupKey;
+            }
+
             return layer.LayerType switch
             {
                 "Raster" => RasterGroupKey,
@@ -356,9 +361,27 @@ namespace Land_Readjustment_Tool.UI.MapCanvas.Services
             return string.Equals(layer.LayerType, AnnotationLayerType, StringComparison.OrdinalIgnoreCase);
         }
 
+        public static bool IsExternalImportedLayer(CanvasLayer layer)
+        {
+            return layer.Description?.StartsWith(
+                "Imported external layer",
+                StringComparison.OrdinalIgnoreCase) == true;
+        }
+
         public static bool IsDrawingMarkupLayer(CanvasLayer layer)
         {
             return string.Equals(GetGroupKey(layer), DrawingMarkupGroupKey, StringComparison.OrdinalIgnoreCase);
+        }
+
+        public static bool IsRePlotDataLayer(CanvasLayer layer)
+        {
+            return IsRePlotDataGroupKey(GetGroupKey(layer));
+        }
+
+        public static bool IsProjectBoundaryLayer(CanvasLayer layer)
+        {
+            return string.Equals(layer.LayerType, "ProjectBoundary", StringComparison.OrdinalIgnoreCase) ||
+                   string.Equals(layer.Name, "Project Boundary", StringComparison.OrdinalIgnoreCase);
         }
 
         public static bool IsRoadsGroupKey(string? groupKey)

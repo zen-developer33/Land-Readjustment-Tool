@@ -9,15 +9,9 @@ namespace Land_Readjustment_Tool.Services.Canvas
     public sealed class CanvasThemeColorService
     {
         /// <summary>
-        /// <summary>
-        /// Threshold for determining if canvas is dark.
+        /// Threshold for determining if canvas is dark or darkish.
         /// </summary>
-        private const double DarkCanvasThreshold = 0.45;
-
-        /// <summary>
-        /// Threshold for determining if canvas is light.
-        /// </summary>
-        private const double LightCanvasThreshold = 0.65;
+        private const double DarkishCanvasThreshold = 0.65;
 
         /// <summary>
         /// Calculates the relative luminance of a color using the relative luminance formula.
@@ -29,15 +23,14 @@ namespace Land_Readjustment_Tool.Services.Canvas
             return (0.299 * color.R + 0.587 * color.G + 0.114 * color.B) / 255.0;
         }
 
-        /// <summary>
-        /// <summary>
-        /// Determines if the canvas background is dark.
+        /// Determines if the canvas background is dark enough that black layer
+        /// colors need to be lifted for visibility.
         /// </summary>
         /// <param name="canvasColor">The canvas background color.</param>
-        /// <returns>True if the canvas is dark; otherwise false.</returns>
+        /// <returns>True if the canvas is dark or darkish; otherwise false.</returns>
         public static bool IsDarkCanvas(Color canvasColor)
         {
-            return CalculateLuminance(canvasColor) < DarkCanvasThreshold;
+            return CalculateLuminance(canvasColor) < DarkishCanvasThreshold;
         }
 
         /// <summary>
@@ -53,16 +46,17 @@ namespace Land_Readjustment_Tool.Services.Canvas
 
             if (isCanvasDark)
             {
-                if (layerColor.ToArgb() == Color.Black.ToArgb())
+                if (IsBlack(layerColor))
                     return Color.White;
 
+                // White remains white on dark and darkish canvas themes.
                 return layerColor;
             }
 
-            if (layerColor.ToArgb() == Color.White.ToArgb())
+            if (IsWhite(layerColor))
                 return Color.Black;
 
-            // All other colors are preserved as-is.
+            // Black remains black on light canvas themes.
             return layerColor;
         }
 
@@ -76,18 +70,30 @@ namespace Land_Readjustment_Tool.Services.Canvas
         {
             try
             {
-                // Parse hex color to Color
                 Color layerColor = ColorTranslator.FromHtml(hexColor);
                 Color adjustedColor = AdjustColorForCanvasTheme(canvasColor, layerColor);
-                
-                // Convert back to hex
-                return ColorTranslator.ToHtml(adjustedColor);
+                return ToHtml(adjustedColor);
             }
             catch
             {
-                // If parsing fails, return the original hex color
                 return hexColor;
             }
+        }
+
+        /// <summary>
+        /// Adjusts a nullable hex color string while preserving null/empty values.
+        /// </summary>
+        /// <param name="canvasColor">The canvas background color.</param>
+        /// <param name="hexColor">The original color as hex string.</param>
+        /// <returns>The adjusted hex string, or the original null/empty value.</returns>
+        public static string? AdjustNullableHexColorForCanvasTheme(
+            Color canvasColor,
+            string? hexColor)
+        {
+            if (string.IsNullOrWhiteSpace(hexColor))
+                return hexColor;
+
+            return AdjustHexColorForCanvasTheme(canvasColor, hexColor);
         }
 
         /// <summary>
@@ -109,6 +115,21 @@ namespace Land_Readjustment_Tool.Services.Canvas
                 AdjustHexColorForCanvasTheme(canvasColor, fillColorHex),
                 AdjustHexColorForCanvasTheme(canvasColor, labelColorHex)
             );
+        }
+
+        private static bool IsBlack(Color color)
+        {
+            return color.R <= 8 && color.G <= 8 && color.B <= 8;
+        }
+
+        private static bool IsWhite(Color color)
+        {
+            return color.R >= 247 && color.G >= 247 && color.B >= 247;
+        }
+
+        private static string ToHtml(Color color)
+        {
+            return $"#{color.R:X2}{color.G:X2}{color.B:X2}";
         }
     }
 }

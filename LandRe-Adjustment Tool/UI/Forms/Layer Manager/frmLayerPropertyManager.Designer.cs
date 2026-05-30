@@ -226,7 +226,7 @@ namespace Land_Readjustment_Tool.UI.Forms
             _tabs.Name = "_tabs";
             _tabs.Padding = new Point(12, 4);
             _tabs.SelectedIndex = 0;
-            _tabs.Size = new Size(520, 459);
+            _tabs.Size = new Size(520, 544);
             _tabs.TabIndex = 0;
             // 
             // _tabGeneral
@@ -236,7 +236,7 @@ namespace Land_Readjustment_Tool.UI.Forms
             _tabGeneral.Location = new Point(4, 31);
             _tabGeneral.Name = "_tabGeneral";
             _tabGeneral.Padding = new Padding(12);
-            _tabGeneral.Size = new Size(512, 496);
+            _tabGeneral.Size = new Size(512, 581);
             _tabGeneral.TabIndex = 0;
             _tabGeneral.Text = "General";
             // 
@@ -262,7 +262,7 @@ namespace Land_Readjustment_Tool.UI.Forms
             _generalLayout.Controls.Add(_statePanel);
             _generalLayout.Location = new Point(12, 12);
             _generalLayout.Name = "_generalLayout";
-            _generalLayout.Size = new Size(488, 472);
+            _generalLayout.Size = new Size(488, 557);
             _generalLayout.TabIndex = 0;
             // 
             // _lblName
@@ -561,7 +561,7 @@ namespace Land_Readjustment_Tool.UI.Forms
             _tabFill.Location = new Point(4, 31);
             _tabFill.Name = "_tabFill";
             _tabFill.Padding = new Padding(12);
-            _tabFill.Size = new Size(512, 496);
+            _tabFill.Size = new Size(512, 581);
             _tabFill.TabIndex = 1;
             _tabFill.Text = "Fill";
             // 
@@ -580,7 +580,7 @@ namespace Land_Readjustment_Tool.UI.Forms
             _fillLayout.Controls.Add(_transparencyLayout);
             _fillLayout.Location = new Point(12, 12);
             _fillLayout.Name = "_fillLayout";
-            _fillLayout.Size = new Size(488, 472);
+            _fillLayout.Size = new Size(488, 557);
             _fillLayout.TabIndex = 0;
             // 
             // _lblFillStyle
@@ -762,7 +762,7 @@ namespace Land_Readjustment_Tool.UI.Forms
             _tabLabel.Location = new Point(4, 31);
             _tabLabel.Name = "_tabLabel";
             _tabLabel.Padding = new Padding(12);
-            _tabLabel.Size = new Size(512, 496);
+            _tabLabel.Size = new Size(512, 581);
             _tabLabel.TabIndex = 2;
             _tabLabel.Text = "Label";
             // 
@@ -790,7 +790,7 @@ namespace Land_Readjustment_Tool.UI.Forms
             _labelLayout.Controls.Add(_txtAnnotationText);
             _labelLayout.Location = new Point(12, 12);
             _labelLayout.Name = "_labelLayout";
-            _labelLayout.Size = new Size(488, 472);
+            _labelLayout.Size = new Size(488, 557);
             _labelLayout.TabIndex = 0;
             // 
             // _lblLabels
@@ -1066,7 +1066,7 @@ namespace Land_Readjustment_Tool.UI.Forms
             _footerPanel.Controls.Add(_btnCancel);
             _footerPanel.Controls.Add(_btnApply);
             _footerPanel.FlowDirection = FlowDirection.RightToLeft;
-            _footerPanel.Location = new Point(12, 483);
+            _footerPanel.Location = new Point(12, 568);
             _footerPanel.Name = "_footerPanel";
             _footerPanel.Size = new Size(520, 40);
             _footerPanel.TabIndex = 1;
@@ -1115,7 +1115,7 @@ namespace Land_Readjustment_Tool.UI.Forms
             _tabAnnotation.Location = new Point(4, 31);
             _tabAnnotation.Name = "_tabAnnotation";
             _tabAnnotation.Padding = new Padding(12);
-            _tabAnnotation.Size = new Size(512, 496);
+            _tabAnnotation.Size = new Size(512, 581);
             _tabAnnotation.TabIndex = 3;
             _tabAnnotation.Text = "Annotation";
             // 
@@ -1125,7 +1125,7 @@ namespace Land_Readjustment_Tool.UI.Forms
             _annPanel.AutoScroll = true;
             _annPanel.Location = new Point(12, 12);
             _annPanel.Name = "_annPanel";
-            _annPanel.Size = new Size(488, 472);
+            _annPanel.Size = new Size(488, 557);
             _annPanel.TabIndex = 0;
             // 
             // frmLayerPropertyManager
@@ -1134,7 +1134,8 @@ namespace Land_Readjustment_Tool.UI.Forms
             AutoScaleMode = AutoScaleMode.None;
             BackColor = Color.White;
             CancelButton = _btnCancel;
-            ClientSize = new Size(544, 535);
+            ClientSize = new Size(544, 620);
+            MinimumSize = new Size(560, 659);
             Controls.Add(_footerPanel);
             Controls.Add(_tabs);
             FormBorderStyle = FormBorderStyle.FixedDialog;

@@ -20,6 +20,7 @@ namespace Land_Readjustment_Tool.Services.Project
             await EnsureProjectSettingsColumnsAsync(context, ct);
             await EnsureCanvasLayerColumnsAsync(context, ct);
             await EnsureCanvasObjectColumnsAsync(context, ct);
+            await EnsureBlockColumnsAsync(context, ct);
         }
 
         private static async Task EnsureProjectSettingsColumnsAsync(
@@ -113,6 +114,26 @@ namespace Land_Readjustment_Tool.Services.Project
             {
                 await context.Database.ExecuteSqlRawAsync(
                     "ALTER TABLE tblCanvasObjects ADD COLUMN GeometryMetadataJson TEXT NULL;",
+                    ct);
+            }
+        }
+
+        private static async Task EnsureBlockColumnsAsync(
+            AppDbContext context,
+            CancellationToken ct)
+        {
+            HashSet<string> columns = await ReadTableColumnsAsync(
+                context,
+                "tblBlocks",
+                ct);
+
+            if (columns.Count == 0)
+                return;
+
+            if (!columns.Contains("BlockLength"))
+            {
+                await context.Database.ExecuteSqlRawAsync(
+                    "ALTER TABLE tblBlocks ADD COLUMN BlockLength REAL NOT NULL DEFAULT 0;",
                     ct);
             }
         }

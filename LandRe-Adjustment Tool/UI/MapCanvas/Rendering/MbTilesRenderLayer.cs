@@ -73,7 +73,7 @@ namespace Land_Readjustment_Tool.UI.MapCanvas.Rendering
             LayerId = layer.Id;
             Name = layer.Name;
             FilePath = filePath;
-            Transparency = Math.Clamp(layer.FillTransparency, 0, 100);
+            Transparency = 0;
             IsVisible = layer.IsVisible;
             WorldBounds = worldBounds;
             _connection = connection;
@@ -257,7 +257,7 @@ namespace Land_Readjustment_Tool.UI.MapCanvas.Rendering
             lock (_renderSync)
             {
                 IsVisible = isVisible;
-                Transparency = Math.Clamp(transparency, 0, 100);
+                Transparency = 0;
                 UpdateOpacityAttributes();
             }
         }

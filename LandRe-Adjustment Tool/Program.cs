@@ -238,6 +238,7 @@ namespace Land_Readjustment_Tool
             services.AddSingleton<IBoundaryReaderFactory, BoundaryReaderFactory>();
             services.AddSingleton<IBoundaryImportService, BoundaryImportService>();
             services.AddSingleton<ICadastralImportService, CadastralImportService>();
+            services.AddSingleton<IExternalLayerImportService, ExternalLayerImportService>();
             services.AddSingleton<IProjectBoundaryAssignmentService, ProjectBoundaryAssignmentService>();
             services.AddSingleton<ICadastralRecordAssignmentService, CadastralRecordAssignmentService>();
             services.AddSingleton<RasterImportFileManagementService>();

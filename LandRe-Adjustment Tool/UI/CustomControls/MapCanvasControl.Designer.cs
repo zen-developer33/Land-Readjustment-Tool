@@ -20,6 +20,10 @@ namespace Land_Readjustment_Tool.UI.CustomControls
                 _renderer?.Dispose();
                 _activeTextEditor?.Dispose();
                 _panCursor?.Dispose();
+                _selectionCursor?.Dispose();
+                _zoomInCursor?.Dispose();
+                _zoomOutCursor?.Dispose();
+                _zoomWindowCursor?.Dispose();
                 _debugOverlayFont?.Dispose();
                 _compositePanBitmap?.Dispose();
                 _movePreviewBitmap?.Dispose();

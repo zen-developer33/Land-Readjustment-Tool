@@ -10,6 +10,7 @@ using NetTopologySuite.IO;
 using OSGeo.OGR;
 using OSGeo.OSR;
 using CSMath;
+using AcadArc = ACadSharp.Entities.Arc;
 using AcadCircle = ACadSharp.Entities.Circle;
 using AcadEntity = ACadSharp.Entities.Entity;
 using AcadInsert = ACadSharp.Entities.Insert;
@@ -85,6 +86,16 @@ namespace Land_Readjustment_Tool.Services.Import.Readers
             foreach (Line line in dxf.Entities.Lines)
             {
                 GetStats(stats, line.Layer?.Name).LineCount++;
+            }
+
+            foreach (Arc arc in dxf.Entities.Arcs)
+            {
+                GetStats(stats, arc.Layer?.Name).PolylineCount++;
+            }
+
+            foreach (Circle circle in dxf.Entities.Circles)
+            {
+                GetStats(stats, circle.Layer?.Name).PolylineCount++;
             }
 
             foreach (netDxf.Entities.Point point in dxf.Entities.Points)
@@ -349,8 +360,9 @@ namespace Land_Readjustment_Tool.Services.Import.Readers
                         else
                             layerStats.PolylineCount++;
                         break;
+                    case AcadArc:
                     case AcadCircle:
-                        layerStats.PolygonCount++;
+                        layerStats.PolylineCount++;
                         break;
                     case AcadLine:
                         layerStats.LineCount++;

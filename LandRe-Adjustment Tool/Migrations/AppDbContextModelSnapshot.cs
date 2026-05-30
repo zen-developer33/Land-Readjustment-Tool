@@ -896,6 +896,9 @@ namespace Land_Readjustment_Tool.Migrations
                     b.Property<string>("BlockLandUse")
                         .HasColumnType("TEXT");
 
+                    b.Property<float>("BlockLength")
+                        .HasColumnType("REAL");
+
                     b.Property<string>("BlockName")
                         .IsRequired()
                         .HasColumnType("TEXT");

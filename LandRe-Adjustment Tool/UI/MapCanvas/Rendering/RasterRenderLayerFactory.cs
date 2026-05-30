@@ -84,7 +84,7 @@ namespace Land_Readjustment_Tool.UI.MapCanvas.Rendering
                 LayerType = sourceLayer.LayerType,
                 SourceFile = sourceFile,
                 IsVisible = sourceLayer.IsVisible,
-                FillTransparency = sourceLayer.FillTransparency,
+                FillTransparency = 0,
                 DisplayOrder = sourceLayer.DisplayOrder
             };
         }

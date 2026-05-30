@@ -293,15 +293,17 @@ namespace Land_Readjustment_Tool.UI.MapCanvas.Services
             string? labelText,
             string? metadataJson)
         {
-            if (!string.IsNullOrWhiteSpace(metadataJson) &&
-                TryCreatePolylineFromMetadata(metadataJson, out PolylineShape? polylineFromMetadata))
+            string? curveMetadataJson = ExtractCurveMetadataJson(metadataJson) ?? metadataJson;
+
+            if (!string.IsNullOrWhiteSpace(curveMetadataJson) &&
+                TryCreatePolylineFromMetadata(curveMetadataJson, out PolylineShape? polylineFromMetadata))
             {
                 return polylineFromMetadata;
             }
 
             if (objectType.Equals("Circle", StringComparison.OrdinalIgnoreCase))
             {
-                if (TryCreateCircleFromMetadata(metadataJson, out CircleShape? circle))
+                if (TryCreateCircleFromMetadata(curveMetadataJson, out CircleShape? circle))
                 {
                     return circle;
                 }
@@ -313,7 +315,7 @@ namespace Land_Readjustment_Tool.UI.MapCanvas.Services
             }
 
             if (objectType.Equals("Arc", StringComparison.OrdinalIgnoreCase) &&
-                (TryCreateArcFromMetadata(metadataJson, out ArcShape? arc) ||
+                (TryCreateArcFromMetadata(curveMetadataJson, out ArcShape? arc) ||
                  TryCreateArcFromApproximatedGeometry(geometry, out arc)))
             {
                 return arc;
@@ -321,7 +323,7 @@ namespace Land_Readjustment_Tool.UI.MapCanvas.Services
 
             if ((objectType.Equals("Polyline", StringComparison.OrdinalIgnoreCase) ||
                  objectType.Equals("Polygon", StringComparison.OrdinalIgnoreCase)) &&
-                TryCreatePolylineFromMetadata(metadataJson, out PolylineShape? polyline))
+                TryCreatePolylineFromMetadata(curveMetadataJson, out PolylineShape? polyline))
             {
                 return polyline;
             }
@@ -639,6 +641,43 @@ namespace Land_Readjustment_Tool.UI.MapCanvas.Services
             {
                 return false;
             }
+        }
+
+        private static string? ExtractCurveMetadataJson(string? metadataJson)
+        {
+            if (string.IsNullOrWhiteSpace(metadataJson))
+            {
+                return null;
+            }
+
+            try
+            {
+                using JsonDocument document = JsonDocument.Parse(metadataJson);
+                JsonElement root = document.RootElement;
+                if (root.ValueKind != JsonValueKind.Object)
+                {
+                    return null;
+                }
+
+                if (root.TryGetProperty("curveMetadataJson", out JsonElement curveProperty) &&
+                    curveProperty.ValueKind == JsonValueKind.String)
+                {
+                    string? curveJson = curveProperty.GetString();
+                    return string.IsNullOrWhiteSpace(curveJson) ? null : curveJson;
+                }
+
+                if (root.TryGetProperty("curve", out JsonElement curveObject) &&
+                    curveObject.ValueKind == JsonValueKind.Object)
+                {
+                    return curveObject.GetRawText();
+                }
+            }
+            catch
+            {
+                return null;
+            }
+
+            return null;
         }
 
         private static bool TryCreateArcFromMetadata(

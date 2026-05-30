@@ -161,6 +161,7 @@ namespace Land_Readjustment_Tool.UI.MapCanvas.Rendering
 
             List<CanvasFeature> orderedFeatures = queriedFeatures
                 .OrderBy(GetDrawingMarkupRenderPass)
+                .ThenBy(GetProjectBoundaryRenderPass)
                 .ThenBy(GetDisplayOrder)
                 .ThenBy(f => f.CanvasObject.Id)
                 .ToList();
@@ -417,6 +418,12 @@ namespace Land_Readjustment_Tool.UI.MapCanvas.Rendering
         {
             CanvasLayer? layer = ResolveLayer(feature);
             return layer != null && CanvasLayerTreeService.IsDrawingMarkupLayer(layer) ? 1 : 0;
+        }
+
+        private int GetProjectBoundaryRenderPass(CanvasFeature feature)
+        {
+            CanvasLayer? layer = ResolveLayer(feature);
+            return layer != null && CanvasLayerTreeService.IsProjectBoundaryLayer(layer) ? 1 : 0;
         }
 
         private int GetDisplayOrder(CanvasFeature feature) =>

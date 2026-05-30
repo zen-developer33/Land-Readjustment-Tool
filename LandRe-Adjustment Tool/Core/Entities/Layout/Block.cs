@@ -17,8 +17,10 @@ namespace Land_Readjustment_Tool.Core.Entities.Layout
         public string? BlockCode { get; set; }
 
         [Required]
-        public float BlockDepth { get; set; } 
-        
+        public float BlockDepth { get; set; }
+
+        public float BlockLength { get; set; }
+
         public string? BlockLandUse { get; set; }//commercial, residential, mixed-use, etc.
 
         public double BlockArea { get; set; }

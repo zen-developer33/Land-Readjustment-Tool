@@ -54,7 +54,7 @@ namespace Land_Readjustment_Tool.UI.MapCanvas.Rendering
             _inverseGeoTransform = [.. inverseGeoTransform];
             SourceWidth = dataset.RasterXSize;
             SourceHeight = dataset.RasterYSize;
-            Transparency = Math.Clamp(transparency, 0, 100);
+            Transparency = 0;
             IsVisible = true;
             _bandSelection = ResolveBandSelection(dataset);
             _tileDiskCache = RasterTileDiskCache.Create(
@@ -198,7 +198,7 @@ namespace Land_Readjustment_Tool.UI.MapCanvas.Rendering
             lock (_renderSync)
             {
                 IsVisible = isVisible;
-                Transparency = Math.Clamp(transparency, 0, 100);
+                Transparency = 0;
                 UpdateOpacityAttributes();
             }
         }

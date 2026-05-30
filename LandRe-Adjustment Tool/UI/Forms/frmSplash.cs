@@ -46,7 +46,7 @@ namespace Land_Readjustment_Tool.UI.Forms
             var accentBar = new Panel
             {
                 BackColor = Color.FromArgb(108, 135, 126),
-                Location = new Point(407, 102),
+                Location = new Point(CenterX(146), 102),
                 Size = new Size(146, 3)
             };
 
@@ -55,7 +55,7 @@ namespace Land_Readjustment_Tool.UI.Forms
                 BackColor = Color.Transparent,
                 Font = new Font("Georgia", 31F, FontStyle.Bold, GraphicsUnit.Point),
                 ForeColor = Color.FromArgb(45, 63, 60),
-                Location = new Point(188, 116),
+                Location = new Point(CenterX(584), 116),
                 Size = new Size(584, 64),
                 Text = "RePlot",
                 TextAlign = ContentAlignment.MiddleCenter
@@ -66,7 +66,7 @@ namespace Land_Readjustment_Tool.UI.Forms
                 BackColor = Color.Transparent,
                 Font = new Font("Segoe UI", 11F, FontStyle.Regular, GraphicsUnit.Point),
                 ForeColor = Color.FromArgb(92, 102, 92),
-                Location = new Point(192, 184),
+                Location = new Point(CenterX(576), 184),
                 Size = new Size(576, 36),
                 Text = "A Professional Land Readjustment WorkSpace",
                 TextAlign = ContentAlignment.MiddleCenter
@@ -77,7 +77,7 @@ namespace Land_Readjustment_Tool.UI.Forms
                 BackColor = Color.Transparent,
                 Font = new Font("Segoe UI Semibold", 11F, FontStyle.Regular, GraphicsUnit.Point),
                 ForeColor = Color.FromArgb(58, 92, 88),
-                Location = new Point(330, 282),
+                Location = new Point(CenterX(300), 282),
                 Size = new Size(300, 28),
                 Text = "Starting...",
                 TextAlign = ContentAlignment.MiddleCenter
@@ -86,7 +86,7 @@ namespace Land_Readjustment_Tool.UI.Forms
             _progressBar = new ParcelProgressBar
             {
                 BackColor = Color.Transparent,
-                Location = new Point(270, 326),
+                Location = new Point(CenterX(420), 326),
                 Size = new Size(420, 15)
             };
 
@@ -152,6 +152,11 @@ namespace Land_Readjustment_Tool.UI.Forms
             using var stream = File.OpenRead(imagePath);
             using var image = Image.FromStream(stream);
             return new Bitmap(image);
+        }
+
+        private static int CenterX(int width)
+        {
+            return (SplashSize.Width - width) / 2;
         }
 
         private void frmSplash_Load(object sender, EventArgs e)

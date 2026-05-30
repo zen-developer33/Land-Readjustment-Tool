@@ -22,6 +22,21 @@ using NtsPrecisionModel = NetTopologySuite.Geometries.PrecisionModel;
 
 namespace Land_Readjustment_Tool.UI.CustomControls
 {
+    public sealed class CanvasCreateFeaturesMenuOpeningEventArgs : EventArgs
+    {
+        public CanvasCreateFeaturesMenuOpeningEventArgs(
+            IReadOnlyList<Guid> selectedObjectIds,
+            ToolStripMenuItem menuItem)
+        {
+            SelectedObjectIds = selectedObjectIds;
+            MenuItem = menuItem;
+        }
+
+        public IReadOnlyList<Guid> SelectedObjectIds { get; }
+
+        public ToolStripMenuItem MenuItem { get; }
+    }
+
     public partial class MapCanvasControl : UserControl
     {
         private enum ArcDrawingMode
@@ -106,6 +121,7 @@ namespace Land_Readjustment_Tool.UI.CustomControls
         public event Action<IReadOnlyList<Guid>>? SelectedObjectsDeleteRequested;
         public event Action? SelectedObjectsAssignParcelDataRequested;
         public event Action<IReadOnlyList<Guid>>? SelectedCanvasObjectsChanged;
+        public event EventHandler<CanvasCreateFeaturesMenuOpeningEventArgs>? SelectedObjectsCreateFeaturesMenuOpening;
 
         private bool _panToolActive;
         private bool _isPanning;
@@ -152,6 +168,7 @@ namespace Land_Readjustment_Tool.UI.CustomControls
         private double _lastSnapQueryElapsedMs;
         private MapCanvasTool _activeTool = MapCanvasTool.Select;
         private ArcDrawingMode _arcDrawingMode = ArcDrawingMode.ThreePoint;
+        private bool _centerStartEndArcClockwise;
         private CircleDrawingMode _circleDrawingMode = CircleDrawingMode.CenterRadius;
         private PolylineSegmentDrawingMode _polylineSegmentMode = PolylineSegmentDrawingMode.Line;
         private bool _polylineArcAwaitingCenter;
@@ -162,6 +179,7 @@ namespace Land_Readjustment_Tool.UI.CustomControls
         private readonly List<PolylineShape.PolylineSegment> _drawingSegments = new List<PolylineShape.PolylineSegment>();
         private List<CanvasFeature> _vectorFeatures = new List<CanvasFeature>();
         private List<CanvasLayer> _vectorLayers = new List<CanvasLayer>();
+        private HashSet<IShape> _nonSolidExternalLayerShapes = new(ReferenceEqualityComparer.Instance);
         private readonly HashSet<Guid> _selectedShapeIds = new HashSet<Guid>();
         private bool _isSelectingObjects;
         private Point _objectSelectionStart;
@@ -173,11 +191,16 @@ namespace Land_Readjustment_Tool.UI.CustomControls
         private string _activeDrawingLayerName = "Features";
         private CanvasLayer? _activeDrawingLayer;
         private Cursor? _panCursor;
+        private Cursor? _selectionCursor;
+        private Cursor? _zoomInCursor;
+        private Cursor? _zoomOutCursor;
+        private Cursor? _zoomWindowCursor;
         private readonly ContextMenuStrip _objectSelectionContextMenu = new();
         private readonly ContextMenuStrip _drawingOptionsContextMenu = new();
         private readonly ToolStripMenuItem _mnuAssignParcelData = new("Assign Parcel Data...");
         private readonly ToolStripMenuItem _mnuDeleteSelectedObjects = new("Delete Selected Object(s)");
         private readonly ToolStripMenuItem _mnuEditText = new("Edit Text");
+        private readonly ToolStripMenuItem _mnuCreateFeaturesFromSelection = new("Create Features...");
         private readonly ToolStripMenuItem _mnuMoveSelectedObjects = new("Move (Reference → Destination)");
         private MoveOperation? _activeMoveOperation;
         private Bitmap? _movePreviewBitmap;
@@ -215,6 +238,7 @@ namespace Land_Readjustment_Tool.UI.CustomControls
             _objectSelectionContextMenu.Items.Add(new ToolStripSeparator());
             _objectSelectionContextMenu.Items.Add(_mnuMoveSelectedObjects);
             _objectSelectionContextMenu.Items.Add(_mnuAssignParcelData);
+            _objectSelectionContextMenu.Items.Add(_mnuCreateFeaturesFromSelection);
             _objectSelectionContextMenu.Items.Add(new ToolStripSeparator());
             _objectSelectionContextMenu.Items.Add(_mnuDeleteSelectedObjects);
             _drawingOptionsContextMenu.Closed += (_, _) => canvasSurface.Focus();
@@ -478,6 +502,7 @@ namespace Land_Readjustment_Tool.UI.CustomControls
             RefreshActiveDrawingLayer(vectorLayers);
             PruneSelectionToSelectableFeatures();
             UpdateWorldBounds();
+            RebuildNonSolidExternalLayerShapes();
             RefreshVectorCacheForCurrentViewAsync();
             RequestRender();
         }
@@ -494,6 +519,7 @@ namespace Land_Readjustment_Tool.UI.CustomControls
             }
 
             PruneSelectionToSelectableFeatures();
+            RebuildNonSolidExternalLayerShapes();
             RefreshVectorCacheForCurrentViewAsync();
             RequestRender();
         }
@@ -546,6 +572,7 @@ namespace Land_Readjustment_Tool.UI.CustomControls
 
             _renderer.UpdateVectorFeatures(_vectorFeatures);
             UpdateWorldBounds();
+            RebuildNonSolidExternalLayerShapes();
             EnsureVectorZoomSnapshot();
             _holdVectorZoomFrameUntilRefresh = true;
             RefreshVectorCacheForCurrentViewAsync();
@@ -638,6 +665,7 @@ namespace Land_Readjustment_Tool.UI.CustomControls
             CanvasLayer? layer,
             string? layerName)
         {
+            bool toolChanged = _activeTool != tool;
             _activeTool = tool;
             _panToolActive = false;
             _zoomWindowActive = false;
@@ -648,6 +676,9 @@ namespace Land_Readjustment_Tool.UI.CustomControls
             CancelActiveTextEditor();
             _drawingVertices.Clear();
             _previewShape = null;
+
+            if (toolChanged && tool != MapCanvasTool.Select)
+                ClearSelectedObjects();
 
             if (layer != null)
             {
@@ -1760,7 +1791,11 @@ namespace Land_Readjustment_Tool.UI.CustomControls
             }
 
             ArcShape? arc = _arcDrawingMode == ArcDrawingMode.CenterStartEnd
-                ? ArcShape.FromCenterStartEnd(_drawingVertices[0], _drawingVertices[1], _drawingVertices[2])
+                ? ArcShape.FromCenterStartEnd(
+                    _drawingVertices[0],
+                    _drawingVertices[1],
+                    _drawingVertices[2],
+                    _centerStartEndArcClockwise)
                 : ArcShape.FromThreePoints(_drawingVertices[0], _drawingVertices[1], _drawingVertices[2]);
             CompleteShape(arc);
         }
@@ -2101,7 +2136,8 @@ namespace Land_Readjustment_Tool.UI.CustomControls
             int measuredWidth = TextRenderer.MeasureText(
                 string.IsNullOrEmpty(_activeTextEditor.Text) ? "WWWWWWW" : _activeTextEditor.Text,
                 _activeTextEditor.Font).Width + 20;
-            int width = Math.Clamp(measuredWidth, scaledMinWidth, 1600);
+            int maxEditorWidth = Math.Max(scaledMinWidth, 1600);
+            int width = Math.Clamp(measuredWidth, scaledMinWidth, maxEditorWidth);
             int height = Math.Max(24, _activeTextEditor.Font.Height + 10);
             Point anchorScreen = _activeTextAnchorWorld.HasValue
                 ? ToScreenPoint(_activeTextAnchorWorld.Value)
@@ -2261,6 +2297,13 @@ namespace Land_Readjustment_Tool.UI.CustomControls
                     AddSectionHeader("Creation Method");
                     AddDrawingOption("3 Point Arc", _arcDrawingMode == ArcDrawingMode.ThreePoint, () => SetArcDrawingMode(ArcDrawingMode.ThreePoint));
                     AddDrawingOption("Center, Start, End", _arcDrawingMode == ArcDrawingMode.CenterStartEnd, () => SetArcDrawingMode(ArcDrawingMode.CenterStartEnd));
+                    if (_arcDrawingMode == ArcDrawingMode.CenterStartEnd)
+                    {
+                        _drawingOptionsContextMenu.Items.Add(new ToolStripSeparator());
+                        AddSectionHeader("Arc Direction");
+                        AddDrawingOption("CCW", !_centerStartEndArcClockwise, () => SetCenterStartEndArcDirection(clockwise: false));
+                        AddDrawingOption("CW", _centerStartEndArcClockwise, () => SetCenterStartEndArcDirection(clockwise: true));
+                    }
                     break;
 
                 case MapCanvasTool.Circle:
@@ -2383,6 +2426,12 @@ namespace Land_Readjustment_Tool.UI.CustomControls
             {
                 RequestRender();
             }
+        }
+
+        private void SetCenterStartEndArcDirection(bool clockwise)
+        {
+            _centerStartEndArcClockwise = clockwise;
+            RefreshDrawingPreviewFromCursor();
         }
 
         private void SetCircleDrawingMode(CircleDrawingMode mode)
@@ -2815,7 +2864,8 @@ namespace Land_Readjustment_Tool.UI.CustomControls
                 >= 2 when _arcDrawingMode == ArcDrawingMode.CenterStartEnd => ArcShape.FromCenterStartEnd(
                     _drawingVertices[0],
                     _drawingVertices[1],
-                    worldPoint),
+                    worldPoint,
+                    _centerStartEndArcClockwise),
                 >= 2 => ArcShape.FromThreePoints(
                     _drawingVertices[0],
                     _drawingVertices[1],
@@ -3066,15 +3116,35 @@ namespace Land_Readjustment_Tool.UI.CustomControls
                 .Take(250)
                 .ToList();
 
-            // During grip editing, snap only to other visible objects. The edited shapes are
-            // drawn as an overlay and must not feed their original or preview geometry back
-            // into snapping; otherwise the grip can capture itself while it is being dragged.
+            // When grip editing, exclude original edited shapes and use only preview shapes
+            // to avoid duplicate/conflicting snap candidates from both versions. The preview
+            // keeps every non-active grip on the edited object available for snapping.
             if (_activeGripEdit != null)
             {
+                // Remove the original edited shape from candidates (we'll add the preview).
                 nearbyShapes.RemoveAll(s => ReferenceEquals(s, _activeGripEdit.Grip.Shape));
+
+                // Remove any linked edited shapes.
                 foreach (var linkedEdit in _activeGripEdit.LinkedEdits)
                 {
                     nearbyShapes.RemoveAll(s => ReferenceEquals(s, linkedEdit.Grip.Shape));
+                }
+
+                // Add the preview shape if it intersects the query area.
+                if (ShapeIntersectsWorldQuery(_activeGripEdit.PreviewShape, worldQuery) &&
+                    !nearbyShapes.Any(s => ReferenceEquals(s, _activeGripEdit.PreviewShape)))
+                {
+                    nearbyShapes.Add(_activeGripEdit.PreviewShape);
+                }
+
+                // Add linked edited preview shapes if they intersect the query area.
+                foreach (var linkedEdit in _activeGripEdit.LinkedEdits)
+                {
+                    if (ShapeIntersectsWorldQuery(linkedEdit.PreviewShape, worldQuery) &&
+                        !nearbyShapes.Any(s => ReferenceEquals(s, linkedEdit.PreviewShape)))
+                    {
+                        nearbyShapes.Add(linkedEdit.PreviewShape);
+                    }
                 }
             }
 
@@ -3087,6 +3157,7 @@ namespace Land_Readjustment_Tool.UI.CustomControls
                 .Where(snapPoint => ScreenQueryContainsSnapPoint(screenQuery, snapPoint))
                 .Where(snapPoint => !IsSuppressedPreviewSnapPoint(snapPoint))
                 .Where(snapPoint => !IsActiveGripSnapPoint(snapPoint))
+                .Where(snapPoint => !IsNonSolidExternalLayerEndpointOrMidpoint(snapPoint))
                 .ToList();
 
             _currentSnapPoint = _snapManager.FindNearestSnapPointFromList(
@@ -3190,11 +3261,12 @@ namespace Land_Readjustment_Tool.UI.CustomControls
 
         private bool IsSuppressedPreviewSnapPoint(SnapPoint snapPoint)
         {
-            // Grip-edit preview geometry is never a snap source. This keeps the live edited
-            // shape from capturing its own grips while the user is dragging.
+            // Grip-edit previews contribute snap points so the dragged grip can snap onto
+            // other endpoints/midpoints/centers/quadrants of the same edited object. The
+            // single active handle is filtered separately by IsActiveGripSnapPoint.
             if (IsGripEditPreviewShape(snapPoint.ParentShape))
             {
-                return true;
+                return false;
             }
 
             return _activeTool == MapCanvasTool.Circle &&
@@ -3304,8 +3376,10 @@ namespace Land_Readjustment_Tool.UI.CustomControls
             {
                 if (snapPoint.Type != SnapType.Endpoint)
                     return false;
+
                 PointD draggedPos = grip.VertexIndex == 0 ? ln.Start : ln.End;
-                return IsSameWorldPoint(snapPoint.Position, draggedPos);
+                return IsSameWorldPoint(snapPoint.Position, draggedPos) &&
+                       !HasCoincidentSnapPointAtHandle(previewShape, draggedPos);
             }
 
             // For other grip kinds (segment midpoint, arc midpoint, circle/ellipse handles, etc.),
@@ -3323,7 +3397,29 @@ namespace Land_Readjustment_Tool.UI.CustomControls
                 SegmentIndex = grip.SegmentIndex,
                 AuxiliaryIndex = grip.AuxiliaryIndex
             });
-            return handlePos.HasValue && IsSameWorldPoint(snapPoint.Position, handlePos.Value);
+            return handlePos.HasValue &&
+                   IsSameWorldPoint(snapPoint.Position, handlePos.Value) &&
+                   !HasCoincidentSnapPointAtHandle(previewShape, handlePos.Value);
+        }
+
+        private static bool HasCoincidentSnapPointAtHandle(IShape previewShape, PointD handlePosition)
+        {
+            int coincidentCount = 0;
+            foreach (SnapPoint candidate in previewShape.GetSnapPoints())
+            {
+                if (!IsSameWorldPoint(candidate.Position, handlePosition))
+                {
+                    continue;
+                }
+
+                coincidentCount++;
+                if (coincidentCount > 1)
+                {
+                    return true;
+                }
+            }
+
+            return false;
         }
 
         private static bool IsSameWorldPoint(PointD a, PointD b)
@@ -3532,6 +3628,28 @@ namespace Land_Readjustment_Tool.UI.CustomControls
                    feature.CanvasObject.IsVisible &&
                    layer?.IsVisible == true &&
                    !IsActiveGripEditedShape(feature.Shape);
+        }
+
+        private bool IsNonSolidExternalLayerEndpointOrMidpoint(SnapPoint snapPoint) =>
+            snapPoint.ParentShape != null &&
+            (snapPoint.Type == SnapType.Endpoint || snapPoint.Type == SnapType.Midpoint) &&
+            _nonSolidExternalLayerShapes.Contains(snapPoint.ParentShape);
+
+        private void RebuildNonSolidExternalLayerShapes()
+        {
+            HashSet<IShape> shapes = new();
+            foreach (CanvasFeature feature in _vectorFeatures)
+            {
+                CanvasLayer? layer = ResolveFeatureLayer(feature);
+                if (layer != null &&
+                    CanvasLayerTreeService.IsExternalImportedLayer(layer) &&
+                    !string.Equals(layer.LineStyle, "Solid", StringComparison.OrdinalIgnoreCase))
+                {
+                    shapes.Add(feature.Shape);
+                }
+            }
+
+            _nonSolidExternalLayerShapes = shapes;
         }
 
         private static bool ShapeIntersectsWorldQuery(IShape shape, RectangleD worldQuery)
@@ -5137,9 +5255,14 @@ namespace Land_Readjustment_Tool.UI.CustomControls
             RectangleD worldRectangle = CreateWorldRectangle(selectionRectangle);
             List<CanvasFeature> selectedFeatures = _vectorFeatures
                 .Where(IsSelectableDrawingFeature)
-                .Where(feature => isWindowSelection
-                    ? ContainsSelectionGeometry(worldRectangle, feature.Shape)
-                    : IntersectsSelectionRectangle(worldRectangle, feature.Shape))
+                .Where(feature => feature.Shape is TextShape textShape
+                    ? IsTextShapeSelectedByScreenRectangle(
+                        textShape,
+                        selectionRectangle,
+                        requireContained: isWindowSelection)
+                    : isWindowSelection
+                        ? ContainsSelectionGeometry(worldRectangle, feature.Shape)
+                        : IntersectsSelectionRectangle(worldRectangle, feature.Shape))
                 .ToList();
 
             if (additiveSelection)
@@ -5183,6 +5306,34 @@ namespace Land_Readjustment_Tool.UI.CustomControls
             NotifySelectedCanvasObjectsChanged();
         }
 
+        private static bool IsTextShapeSelectedByScreenRectangle(
+            TextShape textShape,
+            Rectangle selectionRectangle,
+            bool requireContained)
+        {
+            if (!textShape.LastRenderedBounds.HasValue)
+            {
+                return false;
+            }
+
+            RectangleF textBounds = textShape.LastRenderedBounds.Value;
+            if (textBounds.Width <= 0f || textBounds.Height <= 0f)
+            {
+                return false;
+            }
+
+            textBounds.Inflate(2f, 2f);
+            RectangleF selectionBounds = new(
+                selectionRectangle.Left,
+                selectionRectangle.Top,
+                selectionRectangle.Width,
+                selectionRectangle.Height);
+
+            return requireContained
+                ? selectionBounds.Contains(textBounds)
+                : selectionBounds.IntersectsWith(textBounds);
+        }
+
         private CanvasFeature? FindClickHitFeature(PointD worldPoint, double toleranceWorld)
         {
             NtsGeometry pickPoint = SelectionGeometryFactory.CreatePoint(
@@ -5192,20 +5343,24 @@ namespace Land_Readjustment_Tool.UI.CustomControls
             // stacking: markup layers > data layers, higher DisplayOrder > lower, then by Id.
             List<(CanvasFeature Feature, NtsGeometry Geometry)> candidates = _vectorFeatures
                 .Where(IsSelectableDrawingFeature)
+                .Where(feature => feature.Shape is not TextShape)
                 .OrderByDescending(GetSelectionRenderPass)
+                .ThenByDescending(GetSelectionPickPriority)
                 .ThenByDescending(GetSelectionDisplayOrder)
                 .ThenByDescending(f => f.CanvasObject.Id)
                 .Select(feature => (Feature: feature, Geometry: CreateSelectionGeometry(feature.Shape)))
                 .Where(candidate => !candidate.Geometry.IsEmpty)
                 .ToList();
 
-            // Exact hit: point lies inside a cadastral polygon.
+            // Exact hit: point lies inside an inspectable data polygon.
             // Topmost-rendered layer wins; within the same layer the smallest polygon
             // (most spatially specific) is preferred.
             CanvasFeature? exactHit = candidates
-                .Where(candidate => IsSelectableImportedCadastralParcel(candidate.Feature) &&
+                .Where(candidate => UsesAreaClickSelection(candidate.Feature) &&
+                                    !IsProjectBoundaryFeature(candidate.Feature) &&
                                     candidate.Geometry.Covers(pickPoint))
                 .OrderByDescending(candidate => GetSelectionRenderPass(candidate.Feature))
+                .ThenByDescending(candidate => GetSelectionPickPriority(candidate.Feature))
                 .ThenByDescending(candidate => GetSelectionDisplayOrder(candidate.Feature))
                 .ThenBy(candidate => GetSelectionGeometryPickArea(candidate.Geometry))
                 .Select(candidate => candidate.Feature)
@@ -5232,6 +5387,7 @@ namespace Land_Readjustment_Tool.UI.CustomControls
                 .Where(candidate => candidate.Distance <= toleranceWorld)
                 .OrderBy(candidate => candidate.Distance)
                 .ThenByDescending(candidate => GetSelectionRenderPass(candidate.Feature))
+                .ThenByDescending(candidate => GetSelectionPickPriority(candidate.Feature))
                 .ThenByDescending(candidate => GetSelectionDisplayOrder(candidate.Feature))
                 .ThenBy(candidate => GetSelectionGeometryPickArea(candidate.Geometry))
                 .Select(candidate => candidate.Feature)
@@ -5244,12 +5400,52 @@ namespace Land_Readjustment_Tool.UI.CustomControls
             return layer != null && CanvasLayerTreeService.IsDrawingMarkupLayer(layer) ? 1 : 0;
         }
 
+        private int GetSelectionPickPriority(CanvasFeature feature)
+        {
+            CanvasLayer? layer = ResolveFeatureLayer(feature);
+            if (layer == null)
+                return 0;
+
+            if (IsReplottedParcelPickLayer(layer))
+                return 30;
+
+            if (string.Equals(layer.LayerType, "Block", StringComparison.OrdinalIgnoreCase))
+                return 20;
+
+            if (IsOriginalParcelPickLayer(layer, feature))
+                return 10;
+
+            return 0;
+        }
+
+        private static bool IsReplottedParcelPickLayer(CanvasLayer layer)
+        {
+            return layer.LayerType is not null &&
+                   (string.Equals(layer.LayerType, "ReplottedParcel", StringComparison.OrdinalIgnoreCase) ||
+                    string.Equals(layer.LayerType, "PrivateReplotParcel", StringComparison.OrdinalIgnoreCase) ||
+                    string.Equals(layer.LayerType, "PublicFacility", StringComparison.OrdinalIgnoreCase) ||
+                    string.Equals(layer.LayerType, "OpenSpace", StringComparison.OrdinalIgnoreCase) ||
+                    string.Equals(layer.LayerType, "ServiceSalesPlot", StringComparison.OrdinalIgnoreCase));
+        }
+
+        private static bool IsOriginalParcelPickLayer(CanvasLayer layer, CanvasFeature feature)
+        {
+            return IsSelectableImportedCadastralParcel(feature) ||
+                   string.Equals(layer.LayerType, "BaselineParcel", StringComparison.OrdinalIgnoreCase) ||
+                   string.Equals(layer.LayerType, "CadastralParcel", StringComparison.OrdinalIgnoreCase);
+        }
+
         private static int GetSelectionDisplayOrder(CanvasFeature feature) =>
             feature.Layer?.DisplayOrder ?? int.MinValue;
 
-        private static NtsGeometry CreateClickSelectionGeometry(CanvasFeature feature, NtsGeometry selectionGeometry)
+        private NtsGeometry CreateClickSelectionGeometry(CanvasFeature feature, NtsGeometry selectionGeometry)
         {
-            if (IsSelectableImportedCadastralParcel(feature) || selectionGeometry.Area <= 0)
+            if (IsProjectBoundaryFeature(feature) && selectionGeometry.Area > 0)
+            {
+                return selectionGeometry.Boundary;
+            }
+
+            if (UsesAreaClickSelection(feature) || selectionGeometry.Area <= 0)
             {
                 return selectionGeometry;
             }
@@ -5420,7 +5616,15 @@ namespace Land_Readjustment_Tool.UI.CustomControls
             if (_selectedShapeIds.Count == 0)
                 return;
 
-            SelectedObjectsDeleteRequested?.Invoke(_selectedShapeIds.ToArray());
+            Guid[] editableShapeIds = _vectorFeatures
+                .Where(feature => _selectedShapeIds.Contains(feature.Shape.Id) &&
+                                  IsEditableDrawingFeature(feature))
+                .Select(feature => feature.Shape.Id)
+                .ToArray();
+            if (editableShapeIds.Length == 0)
+                return;
+
+            SelectedObjectsDeleteRequested?.Invoke(editableShapeIds);
         }
 
         private void ObjectSelectionContextMenu_Opening(object? sender, CancelEventArgs e)
@@ -5432,12 +5636,90 @@ namespace Land_Readjustment_Tool.UI.CustomControls
             _mnuMoveSelectedObjects.Enabled = _activeMoveOperation == null &&
                                               _activeGripEdit == null &&
                                               SelectionContainsMovableObject();
+            ConfigureCreateFeaturesFromSelectionMenu();
+        }
+
+        private void ConfigureCreateFeaturesFromSelectionMenu()
+        {
+            _mnuCreateFeaturesFromSelection.DropDownItems.Clear();
+
+            IReadOnlyList<CanvasFeature> selectedDrawingFeatures = GetSelectedDrawingMarkupFeatures();
+            IReadOnlyList<Guid> selectedDrawingObjectIds = selectedDrawingFeatures
+                .Select(feature => feature.Shape.Id)
+                .Distinct()
+                .ToArray();
+            _mnuCreateFeaturesFromSelection.Visible = selectedDrawingObjectIds.Count > 0;
+            if (selectedDrawingObjectIds.Count == 0)
+            {
+                _mnuCreateFeaturesFromSelection.Enabled = false;
+                return;
+            }
+
+            if (SelectionContainsMixedCreateFeatureKinds(selectedDrawingFeatures))
+            {
+                _mnuCreateFeaturesFromSelection.DropDownItems.Add(new ToolStripMenuItem(
+                    "Select one drawing object type at a time")
+                {
+                    Enabled = false
+                });
+                _mnuCreateFeaturesFromSelection.Enabled = false;
+                return;
+            }
+
+            SelectedObjectsCreateFeaturesMenuOpening?.Invoke(
+                this,
+                new CanvasCreateFeaturesMenuOpeningEventArgs(
+                    selectedDrawingObjectIds,
+                    _mnuCreateFeaturesFromSelection));
+
+            _mnuCreateFeaturesFromSelection.Enabled = _mnuCreateFeaturesFromSelection.DropDownItems
+                .Cast<ToolStripItem>()
+                .Any(item => item.Enabled);
+        }
+
+        private IReadOnlyList<CanvasFeature> GetSelectedDrawingMarkupFeatures()
+        {
+            return _vectorFeatures
+                .Where(feature =>
+                    _selectedShapeIds.Contains(feature.Shape.Id) &&
+                    IsEditableDrawingFeature(feature))
+                .ToArray();
+        }
+
+        private static bool SelectionContainsMixedCreateFeatureKinds(
+            IReadOnlyList<CanvasFeature> selectedDrawingFeatures)
+        {
+            return selectedDrawingFeatures
+                .Select(GetCreateFeatureSelectionKind)
+                .Where(kind => !string.IsNullOrWhiteSpace(kind))
+                .Distinct(StringComparer.OrdinalIgnoreCase)
+                .Take(2)
+                .Count() > 1;
+        }
+
+        private static string GetCreateFeatureSelectionKind(CanvasFeature feature)
+        {
+            if (feature.Shape is TextShape)
+                return "Annotation";
+
+            return feature.CanvasObject.Shape.OgcGeometryType switch
+            {
+                NetTopologySuite.Geometries.OgcGeometryType.Point or
+                NetTopologySuite.Geometries.OgcGeometryType.MultiPoint => "Point",
+                NetTopologySuite.Geometries.OgcGeometryType.LineString or
+                NetTopologySuite.Geometries.OgcGeometryType.MultiLineString => "Polyline",
+                NetTopologySuite.Geometries.OgcGeometryType.Polygon or
+                NetTopologySuite.Geometries.OgcGeometryType.MultiPolygon => "Polygon",
+                _ => string.Empty
+            };
         }
 
         private bool SelectionContainsSingleTextShape(out CanvasFeature? textFeature)
         {
             var selected = _vectorFeatures
-                .Where(f => _selectedShapeIds.Contains(f.Shape.Id) && IsSelectableDrawingFeature(f))
+                .Where(f => _selectedShapeIds.Contains(f.Shape.Id) &&
+                            IsSelectableDrawingFeature(f) &&
+                            IsEditableDrawingFeature(f))
                 .ToList();
             if (selected.Count == 1 && selected[0].Shape is TextShape)
             {
@@ -5676,8 +5958,7 @@ namespace Land_Readjustment_Tool.UI.CustomControls
         {
             return _vectorFeatures.Any(feature =>
                 _selectedShapeIds.Contains(feature.Shape.Id) &&
-                IsSelectableDrawingFeature(feature) &&
-                ResolveFeatureLayer(feature)?.IsLocked != true);
+                IsEditableDrawingFeature(feature));
         }
 
         private bool SelectionContainsMovableObject()
@@ -5715,7 +5996,40 @@ namespace Land_Readjustment_Tool.UI.CustomControls
                    layer.IsSelectable &&
                    ((layer.IsLocked != true &&
                      CanvasLayerTreeService.IsDrawingMarkupLayer(layer)) ||
-                    IsSelectableImportedCadastralParcel(feature));
+                    IsSelectableImportedCadastralParcel(feature) ||
+                    IsSelectableRePlotDataFeature(feature));
+        }
+
+        private bool IsEditableDrawingFeature(CanvasFeature feature)
+        {
+            CanvasLayer? layer = ResolveFeatureLayer(feature);
+            return feature.Shape.IsVisible &&
+                   feature.CanvasObject.IsVisible &&
+                   layer?.IsVisible == true &&
+                   layer.IsSelectable &&
+                   layer.IsLocked != true &&
+                   CanvasLayerTreeService.IsDrawingMarkupLayer(layer);
+        }
+
+        private bool UsesAreaClickSelection(CanvasFeature feature)
+        {
+            return IsSelectableImportedCadastralParcel(feature) ||
+                   IsSelectableRePlotDataFeature(feature);
+        }
+
+        private bool IsProjectBoundaryFeature(CanvasFeature feature)
+        {
+            CanvasLayer? layer = ResolveFeatureLayer(feature);
+            return layer != null && CanvasLayerTreeService.IsProjectBoundaryLayer(layer);
+        }
+
+        private bool IsSelectableRePlotDataFeature(CanvasFeature feature)
+        {
+            CanvasLayer? layer = ResolveFeatureLayer(feature);
+            return layer != null &&
+                   CanvasLayerTreeService.IsRePlotDataLayer(layer) &&
+                   !CanvasLayerTreeService.IsDrawingMarkupLayer(layer) &&
+                   !string.Equals(layer.LayerType, CanvasLayerTreeService.RasterLayerType, StringComparison.OrdinalIgnoreCase);
         }
 
         private void PruneSelectionToSelectableFeatures()
@@ -6153,9 +6467,15 @@ namespace Land_Readjustment_Tool.UI.CustomControls
             {
                 canvasSurface.Cursor = GetPanCursor();
             }
+            else if (_isZooming)
+            {
+                canvasSurface.Cursor = string.Equals(_zoomDirection, "Out", StringComparison.OrdinalIgnoreCase)
+                    ? GetZoomOutCursor()
+                    : GetZoomInCursor();
+            }
             else if (_zoomWindowActive)
             {
-                canvasSurface.Cursor = Cursors.Cross;
+                canvasSurface.Cursor = GetZoomWindowCursor();
             }
             else if (_activeTool != MapCanvasTool.Select)
             {
@@ -6163,7 +6483,7 @@ namespace Land_Readjustment_Tool.UI.CustomControls
             }
             else
             {
-                canvasSurface.Cursor = Cursors.Default;
+                canvasSurface.Cursor = GetSelectionCursor();
             }
         }
 
@@ -6206,6 +6526,106 @@ namespace Land_Readjustment_Tool.UI.CustomControls
             }
 
             return Cursors.Hand;
+        }
+
+        private Cursor GetSelectionCursor()
+        {
+            if (_selectionCursor != null)
+                return _selectionCursor;
+
+            string[] candidatePaths =
+            [
+                Path.Combine(AppContext.BaseDirectory, "Resources", "Cursors", "selection.cur"),
+                Path.GetFullPath(Path.Combine(
+                    AppContext.BaseDirectory,
+                    "..",
+                    "..",
+                    "..",
+                    "Resources",
+                    "Cursors",
+                    "selection.cur"))
+            ];
+
+            foreach (string path in candidatePaths)
+            {
+                if (!File.Exists(path))
+                    continue;
+
+                try
+                {
+                    IntPtr cursorHandle = LoadCursorFromFile(path);
+                    if (cursorHandle != IntPtr.Zero)
+                    {
+                        _selectionCursor = new Cursor(cursorHandle);
+                        return _selectionCursor;
+                    }
+                }
+                catch
+                {
+                    break;
+                }
+            }
+
+            return Cursors.Default;
+        }
+
+        private Cursor GetZoomInCursor()
+        {
+            return GetCustomCursor(ref _zoomInCursor, "zoomin.cur", Cursors.Cross);
+        }
+
+        private Cursor GetZoomOutCursor()
+        {
+            return GetCustomCursor(ref _zoomOutCursor, "zoomout.cur", Cursors.Cross);
+        }
+
+        private Cursor GetZoomWindowCursor()
+        {
+            return GetCustomCursor(ref _zoomWindowCursor, "zoomwindow.cur", Cursors.Cross);
+        }
+
+        private Cursor GetCustomCursor(
+            ref Cursor? cachedCursor,
+            string fileName,
+            Cursor fallbackCursor)
+        {
+            if (cachedCursor != null)
+                return cachedCursor;
+
+            string[] candidatePaths =
+            [
+                Path.Combine(AppContext.BaseDirectory, "Resources", "Cursors", fileName),
+                Path.GetFullPath(Path.Combine(
+                    AppContext.BaseDirectory,
+                    "..",
+                    "..",
+                    "..",
+                    "Resources",
+                    "Cursors",
+                    fileName))
+            ];
+
+            foreach (string path in candidatePaths)
+            {
+                if (!File.Exists(path))
+                    continue;
+
+                try
+                {
+                    IntPtr cursorHandle = LoadCursorFromFile(path);
+                    if (cursorHandle != IntPtr.Zero)
+                    {
+                        cachedCursor = new Cursor(cursorHandle);
+                        return cachedCursor;
+                    }
+                }
+                catch
+                {
+                    break;
+                }
+            }
+
+            return fallbackCursor;
         }
 
         private void UpdateStatusBar()
@@ -6725,6 +7145,7 @@ namespace Land_Readjustment_Tool.UI.CustomControls
 
             _isZooming = true;
             _zoomDirection = direction;
+            UpdateCanvasCursor();
             UpdateStatusBar();
         }
 

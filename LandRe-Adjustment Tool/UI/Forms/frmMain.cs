@@ -17,6 +17,7 @@ using Land_Readjustment_Tool.Services.Raster;
 using Land_Readjustment_Tool.UI.CustomControls;
 using Land_Readjustment_Tool.UI.Dialogs;
 using Land_Readjustment_Tool.UI.Forms;
+using Land_Readjustment_Tool.UI.Forms.Definitions;
 using Land_Readjustment_Tool.UI.Forms.Project;
 using Land_Readjustment_Tool.UI.Helpers;
 using Land_Readjustment_Tool.UI.MapCanvas.Core;
@@ -56,6 +57,7 @@ namespace Land_Readjustment_Tool
         private readonly IBoundaryReaderFactory _boundaryReaderFactory;
         private readonly IBoundaryImportService _boundaryImportService;
         private readonly ICadastralImportService _cadastralImportService;
+        private readonly IExternalLayerImportService _externalLayerImportService;
         private readonly IProjectBoundaryAssignmentService _projectBoundaryAssignmentService;
         private readonly ICadastralRecordAssignmentService _cadastralRecordAssignmentService;
         private readonly XyzTilePreDownloadService _xyzTilePreDownloadService;
@@ -84,57 +86,76 @@ namespace Land_Readjustment_Tool
         private const string RoadsGroupKey = CanvasLayerTreeService.RoadsGroupKey;
         private const string ReplottedParcelsGroupKey = CanvasLayerTreeService.ReplottedParcelsGroupKey;
         private const string DrawingMarkupGroupKey = CanvasLayerTreeService.DrawingMarkupGroupKey;
+        private const string ExternalLayerGroupKey = CanvasLayerTreeService.ExternalGroupKey;
         private const string RasterLayerGroupKey = CanvasLayerTreeService.RasterGroupKey;
         private const int LayerNodeCheckBoxSize = 14;
         private const int LayerNodeCheckBoxGap = 10;
         private const int LayerNodeColorBoxSize = 18;
         private const int LayerNodeColorBoxGap = 4;
+        private const int CurrentDrawingLayerComboItemHeight = 24;
+        private const int CurrentDrawingLayerComboPadding = 4;
         private static readonly JsonSerializerOptions CadastralMetadataJsonOptions = new()
         {
             PropertyNameCaseInsensitive = true
         };
         private static readonly string PropertyFieldProfilesFilePath =
             Path.Combine(Application.UserAppDataPath, "property_field_profiles.json");
+        private static readonly string[] DefaultObjectPropertyFieldKeys =
+        [
+            "selection.selectedObjects",
+            "selection.objectType",
+            "selection.layer",
+            "selection.assignment"
+        ];
+
+        private static readonly string[] DefaultGeometryPropertyFieldKeys =
+        [
+            "geometry.type",
+            "geometry.length",
+            "geometry.area",
+            "geometry.vertexCount",
+            "geometry.bounds"
+        ];
 
         private static readonly Dictionary<string, List<string>> DefaultPropertyFieldProfiles = new()
         {
             ["originalParcel"] =
             [
-                "selection.selectedObjects", "selection.objectType", "selection.layer", "selection.assignment",
+                .. DefaultObjectPropertyFieldKeys,
                 "parcel.parcelNo", "parcel.mapSheetNo", "parcel.uniqueCode", "parcel.ownershipType",
                 "owner.primaryOwner", "owner.coOwners",
                 "area.originalRecord", "area.fieldMeasured",
-                "geometry.area", "geometry.length", "geometry.vertexCount", "geometry.bounds",
+                .. DefaultGeometryPropertyFieldKeys,
                 "tenancy.hasTenant", "tenancy.tenantName"
             ],
             ["road"] =
             [
-                "selection.selectedObjects", "selection.objectType", "selection.layer", "selection.assignment",
-                "road.name", "road.code", "road.status", "road.type", "road.width", "road.rightOfWay",
-                "geometry.length", "geometry.bounds"
+                .. DefaultObjectPropertyFieldKeys,
+                "road.name", "road.code", "road.type", "road.width", "road.rightOfWay",
+                .. DefaultGeometryPropertyFieldKeys
             ],
             ["block"] =
             [
-                "selection.selectedObjects", "selection.objectType", "selection.layer", "selection.assignment",
-                "block.name", "block.code", "block.landUse", "block.area", "block.depth",
-                "geometry.area", "geometry.bounds"
+                .. DefaultObjectPropertyFieldKeys,
+                "block.name", "block.code", "block.landUse", "block.area", "block.depth", "block.length",
+                .. DefaultGeometryPropertyFieldKeys
             ],
             ["replottedParcel"] =
             [
-                "selection.selectedObjects", "selection.objectType", "selection.layer", "selection.assignment",
+                .. DefaultObjectPropertyFieldKeys,
                 "replotted.systemNumber", "replotted.derivedNumber", "replotted.blockSequence",
                 "replotted.activeNumberType", "replotted.plotType", "replotted.block", "replotted.plotArea",
-                "geometry.area", "geometry.bounds"
+                .. DefaultGeometryPropertyFieldKeys
             ],
             ["text"] =
             [
-                "selection.selectedObjects", "selection.objectType", "selection.layer", "selection.assignment",
+                .. DefaultObjectPropertyFieldKeys,
                 "text.value", "text.insertionPoint", "text.alignment"
             ],
             ["general"] =
             [
-                "selection.selectedObjects", "selection.objectType", "selection.layer", "selection.assignment",
-                "geometry.type", "geometry.area", "geometry.length", "geometry.vertexCount", "geometry.bounds"
+                .. DefaultObjectPropertyFieldKeys,
+                .. DefaultGeometryPropertyFieldKeys
             ]
         };
 
@@ -162,13 +183,17 @@ namespace Land_Readjustment_Tool
         private readonly ToolStripMenuItem _mnuToggleLayerLabels = new("Show Labels");
         private readonly ToolStripMenuItem _mnuToggleFillTransparency = new("Show Transparency");
         private readonly ToolStripMenuItem _mnuLayerProperties = new("Layer Properties");
-        private readonly ToolStripMenuItem _mnuCopyLayerObjectsToDefault = new("Copy Objects To");
-        private readonly ToolStripMenuItem _mnuMoveLayerObjectsToDefault = new("Move Objects To");
+        private readonly ToolStripMenuItem _mnuCreateFeaturesFromLayer = new("Create Features from Layer...");
+        private readonly ToolStripMenuItem _mnuToggleLayerGroupLock = new("Locked");
+        private readonly ToolStripMenuItem _mnuDeleteLayerGroup = new("Delete");
+        private readonly ToolStripMenuItem _mnuDeleteExternalLayerGroup = new("Delete");
         private readonly ToolStripMenuItem _mnuAddDrawingLayer = new("Add Drawing Layer...");
         private readonly ToolStripMenuItem _mnuSetActiveLayer = new("Set Active Layer");
         private readonly ToolStripMenuItem _mnuAddRasterMap = new("Add Raster Map...");
         private readonly ToolStripMenuItem _mnuAddXyzTiles = new("Add XYZ Tiles...");
         private readonly ToolStripMenuItem _mnuImportXyzTiles = new("Import XYZ Tiles...");
+        private readonly ToolStripMenuItem _mnuImportExternalLayers = new("External Layers (DXF/DWG/KML)...");
+        private readonly ToolStripMenuItem _mnuAddExternalLayers = new("Add External Layers...");
         private readonly ToolStripMenuItem _mnuOriginalScenarioSummary = new("Original Scenario Summary");
         private readonly ToolStripButton _btnOriginalScenarioSummary = new("Original Scenario");
         private readonly TextBox _layerRenameTextBox = new();
@@ -259,6 +284,7 @@ namespace Land_Readjustment_Tool
                     projectScopedFactory,
                     new ProjectRasterCrsResolver(projectScopedFactory)),
                 new CadastralImportService(new ProjectRasterCrsResolver(projectScopedFactory)),
+                new ExternalLayerImportService(new ProjectRasterCrsResolver(projectScopedFactory)),
                 new ProjectBoundaryAssignmentService(projectScopedFactory),
                 new CadastralRecordAssignmentService(),
                 new HatchPatternService(),
@@ -283,6 +309,7 @@ namespace Land_Readjustment_Tool
             IBoundaryReaderFactory boundaryReaderFactory,
             IBoundaryImportService boundaryImportService,
             ICadastralImportService cadastralImportService,
+            IExternalLayerImportService externalLayerImportService,
             IProjectBoundaryAssignmentService projectBoundaryAssignmentService,
             ICadastralRecordAssignmentService cadastralRecordAssignmentService,
             IHatchPatternService hatchPatternService,
@@ -304,6 +331,7 @@ namespace Land_Readjustment_Tool
             _boundaryReaderFactory = boundaryReaderFactory ?? throw new ArgumentNullException(nameof(boundaryReaderFactory));
             _boundaryImportService = boundaryImportService ?? throw new ArgumentNullException(nameof(boundaryImportService));
             _cadastralImportService = cadastralImportService ?? throw new ArgumentNullException(nameof(cadastralImportService));
+            _externalLayerImportService = externalLayerImportService ?? throw new ArgumentNullException(nameof(externalLayerImportService));
             _projectBoundaryAssignmentService = projectBoundaryAssignmentService ?? throw new ArgumentNullException(nameof(projectBoundaryAssignmentService));
             _cadastralRecordAssignmentService = cadastralRecordAssignmentService ?? throw new ArgumentNullException(nameof(cadastralRecordAssignmentService));
             _xyzTilePreDownloadService = new XyzTilePreDownloadService();
@@ -333,10 +361,12 @@ namespace Land_Readjustment_Tool
             mapCanvasControlMain.SelectedObjectsDeleteRequested += MapCanvasControlMain_SelectedObjectsDeleteRequested;
             mapCanvasControlMain.SelectedObjectsAssignParcelDataRequested += MapCanvasControlMain_SelectedObjectsAssignParcelDataRequested;
             mapCanvasControlMain.SelectedCanvasObjectsChanged += MapCanvasControlMain_SelectedCanvasObjectsChanged;
+            mapCanvasControlMain.SelectedObjectsCreateFeaturesMenuOpening += MapCanvasControlMain_SelectedObjectsCreateFeaturesMenuOpening;
             mnuCanvasDebugOverlay.Checked = mapCanvasControlMain.ShowDebugOverlay;
             mnuOSnapToggle.Checked = mapCanvasControlMain.SnapEnabled;
             mnuOrthoToggle.Checked = mapCanvasControlMain.OrthoModeEnabled;
             ConfigureLayerTree();
+            ConfigureCurrentDrawingLayerCombo();
             ConfigureLayerPropertiesPanel();
             MapCanvasControlMain_StatusChanged("E: --    N: --", "Ready", 0);
 
@@ -367,8 +397,12 @@ namespace Land_Readjustment_Tool
             baseMapsToolStripMenuItem.Click += importRasterToolStripMenuItem_Click!;
             ImportProjectBoundaryDXFDWGToolStripMenuItem.Click += ImportProjectBoundaryToolStripMenuItem_Click!;
             projectBoundaryAssignmentToolStripMenuItem.Click += ProjectBoundaryAssignmentToolStripMenuItem_Click!;
+            roadDataToolStripMenuItem.Click += RoadDataToolStripMenuItem_Click!;
+            blockDataToolStripMenuItem.Click += BlockDataToolStripMenuItem_Click!;
             _mnuImportXyzTiles.Click += importXyzTilesToolStripMenuItem_Click!;
+            _mnuImportExternalLayers.Click += async (_, _) => await ShowImportExternalLayersWorkflowAsync();
             importDataToolStripMenuItem1.DropDownItems.Add(_mnuImportXyzTiles);
+            importDataToolStripMenuItem1.DropDownItems.Add(_mnuImportExternalLayers);
             _mnuOriginalScenarioSummary.Click += OriginalScenarioSummaryToolStripMenuItem_Click;
             _mnuOriginalScenarioSummary.Name = "originalScenarioSummaryToolStripMenuItem";
             dataToolStripMenuItem.DropDownItems.Insert(2, _mnuOriginalScenarioSummary);
@@ -1318,6 +1352,8 @@ namespace Land_Readjustment_Tool
                     settings.AreaSqmDecimalPlaces,
                     settings.TraditionalAreaLowestUnitDecimalPlaces);
 
+                await UpdateLayerColorsForCanvasThemeAsync(bgColor);
+
                 if (_workspaceCanvas != null && !_workspaceCanvas.IsDisposed)
                 {
                     if (showRefreshProgress)
@@ -1751,6 +1787,113 @@ namespace Land_Readjustment_Tool
             await ShowImportCadastralMapWorkflowAsync();
         }
 
+        private async Task ShowImportExternalLayersWorkflowAsync()
+        {
+            if (!AppServices.HasContext)
+            {
+                MessageBox.Show(
+                    "Please open or create a project first.",
+                    "No Project Open",
+                    MessageBoxButtons.OK,
+                    MessageBoxIcon.Warning);
+                return;
+            }
+
+            using OpenFileDialog dialog = new()
+            {
+                Title = "Import External Layers",
+                Filter = "External vector files (*.dxf;*.dwg;*.kml;*.kmz)|*.dxf;*.dwg;*.kml;*.kmz|DXF files (*.dxf)|*.dxf|DWG files (*.dwg)|*.dwg|KML/KMZ files (*.kml;*.kmz)|*.kml;*.kmz|All files (*.*)|*.*",
+                Multiselect = false,
+                RestoreDirectory = true
+            };
+
+            if (dialog.ShowDialog(this) != DialogResult.OK)
+                return;
+
+            try
+            {
+                SetOperationProgress(5, "Inspecting external vector file...", showProgressForm: false);
+
+                ProjectRasterCrsContext projectCrs =
+                    await _projectRasterCrsResolver.ResolveAsync(AppServices.Context.Session);
+                ExternalLayerFileInfo fileInfo =
+                    _externalLayerImportService.Inspect(dialog.FileName);
+
+                if (fileInfo.Layers.Count == 0)
+                {
+                    MessageBox.Show(
+                        this,
+                        "No importable layers were found in the selected file.",
+                        "External Layer Import",
+                        MessageBoxButtons.OK,
+                        MessageBoxIcon.Information);
+                    return;
+                }
+
+                string sourceCrs = string.IsNullOrWhiteSpace(fileInfo.DetectedCrsCode)
+                    ? projectCrs.TargetSrsDefinition
+                    : fileInfo.DetectedCrsCode;
+
+                using frmExternalLayerImport importForm = new(fileInfo, sourceCrs);
+                if (importForm.ShowDialog(this) != DialogResult.OK)
+                    return;
+
+                SetOperationProgress(30, "Importing external layers...", showProgressForm: false);
+                ExternalLayerImportResult result =
+                    await _externalLayerImportService.ImportAsync(
+                        AppServices.Context.Session,
+                        dialog.FileName,
+                        importForm.ImportOptions);
+
+                if (!result.Success)
+                {
+                    MessageBox.Show(
+                        this,
+                        result.ErrorMessage ?? "External layer import failed.",
+                        "External Layer Import",
+                        MessageBoxButtons.OK,
+                        MessageBoxIcon.Warning);
+                    return;
+                }
+
+                MarkProjectModifiedIfOpen();
+                await ApplyCurrentCanvasThemeToLayerColorsAsync();
+                SetOperationProgress(92, "Refreshing external layer tree...", showProgressForm: false);
+                await RefreshLayerTreeAsync();
+
+                if (result.BoundingBox != null && !result.BoundingBox.IsNull)
+                    mapCanvasControlMain.ZoomToWorldBounds(ToRectangleD(result.BoundingBox));
+
+                SetCanvasCommandStatus(
+                    $"Imported {result.ObjectsCreated} object(s) into {result.LayersCreated} external layer(s).");
+            }
+            catch (InvalidOperationException ex)
+                when (ex.Message.Contains(
+                    "project coordinate system",
+                    StringComparison.OrdinalIgnoreCase))
+            {
+                MessageBox.Show(
+                    ex.Message,
+                    "External Layer Import",
+                    MessageBoxButtons.OK,
+                    MessageBoxIcon.Warning);
+                OpenProjectSettings();
+            }
+            catch (Exception ex)
+            {
+                LogProjectError("External layer import failed.", ex);
+                MessageBox.Show(
+                    $"Failed to import external layers: {GetMostUsefulExceptionMessage(ex)}",
+                    "External Layer Import",
+                    MessageBoxButtons.OK,
+                    MessageBoxIcon.Error);
+            }
+            finally
+            {
+                HideOperationProgress();
+            }
+        }
+
         private async Task ShowImportCadastralMapWorkflowAsync()
         {
             if (!AppServices.HasContext)
@@ -1791,6 +1934,7 @@ namespace Land_Readjustment_Tool
                         return;
 
                     MarkProjectModifiedIfOpen();
+                    await ApplyCurrentCanvasThemeToLayerColorsAsync();
                     SetOperationProgress(100, "Refreshing cadastral map layers...", showProgressForm: false);
                     await RefreshLayerTreeAsync();
 
@@ -1882,6 +2026,7 @@ namespace Land_Readjustment_Tool
 
                 AppServices.Context.MarkAsModified();
                 UpdateWindowTitle();
+                await ApplyCurrentCanvasThemeToLayerColorsAsync();
                 await RefreshLayerTreeAsync();
 
                 CanvasLayer? boundaryLayer = await AppServices.Context.Session
@@ -2057,6 +2202,38 @@ namespace Land_Readjustment_Tool
             ActivateCanvasTool(MapCanvasTool.Select);
         }
 
+        private void RoadDataToolStripMenuItem_Click(object? sender, EventArgs e)
+        {
+            if (!AppServices.HasContext)
+            {
+                MessageBox.Show(
+                    "Please open or create a project first.",
+                    "No Project Open",
+                    MessageBoxButtons.OK,
+                    MessageBoxIcon.Warning);
+                return;
+            }
+
+            using frmDefineRoads form = new();
+            form.ShowDialog(this);
+        }
+
+        private void BlockDataToolStripMenuItem_Click(object? sender, EventArgs e)
+        {
+            if (!AppServices.HasContext)
+            {
+                MessageBox.Show(
+                    "Please open or create a project first.",
+                    "No Project Open",
+                    MessageBoxButtons.OK,
+                    MessageBoxIcon.Warning);
+                return;
+            }
+
+            using frmDefineBlocks form = new();
+            form.ShowDialog(this);
+        }
+
         private async void CadastralRecordAssignmentForm_FormClosed(object? sender, FormClosedEventArgs e)
         {
             if (sender is not frmCadastralRecordAssignment form)
@@ -2177,6 +2354,8 @@ namespace Land_Readjustment_Tool
                 }
 
                 AppDbContext context = AppServices.Context.Session.GetDbContext();
+                await ProjectDatabaseCompatibility.EnsureAsync(context);
+
                 List<CanvasObject> selectedObjects = await context.CanvasObjects
                     .AsNoTracking()
                     .Include(item => item.CanvasLayer)
@@ -2407,10 +2586,16 @@ namespace Land_Readjustment_Tool
                     ? $"Road #{canvasObject.Road.Id}"
                     : $"Road {canvasObject.Road.RoadName}";
 
-            if (canvasObject.Block != null)
-                return string.IsNullOrWhiteSpace(canvasObject.Block.BlockName)
-                    ? $"Block #{canvasObject.Block.Id}"
-                    : $"Block {canvasObject.Block.BlockName}";
+            if (IsBlockObject(canvasObject))
+            {
+                string? blockName = FirstNonEmpty(
+                    canvasObject.Block?.BlockName,
+                    canvasObject.ObjectDescription,
+                    canvasObject.CanvasLayer?.Name);
+                return string.IsNullOrWhiteSpace(blockName)
+                    ? $"Block {canvasObject.BlockId?.ToString() ?? canvasObject.Id.ToString()}"
+                    : $"Block {blockName}";
+            }
 
             if (IsTextObject(canvasObject))
             {
@@ -2798,7 +2983,7 @@ namespace Land_Readjustment_Tool
                 AddOptionalSection(sections, BuildRoadSection(canvasObject));
             }
 
-            if (canvasObject.Block != null || canvasObject.BlockId.HasValue)
+            if (IsBlockObject(canvasObject))
             {
                 AddOptionalSection(sections, BuildBlockSection(canvasObject));
             }
@@ -2890,9 +3075,17 @@ namespace Land_Readjustment_Tool
             List<ObjectPropertyRow> rows =
             [
                 new("geometry.type", "Geometry Type", canvasObject.Shape?.GeometryType ?? canvasObject.ObjectType, true),
-                new("geometry.vertexCount", "Points / Vertices", CanvasGeometryMetricsService.GetVertexCount(canvasObject)?.ToString("N0"), false),
                 new("geometry.bounds", "Bounds", FormatGeometryBounds(canvasObject.Shape?.EnvelopeInternal), false)
             ];
+
+            if (ShouldShowVertexCount(canvasObject))
+            {
+                rows.Insert(1, new ObjectPropertyRow(
+                    "geometry.vertexCount",
+                    "Points / Vertices",
+                    CanvasGeometryMetricsService.GetVertexCount(canvasObject)?.ToString("N0"),
+                    false));
+            }
 
             if (IsPointGeometry(canvasObject))
             {
@@ -3017,7 +3210,6 @@ namespace Land_Readjustment_Tool
             [
                 new("road.name", "Name", road?.RoadName, true),
                 new("road.code", "Code", road?.RoadCode, false),
-                new("road.status", "Status", road?.RoadStatus, false),
                 new("road.type", "Type", road?.RoadType, false),
                 new("road.surface", "Surface", road?.SurfaceType, false),
                 new("road.width", "Road Width", FormatLength(road?.RoadWidth), false),
@@ -3032,14 +3224,23 @@ namespace Land_Readjustment_Tool
             var block = canvasObject.Block;
             return new ObjectPropertySection("Block",
             [
-                new("block.name", "Name", block?.BlockName, true),
+                new("block.name", "Name", FirstNonEmpty(block?.BlockName, canvasObject.ObjectDescription, canvasObject.CanvasLayer?.Name), true),
                 new("block.code", "Code", block?.BlockCode, false),
                 new("block.depth", "Depth", FormatLength(block?.BlockDepth), false),
+                new("block.length", "Length", FormatLength(block?.BlockLength), false),
                 new("block.landUse", "Land Use", block?.BlockLandUse, false),
-                new("block.area", "Block Area", FormatArea(block?.BlockArea), false),
-                new("block.description", "Description", block?.Description, false),
+                new("block.area", "Block Area", FormatArea(GetBlockDisplayArea(canvasObject)), false),
+                new("block.description", "Description", FirstNonEmpty(block?.Description, canvasObject.ObjectDescription), false),
                 new("block.recordId", "Record ID", block?.Id.ToString() ?? canvasObject.BlockId?.ToString(), false)
             ]);
+        }
+
+        private static double? GetBlockDisplayArea(CanvasObject canvasObject)
+        {
+            if (canvasObject.Block != null && canvasObject.Block.BlockArea > 0)
+                return canvasObject.Block.BlockArea;
+
+            return CanvasGeometryMetricsService.GetArea(canvasObject);
         }
 
         private static ObjectPropertySection BuildDrawingStyleSection(CanvasObject canvasObject)
@@ -3132,7 +3333,7 @@ namespace Land_Readjustment_Tool
 
             bool hasParcel = objects.Any(IsOriginalParcelObject);
             bool hasRoad = objects.Any(o => o.Road != null || o.RoadId.HasValue);
-            bool hasBlock = objects.Any(o => o.Block != null || o.BlockId.HasValue);
+            bool hasBlock = objects.Any(IsBlockObject);
             bool hasReplotted = objects.Any(o => o.ReplottedParcel != null || o.ReplottedParcelId.HasValue);
             bool hasText = objects.Any(IsTextObject);
 
@@ -3162,6 +3363,30 @@ namespace Land_Readjustment_Tool
             return profile;
         }
 
+        private void NormalizeCommonPropertyFieldProfiles()
+        {
+            foreach (string profileKey in DefaultPropertyFieldProfiles.Keys)
+            {
+                List<string> profile = GetOrCreateProfile(profileKey);
+                AddMissingPropertyFieldKeys(profile, DefaultObjectPropertyFieldKeys);
+                AddMissingPropertyFieldKeys(profile, DefaultGeometryPropertyFieldKeys);
+            }
+        }
+
+        private static void AddMissingPropertyFieldKeys(
+            List<string> profile,
+            IEnumerable<string> fieldKeys)
+        {
+            HashSet<string> existing = new(profile, StringComparer.OrdinalIgnoreCase);
+            foreach (string fieldKey in fieldKeys)
+            {
+                if (existing.Add(fieldKey))
+                {
+                    profile.Add(fieldKey);
+                }
+            }
+        }
+
         private void LoadPropertyFieldProfiles()
         {
             try
@@ -3184,6 +3409,8 @@ namespace Land_Readjustment_Tool
             {
                 // Use defaults if saved profiles cannot be loaded.
             }
+
+            NormalizeCommonPropertyFieldProfiles();
         }
 
         private void SavePropertyFieldProfiles()
@@ -3375,7 +3602,7 @@ namespace Land_Readjustment_Tool
                 return canvasObject.Road != null || canvasObject.RoadId.HasValue;
 
             if (fieldKey.StartsWith("block.", StringComparison.OrdinalIgnoreCase))
-                return canvasObject.Block != null || canvasObject.BlockId.HasValue;
+                return IsBlockObject(canvasObject);
 
             if (fieldKey.StartsWith("replotted.", StringComparison.OrdinalIgnoreCase))
                 return canvasObject.ReplottedParcel != null || canvasObject.ReplottedParcelId.HasValue;
@@ -3402,6 +3629,7 @@ namespace Land_Readjustment_Tool
                     "geometry.coordinate" => IsPointGeometry(canvasObject),
                     "geometry.area" => ShouldShowArea(canvasObject),
                     "geometry.length" => !IsPointGeometry(canvasObject),
+                    "geometry.vertexCount" => ShouldShowVertexCount(canvasObject),
                     _ => true
                 };
             }
@@ -3479,18 +3707,20 @@ namespace Land_Readjustment_Tool
                 new("area.imported", "Area", "Imported Area", false,
                     (_, metadata, _) => FormatArea(metadata?.CalculatedAreaSqm)),
 
-                new("geometry.type", "Other Geometry", "Geometry Type", false,
+                new("geometry.type", "Geometry", "Geometry Type", false,
                     (canvasObject, _, _) => canvasObject.Shape?.GeometryType ?? canvasObject.ObjectType),
-                new("geometry.coordinate", "Other Geometry", "Coordinate", false,
-                    (canvasObject, _, _) => FormatPoint(canvasObject.Shape?.Coordinate)),
-                new("geometry.area", "Other Geometry", "Geometry Area", true,
-                    (canvasObject, _, _) => FormatArea(CanvasGeometryMetricsService.GetArea(canvasObject))),
-                new("geometry.length", "Other Geometry", "Length / Perimeter", true,
+                new("geometry.length", "Geometry", "Length / Perimeter", true,
                     (canvasObject, _, _) => FormatLength(CanvasGeometryMetricsService.GetLength(canvasObject))),
-                new("geometry.vertexCount", "Other Geometry", "Points / Vertices", true,
-                    (canvasObject, _, _) => CanvasGeometryMetricsService.GetVertexCount(canvasObject)?.ToString("N0")),
-                new("geometry.bounds", "Other Geometry", "Bounds", true,
+                new("geometry.area", "Geometry", "Area", true,
+                    (canvasObject, _, _) => FormatArea(CanvasGeometryMetricsService.GetArea(canvasObject))),
+                new("geometry.vertexCount", "Geometry", "Points / Vertices", true,
+                    (canvasObject, _, _) => ShouldShowVertexCount(canvasObject)
+                        ? CanvasGeometryMetricsService.GetVertexCount(canvasObject)?.ToString("N0")
+                        : null),
+                new("geometry.bounds", "Geometry", "Bounds", true,
                     (canvasObject, _, _) => FormatGeometryBounds(canvasObject.Shape?.EnvelopeInternal)),
+                new("geometry.coordinate", "Geometry", "Coordinate", false,
+                    (canvasObject, _, _) => FormatPoint(canvasObject.Shape?.Coordinate)),
 
                 new("tenancy.hasTenant", "Tenancy", "Has Tenant", true,
                     (canvasObject, _, _) => canvasObject.BaselineParcel == null ? null : FormatBoolean(canvasObject.BaselineParcel.HasTenant)),
@@ -3544,8 +3774,6 @@ namespace Land_Readjustment_Tool
                     (canvasObject, _, _) => canvasObject.Road?.RoadName),
                 new("road.code", "Road", "Code", false,
                     (canvasObject, _, _) => canvasObject.Road?.RoadCode),
-                new("road.status", "Road", "Status", false,
-                    (canvasObject, _, _) => canvasObject.Road?.RoadStatus),
                 new("road.type", "Road", "Type", false,
                     (canvasObject, _, _) => canvasObject.Road?.RoadType),
                 new("road.surface", "Road", "Surface", false,
@@ -3562,17 +3790,19 @@ namespace Land_Readjustment_Tool
                 new("block.count", "Block", "Block Objects", false,
                     (_, _, selectedCount) => selectedCount.ToString("N0")),
                 new("block.name", "Block", "Name", false,
-                    (canvasObject, _, _) => canvasObject.Block?.BlockName),
+                    (canvasObject, _, _) => FirstNonEmpty(canvasObject.Block?.BlockName, canvasObject.ObjectDescription, canvasObject.CanvasLayer?.Name)),
                 new("block.code", "Block", "Code", false,
                     (canvasObject, _, _) => canvasObject.Block?.BlockCode),
                 new("block.depth", "Block", "Depth", false,
                     (canvasObject, _, _) => FormatLength(canvasObject.Block?.BlockDepth)),
+                new("block.length", "Block", "Length", false,
+                    (canvasObject, _, _) => FormatLength(canvasObject.Block?.BlockLength)),
                 new("block.landUse", "Block", "Land Use", false,
                     (canvasObject, _, _) => canvasObject.Block?.BlockLandUse),
                 new("block.area", "Block", "Block Area", false,
-                    (canvasObject, _, _) => FormatArea(canvasObject.Block?.BlockArea)),
+                    (canvasObject, _, _) => FormatArea(GetBlockDisplayArea(canvasObject))),
                 new("block.description", "Block", "Description", false,
-                    (canvasObject, _, _) => canvasObject.Block?.Description),
+                    (canvasObject, _, _) => FirstNonEmpty(canvasObject.Block?.Description, canvasObject.ObjectDescription)),
                 new("block.recordId", "Block", "Record ID", false,
                     (canvasObject, _, _) => canvasObject.Block?.Id.ToString() ?? canvasObject.BlockId?.ToString()),
 
@@ -3806,6 +4036,7 @@ namespace Land_Readjustment_Tool
             }
 
             int?[] counts = selectedObjects
+                .Where(ShouldShowVertexCount)
                 .Select(CanvasGeometryMetricsService.GetVertexCount)
                 .Where(count => count.HasValue)
                 .ToArray();
@@ -4016,6 +4247,13 @@ namespace Land_Readjustment_Tool
                    string.Equals(canvasObject.CanvasLayer?.LayerType, "Annotation", StringComparison.OrdinalIgnoreCase);
         }
 
+        private static bool IsBlockObject(CanvasObject canvasObject)
+        {
+            return canvasObject.Block != null ||
+                   canvasObject.BlockId.HasValue ||
+                   string.Equals(canvasObject.CanvasLayer?.LayerType, "Block", StringComparison.OrdinalIgnoreCase);
+        }
+
         private static bool ShouldShowGeometrySection(CanvasObject canvasObject)
         {
             return !IsTextObject(canvasObject) &&
@@ -4029,11 +4267,49 @@ namespace Land_Readjustment_Tool
             string? geometryType = canvasObject.Shape?.GeometryType;
             return IsOriginalParcelObject(canvasObject) ||
                    canvasObject.ReplottedParcel != null ||
-                   canvasObject.Block != null ||
+                   IsBlockObject(canvasObject) ||
                    objectType.Equals("Polygon", StringComparison.OrdinalIgnoreCase) ||
                    objectType.Equals("Circle", StringComparison.OrdinalIgnoreCase) ||
                    string.Equals(geometryType, "Polygon", StringComparison.OrdinalIgnoreCase) ||
                    string.Equals(geometryType, "MultiPolygon", StringComparison.OrdinalIgnoreCase);
+        }
+
+        private static bool ShouldShowVertexCount(CanvasObject canvasObject)
+        {
+            CanvasLayer? layer = canvasObject.CanvasLayer;
+            string? metadataShapeType = ReadMetadataString(canvasObject.GeometryMetadataJson, "ShapeType");
+            if (layer == null ||
+                !CanvasLayerTreeService.IsDrawingMarkupLayer(layer) ||
+                !ShouldShowGeometrySection(canvasObject) ||
+                IsCircleVertexGeometry(canvasObject.ObjectType) ||
+                IsCircleVertexGeometry(layer.LayerType) ||
+                IsCircleVertexGeometry(metadataShapeType))
+            {
+                return false;
+            }
+
+            return IsDrawingLineworkVertexGeometry(canvasObject.ObjectType) ||
+                   IsDrawingLineworkVertexGeometry(layer.LayerType) ||
+                   IsDrawingLineworkVertexGeometry(metadataShapeType) ||
+                   IsDrawingLineworkVertexGeometry(canvasObject.Shape?.GeometryType);
+        }
+
+        private static bool IsCircleVertexGeometry(string? value)
+        {
+            return value != null &&
+                   value.Equals("Circle", StringComparison.OrdinalIgnoreCase);
+        }
+
+        private static bool IsDrawingLineworkVertexGeometry(string? value)
+        {
+            return value != null &&
+                   (value.Equals("Polygon", StringComparison.OrdinalIgnoreCase) ||
+                    value.Equals("MultiPolygon", StringComparison.OrdinalIgnoreCase) ||
+                    value.Equals("Polyline", StringComparison.OrdinalIgnoreCase) ||
+                    value.Equals("Line", StringComparison.OrdinalIgnoreCase) ||
+                    value.Equals("LineString", StringComparison.OrdinalIgnoreCase) ||
+                    value.Equals("MultiLineString", StringComparison.OrdinalIgnoreCase) ||
+                    value.Equals("Arc", StringComparison.OrdinalIgnoreCase));
         }
 
         private static bool IsPointGeometry(CanvasObject canvasObject)
@@ -4053,7 +4329,7 @@ namespace Land_Readjustment_Tool
             if (canvasObject.Road != null || canvasObject.RoadId.HasValue)
                 return "Road";
 
-            if (canvasObject.Block != null || canvasObject.BlockId.HasValue)
+            if (IsBlockObject(canvasObject))
                 return "Block";
 
             if (IsOriginalParcelObject(canvasObject))
@@ -4070,8 +4346,8 @@ namespace Land_Readjustment_Tool
             if (canvasObject.Road != null || canvasObject.RoadId.HasValue)
                 return $"Road: {FirstNonEmpty(canvasObject.Road?.RoadName, canvasObject.RoadId?.ToString())}";
 
-            if (canvasObject.Block != null || canvasObject.BlockId.HasValue)
-                return $"Block: {FirstNonEmpty(canvasObject.Block?.BlockName, canvasObject.BlockId?.ToString())}";
+            if (IsBlockObject(canvasObject))
+                return $"Block: {FirstNonEmpty(canvasObject.Block?.BlockName, canvasObject.BlockId?.ToString(), canvasObject.ObjectDescription, canvasObject.CanvasLayer?.Name)}";
 
             if (IsOriginalParcelObject(canvasObject))
             {
@@ -4131,6 +4407,7 @@ namespace Land_Readjustment_Tool
         private static string? FormatTotalVertexCount(IReadOnlyList<CanvasObject> canvasObjects)
         {
             int total = canvasObjects
+                .Where(ShouldShowVertexCount)
                 .Select(CanvasGeometryMetricsService.GetVertexCount)
                 .Where(value => value.HasValue)
                 .Sum(value => value!.Value);
@@ -4515,6 +4792,7 @@ namespace Land_Readjustment_Tool
                 AppServices.Context.MarkAsModified();
                 UpdateWindowTitle();
 
+                await ApplyCurrentCanvasThemeToLayerColorsAsync();
                 await RefreshLayerTreeAsync();
                 SelectLayerNodeById(importResult.Layer.Id);
                 if (!await TryZoomToLayerAsync(importResult.Layer, showErrorDialog: false))
@@ -4751,6 +5029,7 @@ namespace Land_Readjustment_Tool
                 AppServices.Context.MarkAsModified();
                 UpdateWindowTitle();
 
+                await ApplyCurrentCanvasThemeToLayerColorsAsync();
                 await RefreshLayerTreeAsync();
                 SelectLayerNodeById(importResult.Layer.Id);
                 if (!request.IsLiveTiles &&
@@ -6065,15 +6344,24 @@ namespace Land_Readjustment_Tool
         {
             return tool switch
             {
-                MapCanvasTool.Point => "Point Markup",
-                MapCanvasTool.Line => "Line Markup",
-                MapCanvasTool.Polyline => "Polyline Markup",
-                MapCanvasTool.Arc => "Arc Markup",
-                MapCanvasTool.Rectangle => "Rectangle Markup",
-                MapCanvasTool.Polygon => "Polygon Markup",
-                MapCanvasTool.Circle => "Circle Markup",
-                MapCanvasTool.Text => "Text Markup",
-                _ => "Markup"
+                MapCanvasTool.Point => "Points",
+                MapCanvasTool.Line or MapCanvasTool.Polyline or MapCanvasTool.Arc => "Polylines",
+                MapCanvasTool.Rectangle or MapCanvasTool.Polygon or MapCanvasTool.Circle => "Polygons",
+                MapCanvasTool.Text => "Annotation",
+                _ => "Polylines"
+            };
+        }
+
+        private static string GetDefaultDrawingLayerNameForLayerType(string? layerType)
+        {
+            string normalizedType = layerType?.Trim().ToLowerInvariant() ?? string.Empty;
+            return normalizedType switch
+            {
+                "point" => "Points",
+                "polygon" => "Polygons",
+                "annotation" => "Annotation",
+                "drawingmarkup" or "line" or "polyline" => "Polylines",
+                _ => "Polylines"
             };
         }
 
@@ -6311,6 +6599,117 @@ namespace Land_Readjustment_Tool
             ResetLayerTree();
         }
 
+        private void ConfigureCurrentDrawingLayerCombo()
+        {
+            ComboBox combo = cboCurrentDrawingLayer.ComboBox;
+            combo.DrawMode = DrawMode.OwnerDrawFixed;
+            combo.ItemHeight = Math.Max(combo.ItemHeight, CurrentDrawingLayerComboItemHeight);
+            combo.DropDownHeight = (CurrentDrawingLayerComboItemHeight * 12) + 2;
+            combo.DrawItem -= CurrentDrawingLayerCombo_DrawItem;
+            combo.DrawItem += CurrentDrawingLayerCombo_DrawItem;
+        }
+
+        private void CurrentDrawingLayerCombo_DrawItem(object? sender, DrawItemEventArgs e)
+        {
+            if (sender is not ComboBox combo)
+                return;
+
+            bool selected = (e.State & DrawItemState.Selected) == DrawItemState.Selected;
+            bool disabled = (e.State & DrawItemState.Disabled) == DrawItemState.Disabled || !combo.Enabled;
+            Color backgroundColor = selected ? SystemColors.Highlight : combo.BackColor;
+            Color textColor = disabled
+                ? SystemColors.GrayText
+                : selected
+                    ? SystemColors.HighlightText
+                    : combo.ForeColor;
+
+            using (SolidBrush backgroundBrush = new(backgroundColor))
+                e.Graphics.FillRectangle(backgroundBrush, e.Bounds);
+
+            if (e.Index < 0 || e.Index >= combo.Items.Count)
+            {
+                e.DrawFocusRectangle();
+                return;
+            }
+
+            object? item = combo.Items[e.Index];
+            if (item is not DrawingLayerComboItem layerItem)
+            {
+                TextRenderer.DrawText(
+                    e.Graphics,
+                    item?.ToString() ?? string.Empty,
+                    combo.Font,
+                    e.Bounds,
+                    textColor,
+                    TextFormatFlags.Left |
+                    TextFormatFlags.SingleLine |
+                    TextFormatFlags.VerticalCenter |
+                    TextFormatFlags.EndEllipsis |
+                    TextFormatFlags.NoPrefix);
+                e.DrawFocusRectangle();
+                return;
+            }
+
+            CanvasLayer layer = layerItem.Layer;
+            if (layer.IsLocked && !selected && !disabled)
+            {
+                textColor = BlendColor(combo.ForeColor, combo.BackColor, 0.48f);
+            }
+
+            int swatchSize = Math.Min(LayerNodeColorBoxSize, Math.Max(1, e.Bounds.Height - 6));
+            Rectangle swatchRect = new(
+                e.Bounds.Left + CurrentDrawingLayerComboPadding,
+                e.Bounds.Top + Math.Max(0, (e.Bounds.Height - swatchSize) / 2),
+                swatchSize,
+                swatchSize);
+            DrawCurrentDrawingLayerComboSwatch(e.Graphics, swatchRect, layer, combo.BackColor);
+
+            int textLeft = swatchRect.Right + LayerNodeColorBoxGap;
+            Rectangle textRect = new(
+                textLeft,
+                e.Bounds.Top,
+                Math.Max(0, e.Bounds.Right - textLeft - CurrentDrawingLayerComboPadding),
+                e.Bounds.Height);
+
+            TextRenderer.DrawText(
+                e.Graphics,
+                layer.Name,
+                combo.Font,
+                textRect,
+                textColor,
+                TextFormatFlags.Left |
+                TextFormatFlags.SingleLine |
+                TextFormatFlags.VerticalCenter |
+                TextFormatFlags.EndEllipsis |
+                TextFormatFlags.NoPrefix);
+
+            e.DrawFocusRectangle();
+        }
+
+        private void DrawCurrentDrawingLayerComboSwatch(
+            Graphics g,
+            Rectangle rect,
+            CanvasLayer layer,
+            Color backgroundColor)
+        {
+            if (CanvasLayerTreeService.IsAnnotationLayer(layer))
+            {
+                DrawAnnotationLayerSwatch(g, rect, layer, backgroundColor);
+            }
+            else if (CanvasLayerTreeService.IsPointLayer(layer))
+            {
+                DrawPointLayerSwatch(g, rect, layer, backgroundColor);
+            }
+            else if (CanvasLayerTreeService.IsLineLayer(layer))
+            {
+                DrawLineLayerSwatch(g, rect, layer, backgroundColor);
+            }
+            else
+            {
+                DrawVectorLayerSwatch(g, rect, layer, backgroundColor);
+            }
+        }
+
         private void ConfigureLayerRenameTextBox()
         {
             _layerRenameTextBox.BorderStyle = BorderStyle.FixedSingle;
@@ -6328,6 +6727,7 @@ namespace Land_Readjustment_Tool
             _layerContextMenu.Opening += LayerContextMenu_Opening;
             _mnuToggleLayerVisibility.CheckOnClick = false;
             _mnuToggleLayerLock.CheckOnClick = false;
+            _mnuToggleLayerGroupLock.CheckOnClick = false;
             _mnuToggleLayerLabels.CheckOnClick = false;
             _mnuToggleFillTransparency.CheckOnClick = false;
             _mnuAddRasterMap.Click += async (_, _) => await ImportRasterFileAsync(
@@ -6335,9 +6735,13 @@ namespace Land_Readjustment_Tool
                 GetGeneralRasterImportFilter());
             _mnuAddXyzTiles.Click += async (_, _) =>
                 await ShowXyzTileImportOptionsFormAsync();
-            _mnuZoomToLayer.Click += async (_, _) => await ZoomToLayerAsync(_contextLayerNode);
+            _mnuAddExternalLayers.Click += async (_, _) =>
+                await ShowImportExternalLayersWorkflowAsync();
+            _mnuZoomToLayer.Click += async (_, _) => await ZoomToCurrentLayerTreeContextAsync();
             _mnuRenameLayer.Click += (_, _) => BeginLayerRename(_contextLayerNode);
             _mnuDeleteLayer.Click += async (_, _) => await DeleteLayerAsync(_contextLayerNode);
+            _mnuDeleteLayerGroup.Click += async (_, _) => await DeleteLayerGroupAsync(_contextLayerGroupNode);
+            _mnuDeleteExternalLayerGroup.Click += async (_, _) => await DeleteExternalLayerGroupAsync(_contextLayerGroupNode);
             _mnuAddDrawingLayer.Click += async (_, _) => await AddDrawingMarkupLayerAsync(_contextLayerGroupNode);
             _mnuSetActiveLayer.Click += (_, _) =>
             {
@@ -6349,6 +6753,7 @@ namespace Land_Readjustment_Tool
             _mnuMoveLayerDown.Click += async (_, _) => await MoveLayerInDisplayOrderAsync(_contextLayerNode, 1);
             _mnuToggleLayerVisibility.Click += async (_, _) => await ToggleLayerNodeVisibilityAsync(_contextLayerNode);
             _mnuToggleLayerLock.Click += async (_, _) => await ToggleLayerLockAsync(_contextLayerNode);
+            _mnuToggleLayerGroupLock.Click += async (_, _) => await ToggleLayerGroupLockAsync(_contextLayerGroupNode);
             _mnuToggleLayerLabels.Click += async (_, _) => await ToggleLayerLabelsAsync(_contextLayerNode);
             _mnuToggleFillTransparency.Click += async (_, _) => await ToggleLayerFillTransparencyAsync(_contextLayerNode);
             _mnuLayerProperties.Click += async (_, _) => await OpenLayerPropertyManagerAsync(_contextLayerNode);
@@ -6584,9 +6989,24 @@ namespace Land_Readjustment_Tool
                 {
                     IsLayerNode = false,
                     IsCheckableGroup = IsRePlotDataGroupKey(key) ||
+                                       string.Equals(key, ExternalLayerGroupKey, StringComparison.OrdinalIgnoreCase) ||
                                        string.Equals(key, CadastralMapGroupKey, StringComparison.OrdinalIgnoreCase),
                     IsGroupCheckedWhenEmpty = string.Equals(key, CadastralMapGroupKey, StringComparison.OrdinalIgnoreCase),
                     GroupKey = key
+                }
+            };
+        }
+
+        private static TreeNode CreateExternalFileGroupNode(string sourceFile, int index)
+        {
+            return new TreeNode(GetExternalLayerSourceDisplayName(sourceFile))
+            {
+                Name = $"{LayerGroupNodeNamePrefix}{ExternalLayerGroupKey}_File_{index}",
+                Tag = new LayerTreeNodeState
+                {
+                    IsLayerNode = false,
+                    IsCheckableGroup = true,
+                    GroupKey = ExternalLayerGroupKey
                 }
             };
         }
@@ -6758,6 +7178,39 @@ namespace Land_Readjustment_Tool
                 return;
             }
 
+            if (IsExternalFileGroupNode(targetNode))
+            {
+                _contextLayerNode = null;
+                _contextLayerGroupNode = targetNode;
+                treeViewLayers.SelectedNode = targetNode;
+                ConfigureExternalFileGroupContextMenuItems();
+                _mnuZoomToLayer.Enabled = EnumerateLayerNodes(targetNode!)
+                    .Select(GetLayerFromNode)
+                    .Any(layer => layer != null && !IsOnlineBasemapLayer(layer));
+                return;
+            }
+
+            if (IsExternalLayerGroupNode(targetNode))
+            {
+                _contextLayerNode = null;
+                _contextLayerGroupNode = targetNode;
+                treeViewLayers.SelectedNode = targetNode;
+                ConfigureExternalGroupContextMenuItems();
+                _mnuZoomToLayer.Enabled = EnumerateLayerNodes(targetNode!)
+                    .Select(GetLayerFromNode)
+                    .Any(layer => layer != null && !IsOnlineBasemapLayer(layer));
+                return;
+            }
+
+            if (IsRePlotDataLayerGroupNode(targetNode))
+            {
+                _contextLayerNode = null;
+                _contextLayerGroupNode = targetNode;
+                treeViewLayers.SelectedNode = targetNode;
+                ConfigureRePlotDataGroupContextMenuItems(targetNode);
+                return;
+            }
+
             _contextLayerNode = IsLayerNode(targetNode) ? targetNode : null;
             _contextLayerGroupNode = null;
 
@@ -6793,8 +7246,8 @@ namespace Land_Readjustment_Tool
             bool isProtectedDefaultLayer =
                 CanvasLayerTreeService.IsProtectedDefaultLayer(layer);
             _mnuZoomToLayer.Enabled = !IsOnlineBasemapLayer(_contextLayerNode);
-            _mnuRenameLayer.Enabled = !isProtectedDefaultLayer;
-            _mnuDeleteLayer.Enabled = !isProtectedDefaultLayer;
+            _mnuRenameLayer.Enabled = CanBeginLayerRename(_contextLayerNode, layer);
+            _mnuDeleteLayer.Enabled = !IsOnlineBasemapLayer(_contextLayerNode);
             bool canReorderRaster =
                 IsRasterLayer(layer) &&
                 !IsOnlineBasemapLayer(_contextLayerNode);
@@ -6810,7 +7263,7 @@ namespace Land_Readjustment_Tool
             _mnuToggleLayerLabels.Enabled = CanLayerDisplayLabels(layer);
             _mnuToggleFillTransparency.Enabled = CanLayerUseFillTransparency(layer);
             _mnuLayerProperties.Enabled = true;
-            ConfigureDefaultLayerTransferMenus(_contextLayerNode, layer);
+            ConfigureCreateFeaturesFromLayerMenu(_contextLayerNode, layer);
         }
 
         private static Color BlendColor(Color source, Color target, float targetWeight)
@@ -7175,6 +7628,50 @@ namespace Land_Readjustment_Tool
             _layerContextMenu.Items.Add(_mnuAddDrawingLayer);
         }
 
+        private void ConfigureExternalGroupContextMenuItems()
+        {
+            _layerContextMenu.Items.Clear();
+            _layerContextMenu.Items.AddRange(
+            [
+                _mnuAddExternalLayers,
+                new ToolStripSeparator(),
+                _mnuZoomToLayer
+            ]);
+        }
+
+        private void ConfigureExternalFileGroupContextMenuItems()
+        {
+            _layerContextMenu.Items.Clear();
+            _layerContextMenu.Items.AddRange(
+            [
+                _mnuZoomToLayer,
+                new ToolStripSeparator(),
+                _mnuDeleteExternalLayerGroup
+            ]);
+        }
+
+        private void ConfigureRePlotDataGroupContextMenuItems(TreeNode? groupNode)
+        {
+            _layerContextMenu.Items.Clear();
+            _layerContextMenu.Items.AddRange(
+            [
+                _mnuZoomToLayer,
+                new ToolStripSeparator(),
+                _mnuDeleteLayerGroup,
+                new ToolStripSeparator(),
+                _mnuToggleLayerGroupLock
+            ]);
+
+            List<CanvasLayer> layers = GetLayersFromGroupNode(groupNode);
+            _mnuZoomToLayer.Enabled = layers.Any(layer => !IsOnlineBasemapLayer(layer));
+            _mnuDeleteLayerGroup.Enabled = layers.Count > 0;
+            _mnuToggleLayerGroupLock.Enabled = layers.Count > 0;
+            _mnuToggleLayerGroupLock.Checked = layers.Count > 0 && layers.All(layer => layer.IsLocked);
+            _mnuToggleLayerGroupLock.Text = _mnuToggleLayerGroupLock.Checked
+                ? "Locked"
+                : "Unlocked";
+        }
+
         private void ConfigureLayerContextMenuItems()
         {
             _layerContextMenu.Items.Clear();
@@ -7185,8 +7682,7 @@ namespace Land_Readjustment_Tool
                 _mnuRenameLayer,
                 _mnuDeleteLayer,
                 new ToolStripSeparator(),
-                _mnuCopyLayerObjectsToDefault,
-                _mnuMoveLayerObjectsToDefault,
+                _mnuCreateFeaturesFromLayer,
                 new ToolStripSeparator(),
                 _mnuMoveLayerUp,
                 _mnuMoveLayerDown,
@@ -7200,40 +7696,40 @@ namespace Land_Readjustment_Tool
             ]);
         }
 
-        private void ConfigureDefaultLayerTransferMenus(
+        private void ConfigureCreateFeaturesFromLayerMenu(
             TreeNode? sourceNode,
             CanvasLayer sourceLayer)
         {
-            _mnuCopyLayerObjectsToDefault.DropDownItems.Clear();
-            _mnuMoveLayerObjectsToDefault.DropDownItems.Clear();
+            _mnuCreateFeaturesFromLayer.DropDownItems.Clear();
 
             bool canTransfer = CanTransferObjectsFromLayer(sourceNode, sourceLayer);
             if (canTransfer)
             {
                 foreach (CanvasLayer targetLayer in GetDefaultTransferTargetLayers(sourceNode, sourceLayer))
                 {
-                    ToolStripMenuItem copyItem = new(targetLayer.Name)
+                    ToolStripMenuItem targetItem = new(targetLayer.Name)
                     {
                         Tag = targetLayer
                     };
-                    copyItem.Click += async (_, _) =>
-                        await TransferLayerObjectsToDefaultLayerAsync(sourceLayer, targetLayer, copyObjects: true);
+                    targetItem.Click += async (_, _) =>
+                        await CreateFeaturesFromLayerAsync(sourceLayer, targetLayer);
 
-                    ToolStripMenuItem moveItem = new(targetLayer.Name)
-                    {
-                        Tag = targetLayer
-                    };
-                    moveItem.Click += async (_, _) =>
-                        await TransferLayerObjectsToDefaultLayerAsync(sourceLayer, targetLayer, copyObjects: false);
-
-                    _mnuCopyLayerObjectsToDefault.DropDownItems.Add(copyItem);
-                    _mnuMoveLayerObjectsToDefault.DropDownItems.Add(moveItem);
+                    _mnuCreateFeaturesFromLayer.DropDownItems.Add(targetItem);
                 }
             }
 
-            bool hasTargets = _mnuCopyLayerObjectsToDefault.DropDownItems.Count > 0;
-            _mnuCopyLayerObjectsToDefault.Enabled = canTransfer && hasTargets;
-            _mnuMoveLayerObjectsToDefault.Enabled = canTransfer && hasTargets;
+            if (canTransfer && _mnuCreateFeaturesFromLayer.DropDownItems.Count == 0)
+            {
+                _mnuCreateFeaturesFromLayer.DropDownItems.Add(new ToolStripMenuItem("No compatible feature layers")
+                {
+                    Enabled = false
+                });
+            }
+
+            bool hasTargets = _mnuCreateFeaturesFromLayer.DropDownItems
+                .Cast<ToolStripItem>()
+                .Any(item => item.Enabled);
+            _mnuCreateFeaturesFromLayer.Enabled = canTransfer && hasTargets;
         }
 
         private bool CanTransferObjectsFromLayer(TreeNode? sourceNode, CanvasLayer sourceLayer)
@@ -7250,7 +7746,8 @@ namespace Land_Readjustment_Tool
 
             string? groupKey = GetLayerGroupKeyForNode(sourceNode);
             return string.Equals(groupKey, DrawingMarkupGroupKey, StringComparison.OrdinalIgnoreCase) ||
-                   string.Equals(groupKey, CanvasLayerTreeService.ExternalGroupKey, StringComparison.OrdinalIgnoreCase);
+                   (string.Equals(groupKey, ExternalLayerGroupKey, StringComparison.OrdinalIgnoreCase) &&
+                    CanvasLayerTreeService.IsExternalImportedLayer(sourceLayer));
         }
 
         private IEnumerable<CanvasLayer> GetDefaultTransferTargetLayers(
@@ -7260,6 +7757,38 @@ namespace Land_Readjustment_Tool
             if (sourceNode == null)
                 yield break;
 
+            HashSet<int> yieldedLayerIds = [];
+            foreach (CanvasLayer targetLayer in GetDefaultFeatureTargetLayers())
+            {
+                if (targetLayer.Id != sourceLayer.Id &&
+                    AreLayerTypesTransferCompatible(sourceLayer, targetLayer) &&
+                    yieldedLayerIds.Add(targetLayer.Id))
+                {
+                    yield return targetLayer;
+                }
+            }
+
+            string? sourceGroupKey = GetLayerGroupKeyForNode(sourceNode);
+            bool sourceIsExternal =
+                string.Equals(sourceGroupKey, ExternalLayerGroupKey, StringComparison.OrdinalIgnoreCase) &&
+                CanvasLayerTreeService.IsExternalImportedLayer(sourceLayer);
+            if (!sourceIsExternal)
+                yield break;
+
+            foreach (CanvasLayer targetLayer in GetDrawingMarkupLayersFromTree())
+            {
+                if (targetLayer.Id != sourceLayer.Id &&
+                    !targetLayer.IsLocked &&
+                    AreLayerTypesTransferCompatible(sourceLayer, targetLayer) &&
+                    yieldedLayerIds.Add(targetLayer.Id))
+                {
+                    yield return targetLayer;
+                }
+            }
+        }
+
+        private IEnumerable<CanvasLayer> GetDefaultFeatureTargetLayers()
+        {
             TreeNode? root = treeViewLayers.Nodes
                 .Cast<TreeNode>()
                 .FirstOrDefault(node => string.Equals(
@@ -7274,10 +7803,8 @@ namespace Land_Readjustment_Tool
             {
                 CanvasLayer? targetLayer = GetLayerFromNode(layerNode);
                 if (targetLayer == null ||
-                    targetLayer.Id == sourceLayer.Id ||
                     IsRasterLayer(targetLayer) ||
-                    !IsTransferTargetLayer(layerNode, targetLayer) ||
-                    !AreLayerTypesTransferCompatible(sourceLayer, targetLayer))
+                    !IsTransferTargetLayer(layerNode, targetLayer))
                 {
                     continue;
                 }
@@ -7324,88 +7851,228 @@ namespace Land_Readjustment_Tool
             return "Polygon";
         }
 
-        private async Task TransferLayerObjectsToDefaultLayerAsync(
+        private async Task CreateFeaturesFromLayerAsync(
             CanvasLayer sourceLayer,
-            CanvasLayer targetLayer,
-            bool copyObjects)
+            CanvasLayer targetLayer)
         {
             if (!AppServices.HasContext)
-                return;
-
-            string verb = copyObjects ? "copy" : "move";
-            DialogResult confirm = MessageBox.Show(
-                $"Do you want to {verb} all objects from '{sourceLayer.Name}' to '{targetLayer.Name}'?",
-                copyObjects ? "Copy Objects To Default Layer" : "Move Objects To Default Layer",
-                MessageBoxButtons.YesNo,
-                MessageBoxIcon.Question,
-                MessageBoxDefaultButton.Button2);
-
-            if (confirm != DialogResult.Yes)
                 return;
 
             try
             {
                 AppDbContext context = AppServices.Context.Session.GetDbContext();
-                List<CanvasObject> sourceObjects = copyObjects
-                    ? await context.CanvasObjects
-                        .AsNoTracking()
-                        .Where(item => item.CanvasLayerId == sourceLayer.Id)
-                        .ToListAsync()
-                    : await context.CanvasObjects
-                        .Where(item => item.CanvasLayerId == sourceLayer.Id)
-                        .ToListAsync();
+                List<CanvasObject> sourceObjects = await context.CanvasObjects
+                    .Include(item => item.CanvasLayer)
+                    .Where(item => item.CanvasLayerId == sourceLayer.Id)
+                    .ToListAsync();
 
                 if (sourceObjects.Count == 0)
                 {
                     MessageBox.Show(
-                        $"Layer '{sourceLayer.Name}' has no objects to {verb}.",
-                        "Layer Objects",
+                        $"Layer '{sourceLayer.Name}' does not contain any drawing objects to convert.",
+                        "Create Features",
                         MessageBoxButtons.OK,
                         MessageBoxIcon.Information);
                     return;
                 }
 
-                DateTime now = DateTime.Now;
-                if (copyObjects)
-                {
-                    foreach (CanvasObject sourceObject in sourceObjects)
-                    {
-                        CanvasObject copy = CreateTransferredCanvasObjectForLayer(
-                            sourceObject,
-                            targetLayer,
-                            now);
-                        await context.CanvasObjects.AddAsync(copy);
-                    }
-                }
-                else
-                {
-                    foreach (CanvasObject sourceObject in sourceObjects)
-                    {
-                        CanvasObject movedObject = CreateTransferredCanvasObjectForLayer(
-                            sourceObject,
-                            targetLayer,
-                            now);
-                        await context.CanvasObjects.AddAsync(movedObject);
-                    }
-
-                    context.CanvasObjects.RemoveRange(sourceObjects);
-                }
-
-                await context.SaveChangesAsync();
-                MarkProjectModifiedIfOpen();
-                await RefreshMapCanvasAsync(copyObjects ? "Copying objects" : "Moving objects");
-                SetCanvasCommandStatus(copyObjects
-                    ? $"Copied {sourceObjects.Count} object(s) to {targetLayer.Name}"
-                    : $"Moved {sourceObjects.Count} object(s) to {targetLayer.Name}");
+                await CreateFeaturesFromCanvasObjectsAsync(
+                    context,
+                    sourceObjects,
+                    targetLayer,
+                    $"layer '{sourceLayer.Name}'");
             }
             catch (Exception ex)
             {
                 MessageBox.Show(
-                    $"Failed to {verb} layer objects: {ex.Message}",
-                    copyObjects ? "Copy Objects" : "Move Objects",
+                    $"Failed to create features from layer objects: {ex.Message}",
+                    "Create Features",
                     MessageBoxButtons.OK,
                     MessageBoxIcon.Error);
             }
+        }
+
+        private async Task CreateFeaturesFromSelectedObjectsAsync(
+            IReadOnlyList<Guid> selectedObjectIds,
+            CanvasLayer targetLayer)
+        {
+            if (!AppServices.HasContext || selectedObjectIds.Count == 0)
+                return;
+
+            try
+            {
+                AppDbContext context = AppServices.Context.Session.GetDbContext();
+                List<Guid> ids = selectedObjectIds
+                    .Where(id => id != Guid.Empty)
+                    .Distinct()
+                    .ToList();
+                List<CanvasObject> selectedObjects = await context.CanvasObjects
+                    .Include(item => item.CanvasLayer)
+                    .Where(item => ids.Contains(item.Id))
+                    .ToListAsync();
+
+                List<CanvasObject> drawingObjects = selectedObjects
+                    .Where(item => item.CanvasLayer != null &&
+                                   item.CanvasLayer.IsLocked != true &&
+                                   CanvasLayerTreeService.IsDrawingMarkupLayer(item.CanvasLayer))
+                    .ToList();
+
+                if (drawingObjects.Count == 0)
+                {
+                    MessageBox.Show(
+                        "The current selection does not contain editable drawing/markup objects.",
+                        "Create Features",
+                        MessageBoxButtons.OK,
+                        MessageBoxIcon.Information);
+                    return;
+                }
+
+                await CreateFeaturesFromCanvasObjectsAsync(
+                    context,
+                    drawingObjects,
+                    targetLayer,
+                    drawingObjects.Count == 1
+                        ? "the selected drawing object"
+                        : $"{drawingObjects.Count} selected drawing objects");
+            }
+            catch (Exception ex)
+            {
+                MessageBox.Show(
+                    $"Failed to create features from the selected objects: {ex.Message}",
+                    "Create Features",
+                    MessageBoxButtons.OK,
+                    MessageBoxIcon.Error);
+            }
+        }
+
+        private async Task CreateFeaturesFromCanvasObjectsAsync(
+            AppDbContext context,
+            IReadOnlyList<CanvasObject> sourceObjects,
+            CanvasLayer targetLayer,
+            string sourceDescription)
+        {
+            List<CanvasObject> compatibleSourceObjects = sourceObjects
+                .Where(sourceObject => IsCanvasObjectCompatibleWithFeatureTarget(sourceObject, targetLayer))
+                .ToList();
+            if (compatibleSourceObjects.Count == 0)
+            {
+                MessageBox.Show(
+                    $"No compatible drawing object geometry was found for '{targetLayer.Name}'.",
+                    "Create Features",
+                    MessageBoxButtons.OK,
+                    MessageBoxIcon.Information);
+                return;
+            }
+
+            if (compatibleSourceObjects.Count < sourceObjects.Count)
+            {
+                MessageBox.Show(
+                    $"{sourceObjects.Count - compatibleSourceObjects.Count:N0} drawing object(s) do not match '{targetLayer.Name}' and will be skipped.",
+                    "Create Features",
+                    MessageBoxButtons.OK,
+                    MessageBoxIcon.Information);
+            }
+
+            bool? keepSourceObjects = PromptKeepDrawingObjectsAfterFeatureCreation(
+                sourceDescription,
+                targetLayer.Name,
+                compatibleSourceObjects.Count);
+            if (!keepSourceObjects.HasValue)
+                return;
+
+            DateTime now = DateTime.Now;
+            List<CanvasObject> createdObjects = compatibleSourceObjects
+                .Select(sourceObject => CreateTransferredCanvasObjectForLayer(
+                    sourceObject,
+                    targetLayer,
+                    now))
+                .ToList();
+            List<CanvasObject> deletedObjectSnapshots = keepSourceObjects.Value
+                ? []
+                : compatibleSourceObjects.Select(CloneCanvasObjectSnapshot).ToList();
+
+            await context.CanvasObjects.AddRangeAsync(createdObjects);
+            if (!keepSourceObjects.Value)
+            {
+                context.CanvasObjects.RemoveRange(compatibleSourceObjects);
+            }
+
+            await context.SaveChangesAsync();
+            MarkProjectModifiedIfOpen();
+            if (!keepSourceObjects.Value)
+            {
+                mapCanvasControlMain.ClearSelectionAfterDelete();
+            }
+
+            await RefreshMapCanvasAsync("Creating features");
+            await RefreshCurrentSelectedCanvasObjectPropertiesAsync();
+
+            List<CanvasObject> createdSnapshots = createdObjects
+                .Select(CloneCanvasObjectSnapshot)
+                .ToList();
+            IPersistedCanvasUndoCommand undoCommand = keepSourceObjects.Value
+                ? new AddCanvasObjectsCommand(createdSnapshots)
+                : new CreateFeaturesFromCanvasObjectsCommand(createdSnapshots, deletedObjectSnapshots);
+            RegisterCanvasUndoCommand(undoCommand);
+
+            SetCanvasCommandStatus(keepSourceObjects.Value
+                ? $"Created {createdObjects.Count} feature(s) in {targetLayer.Name}; kept drawing object(s)"
+                : $"Created {createdObjects.Count} feature(s) in {targetLayer.Name}; removed drawing object(s)");
+        }
+
+        private static bool? PromptKeepDrawingObjectsAfterFeatureCreation(
+            string sourceDescription,
+            string targetLayerName,
+            int objectCount)
+        {
+            DialogResult result = MessageBox.Show(
+                $"Create {objectCount:N0} feature(s) in '{targetLayerName}' from {sourceDescription}?\n\n" +
+                "Choose Yes to keep the original drawing/markup object(s).\n" +
+                "Choose No to delete them after the features are created.",
+                "Create Features",
+                MessageBoxButtons.YesNoCancel,
+                MessageBoxIcon.Question,
+                MessageBoxDefaultButton.Button1);
+
+            return result switch
+            {
+                DialogResult.Yes => true,
+                DialogResult.No => false,
+                _ => null
+            };
+        }
+
+        private static bool IsCanvasObjectCompatibleWithFeatureTarget(
+            CanvasObject sourceObject,
+            CanvasLayer targetLayer)
+        {
+            NetTopologySuite.Geometries.OgcGeometryType geometryType =
+                sourceObject.Shape.OgcGeometryType;
+
+            if (IsPolygonTransferTargetLayer(targetLayer))
+            {
+                return geometryType is NetTopologySuite.Geometries.OgcGeometryType.Polygon
+                    or NetTopologySuite.Geometries.OgcGeometryType.MultiPolygon;
+            }
+
+            if (CanvasLayerTreeService.IsLineLayer(targetLayer))
+            {
+                return geometryType is NetTopologySuite.Geometries.OgcGeometryType.LineString
+                    or NetTopologySuite.Geometries.OgcGeometryType.MultiLineString;
+            }
+
+            if (CanvasLayerTreeService.IsPointLayer(targetLayer))
+            {
+                return geometryType is NetTopologySuite.Geometries.OgcGeometryType.Point
+                    or NetTopologySuite.Geometries.OgcGeometryType.MultiPoint;
+            }
+
+            if (CanvasLayerTreeService.IsAnnotationLayer(targetLayer))
+            {
+                return string.Equals(sourceObject.ObjectType, "Text", StringComparison.OrdinalIgnoreCase);
+            }
+
+            return false;
         }
 
         private static CanvasObject CreateTransferredCanvasObjectForLayer(
@@ -7543,19 +8210,20 @@ namespace Land_Readjustment_Tool
             }
 
             CanvasLayer? layer = GetLayerFromNode(node);
-            if (IsProtectedRePlotDefaultLayerNameNode(node, layer))
+            if (layer == null)
             {
-                MessageBox.Show(
-                    "Layer Name cannot be changed",
-                    "Rename Layer",
-                    MessageBoxButtons.OK,
-                    MessageBoxIcon.Information);
                 return;
             }
 
-            if (layer?.IsLocked == true)
+            if (layer.IsLocked)
             {
                 ShowLayerLockedMessage(layer, "renamed");
+                return;
+            }
+
+            if (!CanEditLayerName(node, layer))
+            {
+                ShowLayerNameProtectedMessage();
                 return;
             }
 
@@ -7568,6 +8236,24 @@ namespace Land_Readjustment_Tool
             _layerRenameTextBox.Focus();
             _layerRenameTextBox.SelectAll();
             treeViewLayers.Invalidate();
+        }
+
+        private static bool CanBeginLayerRename(TreeNode? node, CanvasLayer? layer)
+        {
+            return layer != null &&
+                   !layer.IsLocked &&
+                   CanEditLayerName(node, layer);
+        }
+
+        private static bool CanEditLayerName(TreeNode? node, CanvasLayer? layer)
+        {
+            if (layer == null)
+                return false;
+
+            if (CanvasLayerTreeService.IsDrawingMarkupLayer(layer))
+                return true;
+
+            return !IsProtectedRePlotDefaultLayerNameNode(node, layer);
         }
 
         private static bool IsProtectedRePlotDefaultLayerNameNode(
@@ -7795,7 +8481,8 @@ namespace Land_Readjustment_Tool
         private static bool CanLayerDisplayLabels(CanvasLayer layer)
         {
             return !IsRasterLayer(layer) &&
-                   !CanvasLayerTreeService.IsAnnotationLayer(layer);
+                   !CanvasLayerTreeService.IsAnnotationLayer(layer) &&
+                   !CanvasLayerTreeService.IsExternalImportedLayer(layer);
         }
 
         private static bool CanLayerUseFillTransparency(CanvasLayer layer)
@@ -7910,13 +8597,9 @@ namespace Land_Readjustment_Tool
                 return;
             }
 
-            if (IsProtectedRePlotDefaultLayerNameNode(node, nodeState.Layer))
+            if (!CanEditLayerName(node, nodeState.Layer))
             {
-                MessageBox.Show(
-                    "Layer Name cannot be changed",
-                    "Rename Layer",
-                    MessageBoxButtons.OK,
-                    MessageBoxIcon.Information);
+                ShowLayerNameProtectedMessage();
                 return;
             }
 
@@ -7993,6 +8676,53 @@ namespace Land_Readjustment_Tool
             {
                 MessageBox.Show(
                     $"Failed to update layer lock state: {ex.Message}",
+                    "Layer Lock",
+                    MessageBoxButtons.OK,
+                    MessageBoxIcon.Error);
+            }
+        }
+
+        private async Task ToggleLayerGroupLockAsync(TreeNode? groupNode)
+        {
+            if (!IsRePlotDataLayerGroupNode(groupNode))
+                return;
+
+            List<CanvasLayer> layers = GetLayersFromGroupNode(groupNode);
+            if (layers.Count == 0)
+                return;
+
+            bool lockLayers = layers.Any(layer => !layer.IsLocked);
+
+            try
+            {
+                List<CanvasLayer> beforeSnapshots = layers
+                    .Select(CloneCanvasLayerSnapshot)
+                    .ToList();
+                List<CanvasLayer> updatedLayers = [];
+                foreach (CanvasLayer layer in layers)
+                {
+                    CanvasLayer editableLayer = _layerCommandService.CreateEditableCopy(layer);
+                    editableLayer.IsLocked = lockLayers;
+                    CanvasLayer updatedLayer =
+                        await _layerCommandService.UpdatePropertiesAsync(
+                            AppServices.HasContext ? AppServices.Context.Session : null,
+                            editableLayer);
+                    updatedLayers.Add(updatedLayer);
+                }
+
+                RegisterCanvasUndoCommand(new ModifyCanvasLayersCommand(
+                    beforeSnapshots,
+                    updatedLayers.Select(CloneCanvasLayerSnapshot).ToList()));
+                MarkProjectModifiedIfOpen();
+                await RefreshMapCanvasAsync("Refreshing layer lock state");
+                SetCanvasCommandStatus(lockLayers
+                    ? $"Layer group locked: {groupNode!.Text}"
+                    : $"Layer group unlocked: {groupNode!.Text}");
+            }
+            catch (Exception ex)
+            {
+                MessageBox.Show(
+                    $"Failed to update layer group lock state: {ex.Message}",
                     "Layer Lock",
                     MessageBoxButtons.OK,
                     MessageBoxIcon.Error);
@@ -8239,6 +8969,127 @@ namespace Land_Readjustment_Tool
             }
         }
 
+        private async Task DeleteLayerGroupAsync(TreeNode? groupNode)
+        {
+            if (!IsRePlotDataLayerGroupNode(groupNode))
+                return;
+
+            List<CanvasLayer> layers = GetLayersFromGroupNode(groupNode);
+            if (layers.Count == 0)
+                return;
+
+            List<CanvasLayer> lockedLayers = layers
+                .Where(layer => layer.IsLocked)
+                .ToList();
+            if (lockedLayers.Count > 0)
+            {
+                MessageBox.Show(
+                    $"Layer group '{groupNode!.Text}' contains locked layer(s).\n\nUnlock the group first if you want to delete it.",
+                    "Layer Locked",
+                    MessageBoxButtons.OK,
+                    MessageBoxIcon.Information);
+                return;
+            }
+
+            DialogResult result = MessageBox.Show(
+                $"Delete layer group '{groupNode!.Text}'?\n\nThis will remove all layer nodes and objects under this group.",
+                "Delete Layer Group",
+                MessageBoxButtons.YesNo,
+                MessageBoxIcon.Warning,
+                MessageBoxDefaultButton.Button2);
+
+            if (result != DialogResult.Yes)
+                return;
+
+            if (!AppServices.HasContext)
+            {
+                groupNode.Remove();
+                ClearLayerProperties();
+                await RefreshMapCanvasAsync("Refreshing map canvas");
+                return;
+            }
+
+            try
+            {
+                foreach (CanvasLayer layer in layers.OrderByDescending(item => item.DisplayOrder))
+                {
+                    await _layerCommandService.DeleteAsync(
+                        AppServices.Context.Session,
+                        layer);
+                    _rasterImportFileManagementService.HandleLayerDeleted(
+                        AppServices.Context,
+                        layer);
+                }
+
+                MarkProjectModifiedIfOpen();
+                await RefreshMapCanvasAsync("Refreshing map canvas");
+                ClearLayerProperties();
+            }
+            catch (Exception ex)
+            {
+                MessageBox.Show(
+                    $"Failed to delete the layer group: {ex.Message}",
+                    "Delete Layer Group",
+                    MessageBoxButtons.OK,
+                    MessageBoxIcon.Error);
+            }
+        }
+
+        private async Task DeleteExternalLayerGroupAsync(TreeNode? groupNode)
+        {
+            if (!IsExternalFileGroupNode(groupNode))
+                return;
+
+            List<CanvasLayer> layers = EnumerateLayerNodes(groupNode!)
+                .Select(GetLayerFromNode)
+                .Where(layer => layer != null)
+                .Select(layer => layer!)
+                .ToList();
+
+            if (layers.Count == 0)
+                return;
+
+            DialogResult result = MessageBox.Show(
+                $"Delete '{groupNode!.Text}'?\n\nThis will remove all imported layer nodes and objects under this file.",
+                "Delete External Layers",
+                MessageBoxButtons.YesNo,
+                MessageBoxIcon.Warning,
+                MessageBoxDefaultButton.Button2);
+
+            if (result != DialogResult.Yes)
+                return;
+
+            if (!AppServices.HasContext)
+            {
+                groupNode.Remove();
+                ClearLayerProperties();
+                await RefreshMapCanvasAsync("Refreshing map canvas");
+                return;
+            }
+
+            try
+            {
+                foreach (CanvasLayer layer in layers.OrderByDescending(item => item.DisplayOrder))
+                {
+                    await _layerCommandService.DeleteAsync(
+                        AppServices.Context.Session,
+                        layer);
+                }
+
+                MarkProjectModifiedIfOpen();
+                await RefreshMapCanvasAsync("Refreshing map canvas");
+                ClearLayerProperties();
+            }
+            catch (Exception ex)
+            {
+                MessageBox.Show(
+                    $"Failed to delete external layers: {ex.Message}",
+                    "Delete External Layers",
+                    MessageBoxButtons.OK,
+                    MessageBoxIcon.Error);
+            }
+        }
+
         private async Task AddDrawingMarkupLayerAsync(TreeNode? groupNode)
         {
             if (!IsDrawingMarkupGroupNode(groupNode))
@@ -8259,16 +9110,28 @@ namespace Land_Readjustment_Tool
                 var repository = _projectScopedFactory.CreateCanvasLayerRepository(
                     AppServices.Context.Session);
                 List<CanvasLayer> existingLayers = await repository.GetAllOrderedAsync();
-                string layerName = GetUniqueLayerName(existingLayers, "Drawing Layer");
+                const string initialLayerType = CanvasLayerTreeService.PointLayerType;
+                string layerName = GetUniqueLayerName(
+                    existingLayers,
+                    GetDefaultDrawingLayerNameForLayerType(initialLayerType));
                 int nextDisplayOrder = existingLayers.Count == 0
                     ? 0
                     : existingLayers.Max(layer => layer.DisplayOrder) + 1;
+                var settingsRepository = _projectScopedFactory.CreateProjectSettingsRepository(
+                    AppServices.Context.Session);
+                var settings = await settingsRepository.GetProjectSettingsAsync();
+                Color canvasBackgroundColor = ParseColorOrDefault(
+                    settings?.CanvasBackgroundColor,
+                    Color.White);
                 string drawingColor = GetRandomDrawingMarkupColorHex();
+                drawingColor = CanvasThemeColorService.AdjustHexColorForCanvasTheme(
+                    canvasBackgroundColor,
+                    drawingColor);
 
                 CanvasLayer newLayer = new()
                 {
                     Name = layerName,
-                    LayerType = CanvasLayerTreeService.PointLayerType,
+                    LayerType = initialLayerType,
                     IsVisible = true,
                     IsLocked = false,
                     IsSelectable = true,
@@ -8294,14 +9157,20 @@ namespace Land_Readjustment_Tool
                 using var frm = new frmLayerPropertyManager(
                     newLayer,
                     _hatchPatternService,
-                    allowRename: true);
+                    allowRename: true,
+                    allowLayerKindChange: true,
+                    layerNameSuggestionProvider: layerType => GetUniqueLayerName(
+                        existingLayers,
+                        GetDefaultDrawingLayerNameForLayerType(layerType)));
                 PositionLayerPropertyManager(frm);
+                frm.Shown += (_, _) => frm.FocusLayerNameTextBox();
 
                 if (frm.ShowDialog(this) != DialogResult.OK)
                     return;
 
                 newLayer.Name = GetUniqueLayerName(existingLayers, newLayer.Name);
                 newLayer.Description = $"Drawing/markup layer: {newLayer.Name}";
+                ApplyCanvasThemeToLayerColors(newLayer, canvasBackgroundColor);
                 CanvasLayer createdLayer = await repository.AddAsync(newLayer);
                 MarkProjectModifiedIfOpen();
                 await RefreshLayerTreeAsync();
@@ -8340,21 +9209,17 @@ namespace Land_Readjustment_Tool
                 // Update each layer's colors based on canvas theme
                 foreach (var layer in layers)
                 {
-                    string adjustedBorderColor = CanvasThemeColorService.AdjustHexColorForCanvasTheme(
-                        canvasBackgroundColor, layer.BorderColor ?? "#000000");
-                    string adjustedFillColor = CanvasThemeColorService.AdjustHexColorForCanvasTheme(
-                        canvasBackgroundColor, layer.FillColor ?? "#FFFFFF");
-                    string adjustedLabelColor = CanvasThemeColorService.AdjustHexColorForCanvasTheme(
-                        canvasBackgroundColor, layer.LabelColor ?? "#000000");
+                    string? currentBorderColor = layer.BorderColor;
+                    string? currentFillColor = layer.FillColor;
+                    string? currentLabelColor = layer.LabelColor;
+
+                    ApplyCanvasThemeToLayerColors(layer, canvasBackgroundColor);
 
                     // Only update if colors changed
-                    if (adjustedBorderColor != layer.BorderColor ||
-                        adjustedFillColor != layer.FillColor ||
-                        adjustedLabelColor != layer.LabelColor)
+                    if (currentBorderColor != layer.BorderColor ||
+                        currentFillColor != layer.FillColor ||
+                        currentLabelColor != layer.LabelColor)
                     {
-                        layer.BorderColor = adjustedBorderColor;
-                        layer.FillColor = adjustedFillColor;
-                        layer.LabelColor = adjustedLabelColor;
                         layer.LastModifiedDate = DateTime.Now;
 
                         await repository.UpdateAsync(layer);
@@ -8379,6 +9244,35 @@ namespace Land_Readjustment_Tool
                 System.Diagnostics.Debug.WriteLine(
                     $"UpdateLayerColorsForCanvasTheme failed: {ex.Message}");
             }
+        }
+
+        private async Task ApplyCurrentCanvasThemeToLayerColorsAsync()
+        {
+            if (!AppServices.HasContext) return;
+
+            var settingsRepository = _projectScopedFactory.CreateProjectSettingsRepository(
+                AppServices.Context.Session);
+            var settings = await settingsRepository.GetProjectSettingsAsync();
+            Color canvasBackgroundColor = ParseColorOrDefault(
+                settings?.CanvasBackgroundColor,
+                Color.White);
+
+            await UpdateLayerColorsForCanvasThemeAsync(canvasBackgroundColor);
+        }
+
+        private static void ApplyCanvasThemeToLayerColors(
+            CanvasLayer layer,
+            Color canvasBackgroundColor)
+        {
+            layer.BorderColor = CanvasThemeColorService.AdjustHexColorForCanvasTheme(
+                canvasBackgroundColor,
+                layer.BorderColor ?? "#000000");
+            layer.FillColor = CanvasThemeColorService.AdjustNullableHexColorForCanvasTheme(
+                canvasBackgroundColor,
+                layer.FillColor);
+            layer.LabelColor = CanvasThemeColorService.AdjustHexColorForCanvasTheme(
+                canvasBackgroundColor,
+                layer.LabelColor ?? "#000000");
         }
 
         private static string GetUniqueLayerName(
@@ -8413,6 +9307,89 @@ namespace Land_Readjustment_Tool
             RefreshCurrentDrawingLayerCombo();
             SelectCurrentDrawingLayerById(layer.Id);
             mapCanvasControlMain.SetActiveTool(_currentCanvasTool, layer);
+        }
+
+        private async Task ZoomToCurrentLayerTreeContextAsync()
+        {
+            if (IsLayerGroupNode(_contextLayerGroupNode))
+            {
+                await ZoomToLayerGroupAsync(_contextLayerGroupNode);
+                return;
+            }
+
+            await ZoomToLayerAsync(_contextLayerNode);
+        }
+
+        private async Task ZoomToLayerGroupAsync(TreeNode? groupNode)
+        {
+            if (!IsLayerGroupNode(groupNode))
+                return;
+
+            List<CanvasLayer> layers = EnumerateLayerNodes(groupNode!)
+                .Select(GetLayerFromNode)
+                .Where(layer => layer != null && !IsOnlineBasemapLayer(layer))
+                .Select(layer => layer!)
+                .ToList();
+
+            if (layers.Count == 0)
+                return;
+
+            try
+            {
+                RectangleD? combinedBounds = null;
+                foreach (CanvasLayer layer in layers)
+                {
+                    RectangleD? layerBounds =
+                        await _layerBoundsService.GetWorldBoundsAsync(
+                            AppServices.HasContext ? AppServices.Context.Session : null,
+                            layer,
+                            AppServices.HasContext
+                                ? AppServices.Context.ProjectFolderPath
+                                : null);
+
+                    if (!layerBounds.HasValue)
+                        continue;
+
+                    combinedBounds = combinedBounds.HasValue
+                        ? CombineWorldBounds(combinedBounds.Value, layerBounds.Value)
+                        : layerBounds.Value;
+                }
+
+                if (!combinedBounds.HasValue)
+                {
+                    MessageBox.Show(
+                        $"Layer group '{groupNode!.Text}' does not have drawable bounds yet.",
+                        "Zoom To Layer",
+                        MessageBoxButtons.OK,
+                        MessageBoxIcon.Information);
+                    return;
+                }
+
+                mapCanvasControlMain.SetPanToolActive(false);
+                mnuPan.Checked = false;
+                mapCanvasControlMain.ZoomToWorldBounds(combinedBounds.Value);
+            }
+            catch (Exception ex)
+            {
+                MessageBox.Show(
+                    $"Failed to zoom to the layer group: {ex.Message}",
+                    "Zoom To Layer",
+                    MessageBoxButtons.OK,
+                    MessageBoxIcon.Error);
+            }
+            finally
+            {
+                HideOperationProgress();
+            }
+        }
+
+        private static RectangleD CombineWorldBounds(RectangleD first, RectangleD second)
+        {
+            double minX = Math.Min(Math.Min(first.Left, first.Right), Math.Min(second.Left, second.Right));
+            double maxX = Math.Max(Math.Max(first.Left, first.Right), Math.Max(second.Left, second.Right));
+            double minY = Math.Min(Math.Min(first.Top, first.Bottom), Math.Min(second.Top, second.Bottom));
+            double maxY = Math.Max(Math.Max(first.Top, first.Bottom), Math.Max(second.Top, second.Bottom));
+            return new RectangleD(minX, minY, maxX - minX, maxY - minY);
         }
 
         private async Task ZoomToLayerAsync(TreeNode? node)
@@ -8543,6 +9520,15 @@ namespace Land_Readjustment_Tool
                 MessageBoxButtons.OK,
                 MessageBoxIcon.Information);
             SetCanvasCommandStatus($"Layer locked: {layer.Name}");
+        }
+
+        private static void ShowLayerNameProtectedMessage()
+        {
+            MessageBox.Show(
+                "Layer Name cannot be changed",
+                "Rename Layer",
+                MessageBoxButtons.OK,
+                MessageBoxIcon.Information);
         }
 
         /// <summary>
@@ -9138,6 +10124,60 @@ namespace Land_Readjustment_Tool
             CadastralRecordsAssignmentToolStripMenuItem_Click(this, EventArgs.Empty);
         }
 
+        private void MapCanvasControlMain_SelectedObjectsCreateFeaturesMenuOpening(
+            object? sender,
+            CanvasCreateFeaturesMenuOpeningEventArgs e)
+        {
+            e.MenuItem.DropDownItems.Clear();
+
+            IReadOnlyList<CanvasLayer> targetLayers =
+                GetDefaultTransferTargetLayersForSelectedDrawingObjects(e.SelectedObjectIds);
+            if (targetLayers.Count == 0)
+            {
+                e.MenuItem.DropDownItems.Add(new ToolStripMenuItem("No compatible feature layers")
+                {
+                    Enabled = false
+                });
+                return;
+            }
+
+            foreach (CanvasLayer targetLayer in targetLayers)
+            {
+                ToolStripMenuItem targetItem = new(targetLayer.Name)
+                {
+                    Tag = targetLayer
+                };
+                targetItem.Click += async (_, _) =>
+                    await CreateFeaturesFromSelectedObjectsAsync(e.SelectedObjectIds, targetLayer);
+                e.MenuItem.DropDownItems.Add(targetItem);
+            }
+        }
+
+        private IReadOnlyList<CanvasLayer> GetDefaultTransferTargetLayersForSelectedDrawingObjects(
+            IReadOnlyList<Guid> selectedObjectIds)
+        {
+            HashSet<Guid> selectedIds = selectedObjectIds
+                .Where(id => id != Guid.Empty)
+                .ToHashSet();
+            List<CanvasLayer> sourceLayers = _currentPropertyGridObjects
+                .Where(item => selectedIds.Contains(item.Id) &&
+                               item.CanvasLayer != null &&
+                               CanvasLayerTreeService.IsDrawingMarkupLayer(item.CanvasLayer))
+                .Select(item => item.CanvasLayer!)
+                .GroupBy(layer => layer.Id)
+                .Select(group => group.First())
+                .ToList();
+
+            IEnumerable<CanvasLayer> targets = GetDefaultFeatureTargetLayers();
+            if (sourceLayers.Count > 0)
+            {
+                targets = targets.Where(target =>
+                    sourceLayers.Any(source => AreLayerTypesTransferCompatible(source, target)));
+            }
+
+            return targets.ToList();
+        }
+
         private async Task RefreshLayerTreeAsync(
             bool rebuildRasterLayersAfterCrsChange = false)
         {
@@ -9240,6 +10280,31 @@ namespace Land_Readjustment_Tool
             TreeNode groupNode,
             CanvasLayerTreeGroup group)
         {
+            if (string.Equals(group.Key, ExternalLayerGroupKey, StringComparison.OrdinalIgnoreCase))
+            {
+                int externalFileIndex = 0;
+                foreach (IGrouping<string, CanvasLayer> sourceGroup in group.Layers
+                    .GroupBy(GetExternalLayerSourceGroupKey, StringComparer.OrdinalIgnoreCase)
+                    .OrderBy(item => GetExternalLayerSourceDisplayName(item.Key)))
+                {
+                    TreeNode sourceNode = CreateExternalFileGroupNode(
+                        sourceGroup.Key,
+                        externalFileIndex++);
+
+                    foreach (CanvasLayer layer in sourceGroup
+                        .OrderBy(item => item.DisplayOrder)
+                        .ThenBy(item => item.Name))
+                    {
+                        sourceNode.Nodes.Add(CreateLayerNode(layer));
+                    }
+
+                    groupNode.Nodes.Add(sourceNode);
+                    sourceNode.Expand();
+                }
+
+                return;
+            }
+
             if (!string.Equals(group.Key, OriginalDataGroupKey, StringComparison.OrdinalIgnoreCase))
             {
                 foreach (CanvasLayer layer in OrderLayerGroupForDisplay(group.Key, group.Layers))
@@ -9259,6 +10324,21 @@ namespace Land_Readjustment_Tool
 
             groupNode.Nodes.Add(cadastralMapNode);
             cadastralMapNode.Expand();
+        }
+
+        private static string GetExternalLayerSourceGroupKey(CanvasLayer layer)
+        {
+            return string.IsNullOrWhiteSpace(layer.SourceFile)
+                ? "External import"
+                : layer.SourceFile;
+        }
+
+        private static string GetExternalLayerSourceDisplayName(string sourceFile)
+        {
+            string fileName = Path.GetFileName(sourceFile);
+            return string.IsNullOrWhiteSpace(fileName)
+                ? sourceFile
+                : fileName;
         }
 
         private static bool IsCadastralCanvasLayer(CanvasLayer layer)
@@ -9565,6 +10645,41 @@ namespace Land_Readjustment_Tool
                 StringComparison.OrdinalIgnoreCase);
         }
 
+        private static bool IsExternalLayerGroupNode(TreeNode? node)
+        {
+            return string.Equals(
+                node?.Name,
+                $"{LayerGroupNodeNamePrefix}{ExternalLayerGroupKey}",
+                StringComparison.OrdinalIgnoreCase);
+        }
+
+        private static bool IsExternalFileGroupNode(TreeNode? node)
+        {
+            return node?.Name.StartsWith(
+                $"{LayerGroupNodeNamePrefix}{ExternalLayerGroupKey}_File_",
+                StringComparison.OrdinalIgnoreCase) == true;
+        }
+
+        private static bool IsRePlotDataLayerGroupNode(TreeNode? node)
+        {
+            string? groupKey = GetLayerGroupKeyForGroupNode(node);
+            if (string.IsNullOrWhiteSpace(groupKey) ||
+                string.Equals(groupKey, RePlotRootNodeKey, StringComparison.OrdinalIgnoreCase))
+            {
+                return false;
+            }
+
+            return CanvasLayerTreeService.IsRePlotDataGroupKey(groupKey) ||
+                   string.Equals(groupKey, CadastralMapGroupKey, StringComparison.OrdinalIgnoreCase);
+        }
+
+        private static string? GetLayerGroupKeyForGroupNode(TreeNode? node)
+        {
+            return node?.Tag is LayerTreeNodeState state && !state.IsLayerNode
+                ? state.GroupKey
+                : null;
+        }
+
         private static CanvasLayer? GetLayerFromNode(TreeNode? node)
         {
             return node?.Tag is LayerTreeNodeState state &&
@@ -9585,6 +10700,18 @@ namespace Land_Readjustment_Tool
                 foreach (TreeNode descendantNode in EnumerateLayerNodes(childNode))
                     yield return descendantNode;
             }
+        }
+
+        private static List<CanvasLayer> GetLayersFromGroupNode(TreeNode? groupNode)
+        {
+            if (groupNode == null)
+                return [];
+
+            return EnumerateLayerNodes(groupNode)
+                .Select(GetLayerFromNode)
+                .Where(layer => layer != null)
+                .Select(layer => layer!)
+                .ToList();
         }
 
         private static VisualStyles.CheckBoxState GetGroupCheckBoxState(TreeNode groupNode)
@@ -9767,7 +10894,12 @@ namespace Land_Readjustment_Tool
                 _layerCommandService.CreateEditableCopy(nodeState.Layer);
 
             var sampleRecords = await GetLayerSampleRecordsAsync(nodeState.Layer);
-            using var frm = new frmLayerPropertyManager(editableLayer, _hatchPatternService, sampleRecords);
+            bool allowRename = CanEditLayerName(node, nodeState.Layer);
+            using var frm = new frmLayerPropertyManager(
+                editableLayer,
+                _hatchPatternService,
+                sampleRecords,
+                allowRename);
             PositionLayerPropertyManager(frm);
 
             frm.LayerApplied += async (_, _) =>
@@ -9804,6 +10936,7 @@ namespace Land_Readjustment_Tool
                     else
                     {
                         mapCanvasControlMain.UpdateVectorLayer(updatedLayer);
+                        await RefreshVectorCanvasFeaturesAsync();
                         RefreshCurrentDrawingLayerCombo();
                         SetCanvasCommandStatus($"Layer properties applied: {updatedLayer.Name}");
                     }
@@ -9852,6 +10985,7 @@ namespace Land_Readjustment_Tool
                 else
                 {
                     mapCanvasControlMain.UpdateVectorLayer(updatedLayer);
+                    await RefreshVectorCanvasFeaturesAsync();
                     // Sync the drawing-layer combo so the updated layer object
                     // (with the new color/style) replaces the stale cached item.
                     // Without this, re-activating a drawing tool passes the old
@@ -9985,6 +11119,8 @@ namespace Land_Readjustment_Tool
                         ["Municipality"]         = bp?.Municipality ?? string.Empty,
                         ["WardNo"]               = bp?.WardNo ?? string.Empty,
                         ["LandUse"]              = bp?.LandUse ?? meta?.LandUse ?? string.Empty,
+                        ["MothNo"]               = bp?.MalpotReference?.MothNo ?? string.Empty,
+                        ["PaanaNo"]              = bp?.MalpotReference?.PaanaNo ?? string.Empty,
                         // ── Status ─────────────────────────────────────────────────
                         ["AssignmentStatus"]     = meta?.AssignmentStatus ?? string.Empty,
                         // ── Object / layer ─────────────────────────────────────────
@@ -10164,6 +11300,7 @@ namespace Land_Readjustment_Tool
                 _suppressCurrentDrawingLayerSelectionChanged = false;
             }
 
+            cboCurrentDrawingLayer.ComboBox.Invalidate();
             UpdateDrawingToolAvailability();
         }
 
@@ -10854,6 +11991,39 @@ namespace Land_Readjustment_Tool
             public Task RedoAsync(frmMain owner)
             {
                 return owner.DeleteCanvasObjectsForUndoRedoAsync(_snapshots.Select(item => item.Id).ToArray());
+            }
+        }
+
+        /// <summary>
+        /// Undo command for converting drawing objects into feature objects while removing originals.
+        /// </summary>
+        private sealed class CreateFeaturesFromCanvasObjectsCommand : IPersistedCanvasUndoCommand
+        {
+            private readonly IReadOnlyList<CanvasObject> _createdSnapshots;
+            private readonly IReadOnlyList<CanvasObject> _deletedSourceSnapshots;
+
+            public CreateFeaturesFromCanvasObjectsCommand(
+                IReadOnlyList<CanvasObject> createdSnapshots,
+                IReadOnlyList<CanvasObject> deletedSourceSnapshots)
+            {
+                _createdSnapshots = createdSnapshots;
+                _deletedSourceSnapshots = deletedSourceSnapshots;
+            }
+
+            public string Description => _createdSnapshots.Count == 1
+                ? "Create feature from drawing object"
+                : $"Create {_createdSnapshots.Count} features from drawing objects";
+
+            public async Task UndoAsync(frmMain owner)
+            {
+                await owner.DeleteCanvasObjectsForUndoRedoAsync(_createdSnapshots.Select(item => item.Id).ToArray());
+                await owner.RestoreCanvasObjectSnapshotsAsync(_deletedSourceSnapshots);
+            }
+
+            public async Task RedoAsync(frmMain owner)
+            {
+                await owner.RestoreCanvasObjectSnapshotsAsync(_createdSnapshots);
+                await owner.DeleteCanvasObjectsForUndoRedoAsync(_deletedSourceSnapshots.Select(item => item.Id).ToArray());
             }
         }
 

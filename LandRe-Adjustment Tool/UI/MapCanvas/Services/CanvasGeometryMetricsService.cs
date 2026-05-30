@@ -37,7 +37,7 @@ namespace Land_Readjustment_Tool.UI.MapCanvas.Services
         {
             if (TryGetSemanticVertexCount(canvasObject, out int semanticVertexCount))
             {
-                return semanticVertexCount;
+                return semanticVertexCount > 0 ? semanticVertexCount : null;
             }
 
             if (canvasObject.Shape == null || canvasObject.Shape.IsEmpty)
@@ -45,12 +45,13 @@ namespace Land_Readjustment_Tool.UI.MapCanvas.Services
 
             int vertexCount = canvasObject.Shape switch
             {
-                Polygon polygon => CountPolygonVertices(polygon),
-                MultiPolygon multiPolygon => multiPolygon.Geometries
+                Polygon polygon when IsPolygonObject(canvasObject) => CountPolygonVertices(polygon),
+                MultiPolygon multiPolygon when IsPolygonObject(canvasObject) => multiPolygon.Geometries
                     .OfType<Polygon>()
                     .Sum(CountPolygonVertices),
                 LineString lineString when IsPolygonObject(canvasObject) => CountRingVertices(lineString),
-                _ => canvasObject.Shape.NumPoints
+                LineString lineString when IsPolylineObject(canvasObject) => lineString.NumPoints,
+                _ => 0
             };
 
             return vertexCount > 0 ? vertexCount : null;
@@ -111,6 +112,12 @@ namespace Land_Readjustment_Tool.UI.MapCanvas.Services
                 return true;
             }
 
+            if (canvasObject.ObjectType.Equals("Line", StringComparison.OrdinalIgnoreCase))
+            {
+                vertexCount = 2;
+                return true;
+            }
+
             return false;
         }
 
@@ -143,6 +150,12 @@ namespace Land_Readjustment_Tool.UI.MapCanvas.Services
                 }
 
                 if (shapeType.Equals("Arc", StringComparison.OrdinalIgnoreCase))
+                {
+                    vertexCount = 2;
+                    return true;
+                }
+
+                if (shapeType.Equals("Line", StringComparison.OrdinalIgnoreCase))
                 {
                     vertexCount = 2;
                     return true;
@@ -202,8 +215,12 @@ namespace Land_Readjustment_Tool.UI.MapCanvas.Services
         private static bool IsPolygonObject(CanvasObject canvasObject)
         {
             return canvasObject.ObjectType.Equals("Polygon", StringComparison.OrdinalIgnoreCase) ||
-                   canvasObject.ObjectType.Equals("Rectangle", StringComparison.OrdinalIgnoreCase) ||
-                   canvasObject.ObjectType.Equals("Circle", StringComparison.OrdinalIgnoreCase);
+                   canvasObject.ObjectType.Equals("Rectangle", StringComparison.OrdinalIgnoreCase);
+        }
+
+        private static bool IsPolylineObject(CanvasObject canvasObject)
+        {
+            return canvasObject.ObjectType.Equals("Polyline", StringComparison.OrdinalIgnoreCase);
         }
 
         private static bool SameCoordinate(Coordinate first, Coordinate second)

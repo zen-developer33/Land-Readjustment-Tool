@@ -1,6 +1,7 @@
 using System.Reflection;
 using Land_Readjustment_Tool.UI.CustomControls;
 using Land_Readjustment_Tool.UI.MapCanvas.Models.Shapes;
+using Land_Readjustment_Tool.UI.MapCanvas.Models.Snapping;
 using Xunit;
 
 namespace LandReadjustment.Tests;
@@ -67,7 +68,57 @@ public sealed class PolylineGripEditingTests
         AssertPoint(c, edited.Segments[1].End);
     }
 
+    [Fact]
+    public void ActiveLineEndpointSnapPoint_IsSuppressedOnlyWhenItIsNotCoincidentWithAnotherSnapPoint()
+    {
+        LineShape line = new(new PointD(0.0, 0.0), new PointD(10.0, 0.0));
+        object grip = CreateVertexGrip(line, line.Start, vertexIndex: 0);
+
+        Assert.True(InvokeIsDraggedHandleSnapPoint(
+            new SnapPoint(SnapType.Endpoint, line.Start, line),
+            line,
+            grip));
+
+        line.Start = line.End;
+
+        Assert.False(InvokeIsDraggedHandleSnapPoint(
+            new SnapPoint(SnapType.Endpoint, line.End, line),
+            line,
+            grip));
+    }
+
+    [Fact]
+    public void ActiveArcEndpointSnapPoint_RemainsAvailableWhenMovedOntoOtherEndpoint()
+    {
+        ArcShape arc = new(
+            new PointD(0.0, 0.0),
+            10.0,
+            0.1,
+            1.0);
+        object grip = CreateVertexGrip(arc, arc.StartPoint, vertexIndex: 0);
+
+        Assert.True(InvokeIsDraggedHandleSnapPoint(
+            new SnapPoint(SnapType.Endpoint, arc.StartPoint, arc),
+            arc,
+            grip));
+
+        ArcShape collapsed = new(
+            new PointD(0.0, 0.0),
+            10.0,
+            0.0,
+            Math.PI * 2.0);
+        object collapsedGrip = CreateVertexGrip(collapsed, collapsed.StartPoint, vertexIndex: 0);
+
+        Assert.False(InvokeIsDraggedHandleSnapPoint(
+            new SnapPoint(SnapType.Endpoint, collapsed.EndPoint, collapsed),
+            collapsed,
+            collapsedGrip));
+    }
+
     private static object CreateVertexGrip(PolylineShape shape, int vertexIndex)
+        => CreateVertexGrip(shape, shape.Vertices[vertexIndex], vertexIndex);
+
+    private static object CreateVertexGrip(IShape shape, PointD position, int vertexIndex)
     {
         Type gripType = MapCanvasControlType.GetNestedType("SelectionGrip", BindingFlags.NonPublic)
             ?? throw new InvalidOperationException("SelectionGrip type was not found.");
@@ -81,9 +132,22 @@ public sealed class PolylineGripEditingTests
         SetProperty(grip, "Shape", shape);
         SetProperty(grip, "Kind", Enum.Parse(kindType, "Vertex"));
         SetProperty(grip, "Glyph", Enum.Parse(glyphType, "Square"));
-        SetProperty(grip, "Position", shape.Vertices[vertexIndex]);
+        SetProperty(grip, "Position", position);
         SetProperty(grip, "VertexIndex", vertexIndex);
         return grip;
+    }
+
+    private static bool InvokeIsDraggedHandleSnapPoint(
+        SnapPoint snapPoint,
+        IShape previewShape,
+        object grip)
+    {
+        MethodInfo method = MapCanvasControlType.GetMethod(
+                "IsDraggedHandleSnapPoint",
+                BindingFlags.NonPublic | BindingFlags.Static)
+            ?? throw new InvalidOperationException("IsDraggedHandleSnapPoint method was not found.");
+
+        return (bool)method.Invoke(null, [snapPoint, previewShape, grip])!;
     }
 
     private static void InvokeApplyPolylineGrip(
