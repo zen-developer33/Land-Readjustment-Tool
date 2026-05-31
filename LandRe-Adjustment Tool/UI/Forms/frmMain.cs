@@ -186,6 +186,7 @@ namespace Land_Readjustment_Tool
         private readonly ToolStripMenuItem _mnuLayerProperties = new("Layer Properties");
         private readonly ToolStripMenuItem _mnuCreateFeaturesFromLayer = new("Create Features from Layer...");
         private readonly ToolStripMenuItem _mnuToggleLayerGroupLock = new("Locked");
+        private readonly ToolStripMenuItem _mnuToggleLayerGroupSelection = new("Allow Selection");
         private readonly ToolStripMenuItem _mnuDeleteLayerGroup = new("Delete");
         private readonly ToolStripMenuItem _mnuDeleteExternalLayerGroup = new("Delete");
         private readonly ToolStripMenuItem _mnuAddDrawingLayer = new("Add Drawing Layer...");
@@ -3225,23 +3226,27 @@ namespace Land_Readjustment_Tool
             var block = canvasObject.Block;
             return new ObjectPropertySection("Block",
             [
-                new("block.name", "Name", FirstNonEmpty(block?.BlockName, canvasObject.ObjectDescription, canvasObject.CanvasLayer?.Name), true),
+                new("block.name", "Name", block?.BlockName, true),
                 new("block.code", "Code", block?.BlockCode, false),
                 new("block.depth", "Depth", FormatLength(block?.BlockDepth), false),
                 new("block.length", "Length", FormatLength(block?.BlockLength), false),
                 new("block.landUse", "Land Use", block?.BlockLandUse, false),
                 new("block.area", "Block Area", FormatArea(GetBlockDisplayArea(canvasObject)), false),
-                new("block.description", "Description", FirstNonEmpty(block?.Description, canvasObject.ObjectDescription), false),
+                new("block.description", "Description", block?.Description, false),
                 new("block.recordId", "Record ID", block?.Id.ToString() ?? canvasObject.BlockId?.ToString(), false)
             ]);
         }
 
         private static double? GetBlockDisplayArea(CanvasObject canvasObject)
         {
+            double? geometryArea = CanvasGeometryMetricsService.GetArea(canvasObject);
+            if (geometryArea.HasValue)
+                return geometryArea;
+
             if (canvasObject.Block != null && canvasObject.Block.BlockArea > 0)
                 return canvasObject.Block.BlockArea;
 
-            return CanvasGeometryMetricsService.GetArea(canvasObject);
+            return null;
         }
 
         private static ObjectPropertySection BuildDrawingStyleSection(CanvasObject canvasObject)
@@ -3791,7 +3796,7 @@ namespace Land_Readjustment_Tool
                 new("block.count", "Block", "Block Objects", false,
                     (_, _, selectedCount) => selectedCount.ToString("N0")),
                 new("block.name", "Block", "Name", false,
-                    (canvasObject, _, _) => FirstNonEmpty(canvasObject.Block?.BlockName, canvasObject.ObjectDescription, canvasObject.CanvasLayer?.Name)),
+                    (canvasObject, _, _) => canvasObject.Block?.BlockName),
                 new("block.code", "Block", "Code", false,
                     (canvasObject, _, _) => canvasObject.Block?.BlockCode),
                 new("block.depth", "Block", "Depth", false,
@@ -3803,7 +3808,7 @@ namespace Land_Readjustment_Tool
                 new("block.area", "Block", "Block Area", false,
                     (canvasObject, _, _) => FormatArea(GetBlockDisplayArea(canvasObject))),
                 new("block.description", "Block", "Description", false,
-                    (canvasObject, _, _) => FirstNonEmpty(canvasObject.Block?.Description, canvasObject.ObjectDescription)),
+                    (canvasObject, _, _) => canvasObject.Block?.Description),
                 new("block.recordId", "Block", "Record ID", false,
                     (canvasObject, _, _) => canvasObject.Block?.Id.ToString() ?? canvasObject.BlockId?.ToString()),
 
@@ -6729,6 +6734,7 @@ namespace Land_Readjustment_Tool
             _mnuToggleLayerVisibility.CheckOnClick = false;
             _mnuToggleLayerLock.CheckOnClick = false;
             _mnuToggleLayerGroupLock.CheckOnClick = false;
+            _mnuToggleLayerGroupSelection.CheckOnClick = false;
             _mnuToggleLayerLabels.CheckOnClick = false;
             _mnuToggleFillTransparency.CheckOnClick = false;
             _mnuAddRasterMap.Click += async (_, _) => await ImportRasterFileAsync(
@@ -6755,6 +6761,7 @@ namespace Land_Readjustment_Tool
             _mnuToggleLayerVisibility.Click += async (_, _) => await ToggleLayerNodeVisibilityAsync(_contextLayerNode);
             _mnuToggleLayerLock.Click += async (_, _) => await ToggleLayerLockAsync(_contextLayerNode);
             _mnuToggleLayerGroupLock.Click += async (_, _) => await ToggleLayerGroupLockAsync(_contextLayerGroupNode);
+            _mnuToggleLayerGroupSelection.Click += async (_, _) => await ToggleLayerGroupSelectionAsync(_contextLayerGroupNode);
             _mnuToggleLayerLabels.Click += async (_, _) => await ToggleLayerLabelsAsync(_contextLayerNode);
             _mnuToggleFillTransparency.Click += async (_, _) => await ToggleLayerFillTransparencyAsync(_contextLayerNode);
             _mnuLayerProperties.Click += async (_, _) => await OpenLayerPropertyManagerAsync(_contextLayerNode);
@@ -7626,7 +7633,14 @@ namespace Land_Readjustment_Tool
         private void ConfigureDrawingMarkupGroupContextMenuItems()
         {
             _layerContextMenu.Items.Clear();
-            _layerContextMenu.Items.Add(_mnuAddDrawingLayer);
+            _layerContextMenu.Items.AddRange(
+            [
+                _mnuAddDrawingLayer,
+                new ToolStripSeparator(),
+                _mnuToggleLayerGroupSelection
+            ]);
+
+            ConfigureLayerGroupSelectionMenuItem(_contextLayerGroupNode);
         }
 
         private void ConfigureExternalGroupContextMenuItems()
@@ -7636,8 +7650,12 @@ namespace Land_Readjustment_Tool
             [
                 _mnuAddExternalLayers,
                 new ToolStripSeparator(),
-                _mnuZoomToLayer
+                _mnuZoomToLayer,
+                new ToolStripSeparator(),
+                _mnuToggleLayerGroupSelection
             ]);
+
+            ConfigureLayerGroupSelectionMenuItem(_contextLayerGroupNode);
         }
 
         private void ConfigureExternalFileGroupContextMenuItems()
@@ -7647,8 +7665,12 @@ namespace Land_Readjustment_Tool
             [
                 _mnuZoomToLayer,
                 new ToolStripSeparator(),
-                _mnuDeleteExternalLayerGroup
+                _mnuDeleteExternalLayerGroup,
+                new ToolStripSeparator(),
+                _mnuToggleLayerGroupSelection
             ]);
+
+            ConfigureLayerGroupSelectionMenuItem(_contextLayerGroupNode);
         }
 
         private void ConfigureRePlotDataGroupContextMenuItems(TreeNode? groupNode)
@@ -7660,7 +7682,8 @@ namespace Land_Readjustment_Tool
                 new ToolStripSeparator(),
                 _mnuDeleteLayerGroup,
                 new ToolStripSeparator(),
-                _mnuToggleLayerGroupLock
+                _mnuToggleLayerGroupLock,
+                _mnuToggleLayerGroupSelection
             ]);
 
             List<CanvasLayer> layers = GetLayersFromGroupNode(groupNode);
@@ -7671,6 +7694,23 @@ namespace Land_Readjustment_Tool
             _mnuToggleLayerGroupLock.Text = _mnuToggleLayerGroupLock.Checked
                 ? "Locked"
                 : "Unlocked";
+
+            ConfigureLayerGroupSelectionMenuItem(groupNode);
+        }
+
+        private void ConfigureLayerGroupSelectionMenuItem(TreeNode? groupNode)
+        {
+            List<CanvasLayer> vectorLayers = GetSelectableVectorLayersFromGroupNode(groupNode);
+            bool allSelectable = vectorLayers.Count > 0 && vectorLayers.All(layer => layer.IsSelectable);
+            bool anySelectable = vectorLayers.Any(layer => layer.IsSelectable);
+
+            _mnuToggleLayerGroupSelection.Enabled = vectorLayers.Count > 0;
+            _mnuToggleLayerGroupSelection.Checked = allSelectable;
+            _mnuToggleLayerGroupSelection.Text = !anySelectable
+                ? "Allow Selection"
+                : allSelectable
+                    ? "Allow Selection"
+                    : "Allow Selection (Mixed)";
         }
 
         private void ConfigureLayerContextMenuItems()
@@ -9094,6 +9134,58 @@ namespace Land_Readjustment_Tool
                 MessageBox.Show(
                     $"Failed to update layer group lock state: {ex.Message}",
                     "Layer Lock",
+                    MessageBoxButtons.OK,
+                MessageBoxIcon.Error);
+            }
+        }
+
+        private async Task ToggleLayerGroupSelectionAsync(TreeNode? groupNode)
+        {
+            List<CanvasLayer> layers = GetSelectableVectorLayersFromGroupNode(groupNode);
+            if (layers.Count == 0)
+                return;
+
+            bool allowSelection = layers.Any(layer => !layer.IsSelectable);
+
+            try
+            {
+                List<CanvasLayer> beforeSnapshots = layers
+                    .Select(CloneCanvasLayerSnapshot)
+                    .ToList();
+                List<CanvasLayer> updatedLayers = [];
+
+                foreach (CanvasLayer layer in layers)
+                {
+                    if (layer.IsSelectable == allowSelection)
+                    {
+                        updatedLayers.Add(CloneCanvasLayerSnapshot(layer));
+                        continue;
+                    }
+
+                    CanvasLayer editableLayer = _layerCommandService.CreateEditableCopy(layer);
+                    editableLayer.IsSelectable = allowSelection;
+                    CanvasLayer updatedLayer =
+                        await _layerCommandService.UpdatePropertiesAsync(
+                            AppServices.HasContext ? AppServices.Context.Session : null,
+                            editableLayer);
+                    updatedLayers.Add(updatedLayer);
+                }
+
+                RegisterCanvasUndoCommand(new ModifyCanvasLayersCommand(
+                    beforeSnapshots,
+                    updatedLayers.Select(CloneCanvasLayerSnapshot).ToList()));
+
+                MarkProjectModifiedIfOpen();
+                await RefreshMapCanvasAsync("Refreshing layer selection state");
+                SetCanvasCommandStatus(allowSelection
+                    ? $"Layer group selection enabled: {groupNode!.Text}"
+                    : $"Layer group selection disabled: {groupNode!.Text}");
+            }
+            catch (Exception ex)
+            {
+                MessageBox.Show(
+                    $"Failed to update layer group selection state: {ex.Message}",
+                    "Layer Selection",
                     MessageBoxButtons.OK,
                     MessageBoxIcon.Error);
             }
@@ -11100,6 +11192,13 @@ namespace Land_Readjustment_Tool
                 .ToList();
         }
 
+        private static List<CanvasLayer> GetSelectableVectorLayersFromGroupNode(TreeNode? groupNode)
+        {
+            return GetLayersFromGroupNode(groupNode)
+                .Where(layer => !IsRasterLayer(layer))
+                .ToList();
+        }
+
         private static VisualStyles.CheckBoxState GetGroupCheckBoxState(TreeNode groupNode)
         {
             List<CanvasLayer> layers = EnumerateLayerNodes(groupNode)
@@ -11442,8 +11541,12 @@ namespace Land_Readjustment_Tool
                         catch { /* ignore */ }
                     }
 
-                    double? areaSqm = meta?.RecordAreaSqm
-                        ?? (meta != null && meta.CalculatedAreaSqm > 0 ? (double?)meta.CalculatedAreaSqm : null);
+                    double? geometryAreaSqm = CanvasGeometryMetricsService.GetArea(obj);
+                    double? calculatedAreaSqm = meta != null && meta.CalculatedAreaSqm > 0
+                        ? meta.CalculatedAreaSqm
+                        : geometryAreaSqm;
+
+                    double? areaSqm = meta?.RecordAreaSqm ?? calculatedAreaSqm;
 
                     // Geometry-computed fields (safe — Shape may be null if NTS not loaded)
                     string geoLength    = string.Empty;
@@ -11528,9 +11631,7 @@ namespace Land_Readjustment_Tool
                         ["FieldMeasuredAreaSqm"] = FormatSqmSample(bp?.FieldMeasuredAreaSqm),
                         ["EffectiveAreaSqm"]     = FormatSqmSample(bp?.EffectiveAreaSqm),
                         // ── Area — from map ────────────────────────────────────────
-                        ["CalculatedAreaSqm"]    = meta != null && meta.CalculatedAreaSqm > 0
-                            ? meta.CalculatedAreaSqm.ToString("F2", CultureInfo.InvariantCulture)
-                            : string.Empty,
+                        ["CalculatedAreaSqm"]    = FormatSqmSample(calculatedAreaSqm),
                         // ── Location ───────────────────────────────────────────────
                         ["Province"]             = bp?.Province ?? string.Empty,
                         ["District"]             = bp?.District ?? string.Empty,
@@ -11553,9 +11654,9 @@ namespace Land_Readjustment_Tool
                         ["BlockCode"]            = block?.BlockCode ?? string.Empty,
                         ["BlockLandUse"]         = block?.BlockLandUse ?? string.Empty,
                         ["BlockDepth"]           = block != null ? FormatNumberSample(block.BlockDepth) : string.Empty,
-                        ["BlockAreaSqm"]         = block != null ? FormatSqmSample(block.BlockArea) : string.Empty,
-                        ["BlockAreaRAPD"]        = block != null ? FormatRAPD(block.BlockArea) : string.Empty,
-                        ["BlockAreaBKD"]         = block != null ? FormatBKD(block.BlockArea) : string.Empty,
+                        ["BlockAreaSqm"]         = FormatSqmSample(geometryAreaSqm ?? block?.BlockArea),
+                        ["BlockAreaRAPD"]        = FormatRAPD(geometryAreaSqm ?? block?.BlockArea),
+                        ["BlockAreaBKD"]         = FormatBKD(geometryAreaSqm ?? block?.BlockArea),
                         ["BlockDescription"]     = block?.Description ?? string.Empty,
                         ["ReplottedParcelNo"]     = ResolveReplottedParcelNumber(),
                         ["SystemGeneratedNumber"] = plot?.SystemGeneratedNumber ?? string.Empty,

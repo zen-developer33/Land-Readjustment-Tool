@@ -623,7 +623,7 @@ namespace Land_Readjustment_Tool.UI.MapCanvas.Services
             {
                 CurveMetadata? metadata = JsonSerializer.Deserialize<CurveMetadata>(metadataJson);
                 if (metadata == null ||
-                    !metadata.ShapeType.Equals("Circle", StringComparison.OrdinalIgnoreCase) ||
+                    !string.Equals(metadata.ShapeType, "Circle", StringComparison.OrdinalIgnoreCase) ||
                     !metadata.Radius.HasValue ||
                     metadata.Radius.Value <= 0.0)
                 {
@@ -694,7 +694,7 @@ namespace Land_Readjustment_Tool.UI.MapCanvas.Services
             {
                 CurveMetadata? metadata = JsonSerializer.Deserialize<CurveMetadata>(metadataJson);
                 if (metadata == null ||
-                    !metadata.ShapeType.Equals("Arc", StringComparison.OrdinalIgnoreCase) ||
+                    !string.Equals(metadata.ShapeType, "Arc", StringComparison.OrdinalIgnoreCase) ||
                     !metadata.Radius.HasValue ||
                     !metadata.StartAngleRadians.HasValue ||
                     !metadata.SweepAngleRadians.HasValue ||
@@ -758,8 +758,8 @@ namespace Land_Readjustment_Tool.UI.MapCanvas.Services
                 if (metadata == null ||
                     metadata.Segments == null ||
                     metadata.Segments.Count == 0 ||
-                    (!metadata.ShapeType.Equals("Polyline", StringComparison.OrdinalIgnoreCase) &&
-                     !metadata.ShapeType.Equals("Polygon", StringComparison.OrdinalIgnoreCase)))
+                    (!string.Equals(metadata.ShapeType, "Polyline", StringComparison.OrdinalIgnoreCase) &&
+                     !string.Equals(metadata.ShapeType, "Polygon", StringComparison.OrdinalIgnoreCase)))
                 {
                     return false;
                 }
@@ -778,7 +778,7 @@ namespace Land_Readjustment_Tool.UI.MapCanvas.Services
                     }
 
                     PolylineShape.PolylineSegmentKind kind =
-                        segment.Kind.Equals("Arc", StringComparison.OrdinalIgnoreCase)
+                        string.Equals(segment.Kind, "Arc", StringComparison.OrdinalIgnoreCase)
                             ? PolylineShape.PolylineSegmentKind.Arc
                             : PolylineShape.PolylineSegmentKind.Line;
 
@@ -812,7 +812,7 @@ namespace Land_Readjustment_Tool.UI.MapCanvas.Services
                 }
 
                 bool isClosed = metadata.IsClosed ||
-                                metadata.ShapeType.Equals("Polygon", StringComparison.OrdinalIgnoreCase);
+                                string.Equals(metadata.ShapeType, "Polygon", StringComparison.OrdinalIgnoreCase);
                 polyline = new PolylineShape(vertices, segments, isClosed);
                 return polyline.Vertices.Count >= 2;
             }
@@ -954,9 +954,13 @@ namespace Land_Readjustment_Tool.UI.MapCanvas.Services
                 TextMetadata? metadata = JsonSerializer.Deserialize<TextMetadata>(
                     metadataJson,
                     MetadataJsonOptions);
-                return metadata?.ShapeType.Equals("Text", StringComparison.OrdinalIgnoreCase) == true
-                    ? TextShape.NormalizeHorizontalAlignment(metadata.Alignment)
-                    : "Left";
+                if (metadata == null ||
+                    !string.Equals(metadata.ShapeType, "Text", StringComparison.OrdinalIgnoreCase))
+                {
+                    return "Left";
+                }
+
+                return TextShape.NormalizeHorizontalAlignment(metadata.Alignment);
             }
             catch
             {

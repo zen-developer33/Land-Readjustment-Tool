@@ -93,8 +93,11 @@ namespace Land_Readjustment_Tool.UI.Forms.Definitions
 
         private void dgvRoads_CurrentCellDirtyStateChanged(object? sender, EventArgs e)
         {
-            if (dgvRoads.IsCurrentCellDirty)
+            if (dgvRoads.IsCurrentCellDirty &&
+                dgvRoads.CurrentCell is DataGridViewComboBoxCell)
+            {
                 dgvRoads.CommitEdit(DataGridViewDataErrorContexts.Commit);
+            }
         }
 
         private async Task LoadAsync()

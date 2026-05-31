@@ -70,19 +70,24 @@ namespace Land_Readjustment_Tool
             toolStripSeparator5 = new ToolStripSeparator();
             ImportProjectBoundaryDXFDWGToolStripMenuItem = new ToolStripMenuItem();
             importCadastralDataDXFDWGShapefileToolStripMenuItem = new ToolStripMenuItem();
+            mnuImportBlockLayoutPlan = new ToolStripMenuItem();
             toolStripSeparator6 = new ToolStripSeparator();
             baseMapsToolStripMenuItem = new ToolStripMenuItem();
             importToolStripMenuItem = new ToolStripMenuItem();
             viewEditRecordToolStripMenuItem = new ToolStripMenuItem();
             landOwnerDataToolStripMenuItem = new ToolStripMenuItem();
+            buildingInventoryToolStripMenuItem = new ToolStripMenuItem();
             toolStripSeparator18 = new ToolStripSeparator();
             assignToolStripMenuItem = new ToolStripMenuItem();
             roadDataToolStripMenuItem = new ToolStripMenuItem();
+            toolStripSeparator20 = new ToolStripSeparator();
             blockDataToolStripMenuItem = new ToolStripMenuItem();
             toolStripSeparator19 = new ToolStripSeparator();
             assignmentToolStripMenuItem = new ToolStripMenuItem();
             projectBoundaryAssignmentToolStripMenuItem = new ToolStripMenuItem();
+            toolStripSeparator21 = new ToolStripSeparator();
             cadastralRecordsAssignmentToolStripMenuItem = new ToolStripMenuItem();
+            buildingInventoryDataToolStripMenuItem = new ToolStripMenuItem();
             contributionToolStripMenuItem = new ToolStripMenuItem();
             contributionSettingsToolStripMenuItem = new ToolStripMenuItem();
             calculateContributionToolStripMenuItem = new ToolStripMenuItem();
@@ -171,10 +176,10 @@ namespace Land_Readjustment_Tool
             cboCurrentDrawingLayer = new ToolStripComboBox();
             mnuCanvasDebugOverlay = new ToolStripButton();
             toolStripLabel1 = new ToolStripLabel();
-            tsmExpandCollapseRightPanel = new ToolStripButton();
             mnuOrthoToggle = new ToolStripButton();
-            toolStripSeparator11 = new ToolStripSeparator();
             mnuOSnapToggle = new ToolStripButton();
+            toolStripSeparator11 = new ToolStripSeparator();
+            tsmExpandCollapseRightPanel = new ToolStripButton();
             grpParcelObjProp = new GroupBox();
             btnSelectFromRecords = new Button();
             btnConfigureParcelProperties = new Button();
@@ -219,7 +224,6 @@ namespace Land_Readjustment_Tool
             toolStripSeparator15 = new ToolStripSeparator();
             toolStripSeparator16 = new ToolStripSeparator();
             tsProjectMenu = new ToolStrip();
-            mnuImportBlockLayoutPlan = new ToolStripMenuItem();
             mainMenuStrip.SuspendLayout();
             ((System.ComponentModel.ISupportInitialize)leftSplitContainer).BeginInit();
             leftSplitContainer.Panel1.SuspendLayout();
@@ -255,7 +259,7 @@ namespace Land_Readjustment_Tool
             mainMenuStrip.Location = new Point(0, 0);
             mainMenuStrip.Name = "mainMenuStrip";
             mainMenuStrip.Padding = new Padding(5, 2, 0, 2);
-            mainMenuStrip.Size = new Size(1447, 28);
+            mainMenuStrip.Size = new Size(1624, 28);
             mainMenuStrip.TabIndex = 0;
             mainMenuStrip.Text = "Main Menu Strip";
             // 
@@ -440,6 +444,12 @@ namespace Land_Readjustment_Tool
             importCadastralDataDXFDWGShapefileToolStripMenuItem.Text = "Cadastral Map (DXF/DWG/Shapefile)";
             importCadastralDataDXFDWGShapefileToolStripMenuItem.Click += importCadastralDataDXFDWGShapefileToolStripMenuItem_Click;
             // 
+            // mnuImportBlockLayoutPlan
+            // 
+            mnuImportBlockLayoutPlan.Name = "mnuImportBlockLayoutPlan";
+            mnuImportBlockLayoutPlan.Size = new Size(385, 26);
+            mnuImportBlockLayoutPlan.Text = "Block Layout Plan (DXF/DWG)";
+            // 
             // toolStripSeparator6
             // 
             toolStripSeparator6.Name = "toolStripSeparator6";
@@ -453,7 +463,7 @@ namespace Land_Readjustment_Tool
             // 
             // importToolStripMenuItem
             // 
-            importToolStripMenuItem.DropDownItems.AddRange(new ToolStripItem[] { viewEditRecordToolStripMenuItem, landOwnerDataToolStripMenuItem });
+            importToolStripMenuItem.DropDownItems.AddRange(new ToolStripItem[] { viewEditRecordToolStripMenuItem, landOwnerDataToolStripMenuItem, buildingInventoryToolStripMenuItem });
             importToolStripMenuItem.Name = "importToolStripMenuItem";
             importToolStripMenuItem.Size = new Size(224, 26);
             importToolStripMenuItem.Text = "Records";
@@ -473,6 +483,12 @@ namespace Land_Readjustment_Tool
             landOwnerDataToolStripMenuItem.Text = "Land Owners";
             landOwnerDataToolStripMenuItem.Click += landOwnerDataToolStripMenuItem_Click;
             // 
+            // buildingInventoryToolStripMenuItem
+            // 
+            buildingInventoryToolStripMenuItem.Name = "buildingInventoryToolStripMenuItem";
+            buildingInventoryToolStripMenuItem.Size = new Size(245, 26);
+            buildingInventoryToolStripMenuItem.Text = "Building Inventory ";
+            // 
             // toolStripSeparator18
             // 
             toolStripSeparator18.Name = "toolStripSeparator18";
@@ -480,7 +496,7 @@ namespace Land_Readjustment_Tool
             // 
             // assignToolStripMenuItem
             // 
-            assignToolStripMenuItem.DropDownItems.AddRange(new ToolStripItem[] { roadDataToolStripMenuItem, blockDataToolStripMenuItem });
+            assignToolStripMenuItem.DropDownItems.AddRange(new ToolStripItem[] { roadDataToolStripMenuItem, toolStripSeparator20, blockDataToolStripMenuItem });
             assignToolStripMenuItem.Name = "assignToolStripMenuItem";
             assignToolStripMenuItem.Size = new Size(224, 26);
             assignToolStripMenuItem.Text = "Define...";
@@ -488,14 +504,19 @@ namespace Land_Readjustment_Tool
             // roadDataToolStripMenuItem
             // 
             roadDataToolStripMenuItem.Name = "roadDataToolStripMenuItem";
-            roadDataToolStripMenuItem.Size = new Size(231, 26);
-            roadDataToolStripMenuItem.Text = "Roads Data";
+            roadDataToolStripMenuItem.Size = new Size(224, 26);
+            roadDataToolStripMenuItem.Text = "Roads";
+            // 
+            // toolStripSeparator20
+            // 
+            toolStripSeparator20.Name = "toolStripSeparator20";
+            toolStripSeparator20.Size = new Size(221, 6);
             // 
             // blockDataToolStripMenuItem
             // 
             blockDataToolStripMenuItem.Name = "blockDataToolStripMenuItem";
-            blockDataToolStripMenuItem.Size = new Size(231, 26);
-            blockDataToolStripMenuItem.Text = "Proposed Block Data";
+            blockDataToolStripMenuItem.Size = new Size(224, 26);
+            blockDataToolStripMenuItem.Text = "Blocks";
             // 
             // toolStripSeparator19
             // 
@@ -504,7 +525,7 @@ namespace Land_Readjustment_Tool
             // 
             // assignmentToolStripMenuItem
             // 
-            assignmentToolStripMenuItem.DropDownItems.AddRange(new ToolStripItem[] { projectBoundaryAssignmentToolStripMenuItem, cadastralRecordsAssignmentToolStripMenuItem });
+            assignmentToolStripMenuItem.DropDownItems.AddRange(new ToolStripItem[] { projectBoundaryAssignmentToolStripMenuItem, toolStripSeparator21, cadastralRecordsAssignmentToolStripMenuItem, buildingInventoryDataToolStripMenuItem });
             assignmentToolStripMenuItem.Name = "assignmentToolStripMenuItem";
             assignmentToolStripMenuItem.Size = new Size(224, 26);
             assignmentToolStripMenuItem.Text = "Assign...";
@@ -512,15 +533,26 @@ namespace Land_Readjustment_Tool
             // projectBoundaryAssignmentToolStripMenuItem
             // 
             projectBoundaryAssignmentToolStripMenuItem.Name = "projectBoundaryAssignmentToolStripMenuItem";
-            projectBoundaryAssignmentToolStripMenuItem.Size = new Size(224, 26);
+            projectBoundaryAssignmentToolStripMenuItem.Size = new Size(248, 26);
             projectBoundaryAssignmentToolStripMenuItem.Text = "Project Boundary";
+            // 
+            // toolStripSeparator21
+            // 
+            toolStripSeparator21.Name = "toolStripSeparator21";
+            toolStripSeparator21.Size = new Size(245, 6);
             // 
             // cadastralRecordsAssignmentToolStripMenuItem
             // 
             cadastralRecordsAssignmentToolStripMenuItem.Name = "cadastralRecordsAssignmentToolStripMenuItem";
-            cadastralRecordsAssignmentToolStripMenuItem.Size = new Size(224, 26);
+            cadastralRecordsAssignmentToolStripMenuItem.Size = new Size(248, 26);
             cadastralRecordsAssignmentToolStripMenuItem.Text = "Cadastral Records";
             cadastralRecordsAssignmentToolStripMenuItem.Click += CadastralRecordsAssignmentToolStripMenuItem_Click;
+            // 
+            // buildingInventoryDataToolStripMenuItem
+            // 
+            buildingInventoryDataToolStripMenuItem.Name = "buildingInventoryDataToolStripMenuItem";
+            buildingInventoryDataToolStripMenuItem.Size = new Size(248, 26);
+            buildingInventoryDataToolStripMenuItem.Text = "Building Inventory Data";
             // 
             // contributionToolStripMenuItem
             // 
@@ -703,7 +735,7 @@ namespace Land_Readjustment_Tool
             // 
             leftSplitContainer.Panel2.BackColor = Color.White;
             leftSplitContainer.Panel2Collapsed = true;
-            leftSplitContainer.Size = new Size(206, 555);
+            leftSplitContainer.Size = new Size(272, 555);
             leftSplitContainer.SplitterDistance = 484;
             leftSplitContainer.TabIndex = 0;
             // 
@@ -717,7 +749,7 @@ namespace Land_Readjustment_Tool
             grpLayer.Name = "grpLayer";
             grpLayer.Padding = new Padding(4);
             grpLayer.RightToLeft = RightToLeft.No;
-            grpLayer.Size = new Size(199, 548);
+            grpLayer.Size = new Size(265, 548);
             grpLayer.TabIndex = 0;
             grpLayer.TabStop = false;
             grpLayer.Text = "Layers";
@@ -746,7 +778,7 @@ namespace Land_Readjustment_Tool
             treeNode8.Name = "LayerGroup_RasterLayer";
             treeNode8.Text = "Raster Layers";
             treeViewLayers.Nodes.AddRange(new TreeNode[] { treeNode5, treeNode6, treeNode7, treeNode8 });
-            treeViewLayers.Size = new Size(185, 517);
+            treeViewLayers.Size = new Size(251, 517);
             treeViewLayers.TabIndex = 0;
             // 
             // tabProperties
@@ -1220,8 +1252,8 @@ namespace Land_Readjustment_Tool
             // mainSplitContainer.Panel2
             // 
             mainSplitContainer.Panel2.Controls.Add(splitContainer3);
-            mainSplitContainer.Size = new Size(1447, 559);
-            mainSplitContainer.SplitterDistance = 210;
+            mainSplitContainer.Size = new Size(1624, 559);
+            mainSplitContainer.SplitterDistance = 276;
             mainSplitContainer.TabIndex = 3;
             mainSplitContainer.Visible = false;
             // 
@@ -1241,32 +1273,30 @@ namespace Land_Readjustment_Tool
             // splitContainer3.Panel2
             // 
             splitContainer3.Panel2.Controls.Add(grpParcelObjProp);
-            splitContainer3.Size = new Size(1233, 559);
-            splitContainer3.SplitterDistance = 909;
+            splitContainer3.Size = new Size(1344, 559);
+            splitContainer3.SplitterDistance = 1020;
             splitContainer3.TabIndex = 1;
             // 
             // mapCanvasControlMain
             // 
             mapCanvasControlMain.Anchor = AnchorStyles.Top | AnchorStyles.Bottom | AnchorStyles.Left | AnchorStyles.Right;
             mapCanvasControlMain.BackColor = Color.White;
-            mapCanvasControlMain.Location = new Point(0, 40);
+            mapCanvasControlMain.Location = new Point(0, 31);
             mapCanvasControlMain.Name = "mapCanvasControlMain";
-            mapCanvasControlMain.Size = new Size(905, 515);
+            mapCanvasControlMain.Size = new Size(1016, 524);
             mapCanvasControlMain.TabIndex = 0;
             // 
             // tsCanvasTools
             // 
-            tsCanvasTools.AutoSize = false;
             tsCanvasTools.CanOverflow = false;
             tsCanvasTools.Font = new Font("Segoe UI", 9F);
             tsCanvasTools.GripStyle = ToolStripGripStyle.Hidden;
             tsCanvasTools.ImageScalingSize = new Size(20, 20);
-            tsCanvasTools.Items.AddRange(new ToolStripItem[] { tsmExpandCollapseLeftPanel, toolStripSeparator10, mnuSelectTool, mnuDrawPoint, mnuDrawLine, mnuDrawPolyline, mnuDrawArc, mnuDrawRectangle, mnuDrawPolygon, mnuDrawCircle, mnuDrawText, toolStripSeparator17, lblCurrentDrawingLayer, cboCurrentDrawingLayer, mnuCanvasDebugOverlay, toolStripLabel1, tsmExpandCollapseRightPanel, mnuOrthoToggle, toolStripSeparator11, mnuOSnapToggle });
+            tsCanvasTools.Items.AddRange(new ToolStripItem[] { tsmExpandCollapseLeftPanel, toolStripSeparator10, mnuSelectTool, mnuDrawPoint, mnuDrawLine, mnuDrawPolyline, mnuDrawArc, mnuDrawRectangle, mnuDrawPolygon, mnuDrawCircle, mnuDrawText, toolStripSeparator17, lblCurrentDrawingLayer, cboCurrentDrawingLayer, mnuCanvasDebugOverlay, toolStripLabel1, tsmExpandCollapseRightPanel, toolStripSeparator11, mnuOrthoToggle, mnuOSnapToggle });
             tsCanvasTools.Location = new Point(0, 0);
             tsCanvasTools.Name = "tsCanvasTools";
-            tsCanvasTools.Size = new Size(905, 37);
+            tsCanvasTools.Size = new Size(1016, 28);
             tsCanvasTools.TabIndex = 1;
-            tsCanvasTools.Text = "toolStrip2";
             // 
             // tsmExpandCollapseLeftPanel
             // 
@@ -1277,14 +1307,14 @@ namespace Land_Readjustment_Tool
             tsmExpandCollapseLeftPanel.Image = Properties.Resources.icons8_close_left_pane_50;
             tsmExpandCollapseLeftPanel.ImageTransparentColor = Color.Magenta;
             tsmExpandCollapseLeftPanel.Name = "tsmExpandCollapseLeftPanel";
-            tsmExpandCollapseLeftPanel.Size = new Size(29, 34);
+            tsmExpandCollapseLeftPanel.Size = new Size(29, 25);
             tsmExpandCollapseLeftPanel.Text = "Collapse Left Panel";
             tsmExpandCollapseLeftPanel.Click += tsmExpandCollapseLeftPanel_Click;
             // 
             // toolStripSeparator10
             // 
             toolStripSeparator10.Name = "toolStripSeparator10";
-            toolStripSeparator10.Size = new Size(6, 37);
+            toolStripSeparator10.Size = new Size(6, 28);
             // 
             // mnuSelectTool
             // 
@@ -1295,7 +1325,7 @@ namespace Land_Readjustment_Tool
             mnuSelectTool.Image = Properties.Resources.selection_Tool;
             mnuSelectTool.ImageTransparentColor = Color.Magenta;
             mnuSelectTool.Name = "mnuSelectTool";
-            mnuSelectTool.Size = new Size(29, 34);
+            mnuSelectTool.Size = new Size(29, 25);
             mnuSelectTool.Text = "Select";
             mnuSelectTool.Click += mnuSelectTool_Click;
             // 
@@ -1306,7 +1336,7 @@ namespace Land_Readjustment_Tool
             mnuDrawPoint.Image = Properties.Resources.Point;
             mnuDrawPoint.ImageTransparentColor = Color.Magenta;
             mnuDrawPoint.Name = "mnuDrawPoint";
-            mnuDrawPoint.Size = new Size(29, 34);
+            mnuDrawPoint.Size = new Size(29, 25);
             mnuDrawPoint.Text = "Point";
             mnuDrawPoint.ToolTipText = "Draw Point";
             mnuDrawPoint.Click += mnuDrawPoint_Click;
@@ -1318,7 +1348,7 @@ namespace Land_Readjustment_Tool
             mnuDrawLine.Image = Properties.Resources.icons8_line_24;
             mnuDrawLine.ImageTransparentColor = Color.Magenta;
             mnuDrawLine.Name = "mnuDrawLine";
-            mnuDrawLine.Size = new Size(29, 34);
+            mnuDrawLine.Size = new Size(29, 25);
             mnuDrawLine.Text = "Draw Line";
             mnuDrawLine.Click += mnuDrawLine_Click;
             // 
@@ -1329,7 +1359,7 @@ namespace Land_Readjustment_Tool
             mnuDrawPolyline.Image = Properties.Resources.icons8_polyline_24;
             mnuDrawPolyline.ImageTransparentColor = Color.Magenta;
             mnuDrawPolyline.Name = "mnuDrawPolyline";
-            mnuDrawPolyline.Size = new Size(29, 34);
+            mnuDrawPolyline.Size = new Size(29, 25);
             mnuDrawPolyline.Text = "Draw Polyline";
             mnuDrawPolyline.Click += mnuDrawPolyline_Click;
             // 
@@ -1340,7 +1370,7 @@ namespace Land_Readjustment_Tool
             mnuDrawArc.Image = Properties.Resources.arc;
             mnuDrawArc.ImageTransparentColor = Color.Magenta;
             mnuDrawArc.Name = "mnuDrawArc";
-            mnuDrawArc.Size = new Size(29, 34);
+            mnuDrawArc.Size = new Size(29, 25);
             mnuDrawArc.Text = "Arc";
             mnuDrawArc.ToolTipText = "Draw 3-Point Arc";
             mnuDrawArc.Click += mnuDrawArc_Click;
@@ -1352,7 +1382,7 @@ namespace Land_Readjustment_Tool
             mnuDrawRectangle.Image = Properties.Resources.rectangle1;
             mnuDrawRectangle.ImageTransparentColor = Color.Magenta;
             mnuDrawRectangle.Name = "mnuDrawRectangle";
-            mnuDrawRectangle.Size = new Size(29, 34);
+            mnuDrawRectangle.Size = new Size(29, 25);
             mnuDrawRectangle.Text = "Draw Rectangle";
             mnuDrawRectangle.Click += mnuDrawRectangle_Click;
             // 
@@ -1363,7 +1393,7 @@ namespace Land_Readjustment_Tool
             mnuDrawPolygon.Image = Properties.Resources.icons8_polygon_24__1_;
             mnuDrawPolygon.ImageTransparentColor = Color.Magenta;
             mnuDrawPolygon.Name = "mnuDrawPolygon";
-            mnuDrawPolygon.Size = new Size(29, 34);
+            mnuDrawPolygon.Size = new Size(29, 25);
             mnuDrawPolygon.Text = "Draw Polygon";
             mnuDrawPolygon.Click += mnuDrawPolygon_Click;
             // 
@@ -1374,7 +1404,7 @@ namespace Land_Readjustment_Tool
             mnuDrawCircle.Image = Properties.Resources.circle1;
             mnuDrawCircle.ImageTransparentColor = Color.Magenta;
             mnuDrawCircle.Name = "mnuDrawCircle";
-            mnuDrawCircle.Size = new Size(29, 34);
+            mnuDrawCircle.Size = new Size(29, 25);
             mnuDrawCircle.Text = "Draw Circle";
             mnuDrawCircle.Click += mnuDrawCircle_Click;
             // 
@@ -1385,7 +1415,7 @@ namespace Land_Readjustment_Tool
             mnuDrawText.Image = Properties.Resources.icons8_aa_64;
             mnuDrawText.ImageTransparentColor = Color.Magenta;
             mnuDrawText.Name = "mnuDrawText";
-            mnuDrawText.Size = new Size(29, 34);
+            mnuDrawText.Size = new Size(29, 25);
             mnuDrawText.Text = "Text";
             mnuDrawText.ToolTipText = "Draw Single Line Text";
             mnuDrawText.Click += mnuDrawText_Click;
@@ -1393,12 +1423,12 @@ namespace Land_Readjustment_Tool
             // toolStripSeparator17
             // 
             toolStripSeparator17.Name = "toolStripSeparator17";
-            toolStripSeparator17.Size = new Size(6, 37);
+            toolStripSeparator17.Size = new Size(6, 28);
             // 
             // lblCurrentDrawingLayer
             // 
             lblCurrentDrawingLayer.Name = "lblCurrentDrawingLayer";
-            lblCurrentDrawingLayer.Size = new Size(89, 34);
+            lblCurrentDrawingLayer.Size = new Size(89, 25);
             lblCurrentDrawingLayer.Text = "Active Layer";
             // 
             // cboCurrentDrawingLayer
@@ -1407,7 +1437,7 @@ namespace Land_Readjustment_Tool
             cboCurrentDrawingLayer.DropDownStyle = ComboBoxStyle.DropDownList;
             cboCurrentDrawingLayer.FlatStyle = FlatStyle.System;
             cboCurrentDrawingLayer.Name = "cboCurrentDrawingLayer";
-            cboCurrentDrawingLayer.Size = new Size(180, 37);
+            cboCurrentDrawingLayer.Size = new Size(180, 28);
             cboCurrentDrawingLayer.ToolTipText = "Current drawing/markup layer";
             cboCurrentDrawingLayer.SelectedIndexChanged += cboCurrentDrawingLayer_SelectedIndexChanged;
             cboCurrentDrawingLayer.Click += cboCurrentDrawingLayer_Click;
@@ -1418,7 +1448,7 @@ namespace Land_Readjustment_Tool
             mnuCanvasDebugOverlay.DisplayStyle = ToolStripItemDisplayStyle.Text;
             mnuCanvasDebugOverlay.ImageTransparentColor = Color.Magenta;
             mnuCanvasDebugOverlay.Name = "mnuCanvasDebugOverlay";
-            mnuCanvasDebugOverlay.Size = new Size(58, 34);
+            mnuCanvasDebugOverlay.Size = new Size(58, 25);
             mnuCanvasDebugOverlay.Text = "Debug";
             mnuCanvasDebugOverlay.ToolTipText = "Show map canvas debug overlay";
             mnuCanvasDebugOverlay.Click += mnuCanvasDebugOverlay_Click;
@@ -1426,7 +1456,39 @@ namespace Land_Readjustment_Tool
             // toolStripLabel1
             // 
             toolStripLabel1.Name = "toolStripLabel1";
-            toolStripLabel1.Size = new Size(0, 34);
+            toolStripLabel1.Size = new Size(0, 25);
+            // 
+            // mnuOrthoToggle
+            // 
+            mnuOrthoToggle.Alignment = ToolStripItemAlignment.Right;
+            mnuOrthoToggle.CheckOnClick = true;
+            mnuOrthoToggle.DisplayStyle = ToolStripItemDisplayStyle.Text;
+            mnuOrthoToggle.ImageTransparentColor = Color.Magenta;
+            mnuOrthoToggle.Name = "mnuOrthoToggle";
+            mnuOrthoToggle.Size = new Size(76, 25);
+            mnuOrthoToggle.Text = "Ortho(F8)";
+            mnuOrthoToggle.ToolTipText = "Ortho Mode (F8)";
+            mnuOrthoToggle.Click += mnuOrthoToggle_Click;
+            // 
+            // mnuOSnapToggle
+            // 
+            mnuOSnapToggle.Alignment = ToolStripItemAlignment.Right;
+            mnuOSnapToggle.Checked = true;
+            mnuOSnapToggle.CheckOnClick = true;
+            mnuOSnapToggle.CheckState = CheckState.Checked;
+            mnuOSnapToggle.DisplayStyle = ToolStripItemDisplayStyle.Text;
+            mnuOSnapToggle.ImageTransparentColor = Color.Magenta;
+            mnuOSnapToggle.Name = "mnuOSnapToggle";
+            mnuOSnapToggle.Size = new Size(86, 25);
+            mnuOSnapToggle.Text = "OSnap (F3)";
+            mnuOSnapToggle.ToolTipText = "Object Snap (F3)";
+            mnuOSnapToggle.Click += mnuOSnapToggle_Click;
+            // 
+            // toolStripSeparator11
+            // 
+            toolStripSeparator11.Alignment = ToolStripItemAlignment.Right;
+            toolStripSeparator11.Name = "toolStripSeparator11";
+            toolStripSeparator11.Size = new Size(6, 28);
             // 
             // tsmExpandCollapseRightPanel
             // 
@@ -1438,41 +1500,9 @@ namespace Land_Readjustment_Tool
             tsmExpandCollapseRightPanel.Image = Properties.Resources.icons8_close_right_pane_50;
             tsmExpandCollapseRightPanel.ImageTransparentColor = Color.Magenta;
             tsmExpandCollapseRightPanel.Name = "tsmExpandCollapseRightPanel";
-            tsmExpandCollapseRightPanel.Size = new Size(29, 34);
+            tsmExpandCollapseRightPanel.Size = new Size(29, 25);
             tsmExpandCollapseRightPanel.Text = "Collapse Right Panel";
             tsmExpandCollapseRightPanel.Click += tsmExpandCollapseRightPanel_Click;
-            // 
-            // mnuOrthoToggle
-            // 
-            mnuOrthoToggle.Alignment = ToolStripItemAlignment.Right;
-            mnuOrthoToggle.CheckOnClick = true;
-            mnuOrthoToggle.DisplayStyle = ToolStripItemDisplayStyle.Text;
-            mnuOrthoToggle.ImageTransparentColor = Color.Magenta;
-            mnuOrthoToggle.Name = "mnuOrthoToggle";
-            mnuOrthoToggle.Size = new Size(76, 34);
-            mnuOrthoToggle.Text = "Ortho(F8)";
-            mnuOrthoToggle.ToolTipText = "Ortho Mode (F8)";
-            mnuOrthoToggle.Click += mnuOrthoToggle_Click;
-            // 
-            // toolStripSeparator11
-            // 
-            toolStripSeparator11.Alignment = ToolStripItemAlignment.Right;
-            toolStripSeparator11.Name = "toolStripSeparator11";
-            toolStripSeparator11.Size = new Size(6, 37);
-            // 
-            // mnuOSnapToggle
-            // 
-            mnuOSnapToggle.Alignment = ToolStripItemAlignment.Right;
-            mnuOSnapToggle.Checked = true;
-            mnuOSnapToggle.CheckOnClick = true;
-            mnuOSnapToggle.CheckState = CheckState.Checked;
-            mnuOSnapToggle.DisplayStyle = ToolStripItemDisplayStyle.Text;
-            mnuOSnapToggle.ImageTransparentColor = Color.Magenta;
-            mnuOSnapToggle.Name = "mnuOSnapToggle";
-            mnuOSnapToggle.Size = new Size(86, 34);
-            mnuOSnapToggle.Text = "OSnap (F3)";
-            mnuOSnapToggle.ToolTipText = "Object Snap (F3)";
-            mnuOSnapToggle.Click += mnuOSnapToggle_Click;
             // 
             // grpParcelObjProp
             // 
@@ -1630,7 +1660,7 @@ namespace Land_Readjustment_Tool
             statusCanvas.Location = new Point(0, 623);
             statusCanvas.Name = "statusCanvas";
             statusCanvas.RightToLeft = RightToLeft.No;
-            statusCanvas.Size = new Size(1447, 38);
+            statusCanvas.Size = new Size(1624, 38);
             statusCanvas.TabIndex = 6;
             statusCanvas.Text = "Map Canvas Status";
             statusCanvas.ItemClicked += statusCanvas_ItemClicked;
@@ -1915,21 +1945,15 @@ namespace Land_Readjustment_Tool
             tsProjectMenu.Items.AddRange(new ToolStripItem[] { mnuNewProject, mnuOpenProject, mnuSaveProject, mnuSaveAsProject, mnuBackup, mnuRestoreBackup, mnuCloseProject, toolStripSeparator9, toolStripButton3, mnuProjectInfo, mnuProjectSettings, toolStripSeparator12, toolStripSeparator13, mnuUndo, mnuRedo, toolStripSeparator14, mnuPan, mnuZoomIn, mnuZoomOut, mnuZoomExtent, mnuZoomWindow, toolStripSeparator15, toolStripSeparator16 });
             tsProjectMenu.Location = new Point(0, 28);
             tsProjectMenu.Name = "tsProjectMenu";
-            tsProjectMenu.Size = new Size(1447, 27);
+            tsProjectMenu.Size = new Size(1624, 27);
             tsProjectMenu.TabIndex = 4;
             tsProjectMenu.Text = "Project Menu";
-            // 
-            // mnuImportBlockLayoutPlan
-            // 
-            mnuImportBlockLayoutPlan.Name = "mnuImportBlockLayoutPlan";
-            mnuImportBlockLayoutPlan.Size = new Size(385, 26);
-            mnuImportBlockLayoutPlan.Text = "Block Layout Plan (DXF/DWG)";
             // 
             // frmMain
             // 
             AutoScaleMode = AutoScaleMode.None;
             BackColor = SystemColors.ControlLightLight;
-            ClientSize = new Size(1447, 661);
+            ClientSize = new Size(1624, 661);
             Controls.Add(statusCanvas);
             Controls.Add(tsProjectMenu);
             Controls.Add(mainSplitContainer);
@@ -1963,6 +1987,7 @@ namespace Land_Readjustment_Tool
             ((System.ComponentModel.ISupportInitialize)mainSplitContainer).EndInit();
             mainSplitContainer.ResumeLayout(false);
             splitContainer3.Panel1.ResumeLayout(false);
+            splitContainer3.Panel1.PerformLayout();
             splitContainer3.Panel2.ResumeLayout(false);
             ((System.ComponentModel.ISupportInitialize)splitContainer3).EndInit();
             splitContainer3.ResumeLayout(false);
@@ -2015,7 +2040,6 @@ namespace Land_Readjustment_Tool
         private ToolStripMenuItem importToolStripMenuItem;
         private ToolStripMenuItem assignmentToolStripMenuItem;
         private ToolStripMenuItem projectBoundaryAssignmentToolStripMenuItem;
-        private ToolStripMenuItem cadastralRecordsAssignmentToolStripMenuItem;
         private ToolStripMenuItem contributionSettingsToolStripMenuItem;
         private ToolStripMenuItem calculateContributionToolStripMenuItem;
         private ToolStripMenuItem contributionSummaryToolStripMenuItem;
@@ -2157,5 +2181,10 @@ namespace Land_Readjustment_Tool
         private Button btnConfigureParcelProperties;
         private ToolStripSeparator toolStripSeparator19;
         private ToolStripMenuItem mnuImportBlockLayoutPlan;
+        private ToolStripSeparator toolStripSeparator20;
+        private ToolStripSeparator toolStripSeparator21;
+        private ToolStripMenuItem cadastralRecordsAssignmentToolStripMenuItem;
+        private ToolStripMenuItem buildingInventoryDataToolStripMenuItem;
+        private ToolStripMenuItem buildingInventoryToolStripMenuItem;
     }
 }

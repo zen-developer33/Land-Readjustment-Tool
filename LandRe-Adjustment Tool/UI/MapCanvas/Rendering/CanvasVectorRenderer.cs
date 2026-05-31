@@ -161,6 +161,7 @@ namespace Land_Readjustment_Tool.UI.MapCanvas.Rendering
 
             List<CanvasFeature> orderedFeatures = queriedFeatures
                 .OrderBy(GetDrawingMarkupRenderPass)
+                .ThenBy(GetCadastralParcelRenderPass)
                 .ThenBy(GetProjectBoundaryRenderPass)
                 .ThenBy(GetDisplayOrder)
                 .ThenBy(f => f.CanvasObject.Id)
@@ -426,8 +427,24 @@ namespace Land_Readjustment_Tool.UI.MapCanvas.Rendering
             return layer != null && CanvasLayerTreeService.IsProjectBoundaryLayer(layer) ? 1 : 0;
         }
 
+        private int GetCadastralParcelRenderPass(CanvasFeature feature)
+        {
+            CanvasLayer? layer = ResolveLayer(feature);
+            return IsImportedCadastralParcelFeature(feature, layer) ? 0 : 1;
+        }
+
         private int GetDisplayOrder(CanvasFeature feature) =>
             ResolveLayer(feature)?.DisplayOrder ?? int.MaxValue;
+
+        private static bool IsImportedCadastralParcelFeature(CanvasFeature feature, CanvasLayer? layer)
+        {
+            return string.Equals(feature.CanvasObject.ObjectType, "Polygon", StringComparison.OrdinalIgnoreCase) &&
+                   ((layer?.Description?.StartsWith(
+                         "Imported cadastral map layer",
+                         StringComparison.OrdinalIgnoreCase) == true) ||
+                    (!string.IsNullOrWhiteSpace(feature.CanvasObject.GeometryMetadataJson) &&
+                     feature.CanvasObject.GeometryMetadataJson.Contains("CadastralParcel", StringComparison.OrdinalIgnoreCase)));
+        }
 
         private CanvasLayer? ResolveLayer(CanvasFeature feature)
         {
@@ -1693,8 +1710,8 @@ namespace Land_Readjustment_Tool.UI.MapCanvas.Rendering
 
                 // ── BaselineParcel — area (from map / geometry) ────────────────────
                 "calculatedareasqm" or "geometryareasqm" or "geometryarea"         => FormatSqmArea(ResolveFirst(
-                    metadata?.CalculatedAreaSqm,
-                    Math.Abs(canvasObject.Shape?.Area ?? feature.Shape.GetBoundingBox().Width * feature.Shape.GetBoundingBox().Height)), sqmPrecision),
+                    CanvasGeometryMetricsService.GetArea(canvasObject),
+                    metadata?.CalculatedAreaSqm), sqmPrecision),
 
                 // ── BaselineParcel — location ──────────────────────────────────────
                 "province"                                                          => GetPropertyValue(canvasObject.BaselineParcel, "Province"),
@@ -1727,9 +1744,15 @@ namespace Land_Readjustment_Tool.UI.MapCanvas.Rendering
                 "blockcode"                                                         => GetPropertyValue(canvasObject.Block, "BlockCode"),
                 "blocklanduse"                                                      => GetPropertyValue(canvasObject.Block, "BlockLandUse"),
                 "blockdepth"                                                        => GetPropertyValue(canvasObject.Block, "BlockDepth"),
-                "blockareasqm" or "blockarea"                                       => FormatSqmArea(GetPropertyValue(canvasObject.Block, "BlockArea"), sqmPrecision),
-                "blockarearapd"                                                     => FormatTraditionalArea(GetPropertyValue(canvasObject.Block, "BlockArea"), traditionalPrecision: traditionalPrecision),
-                "blockareabkd"                                                      => FormatTraditionalArea(GetPropertyValue(canvasObject.Block, "BlockArea"), useBkd: true, traditionalPrecision: traditionalPrecision),
+                "blockareasqm" or "blockarea"                                       => FormatSqmArea(ResolveFirst(
+                    CanvasGeometryMetricsService.GetArea(canvasObject),
+                    GetPropertyValue(canvasObject.Block, "BlockArea")), sqmPrecision),
+                "blockarearapd"                                                     => FormatTraditionalArea(ResolveFirst(
+                    CanvasGeometryMetricsService.GetArea(canvasObject),
+                    GetPropertyValue(canvasObject.Block, "BlockArea")), traditionalPrecision: traditionalPrecision),
+                "blockareabkd"                                                      => FormatTraditionalArea(ResolveFirst(
+                    CanvasGeometryMetricsService.GetArea(canvasObject),
+                    GetPropertyValue(canvasObject.Block, "BlockArea")), useBkd: true, traditionalPrecision: traditionalPrecision),
                 "blockdescription"                                                  => GetPropertyValue(canvasObject.Block, "Description"),
 
                 // ── ReplottedParcel fields ─────────────────────────────────────────

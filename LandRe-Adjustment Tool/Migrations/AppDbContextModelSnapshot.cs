@@ -18,6 +18,161 @@ namespace Land_Readjustment_Tool.Migrations
 #pragma warning disable 612, 618
             modelBuilder.HasAnnotation("ProductVersion", "10.0.7");
 
+            modelBuilder.Entity("Land_Readjustment_Tool.Core.Entities.Buildings.BuildingInventory", b =>
+                {
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("INTEGER");
+
+                    b.Property<string>("BuildingCode")
+                        .IsRequired()
+                        .HasMaxLength(80)
+                        .HasColumnType("TEXT");
+
+                    b.Property<string>("BuildingCondition")
+                        .HasMaxLength(80)
+                        .HasColumnType("TEXT");
+
+                    b.Property<string>("BuildingName")
+                        .HasMaxLength(160)
+                        .HasColumnType("TEXT");
+
+                    b.Property<string>("BuildingUse")
+                        .HasMaxLength(80)
+                        .HasColumnType("TEXT");
+
+                    b.Property<Guid?>("CanvasObjectId")
+                        .HasColumnType("TEXT");
+
+                    b.Property<string>("ConstructionType")
+                        .HasMaxLength(80)
+                        .HasColumnType("TEXT");
+
+                    b.Property<DateTime>("CreatedDate")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("TEXT")
+                        .HasDefaultValueSql("CURRENT_TIMESTAMP");
+
+                    b.Property<DateTime>("LastModifiedDate")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("TEXT")
+                        .HasDefaultValueSql("CURRENT_TIMESTAMP");
+
+                    b.Property<string>("Notes")
+                        .HasColumnType("TEXT");
+
+                    b.Property<string>("OwnerName")
+                        .HasMaxLength(120)
+                        .HasColumnType("TEXT");
+
+                    b.Property<double?>("PlinthAreaSqm")
+                        .HasColumnType("REAL");
+
+                    b.Property<int?>("StoreyCount")
+                        .HasColumnType("INTEGER");
+
+                    b.Property<DateTime>("SurveyDate")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("TEXT")
+                        .HasDefaultValueSql("CURRENT_TIMESTAMP");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("BuildingCode")
+                        .IsUnique()
+                        .HasFilter("BuildingCode IS NOT NULL AND BuildingCode <> ''");
+
+                    b.HasIndex("CanvasObjectId")
+                        .IsUnique()
+                        .HasFilter("CanvasObjectId IS NOT NULL");
+
+                    b.ToTable("tblBuildingInventories");
+                });
+
+            modelBuilder.Entity("Land_Readjustment_Tool.Core.Entities.Buildings.BuildingOpening", b =>
+                {
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("INTEGER");
+
+                    b.Property<int>("BuildingInventoryId")
+                        .HasColumnType("INTEGER");
+
+                    b.Property<double?>("HeightM")
+                        .HasColumnType("REAL");
+
+                    b.Property<string>("Label")
+                        .HasMaxLength(80)
+                        .HasColumnType("TEXT");
+
+                    b.Property<string>("Notes")
+                        .HasColumnType("TEXT");
+
+                    b.Property<double?>("OffsetFromLeftM")
+                        .HasColumnType("REAL");
+
+                    b.Property<string>("OpeningType")
+                        .IsRequired()
+                        .HasMaxLength(40)
+                        .HasColumnType("TEXT");
+
+                    b.Property<string>("Side")
+                        .IsRequired()
+                        .HasMaxLength(40)
+                        .HasColumnType("TEXT");
+
+                    b.Property<double?>("SillHeightM")
+                        .HasColumnType("REAL");
+
+                    b.Property<double?>("WidthM")
+                        .HasColumnType("REAL");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("BuildingInventoryId", "Side", "OpeningType");
+
+                    b.ToTable("tblBuildingOpenings");
+                });
+
+            modelBuilder.Entity("Land_Readjustment_Tool.Core.Entities.Buildings.BuildingPhoto", b =>
+                {
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("INTEGER");
+
+                    b.Property<int>("BuildingInventoryId")
+                        .HasColumnType("INTEGER");
+
+                    b.Property<DateTime?>("CapturedDate")
+                        .HasColumnType("TEXT");
+
+                    b.Property<string>("ContentType")
+                        .HasMaxLength(80)
+                        .HasColumnType("TEXT");
+
+                    b.Property<string>("Direction")
+                        .IsRequired()
+                        .HasMaxLength(40)
+                        .HasColumnType("TEXT");
+
+                    b.Property<string>("FileName")
+                        .HasMaxLength(260)
+                        .HasColumnType("TEXT");
+
+                    b.Property<byte[]>("ImageData")
+                        .IsRequired()
+                        .HasColumnType("BLOB");
+
+                    b.Property<string>("Notes")
+                        .HasColumnType("TEXT");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("BuildingInventoryId", "Direction");
+
+                    b.ToTable("tblBuildingPhotos");
+                });
+
             modelBuilder.Entity("Land_Readjustment_Tool.Core.Entities.Canvas.CanvasLayer", b =>
                 {
                     b.Property<int>("Id")
@@ -1849,6 +2004,38 @@ namespace Land_Readjustment_Tool.Migrations
                         });
                 });
 
+            modelBuilder.Entity("Land_Readjustment_Tool.Core.Entities.Buildings.BuildingInventory", b =>
+                {
+                    b.HasOne("Land_Readjustment_Tool.Core.Entities.Canvas.CanvasObject", "CanvasObject")
+                        .WithMany()
+                        .HasForeignKey("CanvasObjectId")
+                        .OnDelete(DeleteBehavior.SetNull);
+
+                    b.Navigation("CanvasObject");
+                });
+
+            modelBuilder.Entity("Land_Readjustment_Tool.Core.Entities.Buildings.BuildingOpening", b =>
+                {
+                    b.HasOne("Land_Readjustment_Tool.Core.Entities.Buildings.BuildingInventory", "BuildingInventory")
+                        .WithMany("Openings")
+                        .HasForeignKey("BuildingInventoryId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.Navigation("BuildingInventory");
+                });
+
+            modelBuilder.Entity("Land_Readjustment_Tool.Core.Entities.Buildings.BuildingPhoto", b =>
+                {
+                    b.HasOne("Land_Readjustment_Tool.Core.Entities.Buildings.BuildingInventory", "BuildingInventory")
+                        .WithMany("Photos")
+                        .HasForeignKey("BuildingInventoryId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.Navigation("BuildingInventory");
+                });
+
             modelBuilder.Entity("Land_Readjustment_Tool.Core.Entities.Canvas.CanvasObject", b =>
                 {
                     b.HasOne("Land_Readjustment_Tool.Core.Entities.Canvas.CanvasLayer", "CanvasLayer")
@@ -2164,6 +2351,13 @@ namespace Land_Readjustment_Tool.Migrations
                         .IsRequired();
 
                     b.Navigation("CoordinateSystem");
+                });
+
+            modelBuilder.Entity("Land_Readjustment_Tool.Core.Entities.Buildings.BuildingInventory", b =>
+                {
+                    b.Navigation("Openings");
+
+                    b.Navigation("Photos");
                 });
 
             modelBuilder.Entity("Land_Readjustment_Tool.Core.Entities.Canvas.CanvasLayer", b =>

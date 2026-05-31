@@ -132,6 +132,7 @@ namespace Land_Readjustment_Tool.UI.Forms
                 layerNameSuggestionProvider)
         {
             _sampleRecords = sampleRecords;
+            PopulateLabelFieldOptions(_cboLabelField.Text.Trim());
         }
 
         /// <summary>
@@ -184,6 +185,7 @@ namespace Land_Readjustment_Tool.UI.Forms
 
             // Label source: "static:text" = fixed text, anything else = from object data.
             string? labelField = Layer.LabelField;
+            PopulateLabelFieldOptions(labelField);
 
             // Pre-fill the parcel number expression for BaselineParcel layers that have no label set yet.
             if (string.IsNullOrEmpty(labelField) &&
@@ -434,6 +436,22 @@ namespace Land_Readjustment_Tool.UI.Forms
             // Apply the alignment the user chose in the expression editor
             if (!string.IsNullOrWhiteSpace(editor.TextAlignment))
                 SetComboText(_cboTextAlignment, editor.TextAlignment);
+        }
+
+        private void PopulateLabelFieldOptions(string? currentExpression)
+        {
+            string current = currentExpression?.Trim() ?? string.Empty;
+            _cboLabelField.Items.Clear();
+
+            foreach (string expression in frmLabelExpressionEditor.GetApplicableLabelExpressions(
+                         Layer.LayerType,
+                         _sampleRecords))
+            {
+                _cboLabelField.Items.Add(expression);
+            }
+
+            if (!string.IsNullOrWhiteSpace(current))
+                SetComboText(_cboLabelField, current);
         }
 
         private void PickColor(Panel swatch)

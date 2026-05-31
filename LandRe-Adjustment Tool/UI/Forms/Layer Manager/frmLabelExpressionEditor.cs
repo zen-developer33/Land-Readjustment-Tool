@@ -255,6 +255,32 @@ namespace Land_Readjustment_Tool.UI.Forms
         // NOTE: Imported cadastral layers get LayerType = "Polygon" from the
         // importer — never "BaselineParcel". Entity detection for parcel layers
         // must therefore rely on the sample record content (parcel data present).
+        public static IReadOnlyList<string> GetApplicableLabelExpressions(
+            string? layerType,
+            IReadOnlyList<IReadOnlyDictionary<string, string>>? sampleRecords)
+        {
+            string category = DeriveGeometryCategory(layerType?.Trim() ?? string.Empty, sampleRecords);
+            List<string> expressions = [];
+
+            foreach ((_, string template) in GetPresetTemplates(category))
+            {
+                if (!string.IsNullOrWhiteSpace(template) &&
+                    !expressions.Contains(template, StringComparer.OrdinalIgnoreCase))
+                {
+                    expressions.Add(template);
+                }
+            }
+
+            foreach ((_, string fieldKey) in GetAvailableFields(category))
+            {
+                string expression = $"{{{fieldKey}}}";
+                if (!expressions.Contains(expression, StringComparer.OrdinalIgnoreCase))
+                    expressions.Add(expression);
+            }
+
+            return expressions;
+        }
+
         private static string DeriveGeometryCategory(
             string layerType,
             IReadOnlyList<IReadOnlyDictionary<string, string>>? sampleRecords)

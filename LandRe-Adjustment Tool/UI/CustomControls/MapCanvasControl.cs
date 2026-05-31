@@ -2278,7 +2278,13 @@ namespace Land_Readjustment_Tool.UI.CustomControls
                 .Where(f => f.Shape is TextShape ts &&
                             ts.LastRenderedBounds.HasValue &&
                             ts.LastRenderedBounds.Value.Contains(screenPoint.X, screenPoint.Y))
-                .LastOrDefault();
+                .OrderByDescending(GetSelectionDrawingMarkupRenderPass)
+                .ThenByDescending(GetSelectionRePlotGroupRenderPass)
+                .ThenByDescending(GetSelectionCadastralParcelRenderPass)
+                .ThenByDescending(GetSelectionProjectBoundaryRenderPass)
+                .ThenByDescending(GetSelectionDisplayOrder)
+                .ThenByDescending(f => f.CanvasObject.Id)
+                .FirstOrDefault();
         }
 
         private void ShowDrawingOptionsMenu(Point location)
@@ -5339,37 +5345,24 @@ namespace Land_Readjustment_Tool.UI.CustomControls
             NtsGeometry pickPoint = SelectionGeometryFactory.CreatePoint(
                 new NtsCoordinate(worldPoint.X, worldPoint.Y));
 
-            // Build candidates in render order (topmost layer first) to match the visual
-            // stacking: markup layers > data layers, higher DisplayOrder > lower, then by Id.
+            // Build candidates in the inverse of vector render order so the visually
+            // topmost selectable layer receives the first hit opportunity.
             List<(CanvasFeature Feature, NtsGeometry Geometry)> candidates = _vectorFeatures
                 .Where(IsSelectableDrawingFeature)
                 .Where(feature => feature.Shape is not TextShape)
-                .OrderByDescending(GetSelectionRenderPass)
-                .ThenByDescending(GetSelectionPickPriority)
+                .OrderByDescending(GetSelectionDrawingMarkupRenderPass)
+                .ThenByDescending(GetSelectionRePlotGroupRenderPass)
+                .ThenByDescending(GetSelectionCadastralParcelRenderPass)
+                .ThenByDescending(GetSelectionProjectBoundaryRenderPass)
                 .ThenByDescending(GetSelectionDisplayOrder)
                 .ThenByDescending(f => f.CanvasObject.Id)
                 .Select(feature => (Feature: feature, Geometry: CreateSelectionGeometry(feature.Shape)))
                 .Where(candidate => !candidate.Geometry.IsEmpty)
                 .ToList();
 
-            // Exact hit: point lies inside an inspectable data polygon.
-            // Topmost-rendered layer wins; within the same layer the smallest polygon
-            // (most spatially specific) is preferred.
-            CanvasFeature? exactHit = candidates
-                .Where(candidate => UsesAreaClickSelection(candidate.Feature) &&
-                                    !IsProjectBoundaryFeature(candidate.Feature) &&
-                                    candidate.Geometry.Covers(pickPoint))
-                .OrderByDescending(candidate => GetSelectionRenderPass(candidate.Feature))
-                .ThenByDescending(candidate => GetSelectionPickPriority(candidate.Feature))
-                .ThenByDescending(candidate => GetSelectionDisplayOrder(candidate.Feature))
-                .ThenBy(candidate => GetSelectionGeometryPickArea(candidate.Geometry))
-                .Select(candidate => candidate.Feature)
-                .FirstOrDefault();
-            if (exactHit != null)
-                return exactHit;
-
-            // Tolerance hit: nearest feature within pick tolerance.
-            // Among features at the same distance, the topmost-rendered layer wins.
+            // Hit test: the topmost rendered feature within pick tolerance wins.
+            // Area-selectable data polygons report zero distance when the point is
+            // inside them, while editable drawing polygons use their boundary.
             return candidates
                 .Select(candidate => new
                 {
@@ -5385,58 +5378,83 @@ namespace Land_Readjustment_Tool.UI.CustomControls
                     Distance = candidate.ClickGeometry.Distance(pickPoint)
                 })
                 .Where(candidate => candidate.Distance <= toleranceWorld)
-                .OrderBy(candidate => candidate.Distance)
-                .ThenByDescending(candidate => GetSelectionRenderPass(candidate.Feature))
-                .ThenByDescending(candidate => GetSelectionPickPriority(candidate.Feature))
+                .OrderByDescending(candidate => GetSelectionDrawingMarkupRenderPass(candidate.Feature))
+                .ThenByDescending(candidate => GetSelectionRePlotGroupRenderPass(candidate.Feature))
+                .ThenByDescending(candidate => GetSelectionCadastralParcelRenderPass(candidate.Feature))
+                .ThenByDescending(candidate => GetSelectionProjectBoundaryRenderPass(candidate.Feature))
                 .ThenByDescending(candidate => GetSelectionDisplayOrder(candidate.Feature))
+                .ThenBy(candidate => candidate.Distance)
                 .ThenBy(candidate => GetSelectionGeometryPickArea(candidate.Geometry))
+                .ThenByDescending(candidate => candidate.Feature.CanvasObject.Id)
                 .Select(candidate => candidate.Feature)
                 .FirstOrDefault();
         }
 
-        private static int GetSelectionRenderPass(CanvasFeature feature)
+        private int GetSelectionDrawingMarkupRenderPass(CanvasFeature feature)
         {
-            CanvasLayer? layer = feature.Layer;
+            CanvasLayer? layer = ResolveFeatureLayer(feature);
             return layer != null && CanvasLayerTreeService.IsDrawingMarkupLayer(layer) ? 1 : 0;
         }
 
-        private int GetSelectionPickPriority(CanvasFeature feature)
+        private int GetSelectionRePlotGroupRenderPass(CanvasFeature feature)
         {
             CanvasLayer? layer = ResolveFeatureLayer(feature);
             if (layer == null)
                 return 0;
 
-            if (IsReplottedParcelPickLayer(layer))
-                return 30;
+            if (IsReplottedParcelSelectionLayer(layer))
+                return 3;
 
             if (string.Equals(layer.LayerType, "Block", StringComparison.OrdinalIgnoreCase))
-                return 20;
+                return 2;
 
-            if (IsOriginalParcelPickLayer(layer, feature))
-                return 10;
+            if (CanvasLayerTreeService.IsRoadsGroupKey(GetSelectionLayerGroupKey(layer)))
+                return 1;
 
             return 0;
         }
 
-        private static bool IsReplottedParcelPickLayer(CanvasLayer layer)
+        private int GetSelectionCadastralParcelRenderPass(CanvasFeature feature)
         {
-            return layer.LayerType is not null &&
-                   (string.Equals(layer.LayerType, "ReplottedParcel", StringComparison.OrdinalIgnoreCase) ||
-                    string.Equals(layer.LayerType, "PrivateReplotParcel", StringComparison.OrdinalIgnoreCase) ||
-                    string.Equals(layer.LayerType, "PublicFacility", StringComparison.OrdinalIgnoreCase) ||
-                    string.Equals(layer.LayerType, "OpenSpace", StringComparison.OrdinalIgnoreCase) ||
-                    string.Equals(layer.LayerType, "ServiceSalesPlot", StringComparison.OrdinalIgnoreCase));
+            CanvasLayer? layer = ResolveFeatureLayer(feature);
+            return IsImportedCadastralParcelFeature(feature, layer) ? 0 : 1;
         }
 
-        private static bool IsOriginalParcelPickLayer(CanvasLayer layer, CanvasFeature feature)
+        private static bool IsReplottedParcelSelectionLayer(CanvasLayer layer)
         {
-            return IsSelectableImportedCadastralParcel(feature) ||
-                   string.Equals(layer.LayerType, "BaselineParcel", StringComparison.OrdinalIgnoreCase) ||
-                   string.Equals(layer.LayerType, "CadastralParcel", StringComparison.OrdinalIgnoreCase);
+            return string.Equals(layer.LayerType, "ReplottedParcel", StringComparison.OrdinalIgnoreCase) ||
+                   string.Equals(layer.LayerType, "PrivateReplotParcel", StringComparison.OrdinalIgnoreCase) ||
+                   string.Equals(layer.LayerType, "PublicFacility", StringComparison.OrdinalIgnoreCase) ||
+                   string.Equals(layer.LayerType, "OpenSpace", StringComparison.OrdinalIgnoreCase) ||
+                   string.Equals(layer.LayerType, "ServiceSalesPlot", StringComparison.OrdinalIgnoreCase);
         }
 
-        private static int GetSelectionDisplayOrder(CanvasFeature feature) =>
-            feature.Layer?.DisplayOrder ?? int.MinValue;
+        private static string? GetSelectionLayerGroupKey(CanvasLayer layer)
+        {
+            if (string.Equals(layer.LayerType, "Block", StringComparison.OrdinalIgnoreCase))
+                return CanvasLayerTreeService.BlockLayoutGroupKey;
+
+            if (string.Equals(layer.LayerType, "RoadParcel", StringComparison.OrdinalIgnoreCase) ||
+                string.Equals(layer.LayerType, "ProposedRoad", StringComparison.OrdinalIgnoreCase) ||
+                string.Equals(layer.LayerType, CanvasLayerTreeService.RoadCenterlineLayerType, StringComparison.OrdinalIgnoreCase))
+            {
+                return CanvasLayerTreeService.RoadsGroupKey;
+            }
+
+            if (IsReplottedParcelSelectionLayer(layer))
+                return CanvasLayerTreeService.ReplottedParcelsGroupKey;
+
+            return null;
+        }
+
+        private int GetSelectionProjectBoundaryRenderPass(CanvasFeature feature)
+        {
+            CanvasLayer? layer = ResolveFeatureLayer(feature);
+            return layer != null && CanvasLayerTreeService.IsProjectBoundaryLayer(layer) ? 1 : 0;
+        }
+
+        private int GetSelectionDisplayOrder(CanvasFeature feature) =>
+            ResolveFeatureLayer(feature)?.DisplayOrder ?? int.MaxValue;
 
         private NtsGeometry CreateClickSelectionGeometry(CanvasFeature feature, NtsGeometry selectionGeometry)
         {
@@ -6090,6 +6108,16 @@ namespace Land_Readjustment_Tool.UI.CustomControls
             return string.Equals(feature.CanvasObject.ObjectType, "Polygon", StringComparison.OrdinalIgnoreCase) &&
                    !string.IsNullOrWhiteSpace(feature.CanvasObject.GeometryMetadataJson) &&
                    feature.CanvasObject.GeometryMetadataJson.Contains("CadastralParcel", StringComparison.OrdinalIgnoreCase);
+        }
+
+        private static bool IsImportedCadastralParcelFeature(CanvasFeature feature, CanvasLayer? layer)
+        {
+            return string.Equals(feature.CanvasObject.ObjectType, "Polygon", StringComparison.OrdinalIgnoreCase) &&
+                   ((layer?.Description?.StartsWith(
+                         "Imported cadastral map layer",
+                         StringComparison.OrdinalIgnoreCase) == true) ||
+                    (!string.IsNullOrWhiteSpace(feature.CanvasObject.GeometryMetadataJson) &&
+                     feature.CanvasObject.GeometryMetadataJson.Contains("CadastralParcel", StringComparison.OrdinalIgnoreCase)));
         }
 
         private RectangleD CreateWorldRectangle(Rectangle screenRectangle)
