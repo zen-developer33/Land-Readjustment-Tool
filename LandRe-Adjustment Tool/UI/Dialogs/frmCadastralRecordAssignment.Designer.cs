@@ -4,32 +4,29 @@ namespace Land_Readjustment_Tool.UI.Dialogs
     {
         private System.ComponentModel.IContainer components = null;
         private TableLayoutPanel mainLayout;
+        private GroupBox modeGroup;
+        private FlowLayoutPanel modePanel;
+        private RadioButton rdoAutoAssign;
+        private RadioButton rdoManualAssign;
+        private Button btnOpenAutoAssignment;
         private Label lblFilterCaption;
         private ComboBox cboObjectFilter;
-        private Label lblObjectCaption;
-        private ListBox lstObjects;
+        private DataGridView dgvObjects;
         private FlowLayoutPanel navPanel;
         private Button btnPrevious;
         private Button btnNext;
         private CheckBox chkZoomToSelected;
         private Label lblSelectionInfo;
-        private Label lblLayerMappingCaption;
-        private DataGridView dgvLayerMapSheets;
-        private TableLayoutPanel attributeMappingLayout;
-        private Label lblSourceMapSheetField;
-        private ComboBox cboSourceMapSheetField;
-        private DataGridView dgvAttributeMapSheetMappings;
-        private Label lblSourceParcelField;
-        private ComboBox cboSourceParcelField;
-        private Label lblMapSheetCaption;
-        private ComboBox cboMapSheet;
-        private Label lblParcelCaption;
-        private ComboBox cboParcel;
+        private GroupBox manualGroup;
+        private TableLayoutPanel manualLayout;
+        private Label lblSelectedRecordCaption;
+        private TextBox txtSelectedRecord;
         private CheckBox chkReplaceExisting;
-        private FlowLayoutPanel actionPanel;
-        private Button btnAssign;
-        private Button btnAutoAssign;
+        private FlowLayoutPanel manualActionPanel;
+        private Button btnAssignParcel;
+        private Button btnRemoveAssignment;
         private Button btnClearAssignments;
+        private FlowLayoutPanel actionPanel;
         private Button btnClose;
         private Label lblStatus;
 
@@ -44,90 +41,133 @@ namespace Land_Readjustment_Tool.UI.Dialogs
         private void InitializeComponent()
         {
             mainLayout = new TableLayoutPanel();
+            modeGroup = new GroupBox();
+            modePanel = new FlowLayoutPanel();
+            rdoAutoAssign = new RadioButton();
+            rdoManualAssign = new RadioButton();
+            btnOpenAutoAssignment = new Button();
             lblFilterCaption = new Label();
             cboObjectFilter = new ComboBox();
-            lblObjectCaption = new Label();
-            lstObjects = new ListBox();
+            dgvObjects = new DataGridView();
             navPanel = new FlowLayoutPanel();
             btnPrevious = new Button();
             btnNext = new Button();
             chkZoomToSelected = new CheckBox();
             lblSelectionInfo = new Label();
-            lblLayerMappingCaption = new Label();
-            dgvLayerMapSheets = new DataGridView();
-            attributeMappingLayout = new TableLayoutPanel();
-            lblSourceMapSheetField = new Label();
-            cboSourceMapSheetField = new ComboBox();
-            dgvAttributeMapSheetMappings = new DataGridView();
-            lblSourceParcelField = new Label();
-            cboSourceParcelField = new ComboBox();
-            lblMapSheetCaption = new Label();
-            cboMapSheet = new ComboBox();
-            lblParcelCaption = new Label();
-            cboParcel = new ComboBox();
+            manualGroup = new GroupBox();
+            manualLayout = new TableLayoutPanel();
+            lblSelectedRecordCaption = new Label();
+            txtSelectedRecord = new TextBox();
             chkReplaceExisting = new CheckBox();
+            manualActionPanel = new FlowLayoutPanel();
+            btnAssignParcel = new Button();
+            btnRemoveAssignment = new Button();
+            btnClearAssignments = new Button();
             lblStatus = new Label();
             actionPanel = new FlowLayoutPanel();
             btnClose = new Button();
-            btnAutoAssign = new Button();
-            btnClearAssignments = new Button();
-            btnAssign = new Button();
             mainLayout.SuspendLayout();
+            modeGroup.SuspendLayout();
+            modePanel.SuspendLayout();
+            ((System.ComponentModel.ISupportInitialize)dgvObjects).BeginInit();
             navPanel.SuspendLayout();
-            ((System.ComponentModel.ISupportInitialize)dgvLayerMapSheets).BeginInit();
-            attributeMappingLayout.SuspendLayout();
-            ((System.ComponentModel.ISupportInitialize)dgvAttributeMapSheetMappings).BeginInit();
+            manualGroup.SuspendLayout();
+            manualLayout.SuspendLayout();
+            manualActionPanel.SuspendLayout();
             actionPanel.SuspendLayout();
             SuspendLayout();
             // 
             // mainLayout
             // 
             mainLayout.ColumnCount = 2;
-            mainLayout.ColumnStyles.Add(new ColumnStyle(SizeType.Absolute, 170F));
+            mainLayout.ColumnStyles.Add(new ColumnStyle(SizeType.Absolute, 90F));
             mainLayout.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 100F));
-            mainLayout.Controls.Add(lblFilterCaption, 0, 0);
-            mainLayout.Controls.Add(cboObjectFilter, 1, 0);
-            mainLayout.Controls.Add(lblObjectCaption, 0, 1);
-            mainLayout.Controls.Add(lstObjects, 1, 1);
+            mainLayout.Controls.Add(modeGroup, 0, 0);
+            mainLayout.Controls.Add(lblFilterCaption, 0, 1);
+            mainLayout.Controls.Add(cboObjectFilter, 1, 1);
+            mainLayout.Controls.Add(dgvObjects, 0, 2);
             mainLayout.Controls.Add(navPanel, 1, 3);
             mainLayout.Controls.Add(lblSelectionInfo, 1, 4);
-            mainLayout.Controls.Add(lblLayerMappingCaption, 0, 5);
-            mainLayout.Controls.Add(dgvLayerMapSheets, 1, 5);
-            mainLayout.Controls.Add(attributeMappingLayout, 1, 5);
-            mainLayout.Controls.Add(lblMapSheetCaption, 0, 7);
-            mainLayout.Controls.Add(cboMapSheet, 1, 7);
-            mainLayout.Controls.Add(lblParcelCaption, 0, 8);
-            mainLayout.Controls.Add(cboParcel, 1, 8);
-            mainLayout.Controls.Add(chkReplaceExisting, 1, 9);
-            mainLayout.Controls.Add(lblStatus, 1, 10);
-            mainLayout.Controls.Add(actionPanel, 1, 11);
+            mainLayout.Controls.Add(manualGroup, 0, 5);
+            mainLayout.Controls.Add(lblStatus, 0, 6);
+            mainLayout.Controls.Add(actionPanel, 1, 7);
             mainLayout.Dock = DockStyle.Fill;
             mainLayout.Location = new Point(0, 0);
             mainLayout.Name = "mainLayout";
-            mainLayout.Padding = new Padding(14);
-            mainLayout.RowCount = 12;
+            mainLayout.Padding = new Padding(10);
+            mainLayout.RowCount = 8;
+            mainLayout.RowStyles.Add(new RowStyle(SizeType.Absolute, 76F));
             mainLayout.RowStyles.Add(new RowStyle(SizeType.Absolute, 38F));
-            mainLayout.RowStyles.Add(new RowStyle(SizeType.Absolute, 30F));
             mainLayout.RowStyles.Add(new RowStyle(SizeType.Percent, 100F));
-            mainLayout.RowStyles.Add(new RowStyle(SizeType.Absolute, 42F));
-            mainLayout.RowStyles.Add(new RowStyle(SizeType.Absolute, 46F));
+            mainLayout.RowStyles.Add(new RowStyle(SizeType.Absolute, 36F));
+            mainLayout.RowStyles.Add(new RowStyle(SizeType.Absolute, 24F));
+            mainLayout.RowStyles.Add(new RowStyle(SizeType.Absolute, 134F));
             mainLayout.RowStyles.Add(new RowStyle(SizeType.Absolute, 30F));
-            mainLayout.RowStyles.Add(new RowStyle(SizeType.Absolute, 170F));
-            mainLayout.RowStyles.Add(new RowStyle(SizeType.Absolute, 38F));
-            mainLayout.RowStyles.Add(new RowStyle(SizeType.Absolute, 38F));
-            mainLayout.RowStyles.Add(new RowStyle(SizeType.Absolute, 34F));
-            mainLayout.RowStyles.Add(new RowStyle(SizeType.Absolute, 34F));
-            mainLayout.RowStyles.Add(new RowStyle(SizeType.Absolute, 48F));
-            mainLayout.Size = new Size(860, 800);
+            mainLayout.RowStyles.Add(new RowStyle(SizeType.Absolute, 40F));
+            mainLayout.Size = new Size(640, 560);
             mainLayout.TabIndex = 0;
+            mainLayout.Paint += mainLayout_Paint;
+            // 
+            // modeGroup
+            // 
+            mainLayout.SetColumnSpan(modeGroup, 2);
+            modeGroup.Controls.Add(modePanel);
+            modeGroup.Dock = DockStyle.Fill;
+            modeGroup.Location = new Point(13, 13);
+            modeGroup.Name = "modeGroup";
+            modeGroup.Size = new Size(614, 70);
+            modeGroup.TabIndex = 0;
+            modeGroup.TabStop = false;
+            modeGroup.Text = "Assignment mode";
+            // 
+            // modePanel
+            // 
+            modePanel.Controls.Add(rdoAutoAssign);
+            modePanel.Controls.Add(rdoManualAssign);
+            modePanel.Controls.Add(btnOpenAutoAssignment);
+            modePanel.Dock = DockStyle.Fill;
+            modePanel.Location = new Point(3, 23);
+            modePanel.Name = "modePanel";
+            modePanel.Padding = new Padding(8, 4, 0, 0);
+            modePanel.Size = new Size(608, 44);
+            modePanel.TabIndex = 0;
+            // 
+            // rdoAutoAssign
+            // 
+            rdoAutoAssign.Checked = true;
+            rdoAutoAssign.Location = new Point(11, 7);
+            rdoAutoAssign.Name = "rdoAutoAssign";
+            rdoAutoAssign.Size = new Size(130, 28);
+            rdoAutoAssign.TabIndex = 0;
+            rdoAutoAssign.TabStop = true;
+            rdoAutoAssign.Text = "Auto assign";
+            rdoAutoAssign.UseVisualStyleBackColor = true;
+            // 
+            // rdoManualAssign
+            // 
+            rdoManualAssign.Location = new Point(147, 7);
+            rdoManualAssign.Name = "rdoManualAssign";
+            rdoManualAssign.Size = new Size(130, 28);
+            rdoManualAssign.TabIndex = 1;
+            rdoManualAssign.Text = "Manual assign";
+            rdoManualAssign.UseVisualStyleBackColor = true;
+            // 
+            // btnOpenAutoAssignment
+            // 
+            btnOpenAutoAssignment.Location = new Point(283, 7);
+            btnOpenAutoAssignment.Name = "btnOpenAutoAssignment";
+            btnOpenAutoAssignment.Size = new Size(170, 30);
+            btnOpenAutoAssignment.TabIndex = 2;
+            btnOpenAutoAssignment.Text = "Auto Assignment...";
+            btnOpenAutoAssignment.UseVisualStyleBackColor = true;
             // 
             // lblFilterCaption
             // 
             lblFilterCaption.Dock = DockStyle.Fill;
-            lblFilterCaption.Location = new Point(17, 14);
+            lblFilterCaption.Location = new Point(13, 86);
             lblFilterCaption.Name = "lblFilterCaption";
-            lblFilterCaption.Size = new Size(164, 38);
-            lblFilterCaption.TabIndex = 0;
+            lblFilterCaption.Size = new Size(84, 38);
+            lblFilterCaption.TabIndex = 1;
             lblFilterCaption.Text = "Show";
             lblFilterCaption.TextAlign = ContentAlignment.MiddleLeft;
             // 
@@ -136,30 +176,30 @@ namespace Land_Readjustment_Tool.UI.Dialogs
             cboObjectFilter.Dock = DockStyle.Fill;
             cboObjectFilter.DropDownStyle = ComboBoxStyle.DropDownList;
             cboObjectFilter.FormattingEnabled = true;
-            cboObjectFilter.Location = new Point(187, 17);
+            cboObjectFilter.Location = new Point(103, 89);
             cboObjectFilter.Name = "cboObjectFilter";
-            cboObjectFilter.Size = new Size(656, 28);
-            cboObjectFilter.TabIndex = 0;
+            cboObjectFilter.Size = new Size(524, 28);
+            cboObjectFilter.TabIndex = 1;
             // 
-            // lblObjectCaption
+            // dgvObjects
             // 
-            lblObjectCaption.Dock = DockStyle.Fill;
-            lblObjectCaption.Location = new Point(17, 52);
-            lblObjectCaption.Name = "lblObjectCaption";
-            lblObjectCaption.Size = new Size(164, 30);
-            lblObjectCaption.TabIndex = 1;
-            lblObjectCaption.Text = "Canvas objects";
-            lblObjectCaption.TextAlign = ContentAlignment.MiddleLeft;
-            // 
-            // lstObjects
-            // 
-            lstObjects.Dock = DockStyle.Fill;
-            lstObjects.FormattingEnabled = true;
-            lstObjects.Location = new Point(187, 55);
-            lstObjects.Name = "lstObjects";
-            mainLayout.SetRowSpan(lstObjects, 2);
-            lstObjects.Size = new Size(656, 248);
-            lstObjects.TabIndex = 1;
+            dgvObjects.AllowUserToAddRows = false;
+            dgvObjects.AllowUserToDeleteRows = false;
+            dgvObjects.AllowUserToResizeRows = false;
+            dgvObjects.BackgroundColor = SystemColors.Window;
+            dgvObjects.BorderStyle = BorderStyle.Fixed3D;
+            dgvObjects.ColumnHeadersHeightSizeMode = DataGridViewColumnHeadersHeightSizeMode.AutoSize;
+            mainLayout.SetColumnSpan(dgvObjects, 2);
+            dgvObjects.Dock = DockStyle.Fill;
+            dgvObjects.Location = new Point(13, 127);
+            dgvObjects.MultiSelect = false;
+            dgvObjects.Name = "dgvObjects";
+            dgvObjects.ReadOnly = true;
+            dgvObjects.RowHeadersVisible = false;
+            dgvObjects.RowHeadersWidth = 51;
+            dgvObjects.SelectionMode = DataGridViewSelectionMode.FullRowSelect;
+            dgvObjects.Size = new Size(614, 156);
+            dgvObjects.TabIndex = 2;
             // 
             // navPanel
             // 
@@ -167,10 +207,10 @@ namespace Land_Readjustment_Tool.UI.Dialogs
             navPanel.Controls.Add(btnNext);
             navPanel.Controls.Add(chkZoomToSelected);
             navPanel.Dock = DockStyle.Fill;
-            navPanel.Location = new Point(187, 309);
+            navPanel.Location = new Point(103, 289);
             navPanel.Name = "navPanel";
-            navPanel.Size = new Size(656, 36);
-            navPanel.TabIndex = 2;
+            navPanel.Size = new Size(524, 30);
+            navPanel.TabIndex = 3;
             // 
             // btnPrevious
             // 
@@ -205,254 +245,167 @@ namespace Land_Readjustment_Tool.UI.Dialogs
             // 
             lblSelectionInfo.Dock = DockStyle.Fill;
             lblSelectionInfo.ForeColor = Color.DimGray;
-            lblSelectionInfo.Location = new Point(187, 348);
+            lblSelectionInfo.Location = new Point(103, 322);
             lblSelectionInfo.Name = "lblSelectionInfo";
-            lblSelectionInfo.Size = new Size(656, 46);
-            lblSelectionInfo.TabIndex = 3;
-            lblSelectionInfo.Text = "Select an imported parcel shape.";
+            lblSelectionInfo.Size = new Size(524, 24);
+            lblSelectionInfo.TabIndex = 4;
+            lblSelectionInfo.Text = "Select an imported parcel object.";
             lblSelectionInfo.TextAlign = ContentAlignment.MiddleLeft;
             // 
-            // lblLayerMappingCaption
+            // manualGroup
             // 
-            lblLayerMappingCaption.Dock = DockStyle.Fill;
-            lblLayerMappingCaption.Location = new Point(17, 394);
-            lblLayerMappingCaption.Name = "lblLayerMappingCaption";
-            lblLayerMappingCaption.Size = new Size(164, 30);
-            lblLayerMappingCaption.TabIndex = 4;
-            lblLayerMappingCaption.Text = "Source to target MapSheet";
-            lblLayerMappingCaption.TextAlign = ContentAlignment.MiddleLeft;
+            mainLayout.SetColumnSpan(manualGroup, 2);
+            manualGroup.Controls.Add(manualLayout);
+            manualGroup.Dock = DockStyle.Fill;
+            manualGroup.Location = new Point(13, 349);
+            manualGroup.Name = "manualGroup";
+            manualGroup.Size = new Size(614, 128);
+            manualGroup.TabIndex = 4;
+            manualGroup.TabStop = false;
+            manualGroup.Text = "Manual assignment";
             // 
-            // dgvLayerMapSheets
+            // manualLayout
             // 
-            dgvLayerMapSheets.AllowUserToAddRows = false;
-            dgvLayerMapSheets.AllowUserToDeleteRows = false;
-            dgvLayerMapSheets.AllowUserToResizeRows = false;
-            dgvLayerMapSheets.BackgroundColor = SystemColors.Window;
-            dgvLayerMapSheets.BorderStyle = BorderStyle.Fixed3D;
-            dgvLayerMapSheets.ColumnHeadersHeightSizeMode = DataGridViewColumnHeadersHeightSizeMode.AutoSize;
-            dgvLayerMapSheets.Dock = DockStyle.Fill;
-            dgvLayerMapSheets.Location = new Point(17, 427);
-            dgvLayerMapSheets.MultiSelect = false;
-            dgvLayerMapSheets.Name = "dgvLayerMapSheets";
-            dgvLayerMapSheets.RowHeadersVisible = false;
-            dgvLayerMapSheets.RowHeadersWidth = 51;
-            mainLayout.SetRowSpan(dgvLayerMapSheets, 2);
-            dgvLayerMapSheets.SelectionMode = DataGridViewSelectionMode.CellSelect;
-            dgvLayerMapSheets.Size = new Size(164, 202);
-            dgvLayerMapSheets.TabIndex = 3;
+            manualLayout.ColumnCount = 2;
+            manualLayout.ColumnStyles.Add(new ColumnStyle(SizeType.Absolute, 120F));
+            manualLayout.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 100F));
+            manualLayout.Controls.Add(lblSelectedRecordCaption, 0, 0);
+            manualLayout.Controls.Add(txtSelectedRecord, 1, 0);
+            manualLayout.Controls.Add(chkReplaceExisting, 1, 1);
+            manualLayout.Controls.Add(manualActionPanel, 1, 2);
+            manualLayout.Dock = DockStyle.Fill;
+            manualLayout.Location = new Point(3, 23);
+            manualLayout.Name = "manualLayout";
+            manualLayout.Padding = new Padding(8, 4, 8, 8);
+            manualLayout.RowCount = 3;
+            manualLayout.RowStyles.Add(new RowStyle(SizeType.Absolute, 37F));
+            manualLayout.RowStyles.Add(new RowStyle(SizeType.Absolute, 34F));
+            manualLayout.RowStyles.Add(new RowStyle(SizeType.Absolute, 31F));
+            manualLayout.Size = new Size(608, 102);
+            manualLayout.TabIndex = 0;
             // 
-            // attributeMappingLayout
+            // lblSelectedRecordCaption
             // 
-            attributeMappingLayout.ColumnCount = 2;
-            attributeMappingLayout.ColumnStyles.Add(new ColumnStyle(SizeType.Absolute, 150F));
-            attributeMappingLayout.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 100F));
-            attributeMappingLayout.Controls.Add(lblSourceMapSheetField, 0, 0);
-            attributeMappingLayout.Controls.Add(cboSourceMapSheetField, 1, 0);
-            attributeMappingLayout.Controls.Add(dgvAttributeMapSheetMappings, 0, 1);
-            attributeMappingLayout.Controls.Add(lblSourceParcelField, 0, 2);
-            attributeMappingLayout.Controls.Add(cboSourceParcelField, 1, 2);
-            attributeMappingLayout.Dock = DockStyle.Fill;
-            attributeMappingLayout.Location = new Point(187, 397);
-            attributeMappingLayout.Name = "attributeMappingLayout";
-            attributeMappingLayout.RowCount = 3;
-            mainLayout.SetRowSpan(attributeMappingLayout, 2);
-            attributeMappingLayout.RowStyles.Add(new RowStyle(SizeType.Absolute, 32F));
-            attributeMappingLayout.RowStyles.Add(new RowStyle(SizeType.Percent, 100F));
-            attributeMappingLayout.RowStyles.Add(new RowStyle(SizeType.Absolute, 32F));
-            attributeMappingLayout.Size = new Size(656, 194);
-            attributeMappingLayout.TabIndex = 3;
-            attributeMappingLayout.Visible = false;
+            lblSelectedRecordCaption.Dock = DockStyle.Fill;
+            lblSelectedRecordCaption.Location = new Point(11, 4);
+            lblSelectedRecordCaption.Name = "lblSelectedRecordCaption";
+            lblSelectedRecordCaption.Size = new Size(114, 37);
+            lblSelectedRecordCaption.TabIndex = 0;
+            lblSelectedRecordCaption.Text = "Assigned record";
+            lblSelectedRecordCaption.TextAlign = ContentAlignment.MiddleLeft;
             // 
-            // lblSourceMapSheetField
+            // txtSelectedRecord
             // 
-            lblSourceMapSheetField.Dock = DockStyle.Fill;
-            lblSourceMapSheetField.Location = new Point(3, 0);
-            lblSourceMapSheetField.Name = "lblSourceMapSheetField";
-            lblSourceMapSheetField.Size = new Size(144, 32);
-            lblSourceMapSheetField.TabIndex = 0;
-            lblSourceMapSheetField.Text = "Map sheet field";
-            lblSourceMapSheetField.TextAlign = ContentAlignment.MiddleLeft;
-            // 
-            // cboSourceMapSheetField
-            // 
-            cboSourceMapSheetField.Dock = DockStyle.Fill;
-            cboSourceMapSheetField.DropDownStyle = ComboBoxStyle.DropDownList;
-            cboSourceMapSheetField.FormattingEnabled = true;
-            cboSourceMapSheetField.Location = new Point(153, 3);
-            cboSourceMapSheetField.Name = "cboSourceMapSheetField";
-            cboSourceMapSheetField.Size = new Size(500, 28);
-            cboSourceMapSheetField.TabIndex = 1;
-            // 
-            // dgvAttributeMapSheetMappings
-            // 
-            dgvAttributeMapSheetMappings.AllowUserToAddRows = false;
-            dgvAttributeMapSheetMappings.AllowUserToDeleteRows = false;
-            dgvAttributeMapSheetMappings.AllowUserToResizeRows = false;
-            dgvAttributeMapSheetMappings.BackgroundColor = SystemColors.Window;
-            dgvAttributeMapSheetMappings.BorderStyle = BorderStyle.Fixed3D;
-            dgvAttributeMapSheetMappings.ColumnHeadersHeightSizeMode = DataGridViewColumnHeadersHeightSizeMode.AutoSize;
-            attributeMappingLayout.SetColumnSpan(dgvAttributeMapSheetMappings, 2);
-            dgvAttributeMapSheetMappings.Dock = DockStyle.Fill;
-            dgvAttributeMapSheetMappings.Location = new Point(3, 35);
-            dgvAttributeMapSheetMappings.MultiSelect = false;
-            dgvAttributeMapSheetMappings.Name = "dgvAttributeMapSheetMappings";
-            dgvAttributeMapSheetMappings.RowHeadersVisible = false;
-            dgvAttributeMapSheetMappings.RowHeadersWidth = 51;
-            dgvAttributeMapSheetMappings.SelectionMode = DataGridViewSelectionMode.CellSelect;
-            dgvAttributeMapSheetMappings.Size = new Size(650, 124);
-            dgvAttributeMapSheetMappings.TabIndex = 2;
-            // 
-            // lblSourceParcelField
-            // 
-            lblSourceParcelField.Dock = DockStyle.Fill;
-            lblSourceParcelField.Location = new Point(3, 162);
-            lblSourceParcelField.Name = "lblSourceParcelField";
-            lblSourceParcelField.Size = new Size(144, 32);
-            lblSourceParcelField.TabIndex = 3;
-            lblSourceParcelField.Text = "Parcel field";
-            lblSourceParcelField.TextAlign = ContentAlignment.MiddleLeft;
-            // 
-            // cboSourceParcelField
-            // 
-            cboSourceParcelField.Dock = DockStyle.Fill;
-            cboSourceParcelField.DropDownStyle = ComboBoxStyle.DropDownList;
-            cboSourceParcelField.FormattingEnabled = true;
-            cboSourceParcelField.Location = new Point(153, 165);
-            cboSourceParcelField.Name = "cboSourceParcelField";
-            cboSourceParcelField.Size = new Size(500, 28);
-            cboSourceParcelField.TabIndex = 4;
-            // 
-            // lblMapSheetCaption
-            // 
-            lblMapSheetCaption.Dock = DockStyle.Fill;
-            lblMapSheetCaption.Location = new Point(187, 594);
-            lblMapSheetCaption.Name = "lblMapSheetCaption";
-            lblMapSheetCaption.Size = new Size(656, 38);
-            lblMapSheetCaption.TabIndex = 5;
-            lblMapSheetCaption.Text = "Manual map sheet";
-            lblMapSheetCaption.TextAlign = ContentAlignment.MiddleLeft;
-            // 
-            // cboMapSheet
-            // 
-            cboMapSheet.Dock = DockStyle.Fill;
-            cboMapSheet.DropDownStyle = ComboBoxStyle.DropDownList;
-            cboMapSheet.FormattingEnabled = true;
-            cboMapSheet.Location = new Point(17, 635);
-            cboMapSheet.Name = "cboMapSheet";
-            cboMapSheet.Size = new Size(164, 28);
-            cboMapSheet.TabIndex = 4;
-            // 
-            // lblParcelCaption
-            // 
-            lblParcelCaption.Dock = DockStyle.Fill;
-            lblParcelCaption.Location = new Point(187, 632);
-            lblParcelCaption.Name = "lblParcelCaption";
-            lblParcelCaption.Size = new Size(656, 38);
-            lblParcelCaption.TabIndex = 6;
-            lblParcelCaption.Text = "Parcel";
-            lblParcelCaption.TextAlign = ContentAlignment.MiddleLeft;
-            // 
-            // cboParcel
-            // 
-            cboParcel.Dock = DockStyle.Fill;
-            cboParcel.DropDownStyle = ComboBoxStyle.DropDownList;
-            cboParcel.FlatStyle = FlatStyle.Flat;
-            cboParcel.FormattingEnabled = true;
-            cboParcel.Location = new Point(17, 673);
-            cboParcel.Name = "cboParcel";
-            cboParcel.Size = new Size(164, 28);
-            cboParcel.TabIndex = 5;
+            txtSelectedRecord.Dock = DockStyle.Fill;
+            txtSelectedRecord.Location = new Point(131, 7);
+            txtSelectedRecord.Name = "txtSelectedRecord";
+            txtSelectedRecord.ReadOnly = true;
+            txtSelectedRecord.Size = new Size(466, 27);
+            txtSelectedRecord.TabIndex = 0;
             // 
             // chkReplaceExisting
             // 
             chkReplaceExisting.Dock = DockStyle.Fill;
-            chkReplaceExisting.Location = new Point(187, 673);
+            chkReplaceExisting.Location = new Point(131, 44);
             chkReplaceExisting.Name = "chkReplaceExisting";
-            chkReplaceExisting.Size = new Size(656, 28);
-            chkReplaceExisting.TabIndex = 6;
+            chkReplaceExisting.Size = new Size(466, 28);
+            chkReplaceExisting.TabIndex = 1;
             chkReplaceExisting.Text = "Replace existing record-to-map assignments";
             chkReplaceExisting.UseVisualStyleBackColor = true;
             // 
+            // manualActionPanel
+            // 
+            manualActionPanel.Controls.Add(btnAssignParcel);
+            manualActionPanel.Controls.Add(btnRemoveAssignment);
+            manualActionPanel.Controls.Add(btnClearAssignments);
+            manualActionPanel.Dock = DockStyle.Fill;
+            manualActionPanel.Location = new Point(131, 78);
+            manualActionPanel.Name = "manualActionPanel";
+            manualActionPanel.Size = new Size(466, 25);
+            manualActionPanel.TabIndex = 2;
+            // 
+            // btnAssignParcel
+            // 
+            btnAssignParcel.Location = new Point(3, 3);
+            btnAssignParcel.Name = "btnAssignParcel";
+            btnAssignParcel.Size = new Size(130, 30);
+            btnAssignParcel.TabIndex = 0;
+            btnAssignParcel.Text = "Assign Parcel...";
+            btnAssignParcel.UseVisualStyleBackColor = true;
+            // 
+            // btnRemoveAssignment
+            // 
+            btnRemoveAssignment.Location = new Point(139, 3);
+            btnRemoveAssignment.Name = "btnRemoveAssignment";
+            btnRemoveAssignment.Size = new Size(150, 30);
+            btnRemoveAssignment.TabIndex = 1;
+            btnRemoveAssignment.Text = "Remove Selected";
+            btnRemoveAssignment.UseVisualStyleBackColor = true;
+            // 
+            // btnClearAssignments
+            // 
+            btnClearAssignments.Location = new Point(295, 3);
+            btnClearAssignments.Name = "btnClearAssignments";
+            btnClearAssignments.Size = new Size(130, 30);
+            btnClearAssignments.TabIndex = 2;
+            btnClearAssignments.Text = "Remove All";
+            btnClearAssignments.UseVisualStyleBackColor = true;
+            // 
             // lblStatus
             // 
+            mainLayout.SetColumnSpan(lblStatus, 2);
             lblStatus.Dock = DockStyle.Fill;
             lblStatus.ForeColor = Color.DimGray;
-            lblStatus.Location = new Point(187, 704);
+            lblStatus.Location = new Point(13, 480);
             lblStatus.Name = "lblStatus";
-            lblStatus.Size = new Size(656, 34);
-            lblStatus.TabIndex = 7;
+            lblStatus.Size = new Size(614, 30);
+            lblStatus.TabIndex = 5;
             lblStatus.Text = "Ready.";
             lblStatus.TextAlign = ContentAlignment.MiddleLeft;
             // 
             // actionPanel
             // 
             actionPanel.Controls.Add(btnClose);
-            actionPanel.Controls.Add(btnAutoAssign);
-            actionPanel.Controls.Add(btnClearAssignments);
-            actionPanel.Controls.Add(btnAssign);
             actionPanel.Dock = DockStyle.Fill;
             actionPanel.FlowDirection = FlowDirection.RightToLeft;
-            actionPanel.Location = new Point(187, 741);
+            actionPanel.Location = new Point(103, 513);
             actionPanel.Name = "actionPanel";
-            actionPanel.Size = new Size(656, 42);
-            actionPanel.TabIndex = 7;
+            actionPanel.Size = new Size(524, 34);
+            actionPanel.TabIndex = 5;
             // 
             // btnClose
             // 
             btnClose.DialogResult = DialogResult.Cancel;
-            btnClose.Location = new Point(563, 3);
+            btnClose.Location = new Point(431, 3);
             btnClose.Name = "btnClose";
             btnClose.Size = new Size(90, 32);
-            btnClose.TabIndex = 2;
+            btnClose.TabIndex = 0;
             btnClose.Text = "Close";
             btnClose.UseVisualStyleBackColor = true;
-            // 
-            // btnAutoAssign
-            // 
-            btnAutoAssign.Location = new Point(437, 3);
-            btnAutoAssign.Name = "btnAutoAssign";
-            btnAutoAssign.Size = new Size(120, 32);
-            btnAutoAssign.TabIndex = 1;
-            btnAutoAssign.Text = "Auto Assign";
-            btnAutoAssign.UseVisualStyleBackColor = true;
-            // 
-            // btnClearAssignments
-            // 
-            btnClearAssignments.Location = new Point(301, 3);
-            btnClearAssignments.Name = "btnClearAssignments";
-            btnClearAssignments.Size = new Size(130, 32);
-            btnClearAssignments.TabIndex = 3;
-            btnClearAssignments.Text = "Remove All";
-            btnClearAssignments.UseVisualStyleBackColor = true;
-            // 
-            // btnAssign
-            // 
-            btnAssign.Location = new Point(195, 3);
-            btnAssign.Name = "btnAssign";
-            btnAssign.Size = new Size(100, 32);
-            btnAssign.TabIndex = 0;
-            btnAssign.Text = "Assign";
-            btnAssign.UseVisualStyleBackColor = true;
             // 
             // frmCadastralRecordAssignment
             // 
             AutoScaleDimensions = new SizeF(8F, 20F);
             AutoScaleMode = AutoScaleMode.Font;
             CancelButton = btnClose;
-            ClientSize = new Size(860, 800);
+            ClientSize = new Size(640, 560);
             Controls.Add(mainLayout);
             Font = new Font("Segoe UI", 9F);
             FormBorderStyle = FormBorderStyle.FixedDialog;
             MaximizeBox = false;
             MinimizeBox = false;
             Name = "frmCadastralRecordAssignment";
-            StartPosition = FormStartPosition.CenterParent;
+            StartPosition = FormStartPosition.Manual;
             Text = "Assign Cadastral Records";
             mainLayout.ResumeLayout(false);
+            modeGroup.ResumeLayout(false);
+            modePanel.ResumeLayout(false);
+            ((System.ComponentModel.ISupportInitialize)dgvObjects).EndInit();
             navPanel.ResumeLayout(false);
-            ((System.ComponentModel.ISupportInitialize)dgvLayerMapSheets).EndInit();
-            attributeMappingLayout.ResumeLayout(false);
-            ((System.ComponentModel.ISupportInitialize)dgvAttributeMapSheetMappings).EndInit();
+            manualGroup.ResumeLayout(false);
+            manualLayout.ResumeLayout(false);
+            manualLayout.PerformLayout();
+            manualActionPanel.ResumeLayout(false);
             actionPanel.ResumeLayout(false);
             ResumeLayout(false);
         }

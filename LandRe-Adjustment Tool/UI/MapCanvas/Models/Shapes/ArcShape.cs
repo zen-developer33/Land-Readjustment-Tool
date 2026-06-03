@@ -229,28 +229,6 @@ namespace Land_Readjustment_Tool.UI.MapCanvas.Models.Shapes
             yield return new SnapPoint(SnapType.Endpoint, StartPoint, this);
             yield return new SnapPoint(SnapType.Midpoint, MidPoint, this);
             yield return new SnapPoint(SnapType.Endpoint, EndPoint, this);
-            yield return new SnapPoint(SnapType.Center, Center, this);
-
-            double[] quadrantAngles = new[]
-            {
-                0.0,
-                Math.PI / 2.0,
-                Math.PI,
-                Math.PI * 1.5
-            };
-
-            foreach (double angle in quadrantAngles)
-            {
-                if (AngleLiesOnSweep(angle, StartAngleRadians, SweepAngleRadians))
-                {
-                    yield return new SnapPoint(
-                        SnapType.Quadrant,
-                        new PointD(
-                            Center.X + Radius * Math.Cos(angle),
-                            Center.Y + Radius * Math.Sin(angle)),
-                        this);
-                }
-            }
         }
 
         public static ArcShape? FromTangentStartEnd(PointD start, PointD prev, PointD end)

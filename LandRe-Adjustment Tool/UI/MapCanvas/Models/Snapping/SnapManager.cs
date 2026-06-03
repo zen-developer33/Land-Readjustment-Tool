@@ -14,6 +14,9 @@ namespace Land_Readjustment_Tool.UI.MapCanvas.Models.Snapping
 
             foreach (IShape shape in nearbyShapes)
             {
+                // Snap candidates come from logical geometry only. Layer line styles such as
+                // dashed, dotted, or centerline are paint instructions and must not create
+                // separate snap targets for the rendered dash pieces.
                 candidates.AddRange(shape.GetSnapPoints());
             }
 
@@ -90,14 +93,6 @@ namespace Land_Readjustment_Tool.UI.MapCanvas.Models.Snapping
                     TryAddCirclePerpendicularFoot(fromPoint, circle, result);
                 }
 
-                if (shape is ArcShape arc)
-                {
-                    TryAddCirclePerpendicularFoot(
-                        fromPoint,
-                        arc.Center,
-                        arc.Radius,
-                        result);
-                }
             }
 
             return result;
@@ -190,11 +185,7 @@ namespace Land_Readjustment_Tool.UI.MapCanvas.Models.Snapping
                         {
                             if (segment.Kind == PolylineShape.PolylineSegmentKind.Arc && segment.Arc != null)
                             {
-                                PointD[] arcPoints = segment.Arc.SamplePoints(64).ToArray();
-                                for (int i = 0; i < arcPoints.Length - 1; i++)
-                                {
-                                    segments.Add((arcPoints[i], arcPoints[i + 1]));
-                                }
+                                continue;
                             }
                             else
                             {
@@ -247,13 +238,7 @@ namespace Land_Readjustment_Tool.UI.MapCanvas.Models.Snapping
                     segments.Add((leftTop, leftBottom));
                     break;
 
-                case ArcShape arc:
-                    PointD[] sampledArcPoints = arc.SamplePoints(96).ToArray();
-                    for (int i = 0; i < sampledArcPoints.Length - 1; i++)
-                    {
-                        segments.Add((sampledArcPoints[i], sampledArcPoints[i + 1]));
-                    }
-
+                case ArcShape:
                     break;
             }
 

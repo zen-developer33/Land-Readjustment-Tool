@@ -1,4 +1,5 @@
 using Land_Readjustment_Tool.Core.Models.Assignment;
+using Land_Readjustment_Tool.UI.MapCanvas.Services;
 
 namespace Land_Readjustment_Tool.UI.Dialogs
 {
@@ -35,19 +36,13 @@ namespace Land_Readjustment_Tool.UI.Dialogs
             try
             {
                 cmbLayerFilter.Items.Clear();
-                cmbLayerFilter.Items.Add(new LayerFilterItem(null, "All editable source layers"));
-
-                foreach (LayerFilterItem item in _allCandidates
-                    .GroupBy(candidate => candidate.CanvasLayerId)
-                    .Select(group => group.First())
-                    .OrderBy(candidate => candidate.LayerGroupName)
-                    .ThenBy(candidate => candidate.LayerName)
-                    .Select(candidate => new LayerFilterItem(
-                        candidate.CanvasLayerId,
-                        $"{candidate.LayerGroupName}: {candidate.LayerName}")))
-                {
-                    cmbLayerFilter.Items.Add(item);
-                }
+                cmbLayerFilter.Items.Add(new LayerFilterItem(null, "All Available Source Layers"));
+                cmbLayerFilter.Items.Add(new LayerFilterItem(
+                    CanvasLayerTreeService.DrawingMarkupGroupKey,
+                    "Drawing/Markup Layers"));
+                cmbLayerFilter.Items.Add(new LayerFilterItem(
+                    CanvasLayerTreeService.ExternalGroupKey,
+                    "Other/External Layers"));
 
                 cmbLayerFilter.SelectedIndex = 0;
             }
@@ -63,12 +58,15 @@ namespace Land_Readjustment_Tool.UI.Dialogs
             try
             {
                 lstObjects.Items.Clear();
-                int? selectedLayerId =
-                    (cmbLayerFilter.SelectedItem as LayerFilterItem)?.LayerId;
+                string? selectedGroupKey =
+                    (cmbLayerFilter.SelectedItem as LayerFilterItem)?.LayerGroupKey;
 
                 IEnumerable<ProjectBoundaryAssignmentCandidate> candidates = _allCandidates;
-                if (selectedLayerId.HasValue)
-                    candidates = candidates.Where(candidate => candidate.CanvasLayerId == selectedLayerId.Value);
+                if (!string.IsNullOrWhiteSpace(selectedGroupKey))
+                {
+                    candidates = candidates.Where(candidate =>
+                        string.Equals(candidate.LayerGroupKey, selectedGroupKey, StringComparison.OrdinalIgnoreCase));
+                }
 
                 foreach (ProjectBoundaryAssignmentCandidate candidate in candidates)
                     lstObjects.Items.Add(new CandidateListItem(candidate));
@@ -76,11 +74,11 @@ namespace Land_Readjustment_Tool.UI.Dialogs
                 if (lstObjects.Items.Count > 0)
                 {
                     lstObjects.SelectedIndex = 0;
-                    lblStatus.Text = $"{lstObjects.Items.Count} polygon object(s) available.";
+                    lblStatus.Text = $"{lstObjects.Items.Count} project boundary source object(s) available.";
                 }
                 else
                 {
-                    lblStatus.Text = "No polygon objects found in editable Drawing/Markup or External layers.";
+                    lblStatus.Text = $"No project boundary source objects found in {GetSelectedFilterText().ToLowerInvariant()}.";
                     CandidatePreviewRequested?.Invoke(null, false);
                 }
             }
@@ -212,7 +210,12 @@ namespace Land_Readjustment_Tool.UI.Dialogs
             CandidatePreviewRequested?.Invoke(null, false);
         }
 
-        private sealed record LayerFilterItem(int? LayerId, string Text)
+        private string GetSelectedFilterText()
+        {
+            return (cmbLayerFilter.SelectedItem as LayerFilterItem)?.Text ?? "available source layers";
+        }
+
+        private sealed record LayerFilterItem(string? LayerGroupKey, string Text)
         {
             public override string ToString() => Text;
         }

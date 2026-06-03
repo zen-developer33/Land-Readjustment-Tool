@@ -6,6 +6,7 @@ namespace Land_Readjustment_Tool.Core.Models.Assignment
         Guid CanvasObjectId,
         int CanvasLayerId,
         string LayerName,
+        string LayerGroupKey,
         string LayerGroupName,
         string ObjectType,
         Envelope BoundingBox,

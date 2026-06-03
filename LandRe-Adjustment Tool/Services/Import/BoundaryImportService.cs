@@ -82,27 +82,34 @@ namespace Land_Readjustment_Tool.Services.Import
             if (options.DeleteExistingBoundaryObjects)
             {
                 List<CanvasObject> existingBoundaryObjects = await context.CanvasObjects
-                    .Where(canvasObject => canvasObject.CanvasLayerId == boundaryLayer.Id)
+                    .Where(canvasObject =>
+                        canvasObject.CanvasLayerId == boundaryLayer.Id ||
+                        canvasObject.CanvasLayer.Name == ProjectBoundaryLayerName ||
+                        canvasObject.CanvasLayer.LayerType == ProjectBoundaryLayerType)
                     .ToListAsync(ct);
 
                 context.CanvasObjects.RemoveRange(existingBoundaryObjects);
             }
 
             DateTime now = DateTime.Now;
-            List<CanvasObject> objects = geometries
-                .Select(geometry => new CanvasObject
+            Geometry boundaryGeometry = geometries
+                .OrderByDescending(geometry => geometry.Area)
+                .First();
+            List<CanvasObject> objects =
+            [
+                new CanvasObject
                 {
                     CanvasLayerId = boundaryLayer.Id,
                     CanvasLayer = boundaryLayer,
                     ObjectType = "Polygon",
-                    Shape = geometry,
+                    Shape = boundaryGeometry,
                     ObjectDescription = $"Project Boundary imported from {Path.GetFileName(filePath)}",
                     IsVisible = true,
                     IsLocked = false,
                     CreatedDate = now,
                     LastModifiedDate = now
-                })
-                .ToList();
+                }
+            ];
 
             await context.CanvasObjects.AddRangeAsync(objects, ct);
             boundaryLayer.SourceFile = filePath;
@@ -127,8 +134,7 @@ namespace Land_Readjustment_Tool.Services.Import
             }
 
             Envelope envelope = new();
-            foreach (Geometry geometry in geometries)
-                envelope.ExpandToInclude(geometry.EnvelopeInternal);
+            envelope.ExpandToInclude(boundaryGeometry.EnvelopeInternal);
 
             return new BoundaryImportResult(
                 true,

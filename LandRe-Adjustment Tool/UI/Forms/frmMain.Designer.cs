@@ -73,10 +73,13 @@ namespace Land_Readjustment_Tool
             mnuImportBlockLayoutPlan = new ToolStripMenuItem();
             toolStripSeparator6 = new ToolStripSeparator();
             baseMapsToolStripMenuItem = new ToolStripMenuItem();
+            mnuImportXyzTiles = new ToolStripMenuItem();
+            mnuImportExternalLayers = new ToolStripMenuItem();
             importToolStripMenuItem = new ToolStripMenuItem();
             viewEditRecordToolStripMenuItem = new ToolStripMenuItem();
             landOwnerDataToolStripMenuItem = new ToolStripMenuItem();
             buildingInventoryToolStripMenuItem = new ToolStripMenuItem();
+            originalScenarioSummaryToolStripMenuItem = new ToolStripMenuItem();
             toolStripSeparator18 = new ToolStripSeparator();
             assignToolStripMenuItem = new ToolStripMenuItem();
             roadDataToolStripMenuItem = new ToolStripMenuItem();
@@ -88,6 +91,7 @@ namespace Land_Readjustment_Tool
             toolStripSeparator21 = new ToolStripSeparator();
             cadastralRecordsAssignmentToolStripMenuItem = new ToolStripMenuItem();
             buildingInventoryDataToolStripMenuItem = new ToolStripMenuItem();
+            toolStripMenuItem1 = new ToolStripMenuItem();
             contributionToolStripMenuItem = new ToolStripMenuItem();
             contributionSettingsToolStripMenuItem = new ToolStripMenuItem();
             calculateContributionToolStripMenuItem = new ToolStripMenuItem();
@@ -176,10 +180,10 @@ namespace Land_Readjustment_Tool
             cboCurrentDrawingLayer = new ToolStripComboBox();
             mnuCanvasDebugOverlay = new ToolStripButton();
             toolStripLabel1 = new ToolStripLabel();
+            tsmExpandCollapseRightPanel = new ToolStripButton();
+            toolStripSeparator11 = new ToolStripSeparator();
             mnuOrthoToggle = new ToolStripButton();
             mnuOSnapToggle = new ToolStripButton();
-            toolStripSeparator11 = new ToolStripSeparator();
-            tsmExpandCollapseRightPanel = new ToolStripButton();
             grpParcelObjProp = new GroupBox();
             btnSelectFromRecords = new Button();
             btnConfigureParcelProperties = new Button();
@@ -211,6 +215,7 @@ namespace Land_Readjustment_Tool
             toolStripButton3 = new ToolStripSeparator();
             mnuProjectInfo = new ToolStripButton();
             mnuProjectSettings = new ToolStripButton();
+            btnOriginalScenarioSummary = new ToolStripButton();
             toolStripSeparator12 = new ToolStripSeparator();
             toolStripSeparator13 = new ToolStripSeparator();
             mnuUndo = new ToolStripButton();
@@ -224,6 +229,8 @@ namespace Land_Readjustment_Tool
             toolStripSeparator15 = new ToolStripSeparator();
             toolStripSeparator16 = new ToolStripSeparator();
             tsProjectMenu = new ToolStrip();
+            toolStripSeparator22 = new ToolStripSeparator();
+            toolStripMenuItem2 = new ToolStripMenuItem();
             mainMenuStrip.SuspendLayout();
             ((System.ComponentModel.ISupportInitialize)leftSplitContainer).BeginInit();
             leftSplitContainer.Panel1.SuspendLayout();
@@ -406,14 +413,14 @@ namespace Land_Readjustment_Tool
             // 
             // dataToolStripMenuItem
             // 
-            dataToolStripMenuItem.DropDownItems.AddRange(new ToolStripItem[] { importDataToolStripMenuItem1, importToolStripMenuItem, toolStripSeparator18, assignToolStripMenuItem, toolStripSeparator19, assignmentToolStripMenuItem });
+            dataToolStripMenuItem.DropDownItems.AddRange(new ToolStripItem[] { importDataToolStripMenuItem1, importToolStripMenuItem, originalScenarioSummaryToolStripMenuItem, toolStripSeparator18, assignToolStripMenuItem, toolStripSeparator19, assignmentToolStripMenuItem });
             dataToolStripMenuItem.Name = "dataToolStripMenuItem";
             dataToolStripMenuItem.Size = new Size(147, 24);
             dataToolStripMenuItem.Text = "Data Management";
             // 
             // importDataToolStripMenuItem1
             // 
-            importDataToolStripMenuItem1.DropDownItems.AddRange(new ToolStripItem[] { ImportParcelOwnerShipRecords, toolStripSeparator5, ImportProjectBoundaryDXFDWGToolStripMenuItem, importCadastralDataDXFDWGShapefileToolStripMenuItem, mnuImportBlockLayoutPlan, toolStripSeparator6, baseMapsToolStripMenuItem });
+            importDataToolStripMenuItem1.DropDownItems.AddRange(new ToolStripItem[] { ImportParcelOwnerShipRecords, toolStripSeparator5, ImportProjectBoundaryDXFDWGToolStripMenuItem, importCadastralDataDXFDWGShapefileToolStripMenuItem, mnuImportBlockLayoutPlan, toolStripSeparator6, baseMapsToolStripMenuItem, mnuImportXyzTiles, mnuImportExternalLayers });
             importDataToolStripMenuItem1.Name = "importDataToolStripMenuItem1";
             importDataToolStripMenuItem1.Size = new Size(224, 26);
             importDataToolStripMenuItem1.Text = "Import...";
@@ -461,6 +468,18 @@ namespace Land_Readjustment_Tool
             baseMapsToolStripMenuItem.Size = new Size(385, 26);
             baseMapsToolStripMenuItem.Text = "Import Raster (GeoTIFF, MBTiles, TIFF, PNG...)";
             // 
+            // mnuImportXyzTiles
+            // 
+            mnuImportXyzTiles.Name = "mnuImportXyzTiles";
+            mnuImportXyzTiles.Size = new Size(385, 26);
+            mnuImportXyzTiles.Text = "Import XYZ Tiles...";
+            // 
+            // mnuImportExternalLayers
+            // 
+            mnuImportExternalLayers.Name = "mnuImportExternalLayers";
+            mnuImportExternalLayers.Size = new Size(385, 26);
+            mnuImportExternalLayers.Text = "External Layers (DXF/DWG/KML)...";
+            // 
             // importToolStripMenuItem
             // 
             importToolStripMenuItem.DropDownItems.AddRange(new ToolStripItem[] { viewEditRecordToolStripMenuItem, landOwnerDataToolStripMenuItem, buildingInventoryToolStripMenuItem });
@@ -489,6 +508,12 @@ namespace Land_Readjustment_Tool
             buildingInventoryToolStripMenuItem.Size = new Size(245, 26);
             buildingInventoryToolStripMenuItem.Text = "Building Inventory ";
             // 
+            // originalScenarioSummaryToolStripMenuItem
+            // 
+            originalScenarioSummaryToolStripMenuItem.Name = "originalScenarioSummaryToolStripMenuItem";
+            originalScenarioSummaryToolStripMenuItem.Size = new Size(224, 26);
+            originalScenarioSummaryToolStripMenuItem.Text = "Original Scenario Summary";
+            // 
             // toolStripSeparator18
             // 
             toolStripSeparator18.Name = "toolStripSeparator18";
@@ -504,18 +529,18 @@ namespace Land_Readjustment_Tool
             // roadDataToolStripMenuItem
             // 
             roadDataToolStripMenuItem.Name = "roadDataToolStripMenuItem";
-            roadDataToolStripMenuItem.Size = new Size(224, 26);
+            roadDataToolStripMenuItem.Size = new Size(134, 26);
             roadDataToolStripMenuItem.Text = "Roads";
             // 
             // toolStripSeparator20
             // 
             toolStripSeparator20.Name = "toolStripSeparator20";
-            toolStripSeparator20.Size = new Size(221, 6);
+            toolStripSeparator20.Size = new Size(131, 6);
             // 
             // blockDataToolStripMenuItem
             // 
             blockDataToolStripMenuItem.Name = "blockDataToolStripMenuItem";
-            blockDataToolStripMenuItem.Size = new Size(224, 26);
+            blockDataToolStripMenuItem.Size = new Size(134, 26);
             blockDataToolStripMenuItem.Text = "Blocks";
             // 
             // toolStripSeparator19
@@ -525,7 +550,7 @@ namespace Land_Readjustment_Tool
             // 
             // assignmentToolStripMenuItem
             // 
-            assignmentToolStripMenuItem.DropDownItems.AddRange(new ToolStripItem[] { projectBoundaryAssignmentToolStripMenuItem, toolStripSeparator21, cadastralRecordsAssignmentToolStripMenuItem, buildingInventoryDataToolStripMenuItem });
+            assignmentToolStripMenuItem.DropDownItems.AddRange(new ToolStripItem[] { projectBoundaryAssignmentToolStripMenuItem, toolStripSeparator21, cadastralRecordsAssignmentToolStripMenuItem, buildingInventoryDataToolStripMenuItem, toolStripSeparator22, toolStripMenuItem2, toolStripMenuItem1 });
             assignmentToolStripMenuItem.Name = "assignmentToolStripMenuItem";
             assignmentToolStripMenuItem.Size = new Size(224, 26);
             assignmentToolStripMenuItem.Text = "Assign...";
@@ -533,26 +558,32 @@ namespace Land_Readjustment_Tool
             // projectBoundaryAssignmentToolStripMenuItem
             // 
             projectBoundaryAssignmentToolStripMenuItem.Name = "projectBoundaryAssignmentToolStripMenuItem";
-            projectBoundaryAssignmentToolStripMenuItem.Size = new Size(248, 26);
+            projectBoundaryAssignmentToolStripMenuItem.Size = new Size(257, 26);
             projectBoundaryAssignmentToolStripMenuItem.Text = "Project Boundary";
             // 
             // toolStripSeparator21
             // 
             toolStripSeparator21.Name = "toolStripSeparator21";
-            toolStripSeparator21.Size = new Size(245, 6);
+            toolStripSeparator21.Size = new Size(254, 6);
             // 
             // cadastralRecordsAssignmentToolStripMenuItem
             // 
             cadastralRecordsAssignmentToolStripMenuItem.Name = "cadastralRecordsAssignmentToolStripMenuItem";
-            cadastralRecordsAssignmentToolStripMenuItem.Size = new Size(248, 26);
+            cadastralRecordsAssignmentToolStripMenuItem.Size = new Size(257, 26);
             cadastralRecordsAssignmentToolStripMenuItem.Text = "Cadastral Records";
             cadastralRecordsAssignmentToolStripMenuItem.Click += CadastralRecordsAssignmentToolStripMenuItem_Click;
             // 
             // buildingInventoryDataToolStripMenuItem
             // 
             buildingInventoryDataToolStripMenuItem.Name = "buildingInventoryDataToolStripMenuItem";
-            buildingInventoryDataToolStripMenuItem.Size = new Size(248, 26);
+            buildingInventoryDataToolStripMenuItem.Size = new Size(257, 26);
             buildingInventoryDataToolStripMenuItem.Text = "Building Inventory Data";
+            // 
+            // toolStripMenuItem1
+            // 
+            toolStripMenuItem1.Name = "toolStripMenuItem1";
+            toolStripMenuItem1.Size = new Size(257, 26);
+            toolStripMenuItem1.Text = "Proposed Blocks";
             // 
             // contributionToolStripMenuItem
             // 
@@ -1297,6 +1328,7 @@ namespace Land_Readjustment_Tool
             tsCanvasTools.Name = "tsCanvasTools";
             tsCanvasTools.Size = new Size(1016, 28);
             tsCanvasTools.TabIndex = 1;
+            tsCanvasTools.ItemClicked += tsCanvasTools_ItemClicked;
             // 
             // tsmExpandCollapseLeftPanel
             // 
@@ -1458,6 +1490,26 @@ namespace Land_Readjustment_Tool
             toolStripLabel1.Name = "toolStripLabel1";
             toolStripLabel1.Size = new Size(0, 25);
             // 
+            // tsmExpandCollapseRightPanel
+            // 
+            tsmExpandCollapseRightPanel.Alignment = ToolStripItemAlignment.Right;
+            tsmExpandCollapseRightPanel.Checked = true;
+            tsmExpandCollapseRightPanel.CheckOnClick = true;
+            tsmExpandCollapseRightPanel.CheckState = CheckState.Checked;
+            tsmExpandCollapseRightPanel.DisplayStyle = ToolStripItemDisplayStyle.Image;
+            tsmExpandCollapseRightPanel.Image = Properties.Resources.icons8_close_right_pane_50;
+            tsmExpandCollapseRightPanel.ImageTransparentColor = Color.Magenta;
+            tsmExpandCollapseRightPanel.Name = "tsmExpandCollapseRightPanel";
+            tsmExpandCollapseRightPanel.Size = new Size(29, 25);
+            tsmExpandCollapseRightPanel.Text = "Collapse Right Panel";
+            tsmExpandCollapseRightPanel.Click += tsmExpandCollapseRightPanel_Click;
+            // 
+            // toolStripSeparator11
+            // 
+            toolStripSeparator11.Alignment = ToolStripItemAlignment.Right;
+            toolStripSeparator11.Name = "toolStripSeparator11";
+            toolStripSeparator11.Size = new Size(6, 28);
+            // 
             // mnuOrthoToggle
             // 
             mnuOrthoToggle.Alignment = ToolStripItemAlignment.Right;
@@ -1483,26 +1535,6 @@ namespace Land_Readjustment_Tool
             mnuOSnapToggle.Text = "OSnap (F3)";
             mnuOSnapToggle.ToolTipText = "Object Snap (F3)";
             mnuOSnapToggle.Click += mnuOSnapToggle_Click;
-            // 
-            // toolStripSeparator11
-            // 
-            toolStripSeparator11.Alignment = ToolStripItemAlignment.Right;
-            toolStripSeparator11.Name = "toolStripSeparator11";
-            toolStripSeparator11.Size = new Size(6, 28);
-            // 
-            // tsmExpandCollapseRightPanel
-            // 
-            tsmExpandCollapseRightPanel.Alignment = ToolStripItemAlignment.Right;
-            tsmExpandCollapseRightPanel.Checked = true;
-            tsmExpandCollapseRightPanel.CheckOnClick = true;
-            tsmExpandCollapseRightPanel.CheckState = CheckState.Checked;
-            tsmExpandCollapseRightPanel.DisplayStyle = ToolStripItemDisplayStyle.Image;
-            tsmExpandCollapseRightPanel.Image = Properties.Resources.icons8_close_right_pane_50;
-            tsmExpandCollapseRightPanel.ImageTransparentColor = Color.Magenta;
-            tsmExpandCollapseRightPanel.Name = "tsmExpandCollapseRightPanel";
-            tsmExpandCollapseRightPanel.Size = new Size(29, 25);
-            tsmExpandCollapseRightPanel.Text = "Collapse Right Panel";
-            tsmExpandCollapseRightPanel.Click += tsmExpandCollapseRightPanel_Click;
             // 
             // grpParcelObjProp
             // 
@@ -1849,6 +1881,15 @@ namespace Land_Readjustment_Tool
             mnuProjectSettings.Size = new Size(29, 24);
             mnuProjectSettings.Text = "Project Setting";
             // 
+            // btnOriginalScenarioSummary
+            // 
+            btnOriginalScenarioSummary.DisplayStyle = ToolStripItemDisplayStyle.Text;
+            btnOriginalScenarioSummary.ImageTransparentColor = Color.Magenta;
+            btnOriginalScenarioSummary.Name = "btnOriginalScenarioSummary";
+            btnOriginalScenarioSummary.Size = new Size(126, 24);
+            btnOriginalScenarioSummary.Text = "Original Scenario";
+            btnOriginalScenarioSummary.ToolTipText = "Open Original Scenario Summary";
+            // 
             // toolStripSeparator12
             // 
             toolStripSeparator12.Name = "toolStripSeparator12";
@@ -1942,12 +1983,23 @@ namespace Land_Readjustment_Tool
             // 
             tsProjectMenu.Font = new Font("Segoe UI", 9F);
             tsProjectMenu.ImageScalingSize = new Size(20, 20);
-            tsProjectMenu.Items.AddRange(new ToolStripItem[] { mnuNewProject, mnuOpenProject, mnuSaveProject, mnuSaveAsProject, mnuBackup, mnuRestoreBackup, mnuCloseProject, toolStripSeparator9, toolStripButton3, mnuProjectInfo, mnuProjectSettings, toolStripSeparator12, toolStripSeparator13, mnuUndo, mnuRedo, toolStripSeparator14, mnuPan, mnuZoomIn, mnuZoomOut, mnuZoomExtent, mnuZoomWindow, toolStripSeparator15, toolStripSeparator16 });
+            tsProjectMenu.Items.AddRange(new ToolStripItem[] { mnuNewProject, mnuOpenProject, mnuSaveProject, mnuSaveAsProject, mnuBackup, mnuRestoreBackup, mnuCloseProject, toolStripSeparator9, toolStripButton3, mnuProjectInfo, mnuProjectSettings, btnOriginalScenarioSummary, toolStripSeparator12, toolStripSeparator13, mnuUndo, mnuRedo, toolStripSeparator14, mnuPan, mnuZoomIn, mnuZoomOut, mnuZoomExtent, mnuZoomWindow, toolStripSeparator15, toolStripSeparator16 });
             tsProjectMenu.Location = new Point(0, 28);
             tsProjectMenu.Name = "tsProjectMenu";
             tsProjectMenu.Size = new Size(1624, 27);
             tsProjectMenu.TabIndex = 4;
             tsProjectMenu.Text = "Project Menu";
+            // 
+            // toolStripSeparator22
+            // 
+            toolStripSeparator22.Name = "toolStripSeparator22";
+            toolStripSeparator22.Size = new Size(254, 6);
+            // 
+            // toolStripMenuItem2
+            // 
+            toolStripMenuItem2.Name = "toolStripMenuItem2";
+            toolStripMenuItem2.Size = new Size(257, 26);
+            toolStripMenuItem2.Text = "Existing/Proposed Roads";
             // 
             // frmMain
             // 
@@ -2004,7 +2056,6 @@ namespace Land_Readjustment_Tool
         }
 
         #endregion
-
         private System.Windows.Forms.MenuStrip mainMenuStrip;
         private System.Windows.Forms.ToolStripMenuItem fileToolStripMenuItem;
         private System.Windows.Forms.ToolStripMenuItem projectToolStripMenuItem;
@@ -2181,10 +2232,17 @@ namespace Land_Readjustment_Tool
         private Button btnConfigureParcelProperties;
         private ToolStripSeparator toolStripSeparator19;
         private ToolStripMenuItem mnuImportBlockLayoutPlan;
+        private ToolStripMenuItem mnuImportXyzTiles;
+        private ToolStripMenuItem mnuImportExternalLayers;
+        private ToolStripMenuItem originalScenarioSummaryToolStripMenuItem;
         private ToolStripSeparator toolStripSeparator20;
         private ToolStripSeparator toolStripSeparator21;
         private ToolStripMenuItem cadastralRecordsAssignmentToolStripMenuItem;
         private ToolStripMenuItem buildingInventoryDataToolStripMenuItem;
         private ToolStripMenuItem buildingInventoryToolStripMenuItem;
+        private ToolStripMenuItem toolStripMenuItem1;
+        private ToolStripSeparator toolStripSeparator22;
+        private ToolStripMenuItem toolStripMenuItem2;
+        private ToolStripButton btnOriginalScenarioSummary;
     }
 }

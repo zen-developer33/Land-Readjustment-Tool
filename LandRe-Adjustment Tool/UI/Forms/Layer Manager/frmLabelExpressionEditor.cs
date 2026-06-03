@@ -86,6 +86,7 @@ namespace Land_Readjustment_Tool.UI.Forms
                     ("Block Code",                       "BlockCode"),
                     ("Block Land Use",                   "BlockLandUse"),
                     ("Block Depth (m)",                  "BlockDepth"),
+                    ("Block Depth from Geometry (m)",    "BlockDepthGeometry"),
                     // Area
                     ("Block Area (sq.m)",                "BlockAreaSqm"),
                     ("Block Area — RAPD / Ropani",       "BlockAreaRAPD"),
@@ -387,6 +388,7 @@ namespace Land_Readjustment_Tool.UI.Forms
                 ["BlockCode"]            = "BLK-A",
                 ["BlockLandUse"]         = "Residential",
                 ["BlockDepth"]           = "15.0",
+                ["BlockDepthGeometry"]   = "14.8",
                 ["BlockAreaSqm"]         = "3200.000",
                 ["BlockAreaRAPD"]        = "26-8-0-0",
                 ["BlockAreaBKD"]         = "26-8-0-0",

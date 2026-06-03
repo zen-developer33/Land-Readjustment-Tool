@@ -92,7 +92,8 @@ namespace Land_Readjustment_Tool.UI.MapCanvas.Services
                 canvasObject.ObjectType,
                 canvasObject.Shape,
                 canvasObject.LabelText,
-                canvasObject.GeometryMetadataJson);
+                canvasObject.GeometryMetadataJson,
+                canvasObject.CanvasLayer?.LayerType);
 
             SetShapeId(shape, canvasObject.Id);
             shape.LayerName = canvasObject.CanvasLayer?.Name ?? shape.LayerName;
@@ -291,13 +292,15 @@ namespace Land_Readjustment_Tool.UI.MapCanvas.Services
             string objectType,
             Geometry geometry,
             string? labelText,
-            string? metadataJson)
+            string? metadataJson,
+            string? layerType)
         {
             string? curveMetadataJson = ExtractCurveMetadataJson(metadataJson) ?? metadataJson;
 
             if (!string.IsNullOrWhiteSpace(curveMetadataJson) &&
                 TryCreatePolylineFromMetadata(curveMetadataJson, out PolylineShape? polylineFromMetadata))
             {
+                EnsureClosedForPolygonObjectType(objectType, polylineFromMetadata!);
                 return polylineFromMetadata;
             }
 
@@ -325,10 +328,17 @@ namespace Land_Readjustment_Tool.UI.MapCanvas.Services
                  objectType.Equals("Polygon", StringComparison.OrdinalIgnoreCase)) &&
                 TryCreatePolylineFromMetadata(curveMetadataJson, out PolylineShape? polyline))
             {
+                EnsureClosedForPolygonObjectType(objectType, polyline!);
                 return polyline;
             }
 
             Geometry simplified = ReduceGeometry(geometry);
+
+            if (ShouldInferArcSegments(layerType) &&
+                TryCreatePolylineFromApproximatedGeometry(objectType, simplified, out PolylineShape? inferredPolyline))
+            {
+                return inferredPolyline;
+            }
 
             if (objectType.Equals("Text", StringComparison.OrdinalIgnoreCase) &&
                 simplified is NtsPoint textPoint)
@@ -347,6 +357,25 @@ namespace Land_Readjustment_Tool.UI.MapCanvas.Services
                 Polygon polygon => CreatePolygonShape(polygon),
                 _ => CreatePolygonFromEnvelopeShape(simplified.EnvelopeInternal)
             };
+        }
+
+        /// <summary>
+        /// A canvas object whose persisted <c>ObjectType</c> is <c>Polygon</c> represents a closed
+        /// area feature (block, parcel, road parcel, ...). When such an object is rebuilt from curve
+        /// metadata that was copied from an open source polyline, the metadata's <c>IsClosed</c> flag
+        /// can still be <c>false</c> — producing an open <see cref="PolylineShape"/> with zero area.
+        /// That shape renders without a fill and only its boundary is hit-testable, so the feature is
+        /// not area-selectable like other block/parcel objects. The persisted object type is the
+        /// authoritative marker, so force the reconstructed shape closed to match it.
+        /// </summary>
+        private static void EnsureClosedForPolygonObjectType(string objectType, PolylineShape polyline)
+        {
+            if (!polyline.IsClosed &&
+                polyline.Vertices.Count >= 3 &&
+                objectType.Equals("Polygon", StringComparison.OrdinalIgnoreCase))
+            {
+                polyline.IsClosed = true;
+            }
         }
 
         private static IShape CreatePointShape(NtsPoint point)
@@ -659,14 +688,14 @@ namespace Land_Readjustment_Tool.UI.MapCanvas.Services
                     return null;
                 }
 
-                if (root.TryGetProperty("curveMetadataJson", out JsonElement curveProperty) &&
+                if (TryGetJsonPropertyIgnoreCase(root, "curveMetadataJson", out JsonElement curveProperty) &&
                     curveProperty.ValueKind == JsonValueKind.String)
                 {
                     string? curveJson = curveProperty.GetString();
                     return string.IsNullOrWhiteSpace(curveJson) ? null : curveJson;
                 }
 
-                if (root.TryGetProperty("curve", out JsonElement curveObject) &&
+                if (TryGetJsonPropertyIgnoreCase(root, "curve", out JsonElement curveObject) &&
                     curveObject.ValueKind == JsonValueKind.Object)
                 {
                     return curveObject.GetRawText();
@@ -678,6 +707,24 @@ namespace Land_Readjustment_Tool.UI.MapCanvas.Services
             }
 
             return null;
+        }
+
+        private static bool TryGetJsonPropertyIgnoreCase(
+            JsonElement element,
+            string propertyName,
+            out JsonElement value)
+        {
+            foreach (JsonProperty property in element.EnumerateObject())
+            {
+                if (property.Name.Equals(propertyName, StringComparison.OrdinalIgnoreCase))
+                {
+                    value = property.Value;
+                    return true;
+                }
+            }
+
+            value = default;
+            return false;
         }
 
         private static bool TryCreateArcFromMetadata(
@@ -820,6 +867,308 @@ namespace Land_Readjustment_Tool.UI.MapCanvas.Services
             {
                 return false;
             }
+        }
+
+        private static bool ShouldInferArcSegments(string? layerType)
+        {
+            return string.Equals(layerType, "Block", StringComparison.OrdinalIgnoreCase) ||
+                   string.Equals(layerType, "RoadParcel", StringComparison.OrdinalIgnoreCase) ||
+                   string.Equals(layerType, "ProposedRoad", StringComparison.OrdinalIgnoreCase) ||
+                   string.Equals(layerType, "ExistingRoad", StringComparison.OrdinalIgnoreCase) ||
+                   string.Equals(layerType, "Road", StringComparison.OrdinalIgnoreCase) ||
+                   string.Equals(layerType, CanvasLayerTreeService.RoadCenterlineLayerType, StringComparison.OrdinalIgnoreCase);
+        }
+
+        private static bool TryCreatePolylineFromApproximatedGeometry(
+            string objectType,
+            Geometry geometry,
+            out PolylineShape? polyline)
+        {
+            polyline = null;
+            bool isClosed;
+            List<PointD> sourcePoints;
+
+            switch (geometry)
+            {
+                case LineString lineString when
+                    objectType.Equals("Polyline", StringComparison.OrdinalIgnoreCase) ||
+                    objectType.Equals("Line", StringComparison.OrdinalIgnoreCase):
+                    sourcePoints = lineString.Coordinates
+                        .Select(coordinate => new PointD(coordinate.X, coordinate.Y))
+                        .ToList();
+                    isClosed = false;
+                    break;
+
+                case Polygon polygon when objectType.Equals("Polygon", StringComparison.OrdinalIgnoreCase):
+                    sourcePoints = ToOpenPointRing(polygon.ExteriorRing.Coordinates);
+                    isClosed = true;
+                    break;
+
+                default:
+                    return false;
+            }
+
+            RemoveDuplicatePoints(sourcePoints);
+            if (sourcePoints.Count < 4)
+            {
+                return false;
+            }
+
+            RectangleD bounds = GetBounds(sourcePoints);
+            double diagonal = Math.Sqrt(bounds.Width * bounds.Width + bounds.Height * bounds.Height);
+            double tolerance = Math.Max(0.02, diagonal * 0.00001);
+            if (!TryInferPolylineSegments(sourcePoints, isClosed, tolerance, out List<PolylineShape.PolylineSegment> segments, out bool hasArc))
+            {
+                return false;
+            }
+
+            if (!hasArc)
+            {
+                return false;
+            }
+
+            List<PointD> logicalVertices = BuildLogicalVertices(segments);
+            polyline = new PolylineShape(logicalVertices, segments, isClosed);
+            return polyline.Vertices.Count >= 2;
+        }
+
+        private static bool TryInferPolylineSegments(
+            IReadOnlyList<PointD> sourcePoints,
+            bool isClosed,
+            double tolerance,
+            out List<PolylineShape.PolylineSegment> segments,
+            out bool hasArc)
+        {
+            segments = [];
+            hasArc = false;
+
+            int lastLinearIndex = sourcePoints.Count - 1;
+            int index = 0;
+            while (index < lastLinearIndex)
+            {
+                if (TryFindArcRun(sourcePoints, index, tolerance, out int endIndex, out ArcShape? arc) &&
+                    arc != null)
+                {
+                    PointD start = sourcePoints[index];
+                    PointD end = sourcePoints[endIndex];
+                    segments.Add(new PolylineShape.PolylineSegment(
+                        PolylineShape.PolylineSegmentKind.Arc,
+                        start,
+                        end,
+                        arc));
+                    hasArc = true;
+                    index = endIndex;
+                    continue;
+                }
+
+                segments.Add(new PolylineShape.PolylineSegment(
+                    PolylineShape.PolylineSegmentKind.Line,
+                    sourcePoints[index],
+                    sourcePoints[index + 1]));
+                index++;
+            }
+
+            if (isClosed && sourcePoints.Count > 2 && !SameWorldPoint(sourcePoints[^1], sourcePoints[0]))
+            {
+                segments.Add(new PolylineShape.PolylineSegment(
+                    PolylineShape.PolylineSegmentKind.Line,
+                    sourcePoints[^1],
+                    sourcePoints[0]));
+            }
+
+            return segments.Count > 0;
+        }
+
+        private static bool TryFindArcRun(
+            IReadOnlyList<PointD> points,
+            int startIndex,
+            double tolerance,
+            out int endIndex,
+            out ArcShape? arc)
+        {
+            const int MinimumArcPointCount = 4;
+            const int MaximumArcPointCount = 96;
+
+            endIndex = -1;
+            arc = null;
+
+            int minEnd = startIndex + MinimumArcPointCount - 1;
+            if (minEnd >= points.Count)
+            {
+                return false;
+            }
+
+            int maxEnd = Math.Min(points.Count - 1, startIndex + MaximumArcPointCount - 1);
+            for (int candidateEnd = minEnd; candidateEnd <= maxEnd; candidateEnd++)
+            {
+                int middleIndex = startIndex + ((candidateEnd - startIndex) / 2);
+                ArcShape? candidate = ArcShape.FromThreePoints(
+                    points[startIndex],
+                    points[middleIndex],
+                    points[candidateEnd]);
+                if (candidate == null ||
+                    !IsValidInferredArc(candidate, points, startIndex, candidateEnd, tolerance))
+                {
+                    continue;
+                }
+
+                endIndex = candidateEnd;
+                arc = candidate;
+            }
+
+            return arc != null && endIndex > startIndex;
+        }
+
+        private static bool IsValidInferredArc(
+            ArcShape arc,
+            IReadOnlyList<PointD> points,
+            int startIndex,
+            int endIndex,
+            double tolerance)
+        {
+            if (!IsFinite(arc.Center.X) ||
+                !IsFinite(arc.Center.Y) ||
+                !IsFinite(arc.Radius) ||
+                arc.Radius <= tolerance ||
+                Math.Abs(arc.SweepAngleRadians) < DegreesToRadians(5.0))
+            {
+                return false;
+            }
+
+            double chordLength = Distance(points[startIndex], points[endIndex]);
+            if (chordLength <= tolerance)
+            {
+                return false;
+            }
+
+            double sagitta = MaxDistanceFromLine(points, startIndex, endIndex);
+            if (sagitta < Math.Max(tolerance * 2.0, chordLength * 0.001))
+            {
+                return false;
+            }
+
+            double previousFraction = -0.01;
+            for (int index = startIndex; index <= endIndex; index++)
+            {
+                PointD point = points[index];
+                double radialError = Math.Abs(Distance(point, arc.Center) - arc.Radius);
+                if (radialError > tolerance)
+                {
+                    return false;
+                }
+
+                double angle = Math.Atan2(point.Y - arc.Center.Y, point.X - arc.Center.X);
+                if (!ArcShape.AngleLiesOnSweepPublic(angle, arc.StartAngleRadians, arc.SweepAngleRadians))
+                {
+                    return false;
+                }
+
+                double fraction = ArcSweepFraction(angle, arc.StartAngleRadians, arc.SweepAngleRadians);
+                if (fraction < previousFraction - 0.02)
+                {
+                    return false;
+                }
+
+                previousFraction = fraction;
+            }
+
+            return true;
+        }
+
+        private static double ArcSweepFraction(
+            double angle,
+            double startAngle,
+            double sweepAngle)
+        {
+            double delta = sweepAngle >= 0.0
+                ? NormalizePositiveRadians(angle - startAngle)
+                : -NormalizePositiveRadians(startAngle - angle);
+            return Math.Abs(sweepAngle) <= 1e-12
+                ? 0.0
+                : delta / sweepAngle;
+        }
+
+        private static List<PointD> BuildLogicalVertices(IReadOnlyList<PolylineShape.PolylineSegment> segments)
+        {
+            List<PointD> vertices = [];
+            foreach (PolylineShape.PolylineSegment segment in segments)
+            {
+                if (vertices.Count == 0 || !SameWorldPoint(vertices[^1], segment.Start))
+                {
+                    vertices.Add(segment.Start);
+                }
+
+                if (!SameWorldPoint(vertices[^1], segment.End))
+                {
+                    vertices.Add(segment.End);
+                }
+            }
+
+            if (vertices.Count > 1 && SameWorldPoint(vertices[0], vertices[^1]))
+            {
+                vertices.RemoveAt(vertices.Count - 1);
+            }
+
+            return vertices;
+        }
+
+        private static void RemoveDuplicatePoints(List<PointD> points)
+        {
+            for (int index = points.Count - 1; index > 0; index--)
+            {
+                if (SameWorldPoint(points[index], points[index - 1]))
+                {
+                    points.RemoveAt(index);
+                }
+            }
+        }
+
+        private static RectangleD GetBounds(IReadOnlyList<PointD> points)
+        {
+            double minX = points[0].X;
+            double minY = points[0].Y;
+            double maxX = points[0].X;
+            double maxY = points[0].Y;
+
+            foreach (PointD point in points.Skip(1))
+            {
+                minX = Math.Min(minX, point.X);
+                minY = Math.Min(minY, point.Y);
+                maxX = Math.Max(maxX, point.X);
+                maxY = Math.Max(maxY, point.Y);
+            }
+
+            return new RectangleD(minX, minY, maxX - minX, maxY - minY);
+        }
+
+        private static double MaxDistanceFromLine(
+            IReadOnlyList<PointD> points,
+            int startIndex,
+            int endIndex)
+        {
+            double maxDistance = 0.0;
+            PointD start = points[startIndex];
+            PointD end = points[endIndex];
+            for (int index = startIndex + 1; index < endIndex; index++)
+            {
+                maxDistance = Math.Max(maxDistance, PointToLineDistance(points[index], start, end));
+            }
+
+            return maxDistance;
+        }
+
+        private static double PointToLineDistance(PointD point, PointD lineStart, PointD lineEnd)
+        {
+            double dx = lineEnd.X - lineStart.X;
+            double dy = lineEnd.Y - lineStart.Y;
+            double lengthSquared = dx * dx + dy * dy;
+            if (lengthSquared <= 1e-12)
+            {
+                return Distance(point, lineStart);
+            }
+
+            double numerator = Math.Abs(dy * point.X - dx * point.Y + lineEnd.X * lineStart.Y - lineEnd.Y * lineStart.X);
+            return numerator / Math.Sqrt(lengthSquared);
         }
 
         private static bool TryCreateCircleFromPolygon(
@@ -982,6 +1331,25 @@ namespace Land_Readjustment_Tool.UI.MapCanvas.Services
         {
             return NearlyEqual(first.X, second.X) &&
                    NearlyEqual(first.Y, second.Y);
+        }
+
+        private static double Distance(PointD first, PointD second)
+        {
+            double dx = second.X - first.X;
+            double dy = second.Y - first.Y;
+            return Math.Sqrt(dx * dx + dy * dy);
+        }
+
+        private static double DegreesToRadians(double degrees)
+        {
+            return degrees * Math.PI / 180.0;
+        }
+
+        private static double NormalizePositiveRadians(double angle)
+        {
+            double fullCircle = Math.PI * 2.0;
+            angle %= fullCircle;
+            return angle < 0.0 ? angle + fullCircle : angle;
         }
     }
 }

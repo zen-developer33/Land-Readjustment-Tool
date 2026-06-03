@@ -50,6 +50,11 @@ namespace Land_Readjustment_Tool.Services.Assignment
             bool replaceExistingAssignment,
             CancellationToken ct = default);
 
+        Task<bool> ClearAssignmentAsync(
+            ProjectSession session,
+            Guid canvasObjectId,
+            CancellationToken ct = default);
+
         Task<int> ClearAssignmentsAsync(
             ProjectSession session,
             CancellationToken ct = default);
@@ -69,13 +74,15 @@ namespace Land_Readjustment_Tool.Services.Assignment
         {
             var context = session.GetDbContext();
             List<CanvasObject> objects = await context.CanvasObjects
+                .AsNoTracking()
                 .Include(item => item.CanvasLayer)
                 .Where(canvasObject => canvasObject.GeometryMetadataJson != null &&
                                        canvasObject.GeometryMetadataJson.Contains(CadastralCanvasMetadata.MetadataKind) &&
                                        canvasObject.ObjectType == "Polygon")
                 .OrderBy(item => item.CanvasLayer.Name)
                 .ThenBy(item => item.CreatedDate)
-                .ToListAsync(ct);
+                .ToListAsync(ct)
+                .ConfigureAwait(false);
 
             return objects
                 .Select(ToCandidate)
@@ -93,7 +100,8 @@ namespace Land_Readjustment_Tool.Services.Assignment
                 .Where(value => value != "")
                 .Distinct()
                 .OrderBy(value => value)
-                .ToListAsync(ct);
+                .ToListAsync(ct)
+                .ConfigureAwait(false);
         }
 
         public async Task<IReadOnlyList<CadastralParcelRecordChoice>> GetParcelsByMapSheetAsync(
@@ -109,7 +117,8 @@ namespace Land_Readjustment_Tool.Services.Assignment
             var sqmPrec = await db.ProjectSettings
                 .AsNoTracking()
                 .Select(ps => (int?)ps.AreaSqmDecimalPlaces)
-                .FirstOrDefaultAsync(ct) ?? 3;
+                .FirstOrDefaultAsync(ct)
+                .ConfigureAwait(false) ?? 3;
 
             var rows = await db.BaselineParcels
                 .AsNoTracking()
@@ -123,7 +132,8 @@ namespace Land_Readjustment_Tool.Services.Assignment
                     parcel.OriginalAreaSqm,
                     parcel.CanvasObjectId
                 })
-                .ToListAsync(ct);
+                .ToListAsync(ct)
+                .ConfigureAwait(false);
 
             return rows.Select(parcel => new CadastralParcelRecordChoice(
                 parcel.Id,
@@ -140,7 +150,7 @@ namespace Land_Readjustment_Tool.Services.Assignment
             bool replaceExistingAssignments,
             CancellationToken ct = default)
         {
-            return await AutoAssignAsync(session, replaceExistingAssignments, [], ct);
+            return await AutoAssignAsync(session, replaceExistingAssignments, [], ct).ConfigureAwait(false);
         }
 
         public async Task<CadastralAssignmentResult> AutoAssignFromAttributesAsync(
@@ -162,7 +172,8 @@ namespace Land_Readjustment_Tool.Services.Assignment
             var context = session.GetDbContext();
             List<BaselineParcel> records = await context.BaselineParcels
                 .Include(parcel => parcel.LandOwner)
-                .ToListAsync(ct);
+                .ToListAsync(ct)
+                .ConfigureAwait(false);
             Dictionary<string, BaselineParcel> lookup = BuildParcelLookup(records);
             Dictionary<string, BaselineParcel?> uniqueParcelNumberLookup = BuildUniqueParcelNumberLookup(records);
 
@@ -171,7 +182,8 @@ namespace Land_Readjustment_Tool.Services.Assignment
                 .Where(canvasObject => canvasObject.GeometryMetadataJson != null &&
                                        canvasObject.GeometryMetadataJson.Contains(CadastralCanvasMetadata.MetadataKind) &&
                                        canvasObject.ObjectType == "Polygon")
-                .ToListAsync(ct);
+                .ToListAsync(ct)
+                .ConfigureAwait(false);
 
             int assigned = 0;
             int missingKey = 0;
@@ -226,8 +238,8 @@ namespace Land_Readjustment_Tool.Services.Assignment
 
                 if (replaceExistingAssignments)
                 {
-                    await ClearPreviousParcelLinkedToObjectAsync(context, canvasObject.Id, ct);
-                    await ClearPreviousObjectLinkedToParcelAsync(context, parcel, canvasObject.Id, ct);
+                    await ClearPreviousParcelLinkedToObjectAsync(context, canvasObject.Id, ct).ConfigureAwait(false);
+                    await ClearPreviousObjectLinkedToParcelAsync(context, parcel, canvasObject.Id, ct).ConfigureAwait(false);
                 }
 
                 canvasObject.BaselineParcelId = parcel.Id;
@@ -262,7 +274,8 @@ namespace Land_Readjustment_Tool.Services.Assignment
 
             List<BaselineParcel> records = await context.BaselineParcels
                 .Include(parcel => parcel.LandOwner)
-                .ToListAsync(ct);
+                .ToListAsync(ct)
+                .ConfigureAwait(false);
             Dictionary<string, BaselineParcel> lookup = BuildParcelLookup(records);
             Dictionary<string, BaselineParcel?> uniqueParcelNumberLookup = BuildUniqueParcelNumberLookup(records);
             HashSet<string> knownMapSheets = records
@@ -276,7 +289,8 @@ namespace Land_Readjustment_Tool.Services.Assignment
                 .Include(canvasObject => canvasObject.CanvasLayer)
                 .Where(canvasObject => canvasObject.GeometryMetadataJson != null &&
                                        canvasObject.GeometryMetadataJson.Contains(CadastralCanvasMetadata.MetadataKind))
-                .ToListAsync(ct);
+                .ToListAsync(ct)
+                .ConfigureAwait(false);
             List<CanvasObject> parcelObjects = candidates
                 .Where(item => string.Equals(item.ObjectType, "Polygon", StringComparison.OrdinalIgnoreCase))
                 .ToList();
@@ -362,8 +376,8 @@ namespace Land_Readjustment_Tool.Services.Assignment
 
                 if (replaceExistingAssignments)
                 {
-                    await ClearPreviousParcelLinkedToObjectAsync(context, canvasObject.Id, ct);
-                    await ClearPreviousObjectLinkedToParcelAsync(context, matchedParcel, canvasObject.Id, ct);
+                    await ClearPreviousParcelLinkedToObjectAsync(context, canvasObject.Id, ct).ConfigureAwait(false);
+                    await ClearPreviousObjectLinkedToParcelAsync(context, matchedParcel, canvasObject.Id, ct).ConfigureAwait(false);
                 }
 
                 canvasObject.BaselineParcelId = matchedParcel.Id;
@@ -500,10 +514,12 @@ namespace Land_Readjustment_Tool.Services.Assignment
         {
             var context = session.GetDbContext();
             CanvasObject canvasObject = await context.CanvasObjects
-                .FirstAsync(item => item.Id == canvasObjectId, ct);
+                .FirstAsync(item => item.Id == canvasObjectId, ct)
+                .ConfigureAwait(false);
             BaselineParcel parcel = await context.BaselineParcels
                 .Include(item => item.LandOwner)
-                .FirstAsync(item => item.Id == baselineParcelId, ct);
+                .FirstAsync(item => item.Id == baselineParcelId, ct)
+                .ConfigureAwait(false);
 
             if (!replaceExistingAssignment &&
                 parcel.CanvasObjectId.HasValue &&
@@ -516,7 +532,8 @@ namespace Land_Readjustment_Tool.Services.Assignment
             if (replaceExistingAssignment && parcel.CanvasObjectId.HasValue)
             {
                 CanvasObject? previousObject = await context.CanvasObjects
-                    .FirstOrDefaultAsync(item => item.Id == parcel.CanvasObjectId.Value, ct);
+                    .FirstOrDefaultAsync(item => item.Id == parcel.CanvasObjectId.Value, ct)
+                    .ConfigureAwait(false);
                 if (previousObject != null && previousObject.Id != canvasObject.Id)
                 {
                     previousObject.BaselineParcelId = null;
@@ -524,8 +541,7 @@ namespace Land_Readjustment_Tool.Services.Assignment
                     CadastralCanvasMetadata? previousMetadata = ReadMetadata(previousObject.GeometryMetadataJson);
                     if (previousMetadata != null)
                     {
-                        previousMetadata.BaselineParcelId = null;
-                        previousMetadata.AssignmentStatus = "Unassigned";
+                        ClearParcelMetadata(previousMetadata);
                         previousObject.GeometryMetadataJson = JsonSerializer.Serialize(previousMetadata);
                     }
                 }
@@ -541,7 +557,54 @@ namespace Land_Readjustment_Tool.Services.Assignment
             canvasObject.LastModifiedDate = DateTime.Now;
             parcel.LastModifiedDate = DateTime.Now;
 
-            await context.SaveChangesAsync(ct);
+            await context.SaveChangesAsync(ct).ConfigureAwait(false);
+        }
+
+        public async Task<bool> ClearAssignmentAsync(
+            ProjectSession session,
+            Guid canvasObjectId,
+            CancellationToken ct = default)
+        {
+            var context = session.GetDbContext();
+            CanvasObject? canvasObject = await context.CanvasObjects
+                .FirstOrDefaultAsync(item => item.Id == canvasObjectId, ct)
+                .ConfigureAwait(false);
+            if (canvasObject == null)
+                return false;
+
+            CadastralCanvasMetadata? metadata = ReadMetadata(canvasObject.GeometryMetadataJson);
+            bool hadAssignment = canvasObject.BaselineParcelId.HasValue ||
+                                 metadata?.BaselineParcelId != null ||
+                                 string.Equals(metadata?.AssignmentStatus, "AutoAssigned", StringComparison.OrdinalIgnoreCase) ||
+                                 string.Equals(metadata?.AssignmentStatus, "ManualAssigned", StringComparison.OrdinalIgnoreCase);
+            if (!hadAssignment)
+                return false;
+
+            int? linkedParcelId = canvasObject.BaselineParcelId ?? metadata?.BaselineParcelId;
+            Guid objectId = canvasObject.Id;
+            if (linkedParcelId.HasValue)
+            {
+                BaselineParcel? linkedParcel = await context.BaselineParcels
+                    .FirstOrDefaultAsync(parcel => parcel.Id == linkedParcelId.Value, ct)
+                    .ConfigureAwait(false);
+                if (linkedParcel?.CanvasObjectId == objectId)
+                {
+                    linkedParcel.CanvasObjectId = null;
+                    linkedParcel.LastModifiedDate = DateTime.Now;
+                }
+            }
+
+            canvasObject.BaselineParcelId = null;
+            canvasObject.LabelText = metadata?.ParcelNo;
+            if (metadata != null)
+            {
+                ClearParcelMetadata(metadata);
+                canvasObject.GeometryMetadataJson = JsonSerializer.Serialize(metadata);
+            }
+
+            canvasObject.LastModifiedDate = DateTime.Now;
+            await context.SaveChangesAsync(ct).ConfigureAwait(false);
+            return true;
         }
 
         public async Task<int> ClearAssignmentsAsync(
@@ -553,7 +616,8 @@ namespace Land_Readjustment_Tool.Services.Assignment
                 .Where(canvasObject => canvasObject.GeometryMetadataJson != null &&
                                        canvasObject.GeometryMetadataJson.Contains(CadastralCanvasMetadata.MetadataKind) &&
                                        canvasObject.ObjectType == "Polygon")
-                .ToListAsync(ct);
+                .ToListAsync(ct)
+                .ConfigureAwait(false);
             if (parcelObjects.Count == 0)
                 return 0;
 
@@ -568,7 +632,8 @@ namespace Land_Readjustment_Tool.Services.Assignment
                 .Where(parcel =>
                     (parcel.CanvasObjectId.HasValue && objectIds.Contains(parcel.CanvasObjectId.Value)) ||
                     baselineParcelIds.Contains(parcel.Id))
-                .ToListAsync(ct);
+                .ToListAsync(ct)
+                .ConfigureAwait(false);
 
             int cleared = 0;
             foreach (CanvasObject canvasObject in parcelObjects)
@@ -585,12 +650,7 @@ namespace Land_Readjustment_Tool.Services.Assignment
                 canvasObject.LabelText = metadata?.ParcelNo;
                 if (metadata != null)
                 {
-                    metadata.BaselineParcelId = null;
-                    metadata.FullUniqueParcelCode = null;
-                    metadata.RecordAreaSqm = null;
-                    metadata.OwnerName = null;
-                    metadata.LandUse = null;
-                    metadata.AssignmentStatus = "Unassigned";
+                    ClearParcelMetadata(metadata);
                     canvasObject.GeometryMetadataJson = JsonSerializer.Serialize(metadata);
                 }
 
@@ -610,7 +670,7 @@ namespace Land_Readjustment_Tool.Services.Assignment
                 parcel.LastModifiedDate = DateTime.Now;
             }
 
-            await context.SaveChangesAsync(ct);
+            await context.SaveChangesAsync(ct).ConfigureAwait(false);
             return cleared;
         }
 
@@ -646,6 +706,19 @@ namespace Land_Readjustment_Tool.Services.Assignment
             metadata.OwnerName = parcel.LandOwner?.FullName;
             metadata.LandUse = parcel.LandUse;
             metadata.AssignmentStatus = assignmentStatus;
+        }
+
+        private static void ClearParcelMetadata(CadastralCanvasMetadata metadata)
+        {
+            metadata.MapSheetNo = null;
+            metadata.ParcelNo = null;
+            metadata.MatchedText = null;
+            metadata.BaselineParcelId = null;
+            metadata.FullUniqueParcelCode = null;
+            metadata.RecordAreaSqm = null;
+            metadata.OwnerName = null;
+            metadata.LandUse = null;
+            metadata.AssignmentStatus = "Unassigned";
         }
 
         private static string? ResolveMapSheetNo(
@@ -762,7 +835,8 @@ namespace Land_Readjustment_Tool.Services.Assignment
             CancellationToken ct)
         {
             BaselineParcel? existingParcel = await context.Set<BaselineParcel>()
-                .FirstOrDefaultAsync(item => item.CanvasObjectId == canvasObjectId, ct);
+                .FirstOrDefaultAsync(item => item.CanvasObjectId == canvasObjectId, ct)
+                .ConfigureAwait(false);
             if (existingParcel != null)
             {
                 existingParcel.CanvasObjectId = null;
@@ -783,7 +857,8 @@ namespace Land_Readjustment_Tool.Services.Assignment
             }
 
             CanvasObject? previousObject = await context.Set<CanvasObject>()
-                .FirstOrDefaultAsync(item => item.Id == parcel.CanvasObjectId.Value, ct);
+                .FirstOrDefaultAsync(item => item.Id == parcel.CanvasObjectId.Value, ct)
+                .ConfigureAwait(false);
             if (previousObject == null)
                 return;
 
@@ -792,8 +867,7 @@ namespace Land_Readjustment_Tool.Services.Assignment
             CadastralCanvasMetadata? previousMetadata = ReadMetadata(previousObject.GeometryMetadataJson);
             if (previousMetadata != null)
             {
-                previousMetadata.BaselineParcelId = null;
-                previousMetadata.AssignmentStatus = "Unassigned";
+                ClearParcelMetadata(previousMetadata);
                 previousObject.GeometryMetadataJson = JsonSerializer.Serialize(previousMetadata);
             }
 

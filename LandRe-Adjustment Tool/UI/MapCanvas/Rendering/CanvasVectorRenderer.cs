@@ -903,7 +903,8 @@ namespace Land_Readjustment_Tool.UI.MapCanvas.Rendering
                    feature != null &&
                    string.Equals(feature.CanvasObject.ObjectType, "Polygon", StringComparison.OrdinalIgnoreCase) &&
                    (layer == null || (!CanvasLayerTreeService.IsAnnotationLayer(layer) &&
-                                      !CanvasLayerTreeService.IsDrawingMarkupLayer(layer)));
+                                      !CanvasLayerTreeService.IsDrawingMarkupLayer(layer) &&
+                                      !CanvasLayerTreeService.IsExternalImportedLayer(layer)));
         }
 
         // Selection highlight color: cyan-blue (R=0, G=168, B=232).
@@ -1744,6 +1745,7 @@ namespace Land_Readjustment_Tool.UI.MapCanvas.Rendering
                 "blockcode"                                                         => GetPropertyValue(canvasObject.Block, "BlockCode"),
                 "blocklanduse"                                                      => GetPropertyValue(canvasObject.Block, "BlockLandUse"),
                 "blockdepth"                                                        => GetPropertyValue(canvasObject.Block, "BlockDepth"),
+                "blockdepthgeometry" or "blockdepthfromgeometry"                    => CanvasGeometryMetricsService.GetBlockDepthFromGeometry(canvasObject),
                 "blockareasqm" or "blockarea"                                       => FormatSqmArea(ResolveFirst(
                     CanvasGeometryMetricsService.GetArea(canvasObject),
                     GetPropertyValue(canvasObject.Block, "BlockArea")), sqmPrecision),

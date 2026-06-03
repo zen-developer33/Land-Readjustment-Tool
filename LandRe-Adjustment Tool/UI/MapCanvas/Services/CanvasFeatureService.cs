@@ -58,6 +58,10 @@ namespace Land_Readjustment_Tool.UI.MapCanvas.Services
             CanvasLayer layer = await ResolveTargetLayerAsync(shape, layerName, ct);
             CanvasObject? existing = await _canvasObjectRepository.GetByIdAsync(shape.Id, ct);
             CanvasObject entity = GeometryShapeMapper.ToCanvasObject(shape, layer.Id, existing);
+            if (CanvasLayerTreeService.IsBlockLayoutLayer(layer))
+            {
+                CanvasGeometryMetricsService.StoreBlockDepthFromGeometry(entity);
+            }
 
             if (existing == null)
             {

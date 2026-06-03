@@ -222,9 +222,18 @@ namespace Land_Readjustment_Tool.UI.Forms
         /// </summary>
         private void ConfigureApplicableControls()
         {
-            if (_isExternalLayer && _tabs.TabPages.Contains(_tabLabel))
+            bool isAnnotation = IsSelectedAnnotationLayerType();
+            if (_isExternalLayer &&
+                !isAnnotation &&
+                _tabs.TabPages.Contains(_tabLabel))
             {
                 _tabs.TabPages.Remove(_tabLabel);
+            }
+
+            if (isAnnotation)
+            {
+                UpdateLayerKindPresentation();
+                return;
             }
 
             if (_isDrawingMarkupLayer)
@@ -823,37 +832,40 @@ namespace Land_Readjustment_Tool.UI.Forms
                         : 1.0;
                 }
 
-                if (!_isExternalLayer)
+                bool shouldApplyLabelStyle =
+                    !_isExternalLayer ||
+                    selectedAnnotation;
+                if (shouldApplyLabelStyle)
                 {
                     Layer.ShowLabels = selectedAnnotation ? false : _chkShowLabels.Checked;
-                Layer.LabelFontName = string.IsNullOrWhiteSpace(_txtFontName.Text)
-                    ? DefaultCanvasLabelFontName
-                    : _txtFontName.Text.Trim();
-                Layer.LabelFontSize = (double)_numFontSize.Value;
-                Layer.LabelColor = ColorTranslator.ToHtml(_pnlLabelColor.BackColor);
-                Layer.TextAlignment = NormalizeTextAlignment(_cboTextAlignment.Text);
-                Layer.LabelScaleWithZoom = _rdoFontScalesWithZoom.Checked;
+                    Layer.LabelFontName = string.IsNullOrWhiteSpace(_txtFontName.Text)
+                        ? DefaultCanvasLabelFontName
+                        : _txtFontName.Text.Trim();
+                    Layer.LabelFontSize = (double)_numFontSize.Value;
+                    Layer.LabelColor = ColorTranslator.ToHtml(_pnlLabelColor.BackColor);
+                    Layer.TextAlignment = NormalizeTextAlignment(_cboTextAlignment.Text);
+                    Layer.LabelScaleWithZoom = _rdoFontScalesWithZoom.Checked;
 
-                if (selectedAnnotation)
-                {
-                    // Annotation (text) layer — store optional default text in LabelField.
-                    string defaultText = _txtAnnotationText.Text.Trim();
-                    Layer.LabelField = string.IsNullOrEmpty(defaultText)
-                        ? null
-                        : $"static:{defaultText}";
-                }
-                else
-                {
-                    // Field-based label; fixed-text falls back to cboLabelField.
-                    Layer.LabelField = string.IsNullOrWhiteSpace(_cboLabelField.Text)
-                        ? null
-                        : _cboLabelField.Text.Trim();
-                }
+                    if (selectedAnnotation)
+                    {
+                        // Annotation (text) layer — store optional default text in LabelField.
+                        string defaultText = _txtAnnotationText.Text.Trim();
+                        Layer.LabelField = string.IsNullOrEmpty(defaultText)
+                            ? null
+                            : $"static:{defaultText}";
+                    }
+                    else
+                    {
+                        // Field-based label; fixed-text falls back to cboLabelField.
+                        Layer.LabelField = string.IsNullOrWhiteSpace(_cboLabelField.Text)
+                            ? null
+                            : _cboLabelField.Text.Trim();
+                    }
 
-                if (selectedAnnotation)
-                {
-                    Layer.BorderColor = Layer.LabelColor;
-                }
+                    if (selectedAnnotation)
+                    {
+                        Layer.BorderColor = Layer.LabelColor;
+                    }
                 }
             }
 

@@ -1,6 +1,7 @@
 using Land_Readjustment_Tool.Core.Entities.Canvas;
 using NetTopologySuite.Geometries;
 using System.Text.Json;
+using System.Text.Json.Nodes;
 
 namespace Land_Readjustment_Tool.UI.MapCanvas.Services
 {
@@ -10,6 +11,8 @@ namespace Land_Readjustment_Tool.UI.MapCanvas.Services
     /// </summary>
     public static class CanvasGeometryMetricsService
     {
+        public const string BlockDepthFromGeometryMetadataKey = "BlockDepthFromGeometry";
+
         private static readonly JsonSerializerOptions MetadataJsonOptions = new()
         {
             PropertyNameCaseInsensitive = true
@@ -55,6 +58,25 @@ namespace Land_Readjustment_Tool.UI.MapCanvas.Services
             };
 
             return vertexCount > 0 ? vertexCount : null;
+        }
+
+        public static double? GetBlockDepthFromGeometry(CanvasObject canvasObject)
+        {
+            if (TryGetBlockDepthFromMetadata(canvasObject.GeometryMetadataJson, out double metadataDepth))
+            {
+                return metadataDepth;
+            }
+
+            return CalculateBlockDepthFromGeometry(canvasObject.Shape);
+        }
+
+        public static void StoreBlockDepthFromGeometry(CanvasObject canvasObject)
+        {
+            double? depth = CalculateBlockDepthFromGeometry(canvasObject.Shape);
+            canvasObject.GeometryMetadataJson = UpdateMetadataNumber(
+                canvasObject.GeometryMetadataJson,
+                BlockDepthFromGeometryMetadataKey,
+                depth);
         }
 
         public static bool IsUsableEnvelope(Envelope? envelope)
@@ -210,6 +232,208 @@ namespace Land_Readjustment_Tool.UI.MapCanvas.Services
             }
 
             return vertices.Count;
+        }
+
+        private static bool TryGetBlockDepthFromMetadata(string? metadataJson, out double depth)
+        {
+            depth = 0.0;
+            if (string.IsNullOrWhiteSpace(metadataJson))
+            {
+                return false;
+            }
+
+            try
+            {
+                using JsonDocument document = JsonDocument.Parse(metadataJson);
+                if (!TryGetJsonPropertyIgnoreCase(
+                        document.RootElement,
+                        BlockDepthFromGeometryMetadataKey,
+                        out JsonElement value))
+                {
+                    return false;
+                }
+
+                if (value.ValueKind == JsonValueKind.Number &&
+                    value.TryGetDouble(out depth) &&
+                    depth > 0.0)
+                {
+                    return true;
+                }
+
+                if (value.ValueKind == JsonValueKind.String &&
+                    double.TryParse(value.GetString(), out depth) &&
+                    depth > 0.0)
+                {
+                    return true;
+                }
+            }
+            catch
+            {
+                return false;
+            }
+
+            return false;
+        }
+
+        private static string? UpdateMetadataNumber(
+            string? metadataJson,
+            string propertyName,
+            double? value)
+        {
+            JsonObject root;
+            if (string.IsNullOrWhiteSpace(metadataJson))
+            {
+                root = [];
+            }
+            else
+            {
+                try
+                {
+                    root = JsonNode.Parse(metadataJson) as JsonObject ?? [];
+                }
+                catch
+                {
+                    root = [];
+                }
+            }
+
+            RemoveJsonPropertyIgnoreCase(root, propertyName);
+            RemoveJsonPropertyIgnoreCase(root, ToCamelCase(propertyName));
+
+            if (value.HasValue && value.Value > 0.0 && double.IsFinite(value.Value))
+            {
+                root[propertyName] = Math.Round(value.Value, 6);
+            }
+
+            return root.Count == 0
+                ? null
+                : root.ToJsonString(MetadataJsonOptions);
+        }
+
+        private static double? CalculateBlockDepthFromGeometry(Geometry? geometry)
+        {
+            Polygon? polygon = ExtractLargestPolygon(geometry);
+            if (polygon == null || polygon.IsEmpty)
+            {
+                return null;
+            }
+
+            Geometry hullGeometry = polygon.ConvexHull();
+            Coordinate[] coordinates = hullGeometry switch
+            {
+                Polygon hullPolygon => hullPolygon.ExteriorRing.Coordinates,
+                LineString lineString => lineString.Coordinates,
+                _ => []
+            };
+
+            List<Coordinate> points = coordinates
+                .Where(coordinate => double.IsFinite(coordinate.X) && double.IsFinite(coordinate.Y))
+                .ToList();
+            if (points.Count > 1 && points[0].Equals2D(points[^1], 1e-7))
+            {
+                points.RemoveAt(points.Count - 1);
+            }
+
+            if (points.Count < 3)
+            {
+                return null;
+            }
+
+            double? bestWidth = null;
+            for (int index = 0; index < points.Count; index++)
+            {
+                Coordinate start = points[index];
+                Coordinate end = points[(index + 1) % points.Count];
+                double dx = end.X - start.X;
+                double dy = end.Y - start.Y;
+                double edgeLength = Math.Sqrt(dx * dx + dy * dy);
+                if (edgeLength <= 1e-9)
+                {
+                    continue;
+                }
+
+                double normalX = -dy / edgeLength;
+                double normalY = dx / edgeLength;
+                double minProjection = double.PositiveInfinity;
+                double maxProjection = double.NegativeInfinity;
+                foreach (Coordinate point in points)
+                {
+                    double projection = point.X * normalX + point.Y * normalY;
+                    minProjection = Math.Min(minProjection, projection);
+                    maxProjection = Math.Max(maxProjection, projection);
+                }
+
+                double width = maxProjection - minProjection;
+                if (width <= 1e-9 || !double.IsFinite(width))
+                {
+                    continue;
+                }
+
+                bestWidth = !bestWidth.HasValue
+                    ? width
+                    : Math.Min(bestWidth.Value, width);
+            }
+
+            return bestWidth.HasValue && bestWidth.Value > 0.0
+                ? bestWidth.Value
+                : null;
+        }
+
+        private static Polygon? ExtractLargestPolygon(Geometry? geometry)
+        {
+            return geometry switch
+            {
+                Polygon polygon => polygon,
+                MultiPolygon multiPolygon => multiPolygon.Geometries
+                    .OfType<Polygon>()
+                    .OrderByDescending(polygon => polygon.Area)
+                    .FirstOrDefault(),
+                GeometryCollection collection => collection.Geometries
+                    .Select(ExtractLargestPolygon)
+                    .Where(polygon => polygon != null)
+                    .OrderByDescending(polygon => polygon!.Area)
+                    .FirstOrDefault(),
+                _ => null
+            };
+        }
+
+        private static bool TryGetJsonPropertyIgnoreCase(
+            JsonElement element,
+            string propertyName,
+            out JsonElement value)
+        {
+            if (element.ValueKind == JsonValueKind.Object)
+            {
+                foreach (JsonProperty property in element.EnumerateObject())
+                {
+                    if (property.Name.Equals(propertyName, StringComparison.OrdinalIgnoreCase))
+                    {
+                        value = property.Value;
+                        return true;
+                    }
+                }
+            }
+
+            value = default;
+            return false;
+        }
+
+        private static void RemoveJsonPropertyIgnoreCase(JsonObject root, string propertyName)
+        {
+            string? existingKey = root
+                .Select(property => property.Key)
+                .FirstOrDefault(key => key.Equals(propertyName, StringComparison.OrdinalIgnoreCase));
+            if (existingKey != null)
+            {
+                root.Remove(existingKey);
+            }
+        }
+
+        private static string ToCamelCase(string value)
+        {
+            return string.IsNullOrWhiteSpace(value)
+                ? value
+                : char.ToLowerInvariant(value[0]) + value[1..];
         }
 
         private static bool IsPolygonObject(CanvasObject canvasObject)

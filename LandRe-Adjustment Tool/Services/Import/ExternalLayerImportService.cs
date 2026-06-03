@@ -49,12 +49,22 @@ namespace Land_Readjustment_Tool.Services.Import
             ProjectSession session,
             string filePath,
             ExternalLayerImportOptions options,
+            Func<int, ImportDuplicateGeometryChoice>? resolveDuplicateGeometries = null,
+            Func<int, ImportDuplicateGeometryChoice>? resolveProjectBoundaryConflict = null,
             CancellationToken ct = default);
     }
 
     public sealed class ExternalLayerImportService : IExternalLayerImportService
     {
         private static readonly GeometryFactory CanvasGeometryFactory = new(new PrecisionModel(), 0);
+
+        // Tolerance (in source drawing units) for treating a polyline whose first and last points
+        // coincide as a closed ring. Kept in sync with the file inspector so the geometry counts
+        // shown in the mapping dialog match what is actually imported.
+        private const double ClosedRingTolerance = 0.000001;
+
+        // Tolerance for treating two geometries in the same layer as the same object.
+        private const double DuplicateGeometryTolerance = 0.000001;
 
         private static readonly JsonSerializerOptions JsonOptions = new()
         {
@@ -94,6 +104,8 @@ namespace Land_Readjustment_Tool.Services.Import
             ProjectSession session,
             string filePath,
             ExternalLayerImportOptions options,
+            Func<int, ImportDuplicateGeometryChoice>? resolveDuplicateGeometries = null,
+            Func<int, ImportDuplicateGeometryChoice>? resolveProjectBoundaryConflict = null,
             CancellationToken ct = default)
         {
             IReadOnlyList<ExternalRawObject> rawObjects = Read(filePath, options);
@@ -121,6 +133,19 @@ namespace Land_Readjustment_Tool.Services.Import
             foreach (ExternalRawObject item in objects)
                 NormalizeGeometryForCanvasDatabase(item.Geometry);
 
+            // Drop objects whose geometry is incompatible with the application layer they were
+            // mapped to: only closed polygons may enter area layers (Blocks, parcels, ...), and
+            // only lines may enter line layers (Road Centerline). Skipped objects are reported back.
+            List<string> importWarnings = [];
+            objects = FilterObjectsForTargetCompatibility(objects, options, importWarnings);
+            if (objects.Count == 0)
+            {
+                string message = importWarnings.Count > 0
+                    ? "No compatible objects were imported.\r\n\r\n" + string.Join("\r\n", importWarnings)
+                    : "No importable objects were found in the selected layer(s).";
+                return new ExternalLayerImportResult(false, message, 0, 0, null, null, importWarnings);
+            }
+
             Dictionary<string, ExternalLayerStyle> sourceLayerStyles =
                 ReadSourceLayerStyles(filePath);
             string? copiedSourceFile = CopySourceFileToProjectFolder(session, filePath);
@@ -132,6 +157,7 @@ namespace Land_Readjustment_Tool.Services.Import
                 await CreateTargetLayersAsync(
                     context,
                     objects,
+                    options,
                     sourceLayerStyles,
                     copiedSourceFile ?? filePath,
                     canvasBackgroundColor,
@@ -141,8 +167,8 @@ namespace Land_Readjustment_Tool.Services.Import
             List<CanvasObject> canvasObjects = new(objects.Count);
             foreach (ExternalRawObject item in objects)
             {
-                CanvasLayer layer = targetLayers[GetTargetLayerKey(item)];
-                canvasObjects.Add(new CanvasObject
+                CanvasLayer layer = targetLayers[GetTargetLayerKey(item, options)];
+                CanvasObject canvasObject = new()
                 {
                     CanvasLayerId = layer.Id,
                     CanvasLayer = layer,
@@ -150,7 +176,7 @@ namespace Land_Readjustment_Tool.Services.Import
                     Shape = item.Geometry,
                     GeometryMetadataJson = JsonSerializer.Serialize(
                         new ExternalLayerObjectMetadata(
-                            "ExternalLayer",
+                            options.ImportKind,
                             Path.GetExtension(filePath).TrimStart('.').ToUpperInvariant(),
                             Path.GetFileName(filePath),
                             copiedSourceFile,
@@ -160,13 +186,105 @@ namespace Land_Readjustment_Tool.Services.Import
                     item.Attributes.Count == 0 ? null : item.Attributes),
                 JsonOptions),
                     LabelText = item.LabelText,
-                    ObjectDescription = BuildObjectDescription(item),
+                    ObjectDescription = BuildObjectDescription(item, layer, options),
                     SourceDxfHandle = item.SourceHandle,
                     IsVisible = true,
                     IsLocked = false,
                     CreatedDate = now,
                     LastModifiedDate = now
-                });
+                };
+                if (IsBlockTargetLayer(layer))
+                {
+                    CanvasGeometryMetricsService.StoreBlockDepthFromGeometry(canvasObject);
+                }
+
+                canvasObjects.Add(canvasObject);
+            }
+
+            ImportProjectBoundaryResolution projectBoundaryResolution =
+                await ResolveImportProjectBoundaryAsync(
+                    context,
+                    canvasObjects,
+                    resolveProjectBoundaryConflict,
+                    ct);
+            if (projectBoundaryResolution.Cancelled)
+            {
+                return new ExternalLayerImportResult(
+                    false,
+                    "Import cancelled because a Project Boundary already exists.",
+                    0,
+                    0,
+                    copiedSourceFile,
+                    null,
+                    importWarnings);
+            }
+
+            canvasObjects = projectBoundaryResolution.ObjectsToAdd;
+            if (projectBoundaryResolution.SkippedExtraIncomingCount > 0)
+            {
+                importWarnings.Add(
+                    $"Skipped {projectBoundaryResolution.SkippedExtraIncomingCount} extra incoming Project Boundary object(s); a project can have only one Project Boundary.");
+            }
+
+            if (projectBoundaryResolution.SkippedForExistingBoundary)
+            {
+                importWarnings.Add(
+                    "Skipped incoming Project Boundary because the existing Project Boundary was kept.");
+            }
+
+            if (projectBoundaryResolution.ReplacedExistingCount > 0)
+            {
+                importWarnings.Add(
+                    $"Replaced {projectBoundaryResolution.ReplacedExistingCount} existing Project Boundary object(s).");
+                context.CanvasObjects.RemoveRange(projectBoundaryResolution.ExistingObjectsToRemove);
+            }
+
+            // A target layer holds at most one object per geometry. Drop in-batch duplicates
+            // silently, and for objects that duplicate geometry already present in the layer,
+            // ask the caller whether to replace the existing object or skip the incoming one.
+            ImportDuplicateResolution duplicateResolution = await ResolveImportDuplicateGeometriesAsync(
+                context,
+                canvasObjects,
+                resolveDuplicateGeometries,
+                ct);
+            if (duplicateResolution.Cancelled)
+            {
+                return new ExternalLayerImportResult(
+                    false,
+                    "Import cancelled because of duplicate geometry.",
+                    0,
+                    0,
+                    copiedSourceFile,
+                    null,
+                    importWarnings);
+            }
+
+            canvasObjects = duplicateResolution.ObjectsToAdd;
+            if (duplicateResolution.SkippedDuplicateCount > 0)
+            {
+                importWarnings.Add(
+                    $"Skipped {duplicateResolution.SkippedDuplicateCount} object(s) whose geometry already exists in the target layer.");
+            }
+
+            if (duplicateResolution.ReplacedExistingCount > 0)
+            {
+                importWarnings.Add(
+                    $"Replaced {duplicateResolution.ReplacedExistingCount} existing object(s) that had the same geometry.");
+                context.CanvasObjects.RemoveRange(duplicateResolution.ExistingObjectsToRemove);
+            }
+
+            if (canvasObjects.Count == 0 &&
+                projectBoundaryResolution.ExistingObjectsToRemove.Count == 0 &&
+                duplicateResolution.ExistingObjectsToRemove.Count == 0)
+            {
+                return new ExternalLayerImportResult(
+                    true,
+                    null,
+                    0,
+                    0,
+                    copiedSourceFile,
+                    null,
+                    importWarnings);
             }
 
             await context.CanvasObjects.AddRangeAsync(canvasObjects, ct);
@@ -179,8 +297,11 @@ namespace Land_Readjustment_Tool.Services.Import
             await context.SaveChangesAsync(ct);
 
             NtsEnvelope envelope = new();
-            foreach (ExternalRawObject item in objects)
-                envelope.ExpandToInclude(item.Geometry.EnvelopeInternal);
+            foreach (CanvasObject canvasObject in canvasObjects)
+            {
+                if (canvasObject.Shape != null)
+                    envelope.ExpandToInclude(canvasObject.Shape.EnvelopeInternal);
+            }
 
             return new ExternalLayerImportResult(
                 true,
@@ -188,7 +309,9 @@ namespace Land_Readjustment_Tool.Services.Import
                 targetLayers.Count,
                 canvasObjects.Count,
                 copiedSourceFile,
-                envelope);
+                envelope.IsNull ? null : envelope,
+                importWarnings,
+                canvasObjects.Select(canvasObject => canvasObject.Id).ToList());
         }
 
         private IReadOnlyList<ExternalRawObject> Read(
@@ -855,21 +978,38 @@ namespace Land_Readjustment_Tool.Services.Import
             }
 
             RemoveConsecutiveDuplicates(coordinates);
-            NtsGeometry? geometry = isClosed && coordinates.Count >= 3
+
+            // A polyline is treated as a closed area when it carries the closed flag OR its first
+            // and last points coincide (within tolerance). This mirrors the file inspector so the
+            // "Objects/Object types" counts shown in the mapping dialog agree with what is imported:
+            // a closed ring becomes a Polygon, an open polyline stays a line.
+            bool effectiveClosed = isClosed ||
+                (coordinates.Count >= 4 &&
+                 coordinates[0].Distance(coordinates[^1]) <= ClosedRingTolerance);
+
+            NtsGeometry? geometry = effectiveClosed && coordinates.Count >= 3
                 ? CreatePolygon(coordinates)
                 : coordinates.Count >= 2
                     ? CanvasGeometryFactory.CreateLineString(coordinates.ToArray())
                     : null;
 
+            // If a "closed" ring degenerates and cannot form a valid polygon, fall back to a line
+            // so the object is not silently dropped at this stage.
+            if (effectiveClosed && geometry == null && coordinates.Count >= 2)
+            {
+                geometry = CanvasGeometryFactory.CreateLineString(coordinates.ToArray());
+                effectiveClosed = false;
+            }
+
             string? metadataJson = segments.Any(segment => segment.Kind.Equals("Arc", StringComparison.OrdinalIgnoreCase))
                 ? JsonSerializer.Serialize(new PolylineCurveMetadata(
-                    isClosed ? "Polygon" : "Polyline",
-                    isClosed,
+                    effectiveClosed ? "Polygon" : "Polyline",
+                    effectiveClosed,
                     segments.ToList()),
                     JsonOptions)
                 : null;
 
-            return new PolylineImportGeometry(geometry, isClosed, metadataJson);
+            return new PolylineImportGeometry(geometry, effectiveClosed, metadataJson);
         }
 
         private static NtsGeometry CreateArcGeometry(
@@ -1135,16 +1275,18 @@ namespace Land_Readjustment_Tool.Services.Import
         private static async Task<Dictionary<string, CanvasLayer>> CreateTargetLayersAsync(
             AppDbContext context,
             IReadOnlyList<ExternalRawObject> objects,
+            ExternalLayerImportOptions options,
             IReadOnlyDictionary<string, ExternalLayerStyle> sourceLayerStyles,
             string sourceFile,
             Color canvasBackgroundColor,
             CancellationToken ct)
         {
             IReadOnlyList<TargetLayerSpec> specs = objects
-                .Select(item => GetTargetLayerSpec(item, objects))
+                .Select(item => GetTargetLayerSpec(item, objects, options))
                 .GroupBy(item => item.Key, StringComparer.OrdinalIgnoreCase)
                 .Select(group => group.First())
-                .OrderBy(item => item.SourceLayer)
+                .OrderByDescending(item => item.IsApplicationLayer)
+                .ThenBy(item => item.SourceLayer)
                 .ThenBy(item => item.LayerType)
                 .ToList();
 
@@ -1157,22 +1299,94 @@ namespace Land_Readjustment_Tool.Services.Import
 
             foreach (TargetLayerSpec spec in specs)
             {
-                CanvasLayer layer = CreateExternalLayer(
-                    spec.Name,
-                    spec.LayerType,
-                    sourceFile,
-                    nextDisplayOrder++,
-                    sourceLayerStyles.TryGetValue(spec.SourceLayer, out ExternalLayerStyle? style)
-                        ? style.Color
-                        : PickLayerColor(colorIndex++),
-                    canvasBackgroundColor);
+                CanvasLayer layer;
+                if (spec.IsApplicationLayer)
+                {
+                    layer = await GetOrCreateApplicationTargetLayerAsync(
+                        context,
+                        spec.Name,
+                        nextDisplayOrder,
+                        ct);
 
-                await context.CanvasLayers.AddAsync(layer, ct);
+                    if (context.Entry(layer).State == EntityState.Added)
+                        nextDisplayOrder++;
+                }
+                else
+                {
+                    layer = CreateExternalLayer(
+                        spec.Name,
+                        spec.LayerType,
+                        sourceFile,
+                        nextDisplayOrder++,
+                        sourceLayerStyles.TryGetValue(spec.SourceLayer, out ExternalLayerStyle? style)
+                            ? style.Color
+                            : PickLayerColor(colorIndex++),
+                        canvasBackgroundColor);
+
+                    await context.CanvasLayers.AddAsync(layer, ct);
+                }
+
                 result[spec.Key] = layer;
             }
 
             await context.SaveChangesAsync(ct);
             return result;
+        }
+
+        private static async Task<CanvasLayer> GetOrCreateApplicationTargetLayerAsync(
+            AppDbContext context,
+            string layerName,
+            int displayOrder,
+            CancellationToken ct)
+        {
+            CanvasLayer? layer = await context.CanvasLayers
+                .FirstOrDefaultAsync(
+                    item => item.Name == layerName,
+                    ct);
+
+            if (layer != null)
+                return layer;
+
+            BlockLayoutPlanTargetLayerDefinition definition =
+                BlockLayoutPlanImportTargets.Find(layerName)
+                ?? new BlockLayoutPlanTargetLayerDefinition(
+                    layerName,
+                    CanvasLayerTreeService.PolygonLayerType,
+                    "#6B7280",
+                    null,
+                    50,
+                    1.2,
+                    "Solid");
+
+            DateTime now = DateTime.Now;
+            layer = new CanvasLayer
+            {
+                Name = definition.Name,
+                LayerType = definition.LayerType,
+                IsVisible = true,
+                IsLocked = true,
+                IsSelectable = true,
+                IsPrintable = true,
+                DisplayOrder = displayOrder,
+                BorderColor = definition.BorderColor,
+                LineWeight = definition.LineWeight,
+                LineStyle = definition.LineStyle,
+                LineTypeScale = 1.0,
+                FillColor = definition.FillColor,
+                ShowFillTransparency = false,
+                FillTransparency = definition.FillTransparency,
+                FillStyle = string.IsNullOrWhiteSpace(definition.FillColor) ? "None" : "Solid",
+                LabelColor = "#000000",
+                TextAlignment = "Center Middle",
+                PointSymbol = "Dot",
+                PointSize = 5.0,
+                CreatedDate = now,
+                LastModifiedDate = now,
+                Description = $"Default layer: {definition.Name}"
+            };
+
+            await context.CanvasLayers.AddAsync(layer, ct);
+            return layer;
         }
 
         private static CanvasLayer CreateExternalLayer(
@@ -1224,8 +1438,23 @@ namespace Land_Readjustment_Tool.Services.Import
 
         private static TargetLayerSpec GetTargetLayerSpec(
             ExternalRawObject item,
-            IReadOnlyList<ExternalRawObject> allObjects)
+            IReadOnlyList<ExternalRawObject> allObjects,
+            ExternalLayerImportOptions options)
         {
+            string? mappedTargetLayer = GetMappedTargetLayerName(options, item.SourceLayer);
+            if (!string.IsNullOrWhiteSpace(mappedTargetLayer))
+            {
+                BlockLayoutPlanTargetLayerDefinition? definition =
+                    BlockLayoutPlanImportTargets.Find(mappedTargetLayer);
+                string mappedLayerType = definition?.LayerType ?? ResolveCanvasLayerType(item.ObjectType);
+                return new TargetLayerSpec(
+                    $"app|{mappedTargetLayer}",
+                    mappedTargetLayer,
+                    item.SourceLayer,
+                    mappedLayerType,
+                    IsApplicationLayer: true);
+            }
+
             string sourceLayer = SanitizeLayerName(item.SourceLayer) ?? "0";
             string layerType = ResolveCanvasLayerType(item.ObjectType);
             HashSet<string> layerTypesForSource = allObjects
@@ -1240,12 +1469,291 @@ namespace Land_Readjustment_Tool.Services.Import
                 name = $"{sourceLayer} {GetLayerTypeSuffix(layerType)}";
             }
 
-            return new TargetLayerSpec($"{sourceLayer}|{layerType}", name, sourceLayer, layerType);
+            return new TargetLayerSpec(
+                $"{sourceLayer}|{layerType}",
+                name,
+                sourceLayer,
+                layerType,
+                IsApplicationLayer: false);
         }
 
-        private static string GetTargetLayerKey(ExternalRawObject item)
+        private static string GetTargetLayerKey(
+            ExternalRawObject item,
+            ExternalLayerImportOptions options)
         {
-            return GetTargetLayerSpec(item, [item]).Key;
+            return GetTargetLayerSpec(item, [item], options).Key;
+        }
+
+        /// <summary>
+        /// Removes objects whose geometry cannot be represented on the application layer they were
+        /// mapped to. Area layers (Blocks, Road Parcel, Project Boundary, parcels, ...) accept only
+        /// closed polygons; line layers (Road Centerline) accept only linear geometry. Objects kept
+        /// as external/source layers are never filtered. Skipped objects are summarised in
+        /// <paramref name="warnings"/>.
+        /// </summary>
+        private static List<ExternalRawObject> FilterObjectsForTargetCompatibility(
+            IReadOnlyList<ExternalRawObject> objects,
+            ExternalLayerImportOptions options,
+            List<string> warnings)
+        {
+            if (!options.UseTargetLayerMapping)
+                return objects.ToList();
+
+            List<ExternalRawObject> accepted = [];
+            Dictionary<(string Source, string Target, bool TargetIsLine), int> skipped = new();
+
+            foreach (ExternalRawObject item in objects)
+            {
+                string? mappedTarget = GetMappedTargetLayerName(options, item.SourceLayer);
+                BlockLayoutPlanTargetLayerDefinition? definition =
+                    BlockLayoutPlanImportTargets.Find(mappedTarget);
+
+                // Not mapped to a managed application layer -> kept as an external layer, import as-is.
+                if (definition == null)
+                {
+                    accepted.Add(item);
+                    continue;
+                }
+
+                bool targetIsLine = IsLineTargetLayerType(definition.LayerType);
+                bool compatible = targetIsLine ? IsLinearImportObject(item) : IsAreaImportObject(item);
+                if (compatible)
+                {
+                    accepted.Add(item);
+                    continue;
+                }
+
+                (string, string, bool) key = (item.SourceLayer, definition.Name, targetIsLine);
+                skipped[key] = skipped.GetValueOrDefault(key) + 1;
+            }
+
+            foreach (KeyValuePair<(string Source, string Target, bool TargetIsLine), int> entry in skipped)
+            {
+                string reason = entry.Key.TargetIsLine
+                    ? "only line geometry can be imported here"
+                    : "only closed polylines/polygons can be imported here";
+                warnings.Add(
+                    $"'{entry.Key.Source}' → {entry.Key.Target}: skipped {entry.Value} object(s) — {reason}.");
+            }
+
+            return accepted;
+        }
+
+        private static bool IsLineTargetLayerType(string layerType)
+        {
+            return string.Equals(layerType, "RoadCenterline", StringComparison.OrdinalIgnoreCase) ||
+                   string.Equals(layerType, CanvasLayerTreeService.RoadCenterlineLayerType, StringComparison.OrdinalIgnoreCase);
+        }
+
+        private static bool IsBlockTargetLayer(CanvasLayer layer)
+        {
+            return CanvasLayerTreeService.IsBlockLayoutLayer(layer);
+        }
+
+        private static bool IsAreaImportObject(ExternalRawObject item)
+        {
+            return item.Geometry is Polygon or MultiPolygon ||
+                   item.ObjectType.Equals("Polygon", StringComparison.OrdinalIgnoreCase) ||
+                   item.ObjectType.Equals("Circle", StringComparison.OrdinalIgnoreCase);
+        }
+
+        private static bool IsLinearImportObject(ExternalRawObject item)
+        {
+            return item.Geometry is LineString or MultiLineString ||
+                   item.ObjectType.Equals("Polyline", StringComparison.OrdinalIgnoreCase) ||
+                   item.ObjectType.Equals("Line", StringComparison.OrdinalIgnoreCase) ||
+                   item.ObjectType.Equals("Arc", StringComparison.OrdinalIgnoreCase);
+        }
+
+        /// <summary>
+        /// Enforces one-object-per-geometry per target layer. In-batch duplicates are dropped
+        /// silently; objects that duplicate geometry already stored in the layer are resolved via
+        /// <paramref name="resolveDuplicateGeometries"/> (replace existing, skip incoming, or cancel).
+        /// </summary>
+        private static async Task<ImportDuplicateResolution> ResolveImportDuplicateGeometriesAsync(
+            AppDbContext context,
+            List<CanvasObject> incomingObjects,
+            Func<int, ImportDuplicateGeometryChoice>? resolveDuplicateGeometries,
+            CancellationToken ct)
+        {
+            // 1) Remove duplicates within the incoming batch (keep the first per layer + geometry).
+            Dictionary<int, List<CanvasObject>> acceptedByLayer = new();
+            int inBatchSkipped = 0;
+            foreach (CanvasObject candidate in incomingObjects)
+            {
+                if (!acceptedByLayer.TryGetValue(candidate.CanvasLayerId, out List<CanvasObject>? accepted))
+                {
+                    accepted = [];
+                    acceptedByLayer[candidate.CanvasLayerId] = accepted;
+                }
+
+                if (accepted.Any(existing => ImportGeometriesEqual(existing.Shape, candidate.Shape)))
+                {
+                    inBatchSkipped++;
+                    continue;
+                }
+
+                accepted.Add(candidate);
+            }
+
+            // 2) Detect incoming objects that duplicate geometry already present in the layer.
+            List<CanvasObject> nonConflicting = [];
+            List<(CanvasObject Incoming, CanvasObject Existing)> conflicts = [];
+            foreach (KeyValuePair<int, List<CanvasObject>> entry in acceptedByLayer)
+            {
+                List<CanvasObject> existingObjects = await context.CanvasObjects
+                    .Where(item => item.CanvasLayerId == entry.Key)
+                    .ToListAsync(ct);
+
+                foreach (CanvasObject candidate in entry.Value)
+                {
+                    if (IsProjectBoundaryImportObject(candidate))
+                    {
+                        nonConflicting.Add(candidate);
+                        continue;
+                    }
+
+                    CanvasObject? match = existingObjects
+                        .FirstOrDefault(existing => ImportGeometriesEqual(existing.Shape, candidate.Shape));
+                    if (match != null)
+                        conflicts.Add((candidate, match));
+                    else
+                        nonConflicting.Add(candidate);
+                }
+            }
+
+            if (conflicts.Count == 0)
+                return new ImportDuplicateResolution(false, nonConflicting, [], inBatchSkipped, 0);
+
+            ImportDuplicateGeometryChoice choice =
+                resolveDuplicateGeometries?.Invoke(conflicts.Count) ?? ImportDuplicateGeometryChoice.Skip;
+
+            switch (choice)
+            {
+                case ImportDuplicateGeometryChoice.Cancel:
+                    return new ImportDuplicateResolution(true, [], [], 0, 0);
+
+                case ImportDuplicateGeometryChoice.Replace:
+                    List<CanvasObject> existingToRemove = conflicts
+                        .Select(conflict => conflict.Existing)
+                        .DistinctBy(existing => existing.Id)
+                        .ToList();
+                    List<CanvasObject> toAdd = nonConflicting
+                        .Concat(conflicts.Select(conflict => conflict.Incoming))
+                        .ToList();
+                    return new ImportDuplicateResolution(false, toAdd, existingToRemove, inBatchSkipped, existingToRemove.Count);
+
+                case ImportDuplicateGeometryChoice.Skip:
+                default:
+                    return new ImportDuplicateResolution(false, nonConflicting, [], inBatchSkipped + conflicts.Count, 0);
+            }
+        }
+
+        private static async Task<ImportProjectBoundaryResolution> ResolveImportProjectBoundaryAsync(
+            AppDbContext context,
+            List<CanvasObject> incomingObjects,
+            Func<int, ImportDuplicateGeometryChoice>? resolveProjectBoundaryConflict,
+            CancellationToken ct)
+        {
+            List<CanvasObject> projectBoundaryObjects = incomingObjects
+                .Where(IsProjectBoundaryImportObject)
+                .ToList();
+            if (projectBoundaryObjects.Count == 0)
+            {
+                return new ImportProjectBoundaryResolution(false, incomingObjects, [], 0, 0, false);
+            }
+
+            CanvasObject keptBoundaryObject = projectBoundaryObjects
+                .OrderByDescending(item => item.Shape?.Area ?? 0.0)
+                .First();
+            int skippedExtraIncomingCount = projectBoundaryObjects.Count - 1;
+            List<CanvasObject> objectsToAdd = incomingObjects
+                .Where(item => !IsProjectBoundaryImportObject(item) || item.Id == keptBoundaryObject.Id)
+                .ToList();
+
+            List<CanvasObject> existingBoundaryObjects = await context.CanvasObjects
+                .Include(item => item.CanvasLayer)
+                .Where(item =>
+                    item.CanvasLayer != null &&
+                    (item.CanvasLayer.Name == "Project Boundary" ||
+                     item.CanvasLayer.LayerType == "ProjectBoundary"))
+                .ToListAsync(ct);
+            if (existingBoundaryObjects.Count == 0)
+            {
+                return new ImportProjectBoundaryResolution(
+                    false,
+                    objectsToAdd,
+                    [],
+                    skippedExtraIncomingCount,
+                    0,
+                    false);
+            }
+
+            ImportDuplicateGeometryChoice choice =
+                resolveProjectBoundaryConflict?.Invoke(existingBoundaryObjects.Count)
+                ?? ImportDuplicateGeometryChoice.Skip;
+
+            return choice switch
+            {
+                ImportDuplicateGeometryChoice.Cancel => new ImportProjectBoundaryResolution(true, [], [], 0, 0, false),
+                ImportDuplicateGeometryChoice.Replace => new ImportProjectBoundaryResolution(
+                    false,
+                    objectsToAdd,
+                    existingBoundaryObjects,
+                    skippedExtraIncomingCount,
+                    existingBoundaryObjects.Count,
+                    false),
+                _ => new ImportProjectBoundaryResolution(
+                    false,
+                    incomingObjects
+                        .Where(item => !IsProjectBoundaryImportObject(item))
+                        .ToList(),
+                    [],
+                    skippedExtraIncomingCount,
+                    0,
+                    true)
+            };
+        }
+
+        private static bool IsProjectBoundaryImportObject(CanvasObject item)
+        {
+            return item.CanvasLayer != null &&
+                   CanvasLayerTreeService.IsProjectBoundaryLayer(item.CanvasLayer);
+        }
+
+        private static bool ImportGeometriesEqual(NtsGeometry? left, NtsGeometry? right)
+        {
+            if (left == null || right == null)
+                return false;
+
+            if (left.IsEmpty || right.IsEmpty)
+                return left.IsEmpty && right.IsEmpty;
+
+            if (left.OgcGeometryType != right.OgcGeometryType)
+                return false;
+
+            if (left.EqualsExact(right, DuplicateGeometryTolerance))
+                return true;
+
+            NtsGeometry leftCopy = left.Copy();
+            NtsGeometry rightCopy = right.Copy();
+            leftCopy.Normalize();
+            rightCopy.Normalize();
+            return leftCopy.EqualsExact(rightCopy, DuplicateGeometryTolerance);
+        }
+
+        private static string? GetMappedTargetLayerName(
+            ExternalLayerImportOptions options,
+            string sourceLayer)
+        {
+            if (!options.UseTargetLayerMapping)
+                return null;
+
+            return options.Layers
+                .FirstOrDefault(option =>
+                    option.Include &&
+                    string.Equals(option.LayerName, sourceLayer, StringComparison.OrdinalIgnoreCase))
+                ?.TargetLayerName;
         }
 
         private static string ResolveCanvasLayerType(string objectType)
@@ -1328,8 +1836,17 @@ namespace Land_Readjustment_Tool.Services.Import
         private static string ToHtml(Color color) =>
             $"#{color.R:X2}{color.G:X2}{color.B:X2}";
 
-        private static string BuildObjectDescription(ExternalRawObject item)
+        private static string BuildObjectDescription(
+            ExternalRawObject item,
+            CanvasLayer layer,
+            ExternalLayerImportOptions options)
         {
+            if (options.UseTargetLayerMapping &&
+                !string.IsNullOrWhiteSpace(GetMappedTargetLayerName(options, item.SourceLayer)))
+            {
+                return $"Imported block layout {item.ObjectType.ToLowerInvariant()} from layer {item.SourceLayer} to {layer.Name}";
+            }
+
             return $"Imported external {item.ObjectType.ToLowerInvariant()} from layer {item.SourceLayer}";
         }
 
@@ -1544,6 +2061,21 @@ namespace Land_Readjustment_Tool.Services.Import
             }
         }
 
+        private sealed record ImportDuplicateResolution(
+            bool Cancelled,
+            List<CanvasObject> ObjectsToAdd,
+            List<CanvasObject> ExistingObjectsToRemove,
+            int SkippedDuplicateCount,
+            int ReplacedExistingCount);
+
+        private sealed record ImportProjectBoundaryResolution(
+            bool Cancelled,
+            List<CanvasObject> ObjectsToAdd,
+            List<CanvasObject> ExistingObjectsToRemove,
+            int SkippedExtraIncomingCount,
+            int ReplacedExistingCount,
+            bool SkippedForExistingBoundary);
+
         private sealed record ExternalRawObject(
             NtsGeometry Geometry,
             string ObjectType,
@@ -1640,7 +2172,8 @@ namespace Land_Readjustment_Tool.Services.Import
             string Key,
             string Name,
             string SourceLayer,
-            string LayerType);
+            string LayerType,
+            bool IsApplicationLayer);
 
         private sealed record ExternalLayerObjectMetadata(
             string Kind,

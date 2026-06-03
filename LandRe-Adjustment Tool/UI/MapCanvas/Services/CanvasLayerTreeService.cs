@@ -363,6 +363,15 @@ namespace Land_Readjustment_Tool.UI.MapCanvas.Services
             return string.Equals(layer.LayerType, AnnotationLayerType, StringComparison.OrdinalIgnoreCase);
         }
 
+        public static bool IsBlockLayoutLayer(CanvasLayer layer)
+        {
+            if (string.Equals(layer.LayerType, "Block", StringComparison.OrdinalIgnoreCase))
+                return true;
+
+            return DefaultLayerNameToGroup.TryGetValue(layer.Name, out string? groupKey) &&
+                   string.Equals(groupKey, BlockLayoutGroupKey, StringComparison.OrdinalIgnoreCase);
+        }
+
         public static bool IsExternalImportedLayer(CanvasLayer layer)
         {
             return layer.Description?.StartsWith(

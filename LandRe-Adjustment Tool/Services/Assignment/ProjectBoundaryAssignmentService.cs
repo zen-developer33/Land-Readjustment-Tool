@@ -79,6 +79,9 @@ namespace Land_Readjustment_Tool.Services.Assignment
                     continue;
 
                 CanvasLayerTreeGroup group = candidateLayerGroups[canvasObject.CanvasLayerId];
+                if (!IsApplicableProjectBoundaryCandidate(canvasObject, group))
+                    continue;
+
                 Envelope envelope = new(geometry!.EnvelopeInternal);
                 string layerName = canvasObject.CanvasLayer?.Name ?? $"Layer {canvasObject.CanvasLayerId}";
                 string objectType = string.IsNullOrWhiteSpace(canvasObject.ObjectType)
@@ -89,6 +92,7 @@ namespace Land_Readjustment_Tool.Services.Assignment
                     canvasObject.Id,
                     canvasObject.CanvasLayerId,
                     layerName,
+                    group.Key,
                     group.Name,
                     objectType,
                     envelope,
@@ -140,13 +144,21 @@ namespace Land_Readjustment_Tool.Services.Assignment
             CanvasLayer boundaryLayer = await GetOrCreateProjectBoundaryLayerAsync(context, ct);
             ApplyProjectBoundaryDefaultStyle(boundaryLayer);
 
+            List<CanvasObject> existingBoundaryObjects = await context.CanvasObjects
+                .Where(canvasObject =>
+                    canvasObject.CanvasLayerId == boundaryLayer.Id ||
+                    canvasObject.CanvasLayer.Name == ProjectBoundaryLayerName ||
+                    canvasObject.CanvasLayer.LayerType == ProjectBoundaryLayerType)
+                .ToListAsync(ct);
+            if (!deleteExistingBoundaryObjects && existingBoundaryObjects.Count > 0)
+            {
+                return Failed(
+                    "A Project Boundary already exists. Replace the existing Project Boundary or skip this assignment.");
+            }
+
             int removedCount = 0;
             if (deleteExistingBoundaryObjects)
             {
-                List<CanvasObject> existingBoundaryObjects = await context.CanvasObjects
-                    .Where(canvasObject => canvasObject.CanvasLayerId == boundaryLayer.Id)
-                    .ToListAsync(ct);
-
                 removedCount = existingBoundaryObjects.Count;
                 context.CanvasObjects.RemoveRange(existingBoundaryObjects);
             }
@@ -247,6 +259,55 @@ namespace Land_Readjustment_Tool.Services.Assignment
                 return false;
 
             return geometry is Polygon or MultiPolygon;
+        }
+
+        private static bool IsApplicableProjectBoundaryCandidate(
+            CanvasObject canvasObject,
+            CanvasLayerTreeGroup group)
+        {
+            if (string.Equals(group.Key, CanvasLayerTreeService.DrawingMarkupGroupKey, StringComparison.OrdinalIgnoreCase))
+            {
+                return true;
+            }
+
+            if (!string.Equals(group.Key, CanvasLayerTreeService.ExternalGroupKey, StringComparison.OrdinalIgnoreCase))
+            {
+                return false;
+            }
+
+            return LooksLikeProjectBoundarySource(canvasObject.CanvasLayer?.Name) ||
+                   LooksLikeProjectBoundarySource(canvasObject.CanvasLayer?.LayerType) ||
+                   LooksLikeProjectBoundarySource(canvasObject.CanvasLayer?.Description) ||
+                   LooksLikeProjectBoundarySource(canvasObject.ObjectDescription) ||
+                   LooksLikeProjectBoundarySource(canvasObject.LabelText) ||
+                   LooksLikeProjectBoundarySource(canvasObject.GeometryMetadataJson);
+        }
+
+        private static bool LooksLikeProjectBoundarySource(string? value)
+        {
+            if (string.IsNullOrWhiteSpace(value))
+                return false;
+
+            string normalized = value.Trim();
+            return ContainsProjectBoundaryKeyword(normalized, "project boundary") ||
+                   ContainsProjectBoundaryKeyword(normalized, "projectboundary") ||
+                   ContainsProjectBoundaryKeyword(normalized, "boundary") ||
+                   ContainsProjectBoundaryKeyword(normalized, "boundry") ||
+                   ContainsProjectBoundaryKeyword(normalized, "bdry") ||
+                   ContainsProjectBoundaryKeyword(normalized, "bdy") ||
+                   ContainsProjectBoundaryKeyword(normalized, "field boundary") ||
+                   ContainsProjectBoundaryKeyword(normalized, "site boundary") ||
+                   ContainsProjectBoundaryKeyword(normalized, "final field") ||
+                   ContainsProjectBoundaryKeyword(normalized, "project limit") ||
+                   ContainsProjectBoundaryKeyword(normalized, "project area") ||
+                   ContainsProjectBoundaryKeyword(normalized, "site limit") ||
+                   ContainsProjectBoundaryKeyword(normalized, "perimeter") ||
+                   ContainsProjectBoundaryKeyword(normalized, "extent");
+        }
+
+        private static bool ContainsProjectBoundaryKeyword(string value, string keyword)
+        {
+            return value.Contains(keyword, StringComparison.OrdinalIgnoreCase);
         }
 
         private static void ApplyProjectBoundaryDefaultStyle(CanvasLayer layer)

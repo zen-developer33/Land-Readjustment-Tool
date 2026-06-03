@@ -16,11 +16,26 @@ namespace Land_Readjustment_Tool.Core.Models.Import
 
     public sealed record ExternalLayerImportOption(
         string LayerName,
-        bool Include);
+        bool Include,
+        string? TargetLayerName = null);
 
     public sealed record ExternalLayerImportOptions(
         IReadOnlyList<ExternalLayerImportOption> Layers,
-        string SourceCrsCode);
+        string SourceCrsCode,
+        bool UseTargetLayerMapping = false,
+        string ImportKind = "ExternalLayer",
+        string? BlockLabelLayerName = null);
+
+    /// <summary>
+    /// How the import should resolve incoming objects whose geometry already exists in the
+    /// target layer (a layer holds at most one object per geometry).
+    /// </summary>
+    public enum ImportDuplicateGeometryChoice
+    {
+        Replace,
+        Skip,
+        Cancel
+    }
 
     public sealed record ExternalLayerImportResult(
         bool Success,
@@ -28,5 +43,7 @@ namespace Land_Readjustment_Tool.Core.Models.Import
         int LayersCreated,
         int ObjectsCreated,
         string? ProjectSourceFile,
-        Envelope? BoundingBox);
+        Envelope? BoundingBox,
+        IReadOnlyList<string>? Warnings = null,
+        IReadOnlyList<Guid>? ImportedObjectIds = null);
 }

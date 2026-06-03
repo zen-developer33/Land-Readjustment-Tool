@@ -6,11 +6,16 @@ namespace Land_Readjustment_Tool.UI.MapCanvas
     {
         public CanvasPanel()
         {
-            // Enable double buffering
-            this.DoubleBuffered = true;
+            SetStyle(
+                ControlStyles.UserPaint |
+                ControlStyles.AllPaintingInWmPaint |
+                ControlStyles.OptimizedDoubleBuffer |
+                ControlStyles.ResizeRedraw,
+                true);
 
-            // Prevent background erase flicker
-            this.ResizeRedraw = true;
+            DoubleBuffered = true;
+            ResizeRedraw = true;
+            UpdateStyles();
         }
     }
 }

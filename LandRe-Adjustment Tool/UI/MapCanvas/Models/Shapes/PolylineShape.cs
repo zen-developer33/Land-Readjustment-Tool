@@ -269,9 +269,29 @@ namespace Land_Readjustment_Tool.UI.MapCanvas.Models.Shapes
                 yield break;
             }
 
-            foreach (PointD vertex in Vertices)
+            if (Segments.Count == 0)
             {
-                yield return new SnapPoint(SnapType.Endpoint, vertex, this);
+                foreach (PointD vertex in Vertices)
+                {
+                    yield return new SnapPoint(SnapType.Endpoint, vertex, this);
+                }
+            }
+            else
+            {
+                List<PointD> emittedEndpoints = new();
+                foreach (PolylineSegment segment in Segments)
+                {
+                    foreach (PointD endpoint in new[] { segment.Start, segment.End })
+                    {
+                        if (emittedEndpoints.Any(existing => Distance(existing, endpoint) <= 1e-9))
+                        {
+                            continue;
+                        }
+
+                        emittedEndpoints.Add(endpoint);
+                        yield return new SnapPoint(SnapType.Endpoint, endpoint, this);
+                    }
+                }
             }
 
             foreach (PolylineSegment segment in EnumerateEffectiveSegments())
@@ -279,7 +299,6 @@ namespace Land_Readjustment_Tool.UI.MapCanvas.Models.Shapes
                 if (segment.Kind == PolylineSegmentKind.Arc && segment.Arc != null)
                 {
                     yield return new SnapPoint(SnapType.Midpoint, segment.Arc.MidPoint, this);
-                    yield return new SnapPoint(SnapType.Center, segment.Arc.Center, this);
                     continue;
                 }
 
