@@ -138,7 +138,7 @@ namespace Land_Readjustment_Tool.UI.Forms.Definitions
             dgvBlocks.Font = new Font("Segoe UI", 9F);
             dgvBlocks.GridColor = SystemColors.ControlLight;
             dgvBlocks.Location = new Point(0, 42);
-            dgvBlocks.MultiSelect = false;
+            dgvBlocks.MultiSelect = true;
             dgvBlocks.Name = "dgvBlocks";
             dgvBlocks.RowHeadersVisible = false;
             dgvBlocks.RowHeadersWidth = 51;

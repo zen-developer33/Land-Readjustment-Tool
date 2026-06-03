@@ -242,6 +242,7 @@ namespace Land_Readjustment_Tool
             services.AddSingleton<IProjectBoundaryAssignmentService, ProjectBoundaryAssignmentService>();
             services.AddSingleton<ICadastralRecordAssignmentService, CadastralRecordAssignmentService>();
             services.AddSingleton<IRoadCenterlineAssignmentService, RoadCenterlineAssignmentService>();
+            services.AddSingleton<IBlockAssignmentService, BlockAssignmentService>();
             services.AddSingleton<RasterImportFileManagementService>();
             services.AddSingleton<IXyzTileSourceService, XyzTileSourceService>();
             services.AddSingleton<RasterLayerProjectionService>();

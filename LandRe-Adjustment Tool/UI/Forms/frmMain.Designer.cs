@@ -1251,7 +1251,7 @@ namespace Land_Readjustment_Tool
             cboLabelField.DropDownStyle = ComboBoxStyle.DropDownList;
             cboLabelField.FlatStyle = FlatStyle.Flat;
             cboLabelField.Font = new Font("Segoe UI", 9F);
-            cboLabelField.Items.AddRange(new object[] { "ParcelNo", "MapSheetNo", "MapSheetParcelNo", "OwnerName", "AreaSqm", "CalculatedAreaSqm", "AreaRAPD", "LandUse", "PlotNumber", "AssignmentStatus", "SourceLayer", "LabelText", "ObjectDescription" });
+            cboLabelField.Items.AddRange(new object[] { "ParcelNo", "MapSheetNo", "MapSheetParcelNo", "OwnerName", "AreaSqm", "CalculatedAreaSqm", "AreaRAPD", "LandUse", "PlotNumber", "AssignmentStatus", "RoadName", "RoadCode", "RoadStatus", "RoadType", "SurfaceType", "RoadWidth", "RightOfWayWidth", "RoadDescription", "BlockName", "BlockCode", "BlockLandUse", "BlockDepth", "BlockDepthGeometry", "BlockAreaSqm", "BlockAreaRAPD", "BlockAreaBKD", "BlockDescription", "SourceLayer", "LabelText", "ObjectDescription" });
             cboLabelField.Location = new Point(140, 150);
             cboLabelField.Name = "cboLabelField";
             cboLabelField.Size = new Size(0, 28);

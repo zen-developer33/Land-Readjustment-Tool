@@ -32,6 +32,8 @@ namespace Land_Readjustment_Tool.Repositories.Canvas
                 return await _dbSet
                     .AsNoTracking()
                     .Include(item => item.CanvasLayer)
+                    .Include(item => item.Road)
+                    .Include(item => item.Block)
                     .Include(item => item.BaselineParcel)
                         .ThenInclude(parcel => parcel!.LandOwner)
                     .Include(item => item.BaselineParcel)
@@ -53,6 +55,8 @@ namespace Land_Readjustment_Tool.Repositories.Canvas
                 return await _dbSet
                     .AsNoTracking()
                     .Include(item => item.CanvasLayer)
+                    .Include(item => item.Road)
+                    .Include(item => item.Block)
                     .Include(item => item.BaselineParcel)
                         .ThenInclude(parcel => parcel!.LandOwner)
                     .Include(item => item.BaselineParcel)
@@ -74,6 +78,8 @@ namespace Land_Readjustment_Tool.Repositories.Canvas
                 return await _dbSet
                     .AsNoTracking()
                     .Include(item => item.CanvasLayer)
+                    .Include(item => item.Road)
+                    .Include(item => item.Block)
                     .Include(item => item.BaselineParcel)
                         .ThenInclude(parcel => parcel!.LandOwner)
                     .Include(item => item.BaselineParcel)
@@ -97,6 +103,8 @@ namespace Land_Readjustment_Tool.Repositories.Canvas
                 return await _dbSet
                     .AsNoTracking()
                     .Include(item => item.CanvasLayer)
+                    .Include(item => item.Road)
+                    .Include(item => item.Block)
                     .Include(item => item.BaselineParcel)
                         .ThenInclude(parcel => parcel!.LandOwner)
                     .Include(item => item.BaselineParcel)
@@ -124,6 +132,8 @@ namespace Land_Readjustment_Tool.Repositories.Canvas
                 List<CanvasObject> candidates = await _dbSet
                     .AsNoTracking()
                     .Include(item => item.CanvasLayer)
+                    .Include(item => item.Road)
+                    .Include(item => item.Block)
                     .Include(item => item.BaselineParcel)
                         .ThenInclude(parcel => parcel!.LandOwner)
                     .Include(item => item.BaselineParcel)

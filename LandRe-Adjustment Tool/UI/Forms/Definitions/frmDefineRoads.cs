@@ -159,6 +159,22 @@ namespace Land_Readjustment_Tool.UI.Forms.Definitions
             return _bindingSource.Current as RoadDefinitionRow;
         }
 
+        private List<RoadDefinitionRow> SelectedRows()
+        {
+            List<RoadDefinitionRow> rows = dgvRoads.SelectedRows
+                .Cast<DataGridViewRow>()
+                .Select(row => row.DataBoundItem as RoadDefinitionRow)
+                .Where(row => row != null)
+                .Cast<RoadDefinitionRow>()
+                .Distinct()
+                .ToList();
+
+            if (rows.Count == 0 && SelectedRow() is RoadDefinitionRow current)
+                rows.Add(current);
+
+            return rows;
+        }
+
         private async Task AddRoadAsync()
         {
             RoadDefinitionRow row = new()
@@ -288,44 +304,79 @@ namespace Land_Readjustment_Tool.UI.Forms.Definitions
 
         private async Task DeleteRoadAsync()
         {
-            RoadDefinitionRow? row = SelectedRow();
-            if (row == null)
+            List<RoadDefinitionRow> selectedRows = SelectedRows();
+            if (selectedRows.Count == 0)
                 return;
 
-            if (row.Id == 0)
+            List<RoadDefinitionRow> savedRows = selectedRows
+                .Where(row => row.Id != 0)
+                .ToList();
+            if (savedRows.Count > 0)
             {
-                _rows.Remove(row);
-                ApplyFilter();
-                return;
-            }
+                AppDbContext context = AppServices.Context.Session.GetDbContext();
+                List<int> savedIds = savedRows.Select(row => row.Id).ToList();
+                HashSet<int> roadsWithFrontages = (await context.ParcelFrontages
+                        .AsNoTracking()
+                        .Where(item => savedIds.Contains(item.RoadId))
+                        .Select(item => item.RoadId)
+                        .Distinct()
+                        .ToListAsync())
+                    .ToHashSet();
+                HashSet<int> roadsWithAssignments = (await context.CanvasObjects
+                        .AsNoTracking()
+                        .Where(item => item.RoadId.HasValue && savedIds.Contains(item.RoadId.Value))
+                        .Select(item => item.RoadId!.Value)
+                        .Distinct()
+                        .ToListAsync())
+                    .ToHashSet();
 
-            AppDbContext context = AppServices.Context.Session.GetDbContext();
-            bool hasFrontages = await context.ParcelFrontages
-                .AsNoTracking()
-                .AnyAsync(item => item.RoadId == row.Id);
-            bool hasAssignments = await context.CanvasObjects
-                .AsNoTracking()
-                .AnyAsync(item => item.RoadId == row.Id);
+                List<RoadDefinitionRow> assignedRows = savedRows
+                    .Where(row =>
+                        row.AssignedCount > 0 ||
+                        roadsWithAssignments.Contains(row.Id) ||
+                        roadsWithFrontages.Contains(row.Id))
+                    .ToList();
+                if (assignedRows.Count > 0)
+                {
+                    string sample = string.Join(", ", assignedRows
+                        .Take(5)
+                        .Select(row => row.Code));
+                    string suffix = assignedRows.Count > 5 ? ", ..." : string.Empty;
+                    MessageBox.Show(
+                        this,
+                        $"Cannot delete {assignedRows.Count:N0} selected assigned road definition(s): {sample}{suffix}. Remove assignments before deleting.",
+                        "Define Roads",
+                        MessageBoxButtons.OK,
+                        MessageBoxIcon.Information);
+                    return;
+                }
 
-            if (hasAssignments || hasFrontages || row.AssignedCount > 0)
-            {
-                MessageBox.Show(this, "This road definition is already assigned. Remove assignments before deleting it.", "Define Roads", MessageBoxButtons.OK, MessageBoxIcon.Information);
-                return;
-            }
+                string message = selectedRows.Count == 1
+                    ? $"Delete road definition '{selectedRows[0].Code}'?"
+                    : $"Delete {selectedRows.Count:N0} selected road definition(s)?";
+                if (MessageBox.Show(this, message, "Define Roads", MessageBoxButtons.YesNo, MessageBoxIcon.Warning) != DialogResult.Yes)
+                    return;
 
-            if (MessageBox.Show(this, $"Delete road definition '{row.Code}'?", "Define Roads", MessageBoxButtons.YesNo, MessageBoxIcon.Warning) != DialogResult.Yes)
-                return;
+                List<Road> roads = await context.Roads
+                    .Where(road => savedIds.Contains(road.Id))
+                    .ToListAsync();
+                foreach (Road road in roads)
+                {
+                    DetachTrackedRoad(context, road.Id);
+                    context.Roads.Remove(road);
+                }
 
-            Road? road = await context.Roads.FindAsync(row.Id);
-            if (road != null)
-            {
-                DetachTrackedRoad(context, row.Id);
-                context.Roads.Remove(road);
                 await context.SaveChangesAsync();
                 AppServices.Context.MarkAsModified();
             }
+            else if (MessageBox.Show(this, $"Delete {selectedRows.Count:N0} selected unsaved road definition(s)?", "Define Roads", MessageBoxButtons.YesNo, MessageBoxIcon.Warning) != DialogResult.Yes)
+            {
+                return;
+            }
 
-            _rows.Remove(row);
+            foreach (RoadDefinitionRow row in selectedRows)
+                _rows.Remove(row);
+
             ApplyFilter();
         }
 

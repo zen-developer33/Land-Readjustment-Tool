@@ -63,6 +63,7 @@ namespace Land_Readjustment_Tool
         private readonly IProjectBoundaryAssignmentService _projectBoundaryAssignmentService;
         private readonly ICadastralRecordAssignmentService _cadastralRecordAssignmentService;
         private readonly IRoadCenterlineAssignmentService _roadCenterlineAssignmentService;
+        private readonly IBlockAssignmentService _blockAssignmentService;
         private readonly XyzTilePreDownloadService _xyzTilePreDownloadService;
         private readonly IHatchPatternService _hatchPatternService;
         private readonly ProjectOpenService _projectOpenService;
@@ -232,6 +233,8 @@ namespace Land_Readjustment_Tool
         private frmCadastralRecordAssignment? _cadastralRecordAssignmentForm;
         private bool _suppressRoadAssignmentCanvasSelectionChanged;
         private frmRoadCenterlineAssignment? _roadCenterlineAssignmentForm;
+        private bool _suppressBlockAssignmentCanvasSelectionChanged;
+        private frmBlockAssignment? _blockAssignmentForm;
         private CanvasLayer? _currentDrawingLayer;
         private MapCanvasTool _currentCanvasTool = MapCanvasTool.Select;
 
@@ -254,6 +257,8 @@ namespace Land_Readjustment_Tool
                 return Layer.Name;
             }
         }
+
+        private sealed record FeatureTransferTarget(CanvasLayer Layer, string GroupName);
 
         // Keeps designer/local fallback working without DI container.
         public frmMain(string? startupFilePath = null)
@@ -309,6 +314,7 @@ namespace Land_Readjustment_Tool
                 new ProjectBoundaryAssignmentService(projectScopedFactory),
                 new CadastralRecordAssignmentService(),
                 new RoadCenterlineAssignmentService(),
+                new BlockAssignmentService(),
                 new HatchPatternService(),
                 new ProjectOpenService(sessionFactory, projectScopedFactory),
                 new ProjectSaveAsService(backupService, sessionFactory),
@@ -335,6 +341,7 @@ namespace Land_Readjustment_Tool
             IProjectBoundaryAssignmentService projectBoundaryAssignmentService,
             ICadastralRecordAssignmentService cadastralRecordAssignmentService,
             IRoadCenterlineAssignmentService roadCenterlineAssignmentService,
+            IBlockAssignmentService blockAssignmentService,
             IHatchPatternService hatchPatternService,
             ProjectOpenService projectOpenService,
             ProjectSaveAsService projectSaveAsService,
@@ -358,6 +365,7 @@ namespace Land_Readjustment_Tool
             _projectBoundaryAssignmentService = projectBoundaryAssignmentService ?? throw new ArgumentNullException(nameof(projectBoundaryAssignmentService));
             _cadastralRecordAssignmentService = cadastralRecordAssignmentService ?? throw new ArgumentNullException(nameof(cadastralRecordAssignmentService));
             _roadCenterlineAssignmentService = roadCenterlineAssignmentService ?? throw new ArgumentNullException(nameof(roadCenterlineAssignmentService));
+            _blockAssignmentService = blockAssignmentService ?? throw new ArgumentNullException(nameof(blockAssignmentService));
             _xyzTilePreDownloadService = new XyzTilePreDownloadService();
             _hatchPatternService = hatchPatternService ?? throw new ArgumentNullException(nameof(hatchPatternService));
             _projectOpenService = projectOpenService ?? throw new ArgumentNullException(nameof(projectOpenService));
@@ -425,6 +433,7 @@ namespace Land_Readjustment_Tool
             roadDataToolStripMenuItem.Click += RoadDataToolStripMenuItem_Click!;
             toolStripMenuItem2.Click += RoadAssignmentToolStripMenuItem_Click!;
             blockDataToolStripMenuItem.Click += BlockDataToolStripMenuItem_Click!;
+            toolStripMenuItem1.Click += BlockAssignmentToolStripMenuItem_Click;
             mnuImportXyzTiles.Click += importXyzTilesToolStripMenuItem_Click!;
             mnuImportBlockLayoutPlan.Click += async (_, _) => await ShowImportBlockLayoutPlanWorkflowAsync();
             mnuImportExternalLayers.Click += async (_, _) => await ShowImportExternalLayersWorkflowAsync();
@@ -520,6 +529,8 @@ namespace Land_Readjustment_Tool
             originalScenarioSummaryToolStripMenuItem.Text = "Original Scenario Summary...";
             roadDataToolStripMenuItem.Text = "Roads...";
             blockDataToolStripMenuItem.Text = "Blocks...";
+            toolStripMenuItem2.Text = "Road Layout...";
+            toolStripMenuItem1.Text = "Block Layout...";
 
             ToolStripMenuItem dataQualityMenu = new("Data Quality")
             {
@@ -2391,7 +2402,7 @@ namespace Land_Readjustment_Tool
 
                 string autoStatus = autoDefinitionResult == null
                     ? string.Empty
-                    : $" Auto-defined {autoDefinitionResult.RoadsDefined} road(s), {autoDefinitionResult.BlocksDefined} block(s).";
+                    : $" Auto-defined {autoDefinitionResult.RoadsDefined} road(s), {autoDefinitionResult.BlocksDefined} block(s); assigned {autoDefinitionResult.RoadsAssigned} road object(s), {autoDefinitionResult.BlocksAssigned} block object(s).";
                 SetCanvasCommandStatus(
                     $"Imported {result.ObjectsCreated} block layout object(s) into {result.LayersCreated} layer(s).{autoStatus}");
 
@@ -3029,6 +3040,11 @@ namespace Land_Readjustment_Tool
             ShowRoadCenterlineAssignmentForm();
         }
 
+        private void BlockAssignmentToolStripMenuItem_Click(object? sender, EventArgs e)
+        {
+            ShowBlockAssignmentForm();
+        }
+
         private void ShowRoadCenterlineAssignmentForm(Guid? preferredCanvasObjectId = null)
         {
             if (!AppServices.HasContext)
@@ -3063,6 +3079,45 @@ namespace Land_Readjustment_Tool
             form.SelectedCanvasObjectChanged += PreviewRoadAssignmentCandidateOnCanvas;
             form.AssignmentCommitted += RoadCenterlineAssignmentForm_AssignmentCommitted;
             form.FormClosed += RoadCenterlineAssignmentForm_FormClosed;
+            PositionAssignmentFormAtCanvasTopLeft(form);
+            form.Show(this);
+            ActivateCanvasTool(MapCanvasTool.Select);
+        }
+
+        private void ShowBlockAssignmentForm(Guid? preferredCanvasObjectId = null)
+        {
+            if (!AppServices.HasContext)
+            {
+                MessageBox.Show(
+                    "Please open or create a project first.",
+                    "No Project Open",
+                    MessageBoxButtons.OK,
+                    MessageBoxIcon.Warning);
+                return;
+            }
+
+            if (_blockAssignmentForm is { IsDisposed: false })
+            {
+                PositionAssignmentFormAtCanvasTopLeft(_blockAssignmentForm);
+                _blockAssignmentForm.Show();
+                _blockAssignmentForm.BringToFront();
+                _blockAssignmentForm.Focus();
+                if (preferredCanvasObjectId.HasValue)
+                    _blockAssignmentForm.SelectCanvasObjectFromCanvas(
+                        preferredCanvasObjectId.Value,
+                        previewOnCanvas: true);
+                ActivateCanvasTool(MapCanvasTool.Select);
+                return;
+            }
+
+            frmBlockAssignment form = new(
+                AppServices.Context.Session,
+                _blockAssignmentService,
+                preferredCanvasObjectId);
+            _blockAssignmentForm = form;
+            form.SelectedCanvasObjectChanged += PreviewBlockAssignmentCandidateOnCanvas;
+            form.AssignmentCommitted += BlockAssignmentForm_AssignmentCommitted;
+            form.FormClosed += BlockAssignmentForm_FormClosed;
             PositionAssignmentFormAtCanvasTopLeft(form);
             form.Show(this);
             ActivateCanvasTool(MapCanvasTool.Select);
@@ -3162,6 +3217,41 @@ namespace Land_Readjustment_Tool
             SetCanvasCommandStatus("Road data assignment updated.");
         }
 
+        private async void BlockAssignmentForm_FormClosed(object? sender, FormClosedEventArgs e)
+        {
+            if (sender is not frmBlockAssignment form)
+            {
+                mapCanvasControlMain.ClearPreviewSelection();
+                return;
+            }
+
+            form.SelectedCanvasObjectChanged -= PreviewBlockAssignmentCandidateOnCanvas;
+            form.AssignmentCommitted -= BlockAssignmentForm_AssignmentCommitted;
+            form.FormClosed -= BlockAssignmentForm_FormClosed;
+            if (ReferenceEquals(_blockAssignmentForm, form))
+                _blockAssignmentForm = null;
+
+            mapCanvasControlMain.ClearPreviewSelection();
+
+            if (form.AssignmentChanged)
+            {
+                MarkProjectModifiedIfOpen();
+                await RefreshVectorCanvasFeaturesAsync();
+                await LoadSelectedParcelPropertiesAsync(_currentSelectedCanvasObjectIds);
+                mapCanvasControlMain.RequestRender();
+                SetCanvasCommandStatus("Block data assigned.");
+            }
+        }
+
+        private async void BlockAssignmentForm_AssignmentCommitted()
+        {
+            MarkProjectModifiedIfOpen();
+            await RefreshVectorCanvasFeaturesAsync();
+            await LoadSelectedParcelPropertiesAsync(_currentSelectedCanvasObjectIds);
+            mapCanvasControlMain.RequestRender();
+            SetCanvasCommandStatus("Block data assignment updated.");
+        }
+
         private void PreviewAssignmentCandidateOnCanvas(Guid? canvasObjectId, bool zoomToObject)
         {
             if (!canvasObjectId.HasValue)
@@ -3208,6 +3298,29 @@ namespace Land_Readjustment_Tool
             }
         }
 
+        private void PreviewBlockAssignmentCandidateOnCanvas(Guid? canvasObjectId, bool zoomToObject)
+        {
+            if (!canvasObjectId.HasValue)
+            {
+                mapCanvasControlMain.ClearPreviewSelection();
+                return;
+            }
+
+            _suppressBlockAssignmentCanvasSelectionChanged = true;
+            try
+            {
+                mapCanvasControlMain.PreviewSelectCanvasObject(
+                    canvasObjectId.Value,
+                    zoomToObject: false);
+                if (zoomToObject)
+                    mapCanvasControlMain.ZoomToCanvasObjects([canvasObjectId.Value]);
+            }
+            finally
+            {
+                _suppressBlockAssignmentCanvasSelectionChanged = false;
+            }
+        }
+
         private async void MapCanvasControlMain_SelectedCanvasObjectsChanged(IReadOnlyList<Guid> selectedObjectIds)
         {
             _currentSelectedCanvasObjectIds = selectedObjectIds.ToArray();
@@ -3235,6 +3348,13 @@ namespace Land_Readjustment_Tool
                     roadForm.SelectCanvasObjectFromCanvas(selectedObjectIds[0]);
                 }
 
+                if (!_suppressBlockAssignmentCanvasSelectionChanged &&
+                    _blockAssignmentForm is { IsDisposed: false } blockForm &&
+                    selectedObjectIds.Count > 0)
+                {
+                    blockForm.SelectCanvasObjectFromCanvas(selectedObjectIds[0]);
+                }
+
                 return;
             }
 
@@ -3244,6 +3364,12 @@ namespace Land_Readjustment_Tool
                 _roadCenterlineAssignmentForm is { IsDisposed: false } activeRoadForm)
             {
                 activeRoadForm.SelectCanvasObjectFromCanvas(selectedObjectIds[0]);
+            }
+
+            if (!_suppressBlockAssignmentCanvasSelectionChanged &&
+                _blockAssignmentForm is { IsDisposed: false } activeBlockForm)
+            {
+                activeBlockForm.SelectCanvasObjectFromCanvas(selectedObjectIds[0]);
             }
         }
 
@@ -3318,6 +3444,7 @@ namespace Land_Readjustment_Tool
 
                 await LoadFallbackBaselineParcelsForSelectionAsync(context, selectedObjects);
                 await LoadFallbackRoadsForSelectionAsync(context, selectedObjects);
+                await LoadFallbackBlocksForSelectionAsync(context, selectedObjects);
 
                 List<CanvasObject> orderedSelectedObjects = selectedIds
                     .Select(id => selectedObjects.FirstOrDefault(item => item.Id == id))
@@ -3501,6 +3628,34 @@ namespace Land_Readjustment_Tool
                     roadsById.TryGetValue(canvasObject.RoadId.Value, out Core.Entities.Layout.Road? road))
                 {
                     canvasObject.Road = road;
+                }
+            }
+        }
+
+        private static async Task LoadFallbackBlocksForSelectionAsync(
+            AppDbContext context,
+            IReadOnlyList<CanvasObject> selectedObjects)
+        {
+            List<int> blockIds = selectedObjects
+                .Where(item => item.Block == null && item.BlockId.HasValue)
+                .Select(item => item.BlockId!.Value)
+                .Distinct()
+                .ToList();
+            if (blockIds.Count == 0)
+                return;
+
+            Dictionary<int, Core.Entities.Layout.Block> blocksById = await context.Blocks
+                .AsNoTracking()
+                .Where(block => blockIds.Contains(block.Id))
+                .ToDictionaryAsync(block => block.Id);
+
+            foreach (CanvasObject canvasObject in selectedObjects)
+            {
+                if (canvasObject.Block == null &&
+                    canvasObject.BlockId.HasValue &&
+                    blocksById.TryGetValue(canvasObject.BlockId.Value, out Core.Entities.Layout.Block? block))
+                {
+                    canvasObject.Block = block;
                 }
             }
         }
@@ -5123,10 +5278,19 @@ namespace Land_Readjustment_Tool
 
         private static string GetAssignmentValue(CanvasObject canvasObject, CadastralCanvasMetadata? metadata)
         {
-            return metadata?.AssignmentStatus
-                ?? (canvasObject.BaselineParcelId.HasValue || canvasObject.BaselineParcel != null
-                    ? "Assigned"
-                    : "Unassigned");
+            if (!string.IsNullOrWhiteSpace(metadata?.AssignmentStatus))
+                return metadata.AssignmentStatus;
+
+            return canvasObject.BaselineParcelId.HasValue ||
+                   canvasObject.BaselineParcel != null ||
+                   canvasObject.RoadId.HasValue ||
+                   canvasObject.Road != null ||
+                   canvasObject.BlockId.HasValue ||
+                   canvasObject.Block != null ||
+                   canvasObject.ReplottedParcelId.HasValue ||
+                   canvasObject.ReplottedParcel != null
+                ? "Assigned"
+                : "Unassigned";
         }
 
         private void ShowNoParcelSelection()
@@ -8763,17 +8927,10 @@ namespace Land_Readjustment_Tool
             bool canTransfer = CanTransferObjectsFromLayer(sourceNode, sourceLayer);
             if (canTransfer)
             {
-                foreach (CanvasLayer targetLayer in GetDefaultTransferTargetLayers(sourceNode, sourceLayer))
-                {
-                    ToolStripMenuItem targetItem = new(targetLayer.Name)
-                    {
-                        Tag = targetLayer
-                    };
-                    targetItem.Click += async (_, _) =>
-                        await CreateFeaturesFromLayerAsync(sourceLayer, targetLayer);
-
-                    _mnuCreateFeaturesFromLayer.DropDownItems.Add(targetItem);
-                }
+                AddFeatureTargetMenuItems(
+                    _mnuCreateFeaturesFromLayer.DropDownItems,
+                    GetDefaultTransferTargetLayers(sourceNode, sourceLayer),
+                    targetLayer => CreateFeaturesFromLayerAsync(sourceLayer, targetLayer));
             }
 
             if (canTransfer && _mnuCreateFeaturesFromLayer.DropDownItems.Count == 0)
@@ -8808,7 +8965,38 @@ namespace Land_Readjustment_Tool
                     CanvasLayerTreeService.IsExternalImportedLayer(sourceLayer));
         }
 
-        private IEnumerable<CanvasLayer> GetDefaultTransferTargetLayers(
+        private void AddFeatureTargetMenuItems(
+            ToolStripItemCollection menuItems,
+            IEnumerable<FeatureTransferTarget> targets,
+            Func<CanvasLayer, Task> onTargetClick)
+        {
+            string? currentGroup = null;
+            foreach (FeatureTransferTarget target in targets)
+            {
+                if (!string.Equals(currentGroup, target.GroupName, StringComparison.OrdinalIgnoreCase))
+                {
+                    if (menuItems.Count > 0)
+                        menuItems.Add(new ToolStripSeparator());
+
+                    ToolStripMenuItem groupHeader = new(target.GroupName)
+                    {
+                        Enabled = false,
+                        Font = new Font(_layerContextMenu.Font, FontStyle.Bold)
+                    };
+                    menuItems.Add(groupHeader);
+                    currentGroup = target.GroupName;
+                }
+
+                ToolStripMenuItem targetItem = new(target.Layer.Name)
+                {
+                    Tag = target.Layer
+                };
+                targetItem.Click += async (_, _) => await onTargetClick(target.Layer);
+                menuItems.Add(targetItem);
+            }
+        }
+
+        private IEnumerable<FeatureTransferTarget> GetDefaultTransferTargetLayers(
             TreeNode? sourceNode,
             CanvasLayer sourceLayer)
         {
@@ -8816,13 +9004,13 @@ namespace Land_Readjustment_Tool
                 yield break;
 
             HashSet<int> yieldedLayerIds = [];
-            foreach (CanvasLayer targetLayer in GetDefaultFeatureTargetLayers())
+            foreach (FeatureTransferTarget target in GetDefaultFeatureTargetLayers())
             {
-                if (targetLayer.Id != sourceLayer.Id &&
-                    AreLayerTypesTransferCompatible(sourceLayer, targetLayer) &&
-                    yieldedLayerIds.Add(targetLayer.Id))
+                if (target.Layer.Id != sourceLayer.Id &&
+                    AreLayerTypesTransferCompatible(sourceLayer, target.Layer) &&
+                    yieldedLayerIds.Add(target.Layer.Id))
                 {
-                    yield return targetLayer;
+                    yield return target;
                 }
             }
 
@@ -8833,42 +9021,80 @@ namespace Land_Readjustment_Tool
             if (!sourceIsExternal)
                 yield break;
 
-            foreach (CanvasLayer targetLayer in GetDrawingMarkupLayersFromTree())
+            foreach (FeatureTransferTarget target in GetDrawingMarkupLayerTransferTargets())
             {
-                if (targetLayer.Id != sourceLayer.Id &&
-                    !targetLayer.IsLocked &&
-                    AreLayerTypesTransferCompatible(sourceLayer, targetLayer) &&
-                    yieldedLayerIds.Add(targetLayer.Id))
+                if (target.Layer.Id != sourceLayer.Id &&
+                    !target.Layer.IsLocked &&
+                    AreLayerTypesTransferCompatible(sourceLayer, target.Layer) &&
+                    yieldedLayerIds.Add(target.Layer.Id))
                 {
-                    yield return targetLayer;
+                    yield return target;
                 }
             }
         }
 
-        private IEnumerable<CanvasLayer> GetDefaultFeatureTargetLayers()
+        private IEnumerable<FeatureTransferTarget> GetDefaultFeatureTargetLayers()
         {
-            TreeNode? root = treeViewLayers.Nodes
-                .Cast<TreeNode>()
-                .FirstOrDefault(node => string.Equals(
-                    node.Name,
-                    $"{LayerGroupNodeNamePrefix}{RePlotRootNodeKey}",
-                    StringComparison.OrdinalIgnoreCase));
-
-            if (root == null)
-                yield break;
-
-            foreach (TreeNode layerNode in EnumerateLayerNodes(root))
+            foreach (TreeNode root in treeViewLayers.Nodes.Cast<TreeNode>())
             {
-                CanvasLayer? targetLayer = GetLayerFromNode(layerNode);
-                if (targetLayer == null ||
-                    IsRasterLayer(targetLayer) ||
-                    !IsTransferTargetLayer(layerNode, targetLayer))
+                foreach (TreeNode layerNode in EnumerateLayerNodes(root))
+                {
+                    CanvasLayer? targetLayer = GetLayerFromNode(layerNode);
+                    if (targetLayer == null ||
+                        IsRasterLayer(targetLayer) ||
+                        !IsTransferTargetLayer(layerNode, targetLayer))
+                    {
+                        continue;
+                    }
+
+                    yield return new FeatureTransferTarget(
+                        targetLayer,
+                        GetFeatureTargetGroupName(layerNode));
+                }
+            }
+        }
+
+        private IEnumerable<FeatureTransferTarget> GetDrawingMarkupLayerTransferTargets()
+        {
+            foreach (TreeNode root in treeViewLayers.Nodes.Cast<TreeNode>())
+            {
+                foreach (TreeNode groupNode in EnumerateGroupNodes(root, DrawingMarkupGroupKey))
+                {
+                    foreach (TreeNode layerNode in EnumerateLayerNodes(groupNode))
+                    {
+                        CanvasLayer? targetLayer = GetLayerFromNode(layerNode);
+                        if (targetLayer == null ||
+                            targetLayer.IsLocked ||
+                            IsRasterLayer(targetLayer) ||
+                            !CanvasLayerTreeService.IsDrawingMarkupLayer(targetLayer))
+                        {
+                            continue;
+                        }
+
+                        yield return new FeatureTransferTarget(
+                            targetLayer,
+                            GetFeatureTargetGroupName(layerNode));
+                    }
+                }
+            }
+        }
+
+        private static string GetFeatureTargetGroupName(TreeNode layerNode)
+        {
+            for (TreeNode? current = layerNode.Parent; current != null; current = current.Parent)
+            {
+                if (current.Tag is not LayerTreeNodeState state ||
+                    state.IsLayerNode ||
+                    string.IsNullOrWhiteSpace(state.GroupKey) ||
+                    string.Equals(state.GroupKey, RePlotRootNodeKey, StringComparison.OrdinalIgnoreCase))
                 {
                     continue;
                 }
 
-                yield return targetLayer;
+                return current.Text;
             }
+
+            return "Layers";
         }
 
         private static bool IsTransferTargetLayer(TreeNode layerNode, CanvasLayer targetLayer)
@@ -8880,38 +9106,64 @@ namespace Land_Readjustment_Tool
                     !string.Equals(groupKey, DrawingMarkupGroupKey, StringComparison.OrdinalIgnoreCase));
         }
 
-        private static bool AreLayerTypesTransferCompatible(CanvasLayer sourceLayer, CanvasLayer targetLayer)
+        private enum FeatureTransferGeometryKind
         {
-            string sourceKind = NormalizeTransferLayerKind(sourceLayer);
-            string targetKind = NormalizeTransferLayerKind(targetLayer);
-
-            if (string.Equals(sourceKind, targetKind, StringComparison.OrdinalIgnoreCase))
-                return true;
-
-            if (string.Equals(sourceKind, "Polyline", StringComparison.OrdinalIgnoreCase))
-            {
-                return string.Equals(targetKind, "Polyline", StringComparison.OrdinalIgnoreCase) ||
-                       string.Equals(targetKind, "Polygon", StringComparison.OrdinalIgnoreCase);
-            }
-
-            return false;
+            None,
+            Point,
+            LinearOrPolygon,
+            Annotation
         }
 
-        private static string NormalizeTransferLayerKind(CanvasLayer layer)
+        private static bool AreLayerTypesTransferCompatible(CanvasLayer sourceLayer, CanvasLayer targetLayer)
         {
+            return AreTransferGeometryKindsCompatible(
+                GetTransferGeometryKind(sourceLayer),
+                GetTransferGeometryKind(targetLayer));
+        }
+
+        private static bool AreTransferGeometryKindsCompatible(
+            FeatureTransferGeometryKind sourceKind,
+            FeatureTransferGeometryKind targetKind)
+        {
+            return sourceKind != FeatureTransferGeometryKind.None &&
+                   sourceKind == targetKind;
+        }
+
+        private static FeatureTransferGeometryKind GetTransferGeometryKind(CanvasLayer layer)
+        {
+            if (IsRasterLayer(layer))
+                return FeatureTransferGeometryKind.None;
+
             if (CanvasLayerTreeService.IsAnnotationLayer(layer))
-                return "Annotation";
+                return FeatureTransferGeometryKind.Annotation;
 
             if (CanvasLayerTreeService.IsPointLayer(layer))
-                return "Point";
+                return FeatureTransferGeometryKind.Point;
 
-            if (CanvasLayerTreeService.IsLineLayer(layer))
-                return "Polyline";
+            if (IsPolylineTransferTargetLayer(layer) ||
+                IsPolygonTransferTargetLayer(layer))
+            {
+                return FeatureTransferGeometryKind.LinearOrPolygon;
+            }
 
-            if (IsRasterLayer(layer))
-                return "Raster";
+            return FeatureTransferGeometryKind.None;
+        }
 
-            return "Polygon";
+        private static FeatureTransferGeometryKind GetTransferGeometryKind(CanvasObject canvasObject)
+        {
+            if (string.Equals(canvasObject.ObjectType, "Text", StringComparison.OrdinalIgnoreCase))
+                return FeatureTransferGeometryKind.Annotation;
+
+            return canvasObject.Shape.OgcGeometryType switch
+            {
+                NetTopologySuite.Geometries.OgcGeometryType.Point or
+                NetTopologySuite.Geometries.OgcGeometryType.MultiPoint => FeatureTransferGeometryKind.Point,
+                NetTopologySuite.Geometries.OgcGeometryType.LineString or
+                NetTopologySuite.Geometries.OgcGeometryType.MultiLineString or
+                NetTopologySuite.Geometries.OgcGeometryType.Polygon or
+                NetTopologySuite.Geometries.OgcGeometryType.MultiPolygon => FeatureTransferGeometryKind.LinearOrPolygon,
+                _ => FeatureTransferGeometryKind.None
+            };
         }
 
         private async Task CreateFeaturesFromLayerAsync(
@@ -9434,10 +9686,12 @@ namespace Land_Readjustment_Tool
                     IsClosedPolylineCanvasObject(sourceObject);
             }
 
-            if (CanvasLayerTreeService.IsLineLayer(targetLayer))
+            if (IsPolylineTransferTargetLayer(targetLayer))
             {
                 return geometryType is NetTopologySuite.Geometries.OgcGeometryType.LineString
-                    or NetTopologySuite.Geometries.OgcGeometryType.MultiLineString;
+                    or NetTopologySuite.Geometries.OgcGeometryType.MultiLineString
+                    or NetTopologySuite.Geometries.OgcGeometryType.Polygon
+                    or NetTopologySuite.Geometries.OgcGeometryType.MultiPolygon;
             }
 
             if (CanvasLayerTreeService.IsPointLayer(targetLayer))
@@ -9569,7 +9823,32 @@ namespace Land_Readjustment_Tool
                 return polygonGeometry!;
             }
 
+            if (IsPolylineTransferTargetLayer(targetLayer) &&
+                TryCreatePolylineGeometryFromPolygon(source, out NetTopologySuite.Geometries.Geometry? polylineGeometry))
+            {
+                return polylineGeometry!;
+            }
+
             return source.Shape.Copy();
+        }
+
+        private static bool TryCreatePolylineGeometryFromPolygon(
+            CanvasObject source,
+            out NetTopologySuite.Geometries.Geometry? polylineGeometry)
+        {
+            polylineGeometry = null;
+            if (source.Shape.OgcGeometryType is not NetTopologySuite.Geometries.OgcGeometryType.Polygon &&
+                source.Shape.OgcGeometryType is not NetTopologySuite.Geometries.OgcGeometryType.MultiPolygon)
+            {
+                return false;
+            }
+
+            NetTopologySuite.Geometries.Geometry boundary = source.Shape.Boundary;
+            if (boundary.IsEmpty)
+                return false;
+
+            polylineGeometry = boundary.Copy();
+            return true;
         }
 
         private static bool TryCreatePolygonGeometryFromClosedPolyline(
@@ -9692,12 +9971,9 @@ namespace Land_Readjustment_Tool
                 return "Polygon";
             }
 
-            if (CanvasLayerTreeService.IsLineLayer(targetLayer))
+            if (IsPolylineTransferTargetLayer(targetLayer))
             {
-                return source.Shape.OgcGeometryType == NetTopologySuite.Geometries.OgcGeometryType.LineString ||
-                       source.Shape.OgcGeometryType == NetTopologySuite.Geometries.OgcGeometryType.MultiLineString
-                    ? "Polyline"
-                    : source.ObjectType;
+                return "Polyline";
             }
 
             if (CanvasLayerTreeService.IsPointLayer(targetLayer))
@@ -9732,6 +10008,13 @@ namespace Land_Readjustment_Tool
                    string.Equals(layer.LayerType, "PublicFacility", StringComparison.OrdinalIgnoreCase) ||
                    string.Equals(layer.LayerType, "OpenSpace", StringComparison.OrdinalIgnoreCase) ||
                    string.Equals(layer.LayerType, "ServiceSalesPlot", StringComparison.OrdinalIgnoreCase);
+        }
+
+        private static bool IsPolylineTransferTargetLayer(CanvasLayer layer)
+        {
+            return string.Equals(layer.LayerType, CanvasLayerTreeService.LineLayerType, StringComparison.OrdinalIgnoreCase) ||
+                   string.Equals(layer.LayerType, CanvasLayerTreeService.PolylineLayerType, StringComparison.OrdinalIgnoreCase) ||
+                   string.Equals(layer.LayerType, CanvasLayerTreeService.RoadCenterlineLayerType, StringComparison.OrdinalIgnoreCase);
         }
 
         private static string? CreateTransferredGeometryMetadataJson(
@@ -11993,7 +12276,7 @@ namespace Land_Readjustment_Tool
                     ShowRoadCenterlineAssignmentForm(preferredCanvasObjectId);
                     break;
                 case CanvasObjectAssignmentKind.Block:
-                    ShowAssignmentFormPendingMessage("Assign Block Data");
+                    ShowBlockAssignmentForm(preferredCanvasObjectId);
                     break;
             }
         }
@@ -12014,7 +12297,7 @@ namespace Land_Readjustment_Tool
         {
             e.MenuItem.DropDownItems.Clear();
 
-            IReadOnlyList<CanvasLayer> targetLayers =
+            IReadOnlyList<FeatureTransferTarget> targetLayers =
                 GetDefaultTransferTargetLayersForSelectedDrawingObjects(e.SelectedObjectIds);
             if (targetLayers.Count == 0)
             {
@@ -12025,39 +12308,55 @@ namespace Land_Readjustment_Tool
                 return;
             }
 
-            foreach (CanvasLayer targetLayer in targetLayers)
-            {
-                ToolStripMenuItem targetItem = new(targetLayer.Name)
-                {
-                    Tag = targetLayer
-                };
-                targetItem.Click += async (_, _) =>
-                    await CreateFeaturesFromSelectedObjectsAsync(e.SelectedObjectIds, targetLayer);
-                e.MenuItem.DropDownItems.Add(targetItem);
-            }
+            AddFeatureTargetMenuItems(
+                e.MenuItem.DropDownItems,
+                targetLayers,
+                targetLayer => CreateFeaturesFromSelectedObjectsAsync(e.SelectedObjectIds, targetLayer));
         }
 
-        private IReadOnlyList<CanvasLayer> GetDefaultTransferTargetLayersForSelectedDrawingObjects(
+        private IReadOnlyList<FeatureTransferTarget> GetDefaultTransferTargetLayersForSelectedDrawingObjects(
             IReadOnlyList<Guid> selectedObjectIds)
         {
             HashSet<Guid> selectedIds = selectedObjectIds
                 .Where(id => id != Guid.Empty)
                 .ToHashSet();
-            List<CanvasLayer> sourceLayers = _currentPropertyGridObjects
+            List<CanvasObject> sourceObjects = _currentPropertyGridObjects
                 .Where(item => selectedIds.Contains(item.Id) &&
                                item.CanvasLayer != null &&
                                (CanvasLayerTreeService.IsDrawingMarkupLayer(item.CanvasLayer) ||
                                 CanvasLayerTreeService.IsExternalImportedLayer(item.CanvasLayer)))
+                .ToList();
+            List<CanvasLayer> sourceLayers = sourceObjects
                 .Select(item => item.CanvasLayer!)
                 .GroupBy(layer => layer.Id)
                 .Select(group => group.First())
                 .ToList();
+            List<FeatureTransferGeometryKind> sourceKinds = sourceObjects
+                .Select(GetTransferGeometryKind)
+                .Where(kind => kind != FeatureTransferGeometryKind.None)
+                .Distinct()
+                .ToList();
+            if (sourceObjects.Count == 0 || sourceKinds.Count == 0)
+                return [];
 
-            IEnumerable<CanvasLayer> targets = GetDefaultFeatureTargetLayers();
-            if (sourceLayers.Count > 0)
+            IEnumerable<FeatureTransferTarget> targets = GetDefaultFeatureTargetLayers();
+            targets = targets.Where(target =>
+                sourceKinds.Any(sourceKind => AreTransferGeometryKindsCompatible(
+                    sourceKind,
+                    GetTransferGeometryKind(target.Layer))));
+
+            if (sourceLayers.Any(CanvasLayerTreeService.IsExternalImportedLayer))
             {
-                targets = targets.Where(target =>
-                    sourceLayers.Any(source => AreLayerTypesTransferCompatible(source, target)));
+                HashSet<int> yieldedIds = targets
+                    .Select(target => target.Layer.Id)
+                    .ToHashSet();
+
+                targets = targets.Concat(GetDrawingMarkupLayerTransferTargets()
+                    .Where(target =>
+                        yieldedIds.Add(target.Layer.Id) &&
+                        sourceKinds.Any(sourceKind => AreTransferGeometryKindsCompatible(
+                            sourceKind,
+                            GetTransferGeometryKind(target.Layer)))));
             }
 
             return targets.ToList();

@@ -30,7 +30,6 @@ namespace Land_Readjustment_Tool.UI.Dialogs
 
         private void InitializeComponent()
         {
-            components = new System.ComponentModel.Container();
             mainLayout = new TableLayoutPanel();
             lblFileCaption = new Label();
             lblFormatCaption = new Label();
@@ -84,7 +83,6 @@ namespace Land_Readjustment_Tool.UI.Dialogs
             mainLayout.RowStyles.Add(new RowStyle(SizeType.Absolute, 48F));
             mainLayout.Size = new Size(560, 440);
             mainLayout.TabIndex = 0;
-            mainLayout.SetRowSpan(lstLayers, 2);
             // 
             // lblFileCaption
             // 
@@ -119,7 +117,7 @@ namespace Land_Readjustment_Tool.UI.Dialogs
             // lblSourceCrsCaption
             // 
             lblSourceCrsCaption.Dock = DockStyle.Fill;
-            lblSourceCrsCaption.Location = new Point(17, 308);
+            lblSourceCrsCaption.Location = new Point(17, 272);
             lblSourceCrsCaption.Name = "lblSourceCrsCaption";
             lblSourceCrsCaption.Size = new Size(126, 36);
             lblSourceCrsCaption.TabIndex = 3;
@@ -129,9 +127,9 @@ namespace Land_Readjustment_Tool.UI.Dialogs
             // lblProjectCrsCaption
             // 
             lblProjectCrsCaption.Dock = DockStyle.Fill;
-            lblProjectCrsCaption.Location = new Point(17, 344);
+            lblProjectCrsCaption.Location = new Point(149, 308);
             lblProjectCrsCaption.Name = "lblProjectCrsCaption";
-            lblProjectCrsCaption.Size = new Size(126, 36);
+            lblProjectCrsCaption.Size = new Size(394, 36);
             lblProjectCrsCaption.TabIndex = 4;
             lblProjectCrsCaption.Text = "Project CRS";
             lblProjectCrsCaption.TextAlign = ContentAlignment.MiddleLeft;
@@ -160,10 +158,10 @@ namespace Land_Readjustment_Tool.UI.Dialogs
             // 
             lstLayers.Dock = DockStyle.Fill;
             lstLayers.FormattingEnabled = true;
-            lstLayers.ItemHeight = 20;
             lstLayers.Location = new Point(149, 81);
             lstLayers.Name = "lstLayers";
-            lstLayers.Size = new Size(394, 224);
+            mainLayout.SetRowSpan(lstLayers, 2);
+            lstLayers.Size = new Size(394, 188);
             lstLayers.TabIndex = 7;
             // 
             // cmbSourceCrs
@@ -171,15 +169,15 @@ namespace Land_Readjustment_Tool.UI.Dialogs
             cmbSourceCrs.Dock = DockStyle.Fill;
             cmbSourceCrs.DropDownStyle = ComboBoxStyle.DropDownList;
             cmbSourceCrs.FormattingEnabled = true;
-            cmbSourceCrs.Location = new Point(149, 311);
+            cmbSourceCrs.Location = new Point(17, 311);
             cmbSourceCrs.Name = "cmbSourceCrs";
-            cmbSourceCrs.Size = new Size(394, 28);
+            cmbSourceCrs.Size = new Size(126, 28);
             cmbSourceCrs.TabIndex = 8;
             // 
             // lblSourceCrsValue
             // 
             lblSourceCrsValue.Dock = DockStyle.Fill;
-            lblSourceCrsValue.Location = new Point(149, 308);
+            lblSourceCrsValue.Location = new Point(149, 272);
             lblSourceCrsValue.Name = "lblSourceCrsValue";
             lblSourceCrsValue.Size = new Size(394, 36);
             lblSourceCrsValue.TabIndex = 9;
@@ -190,9 +188,9 @@ namespace Land_Readjustment_Tool.UI.Dialogs
             // 
             lblProjectCrsValue.AutoEllipsis = true;
             lblProjectCrsValue.Dock = DockStyle.Fill;
-            lblProjectCrsValue.Location = new Point(149, 344);
+            lblProjectCrsValue.Location = new Point(17, 344);
             lblProjectCrsValue.Name = "lblProjectCrsValue";
-            lblProjectCrsValue.Size = new Size(394, 36);
+            lblProjectCrsValue.Size = new Size(126, 34);
             lblProjectCrsValue.TabIndex = 10;
             lblProjectCrsValue.TextAlign = ContentAlignment.MiddleLeft;
             lblProjectCrsValue.UseMnemonic = false;
@@ -201,7 +199,7 @@ namespace Land_Readjustment_Tool.UI.Dialogs
             // 
             lblStatus.Dock = DockStyle.Fill;
             lblStatus.ForeColor = Color.DimGray;
-            lblStatus.Location = new Point(149, 380);
+            lblStatus.Location = new Point(149, 344);
             lblStatus.Name = "lblStatus";
             lblStatus.Size = new Size(394, 34);
             lblStatus.TabIndex = 11;
@@ -214,9 +212,9 @@ namespace Land_Readjustment_Tool.UI.Dialogs
             buttonPanel.Controls.Add(btnCancel);
             buttonPanel.Dock = DockStyle.Fill;
             buttonPanel.FlowDirection = FlowDirection.RightToLeft;
-            buttonPanel.Location = new Point(149, 417);
+            buttonPanel.Location = new Point(149, 381);
             buttonPanel.Name = "buttonPanel";
-            buttonPanel.Size = new Size(394, 6);
+            buttonPanel.Size = new Size(394, 42);
             buttonPanel.TabIndex = 12;
             // 
             // btnImport

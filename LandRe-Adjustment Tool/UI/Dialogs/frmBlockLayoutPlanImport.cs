@@ -3,27 +3,27 @@ using Land_Readjustment_Tool.Core.Models.Import;
 
 namespace Land_Readjustment_Tool.UI.Dialogs
 {
-    public sealed class frmBlockLayoutPlanImport : Form
+    public sealed partial class frmBlockLayoutPlanImport : Form
     {
         private readonly ExternalLayerFileInfo _fileInfo;
         private readonly string _fallbackSourceCrsDefinition;
         private readonly string _projectCrsLabel;
         private readonly IReadOnlyList<CrsChoice> _sourceCrsChoices;
-        private readonly DataGridView _grid = new();
-        private readonly Label _lblSummary = new();
-        private readonly Label _lblSelection = new();
-        private readonly ComboBox _cmbSourceCrs = new();
-        private readonly ComboBox _cmbBlockLabelLayer = new();
-        private readonly Label _lblSourceCrsValue = new();
-        private readonly Label _lblProjectCrsValue = new();
-        private readonly Button _btnImport = new();
-        private readonly Button _btnCancel = new();
         private CheckState _includeHeaderState = CheckState.Checked;
 
         private const string IncludeColumn = "Include";
         private const string LayerColumn = "Layer";
         private const string TypesColumn = "Types";
         private const string TargetColumn = "Target";
+
+        public frmBlockLayoutPlanImport()
+            : this(
+                CreateDesignerFileInfo(),
+                string.Empty,
+                "Project CRS",
+                Array.Empty<CrsChoice>())
+        {
+        }
 
         public frmBlockLayoutPlanImport(
             ExternalLayerFileInfo fileInfo,
@@ -36,11 +36,27 @@ namespace Land_Readjustment_Tool.UI.Dialogs
             _projectCrsLabel = projectCrsLabel ?? string.Empty;
             _sourceCrsChoices = sourceCrsChoices ?? [];
 
-            InitializeForm();
+            InitializeComponent();
             PopulateGrid();
             PopulateBlockLabelLayerChoices();
             ConfigureCrsControls();
             UpdateImportState();
+        }
+
+        private static ExternalLayerFileInfo CreateDesignerFileInfo()
+        {
+            return new ExternalLayerFileInfo(
+                "Block Layout Plan.dwg",
+                "DWG",
+                new List<ExternalLayerInfo>
+                {
+                    new("Blocks", 12, "Polygon: 12"),
+                    new("Road Parcel", 5, "Polygon: 5"),
+                    new("Road Centerline", 8, "Polyline: 8"),
+                    new("Block Labels", 12, "Text: 12")
+                },
+                null,
+                RequiresCrsFromUser: false);
         }
 
         public ExternalLayerImportOptions ImportOptions =>
@@ -55,206 +71,6 @@ namespace Land_Readjustment_Tool.UI.Dialogs
             _cmbBlockLabelLayer.SelectedItem is LabelLayerChoice choice && !string.IsNullOrWhiteSpace(choice.LayerName)
                 ? choice.LayerName
                 : null;
-
-        private void InitializeForm()
-        {
-            Text = "Import Block Layout Plan";
-            StartPosition = FormStartPosition.CenterParent;
-            FormBorderStyle = FormBorderStyle.FixedDialog;
-            MaximizeBox = false;
-            MinimizeBox = false;
-            ShowInTaskbar = false;
-            ClientSize = new Size(720, 430);
-
-            TableLayoutPanel root = new()
-            {
-                Dock = DockStyle.Fill,
-                ColumnCount = 1,
-                RowCount = 5,
-                Padding = new Padding(12)
-            };
-            root.RowStyles.Add(new RowStyle(SizeType.Absolute, 32));
-            root.RowStyles.Add(new RowStyle(SizeType.Absolute, 60));
-            root.RowStyles.Add(new RowStyle(SizeType.Absolute, 34));
-            root.RowStyles.Add(new RowStyle(SizeType.Percent, 100));
-            root.RowStyles.Add(new RowStyle(SizeType.Absolute, 44));
-
-            _lblSummary.Dock = DockStyle.Fill;
-            _lblSummary.ForeColor = SystemColors.GrayText;
-            _lblSummary.AutoEllipsis = true;
-            _lblSummary.TextAlign = ContentAlignment.MiddleLeft;
-            _lblSummary.Text =
-                $"{Path.GetFileName(_fileInfo.FilePath)}  |  {_fileInfo.FileFormat}  |  {_fileInfo.Layers.Count} source layer(s)";
-
-            TableLayoutPanel crsLayout = new()
-            {
-                Dock = DockStyle.Fill,
-                ColumnCount = 2,
-                RowCount = 2,
-                Margin = new Padding(0, 0, 0, 8)
-            };
-            crsLayout.ColumnStyles.Add(new ColumnStyle(SizeType.Absolute, 92));
-            crsLayout.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 100));
-            crsLayout.RowStyles.Add(new RowStyle(SizeType.Absolute, 32));
-            crsLayout.RowStyles.Add(new RowStyle(SizeType.Absolute, 32));
-
-            Label sourceCrsCaption = CreateCaption("Source CRS");
-            Label projectCrsCaption = CreateCaption("Project CRS");
-
-            _cmbSourceCrs.Dock = DockStyle.Fill;
-            _cmbSourceCrs.DropDownStyle = ComboBoxStyle.DropDownList;
-
-            _lblSourceCrsValue.Dock = DockStyle.Fill;
-            _lblSourceCrsValue.TextAlign = ContentAlignment.MiddleLeft;
-            _lblSourceCrsValue.AutoEllipsis = true;
-
-            _lblProjectCrsValue.Dock = DockStyle.Fill;
-            _lblProjectCrsValue.TextAlign = ContentAlignment.MiddleLeft;
-            _lblProjectCrsValue.AutoEllipsis = true;
-            _lblProjectCrsValue.ForeColor = SystemColors.GrayText;
-
-            crsLayout.Controls.Add(sourceCrsCaption, 0, 0);
-            crsLayout.Controls.Add(_cmbSourceCrs, 1, 0);
-            crsLayout.Controls.Add(_lblSourceCrsValue, 1, 0);
-            crsLayout.Controls.Add(projectCrsCaption, 0, 1);
-            crsLayout.Controls.Add(_lblProjectCrsValue, 1, 1);
-
-            TableLayoutPanel labelLayout = new()
-            {
-                Dock = DockStyle.Fill,
-                ColumnCount = 2,
-                RowCount = 1,
-                Margin = new Padding(0, 0, 0, 6)
-            };
-            labelLayout.ColumnStyles.Add(new ColumnStyle(SizeType.Absolute, 108));
-            labelLayout.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 100));
-            labelLayout.RowStyles.Add(new RowStyle(SizeType.Percent, 100));
-
-            _cmbBlockLabelLayer.Dock = DockStyle.Fill;
-            _cmbBlockLabelLayer.DropDownStyle = ComboBoxStyle.DropDownList;
-            _cmbBlockLabelLayer.SelectedIndexChanged += (_, _) => EnsureSelectedLabelLayerIncluded();
-            labelLayout.Controls.Add(CreateCaption("Block labels"), 0, 0);
-            labelLayout.Controls.Add(_cmbBlockLabelLayer, 1, 0);
-
-            ConfigureGrid();
-
-            TableLayoutPanel bottom = new()
-            {
-                Dock = DockStyle.Fill,
-                ColumnCount = 2,
-                RowCount = 1
-            };
-            bottom.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 100));
-            bottom.ColumnStyles.Add(new ColumnStyle(SizeType.Absolute, 196));
-
-            _lblSelection.Dock = DockStyle.Fill;
-            _lblSelection.ForeColor = SystemColors.GrayText;
-            _lblSelection.TextAlign = ContentAlignment.MiddleLeft;
-
-            FlowLayoutPanel buttons = new()
-            {
-                Dock = DockStyle.Fill,
-                FlowDirection = FlowDirection.RightToLeft,
-                WrapContents = false
-            };
-
-            _btnImport.Text = "Import";
-            _btnImport.Size = new Size(90, 32);
-            _btnImport.DialogResult = DialogResult.OK;
-
-            _btnCancel.Text = "Cancel";
-            _btnCancel.Size = new Size(90, 32);
-            _btnCancel.DialogResult = DialogResult.Cancel;
-
-            buttons.Controls.Add(_btnCancel);
-            buttons.Controls.Add(_btnImport);
-            bottom.Controls.Add(_lblSelection, 0, 0);
-            bottom.Controls.Add(buttons, 1, 0);
-
-            root.Controls.Add(_lblSummary, 0, 0);
-            root.Controls.Add(crsLayout, 0, 1);
-            root.Controls.Add(labelLayout, 0, 2);
-            root.Controls.Add(_grid, 0, 3);
-            root.Controls.Add(bottom, 0, 4);
-
-            Controls.Add(root);
-            AcceptButton = _btnImport;
-            CancelButton = _btnCancel;
-        }
-
-        private void ConfigureGrid()
-        {
-            _grid.Dock = DockStyle.Fill;
-            _grid.AllowUserToAddRows = false;
-            _grid.AllowUserToDeleteRows = false;
-            _grid.AllowUserToResizeRows = false;
-            _grid.RowHeadersVisible = false;
-            _grid.SelectionMode = DataGridViewSelectionMode.FullRowSelect;
-            _grid.MultiSelect = false;
-            _grid.BackgroundColor = SystemColors.Window;
-            _grid.BorderStyle = BorderStyle.FixedSingle;
-            _grid.EnableHeadersVisualStyles = false;
-            _grid.ColumnHeadersDefaultCellStyle.BackColor = Color.FromArgb(248, 250, 252);
-            _grid.ColumnHeadersDefaultCellStyle.ForeColor = Color.FromArgb(32, 41, 57);
-            _grid.ColumnHeadersDefaultCellStyle.Font = new Font(Font, FontStyle.Bold);
-            _grid.ColumnHeadersHeightSizeMode = DataGridViewColumnHeadersHeightSizeMode.DisableResizing;
-            _grid.ColumnHeadersHeight = 28;
-            _grid.RowTemplate.Height = 25;
-            _grid.AutoSizeRowsMode = DataGridViewAutoSizeRowsMode.None;
-            _grid.EditMode = DataGridViewEditMode.EditOnEnter;
-
-            _grid.Columns.Add(new DataGridViewCheckBoxColumn
-            {
-                Name = IncludeColumn,
-                HeaderText = "",
-                Width = 36
-            });
-            _grid.Columns.Add(new DataGridViewTextBoxColumn
-            {
-                Name = LayerColumn,
-                HeaderText = "Source layer",
-                ReadOnly = true,
-                Width = 230
-            });
-            _grid.Columns.Add(new DataGridViewTextBoxColumn
-            {
-                Name = TypesColumn,
-                HeaderText = "Object types",
-                ReadOnly = true,
-                Width = 185
-            });
-
-            DataGridViewComboBoxColumn targetColumn = new()
-            {
-                Name = TargetColumn,
-                HeaderText = "Target layer",
-                AutoSizeMode = DataGridViewAutoSizeColumnMode.Fill,
-                FlatStyle = FlatStyle.Flat
-            };
-            foreach (string target in GetTargetLayerDisplayNames())
-                targetColumn.Items.Add(target);
-            _grid.Columns.Add(targetColumn);
-
-            _grid.CurrentCellDirtyStateChanged += (_, _) =>
-            {
-                if (_grid.IsCurrentCellDirty)
-                    _grid.CommitEdit(DataGridViewDataErrorContexts.Commit);
-            };
-            _grid.CellValueChanged += (_, args) =>
-            {
-                if (args.RowIndex >= 0)
-                    ApplyRowEnabledStyle(_grid.Rows[args.RowIndex]);
-                UpdateImportState();
-            };
-            _grid.CellMouseClick += (_, args) =>
-            {
-                int includeColumnIndex = _grid.Columns[IncludeColumn]?.Index ?? -1;
-                if (args.RowIndex == -1 && args.ColumnIndex == includeColumnIndex)
-                    SetAllIncluded(_includeHeaderState != CheckState.Checked);
-            };
-            _grid.CellPainting += Grid_CellPainting;
-            _grid.DataError += (_, args) => args.ThrowException = false;
-        }
 
         private void PopulateGrid()
         {
@@ -463,16 +279,6 @@ namespace Land_Readjustment_Tool.UI.Dialogs
             DataGridViewColumn? includeColumn = _grid.Columns[IncludeColumn];
             if (includeColumn != null)
                 _grid.InvalidateCell(includeColumn.HeaderCell);
-        }
-
-        private static Label CreateCaption(string text)
-        {
-            return new Label
-            {
-                Dock = DockStyle.Fill,
-                Text = text,
-                TextAlign = ContentAlignment.MiddleLeft
-            };
         }
 
         private static void ConfigureTargetCellChoices(DataGridViewRow row, ExternalLayerInfo layer)

@@ -130,7 +130,7 @@ namespace Land_Readjustment_Tool.UI.Forms.Definitions
             dgvRoads.Font = new Font("Segoe UI", 9F);
             dgvRoads.GridColor = SystemColors.ControlLight;
             dgvRoads.Location = new Point(0, 42);
-            dgvRoads.MultiSelect = false;
+            dgvRoads.MultiSelect = true;
             dgvRoads.Name = "dgvRoads";
             dgvRoads.RowHeadersVisible = false;
             dgvRoads.RowHeadersWidth = 51;

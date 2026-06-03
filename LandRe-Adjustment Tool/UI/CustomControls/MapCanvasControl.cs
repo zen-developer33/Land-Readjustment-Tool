@@ -5945,9 +5945,9 @@ namespace Land_Readjustment_Tool.UI.CustomControls
                 NetTopologySuite.Geometries.OgcGeometryType.Point or
                 NetTopologySuite.Geometries.OgcGeometryType.MultiPoint => "Point",
                 NetTopologySuite.Geometries.OgcGeometryType.LineString or
-                NetTopologySuite.Geometries.OgcGeometryType.MultiLineString => "Polyline",
+                NetTopologySuite.Geometries.OgcGeometryType.MultiLineString or
                 NetTopologySuite.Geometries.OgcGeometryType.Polygon or
-                NetTopologySuite.Geometries.OgcGeometryType.MultiPolygon => "Polygon",
+                NetTopologySuite.Geometries.OgcGeometryType.MultiPolygon => "LinearOrPolygon",
                 _ => string.Empty
             };
         }

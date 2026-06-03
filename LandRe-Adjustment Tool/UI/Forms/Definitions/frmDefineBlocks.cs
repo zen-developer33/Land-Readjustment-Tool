@@ -183,6 +183,22 @@ namespace Land_Readjustment_Tool.UI.Forms.Definitions
             return _bindingSource.Current as BlockDefinitionRow;
         }
 
+        private List<BlockDefinitionRow> SelectedRows()
+        {
+            List<BlockDefinitionRow> rows = dgvBlocks.SelectedRows
+                .Cast<DataGridViewRow>()
+                .Select(row => row.DataBoundItem as BlockDefinitionRow)
+                .Where(row => row != null)
+                .Cast<BlockDefinitionRow>()
+                .Distinct()
+                .ToList();
+
+            if (rows.Count == 0 && SelectedRow() is BlockDefinitionRow current)
+                rows.Add(current);
+
+            return rows;
+        }
+
         private async Task AddBlockAsync()
         {
             string code = NextBlockCode();
@@ -320,44 +336,79 @@ namespace Land_Readjustment_Tool.UI.Forms.Definitions
 
         private async Task DeleteBlockAsync()
         {
-            BlockDefinitionRow? row = SelectedRow();
-            if (row == null)
+            List<BlockDefinitionRow> selectedRows = SelectedRows();
+            if (selectedRows.Count == 0)
                 return;
 
-            if (row.Id == 0)
+            List<BlockDefinitionRow> savedRows = selectedRows
+                .Where(row => row.Id != 0)
+                .ToList();
+            if (savedRows.Count > 0)
             {
-                _rows.Remove(row);
-                ApplyFilter();
-                return;
-            }
+                AppDbContext context = AppServices.Context.Session.GetDbContext();
+                List<int> savedIds = savedRows.Select(row => row.Id).ToList();
+                HashSet<int> blocksWithReplottedParcels = (await context.ReplottedParcels
+                        .AsNoTracking()
+                        .Where(item => savedIds.Contains(item.BlockId))
+                        .Select(item => item.BlockId)
+                        .Distinct()
+                        .ToListAsync())
+                    .ToHashSet();
+                HashSet<int> blocksWithAssignments = (await context.CanvasObjects
+                        .AsNoTracking()
+                        .Where(item => item.BlockId.HasValue && savedIds.Contains(item.BlockId.Value))
+                        .Select(item => item.BlockId!.Value)
+                        .Distinct()
+                        .ToListAsync())
+                    .ToHashSet();
 
-            AppDbContext context = AppServices.Context.Session.GetDbContext();
-            bool hasReplottedParcels = await context.ReplottedParcels
-                .AsNoTracking()
-                .AnyAsync(item => item.BlockId == row.Id);
-            bool hasAssignments = await context.CanvasObjects
-                .AsNoTracking()
-                .AnyAsync(item => item.BlockId == row.Id);
+                List<BlockDefinitionRow> assignedRows = savedRows
+                    .Where(row =>
+                        row.AssignedCount > 0 ||
+                        blocksWithAssignments.Contains(row.Id) ||
+                        blocksWithReplottedParcels.Contains(row.Id))
+                    .ToList();
+                if (assignedRows.Count > 0)
+                {
+                    string sample = string.Join(", ", assignedRows
+                        .Take(5)
+                        .Select(row => string.IsNullOrWhiteSpace(row.Code) ? row.Name : row.Code));
+                    string suffix = assignedRows.Count > 5 ? ", ..." : string.Empty;
+                    MessageBox.Show(
+                        this,
+                        $"Cannot delete {assignedRows.Count:N0} selected assigned block definition(s): {sample}{suffix}. Remove assignments before deleting.",
+                        "Define Blocks",
+                        MessageBoxButtons.OK,
+                        MessageBoxIcon.Information);
+                    return;
+                }
 
-            if (hasAssignments || hasReplottedParcels || row.AssignedCount > 0)
-            {
-                MessageBox.Show(this, "This block definition is already assigned. Remove assignments before deleting it.", "Define Blocks", MessageBoxButtons.OK, MessageBoxIcon.Information);
-                return;
-            }
+                string message = selectedRows.Count == 1
+                    ? $"Delete block definition '{selectedRows[0].Name}'?"
+                    : $"Delete {selectedRows.Count:N0} selected block definition(s)?";
+                if (MessageBox.Show(this, message, "Define Blocks", MessageBoxButtons.YesNo, MessageBoxIcon.Warning) != DialogResult.Yes)
+                    return;
 
-            if (MessageBox.Show(this, $"Delete block definition '{row.Name}'?", "Define Blocks", MessageBoxButtons.YesNo, MessageBoxIcon.Warning) != DialogResult.Yes)
-                return;
+                List<Block> blocks = await context.Blocks
+                    .Where(block => savedIds.Contains(block.Id))
+                    .ToListAsync();
+                foreach (Block block in blocks)
+                {
+                    DetachTrackedBlock(context, block.Id);
+                    context.Blocks.Remove(block);
+                }
 
-            Block? block = await context.Blocks.FindAsync(row.Id);
-            if (block != null)
-            {
-                DetachTrackedBlock(context, row.Id);
-                context.Blocks.Remove(block);
                 await context.SaveChangesAsync();
                 AppServices.Context.MarkAsModified();
             }
+            else if (MessageBox.Show(this, $"Delete {selectedRows.Count:N0} selected unsaved block definition(s)?", "Define Blocks", MessageBoxButtons.YesNo, MessageBoxIcon.Warning) != DialogResult.Yes)
+            {
+                return;
+            }
 
-            _rows.Remove(row);
+            foreach (BlockDefinitionRow row in selectedRows)
+                _rows.Remove(row);
+
             ApplyFilter();
         }
 

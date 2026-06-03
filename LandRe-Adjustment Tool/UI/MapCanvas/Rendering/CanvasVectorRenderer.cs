@@ -748,49 +748,7 @@ namespace Land_Readjustment_Tool.UI.MapCanvas.Rendering
                 return;
             }
 
-            if (polyline.Segments.Count > 0)
-            {
-                DrawPolylineSegmentsWithPen(graphics, engine, polyline, pen);
-            }
-            else
-            {
-                graphics.DrawPath(pen, path);
-            }
-        }
-
-        private static void DrawPolylineSegmentsWithPen(
-            Graphics graphics,
-            MapCanvasEngine engine,
-            PolylineShape polyline,
-            Pen pen)
-        {
-            foreach (PolylineShape.PolylineSegment segment in polyline.Segments)
-            {
-                if (segment.Kind == PolylineShape.PolylineSegmentKind.Arc && segment.Arc != null)
-                {
-                    DrawArc(graphics, engine, segment.Arc, pen);
-                }
-                else
-                {
-                    PointF start = ToScreenPointF(engine.WorldToScreen(segment.Start));
-                    PointF end = ToScreenPointF(engine.WorldToScreen(segment.End));
-                    if (IsValidPoint(start) && IsValidPoint(end))
-                        graphics.DrawLine(pen, start, end);
-                }
-            }
-
-            if (polyline.IsClosed && polyline.Vertices.Count > 2)
-            {
-                PointD lastEndWorld = polyline.Segments[^1].End;
-                PointF last = ToScreenPointF(engine.WorldToScreen(lastEndWorld));
-                PointF first = ToScreenPointF(engine.WorldToScreen(polyline.Vertices[0]));
-                if (IsValidPoint(last) && IsValidPoint(first))
-                {
-                    double dist = Math.Sqrt(Math.Pow(last.X - first.X, 2) + Math.Pow(last.Y - first.Y, 2));
-                    if (dist > 0.5)
-                        graphics.DrawLine(pen, last, first);
-                }
-            }
+            graphics.DrawPath(pen, path);
         }
 
         private static void DrawDonutPolygon(

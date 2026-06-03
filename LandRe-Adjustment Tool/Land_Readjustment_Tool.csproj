@@ -103,6 +103,12 @@
 
   <ItemGroup>
     <Compile Update="UI\Forms\frmMain.cs" />
+    <Compile Update="UI\Dialogs\frmBlockLayoutPlanImport.cs">
+      <SubType>Form</SubType>
+    </Compile>
+    <Compile Update="UI\Dialogs\frmBlockLayoutPlanImport.Designer.cs">
+      <DependentUpon>frmBlockLayoutPlanImport.cs</DependentUpon>
+    </Compile>
     <Compile Update="UI\Forms\frmXyzTileImportOptions.cs">
       <SubType>Form</SubType>
     </Compile>
@@ -133,6 +139,9 @@
   <ItemGroup>
     <EmbeddedResource Update="UI\Forms\frmXyzTileImportOptions.resx">
       <DependentUpon>frmXyzTileImportOptions.cs</DependentUpon>
+    </EmbeddedResource>
+    <EmbeddedResource Update="UI\Dialogs\frmBlockLayoutPlanImport.resx">
+      <DependentUpon>frmBlockLayoutPlanImport.cs</DependentUpon>
     </EmbeddedResource>
     <EmbeddedResource Update="UI\Forms\frmXyzTileSourceManager.resx">
       <DependentUpon>frmXyzTileSourceManager.cs</DependentUpon>

@@ -38,7 +38,7 @@ namespace Land_Readjustment_Tool.Services.Import
                 .Where(item => importedObjectIds.Contains(item.Id))
                 .ToListAsync(ct);
 
-            int roadsDefined = await DefineAndAssignRoadsAsync(
+            (int roadsDefined, int roadsAssigned) = await DefineAndAssignRoadsAsync(
                 context,
                 importedObjects,
                 replaceMatchingRoadDefinitions,
@@ -50,7 +50,6 @@ namespace Land_Readjustment_Tool.Services.Import
                 blockLabelLayerName,
                 ct);
 
-            int roadsAssigned = importedObjects.Count(IsRoadAssignmentObject);
             await context.SaveChangesAsync(ct);
 
             return new BlockLayoutPlanAutoDefinitionResult(
@@ -60,7 +59,7 @@ namespace Land_Readjustment_Tool.Services.Import
                 blocksAssigned);
         }
 
-        private static async Task<int> DefineAndAssignRoadsAsync(
+        private static async Task<(int Defined, int Assigned)> DefineAndAssignRoadsAsync(
             AppDbContext context,
             IReadOnlyList<CanvasObject> importedObjects,
             bool replaceMatchingRoadDefinitions,
@@ -72,7 +71,7 @@ namespace Land_Readjustment_Tool.Services.Import
                 .ToList();
 
             if (roadGroups.Count == 0)
-                return 0;
+                return (0, 0);
 
             DbSet<Road> roads = context.Set<Road>();
             Dictionary<string, Road> roadsByCode = (await roads.ToListAsync(ct))
@@ -82,6 +81,7 @@ namespace Land_Readjustment_Tool.Services.Import
 
             DateTime now = DateTime.Now;
             int defined = 0;
+            List<(CanvasObject CanvasObject, Road Road)> pendingAssignments = [];
             foreach (IGrouping<string, CanvasObject> group in roadGroups)
             {
                 string code = BuildDefinitionCode(group.Key, "Road");
@@ -119,10 +119,25 @@ namespace Land_Readjustment_Tool.Services.Import
                 }
 
                 foreach (CanvasObject canvasObject in group)
-                    canvasObject.Road = road;
+                    pendingAssignments.Add((canvasObject, road));
             }
 
-            return defined;
+            if (defined > 0)
+                await context.SaveChangesAsync(ct);
+
+            int assigned = 0;
+            foreach ((CanvasObject canvasObject, Road road) in pendingAssignments)
+            {
+                if (road.Id == 0)
+                    continue;
+
+                canvasObject.RoadId = road.Id;
+                canvasObject.Road = null;
+                canvasObject.LastModifiedDate = now;
+                assigned++;
+            }
+
+            return (defined, assigned);
         }
 
         private static async Task<(int Defined, int Assigned)> DefineAndAssignBlocksAsync(
@@ -155,7 +170,7 @@ namespace Land_Readjustment_Tool.Services.Import
 
             DateTime now = DateTime.Now;
             int defined = 0;
-            int assigned = 0;
+            List<(CanvasObject CanvasObject, Block Block)> pendingAssignments = [];
             foreach (CanvasObject blockObject in blockObjects)
             {
                 string label = FindContainedLabel(blockObject.Shape, labelObjects)
@@ -181,7 +196,21 @@ namespace Land_Readjustment_Tool.Services.Import
                     defined++;
                 }
 
-                blockObject.Block = block;
+                pendingAssignments.Add((blockObject, block));
+            }
+
+            if (defined > 0)
+                await context.SaveChangesAsync(ct);
+
+            int assigned = 0;
+            foreach ((CanvasObject blockObject, Block block) in pendingAssignments)
+            {
+                if (block.Id == 0)
+                    continue;
+
+                blockObject.BlockId = block.Id;
+                blockObject.Block = null;
+                blockObject.LastModifiedDate = now;
                 assigned++;
             }
 
