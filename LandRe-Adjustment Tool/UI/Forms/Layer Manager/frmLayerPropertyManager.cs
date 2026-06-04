@@ -9,7 +9,7 @@ namespace Land_Readjustment_Tool.UI.Forms
     {
         private const string DefaultCanvasLabelFontName = "Nirmala UI";
         private const decimal DefaultFixedLabelFontSize = 6.0m;
-        private const decimal DefaultScaledLabelFontSize = 2.0m;
+        private const decimal DefaultScaledLabelFontSize = 1.0m;
         private const decimal DefaultAnnotationLabelFontSize = 10.0m;
         private const decimal MinLabelFontSize = 1.0m;
         private const decimal MaxFixedLabelFontSize = 72.0m;
@@ -1142,6 +1142,7 @@ namespace Land_Readjustment_Tool.UI.Forms
         private static bool IsDefaultNonAnnotationLabelFontSize(decimal fontSize)
         {
             return fontSize == DefaultScaledLabelFontSize ||
+                   fontSize == 2.0m ||
                    fontSize == DefaultFixedLabelFontSize;
         }
 

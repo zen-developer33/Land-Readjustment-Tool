@@ -171,6 +171,7 @@ namespace Land_Readjustment_Tool.UI.CustomControls
         private GridPanPadding _gridPanPadding;
         private bool _snapEnabled = true;
         private bool _orthoModeEnabled;
+        private bool _applicationEditLocked;
         private double _snapPickTolerancePixels = DefaultSnapPickTolerancePixels;
         private float _snapGlyphSizePixels = DefaultSnapGlyphSizePixels;
         private SnapPoint? _currentSnapPoint;
@@ -546,6 +547,10 @@ namespace Land_Readjustment_Tool.UI.CustomControls
 
         [Browsable(false)]
         [DesignerSerializationVisibility(DesignerSerializationVisibility.Hidden)]
+        public bool IsTextInputActive => _activeTextEditor != null;
+
+        [Browsable(false)]
+        [DesignerSerializationVisibility(DesignerSerializationVisibility.Hidden)]
         public bool ShowDebugOverlay
         {
             get => _showDebugOverlay;
@@ -557,6 +562,35 @@ namespace Land_Readjustment_Tool.UI.CustomControls
                 }
 
                 _showDebugOverlay = value;
+                RequestRender();
+            }
+        }
+
+        [Browsable(false)]
+        [DesignerSerializationVisibility(DesignerSerializationVisibility.Hidden)]
+        public bool ApplicationEditLocked
+        {
+            get => _applicationEditLocked;
+            set
+            {
+                if (_applicationEditLocked == value)
+                {
+                    return;
+                }
+
+                _applicationEditLocked = value;
+                if (value)
+                {
+                    CancelActiveTextEditor();
+                    CancelActiveGripEdit(restoreOriginal: true);
+                    CancelMoveOperation();
+                    CancelDrawing();
+                    _hoveredSelectionGrip = null;
+                    SetActiveTool(MapCanvasTool.Select, null, null);
+                }
+
+                UpdateCanvasCursor();
+                UpdateStatusBar();
                 RequestRender();
             }
         }
@@ -734,6 +768,14 @@ namespace Land_Readjustment_Tool.UI.CustomControls
             CanvasLayer? layer,
             string? layerName)
         {
+            if (_applicationEditLocked && tool != MapCanvasTool.Select)
+            {
+                tool = MapCanvasTool.Select;
+                layer = null;
+                layerName = null;
+                NotifyEditLocked();
+            }
+
             bool toolChanged = _activeTool != tool;
             _activeTool = tool;
             _panToolActive = false;
@@ -1466,6 +1508,15 @@ namespace Land_Readjustment_Tool.UI.CustomControls
                 return;
             }
 
+            if (_applicationEditLocked &&
+                _activeTool != MapCanvasTool.Select &&
+                e.Button is MouseButtons.Left or MouseButtons.Right)
+            {
+                NotifyEditLocked();
+                SelectToolRequested?.Invoke();
+                return;
+            }
+
             // Move-operation click handling takes precedence over everything else — the user has
             // explicitly entered a two-click placement mode and other selection/grip gestures must
             // be ignored until they pick the destination or cancel via Escape / right-click.
@@ -1559,7 +1610,9 @@ namespace Land_Readjustment_Tool.UI.CustomControls
 
             if (_activeTool == MapCanvasTool.Select && e.Button == MouseButtons.Left)
             {
-                if (_hoveredSelectionGrip != null && BeginGripEdit(_hoveredSelectionGrip, e.Location))
+                if (!_applicationEditLocked &&
+                    _hoveredSelectionGrip != null &&
+                    BeginGripEdit(_hoveredSelectionGrip, e.Location))
                 {
                     return;
                 }
@@ -1612,6 +1665,12 @@ namespace Land_Readjustment_Tool.UI.CustomControls
         {
             if (e.Button != MouseButtons.Left || _activeTool != MapCanvasTool.Select)
                 return;
+
+            if (_applicationEditLocked)
+            {
+                NotifyEditLocked();
+                return;
+            }
 
             PointD worldPoint = _engine.ScreenToWorld(new PointD(e.X, e.Y));
             double worldTolerance = _engine.ScreenToWorldDistance(ObjectSelectionTolerancePixels);
@@ -1704,7 +1763,14 @@ namespace Land_Readjustment_Tool.UI.CustomControls
                 return;
             }
 
-            UpdateHoveredSelectionGrip(e.Location);
+            if (_applicationEditLocked)
+            {
+                _hoveredSelectionGrip = null;
+            }
+            else
+            {
+                UpdateHoveredSelectionGrip(e.Location);
+            }
             UpdateDrawingPreview(e.Location);
             UpdateStatusBar();
         }
@@ -1824,6 +1890,13 @@ namespace Land_Readjustment_Tool.UI.CustomControls
 
             if (e.KeyCode == Keys.Delete && _selectedShapeIds.Count > 0)
             {
+                if (_applicationEditLocked)
+                {
+                    NotifyEditLocked();
+                    e.Handled = true;
+                    return;
+                }
+
                 RequestDeleteSelectedObjects();
                 e.Handled = true;
                 return;
@@ -1831,6 +1904,13 @@ namespace Land_Readjustment_Tool.UI.CustomControls
 
             if (e.KeyCode == Keys.Enter || e.KeyCode == Keys.Return)
             {
+                if (_applicationEditLocked)
+                {
+                    NotifyEditLocked();
+                    e.Handled = true;
+                    return;
+                }
+
                 if (CanCompleteMultiPointDrawing())
                 {
                     CompleteMultiPointDrawing();
@@ -1841,6 +1921,13 @@ namespace Land_Readjustment_Tool.UI.CustomControls
 
             if (e.KeyCode == Keys.Back)
             {
+                if (_applicationEditLocked)
+                {
+                    NotifyEditLocked();
+                    e.Handled = true;
+                    return;
+                }
+
                 UndoLastDrawingVertex();
                 e.Handled = true;
                 return;
@@ -1865,6 +1952,13 @@ namespace Land_Readjustment_Tool.UI.CustomControls
 
         private void HandleDrawingMouseDown(MouseEventArgs e)
         {
+            if (_applicationEditLocked)
+            {
+                NotifyEditLocked();
+                SelectToolRequested?.Invoke();
+                return;
+            }
+
             UpdateCurrentSnapPoint(e.Location);
             PointD worldPoint = GetCurrentDrawingWorldPoint(e.Location);
 
@@ -4334,6 +4428,13 @@ namespace Land_Readjustment_Tool.UI.CustomControls
             if (_activeGripEdit == null)
                 return;
 
+            if (_applicationEditLocked)
+            {
+                CancelActiveGripEdit(restoreOriginal: true);
+                NotifyEditLocked();
+                return;
+            }
+
             SelectionGrip grip = _activeGripEdit.Grip;
             IReadOnlyList<LinkedGripEdit> linkedEdits = _activeGripEdit.LinkedEdits;
             List<CanvasFeature> editedFeatures = GetActiveGripEditedFeatures(grip, linkedEdits);
@@ -5833,6 +5934,12 @@ namespace Land_Readjustment_Tool.UI.CustomControls
 
         private void RequestDeleteSelectedObjects()
         {
+            if (_applicationEditLocked)
+            {
+                NotifyEditLocked();
+                return;
+            }
+
             if (_selectedShapeIds.Count == 0)
                 return;
 
@@ -5850,10 +5957,12 @@ namespace Land_Readjustment_Tool.UI.CustomControls
         private void ObjectSelectionContextMenu_Opening(object? sender, CancelEventArgs e)
         {
             bool hasSingleText = SelectionContainsSingleTextShape(out _);
-            _mnuEditText.Visible = hasSingleText;
+            _mnuEditText.Visible = hasSingleText && !_applicationEditLocked;
             ConfigureAssignDataMenuForSelection();
-            _mnuDeleteSelectedObjects.Enabled = SelectionContainsDeletableObject();
-            _mnuMoveSelectedObjects.Enabled = _activeMoveOperation == null &&
+            _mnuDeleteSelectedObjects.Enabled = !_applicationEditLocked &&
+                                                SelectionContainsDeletableObject();
+            _mnuMoveSelectedObjects.Enabled = !_applicationEditLocked &&
+                                              _activeMoveOperation == null &&
                                               _activeGripEdit == null &&
                                               SelectionContainsMovableObject();
             ConfigureCreateFeaturesFromSelectionMenu();
@@ -5863,7 +5972,8 @@ namespace Land_Readjustment_Tool.UI.CustomControls
         {
             _currentSelectionAssignmentKind = ResolveSelectionAssignmentKind();
             _mnuAssignData.Text = GetAssignDataMenuText(_currentSelectionAssignmentKind);
-            _mnuAssignData.Enabled = _currentSelectionAssignmentKind.HasValue;
+            _mnuAssignData.Enabled = !_applicationEditLocked &&
+                                     _currentSelectionAssignmentKind.HasValue;
         }
 
         private static string GetAssignDataMenuText(CanvasObjectAssignmentKind? assignmentKind)
@@ -5889,6 +5999,16 @@ namespace Land_Readjustment_Tool.UI.CustomControls
             _mnuCreateFeaturesFromSelection.Visible = selectedSourceObjectIds.Count > 0;
             if (selectedSourceObjectIds.Count == 0)
             {
+                _mnuCreateFeaturesFromSelection.Enabled = false;
+                return;
+            }
+
+            if (_applicationEditLocked)
+            {
+                _mnuCreateFeaturesFromSelection.DropDownItems.Add(new ToolStripMenuItem("Edit Lock is active")
+                {
+                    Enabled = false
+                });
                 _mnuCreateFeaturesFromSelection.Enabled = false;
                 return;
             }
@@ -5970,6 +6090,12 @@ namespace Land_Readjustment_Tool.UI.CustomControls
 
         private void BeginTextEditFromContextMenu()
         {
+            if (_applicationEditLocked)
+            {
+                NotifyEditLocked();
+                return;
+            }
+
             if (!SelectionContainsSingleTextShape(out CanvasFeature? feature) ||
                 feature?.Shape is not TextShape textShape)
                 return;
@@ -5985,6 +6111,12 @@ namespace Land_Readjustment_Tool.UI.CustomControls
 
         private void RequestAssignDataForSelectedObjects()
         {
+            if (_applicationEditLocked)
+            {
+                NotifyEditLocked();
+                return;
+            }
+
             CanvasObjectAssignmentKind? assignmentKind =
                 _currentSelectionAssignmentKind ?? ResolveSelectionAssignmentKind();
             if (!assignmentKind.HasValue)
@@ -6054,6 +6186,12 @@ namespace Land_Readjustment_Tool.UI.CustomControls
 
         private void BeginMoveSelectedObjectsFromContextMenu()
         {
+            if (_applicationEditLocked)
+            {
+                NotifyEditLocked();
+                return;
+            }
+
             if (_activeMoveOperation != null || _activeGripEdit != null)
                 return;
 
@@ -6230,6 +6368,13 @@ namespace Land_Readjustment_Tool.UI.CustomControls
             if (_activeMoveOperation == null)
                 return false;
 
+            if (_applicationEditLocked)
+            {
+                CancelMoveOperation();
+                NotifyEditLocked();
+                return true;
+            }
+
             // Use the snapped cursor world point when available; otherwise the raw cursor.
             PointD picked = _currentSnapPoint?.Position ?? _engine.ScreenToWorld(screenPoint);
 
@@ -6309,6 +6454,9 @@ namespace Land_Readjustment_Tool.UI.CustomControls
 
         private bool IsEditableDrawingFeature(CanvasFeature feature)
         {
+            if (_applicationEditLocked)
+                return false;
+
             CanvasLayer? layer = ResolveFeatureLayer(feature);
             return feature.Shape.IsVisible &&
                    feature.CanvasObject.IsVisible &&
@@ -6320,6 +6468,9 @@ namespace Land_Readjustment_Tool.UI.CustomControls
 
         private bool IsDeletableSelectedFeature(CanvasFeature feature)
         {
+            if (_applicationEditLocked)
+                return false;
+
             CanvasLayer? layer = ResolveFeatureLayer(feature);
             return feature.Shape.IsVisible &&
                    feature.CanvasObject.IsVisible &&
@@ -6362,6 +6513,9 @@ namespace Land_Readjustment_Tool.UI.CustomControls
 
         private bool IsFeatureCreationSourceFeature(CanvasFeature feature)
         {
+            if (_applicationEditLocked)
+                return false;
+
             CanvasLayer? layer = ResolveFeatureLayer(feature);
             if (layer == null || layer.IsVisible != true || !layer.IsSelectable)
                 return false;
@@ -6989,6 +7143,15 @@ namespace Land_Readjustment_Tool.UI.CustomControls
 
         private string GetModeText()
         {
+            if (_applicationEditLocked &&
+                _activeTool == MapCanvasTool.Select &&
+                !_isPanning &&
+                !_isSelectingZoomWindow &&
+                !_zoomWindowActive)
+            {
+                return "Mode: Edit Locked";
+            }
+
             if (_isZooming && _zoomDirection != null)
                 return $"Mode: Zooming {_zoomDirection}";
 
@@ -7019,6 +7182,9 @@ namespace Land_Readjustment_Tool.UI.CustomControls
 
         private string GetCommandPromptText()
         {
+            if (_applicationEditLocked)
+                return "Edit Lock active: selection and navigation only";
+
             if (_activeMoveOperation != null)
             {
                 return _activeMoveOperation.Phase == MoveOperationPhase.AwaitingReference
@@ -7114,6 +7280,17 @@ namespace Land_Readjustment_Tool.UI.CustomControls
             }
 
             return "Ready";
+        }
+
+        private void NotifyEditLocked()
+        {
+            _commandService.SetPrompt("Edit Lock active: unlock the project to modify records, layers, or canvas objects");
+            StatusChanged?.Invoke(
+                _currentMouseWorld.HasValue
+                    ? $"E: {_currentMouseWorld.Value.X:F4}    N: {_currentMouseWorld.Value.Y:F4}"
+                    : "E: --    N: --",
+                "Mode: Edit Locked",
+                _engine.ZoomScale);
         }
 
         private bool IsCanvasInteractionLocked => _activeTextEditor != null;

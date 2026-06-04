@@ -2,18 +2,9 @@ using Land_Readjustment_Tool.Services;
 
 namespace Land_Readjustment_Tool.UI.Forms
 {
-    public sealed class frmMissingGeometryReview : Form
+    public sealed partial class frmMissingGeometryReview : Form
     {
         private readonly DataQualityReviewService _service;
-        private readonly DataGridView _grid = new();
-        private readonly TextBox _searchBox = new();
-        private readonly ComboBox _issueFilter = new();
-        private readonly Label _statusLabel = new();
-        private readonly Button _clearBrokenLinksButton = new();
-        private readonly Button _openParcelLinkReviewButton = new();
-        private readonly Button _refreshButton = new();
-        private readonly Button _exportButton = new();
-        private readonly Button _closeButton = new();
 
         private List<DataQualityReviewService.MissingGeometryIssue> _issues = [];
         private bool _isBusy;
@@ -25,14 +16,7 @@ namespace Land_Readjustment_Tool.UI.Forms
         {
             _service = service ?? throw new ArgumentNullException(nameof(service));
 
-            Text = "Missing Geometry Review";
-            StartPosition = FormStartPosition.CenterParent;
-            MinimumSize = new Size(920, 560);
-            Size = new Size(1120, 680);
-            Font = new Font("Segoe UI", 9F);
-
-            BuildLayout();
-            ConfigureGrid();
+            InitializeComponent();
             WireEvents();
         }
 
@@ -40,122 +24,6 @@ namespace Land_Readjustment_Tool.UI.Forms
         {
             base.OnLoad(e);
             await LoadIssuesAsync();
-        }
-
-        private void BuildLayout()
-        {
-            TableLayoutPanel layout = new()
-            {
-                Dock = DockStyle.Fill,
-                ColumnCount = 1,
-                RowCount = 4,
-                Padding = new Padding(12)
-            };
-            layout.RowStyles.Add(new RowStyle(SizeType.Absolute, 40));
-            layout.RowStyles.Add(new RowStyle(SizeType.Percent, 100));
-            layout.RowStyles.Add(new RowStyle(SizeType.Absolute, 34));
-            layout.RowStyles.Add(new RowStyle(SizeType.Absolute, 46));
-
-            FlowLayoutPanel filters = new()
-            {
-                Dock = DockStyle.Fill,
-                FlowDirection = FlowDirection.LeftToRight,
-                WrapContents = false
-            };
-            filters.Controls.Add(new Label
-            {
-                AutoSize = false,
-                Text = "Search",
-                TextAlign = ContentAlignment.MiddleLeft,
-                Width = 58,
-                Height = 30
-            });
-            _searchBox.Width = 260;
-            filters.Controls.Add(_searchBox);
-            filters.Controls.Add(new Label
-            {
-                AutoSize = false,
-                Text = "Issue",
-                TextAlign = ContentAlignment.MiddleLeft,
-                Width = 48,
-                Height = 30,
-                Margin = new Padding(16, 3, 3, 3)
-            });
-            _issueFilter.DropDownStyle = ComboBoxStyle.DropDownList;
-            _issueFilter.Width = 230;
-            filters.Controls.Add(_issueFilter);
-
-            _statusLabel.Dock = DockStyle.Fill;
-            _statusLabel.TextAlign = ContentAlignment.MiddleLeft;
-            _statusLabel.ForeColor = Color.FromArgb(75, 85, 99);
-
-            FlowLayoutPanel actions = new()
-            {
-                Dock = DockStyle.Fill,
-                FlowDirection = FlowDirection.RightToLeft,
-                WrapContents = false
-            };
-            _closeButton.Text = "Close";
-            _closeButton.Width = 94;
-            _openParcelLinkReviewButton.Text = "Open Parcel-Link Review";
-            _openParcelLinkReviewButton.Width = 176;
-            _clearBrokenLinksButton.Text = "Clear Broken Links";
-            _clearBrokenLinksButton.Width = 142;
-            _exportButton.Text = "Export CSV";
-            _exportButton.Width = 104;
-            _refreshButton.Text = "Refresh";
-            _refreshButton.Width = 94;
-            actions.Controls.AddRange([
-                _closeButton,
-                _openParcelLinkReviewButton,
-                _clearBrokenLinksButton,
-                _exportButton,
-                _refreshButton
-            ]);
-
-            layout.Controls.Add(filters, 0, 0);
-            layout.Controls.Add(_grid, 0, 1);
-            layout.Controls.Add(_statusLabel, 0, 2);
-            layout.Controls.Add(actions, 0, 3);
-            Controls.Add(layout);
-        }
-
-        private void ConfigureGrid()
-        {
-            _grid.Dock = DockStyle.Fill;
-            _grid.AllowUserToAddRows = false;
-            _grid.AllowUserToDeleteRows = false;
-            _grid.AllowUserToResizeRows = false;
-            _grid.AutoGenerateColumns = false;
-            _grid.BackgroundColor = SystemColors.Window;
-            _grid.BorderStyle = BorderStyle.FixedSingle;
-            _grid.MultiSelect = true;
-            _grid.ReadOnly = true;
-            _grid.RowHeadersVisible = false;
-            _grid.SelectionMode = DataGridViewSelectionMode.FullRowSelect;
-            _grid.EnableHeadersVisualStyles = false;
-            _grid.ColumnHeadersDefaultCellStyle.BackColor = Color.FromArgb(245, 247, 250);
-            _grid.ColumnHeadersDefaultCellStyle.ForeColor = Color.FromArgb(31, 41, 55);
-
-            AddColumn("IssueType", "Issue", 170);
-            AddColumn("MapSheetNo", "Map Sheet", 105);
-            AddColumn("ParcelNo", "Parcel No", 105);
-            AddColumn("OwnerName", "Owner", 220);
-            AddColumn("AreaSqm", "Area sq.m", 100);
-            AddColumn("CanvasObjectId", "Canvas Object", 210);
-            AddColumn("Detail", "Detail", 360, fill: true);
-        }
-
-        private void AddColumn(string name, string header, int width, bool fill = false)
-        {
-            _grid.Columns.Add(new DataGridViewTextBoxColumn
-            {
-                Name = name,
-                HeaderText = header,
-                DataPropertyName = name,
-                Width = width,
-                AutoSizeMode = fill ? DataGridViewAutoSizeColumnMode.Fill : DataGridViewAutoSizeColumnMode.None
-            });
         }
 
         private void WireEvents()

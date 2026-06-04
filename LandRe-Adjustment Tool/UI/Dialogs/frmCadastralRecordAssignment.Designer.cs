@@ -96,15 +96,15 @@ namespace Land_Readjustment_Tool.UI.Dialogs
             mainLayout.Name = "mainLayout";
             mainLayout.Padding = new Padding(10);
             mainLayout.RowCount = 8;
-            mainLayout.RowStyles.Add(new RowStyle(SizeType.Absolute, 76F));
-            mainLayout.RowStyles.Add(new RowStyle(SizeType.Absolute, 38F));
+            mainLayout.RowStyles.Add(new RowStyle(SizeType.Absolute, 112F));
+            mainLayout.RowStyles.Add(new RowStyle(SizeType.Absolute, 35F));
             mainLayout.RowStyles.Add(new RowStyle(SizeType.Percent, 100F));
-            mainLayout.RowStyles.Add(new RowStyle(SizeType.Absolute, 36F));
+            mainLayout.RowStyles.Add(new RowStyle(SizeType.Absolute, 44F));
             mainLayout.RowStyles.Add(new RowStyle(SizeType.Absolute, 24F));
-            mainLayout.RowStyles.Add(new RowStyle(SizeType.Absolute, 134F));
-            mainLayout.RowStyles.Add(new RowStyle(SizeType.Absolute, 30F));
-            mainLayout.RowStyles.Add(new RowStyle(SizeType.Absolute, 40F));
-            mainLayout.Size = new Size(640, 560);
+            mainLayout.RowStyles.Add(new RowStyle(SizeType.Absolute, 155F));
+            mainLayout.RowStyles.Add(new RowStyle(SizeType.Absolute, 19F));
+            mainLayout.RowStyles.Add(new RowStyle(SizeType.Absolute, 47F));
+            mainLayout.Size = new Size(640, 672);
             mainLayout.TabIndex = 0;
             mainLayout.Paint += mainLayout_Paint;
             // 
@@ -115,7 +115,7 @@ namespace Land_Readjustment_Tool.UI.Dialogs
             modeGroup.Dock = DockStyle.Fill;
             modeGroup.Location = new Point(13, 13);
             modeGroup.Name = "modeGroup";
-            modeGroup.Size = new Size(614, 70);
+            modeGroup.Size = new Size(614, 106);
             modeGroup.TabIndex = 0;
             modeGroup.TabStop = false;
             modeGroup.Text = "Assignment mode";
@@ -126,10 +126,11 @@ namespace Land_Readjustment_Tool.UI.Dialogs
             modePanel.Controls.Add(rdoManualAssign);
             modePanel.Controls.Add(btnOpenAutoAssignment);
             modePanel.Dock = DockStyle.Fill;
+            modePanel.FlowDirection = FlowDirection.TopDown;
             modePanel.Location = new Point(3, 23);
             modePanel.Name = "modePanel";
             modePanel.Padding = new Padding(8, 4, 0, 0);
-            modePanel.Size = new Size(608, 44);
+            modePanel.Size = new Size(608, 80);
             modePanel.TabIndex = 0;
             // 
             // rdoAutoAssign
@@ -137,7 +138,7 @@ namespace Land_Readjustment_Tool.UI.Dialogs
             rdoAutoAssign.Checked = true;
             rdoAutoAssign.Location = new Point(11, 7);
             rdoAutoAssign.Name = "rdoAutoAssign";
-            rdoAutoAssign.Size = new Size(130, 28);
+            rdoAutoAssign.Size = new Size(114, 28);
             rdoAutoAssign.TabIndex = 0;
             rdoAutoAssign.TabStop = true;
             rdoAutoAssign.Text = "Auto assign";
@@ -145,7 +146,7 @@ namespace Land_Readjustment_Tool.UI.Dialogs
             // 
             // rdoManualAssign
             // 
-            rdoManualAssign.Location = new Point(147, 7);
+            rdoManualAssign.Location = new Point(11, 41);
             rdoManualAssign.Name = "rdoManualAssign";
             rdoManualAssign.Size = new Size(130, 28);
             rdoManualAssign.TabIndex = 1;
@@ -154,7 +155,7 @@ namespace Land_Readjustment_Tool.UI.Dialogs
             // 
             // btnOpenAutoAssignment
             // 
-            btnOpenAutoAssignment.Location = new Point(283, 7);
+            btnOpenAutoAssignment.Location = new Point(147, 7);
             btnOpenAutoAssignment.Name = "btnOpenAutoAssignment";
             btnOpenAutoAssignment.Size = new Size(170, 30);
             btnOpenAutoAssignment.TabIndex = 2;
@@ -164,9 +165,9 @@ namespace Land_Readjustment_Tool.UI.Dialogs
             // lblFilterCaption
             // 
             lblFilterCaption.Dock = DockStyle.Fill;
-            lblFilterCaption.Location = new Point(13, 86);
+            lblFilterCaption.Location = new Point(13, 122);
             lblFilterCaption.Name = "lblFilterCaption";
-            lblFilterCaption.Size = new Size(84, 38);
+            lblFilterCaption.Size = new Size(84, 35);
             lblFilterCaption.TabIndex = 1;
             lblFilterCaption.Text = "Show";
             lblFilterCaption.TextAlign = ContentAlignment.MiddleLeft;
@@ -176,7 +177,7 @@ namespace Land_Readjustment_Tool.UI.Dialogs
             cboObjectFilter.Dock = DockStyle.Fill;
             cboObjectFilter.DropDownStyle = ComboBoxStyle.DropDownList;
             cboObjectFilter.FormattingEnabled = true;
-            cboObjectFilter.Location = new Point(103, 89);
+            cboObjectFilter.Location = new Point(103, 125);
             cboObjectFilter.Name = "cboObjectFilter";
             cboObjectFilter.Size = new Size(524, 28);
             cboObjectFilter.TabIndex = 1;
@@ -191,14 +192,14 @@ namespace Land_Readjustment_Tool.UI.Dialogs
             dgvObjects.ColumnHeadersHeightSizeMode = DataGridViewColumnHeadersHeightSizeMode.AutoSize;
             mainLayout.SetColumnSpan(dgvObjects, 2);
             dgvObjects.Dock = DockStyle.Fill;
-            dgvObjects.Location = new Point(13, 127);
+            dgvObjects.Location = new Point(13, 160);
             dgvObjects.MultiSelect = false;
             dgvObjects.Name = "dgvObjects";
             dgvObjects.ReadOnly = true;
             dgvObjects.RowHeadersVisible = false;
             dgvObjects.RowHeadersWidth = 51;
             dgvObjects.SelectionMode = DataGridViewSelectionMode.FullRowSelect;
-            dgvObjects.Size = new Size(614, 156);
+            dgvObjects.Size = new Size(614, 210);
             dgvObjects.TabIndex = 2;
             // 
             // navPanel
@@ -207,9 +208,9 @@ namespace Land_Readjustment_Tool.UI.Dialogs
             navPanel.Controls.Add(btnNext);
             navPanel.Controls.Add(chkZoomToSelected);
             navPanel.Dock = DockStyle.Fill;
-            navPanel.Location = new Point(103, 289);
+            navPanel.Location = new Point(103, 376);
             navPanel.Name = "navPanel";
-            navPanel.Size = new Size(524, 30);
+            navPanel.Size = new Size(524, 38);
             navPanel.TabIndex = 3;
             // 
             // btnPrevious
@@ -245,7 +246,7 @@ namespace Land_Readjustment_Tool.UI.Dialogs
             // 
             lblSelectionInfo.Dock = DockStyle.Fill;
             lblSelectionInfo.ForeColor = Color.DimGray;
-            lblSelectionInfo.Location = new Point(103, 322);
+            lblSelectionInfo.Location = new Point(103, 417);
             lblSelectionInfo.Name = "lblSelectionInfo";
             lblSelectionInfo.Size = new Size(524, 24);
             lblSelectionInfo.TabIndex = 4;
@@ -257,9 +258,9 @@ namespace Land_Readjustment_Tool.UI.Dialogs
             mainLayout.SetColumnSpan(manualGroup, 2);
             manualGroup.Controls.Add(manualLayout);
             manualGroup.Dock = DockStyle.Fill;
-            manualGroup.Location = new Point(13, 349);
+            manualGroup.Location = new Point(13, 444);
             manualGroup.Name = "manualGroup";
-            manualGroup.Size = new Size(614, 128);
+            manualGroup.Size = new Size(614, 149);
             manualGroup.TabIndex = 4;
             manualGroup.TabStop = false;
             manualGroup.Text = "Manual assignment";
@@ -278,10 +279,10 @@ namespace Land_Readjustment_Tool.UI.Dialogs
             manualLayout.Name = "manualLayout";
             manualLayout.Padding = new Padding(8, 4, 8, 8);
             manualLayout.RowCount = 3;
-            manualLayout.RowStyles.Add(new RowStyle(SizeType.Absolute, 37F));
             manualLayout.RowStyles.Add(new RowStyle(SizeType.Absolute, 34F));
             manualLayout.RowStyles.Add(new RowStyle(SizeType.Absolute, 31F));
-            manualLayout.Size = new Size(608, 102);
+            manualLayout.RowStyles.Add(new RowStyle(SizeType.Absolute, 37F));
+            manualLayout.Size = new Size(608, 123);
             manualLayout.TabIndex = 0;
             // 
             // lblSelectedRecordCaption
@@ -289,7 +290,7 @@ namespace Land_Readjustment_Tool.UI.Dialogs
             lblSelectedRecordCaption.Dock = DockStyle.Fill;
             lblSelectedRecordCaption.Location = new Point(11, 4);
             lblSelectedRecordCaption.Name = "lblSelectedRecordCaption";
-            lblSelectedRecordCaption.Size = new Size(114, 37);
+            lblSelectedRecordCaption.Size = new Size(114, 34);
             lblSelectedRecordCaption.TabIndex = 0;
             lblSelectedRecordCaption.Text = "Assigned record";
             lblSelectedRecordCaption.TextAlign = ContentAlignment.MiddleLeft;
@@ -306,9 +307,9 @@ namespace Land_Readjustment_Tool.UI.Dialogs
             // chkReplaceExisting
             // 
             chkReplaceExisting.Dock = DockStyle.Fill;
-            chkReplaceExisting.Location = new Point(131, 44);
+            chkReplaceExisting.Location = new Point(131, 41);
             chkReplaceExisting.Name = "chkReplaceExisting";
-            chkReplaceExisting.Size = new Size(466, 28);
+            chkReplaceExisting.Size = new Size(466, 25);
             chkReplaceExisting.TabIndex = 1;
             chkReplaceExisting.Text = "Replace existing record-to-map assignments";
             chkReplaceExisting.UseVisualStyleBackColor = true;
@@ -319,9 +320,9 @@ namespace Land_Readjustment_Tool.UI.Dialogs
             manualActionPanel.Controls.Add(btnRemoveAssignment);
             manualActionPanel.Controls.Add(btnClearAssignments);
             manualActionPanel.Dock = DockStyle.Fill;
-            manualActionPanel.Location = new Point(131, 78);
+            manualActionPanel.Location = new Point(131, 72);
             manualActionPanel.Name = "manualActionPanel";
-            manualActionPanel.Size = new Size(466, 25);
+            manualActionPanel.Size = new Size(466, 40);
             manualActionPanel.TabIndex = 2;
             // 
             // btnAssignParcel
@@ -356,9 +357,9 @@ namespace Land_Readjustment_Tool.UI.Dialogs
             mainLayout.SetColumnSpan(lblStatus, 2);
             lblStatus.Dock = DockStyle.Fill;
             lblStatus.ForeColor = Color.DimGray;
-            lblStatus.Location = new Point(13, 480);
+            lblStatus.Location = new Point(13, 596);
             lblStatus.Name = "lblStatus";
-            lblStatus.Size = new Size(614, 30);
+            lblStatus.Size = new Size(614, 19);
             lblStatus.TabIndex = 5;
             lblStatus.Text = "Ready.";
             lblStatus.TextAlign = ContentAlignment.MiddleLeft;
@@ -368,9 +369,9 @@ namespace Land_Readjustment_Tool.UI.Dialogs
             actionPanel.Controls.Add(btnClose);
             actionPanel.Dock = DockStyle.Fill;
             actionPanel.FlowDirection = FlowDirection.RightToLeft;
-            actionPanel.Location = new Point(103, 513);
+            actionPanel.Location = new Point(103, 618);
             actionPanel.Name = "actionPanel";
-            actionPanel.Size = new Size(524, 34);
+            actionPanel.Size = new Size(524, 41);
             actionPanel.TabIndex = 5;
             // 
             // btnClose
@@ -388,7 +389,7 @@ namespace Land_Readjustment_Tool.UI.Dialogs
             AutoScaleDimensions = new SizeF(8F, 20F);
             AutoScaleMode = AutoScaleMode.Font;
             CancelButton = btnClose;
-            ClientSize = new Size(640, 560);
+            ClientSize = new Size(640, 672);
             Controls.Add(mainLayout);
             Font = new Font("Segoe UI", 9F);
             FormBorderStyle = FormBorderStyle.FixedDialog;

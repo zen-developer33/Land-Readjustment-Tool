@@ -37,6 +37,7 @@ namespace Land_Readjustment_Tool.UI.Dialogs
             _sourceCrsChoices = sourceCrsChoices ?? [];
 
             InitializeComponent();
+            ConfigureRuntimeControls();
             PopulateGrid();
             PopulateBlockLabelLayerChoices();
             ConfigureCrsControls();
@@ -57,6 +58,23 @@ namespace Land_Readjustment_Tool.UI.Dialogs
                 },
                 null,
                 RequiresCrsFromUser: false);
+        }
+
+        private void ConfigureRuntimeControls()
+        {
+            _lblSummary.Text = string.Format(
+                "{0}  |  {1}  |  {2} source layer(s)",
+                Path.GetFileName(_fileInfo.FilePath),
+                _fileInfo.FileFormat,
+                _fileInfo.Layers.Count);
+
+            _grid.ColumnHeadersDefaultCellStyle.BackColor = Color.FromArgb(248, 250, 252);
+            _grid.ColumnHeadersDefaultCellStyle.ForeColor = Color.FromArgb(32, 41, 57);
+            _grid.ColumnHeadersDefaultCellStyle.Font = new Font(Font, FontStyle.Bold);
+
+            _colTarget.Items.Clear();
+            foreach (string target in GetTargetLayerDisplayNames())
+                _colTarget.Items.Add(target);
         }
 
         public ExternalLayerImportOptions ImportOptions =>
@@ -262,6 +280,38 @@ namespace Land_Readjustment_Tool.UI.Dialogs
 
             CheckBoxRenderer.DrawCheckBox(args.Graphics, location, state);
             args.Handled = true;
+        }
+
+        private void cmbBlockLabelLayer_SelectedIndexChanged(object? sender, EventArgs e)
+        {
+            EnsureSelectedLabelLayerIncluded();
+        }
+
+        private void grid_CurrentCellDirtyStateChanged(object? sender, EventArgs e)
+        {
+            if (_grid.IsCurrentCellDirty)
+                _grid.CommitEdit(DataGridViewDataErrorContexts.Commit);
+        }
+
+        private void grid_CellValueChanged(object? sender, DataGridViewCellEventArgs e)
+        {
+            if (e.RowIndex >= 0)
+                ApplyRowEnabledStyle(_grid.Rows[e.RowIndex]);
+
+            UpdateImportState();
+        }
+
+        private void grid_CellMouseClick(object? sender, DataGridViewCellMouseEventArgs e)
+        {
+            DataGridViewColumn? includeColumn = _grid.Columns[IncludeColumn];
+            int includeColumnIndex = includeColumn == null ? -1 : includeColumn.Index;
+            if (e.RowIndex == -1 && e.ColumnIndex == includeColumnIndex)
+                SetAllIncluded(_includeHeaderState != CheckState.Checked);
+        }
+
+        private void grid_DataError(object? sender, DataGridViewDataErrorEventArgs e)
+        {
+            e.ThrowException = false;
         }
 
         private void UpdateHeaderCheckState()

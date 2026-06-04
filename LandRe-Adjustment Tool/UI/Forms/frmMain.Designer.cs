@@ -60,9 +60,18 @@ namespace Land_Readjustment_Tool
             tsmProjectInformation = new ToolStripMenuItem();
             tsmProjectSetting = new ToolStripMenuItem();
             toolStripSeparator7 = new ToolStripSeparator();
+            mnuApplicationEditLock = new ToolStripMenuItem();
+            toolStripSeparator23 = new ToolStripSeparator();
+            mnuProjectCoordinateSystemUnits = new ToolStripMenuItem();
+            mnuProjectLayerStandards = new ToolStripMenuItem();
+            mnuProjectParcelNumberingRules = new ToolStripMenuItem();
+            toolStripSeparator24 = new ToolStripSeparator();
             tsmBackupProject = new ToolStripMenuItem();
             tsmRestoreBackup = new ToolStripMenuItem();
             toolStripSeparator8 = new ToolStripSeparator();
+            mnuProjectHealthCheck = new ToolStripMenuItem();
+            mnuProjectLog = new ToolStripMenuItem();
+            toolStripSeparator25 = new ToolStripSeparator();
             tsmCloseProject = new ToolStripMenuItem();
             dataToolStripMenuItem = new ToolStripMenuItem();
             importDataToolStripMenuItem1 = new ToolStripMenuItem();
@@ -92,24 +101,93 @@ namespace Land_Readjustment_Tool
             cadastralRecordsAssignmentToolStripMenuItem = new ToolStripMenuItem();
             buildingInventoryDataToolStripMenuItem = new ToolStripMenuItem();
             toolStripMenuItem1 = new ToolStripMenuItem();
+            toolStripSeparator26 = new ToolStripSeparator();
+            dataQualityToolStripMenuItem = new ToolStripMenuItem();
+            ownerDeduplicationReviewToolStripMenuItem = new ToolStripMenuItem();
+            parcelLinkMatchingReviewToolStripMenuItem = new ToolStripMenuItem();
+            missingGeometryReviewToolStripMenuItem = new ToolStripMenuItem();
+            mapToolStripMenuItem = new ToolStripMenuItem();
+            mapSelectToolStripMenuItem = new ToolStripMenuItem();
+            mapPanToolStripMenuItem = new ToolStripMenuItem();
+            mapDrawToolStripMenuItem = new ToolStripMenuItem();
+            mapDrawPointToolStripMenuItem = new ToolStripMenuItem();
+            mapDrawLineToolStripMenuItem = new ToolStripMenuItem();
+            mapDrawPolylineToolStripMenuItem = new ToolStripMenuItem();
+            mapDrawArcToolStripMenuItem = new ToolStripMenuItem();
+            mapDrawRectangleToolStripMenuItem = new ToolStripMenuItem();
+            mapDrawPolygonToolStripMenuItem = new ToolStripMenuItem();
+            mapDrawCircleToolStripMenuItem = new ToolStripMenuItem();
+            mapDrawTextToolStripMenuItem = new ToolStripMenuItem();
+            toolStripSeparator27 = new ToolStripSeparator();
+            mapZoomInToolStripMenuItem = new ToolStripMenuItem();
+            mapZoomOutToolStripMenuItem = new ToolStripMenuItem();
+            mapZoomExtentsToolStripMenuItem = new ToolStripMenuItem();
+            mapZoomWindowToolStripMenuItem = new ToolStripMenuItem();
+            toolStripSeparator28 = new ToolStripSeparator();
+            mapRefreshLayersToolStripMenuItem = new ToolStripMenuItem();
+            mapLayerPropertiesToolStripMenuItem = new ToolStripMenuItem();
             contributionToolStripMenuItem = new ToolStripMenuItem();
             contributionSettingsToolStripMenuItem = new ToolStripMenuItem();
+            returnPolicySetupToolStripMenuItem = new ToolStripMenuItem();
+            policyVersionApprovalToolStripMenuItem = new ToolStripMenuItem();
+            toolStripSeparator29 = new ToolStripSeparator();
+            parcelContributionInputsToolStripMenuItem = new ToolStripMenuItem();
+            deriveInputsFromMapToolStripMenuItem = new ToolStripMenuItem();
+            toolStripSeparator30 = new ToolStripSeparator();
             calculateContributionToolStripMenuItem = new ToolStripMenuItem();
+            contributionReviewToolStripMenuItem = new ToolStripMenuItem();
+            contributionOverridesAuditTrailToolStripMenuItem = new ToolStripMenuItem();
+            toolStripSeparator31 = new ToolStripSeparator();
+            freezeApproveResultsToolStripMenuItem = new ToolStripMenuItem();
             contributionSummaryToolStripMenuItem = new ToolStripMenuItem();
             replottingToolStripMenuItem = new ToolStripMenuItem();
             startReplotWorkspaceToolStripMenuItem = new ToolStripMenuItem();
+            toolStripSeparator32 = new ToolStripSeparator();
+            replotBlockManagerToolStripMenuItem = new ToolStripMenuItem();
+            replotRoadLayoutToolStripMenuItem = new ToolStripMenuItem();
+            toolStripSeparator33 = new ToolStripSeparator();
+            ownerAllocationToolStripMenuItem = new ToolStripMenuItem();
+            returnableAreaBalanceToolStripMenuItem = new ToolStripMenuItem();
+            jointReturnSalesPlotCasesToolStripMenuItem = new ToolStripMenuItem();
+            toolStripSeparator34 = new ToolStripSeparator();
+            finalizeReplotDesignToolStripMenuItem = new ToolStripMenuItem();
             parcelAdjustmentToolStripMenuItem = new ToolStripMenuItem();
             roadNetworkToolStripMenuItem = new ToolStripMenuItem();
             validationToolStripMenuItem = new ToolStripMenuItem();
+            validationDashboardToolStripMenuItem = new ToolStripMenuItem();
+            toolStripSeparator35 = new ToolStripSeparator();
             validateOwnershipRecordsToolStripMenuItem = new ToolStripMenuItem();
             validateSpatialDataToolStripMenuItem = new ToolStripMenuItem();
+            topologyCheckToolStripMenuItem = new ToolStripMenuItem();
+            toolStripSeparator36 = new ToolStripSeparator();
+            contributionRuleCheckToolStripMenuItem = new ToolStripMenuItem();
+            returnPolicyCheckToolStripMenuItem = new ToolStripMenuItem();
+            areaAllocationDifferenceReviewToolStripMenuItem = new ToolStripMenuItem();
+            toolStripSeparator37 = new ToolStripSeparator();
             validationIssuesToolStripMenuItem = new ToolStripMenuItem();
             reportsToolStripMenuItem = new ToolStripMenuItem();
             ownerParcelReportToolStripMenuItem = new ToolStripMenuItem();
+            originalParcelRegisterToolStripMenuItem = new ToolStripMenuItem();
+            contributionSummaryReportToolStripMenuItem = new ToolStripMenuItem();
             contributionReportToolStripMenuItem = new ToolStripMenuItem();
+            returnableAreaReportToolStripMenuItem = new ToolStripMenuItem();
+            replotAllocationReportToolStripMenuItem = new ToolStripMenuItem();
+            toolStripSeparator38 = new ToolStripSeparator();
+            projectOverviewMapToolStripMenuItem = new ToolStripMenuItem();
+            blockReplotMapToolStripMenuItem = new ToolStripMenuItem();
+            contributionHeatmapToolStripMenuItem = new ToolStripMenuItem();
+            toolStripSeparator39 = new ToolStripSeparator();
+            exportExcelToolStripMenuItem = new ToolStripMenuItem();
+            exportPdfToolStripMenuItem = new ToolStripMenuItem();
             exportDataToolStripMenuItem = new ToolStripMenuItem();
             toolsToolStripMenuItem = new ToolStripMenuItem();
             mnuAreaConverterTool = new ToolStripMenuItem();
+            windowToolStripMenuItem = new ToolStripMenuItem();
+            toggleLayerPanelToolStripMenuItem = new ToolStripMenuItem();
+            togglePropertiesPanelToolStripMenuItem = new ToolStripMenuItem();
+            toolStripSeparator40 = new ToolStripSeparator();
+            openReplottingWorkspaceWindowToolStripMenuItem = new ToolStripMenuItem();
+            resetWorkspaceLayoutToolStripMenuItem = new ToolStripMenuItem();
             helToolStripMenuItem = new ToolStripMenuItem();
             userGuideToolStripMenuItem = new ToolStripMenuItem();
             aboutRePlotToolStripMenuItem = new ToolStripMenuItem();
@@ -221,6 +299,8 @@ namespace Land_Readjustment_Tool
             mnuUndo = new ToolStripButton();
             mnuRedo = new ToolStripButton();
             toolStripSeparator14 = new ToolStripSeparator();
+            applicationEditLockToolbarSeparator = new ToolStripSeparator();
+            btnApplicationEditLock = new ToolStripButton();
             mnuPan = new ToolStripButton();
             mnuZoomIn = new ToolStripButton();
             mnuZoomOut = new ToolStripButton();
@@ -262,7 +342,7 @@ namespace Land_Readjustment_Tool
             mainMenuStrip.BackColor = Color.White;
             mainMenuStrip.Font = new Font("Segoe UI", 9F);
             mainMenuStrip.ImageScalingSize = new Size(20, 20);
-            mainMenuStrip.Items.AddRange(new ToolStripItem[] { fileToolStripMenuItem, projectToolStripMenuItem, dataToolStripMenuItem, contributionToolStripMenuItem, replottingToolStripMenuItem, validationToolStripMenuItem, reportsToolStripMenuItem, toolsToolStripMenuItem, helToolStripMenuItem });
+            mainMenuStrip.Items.AddRange(new ToolStripItem[] { fileToolStripMenuItem, projectToolStripMenuItem, dataToolStripMenuItem, mapToolStripMenuItem, contributionToolStripMenuItem, replottingToolStripMenuItem, validationToolStripMenuItem, reportsToolStripMenuItem, toolsToolStripMenuItem, windowToolStripMenuItem, helToolStripMenuItem });
             mainMenuStrip.Location = new Point(0, 0);
             mainMenuStrip.Name = "mainMenuStrip";
             mainMenuStrip.Padding = new Padding(5, 2, 0, 2);
@@ -352,7 +432,7 @@ namespace Land_Readjustment_Tool
             // 
             // projectToolStripMenuItem
             // 
-            projectToolStripMenuItem.DropDownItems.AddRange(new ToolStripItem[] { tsmProjectInformation, tsmProjectSetting, toolStripSeparator7, tsmBackupProject, tsmRestoreBackup, toolStripSeparator8, tsmCloseProject });
+            projectToolStripMenuItem.DropDownItems.AddRange(new ToolStripItem[] { tsmProjectInformation, tsmProjectSetting, toolStripSeparator7, mnuApplicationEditLock, toolStripSeparator23, mnuProjectCoordinateSystemUnits, mnuProjectLayerStandards, mnuProjectParcelNumberingRules, toolStripSeparator24, tsmBackupProject, tsmRestoreBackup, toolStripSeparator8, mnuProjectHealthCheck, mnuProjectLog, toolStripSeparator25, tsmCloseProject });
             projectToolStripMenuItem.Name = "projectToolStripMenuItem";
             projectToolStripMenuItem.Size = new Size(69, 24);
             projectToolStripMenuItem.Text = "Project";
@@ -380,6 +460,51 @@ namespace Land_Readjustment_Tool
             toolStripSeparator7.Name = "toolStripSeparator7";
             toolStripSeparator7.Size = new Size(229, 6);
             // 
+            // mnuApplicationEditLock
+            // 
+            mnuApplicationEditLock.DisplayStyle = ToolStripItemDisplayStyle.Image;
+            mnuApplicationEditLock.Enabled = false;
+            mnuApplicationEditLock.ImageScaling = ToolStripItemImageScaling.SizeToFit;
+            mnuApplicationEditLock.Name = "mnuApplicationEditLock";
+            mnuApplicationEditLock.Size = new Size(232, 26);
+            mnuApplicationEditLock.Text = "";
+            mnuApplicationEditLock.ToolTipText = "Lock editing";
+            mnuApplicationEditLock.Click += ApplicationEditLock_Click;
+            // 
+            // toolStripSeparator23
+            // 
+            toolStripSeparator23.Name = "toolStripSeparator23";
+            toolStripSeparator23.Size = new Size(229, 6);
+            // 
+            // mnuProjectCoordinateSystemUnits
+            // 
+            mnuProjectCoordinateSystemUnits.Enabled = false;
+            mnuProjectCoordinateSystemUnits.Name = "mnuProjectCoordinateSystemUnits";
+            mnuProjectCoordinateSystemUnits.Size = new Size(286, 26);
+            mnuProjectCoordinateSystemUnits.Text = "Coordinate System and Units...";
+            mnuProjectCoordinateSystemUnits.Click += PlannedFeatureToolStripMenuItem_Click;
+            // 
+            // mnuProjectLayerStandards
+            // 
+            mnuProjectLayerStandards.Enabled = false;
+            mnuProjectLayerStandards.Name = "mnuProjectLayerStandards";
+            mnuProjectLayerStandards.Size = new Size(286, 26);
+            mnuProjectLayerStandards.Text = "Layer Standards...";
+            mnuProjectLayerStandards.Click += PlannedFeatureToolStripMenuItem_Click;
+            // 
+            // mnuProjectParcelNumberingRules
+            // 
+            mnuProjectParcelNumberingRules.Enabled = false;
+            mnuProjectParcelNumberingRules.Name = "mnuProjectParcelNumberingRules";
+            mnuProjectParcelNumberingRules.Size = new Size(286, 26);
+            mnuProjectParcelNumberingRules.Text = "Parcel Numbering Rules...";
+            mnuProjectParcelNumberingRules.Click += PlannedFeatureToolStripMenuItem_Click;
+            // 
+            // toolStripSeparator24
+            // 
+            toolStripSeparator24.Name = "toolStripSeparator24";
+            toolStripSeparator24.Size = new Size(283, 6);
+            // 
             // tsmBackupProject
             // 
             tsmBackupProject.Enabled = false;
@@ -402,6 +527,27 @@ namespace Land_Readjustment_Tool
             toolStripSeparator8.Name = "toolStripSeparator8";
             toolStripSeparator8.Size = new Size(229, 6);
             // 
+            // mnuProjectHealthCheck
+            // 
+            mnuProjectHealthCheck.Enabled = false;
+            mnuProjectHealthCheck.Name = "mnuProjectHealthCheck";
+            mnuProjectHealthCheck.Size = new Size(286, 26);
+            mnuProjectHealthCheck.Text = "Project Health Check";
+            mnuProjectHealthCheck.Click += PlannedFeatureToolStripMenuItem_Click;
+            // 
+            // mnuProjectLog
+            // 
+            mnuProjectLog.Enabled = false;
+            mnuProjectLog.Name = "mnuProjectLog";
+            mnuProjectLog.Size = new Size(286, 26);
+            mnuProjectLog.Text = "Project Log";
+            mnuProjectLog.Click += PlannedFeatureToolStripMenuItem_Click;
+            // 
+            // toolStripSeparator25
+            // 
+            toolStripSeparator25.Name = "toolStripSeparator25";
+            toolStripSeparator25.Size = new Size(283, 6);
+            // 
             // tsmCloseProject
             // 
             tsmCloseProject.Enabled = false;
@@ -413,7 +559,7 @@ namespace Land_Readjustment_Tool
             // 
             // dataToolStripMenuItem
             // 
-            dataToolStripMenuItem.DropDownItems.AddRange(new ToolStripItem[] { importDataToolStripMenuItem1, importToolStripMenuItem, originalScenarioSummaryToolStripMenuItem, toolStripSeparator18, assignToolStripMenuItem, toolStripSeparator19, assignmentToolStripMenuItem });
+            dataToolStripMenuItem.DropDownItems.AddRange(new ToolStripItem[] { importDataToolStripMenuItem1, importToolStripMenuItem, originalScenarioSummaryToolStripMenuItem, toolStripSeparator18, assignToolStripMenuItem, assignmentToolStripMenuItem, toolStripSeparator26, dataQualityToolStripMenuItem });
             dataToolStripMenuItem.Name = "dataToolStripMenuItem";
             dataToolStripMenuItem.Size = new Size(147, 24);
             dataToolStripMenuItem.Text = "Data Management";
@@ -585,9 +731,237 @@ namespace Land_Readjustment_Tool
             toolStripMenuItem1.Size = new Size(257, 26);
             toolStripMenuItem1.Text = "Proposed Blocks";
             // 
+            // toolStripSeparator26
+            // 
+            toolStripSeparator26.Name = "toolStripSeparator26";
+            toolStripSeparator26.Size = new Size(221, 6);
+            // 
+            // dataQualityToolStripMenuItem
+            // 
+            dataQualityToolStripMenuItem.DropDownItems.AddRange(new ToolStripItem[] { ownerDeduplicationReviewToolStripMenuItem, parcelLinkMatchingReviewToolStripMenuItem, missingGeometryReviewToolStripMenuItem });
+            dataQualityToolStripMenuItem.Enabled = false;
+            dataQualityToolStripMenuItem.Name = "dataQualityToolStripMenuItem";
+            dataQualityToolStripMenuItem.Size = new Size(224, 26);
+            dataQualityToolStripMenuItem.Text = "Data Quality";
+            // 
+            // ownerDeduplicationReviewToolStripMenuItem
+            // 
+            ownerDeduplicationReviewToolStripMenuItem.Enabled = false;
+            ownerDeduplicationReviewToolStripMenuItem.Name = "ownerDeduplicationReviewToolStripMenuItem";
+            ownerDeduplicationReviewToolStripMenuItem.Size = new Size(295, 26);
+            ownerDeduplicationReviewToolStripMenuItem.Text = "Owner Deduplication Review...";
+            ownerDeduplicationReviewToolStripMenuItem.Click += OwnerDeduplicationReviewToolStripMenuItem_Click;
+            // 
+            // parcelLinkMatchingReviewToolStripMenuItem
+            // 
+            parcelLinkMatchingReviewToolStripMenuItem.Enabled = false;
+            parcelLinkMatchingReviewToolStripMenuItem.Name = "parcelLinkMatchingReviewToolStripMenuItem";
+            parcelLinkMatchingReviewToolStripMenuItem.Size = new Size(295, 26);
+            parcelLinkMatchingReviewToolStripMenuItem.Text = "Parcel-Link Matching Review...";
+            parcelLinkMatchingReviewToolStripMenuItem.Click += ParcelLinkMatchingReviewToolStripMenuItem_Click;
+            // 
+            // missingGeometryReviewToolStripMenuItem
+            // 
+            missingGeometryReviewToolStripMenuItem.Enabled = false;
+            missingGeometryReviewToolStripMenuItem.Name = "missingGeometryReviewToolStripMenuItem";
+            missingGeometryReviewToolStripMenuItem.Size = new Size(295, 26);
+            missingGeometryReviewToolStripMenuItem.Text = "Missing Geometry Review...";
+            missingGeometryReviewToolStripMenuItem.Click += MissingGeometryReviewToolStripMenuItem_Click;
+            // 
+            // mapToolStripMenuItem
+            // 
+            mapToolStripMenuItem.DropDownItems.AddRange(new ToolStripItem[] { mapSelectToolStripMenuItem, mapPanToolStripMenuItem, mapDrawToolStripMenuItem, toolStripSeparator27, mapZoomInToolStripMenuItem, mapZoomOutToolStripMenuItem, mapZoomExtentsToolStripMenuItem, mapZoomWindowToolStripMenuItem, toolStripSeparator28, mapRefreshLayersToolStripMenuItem, mapLayerPropertiesToolStripMenuItem });
+            mapToolStripMenuItem.Name = "mapToolStripMenuItem";
+            mapToolStripMenuItem.Size = new Size(53, 24);
+            mapToolStripMenuItem.Text = "Map";
+            // 
+            // mapSelectToolStripMenuItem
+            // 
+            mapSelectToolStripMenuItem.Enabled = false;
+            mapSelectToolStripMenuItem.Image = Properties.Resources.selection_Tool;
+            mapSelectToolStripMenuItem.ImageTransparentColor = Color.Magenta;
+            mapSelectToolStripMenuItem.Name = "mapSelectToolStripMenuItem";
+            mapSelectToolStripMenuItem.ShortcutKeyDisplayString = "S";
+            mapSelectToolStripMenuItem.Size = new Size(223, 26);
+            mapSelectToolStripMenuItem.Text = "Select";
+            mapSelectToolStripMenuItem.Click += mapSelectToolStripMenuItem_Click;
+            // 
+            // mapPanToolStripMenuItem
+            // 
+            mapPanToolStripMenuItem.Enabled = false;
+            mapPanToolStripMenuItem.Image = Properties.Resources.pngegg;
+            mapPanToolStripMenuItem.ImageTransparentColor = Color.Magenta;
+            mapPanToolStripMenuItem.Name = "mapPanToolStripMenuItem";
+            mapPanToolStripMenuItem.Size = new Size(223, 26);
+            mapPanToolStripMenuItem.Text = "Pan";
+            mapPanToolStripMenuItem.Click += mapPanToolStripMenuItem_Click;
+            // 
+            // mapDrawToolStripMenuItem
+            // 
+            mapDrawToolStripMenuItem.DropDownItems.AddRange(new ToolStripItem[] { mapDrawPointToolStripMenuItem, mapDrawLineToolStripMenuItem, mapDrawPolylineToolStripMenuItem, mapDrawArcToolStripMenuItem, mapDrawRectangleToolStripMenuItem, mapDrawPolygonToolStripMenuItem, mapDrawCircleToolStripMenuItem, mapDrawTextToolStripMenuItem });
+            mapDrawToolStripMenuItem.Enabled = false;
+            mapDrawToolStripMenuItem.Name = "mapDrawToolStripMenuItem";
+            mapDrawToolStripMenuItem.Size = new Size(223, 26);
+            mapDrawToolStripMenuItem.Text = "Draw";
+            // 
+            // mapDrawPointToolStripMenuItem
+            // 
+            mapDrawPointToolStripMenuItem.Enabled = false;
+            mapDrawPointToolStripMenuItem.Image = Properties.Resources.Point;
+            mapDrawPointToolStripMenuItem.ImageTransparentColor = Color.Magenta;
+            mapDrawPointToolStripMenuItem.Name = "mapDrawPointToolStripMenuItem";
+            mapDrawPointToolStripMenuItem.ShortcutKeyDisplayString = "X";
+            mapDrawPointToolStripMenuItem.Size = new Size(190, 26);
+            mapDrawPointToolStripMenuItem.Text = "Point";
+            mapDrawPointToolStripMenuItem.Click += mnuDrawPoint_Click;
+            // 
+            // mapDrawLineToolStripMenuItem
+            // 
+            mapDrawLineToolStripMenuItem.Enabled = false;
+            mapDrawLineToolStripMenuItem.Image = Properties.Resources.icons8_line_24;
+            mapDrawLineToolStripMenuItem.ImageTransparentColor = Color.Magenta;
+            mapDrawLineToolStripMenuItem.Name = "mapDrawLineToolStripMenuItem";
+            mapDrawLineToolStripMenuItem.ShortcutKeyDisplayString = "L";
+            mapDrawLineToolStripMenuItem.Size = new Size(190, 26);
+            mapDrawLineToolStripMenuItem.Text = "Line";
+            mapDrawLineToolStripMenuItem.Click += mnuDrawLine_Click;
+            // 
+            // mapDrawPolylineToolStripMenuItem
+            // 
+            mapDrawPolylineToolStripMenuItem.Enabled = false;
+            mapDrawPolylineToolStripMenuItem.Image = Properties.Resources.icons8_polyline_24;
+            mapDrawPolylineToolStripMenuItem.ImageTransparentColor = Color.Magenta;
+            mapDrawPolylineToolStripMenuItem.Name = "mapDrawPolylineToolStripMenuItem";
+            mapDrawPolylineToolStripMenuItem.ShortcutKeyDisplayString = "P";
+            mapDrawPolylineToolStripMenuItem.Size = new Size(190, 26);
+            mapDrawPolylineToolStripMenuItem.Text = "Polyline";
+            mapDrawPolylineToolStripMenuItem.Click += mnuDrawPolyline_Click;
+            // 
+            // mapDrawArcToolStripMenuItem
+            // 
+            mapDrawArcToolStripMenuItem.Enabled = false;
+            mapDrawArcToolStripMenuItem.Image = Properties.Resources.arc;
+            mapDrawArcToolStripMenuItem.ImageTransparentColor = Color.Magenta;
+            mapDrawArcToolStripMenuItem.Name = "mapDrawArcToolStripMenuItem";
+            mapDrawArcToolStripMenuItem.ShortcutKeyDisplayString = "A";
+            mapDrawArcToolStripMenuItem.Size = new Size(190, 26);
+            mapDrawArcToolStripMenuItem.Text = "Arc";
+            mapDrawArcToolStripMenuItem.Click += mnuDrawArc_Click;
+            // 
+            // mapDrawRectangleToolStripMenuItem
+            // 
+            mapDrawRectangleToolStripMenuItem.Enabled = false;
+            mapDrawRectangleToolStripMenuItem.Image = Properties.Resources.rectangle1;
+            mapDrawRectangleToolStripMenuItem.ImageTransparentColor = Color.Magenta;
+            mapDrawRectangleToolStripMenuItem.Name = "mapDrawRectangleToolStripMenuItem";
+            mapDrawRectangleToolStripMenuItem.ShortcutKeyDisplayString = "R";
+            mapDrawRectangleToolStripMenuItem.Size = new Size(190, 26);
+            mapDrawRectangleToolStripMenuItem.Text = "Rectangle";
+            mapDrawRectangleToolStripMenuItem.Click += mnuDrawRectangle_Click;
+            // 
+            // mapDrawPolygonToolStripMenuItem
+            // 
+            mapDrawPolygonToolStripMenuItem.Enabled = false;
+            mapDrawPolygonToolStripMenuItem.Image = Properties.Resources.icons8_polygon_24__1_;
+            mapDrawPolygonToolStripMenuItem.ImageTransparentColor = Color.Magenta;
+            mapDrawPolygonToolStripMenuItem.Name = "mapDrawPolygonToolStripMenuItem";
+            mapDrawPolygonToolStripMenuItem.Size = new Size(190, 26);
+            mapDrawPolygonToolStripMenuItem.Text = "Polygon";
+            mapDrawPolygonToolStripMenuItem.Click += mnuDrawPolygon_Click;
+            // 
+            // mapDrawCircleToolStripMenuItem
+            // 
+            mapDrawCircleToolStripMenuItem.Enabled = false;
+            mapDrawCircleToolStripMenuItem.Image = Properties.Resources.circle1;
+            mapDrawCircleToolStripMenuItem.ImageTransparentColor = Color.Magenta;
+            mapDrawCircleToolStripMenuItem.Name = "mapDrawCircleToolStripMenuItem";
+            mapDrawCircleToolStripMenuItem.ShortcutKeyDisplayString = "C";
+            mapDrawCircleToolStripMenuItem.Size = new Size(190, 26);
+            mapDrawCircleToolStripMenuItem.Text = "Circle";
+            mapDrawCircleToolStripMenuItem.Click += mnuDrawCircle_Click;
+            // 
+            // mapDrawTextToolStripMenuItem
+            // 
+            mapDrawTextToolStripMenuItem.Enabled = false;
+            mapDrawTextToolStripMenuItem.Image = Properties.Resources.icons8_aa_64;
+            mapDrawTextToolStripMenuItem.ImageTransparentColor = Color.Magenta;
+            mapDrawTextToolStripMenuItem.Name = "mapDrawTextToolStripMenuItem";
+            mapDrawTextToolStripMenuItem.ShortcutKeyDisplayString = "T";
+            mapDrawTextToolStripMenuItem.Size = new Size(190, 26);
+            mapDrawTextToolStripMenuItem.Text = "Text";
+            mapDrawTextToolStripMenuItem.Click += mnuDrawText_Click;
+            // 
+            // toolStripSeparator27
+            // 
+            toolStripSeparator27.Name = "toolStripSeparator27";
+            toolStripSeparator27.Size = new Size(220, 6);
+            // 
+            // mapZoomInToolStripMenuItem
+            // 
+            mapZoomInToolStripMenuItem.Enabled = false;
+            mapZoomInToolStripMenuItem.Image = Properties.Resources.icons8_zoom_in_502;
+            mapZoomInToolStripMenuItem.ImageTransparentColor = Color.Magenta;
+            mapZoomInToolStripMenuItem.Name = "mapZoomInToolStripMenuItem";
+            mapZoomInToolStripMenuItem.Size = new Size(223, 26);
+            mapZoomInToolStripMenuItem.Text = "Zoom In";
+            mapZoomInToolStripMenuItem.Click += mnuZoomIn_Click;
+            // 
+            // mapZoomOutToolStripMenuItem
+            // 
+            mapZoomOutToolStripMenuItem.Enabled = false;
+            mapZoomOutToolStripMenuItem.Image = Properties.Resources.icons8_zoom_out_502;
+            mapZoomOutToolStripMenuItem.ImageTransparentColor = Color.Magenta;
+            mapZoomOutToolStripMenuItem.Name = "mapZoomOutToolStripMenuItem";
+            mapZoomOutToolStripMenuItem.Size = new Size(223, 26);
+            mapZoomOutToolStripMenuItem.Text = "Zoom Out";
+            mapZoomOutToolStripMenuItem.Click += mnuZoomOut_Click;
+            // 
+            // mapZoomExtentsToolStripMenuItem
+            // 
+            mapZoomExtentsToolStripMenuItem.Enabled = false;
+            mapZoomExtentsToolStripMenuItem.Image = Properties.Resources.icons8_zoom_to_extents_502;
+            mapZoomExtentsToolStripMenuItem.ImageTransparentColor = Color.Magenta;
+            mapZoomExtentsToolStripMenuItem.Name = "mapZoomExtentsToolStripMenuItem";
+            mapZoomExtentsToolStripMenuItem.ShortcutKeyDisplayString = "E";
+            mapZoomExtentsToolStripMenuItem.Size = new Size(223, 26);
+            mapZoomExtentsToolStripMenuItem.Text = "Zoom Extents";
+            mapZoomExtentsToolStripMenuItem.Click += mnuZoomExtent_Click;
+            // 
+            // mapZoomWindowToolStripMenuItem
+            // 
+            mapZoomWindowToolStripMenuItem.Enabled = false;
+            mapZoomWindowToolStripMenuItem.Image = Properties.Resources.icons8_zoom_to_fit_502;
+            mapZoomWindowToolStripMenuItem.ImageTransparentColor = Color.Magenta;
+            mapZoomWindowToolStripMenuItem.Name = "mapZoomWindowToolStripMenuItem";
+            mapZoomWindowToolStripMenuItem.ShortcutKeyDisplayString = "Z";
+            mapZoomWindowToolStripMenuItem.Size = new Size(223, 26);
+            mapZoomWindowToolStripMenuItem.Text = "Zoom Window";
+            mapZoomWindowToolStripMenuItem.Click += mnuZoomWindow_Click;
+            // 
+            // toolStripSeparator28
+            // 
+            toolStripSeparator28.Name = "toolStripSeparator28";
+            toolStripSeparator28.Size = new Size(220, 6);
+            // 
+            // mapRefreshLayersToolStripMenuItem
+            // 
+            mapRefreshLayersToolStripMenuItem.Enabled = false;
+            mapRefreshLayersToolStripMenuItem.Name = "mapRefreshLayersToolStripMenuItem";
+            mapRefreshLayersToolStripMenuItem.Size = new Size(223, 26);
+            mapRefreshLayersToolStripMenuItem.Text = "Refresh Layers";
+            mapRefreshLayersToolStripMenuItem.Click += PlannedFeatureToolStripMenuItem_Click;
+            // 
+            // mapLayerPropertiesToolStripMenuItem
+            // 
+            mapLayerPropertiesToolStripMenuItem.Enabled = false;
+            mapLayerPropertiesToolStripMenuItem.Name = "mapLayerPropertiesToolStripMenuItem";
+            mapLayerPropertiesToolStripMenuItem.Size = new Size(223, 26);
+            mapLayerPropertiesToolStripMenuItem.Text = "Layer Properties...";
+            mapLayerPropertiesToolStripMenuItem.Click += PlannedFeatureToolStripMenuItem_Click;
+            // 
             // contributionToolStripMenuItem
             // 
-            contributionToolStripMenuItem.DropDownItems.AddRange(new ToolStripItem[] { contributionSettingsToolStripMenuItem, calculateContributionToolStripMenuItem, contributionSummaryToolStripMenuItem });
+            contributionToolStripMenuItem.DropDownItems.AddRange(new ToolStripItem[] { contributionSettingsToolStripMenuItem, returnPolicySetupToolStripMenuItem, policyVersionApprovalToolStripMenuItem, toolStripSeparator29, parcelContributionInputsToolStripMenuItem, deriveInputsFromMapToolStripMenuItem, toolStripSeparator30, calculateContributionToolStripMenuItem, contributionReviewToolStripMenuItem, contributionOverridesAuditTrailToolStripMenuItem, toolStripSeparator31, freezeApproveResultsToolStripMenuItem });
             contributionToolStripMenuItem.Name = "contributionToolStripMenuItem";
             contributionToolStripMenuItem.Size = new Size(106, 24);
             contributionToolStripMenuItem.Text = "Contribution";
@@ -596,15 +970,88 @@ namespace Land_Readjustment_Tool
             // 
             contributionSettingsToolStripMenuItem.Enabled = false;
             contributionSettingsToolStripMenuItem.Name = "contributionSettingsToolStripMenuItem";
-            contributionSettingsToolStripMenuItem.Size = new Size(241, 26);
-            contributionSettingsToolStripMenuItem.Text = "Contribution Settings";
+            contributionSettingsToolStripMenuItem.Size = new Size(276, 26);
+            contributionSettingsToolStripMenuItem.Text = "Contribution Policy Setup...";
+            contributionSettingsToolStripMenuItem.Click += PlannedFeatureToolStripMenuItem_Click;
+            // 
+            // returnPolicySetupToolStripMenuItem
+            // 
+            returnPolicySetupToolStripMenuItem.Enabled = false;
+            returnPolicySetupToolStripMenuItem.Name = "returnPolicySetupToolStripMenuItem";
+            returnPolicySetupToolStripMenuItem.Size = new Size(276, 26);
+            returnPolicySetupToolStripMenuItem.Text = "Return Policy Setup...";
+            returnPolicySetupToolStripMenuItem.Click += PlannedFeatureToolStripMenuItem_Click;
+            // 
+            // policyVersionApprovalToolStripMenuItem
+            // 
+            policyVersionApprovalToolStripMenuItem.Enabled = false;
+            policyVersionApprovalToolStripMenuItem.Name = "policyVersionApprovalToolStripMenuItem";
+            policyVersionApprovalToolStripMenuItem.Size = new Size(276, 26);
+            policyVersionApprovalToolStripMenuItem.Text = "Policy Version and Approval...";
+            policyVersionApprovalToolStripMenuItem.Click += PlannedFeatureToolStripMenuItem_Click;
+            // 
+            // toolStripSeparator29
+            // 
+            toolStripSeparator29.Name = "toolStripSeparator29";
+            toolStripSeparator29.Size = new Size(273, 6);
+            // 
+            // parcelContributionInputsToolStripMenuItem
+            // 
+            parcelContributionInputsToolStripMenuItem.Enabled = false;
+            parcelContributionInputsToolStripMenuItem.Name = "parcelContributionInputsToolStripMenuItem";
+            parcelContributionInputsToolStripMenuItem.Size = new Size(276, 26);
+            parcelContributionInputsToolStripMenuItem.Text = "Parcel Contribution Inputs...";
+            parcelContributionInputsToolStripMenuItem.Click += PlannedFeatureToolStripMenuItem_Click;
+            // 
+            // deriveInputsFromMapToolStripMenuItem
+            // 
+            deriveInputsFromMapToolStripMenuItem.Enabled = false;
+            deriveInputsFromMapToolStripMenuItem.Name = "deriveInputsFromMapToolStripMenuItem";
+            deriveInputsFromMapToolStripMenuItem.Size = new Size(276, 26);
+            deriveInputsFromMapToolStripMenuItem.Text = "Derive Inputs from Map";
+            deriveInputsFromMapToolStripMenuItem.Click += PlannedFeatureToolStripMenuItem_Click;
+            // 
+            // toolStripSeparator30
+            // 
+            toolStripSeparator30.Name = "toolStripSeparator30";
+            toolStripSeparator30.Size = new Size(273, 6);
             // 
             // calculateContributionToolStripMenuItem
             // 
             calculateContributionToolStripMenuItem.Enabled = false;
             calculateContributionToolStripMenuItem.Name = "calculateContributionToolStripMenuItem";
-            calculateContributionToolStripMenuItem.Size = new Size(241, 26);
-            calculateContributionToolStripMenuItem.Text = "Calculate Contribution";
+            calculateContributionToolStripMenuItem.Size = new Size(276, 26);
+            calculateContributionToolStripMenuItem.Text = "Calculate Contributions";
+            calculateContributionToolStripMenuItem.Click += PlannedFeatureToolStripMenuItem_Click;
+            // 
+            // contributionReviewToolStripMenuItem
+            // 
+            contributionReviewToolStripMenuItem.Enabled = false;
+            contributionReviewToolStripMenuItem.Name = "contributionReviewToolStripMenuItem";
+            contributionReviewToolStripMenuItem.Size = new Size(276, 26);
+            contributionReviewToolStripMenuItem.Text = "Contribution Review...";
+            contributionReviewToolStripMenuItem.Click += PlannedFeatureToolStripMenuItem_Click;
+            // 
+            // contributionOverridesAuditTrailToolStripMenuItem
+            // 
+            contributionOverridesAuditTrailToolStripMenuItem.Enabled = false;
+            contributionOverridesAuditTrailToolStripMenuItem.Name = "contributionOverridesAuditTrailToolStripMenuItem";
+            contributionOverridesAuditTrailToolStripMenuItem.Size = new Size(276, 26);
+            contributionOverridesAuditTrailToolStripMenuItem.Text = "Overrides and Audit Trail...";
+            contributionOverridesAuditTrailToolStripMenuItem.Click += PlannedFeatureToolStripMenuItem_Click;
+            // 
+            // toolStripSeparator31
+            // 
+            toolStripSeparator31.Name = "toolStripSeparator31";
+            toolStripSeparator31.Size = new Size(273, 6);
+            // 
+            // freezeApproveResultsToolStripMenuItem
+            // 
+            freezeApproveResultsToolStripMenuItem.Enabled = false;
+            freezeApproveResultsToolStripMenuItem.Name = "freezeApproveResultsToolStripMenuItem";
+            freezeApproveResultsToolStripMenuItem.Size = new Size(276, 26);
+            freezeApproveResultsToolStripMenuItem.Text = "Freeze / Approve Results";
+            freezeApproveResultsToolStripMenuItem.Click += PlannedFeatureToolStripMenuItem_Click;
             // 
             // contributionSummaryToolStripMenuItem
             // 
@@ -615,7 +1062,7 @@ namespace Land_Readjustment_Tool
             // 
             // replottingToolStripMenuItem
             // 
-            replottingToolStripMenuItem.DropDownItems.AddRange(new ToolStripItem[] { startReplotWorkspaceToolStripMenuItem, parcelAdjustmentToolStripMenuItem, roadNetworkToolStripMenuItem });
+            replottingToolStripMenuItem.DropDownItems.AddRange(new ToolStripItem[] { startReplotWorkspaceToolStripMenuItem, toolStripSeparator32, replotBlockManagerToolStripMenuItem, replotRoadLayoutToolStripMenuItem, toolStripSeparator33, ownerAllocationToolStripMenuItem, returnableAreaBalanceToolStripMenuItem, jointReturnSalesPlotCasesToolStripMenuItem, toolStripSeparator34, finalizeReplotDesignToolStripMenuItem });
             replottingToolStripMenuItem.Name = "replottingToolStripMenuItem";
             replottingToolStripMenuItem.Size = new Size(93, 24);
             replottingToolStripMenuItem.Text = "Replotting";
@@ -623,8 +1070,71 @@ namespace Land_Readjustment_Tool
             // startReplotWorkspaceToolStripMenuItem
             // 
             startReplotWorkspaceToolStripMenuItem.Name = "startReplotWorkspaceToolStripMenuItem";
-            startReplotWorkspaceToolStripMenuItem.Size = new Size(247, 26);
-            startReplotWorkspaceToolStripMenuItem.Text = "Start Replot Workspace";
+            startReplotWorkspaceToolStripMenuItem.Size = new Size(308, 26);
+            startReplotWorkspaceToolStripMenuItem.Text = "Open Replotting Workspace...";
+            // 
+            // toolStripSeparator32
+            // 
+            toolStripSeparator32.Name = "toolStripSeparator32";
+            toolStripSeparator32.Size = new Size(305, 6);
+            // 
+            // replotBlockManagerToolStripMenuItem
+            // 
+            replotBlockManagerToolStripMenuItem.Enabled = false;
+            replotBlockManagerToolStripMenuItem.Name = "replotBlockManagerToolStripMenuItem";
+            replotBlockManagerToolStripMenuItem.Size = new Size(308, 26);
+            replotBlockManagerToolStripMenuItem.Text = "Block Manager...";
+            replotBlockManagerToolStripMenuItem.Click += BlockDataToolStripMenuItem_Click;
+            // 
+            // replotRoadLayoutToolStripMenuItem
+            // 
+            replotRoadLayoutToolStripMenuItem.Enabled = false;
+            replotRoadLayoutToolStripMenuItem.Name = "replotRoadLayoutToolStripMenuItem";
+            replotRoadLayoutToolStripMenuItem.Size = new Size(308, 26);
+            replotRoadLayoutToolStripMenuItem.Text = "Road Layout...";
+            replotRoadLayoutToolStripMenuItem.Click += RoadAssignmentToolStripMenuItem_Click;
+            // 
+            // toolStripSeparator33
+            // 
+            toolStripSeparator33.Name = "toolStripSeparator33";
+            toolStripSeparator33.Size = new Size(305, 6);
+            // 
+            // ownerAllocationToolStripMenuItem
+            // 
+            ownerAllocationToolStripMenuItem.Enabled = false;
+            ownerAllocationToolStripMenuItem.Name = "ownerAllocationToolStripMenuItem";
+            ownerAllocationToolStripMenuItem.Size = new Size(308, 26);
+            ownerAllocationToolStripMenuItem.Text = "Owner Allocation...";
+            ownerAllocationToolStripMenuItem.Click += PlannedFeatureToolStripMenuItem_Click;
+            // 
+            // returnableAreaBalanceToolStripMenuItem
+            // 
+            returnableAreaBalanceToolStripMenuItem.Enabled = false;
+            returnableAreaBalanceToolStripMenuItem.Name = "returnableAreaBalanceToolStripMenuItem";
+            returnableAreaBalanceToolStripMenuItem.Size = new Size(308, 26);
+            returnableAreaBalanceToolStripMenuItem.Text = "Returnable Area Balance...";
+            returnableAreaBalanceToolStripMenuItem.Click += PlannedFeatureToolStripMenuItem_Click;
+            // 
+            // jointReturnSalesPlotCasesToolStripMenuItem
+            // 
+            jointReturnSalesPlotCasesToolStripMenuItem.Enabled = false;
+            jointReturnSalesPlotCasesToolStripMenuItem.Name = "jointReturnSalesPlotCasesToolStripMenuItem";
+            jointReturnSalesPlotCasesToolStripMenuItem.Size = new Size(308, 26);
+            jointReturnSalesPlotCasesToolStripMenuItem.Text = "Joint Return and Sales Plot Cases...";
+            jointReturnSalesPlotCasesToolStripMenuItem.Click += PlannedFeatureToolStripMenuItem_Click;
+            // 
+            // toolStripSeparator34
+            // 
+            toolStripSeparator34.Name = "toolStripSeparator34";
+            toolStripSeparator34.Size = new Size(305, 6);
+            // 
+            // finalizeReplotDesignToolStripMenuItem
+            // 
+            finalizeReplotDesignToolStripMenuItem.Enabled = false;
+            finalizeReplotDesignToolStripMenuItem.Name = "finalizeReplotDesignToolStripMenuItem";
+            finalizeReplotDesignToolStripMenuItem.Size = new Size(308, 26);
+            finalizeReplotDesignToolStripMenuItem.Text = "Finalize Replot Design";
+            finalizeReplotDesignToolStripMenuItem.Click += PlannedFeatureToolStripMenuItem_Click;
             // 
             // parcelAdjustmentToolStripMenuItem
             // 
@@ -642,59 +1152,202 @@ namespace Land_Readjustment_Tool
             // 
             // validationToolStripMenuItem
             // 
-            validationToolStripMenuItem.DropDownItems.AddRange(new ToolStripItem[] { validateOwnershipRecordsToolStripMenuItem, validateSpatialDataToolStripMenuItem, validationIssuesToolStripMenuItem });
+            validationToolStripMenuItem.DropDownItems.AddRange(new ToolStripItem[] { validationDashboardToolStripMenuItem, toolStripSeparator35, validateOwnershipRecordsToolStripMenuItem, validateSpatialDataToolStripMenuItem, topologyCheckToolStripMenuItem, toolStripSeparator36, contributionRuleCheckToolStripMenuItem, returnPolicyCheckToolStripMenuItem, areaAllocationDifferenceReviewToolStripMenuItem, toolStripSeparator37, validationIssuesToolStripMenuItem });
             validationToolStripMenuItem.Name = "validationToolStripMenuItem";
-            validationToolStripMenuItem.Size = new Size(90, 24);
-            validationToolStripMenuItem.Text = "Validation";
+            validationToolStripMenuItem.Size = new Size(67, 24);
+            validationToolStripMenuItem.Text = "Review";
+            // 
+            // validationDashboardToolStripMenuItem
+            // 
+            validationDashboardToolStripMenuItem.Enabled = false;
+            validationDashboardToolStripMenuItem.Name = "validationDashboardToolStripMenuItem";
+            validationDashboardToolStripMenuItem.Size = new Size(333, 26);
+            validationDashboardToolStripMenuItem.Text = "Validation Dashboard...";
+            validationDashboardToolStripMenuItem.Click += PlannedFeatureToolStripMenuItem_Click;
+            // 
+            // toolStripSeparator35
+            // 
+            toolStripSeparator35.Name = "toolStripSeparator35";
+            toolStripSeparator35.Size = new Size(330, 6);
             // 
             // validateOwnershipRecordsToolStripMenuItem
             // 
             validateOwnershipRecordsToolStripMenuItem.Enabled = false;
             validateOwnershipRecordsToolStripMenuItem.Name = "validateOwnershipRecordsToolStripMenuItem";
-            validateOwnershipRecordsToolStripMenuItem.Size = new Size(277, 26);
-            validateOwnershipRecordsToolStripMenuItem.Text = "Validate Ownership Records";
+            validateOwnershipRecordsToolStripMenuItem.Size = new Size(333, 26);
+            validateOwnershipRecordsToolStripMenuItem.Text = "Ownership Records Check...";
+            validateOwnershipRecordsToolStripMenuItem.Click += PlannedFeatureToolStripMenuItem_Click;
             // 
             // validateSpatialDataToolStripMenuItem
             // 
             validateSpatialDataToolStripMenuItem.Enabled = false;
             validateSpatialDataToolStripMenuItem.Name = "validateSpatialDataToolStripMenuItem";
-            validateSpatialDataToolStripMenuItem.Size = new Size(277, 26);
-            validateSpatialDataToolStripMenuItem.Text = "Validate Spatial Data";
+            validateSpatialDataToolStripMenuItem.Size = new Size(333, 26);
+            validateSpatialDataToolStripMenuItem.Text = "Spatial Data Check...";
+            validateSpatialDataToolStripMenuItem.Click += PlannedFeatureToolStripMenuItem_Click;
+            // 
+            // topologyCheckToolStripMenuItem
+            // 
+            topologyCheckToolStripMenuItem.Enabled = false;
+            topologyCheckToolStripMenuItem.Name = "topologyCheckToolStripMenuItem";
+            topologyCheckToolStripMenuItem.Size = new Size(333, 26);
+            topologyCheckToolStripMenuItem.Text = "Topology Check...";
+            topologyCheckToolStripMenuItem.Click += PlannedFeatureToolStripMenuItem_Click;
+            // 
+            // toolStripSeparator36
+            // 
+            toolStripSeparator36.Name = "toolStripSeparator36";
+            toolStripSeparator36.Size = new Size(330, 6);
+            // 
+            // contributionRuleCheckToolStripMenuItem
+            // 
+            contributionRuleCheckToolStripMenuItem.Enabled = false;
+            contributionRuleCheckToolStripMenuItem.Name = "contributionRuleCheckToolStripMenuItem";
+            contributionRuleCheckToolStripMenuItem.Size = new Size(333, 26);
+            contributionRuleCheckToolStripMenuItem.Text = "Contribution Rule Check...";
+            contributionRuleCheckToolStripMenuItem.Click += PlannedFeatureToolStripMenuItem_Click;
+            // 
+            // returnPolicyCheckToolStripMenuItem
+            // 
+            returnPolicyCheckToolStripMenuItem.Enabled = false;
+            returnPolicyCheckToolStripMenuItem.Name = "returnPolicyCheckToolStripMenuItem";
+            returnPolicyCheckToolStripMenuItem.Size = new Size(333, 26);
+            returnPolicyCheckToolStripMenuItem.Text = "Return Policy Check...";
+            returnPolicyCheckToolStripMenuItem.Click += PlannedFeatureToolStripMenuItem_Click;
+            // 
+            // areaAllocationDifferenceReviewToolStripMenuItem
+            // 
+            areaAllocationDifferenceReviewToolStripMenuItem.Enabled = false;
+            areaAllocationDifferenceReviewToolStripMenuItem.Name = "areaAllocationDifferenceReviewToolStripMenuItem";
+            areaAllocationDifferenceReviewToolStripMenuItem.Size = new Size(333, 26);
+            areaAllocationDifferenceReviewToolStripMenuItem.Text = "Area and Allocation Difference Review...";
+            areaAllocationDifferenceReviewToolStripMenuItem.Click += PlannedFeatureToolStripMenuItem_Click;
+            // 
+            // toolStripSeparator37
+            // 
+            toolStripSeparator37.Name = "toolStripSeparator37";
+            toolStripSeparator37.Size = new Size(330, 6);
             // 
             // validationIssuesToolStripMenuItem
             // 
             validationIssuesToolStripMenuItem.Enabled = false;
             validationIssuesToolStripMenuItem.Name = "validationIssuesToolStripMenuItem";
-            validationIssuesToolStripMenuItem.Size = new Size(277, 26);
-            validationIssuesToolStripMenuItem.Text = "Validation Issues";
+            validationIssuesToolStripMenuItem.Size = new Size(333, 26);
+            validationIssuesToolStripMenuItem.Text = "Validation Issues...";
+            validationIssuesToolStripMenuItem.Click += PlannedFeatureToolStripMenuItem_Click;
             // 
             // reportsToolStripMenuItem
             // 
-            reportsToolStripMenuItem.DropDownItems.AddRange(new ToolStripItem[] { ownerParcelReportToolStripMenuItem, contributionReportToolStripMenuItem, exportDataToolStripMenuItem });
+            reportsToolStripMenuItem.DropDownItems.AddRange(new ToolStripItem[] { ownerParcelReportToolStripMenuItem, originalParcelRegisterToolStripMenuItem, contributionSummaryReportToolStripMenuItem, contributionReportToolStripMenuItem, returnableAreaReportToolStripMenuItem, replotAllocationReportToolStripMenuItem, toolStripSeparator38, projectOverviewMapToolStripMenuItem, blockReplotMapToolStripMenuItem, contributionHeatmapToolStripMenuItem, toolStripSeparator39, exportExcelToolStripMenuItem, exportPdfToolStripMenuItem, exportDataToolStripMenuItem });
             reportsToolStripMenuItem.Name = "reportsToolStripMenuItem";
-            reportsToolStripMenuItem.Size = new Size(69, 24);
-            reportsToolStripMenuItem.Text = "Output";
+            reportsToolStripMenuItem.Size = new Size(74, 24);
+            reportsToolStripMenuItem.Text = "Reports";
             // 
             // ownerParcelReportToolStripMenuItem
             // 
             ownerParcelReportToolStripMenuItem.Enabled = false;
             ownerParcelReportToolStripMenuItem.Name = "ownerParcelReportToolStripMenuItem";
-            ownerParcelReportToolStripMenuItem.Size = new Size(229, 26);
-            ownerParcelReportToolStripMenuItem.Text = "Owner/Parcel Report";
+            ownerParcelReportToolStripMenuItem.Size = new Size(282, 26);
+            ownerParcelReportToolStripMenuItem.Text = "Owner Register";
+            ownerParcelReportToolStripMenuItem.Click += PlannedFeatureToolStripMenuItem_Click;
+            // 
+            // originalParcelRegisterToolStripMenuItem
+            // 
+            originalParcelRegisterToolStripMenuItem.Enabled = false;
+            originalParcelRegisterToolStripMenuItem.Name = "originalParcelRegisterToolStripMenuItem";
+            originalParcelRegisterToolStripMenuItem.Size = new Size(282, 26);
+            originalParcelRegisterToolStripMenuItem.Text = "Original Parcel Register";
+            originalParcelRegisterToolStripMenuItem.Click += PlannedFeatureToolStripMenuItem_Click;
+            // 
+            // contributionSummaryReportToolStripMenuItem
+            // 
+            contributionSummaryReportToolStripMenuItem.Enabled = false;
+            contributionSummaryReportToolStripMenuItem.Name = "contributionSummaryReportToolStripMenuItem";
+            contributionSummaryReportToolStripMenuItem.Size = new Size(282, 26);
+            contributionSummaryReportToolStripMenuItem.Text = "Contribution Summary";
+            contributionSummaryReportToolStripMenuItem.Click += PlannedFeatureToolStripMenuItem_Click;
             // 
             // contributionReportToolStripMenuItem
             // 
             contributionReportToolStripMenuItem.Enabled = false;
             contributionReportToolStripMenuItem.Name = "contributionReportToolStripMenuItem";
-            contributionReportToolStripMenuItem.Size = new Size(229, 26);
-            contributionReportToolStripMenuItem.Text = "Contribution Report";
+            contributionReportToolStripMenuItem.Size = new Size(282, 26);
+            contributionReportToolStripMenuItem.Text = "Contribution Detail Statement";
+            contributionReportToolStripMenuItem.Click += PlannedFeatureToolStripMenuItem_Click;
+            // 
+            // returnableAreaReportToolStripMenuItem
+            // 
+            returnableAreaReportToolStripMenuItem.Enabled = false;
+            returnableAreaReportToolStripMenuItem.Name = "returnableAreaReportToolStripMenuItem";
+            returnableAreaReportToolStripMenuItem.Size = new Size(282, 26);
+            returnableAreaReportToolStripMenuItem.Text = "Returnable Area Report";
+            returnableAreaReportToolStripMenuItem.Click += PlannedFeatureToolStripMenuItem_Click;
+            // 
+            // replotAllocationReportToolStripMenuItem
+            // 
+            replotAllocationReportToolStripMenuItem.Enabled = false;
+            replotAllocationReportToolStripMenuItem.Name = "replotAllocationReportToolStripMenuItem";
+            replotAllocationReportToolStripMenuItem.Size = new Size(282, 26);
+            replotAllocationReportToolStripMenuItem.Text = "Replot Allocation Report";
+            replotAllocationReportToolStripMenuItem.Click += PlannedFeatureToolStripMenuItem_Click;
+            // 
+            // toolStripSeparator38
+            // 
+            toolStripSeparator38.Name = "toolStripSeparator38";
+            toolStripSeparator38.Size = new Size(279, 6);
+            // 
+            // projectOverviewMapToolStripMenuItem
+            // 
+            projectOverviewMapToolStripMenuItem.Enabled = false;
+            projectOverviewMapToolStripMenuItem.Name = "projectOverviewMapToolStripMenuItem";
+            projectOverviewMapToolStripMenuItem.Size = new Size(282, 26);
+            projectOverviewMapToolStripMenuItem.Text = "Project Overview Map";
+            projectOverviewMapToolStripMenuItem.Click += PlannedFeatureToolStripMenuItem_Click;
+            // 
+            // blockReplotMapToolStripMenuItem
+            // 
+            blockReplotMapToolStripMenuItem.Enabled = false;
+            blockReplotMapToolStripMenuItem.Name = "blockReplotMapToolStripMenuItem";
+            blockReplotMapToolStripMenuItem.Size = new Size(282, 26);
+            blockReplotMapToolStripMenuItem.Text = "Block Replot Map";
+            blockReplotMapToolStripMenuItem.Click += PlannedFeatureToolStripMenuItem_Click;
+            // 
+            // contributionHeatmapToolStripMenuItem
+            // 
+            contributionHeatmapToolStripMenuItem.Enabled = false;
+            contributionHeatmapToolStripMenuItem.Name = "contributionHeatmapToolStripMenuItem";
+            contributionHeatmapToolStripMenuItem.Size = new Size(282, 26);
+            contributionHeatmapToolStripMenuItem.Text = "Contribution Heatmap";
+            contributionHeatmapToolStripMenuItem.Click += PlannedFeatureToolStripMenuItem_Click;
+            // 
+            // toolStripSeparator39
+            // 
+            toolStripSeparator39.Name = "toolStripSeparator39";
+            toolStripSeparator39.Size = new Size(279, 6);
+            // 
+            // exportExcelToolStripMenuItem
+            // 
+            exportExcelToolStripMenuItem.Enabled = false;
+            exportExcelToolStripMenuItem.Name = "exportExcelToolStripMenuItem";
+            exportExcelToolStripMenuItem.Size = new Size(282, 26);
+            exportExcelToolStripMenuItem.Text = "Export to Excel...";
+            exportExcelToolStripMenuItem.Click += PlannedFeatureToolStripMenuItem_Click;
+            // 
+            // exportPdfToolStripMenuItem
+            // 
+            exportPdfToolStripMenuItem.Enabled = false;
+            exportPdfToolStripMenuItem.Name = "exportPdfToolStripMenuItem";
+            exportPdfToolStripMenuItem.Size = new Size(282, 26);
+            exportPdfToolStripMenuItem.Text = "Export to PDF...";
+            exportPdfToolStripMenuItem.Click += PlannedFeatureToolStripMenuItem_Click;
             // 
             // exportDataToolStripMenuItem
             // 
             exportDataToolStripMenuItem.Enabled = false;
             exportDataToolStripMenuItem.Name = "exportDataToolStripMenuItem";
-            exportDataToolStripMenuItem.Size = new Size(229, 26);
-            exportDataToolStripMenuItem.Text = "Export Data";
+            exportDataToolStripMenuItem.Size = new Size(282, 26);
+            exportDataToolStripMenuItem.Text = "Export GIS / CAD Data...";
+            exportDataToolStripMenuItem.Click += PlannedFeatureToolStripMenuItem_Click;
             // 
             // toolsToolStripMenuItem
             // 
@@ -709,6 +1362,48 @@ namespace Land_Readjustment_Tool
             mnuAreaConverterTool.Size = new Size(191, 26);
             mnuAreaConverterTool.Text = "Area Converter";
             mnuAreaConverterTool.Click += mnuAreaConverterTool_Click;
+            // 
+            // windowToolStripMenuItem
+            // 
+            windowToolStripMenuItem.DropDownItems.AddRange(new ToolStripItem[] { toggleLayerPanelToolStripMenuItem, togglePropertiesPanelToolStripMenuItem, toolStripSeparator40, openReplottingWorkspaceWindowToolStripMenuItem, resetWorkspaceLayoutToolStripMenuItem });
+            windowToolStripMenuItem.Name = "windowToolStripMenuItem";
+            windowToolStripMenuItem.Size = new Size(78, 24);
+            windowToolStripMenuItem.Text = "Window";
+            // 
+            // toggleLayerPanelToolStripMenuItem
+            // 
+            toggleLayerPanelToolStripMenuItem.Name = "toggleLayerPanelToolStripMenuItem";
+            toggleLayerPanelToolStripMenuItem.Size = new Size(260, 26);
+            toggleLayerPanelToolStripMenuItem.Text = "Toggle Layer Panel";
+            toggleLayerPanelToolStripMenuItem.Click += toggleLayerPanelToolStripMenuItem_Click;
+            // 
+            // togglePropertiesPanelToolStripMenuItem
+            // 
+            togglePropertiesPanelToolStripMenuItem.Name = "togglePropertiesPanelToolStripMenuItem";
+            togglePropertiesPanelToolStripMenuItem.Size = new Size(260, 26);
+            togglePropertiesPanelToolStripMenuItem.Text = "Toggle Properties Panel";
+            togglePropertiesPanelToolStripMenuItem.Click += togglePropertiesPanelToolStripMenuItem_Click;
+            // 
+            // toolStripSeparator40
+            // 
+            toolStripSeparator40.Name = "toolStripSeparator40";
+            toolStripSeparator40.Size = new Size(257, 6);
+            // 
+            // openReplottingWorkspaceWindowToolStripMenuItem
+            // 
+            openReplottingWorkspaceWindowToolStripMenuItem.Enabled = false;
+            openReplottingWorkspaceWindowToolStripMenuItem.Name = "openReplottingWorkspaceWindowToolStripMenuItem";
+            openReplottingWorkspaceWindowToolStripMenuItem.Size = new Size(260, 26);
+            openReplottingWorkspaceWindowToolStripMenuItem.Text = "Open Replotting Workspace";
+            openReplottingWorkspaceWindowToolStripMenuItem.Click += startReplotWorkspaceToolStripMenuItem_Click;
+            // 
+            // resetWorkspaceLayoutToolStripMenuItem
+            // 
+            resetWorkspaceLayoutToolStripMenuItem.Enabled = false;
+            resetWorkspaceLayoutToolStripMenuItem.Name = "resetWorkspaceLayoutToolStripMenuItem";
+            resetWorkspaceLayoutToolStripMenuItem.Size = new Size(260, 26);
+            resetWorkspaceLayoutToolStripMenuItem.Text = "Reset Workspace Layout";
+            resetWorkspaceLayoutToolStripMenuItem.Click += PlannedFeatureToolStripMenuItem_Click;
             // 
             // helToolStripMenuItem
             // 
@@ -1359,6 +2054,7 @@ namespace Land_Readjustment_Tool
             mnuSelectTool.Name = "mnuSelectTool";
             mnuSelectTool.Size = new Size(29, 25);
             mnuSelectTool.Text = "Select";
+            mnuSelectTool.ToolTipText = "Select (S)";
             mnuSelectTool.Click += mnuSelectTool_Click;
             // 
             // mnuDrawPoint
@@ -1370,7 +2066,7 @@ namespace Land_Readjustment_Tool
             mnuDrawPoint.Name = "mnuDrawPoint";
             mnuDrawPoint.Size = new Size(29, 25);
             mnuDrawPoint.Text = "Point";
-            mnuDrawPoint.ToolTipText = "Draw Point";
+            mnuDrawPoint.ToolTipText = "Draw Point (X)";
             mnuDrawPoint.Click += mnuDrawPoint_Click;
             // 
             // mnuDrawLine
@@ -1382,6 +2078,7 @@ namespace Land_Readjustment_Tool
             mnuDrawLine.Name = "mnuDrawLine";
             mnuDrawLine.Size = new Size(29, 25);
             mnuDrawLine.Text = "Draw Line";
+            mnuDrawLine.ToolTipText = "Draw Line (L)";
             mnuDrawLine.Click += mnuDrawLine_Click;
             // 
             // mnuDrawPolyline
@@ -1393,6 +2090,7 @@ namespace Land_Readjustment_Tool
             mnuDrawPolyline.Name = "mnuDrawPolyline";
             mnuDrawPolyline.Size = new Size(29, 25);
             mnuDrawPolyline.Text = "Draw Polyline";
+            mnuDrawPolyline.ToolTipText = "Draw Polyline (P)";
             mnuDrawPolyline.Click += mnuDrawPolyline_Click;
             // 
             // mnuDrawArc
@@ -1404,7 +2102,7 @@ namespace Land_Readjustment_Tool
             mnuDrawArc.Name = "mnuDrawArc";
             mnuDrawArc.Size = new Size(29, 25);
             mnuDrawArc.Text = "Arc";
-            mnuDrawArc.ToolTipText = "Draw 3-Point Arc";
+            mnuDrawArc.ToolTipText = "Draw Arc (A)";
             mnuDrawArc.Click += mnuDrawArc_Click;
             // 
             // mnuDrawRectangle
@@ -1416,6 +2114,7 @@ namespace Land_Readjustment_Tool
             mnuDrawRectangle.Name = "mnuDrawRectangle";
             mnuDrawRectangle.Size = new Size(29, 25);
             mnuDrawRectangle.Text = "Draw Rectangle";
+            mnuDrawRectangle.ToolTipText = "Draw Rectangle (R)";
             mnuDrawRectangle.Click += mnuDrawRectangle_Click;
             // 
             // mnuDrawPolygon
@@ -1438,6 +2137,7 @@ namespace Land_Readjustment_Tool
             mnuDrawCircle.Name = "mnuDrawCircle";
             mnuDrawCircle.Size = new Size(29, 25);
             mnuDrawCircle.Text = "Draw Circle";
+            mnuDrawCircle.ToolTipText = "Draw Circle (C)";
             mnuDrawCircle.Click += mnuDrawCircle_Click;
             // 
             // mnuDrawText
@@ -1449,7 +2149,7 @@ namespace Land_Readjustment_Tool
             mnuDrawText.Name = "mnuDrawText";
             mnuDrawText.Size = new Size(29, 25);
             mnuDrawText.Text = "Text";
-            mnuDrawText.ToolTipText = "Draw Single Line Text";
+            mnuDrawText.ToolTipText = "Draw Text (T)";
             mnuDrawText.Click += mnuDrawText_Click;
             // 
             // toolStripSeparator17
@@ -1923,6 +2623,23 @@ namespace Land_Readjustment_Tool
             toolStripSeparator14.Name = "toolStripSeparator14";
             toolStripSeparator14.Size = new Size(6, 27);
             // 
+            // applicationEditLockToolbarSeparator
+            // 
+            applicationEditLockToolbarSeparator.Name = "applicationEditLockToolbarSeparator";
+            applicationEditLockToolbarSeparator.Size = new Size(6, 27);
+            // 
+            // btnApplicationEditLock
+            // 
+            btnApplicationEditLock.DisplayStyle = ToolStripItemDisplayStyle.Image;
+            btnApplicationEditLock.Enabled = false;
+            btnApplicationEditLock.ImageScaling = ToolStripItemImageScaling.SizeToFit;
+            btnApplicationEditLock.ImageTransparentColor = Color.Magenta;
+            btnApplicationEditLock.Name = "btnApplicationEditLock";
+            btnApplicationEditLock.Size = new Size(29, 24);
+            btnApplicationEditLock.Text = "";
+            btnApplicationEditLock.ToolTipText = "Lock editing";
+            btnApplicationEditLock.Click += ApplicationEditLock_Click;
+            // 
             // mnuPan
             // 
             mnuPan.DisplayStyle = ToolStripItemDisplayStyle.Image;
@@ -1959,6 +2676,7 @@ namespace Land_Readjustment_Tool
             mnuZoomExtent.Name = "mnuZoomExtent";
             mnuZoomExtent.Size = new Size(29, 24);
             mnuZoomExtent.Text = "Zoom to Extents";
+            mnuZoomExtent.ToolTipText = "Zoom Extents (E)";
             // 
             // mnuZoomWindow
             // 
@@ -1968,6 +2686,7 @@ namespace Land_Readjustment_Tool
             mnuZoomWindow.Name = "mnuZoomWindow";
             mnuZoomWindow.Size = new Size(29, 24);
             mnuZoomWindow.Text = "Zoom Window";
+            mnuZoomWindow.ToolTipText = "Zoom Window (Z)";
             // 
             // toolStripSeparator15
             // 
@@ -1983,7 +2702,7 @@ namespace Land_Readjustment_Tool
             // 
             tsProjectMenu.Font = new Font("Segoe UI", 9F);
             tsProjectMenu.ImageScalingSize = new Size(20, 20);
-            tsProjectMenu.Items.AddRange(new ToolStripItem[] { mnuNewProject, mnuOpenProject, mnuSaveProject, mnuSaveAsProject, mnuBackup, mnuRestoreBackup, mnuCloseProject, toolStripSeparator9, toolStripButton3, mnuProjectInfo, mnuProjectSettings, btnOriginalScenarioSummary, toolStripSeparator12, toolStripSeparator13, mnuUndo, mnuRedo, toolStripSeparator14, mnuPan, mnuZoomIn, mnuZoomOut, mnuZoomExtent, mnuZoomWindow, toolStripSeparator15, toolStripSeparator16 });
+            tsProjectMenu.Items.AddRange(new ToolStripItem[] { mnuNewProject, mnuOpenProject, mnuSaveProject, mnuSaveAsProject, mnuBackup, mnuRestoreBackup, mnuCloseProject, toolStripSeparator9, toolStripButton3, mnuProjectInfo, mnuProjectSettings, btnOriginalScenarioSummary, toolStripSeparator12, toolStripSeparator13, mnuUndo, mnuRedo, applicationEditLockToolbarSeparator, btnApplicationEditLock, toolStripSeparator14, mnuPan, mnuZoomIn, mnuZoomOut, mnuZoomExtent, mnuZoomWindow, toolStripSeparator15, toolStripSeparator16 });
             tsProjectMenu.Location = new Point(0, 28);
             tsProjectMenu.Name = "tsProjectMenu";
             tsProjectMenu.Size = new Size(1624, 27);
@@ -2076,6 +2795,14 @@ namespace Land_Readjustment_Tool
         private System.Windows.Forms.ToolStripMenuItem tsmExit;
         private System.Windows.Forms.ToolStripMenuItem tsmProjectInformation;
         private System.Windows.Forms.ToolStripMenuItem tsmProjectSetting;
+        private System.Windows.Forms.ToolStripMenuItem mnuApplicationEditLock;
+        private System.Windows.Forms.ToolStripMenuItem mnuProjectCoordinateSystemUnits;
+        private System.Windows.Forms.ToolStripMenuItem mnuProjectLayerStandards;
+        private System.Windows.Forms.ToolStripMenuItem mnuProjectParcelNumberingRules;
+        private System.Windows.Forms.ToolStripSeparator toolStripSeparator24;
+        private System.Windows.Forms.ToolStripMenuItem mnuProjectHealthCheck;
+        private System.Windows.Forms.ToolStripMenuItem mnuProjectLog;
+        private System.Windows.Forms.ToolStripSeparator toolStripSeparator25;
         private System.Windows.Forms.ToolStripMenuItem cadastralDataToolStripMenuItem;
         private System.Windows.Forms.ToolStripMenuItem tsmCloseProject;
         private System.Windows.Forms.ToolStripMenuItem tsmBackupProject;
@@ -2157,6 +2884,7 @@ namespace Land_Readjustment_Tool
         private Label label1;
         private SplitContainer mainSplitContainer;
         private ToolStripSeparator toolStripSeparator7;
+        private ToolStripSeparator toolStripSeparator23;
         private ToolStripSeparator toolStripSeparator8;
         private SplitContainer splitContainer3;
         private GroupBox grpParcelObjProp;
@@ -2182,6 +2910,8 @@ namespace Land_Readjustment_Tool
         private ToolStripSeparator toolStripSeparator13;
         private ToolStripButton mnuUndo;
         private ToolStripButton mnuRedo;
+        private ToolStripSeparator applicationEditLockToolbarSeparator;
+        private ToolStripButton btnApplicationEditLock;
         private ToolStripSeparator toolStripSeparator14;
         private ToolStripButton mnuPan;
         private ToolStripButton mnuZoomIn;
@@ -2243,6 +2973,75 @@ namespace Land_Readjustment_Tool
         private ToolStripMenuItem toolStripMenuItem1;
         private ToolStripSeparator toolStripSeparator22;
         private ToolStripMenuItem toolStripMenuItem2;
+        private ToolStripSeparator toolStripSeparator26;
+        private ToolStripMenuItem dataQualityToolStripMenuItem;
+        private ToolStripMenuItem ownerDeduplicationReviewToolStripMenuItem;
+        private ToolStripMenuItem parcelLinkMatchingReviewToolStripMenuItem;
+        private ToolStripMenuItem missingGeometryReviewToolStripMenuItem;
+        private ToolStripMenuItem mapToolStripMenuItem;
+        private ToolStripMenuItem mapSelectToolStripMenuItem;
+        private ToolStripMenuItem mapPanToolStripMenuItem;
+        private ToolStripMenuItem mapDrawToolStripMenuItem;
+        private ToolStripMenuItem mapDrawPointToolStripMenuItem;
+        private ToolStripMenuItem mapDrawLineToolStripMenuItem;
+        private ToolStripMenuItem mapDrawPolylineToolStripMenuItem;
+        private ToolStripMenuItem mapDrawArcToolStripMenuItem;
+        private ToolStripMenuItem mapDrawRectangleToolStripMenuItem;
+        private ToolStripMenuItem mapDrawPolygonToolStripMenuItem;
+        private ToolStripMenuItem mapDrawCircleToolStripMenuItem;
+        private ToolStripMenuItem mapDrawTextToolStripMenuItem;
+        private ToolStripSeparator toolStripSeparator27;
+        private ToolStripMenuItem mapZoomInToolStripMenuItem;
+        private ToolStripMenuItem mapZoomOutToolStripMenuItem;
+        private ToolStripMenuItem mapZoomExtentsToolStripMenuItem;
+        private ToolStripMenuItem mapZoomWindowToolStripMenuItem;
+        private ToolStripSeparator toolStripSeparator28;
+        private ToolStripMenuItem mapRefreshLayersToolStripMenuItem;
+        private ToolStripMenuItem mapLayerPropertiesToolStripMenuItem;
+        private ToolStripMenuItem returnPolicySetupToolStripMenuItem;
+        private ToolStripMenuItem policyVersionApprovalToolStripMenuItem;
+        private ToolStripSeparator toolStripSeparator29;
+        private ToolStripMenuItem parcelContributionInputsToolStripMenuItem;
+        private ToolStripMenuItem deriveInputsFromMapToolStripMenuItem;
+        private ToolStripSeparator toolStripSeparator30;
+        private ToolStripMenuItem contributionReviewToolStripMenuItem;
+        private ToolStripMenuItem contributionOverridesAuditTrailToolStripMenuItem;
+        private ToolStripSeparator toolStripSeparator31;
+        private ToolStripMenuItem freezeApproveResultsToolStripMenuItem;
+        private ToolStripSeparator toolStripSeparator32;
+        private ToolStripMenuItem replotBlockManagerToolStripMenuItem;
+        private ToolStripMenuItem replotRoadLayoutToolStripMenuItem;
+        private ToolStripSeparator toolStripSeparator33;
+        private ToolStripMenuItem ownerAllocationToolStripMenuItem;
+        private ToolStripMenuItem returnableAreaBalanceToolStripMenuItem;
+        private ToolStripMenuItem jointReturnSalesPlotCasesToolStripMenuItem;
+        private ToolStripSeparator toolStripSeparator34;
+        private ToolStripMenuItem finalizeReplotDesignToolStripMenuItem;
+        private ToolStripMenuItem validationDashboardToolStripMenuItem;
+        private ToolStripSeparator toolStripSeparator35;
+        private ToolStripMenuItem topologyCheckToolStripMenuItem;
+        private ToolStripSeparator toolStripSeparator36;
+        private ToolStripMenuItem contributionRuleCheckToolStripMenuItem;
+        private ToolStripMenuItem returnPolicyCheckToolStripMenuItem;
+        private ToolStripMenuItem areaAllocationDifferenceReviewToolStripMenuItem;
+        private ToolStripSeparator toolStripSeparator37;
+        private ToolStripMenuItem originalParcelRegisterToolStripMenuItem;
+        private ToolStripMenuItem contributionSummaryReportToolStripMenuItem;
+        private ToolStripMenuItem returnableAreaReportToolStripMenuItem;
+        private ToolStripMenuItem replotAllocationReportToolStripMenuItem;
+        private ToolStripSeparator toolStripSeparator38;
+        private ToolStripMenuItem projectOverviewMapToolStripMenuItem;
+        private ToolStripMenuItem blockReplotMapToolStripMenuItem;
+        private ToolStripMenuItem contributionHeatmapToolStripMenuItem;
+        private ToolStripSeparator toolStripSeparator39;
+        private ToolStripMenuItem exportExcelToolStripMenuItem;
+        private ToolStripMenuItem exportPdfToolStripMenuItem;
+        private ToolStripMenuItem windowToolStripMenuItem;
+        private ToolStripMenuItem toggleLayerPanelToolStripMenuItem;
+        private ToolStripMenuItem togglePropertiesPanelToolStripMenuItem;
+        private ToolStripSeparator toolStripSeparator40;
+        private ToolStripMenuItem openReplottingWorkspaceWindowToolStripMenuItem;
+        private ToolStripMenuItem resetWorkspaceLayoutToolStripMenuItem;
         private ToolStripButton btnOriginalScenarioSummary;
     }
 }

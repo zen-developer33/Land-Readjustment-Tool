@@ -219,6 +219,9 @@ namespace Land_Readjustment_Tool.UI.MapCanvas.Services
                         ? "None"
                         : "Solid",
                     LabelColor = "#000000",
+                    LabelFontName = "Nirmala UI",
+                    LabelFontSize = 1.0,
+                    LabelScaleWithZoom = true,
                     TextAlignment = "Center Middle",
                     PointSymbol = "Dot",
                     PointSize = 5.0,
@@ -276,6 +279,19 @@ namespace Land_Readjustment_Tool.UI.MapCanvas.Services
 
             if (layer.LineTypeScale <= 0)
                 layer.LineTypeScale = 1.0;
+
+            if (string.IsNullOrWhiteSpace(layer.LabelFontName))
+            {
+                layer.LabelFontName = "Nirmala UI";
+                changed = true;
+            }
+
+            if (layer.LabelFontSize <= 0 ||
+                Math.Abs(layer.LabelFontSize - 2.0) < 0.0001)
+            {
+                layer.LabelFontSize = 1.0;
+                changed = true;
+            }
 
             if (string.IsNullOrWhiteSpace(layer.TextAlignment) ||
                 string.Equals(layer.TextAlignment.Trim(), "Left", StringComparison.OrdinalIgnoreCase) ||

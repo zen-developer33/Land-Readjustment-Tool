@@ -3,12 +3,9 @@ using Land_Readjustment_Tool.UI.MapCanvas.Rendering;
 
 namespace Land_Readjustment_Tool.UI.Forms
 {
-    public sealed class frmPointMarkerPicker : Form
+    public sealed partial class frmPointMarkerPicker : Form
     {
         private readonly Color _markerColor;
-        private readonly FlowLayoutPanel _markerLayout = new();
-        private readonly Button _okButton = new();
-        private readonly Button _cancelButton = new();
 
         public string SelectedMarkerKey { get; private set; }
 
@@ -17,51 +14,8 @@ namespace Land_Readjustment_Tool.UI.Forms
             _markerColor = markerColor;
             SelectedMarkerKey = PointMarkerRenderer.Normalize(selectedMarkerKey);
 
-            InitializePicker();
+            InitializeComponent();
             BuildMarkerButtons();
-        }
-
-        private void InitializePicker()
-        {
-            Text = "Choose Point Marker";
-            StartPosition = FormStartPosition.CenterParent;
-            FormBorderStyle = FormBorderStyle.FixedDialog;
-            MinimizeBox = false;
-            MaximizeBox = false;
-            ShowInTaskbar = false;
-            ClientSize = new Size(520, 360);
-            Font = new Font("Segoe UI", 9F);
-
-            _markerLayout.Dock = DockStyle.Fill;
-            _markerLayout.AutoScroll = true;
-            _markerLayout.Padding = new Padding(10);
-            _markerLayout.FlowDirection = FlowDirection.LeftToRight;
-            _markerLayout.WrapContents = true;
-
-            FlowLayoutPanel buttonPanel = new()
-            {
-                Dock = DockStyle.Bottom,
-                FlowDirection = FlowDirection.RightToLeft,
-                Height = 50,
-                Padding = new Padding(10),
-                BackColor = SystemColors.Control
-            };
-
-            _okButton.Text = "OK";
-            _okButton.DialogResult = DialogResult.OK;
-            _okButton.Width = 84;
-
-            _cancelButton.Text = "Cancel";
-            _cancelButton.DialogResult = DialogResult.Cancel;
-            _cancelButton.Width = 84;
-
-            buttonPanel.Controls.Add(_okButton);
-            buttonPanel.Controls.Add(_cancelButton);
-
-            Controls.Add(_markerLayout);
-            Controls.Add(buttonPanel);
-            AcceptButton = _okButton;
-            CancelButton = _cancelButton;
         }
 
         private void BuildMarkerButtons()

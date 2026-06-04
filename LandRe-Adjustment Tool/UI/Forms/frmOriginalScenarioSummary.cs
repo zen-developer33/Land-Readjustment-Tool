@@ -10,7 +10,7 @@ using Microsoft.EntityFrameworkCore;
 
 namespace Land_Readjustment_Tool.UI.Forms
 {
-    public sealed class frmOriginalScenarioSummary : Form
+    public sealed partial class frmOriginalScenarioSummary : Form
     {
         private const double SqmPerRopani = 508.73704704;
         private static readonly JsonSerializerOptions MetadataJsonOptions = new()
@@ -20,12 +20,6 @@ namespace Land_Readjustment_Tool.UI.Forms
 
         private readonly ProjectSession _session;
         private readonly string _projectFilePath;
-        private readonly TabControl _tabs = new();
-        private readonly FlowLayoutPanel _metricPanel = new();
-        private readonly Label _subtitle = new();
-        private readonly Button _btnRefresh = new();
-        private readonly Button _btnExport = new();
-        private readonly Button _btnClose = new();
         private SummaryBook _summaryBook = new();
         private int _sqmPrecision = 3;
 
@@ -33,91 +27,16 @@ namespace Land_Readjustment_Tool.UI.Forms
         {
             _session = session ?? throw new ArgumentNullException(nameof(session));
             _projectFilePath = projectFilePath ?? string.Empty;
-            InitializeUi();
+            InitializeComponent();
+            WireEvents();
             Shown += async (_, _) => await LoadSummaryAsync();
         }
 
-        private void InitializeUi()
+        private void WireEvents()
         {
-            Text = "Original Scenario Summary";
-            StartPosition = FormStartPosition.CenterParent;
-            MinimumSize = new Size(1120, 720);
-            Size = new Size(1260, 780);
-            Font = new Font("Segoe UI", 9F);
-            BackColor = Color.FromArgb(244, 247, 251);
-
-            Panel header = new()
-            {
-                Dock = DockStyle.Top,
-                Height = 112,
-                BackColor = Color.FromArgb(31, 45, 64),
-                Padding = new Padding(22, 14, 22, 12)
-            };
-
-            Label title = new()
-            {
-                Text = "Original Scenario Summary",
-                Dock = DockStyle.Top,
-                Height = 34,
-                ForeColor = Color.White,
-                Font = new Font("Segoe UI Semibold", 16F, FontStyle.Bold),
-                TextAlign = ContentAlignment.MiddleLeft
-            };
-
-            _subtitle.Text = "Project database summary, checks, and original land-use scenario.";
-            _subtitle.Dock = DockStyle.Top;
-            _subtitle.Height = 24;
-            _subtitle.ForeColor = Color.FromArgb(210, 222, 238);
-            _subtitle.TextAlign = ContentAlignment.MiddleLeft;
-
-            FlowLayoutPanel actions = new()
-            {
-                Dock = DockStyle.Bottom,
-                Height = 36,
-                FlowDirection = FlowDirection.RightToLeft,
-                WrapContents = false
-            };
-
-            ConfigureButton(_btnClose, "Close", Color.FromArgb(82, 96, 113));
-            ConfigureButton(_btnExport, "Export XLS", Color.FromArgb(32, 128, 92));
-            ConfigureButton(_btnRefresh, "Refresh", Color.FromArgb(56, 108, 176));
             _btnClose.Click += (_, _) => Close();
             _btnRefresh.Click += async (_, _) => await LoadSummaryAsync();
             _btnExport.Click += (_, _) => ExportSummaryToExcel();
-            actions.Controls.AddRange([_btnClose, _btnExport, _btnRefresh]);
-
-            header.Controls.Add(actions);
-            header.Controls.Add(_subtitle);
-            header.Controls.Add(title);
-
-            _metricPanel.Dock = DockStyle.Top;
-            _metricPanel.Height = 118;
-            _metricPanel.Padding = new Padding(14, 12, 14, 6);
-            _metricPanel.BackColor = Color.FromArgb(244, 247, 251);
-            _metricPanel.WrapContents = false;
-            _metricPanel.AutoScroll = true;
-
-            _tabs.Dock = DockStyle.Fill;
-            _tabs.Padding = new Point(16, 7);
-            _tabs.Appearance = TabAppearance.Normal;
-
-            Controls.Add(_tabs);
-            Controls.Add(_metricPanel);
-            Controls.Add(header);
-        }
-
-        private static void ConfigureButton(Button button, string text, Color backColor)
-        {
-            button.Text = text;
-            button.Width = 112;
-            button.Height = 31;
-            button.Margin = new Padding(8, 2, 0, 2);
-            button.FlatStyle = FlatStyle.Flat;
-            button.BackColor = backColor;
-            button.ForeColor = Color.White;
-            button.FlatAppearance.BorderSize = 0;
-            button.Font = new Font("Segoe UI Semibold", 9F, FontStyle.Bold);
-            button.Cursor = Cursors.Hand;
         }
 
         private async Task LoadSummaryAsync()

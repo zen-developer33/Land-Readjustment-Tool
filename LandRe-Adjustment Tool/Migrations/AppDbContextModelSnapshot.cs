@@ -1193,6 +1193,11 @@ namespace Land_Readjustment_Tool.Migrations
                         .ValueGeneratedOnAdd()
                         .HasColumnType("INTEGER");
 
+                    b.Property<bool>("ApplicationEditLocked")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("INTEGER")
+                        .HasDefaultValue(false);
+
                     b.Property<int>("AreaSqmDecimalPlaces")
                         .HasColumnType("INTEGER");
 

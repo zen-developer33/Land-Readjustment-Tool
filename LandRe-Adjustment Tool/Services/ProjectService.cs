@@ -103,6 +103,7 @@ namespace Land_Readjustment_Tool.Services
                 SnapEnabled = true,
                 SnapTolerancePx = 8.0,
                 SnapGlyphSizePx = 14.0,
+                ApplicationEditLocked = false,
                 CanvasZoomBehavior = "StandardScaleSteps",
 
                 // Parcel numbering

@@ -49,6 +49,13 @@ namespace Land_Readjustment_Tool.Services.Project
                     "ALTER TABLE tblProjectSettings ADD COLUMN CanvasGridMode TEXT NOT NULL DEFAULT 'MajorOnly';",
                     ct);
             }
+
+            if (!columns.Contains("ApplicationEditLocked"))
+            {
+                await context.Database.ExecuteSqlRawAsync(
+                    "ALTER TABLE tblProjectSettings ADD COLUMN ApplicationEditLocked INTEGER NOT NULL DEFAULT 0;",
+                    ct);
+            }
         }
 
         private static async Task EnsureCanvasLayerColumnsAsync(
@@ -66,7 +73,7 @@ namespace Land_Readjustment_Tool.Services.Project
             if (!columns.Contains("TextAlignment"))
             {
                 await context.Database.ExecuteSqlRawAsync(
-                    "ALTER TABLE tblCanvasLayers ADD COLUMN TextAlignment TEXT NOT NULL DEFAULT 'Left';",
+                    "ALTER TABLE tblCanvasLayers ADD COLUMN TextAlignment TEXT NOT NULL DEFAULT 'Center Middle';",
                     ct);
             }
 

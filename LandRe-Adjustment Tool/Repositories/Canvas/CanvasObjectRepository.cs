@@ -29,16 +29,25 @@ namespace Land_Readjustment_Tool.Repositories.Canvas
         {
             try
             {
-                return await _dbSet
+                CanvasObject? entity = await _dbSet
                     .AsNoTracking()
                     .Include(item => item.CanvasLayer)
                     .Include(item => item.Road)
                     .Include(item => item.Block)
+                    .Include(item => item.ReplottedParcel)
+                        .ThenInclude(parcel => parcel!.Block)
+                    .Include(item => item.ReplottedParcel)
+                        .ThenInclude(parcel => parcel!.PlotType)
                     .Include(item => item.BaselineParcel)
                         .ThenInclude(parcel => parcel!.LandOwner)
                     .Include(item => item.BaselineParcel)
                         .ThenInclude(parcel => parcel!.MalpotReference)
                     .FirstOrDefaultAsync(item => item.Id == id, ct);
+
+                if (entity != null)
+                    await HydrateScalarLinkedRecordsAsync([entity], ct);
+
+                return entity;
             }
             catch (Exception ex)
             {
@@ -52,16 +61,23 @@ namespace Land_Readjustment_Tool.Repositories.Canvas
         {
             try
             {
-                return await _dbSet
+                List<CanvasObject> objects = await _dbSet
                     .AsNoTracking()
                     .Include(item => item.CanvasLayer)
                     .Include(item => item.Road)
                     .Include(item => item.Block)
+                    .Include(item => item.ReplottedParcel)
+                        .ThenInclude(parcel => parcel!.Block)
+                    .Include(item => item.ReplottedParcel)
+                        .ThenInclude(parcel => parcel!.PlotType)
                     .Include(item => item.BaselineParcel)
                         .ThenInclude(parcel => parcel!.LandOwner)
                     .Include(item => item.BaselineParcel)
                         .ThenInclude(parcel => parcel!.MalpotReference)
                     .ToListAsync(ct);
+
+                await HydrateScalarLinkedRecordsAsync(objects, ct);
+                return objects;
             }
             catch (Exception ex)
             {
@@ -75,17 +91,24 @@ namespace Land_Readjustment_Tool.Repositories.Canvas
         {
             try
             {
-                return await _dbSet
+                List<CanvasObject> objects = await _dbSet
                     .AsNoTracking()
                     .Include(item => item.CanvasLayer)
                     .Include(item => item.Road)
                     .Include(item => item.Block)
+                    .Include(item => item.ReplottedParcel)
+                        .ThenInclude(parcel => parcel!.Block)
+                    .Include(item => item.ReplottedParcel)
+                        .ThenInclude(parcel => parcel!.PlotType)
                     .Include(item => item.BaselineParcel)
                         .ThenInclude(parcel => parcel!.LandOwner)
                     .Include(item => item.BaselineParcel)
                         .ThenInclude(parcel => parcel!.MalpotReference)
                     .Where(item => item.IsVisible)
                     .ToListAsync(ct);
+
+                await HydrateScalarLinkedRecordsAsync(objects, ct);
+                return objects;
             }
             catch (Exception ex)
             {
@@ -100,17 +123,24 @@ namespace Land_Readjustment_Tool.Repositories.Canvas
         {
             try
             {
-                return await _dbSet
+                List<CanvasObject> objects = await _dbSet
                     .AsNoTracking()
                     .Include(item => item.CanvasLayer)
                     .Include(item => item.Road)
                     .Include(item => item.Block)
+                    .Include(item => item.ReplottedParcel)
+                        .ThenInclude(parcel => parcel!.Block)
+                    .Include(item => item.ReplottedParcel)
+                        .ThenInclude(parcel => parcel!.PlotType)
                     .Include(item => item.BaselineParcel)
                         .ThenInclude(parcel => parcel!.LandOwner)
                     .Include(item => item.BaselineParcel)
                         .ThenInclude(parcel => parcel!.MalpotReference)
                     .Where(item => item.CanvasLayerId == canvasLayerId)
                     .ToListAsync(ct);
+
+                await HydrateScalarLinkedRecordsAsync(objects, ct);
+                return objects;
             }
             catch (Exception ex)
             {
@@ -134,12 +164,18 @@ namespace Land_Readjustment_Tool.Repositories.Canvas
                     .Include(item => item.CanvasLayer)
                     .Include(item => item.Road)
                     .Include(item => item.Block)
+                    .Include(item => item.ReplottedParcel)
+                        .ThenInclude(parcel => parcel!.Block)
+                    .Include(item => item.ReplottedParcel)
+                        .ThenInclude(parcel => parcel!.PlotType)
                     .Include(item => item.BaselineParcel)
                         .ThenInclude(parcel => parcel!.LandOwner)
                     .Include(item => item.BaselineParcel)
                         .ThenInclude(parcel => parcel!.MalpotReference)
                     .Where(item => item.IsVisible)
                     .ToListAsync(ct);
+
+                await HydrateScalarLinkedRecordsAsync(candidates, ct);
 
                 Envelope viewportEnvelope = new(
                     viewportWorldBounds.Left,
@@ -265,6 +301,116 @@ namespace Land_Readjustment_Tool.Repositories.Canvas
             {
                 _logger.LogError($"[CanvasObject] ExistsAsync failed. Id={id}", ex);
                 throw;
+            }
+        }
+
+        private async Task HydrateScalarLinkedRecordsAsync(
+            IReadOnlyList<CanvasObject> objects,
+            CancellationToken ct)
+        {
+            if (objects.Count == 0)
+                return;
+
+            List<int> baselineParcelIds = objects
+                .Where(item => item.BaselineParcel == null && item.BaselineParcelId.HasValue)
+                .Select(item => item.BaselineParcelId!.Value)
+                .Distinct()
+                .ToList();
+
+            if (baselineParcelIds.Count > 0)
+            {
+                var parcelsById = await _context.BaselineParcels
+                    .AsNoTracking()
+                    .Include(parcel => parcel.LandOwner)
+                    .Include(parcel => parcel.MalpotReference)
+                    .Where(parcel => baselineParcelIds.Contains(parcel.Id))
+                    .ToDictionaryAsync(parcel => parcel.Id, ct);
+
+                foreach (CanvasObject canvasObject in objects)
+                {
+                    if (canvasObject.BaselineParcel == null &&
+                        canvasObject.BaselineParcelId.HasValue &&
+                        parcelsById.TryGetValue(canvasObject.BaselineParcelId.Value, out var parcel))
+                    {
+                        canvasObject.BaselineParcel = parcel;
+                    }
+                }
+            }
+
+            List<int> roadIds = objects
+                .Where(item => item.Road == null && item.RoadId.HasValue)
+                .Select(item => item.RoadId!.Value)
+                .Distinct()
+                .ToList();
+
+            if (roadIds.Count > 0)
+            {
+                var roadsById = await _context.Roads
+                    .AsNoTracking()
+                    .Where(road => roadIds.Contains(road.Id))
+                    .ToDictionaryAsync(road => road.Id, ct);
+
+                foreach (CanvasObject canvasObject in objects)
+                {
+                    if (canvasObject.Road == null &&
+                        canvasObject.RoadId.HasValue &&
+                        roadsById.TryGetValue(canvasObject.RoadId.Value, out var road))
+                    {
+                        canvasObject.Road = road;
+                    }
+                }
+            }
+
+            List<int> blockIds = objects
+                .Where(item => item.Block == null && item.BlockId.HasValue)
+                .Select(item => item.BlockId!.Value)
+                .Distinct()
+                .ToList();
+
+            if (blockIds.Count > 0)
+            {
+                var blocksById = await _context.Blocks
+                    .AsNoTracking()
+                    .Where(block => blockIds.Contains(block.Id))
+                    .ToDictionaryAsync(block => block.Id, ct);
+
+                foreach (CanvasObject canvasObject in objects)
+                {
+                    if (canvasObject.Block == null &&
+                        canvasObject.BlockId.HasValue &&
+                        blocksById.TryGetValue(canvasObject.BlockId.Value, out var block))
+                    {
+                        canvasObject.Block = block;
+                    }
+                }
+            }
+
+            List<int> replottedParcelIds = objects
+                .Where(item => item.ReplottedParcel == null && item.ReplottedParcelId.HasValue)
+                .Select(item => item.ReplottedParcelId!.Value)
+                .Distinct()
+                .ToList();
+
+            if (replottedParcelIds.Count > 0)
+            {
+                var replottedParcelsById = await _context.ReplottedParcels
+                    .AsNoTracking()
+                    .Include(parcel => parcel.Block)
+                    .Include(parcel => parcel.PlotType)
+                    .Where(parcel => replottedParcelIds.Contains(parcel.Id))
+                    .ToDictionaryAsync(parcel => parcel.Id, ct);
+
+                foreach (CanvasObject canvasObject in objects)
+                {
+                    if (canvasObject.ReplottedParcel == null &&
+                        canvasObject.ReplottedParcelId.HasValue &&
+                        replottedParcelsById.TryGetValue(
+                            canvasObject.ReplottedParcelId.Value,
+                            out var parcel))
+                    {
+                        canvasObject.ReplottedParcel = parcel;
+                    }
+                }
             }
         }
     }

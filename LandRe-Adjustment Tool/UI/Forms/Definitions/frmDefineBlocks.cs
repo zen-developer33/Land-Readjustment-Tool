@@ -19,6 +19,7 @@ namespace Land_Readjustment_Tool.UI.Forms.Definitions
             dgvBlocks.DataSource = _bindingSource;
             dgvBlocks.DataError += (_, _) => { };
             dgvBlocks.CellEndEdit += dgvBlocks_CellEndEdit;
+            dgvBlocks.CellDoubleClick += dgvBlocks_CellDoubleClick;
             dgvBlocks.CurrentCellDirtyStateChanged += dgvBlocks_CurrentCellDirtyStateChanged;
             RecordFormTheme.Apply(this);
         }
@@ -115,6 +116,14 @@ namespace Land_Readjustment_Tool.UI.Forms.Definitions
         }
 
         private async void dgvBlocks_CellEndEdit(object? sender, DataGridViewCellEventArgs e) => await SaveCurrentEditsAsync();
+
+        private async void dgvBlocks_CellDoubleClick(object? sender, DataGridViewCellEventArgs e)
+        {
+            if (e.RowIndex < 0)
+                return;
+
+            await ExecuteBlockOperationAsync(EditBlockDetailsAsync);
+        }
 
         private void dgvBlocks_CurrentCellDirtyStateChanged(object? sender, EventArgs e)
         {

@@ -145,7 +145,6 @@ namespace Land_Readjustment_Tool.UI.Dialogs
             _dgvParcels.AllowUserToAddRows = false;
             _dgvParcels.AllowUserToDeleteRows = false;
             _dgvParcels.AllowUserToResizeRows = false;
-            _dgvParcels.AutoSizeColumnsMode = DataGridViewAutoSizeColumnsMode.None;
             _dgvParcels.BackgroundColor = SystemColors.Window;
             _dgvParcels.BorderStyle = BorderStyle.Fixed3D;
             dataGridViewCellStyle1.Alignment = DataGridViewContentAlignment.MiddleLeft;

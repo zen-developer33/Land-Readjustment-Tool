@@ -1,5 +1,8 @@
+using Land_Readjustment_Tool.Core.Entities.Layout;
 using Land_Readjustment_Tool.Core.Interfaces;
 using Land_Readjustment_Tool.Services.Assignment;
+using Land_Readjustment_Tool.UI.Forms.Definitions;
+using Microsoft.EntityFrameworkCore;
 using System.Drawing;
 
 namespace Land_Readjustment_Tool.UI.Dialogs
@@ -9,6 +12,7 @@ namespace Land_Readjustment_Tool.UI.Dialogs
         private const string SourceLayerColumn = "colSourceLayer";
         private const string BlockColumn = "colBlock";
         private const string ObjectBlockColumn = "colObjectBlock";
+        private static readonly Color EditableComboBackColor = Color.FromArgb(255, 250, 232);
 
         private readonly ProjectSession _session;
         private readonly IBlockAssignmentService _assignmentService;
@@ -16,7 +20,9 @@ namespace Land_Readjustment_Tool.UI.Dialogs
         private List<BlockAssignmentCandidate> _candidates = [];
         private List<BlockRecordChoice> _blocks = [];
         private List<BlockLabelSourceChoice> _labelSources = [];
+        private readonly Dictionary<string, int> _typedBlockValueOverrides = new(StringComparer.OrdinalIgnoreCase);
         private bool _loading;
+        private bool _resolvingComboText;
 
         public event Action<Guid?, bool>? SelectedCanvasObjectChanged;
         public event Action? AssignmentCommitted;
@@ -51,6 +57,16 @@ namespace Land_Readjustment_Tool.UI.Dialogs
             };
             _dgvObjects.DataError += Grid_DataError;
             _dgvLayerMappings.DataError += Grid_DataError;
+            _dgvObjects.EditingControlShowing += BlockGrid_EditingControlShowing;
+            _dgvLayerMappings.EditingControlShowing += BlockGrid_EditingControlShowing;
+            _dgvObjects.CellValidating += BlockGrid_CellValidating;
+            _dgvLayerMappings.CellValidating += BlockGrid_CellValidating;
+            _dgvObjects.CellParsing += BlockGrid_CellParsing;
+            _dgvLayerMappings.CellParsing += BlockGrid_CellParsing;
+            _dgvObjects.CellDoubleClick += BlockGrid_CellDoubleClick;
+            _dgvLayerMappings.CellDoubleClick += BlockGrid_CellDoubleClick;
+            _dgvObjects.CellFormatting += BlockGrid_CellFormatting;
+            _dgvLayerMappings.CellFormatting += BlockGrid_CellFormatting;
             _rdoSourceLayer.CheckedChanged += (_, _) => ApplyAssignmentMode();
             _rdoObject.CheckedChanged += (_, _) => ApplyAssignmentMode();
             _rdoAutoLabels.CheckedChanged += (_, _) => ApplyAssignmentMode();
@@ -117,14 +133,139 @@ namespace Land_Readjustment_Tool.UI.Dialogs
                 return;
 
             column.DataSource = null;
-            column.DisplayMember = nameof(BlockRecordChoice.DisplayText);
+            column.DisplayMember = nameof(BlockRecordChoice.BlockName);
             column.ValueMember = nameof(BlockRecordChoice.Id);
             column.ValueType = typeof(int);
             column.DefaultCellStyle.NullValue = string.Empty;
             column.DefaultCellStyle.DataSourceNullValue = null;
+            column.DefaultCellStyle.BackColor = EditableComboBackColor;
+            column.DefaultCellStyle.ForeColor = SystemColors.ControlText;
+            column.DefaultCellStyle.SelectionBackColor = Color.FromArgb(226, 239, 255);
+            column.DefaultCellStyle.SelectionForeColor = SystemColors.ControlText;
             column.DisplayStyle = DataGridViewComboBoxDisplayStyle.DropDownButton;
-            column.DropDownWidth = Math.Max(column.Width, 260);
+            column.DropDownWidth = Math.Max(column.Width, 180);
             column.DataSource = _blocks.ToList();
+        }
+
+        private void BlockGrid_EditingControlShowing(
+            object? sender,
+            DataGridViewEditingControlShowingEventArgs e)
+        {
+            if (sender is not DataGridView grid ||
+                !IsBlockComboColumn(grid, grid.CurrentCell?.ColumnIndex ?? -1) ||
+                e.Control is not DataGridViewComboBoxEditingControl combo)
+            {
+                return;
+            }
+
+            combo.DropDownStyle = ComboBoxStyle.DropDown;
+            combo.AutoCompleteMode = AutoCompleteMode.SuggestAppend;
+            combo.AutoCompleteSource = AutoCompleteSource.ListItems;
+            combo.BackColor = EditableComboBackColor;
+            combo.ForeColor = SystemColors.ControlText;
+        }
+
+        private void BlockGrid_CellFormatting(object? sender, DataGridViewCellFormattingEventArgs e)
+        {
+            if (sender is not DataGridView grid ||
+                e.RowIndex < 0 ||
+                !IsBlockComboColumn(grid, e.ColumnIndex))
+            {
+                return;
+            }
+
+            DataGridViewCellStyle style = e.CellStyle;
+            style.BackColor = EditableComboBackColor;
+            style.ForeColor = SystemColors.ControlText;
+            style.SelectionBackColor = Color.FromArgb(226, 239, 255);
+            style.SelectionForeColor = SystemColors.ControlText;
+        }
+
+        private void BlockGrid_CellValidating(object? sender, DataGridViewCellValidatingEventArgs e)
+        {
+            if (_loading ||
+                _resolvingComboText ||
+                sender is not DataGridView grid ||
+                e.RowIndex < 0 ||
+                !IsBlockComboColumn(grid, e.ColumnIndex))
+            {
+                return;
+            }
+
+            string typedText = e.FormattedValue?.ToString()?.Trim() ?? string.Empty;
+            if (string.IsNullOrWhiteSpace(typedText))
+                return;
+
+            BlockRecordChoice? existing = FindBlockChoice(typedText);
+            if (existing != null)
+            {
+                grid.Rows[e.RowIndex].Cells[e.ColumnIndex].Value = existing.Id;
+                return;
+            }
+
+            _resolvingComboText = true;
+            try
+            {
+                BlockRecordChoice? created = CreateOrEditBlockFromTypedName(typedText, grid, e.RowIndex);
+                if (created == null)
+                {
+                    e.Cancel = true;
+                    return;
+                }
+
+                RefreshBlockChoices();
+                grid.Rows[e.RowIndex].Cells[e.ColumnIndex].Value = created.Id;
+                _typedBlockValueOverrides[NormalizeLookup(typedText)] = created.Id;
+                AssignmentChanged = true;
+                AssignmentCommitted?.Invoke();
+            }
+            finally
+            {
+                _resolvingComboText = false;
+            }
+        }
+
+        private void BlockGrid_CellParsing(object? sender, DataGridViewCellParsingEventArgs e)
+        {
+            if (sender is not DataGridView grid ||
+                e.RowIndex < 0 ||
+                !IsBlockComboColumn(grid, e.ColumnIndex) ||
+                e.Value is not string text ||
+                string.IsNullOrWhiteSpace(text))
+            {
+                return;
+            }
+
+            string normalized = NormalizeLookup(text);
+            if (_typedBlockValueOverrides.TryGetValue(normalized, out int overrideId))
+            {
+                e.Value = overrideId;
+                e.ParsingApplied = true;
+                return;
+            }
+
+            BlockRecordChoice? existing = FindBlockChoice(text);
+            if (existing == null)
+                return;
+
+            e.Value = existing.Id;
+            e.ParsingApplied = true;
+        }
+
+        private void BlockGrid_CellDoubleClick(object? sender, DataGridViewCellEventArgs e)
+        {
+            if (sender is not DataGridView grid ||
+                e.RowIndex < 0 ||
+                !IsBlockComboColumn(grid, e.ColumnIndex))
+            {
+                return;
+            }
+
+            int? blockId = GetBlockIdFromCellValue(grid.Rows[e.RowIndex].Cells[e.ColumnIndex].Value);
+            if (!blockId.HasValue)
+                return;
+
+            EditBlockDefinition(blockId.Value, grid, e.RowIndex, e.ColumnIndex);
         }
 
         private void PopulateLabelLayerChoices()
@@ -386,6 +527,153 @@ namespace Land_Readjustment_Tool.UI.Dialogs
                 : _blocks.FirstOrDefault(block => block.Id == blockId.Value);
         }
 
+        private bool IsBlockComboColumn(DataGridView grid, int columnIndex)
+        {
+            if (columnIndex < 0 || columnIndex >= grid.Columns.Count)
+                return false;
+
+            string columnName = grid.Columns[columnIndex].Name;
+            return string.Equals(columnName, BlockColumn, StringComparison.OrdinalIgnoreCase) ||
+                   string.Equals(columnName, ObjectBlockColumn, StringComparison.OrdinalIgnoreCase);
+        }
+
+        private BlockRecordChoice? FindBlockChoice(string text)
+        {
+            string normalized = NormalizeLookup(text);
+            return _blocks.FirstOrDefault(block =>
+                string.Equals(NormalizeLookup(block.DisplayText), normalized, StringComparison.OrdinalIgnoreCase) ||
+                string.Equals(NormalizeLookup(block.BlockName), normalized, StringComparison.OrdinalIgnoreCase) ||
+                string.Equals(NormalizeLookup(block.BlockCode), normalized, StringComparison.OrdinalIgnoreCase));
+        }
+
+        private BlockRecordChoice? CreateOrEditBlockFromTypedName(
+            string typedName,
+            DataGridView grid,
+            int rowIndex)
+        {
+            Block block = CreateDefaultBlockDefinition(typedName, grid, rowIndex);
+            return ShowBlockEditorAndSave(block);
+        }
+
+        private void EditBlockDefinition(
+            int blockId,
+            DataGridView grid,
+            int rowIndex,
+            int columnIndex)
+        {
+            Block? block = _session.GetDbContext()
+                .Blocks
+                .AsNoTracking()
+                .FirstOrDefault(item => item.Id == blockId);
+            if (block == null)
+                return;
+
+            BlockRecordChoice? saved = ShowBlockEditorAndSave(block);
+            if (saved == null)
+                return;
+
+            RefreshBlockChoices();
+            grid.Rows[rowIndex].Cells[columnIndex].Value = saved.Id;
+            AssignmentChanged = true;
+            AssignmentCommitted?.Invoke();
+            _lblStatus.Text = $"Updated block data: {saved.BlockName}.";
+        }
+
+        private Block CreateDefaultBlockDefinition(
+            string typedName,
+            DataGridView grid,
+            int rowIndex)
+        {
+            BlockAssignmentCandidate? candidate = grid == _dgvObjects &&
+                                                  rowIndex >= 0 &&
+                                                  rowIndex < grid.Rows.Count
+                ? grid.Rows[rowIndex].Tag as BlockAssignmentCandidate
+                : null;
+
+            float depth = Convert.ToSingle(
+                Math.Max(0, candidate?.GeometryBlockDepth ?? candidate?.BlockDepth ?? 1));
+
+            return new Block
+            {
+                BlockName = typedName.Trim(),
+                BlockCode = typedName.Trim(),
+                BlockLandUse = candidate?.BlockLandUse ?? "Residential",
+                BlockDepth = depth,
+                BlockLength = 0,
+                BlockArea = candidate?.GeometryArea ?? 0,
+                CreatedDate = DateTime.Now,
+                LastModifiedDate = DateTime.Now
+            };
+        }
+
+        private BlockRecordChoice? ShowBlockEditorAndSave(Block block)
+        {
+            using frmBlockDefinitionEditor editor = new(block);
+            if (editor.ShowDialog(this) != DialogResult.OK)
+                return null;
+
+            Block edited = editor.Block;
+            var context = _session.GetDbContext();
+            DateTime now = DateTime.Now;
+            Block entity;
+            if (edited.Id == 0)
+            {
+                entity = new Block
+                {
+                    CreatedDate = now
+                };
+                context.Blocks.Add(entity);
+            }
+            else
+            {
+                entity = context.Blocks.First(item => item.Id == edited.Id);
+            }
+
+            entity.BlockName = edited.BlockName;
+            entity.BlockCode = edited.BlockCode;
+            entity.BlockLandUse = edited.BlockLandUse;
+            entity.BlockDepth = edited.BlockDepth;
+            entity.BlockLength = edited.BlockLength;
+            entity.BlockArea = edited.BlockArea;
+            entity.CanvasObjectId = edited.CanvasObjectId;
+            entity.Description = edited.Description;
+            entity.LastModifiedDate = now;
+
+            context.SaveChanges();
+            return ToBlockChoice(entity);
+        }
+
+        private void RefreshBlockChoices()
+        {
+            _blocks = _session.GetDbContext()
+                .Blocks
+                .AsNoTracking()
+                .OrderBy(block => block.BlockCode)
+                .ThenBy(block => block.BlockName)
+                .Select(block => new BlockRecordChoice(
+                    block.Id,
+                    block.BlockName,
+                    block.BlockCode,
+                    block.BlockLandUse,
+                    block.BlockDepth,
+                    block.BlockLength,
+                    block.BlockArea))
+                .ToList();
+
+            PopulateBlockComboColumns();
+            ApplyAssignmentMode();
+        }
+
+        private static BlockRecordChoice ToBlockChoice(Block block) =>
+            new(
+                block.Id,
+                block.BlockName,
+                block.BlockCode,
+                block.BlockLandUse,
+                block.BlockDepth,
+                block.BlockLength,
+                block.BlockArea);
+
         private BlockLabelSourceChoice? GetSelectedLabelSource()
         {
             return _cboLabelLayer.SelectedItem as BlockLabelSourceChoice;
@@ -401,6 +689,9 @@ namespace Land_Readjustment_Tool.UI.Dialogs
                 _ => null
             };
         }
+
+        private static string NormalizeLookup(string? value) =>
+            (value ?? string.Empty).Trim().ToUpperInvariant();
 
         private static void Grid_DataError(object? sender, DataGridViewDataErrorEventArgs e)
         {
@@ -482,8 +773,10 @@ namespace Land_Readjustment_Tool.UI.Dialogs
             _rdoSourceLayer.Enabled = true;
             _rdoObject.Enabled = true;
             _rdoAutoLabels.Enabled = true;
-            _dgvLayerMappings.Visible = bySourceLayer;
-            _dgvObjects.Visible = !bySourceLayer;
+            if (bySourceLayer)
+                ActivateAssignmentGrid(_dgvLayerMappings, _dgvObjects);
+            else
+                ActivateAssignmentGrid(_dgvObjects, _dgvLayerMappings);
             _chkZoomToSelected.Visible = manual;
             _chkReplaceExisting.Visible = bySourceLayer || autoLabels;
             _chkCreateMissingBlocks.Visible = autoLabels;
@@ -504,6 +797,50 @@ namespace Land_Readjustment_Tool.UI.Dialogs
                 : autoLabels
                     ? _btnAutoAssign
                     : _btnAssignSelected;
+        }
+
+        private void ActivateAssignmentGrid(DataGridView activeGrid, DataGridView inactiveGrid)
+        {
+            inactiveGrid.Visible = false;
+            activeGrid.Visible = true;
+            activeGrid.BringToFront();
+            RefreshGridScrollbars(activeGrid);
+
+            if (IsHandleCreated && !IsDisposed)
+                BeginInvoke(new Action(() => RefreshGridScrollbars(activeGrid)));
+        }
+
+        private static void RefreshGridScrollbars(DataGridView grid)
+        {
+            if (grid.IsDisposed)
+                return;
+
+            int firstDisplayedRow = -1;
+            try
+            {
+                if (grid.Rows.Count > 0)
+                    firstDisplayedRow = grid.FirstDisplayedScrollingRowIndex;
+            }
+            catch (InvalidOperationException)
+            {
+                firstDisplayedRow = -1;
+            }
+
+            grid.ScrollBars = ScrollBars.None;
+            grid.ScrollBars = ScrollBars.Both;
+            grid.PerformLayout();
+            grid.Invalidate();
+
+            if (firstDisplayedRow < 0 || firstDisplayedRow >= grid.Rows.Count)
+                return;
+
+            try
+            {
+                grid.FirstDisplayedScrollingRowIndex = firstDisplayedRow;
+            }
+            catch (InvalidOperationException)
+            {
+            }
         }
 
         private static void ApplyQuietGridStyle(DataGridView grid)

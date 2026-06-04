@@ -44,10 +44,11 @@ namespace Land_Readjustment_Tool.UI.Dialogs
 
         private void InitializeComponent()
         {
-            DataGridViewCellStyle objectHeaderStyle = new();
-            DataGridViewCellStyle objectCellStyle = new();
-            DataGridViewCellStyle mappingHeaderStyle = new();
-            DataGridViewCellStyle mappingCellStyle = new();
+            components = new System.ComponentModel.Container();
+            DataGridViewCellStyle objectHeaderStyle = new DataGridViewCellStyle();
+            DataGridViewCellStyle objectCellStyle = new DataGridViewCellStyle();
+            DataGridViewCellStyle mappingHeaderStyle = new DataGridViewCellStyle();
+            DataGridViewCellStyle mappingCellStyle = new DataGridViewCellStyle();
             colSourceLayer = new DataGridViewTextBoxColumn();
             colCount = new DataGridViewTextBoxColumn();
             colBlock = new DataGridViewComboBoxColumn();
@@ -106,7 +107,7 @@ namespace Land_Readjustment_Tool.UI.Dialogs
             // colBlock
             // 
             colBlock.FlatStyle = FlatStyle.Flat;
-            colBlock.HeaderText = "Defined block data";
+            colBlock.HeaderText = "Defined Block";
             colBlock.MinimumWidth = 180;
             colBlock.Name = "colBlock";
             colBlock.Width = 190;
@@ -138,7 +139,7 @@ namespace Land_Readjustment_Tool.UI.Dialogs
             // colObjectBlock
             // 
             colObjectBlock.FlatStyle = FlatStyle.Flat;
-            colObjectBlock.HeaderText = "Defined block data";
+            colObjectBlock.HeaderText = "Defined Block";
             colObjectBlock.MinimumWidth = 170;
             colObjectBlock.Name = "colObjectBlock";
             colObjectBlock.Width = 170;
@@ -162,7 +163,7 @@ namespace Land_Readjustment_Tool.UI.Dialogs
             root.RowStyles.Add(new RowStyle(SizeType.Percent, 100F));
             root.RowStyles.Add(new RowStyle(SizeType.Absolute, 31F));
             root.RowStyles.Add(new RowStyle(SizeType.Absolute, 42F));
-            root.Size = new Size(548, 501);
+            root.Size = new Size(760, 501);
             root.TabIndex = 0;
             // 
             // modePanel
@@ -174,7 +175,7 @@ namespace Land_Readjustment_Tool.UI.Dialogs
             modePanel.Dock = DockStyle.Fill;
             modePanel.Location = new Point(13, 13);
             modePanel.Name = "modePanel";
-            modePanel.Size = new Size(522, 33);
+            modePanel.Size = new Size(734, 33);
             modePanel.TabIndex = 0;
             modePanel.WrapContents = false;
             // 
@@ -226,7 +227,7 @@ namespace Land_Readjustment_Tool.UI.Dialogs
             optionsPanel.Dock = DockStyle.Fill;
             optionsPanel.Location = new Point(13, 52);
             optionsPanel.Name = "optionsPanel";
-            optionsPanel.Size = new Size(522, 39);
+            optionsPanel.Size = new Size(734, 39);
             optionsPanel.TabIndex = 1;
             optionsPanel.WrapContents = false;
             // 
@@ -263,7 +264,7 @@ namespace Land_Readjustment_Tool.UI.Dialogs
             // 
             // _lblLabelLayer
             // 
-            _lblLabelLayer.Location = new Point(415, 0);
+            _lblLabelLayer.Location = new Point(393, 0);
             _lblLabelLayer.Name = "_lblLabelLayer";
             _lblLabelLayer.Size = new Size(65, 30);
             _lblLabelLayer.TabIndex = 3;
@@ -274,9 +275,9 @@ namespace Land_Readjustment_Tool.UI.Dialogs
             // 
             _cboLabelLayer.DropDownStyle = ComboBoxStyle.DropDownList;
             _cboLabelLayer.FormattingEnabled = true;
-            _cboLabelLayer.Location = new Point(499, 3);
+            _cboLabelLayer.Location = new Point(464, 3);
             _cboLabelLayer.Name = "_cboLabelLayer";
-            _cboLabelLayer.Size = new Size(145, 28);
+            _cboLabelLayer.Size = new Size(240, 28);
             _cboLabelLayer.TabIndex = 4;
             // 
             // gridPanel
@@ -286,7 +287,7 @@ namespace Land_Readjustment_Tool.UI.Dialogs
             gridPanel.Dock = DockStyle.Fill;
             gridPanel.Location = new Point(13, 97);
             gridPanel.Name = "gridPanel";
-            gridPanel.Size = new Size(522, 318);
+            gridPanel.Size = new Size(734, 318);
             gridPanel.TabIndex = 2;
             // 
             // _dgvObjects
@@ -323,7 +324,7 @@ namespace Land_Readjustment_Tool.UI.Dialogs
             _dgvObjects.RowHeadersVisible = false;
             _dgvObjects.RowHeadersWidth = 51;
             _dgvObjects.SelectionMode = DataGridViewSelectionMode.FullRowSelect;
-            _dgvObjects.Size = new Size(522, 318);
+            _dgvObjects.Size = new Size(734, 318);
             _dgvObjects.TabIndex = 1;
             // 
             // _dgvLayerMappings
@@ -360,7 +361,7 @@ namespace Land_Readjustment_Tool.UI.Dialogs
             _dgvLayerMappings.RowHeadersVisible = false;
             _dgvLayerMappings.RowHeadersWidth = 51;
             _dgvLayerMappings.SelectionMode = DataGridViewSelectionMode.CellSelect;
-            _dgvLayerMappings.Size = new Size(522, 318);
+            _dgvLayerMappings.Size = new Size(734, 318);
             _dgvLayerMappings.TabIndex = 0;
             // 
             // _lblStatus
@@ -369,7 +370,7 @@ namespace Land_Readjustment_Tool.UI.Dialogs
             _lblStatus.ForeColor = Color.DimGray;
             _lblStatus.Location = new Point(13, 418);
             _lblStatus.Name = "_lblStatus";
-            _lblStatus.Size = new Size(522, 31);
+            _lblStatus.Size = new Size(734, 31);
             _lblStatus.TabIndex = 3;
             _lblStatus.Text = "Loading block objects...";
             _lblStatus.TextAlign = ContentAlignment.MiddleLeft;
@@ -386,14 +387,14 @@ namespace Land_Readjustment_Tool.UI.Dialogs
             bottomPanel.FlowDirection = FlowDirection.RightToLeft;
             bottomPanel.Location = new Point(13, 452);
             bottomPanel.Name = "bottomPanel";
-            bottomPanel.Size = new Size(522, 36);
+            bottomPanel.Size = new Size(734, 36);
             bottomPanel.TabIndex = 4;
             bottomPanel.WrapContents = false;
             // 
             // _btnClose
             // 
             _btnClose.DialogResult = DialogResult.OK;
-            _btnClose.Location = new Point(429, 3);
+            _btnClose.Location = new Point(641, 3);
             _btnClose.Name = "_btnClose";
             _btnClose.Size = new Size(90, 30);
             _btnClose.TabIndex = 5;
@@ -402,7 +403,7 @@ namespace Land_Readjustment_Tool.UI.Dialogs
             // 
             // _btnApplyMappings
             // 
-            _btnApplyMappings.Location = new Point(346, 3);
+            _btnApplyMappings.Location = new Point(558, 3);
             _btnApplyMappings.Name = "_btnApplyMappings";
             _btnApplyMappings.Size = new Size(77, 30);
             _btnApplyMappings.TabIndex = 4;
@@ -411,7 +412,7 @@ namespace Land_Readjustment_Tool.UI.Dialogs
             // 
             // _btnAutoAssign
             // 
-            _btnAutoAssign.Location = new Point(243, 3);
+            _btnAutoAssign.Location = new Point(455, 3);
             _btnAutoAssign.Name = "_btnAutoAssign";
             _btnAutoAssign.Size = new Size(97, 30);
             _btnAutoAssign.TabIndex = 3;
@@ -420,7 +421,7 @@ namespace Land_Readjustment_Tool.UI.Dialogs
             // 
             // _btnRemoveAll
             // 
-            _btnRemoveAll.Location = new Point(152, 3);
+            _btnRemoveAll.Location = new Point(364, 3);
             _btnRemoveAll.Name = "_btnRemoveAll";
             _btnRemoveAll.Size = new Size(85, 30);
             _btnRemoveAll.TabIndex = 2;
@@ -429,7 +430,7 @@ namespace Land_Readjustment_Tool.UI.Dialogs
             // 
             // _btnRemoveSelected
             // 
-            _btnRemoveSelected.Location = new Point(11, 3);
+            _btnRemoveSelected.Location = new Point(223, 3);
             _btnRemoveSelected.Name = "_btnRemoveSelected";
             _btnRemoveSelected.Size = new Size(135, 30);
             _btnRemoveSelected.TabIndex = 1;
@@ -438,7 +439,7 @@ namespace Land_Readjustment_Tool.UI.Dialogs
             // 
             // _btnAssignSelected
             // 
-            _btnAssignSelected.Location = new Point(-100, 3);
+            _btnAssignSelected.Location = new Point(112, 3);
             _btnAssignSelected.Name = "_btnAssignSelected";
             _btnAssignSelected.Size = new Size(105, 30);
             _btnAssignSelected.TabIndex = 0;
@@ -451,7 +452,7 @@ namespace Land_Readjustment_Tool.UI.Dialogs
             AutoScaleDimensions = new SizeF(8F, 20F);
             AutoScaleMode = AutoScaleMode.Font;
             CancelButton = _btnClose;
-            ClientSize = new Size(548, 501);
+            ClientSize = new Size(760, 501);
             Controls.Add(root);
             Font = new Font("Segoe UI", 9F);
             FormBorderStyle = FormBorderStyle.FixedDialog;

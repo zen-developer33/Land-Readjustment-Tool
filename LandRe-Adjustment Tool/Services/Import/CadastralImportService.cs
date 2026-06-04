@@ -423,7 +423,10 @@ namespace Land_Readjustment_Tool.Services.Import
                 layer.LabelFontName = string.IsNullOrWhiteSpace(layer.LabelFontName)
                     ? "Nirmala UI"
                     : layer.LabelFontName;
-                layer.LabelFontSize = layer.LabelFontSize <= 0 ? 9.0 : layer.LabelFontSize;
+                layer.LabelFontSize = layer.LabelFontSize <= 0 ? 10.0 : layer.LabelFontSize;
+                layer.TextAlignment = string.IsNullOrWhiteSpace(layer.TextAlignment)
+                    ? "Center Middle"
+                    : layer.TextAlignment;
                 layer.PointSymbol = string.IsNullOrWhiteSpace(layer.PointSymbol)
                     ? "Dot"
                     : layer.PointSymbol;
@@ -454,6 +457,20 @@ namespace Land_Readjustment_Tool.Services.Import
             layer.LabelFontName = string.IsNullOrWhiteSpace(layer.LabelFontName)
                 ? "Nirmala UI"
                 : layer.LabelFontName;
+            if (layer.LabelFontSize <= 0 ||
+                Math.Abs(layer.LabelFontSize - 2.0) < 0.0001)
+            {
+                layer.LabelFontSize = 1.0;
+            }
+
+            if (string.IsNullOrWhiteSpace(layer.TextAlignment) ||
+                string.Equals(layer.TextAlignment.Trim(), "Left", StringComparison.OrdinalIgnoreCase) ||
+                string.Equals(layer.TextAlignment.Trim(), "Center", StringComparison.OrdinalIgnoreCase) ||
+                string.Equals(layer.TextAlignment.Trim(), "Right", StringComparison.OrdinalIgnoreCase))
+            {
+                layer.TextAlignment = "Center Middle";
+            }
+
             layer.PointSymbol = string.IsNullOrWhiteSpace(layer.PointSymbol)
                 ? "Dot"
                 : layer.PointSymbol;

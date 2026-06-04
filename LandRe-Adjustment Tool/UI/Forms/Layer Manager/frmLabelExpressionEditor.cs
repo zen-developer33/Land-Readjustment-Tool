@@ -272,7 +272,7 @@ namespace Land_Readjustment_Tool.UI.Forms
                 }
             }
 
-            foreach ((_, string fieldKey) in GetAvailableFields(category))
+            foreach ((_, string fieldKey) in BuildAvailableFields(category, sampleRecords))
             {
                 string expression = $"{{{fieldKey}}}";
                 if (!expressions.Contains(expression, StringComparer.OrdinalIgnoreCase))
@@ -342,6 +342,43 @@ namespace Land_Readjustment_Tool.UI.Forms
 
         private static bool HasNonEmpty(IReadOnlyDictionary<string, string> record, string key) =>
             record.TryGetValue(key, out string? v) && !string.IsNullOrEmpty(v);
+
+        private static (string Display, string FieldKey)[] BuildAvailableFields(
+            string category,
+            IReadOnlyList<IReadOnlyDictionary<string, string>>? sampleRecords)
+        {
+            List<(string Display, string FieldKey)> fields = [.. GetAvailableFields(category)];
+            HashSet<string> knownKeys = fields
+                .Select(field => field.FieldKey)
+                .ToHashSet(StringComparer.OrdinalIgnoreCase);
+
+            if (sampleRecords == null || sampleRecords.Count == 0)
+                return fields.ToArray();
+
+            foreach (string key in sampleRecords
+                         .SelectMany(record => record)
+                         .Where(item => !string.IsNullOrWhiteSpace(item.Value))
+                         .Select(item => item.Key)
+                         .Distinct(StringComparer.OrdinalIgnoreCase)
+                         .OrderBy(key => key, StringComparer.OrdinalIgnoreCase))
+            {
+                if (knownKeys.Add(key))
+                    fields.Add((ToFieldDisplayName(key), key));
+            }
+
+            return fields.ToArray();
+        }
+
+        private static string ToFieldDisplayName(string fieldKey)
+        {
+            if (string.IsNullOrWhiteSpace(fieldKey))
+                return string.Empty;
+
+            string spaced = Regex.Replace(fieldKey.Trim(), "([a-z0-9])([A-Z])", "$1 $2");
+            spaced = spaced.Replace("_", " ", StringComparison.Ordinal)
+                           .Replace("-", " ", StringComparison.Ordinal);
+            return Regex.Replace(spaced, "\\s+", " ").Trim();
+        }
 
         // ── Hardcoded fallback sample (when no real records are available) ────
         private static readonly IReadOnlyDictionary<string, string> FallbackSample =
@@ -446,7 +483,7 @@ namespace Land_Readjustment_Tool.UI.Forms
             _layerType        = layerType?.Trim() ?? string.Empty;
             _sampleRecords    = sampleRecords;
             _geometryCategory = DeriveGeometryCategory(_layerType, sampleRecords);
-            _availableFields  = GetAvailableFields(_geometryCategory);
+            _availableFields  = BuildAvailableFields(_geometryCategory, sampleRecords);
             _presetTemplates  = GetPresetTemplates(_geometryCategory);
 
             LabelExpression = initialExpression?.Trim() ?? string.Empty;
@@ -680,27 +717,104 @@ namespace Land_Readjustment_Tool.UI.Forms
                 return;
             }
 
-            IReadOnlyDictionary<string, string> sample = GetCurrentSample();
+            IReadOnlyDictionary<string, string> sample = GetBestPreviewSample(expression);
+            UpdatePreviewNote();
+            bool hasData = TryResolvePreviewExpression(sample, expression, out string expanded);
+
+            _lblPreviewOutput.ForeColor = Color.Black;
+            _lblPreviewOutput.Text = hasData
+                ? expanded.Replace("\n", Environment.NewLine, StringComparison.Ordinal)
+                : NoDataPreviewText;
+        }
+
+        private IReadOnlyDictionary<string, string> GetBestPreviewSample(string expression)
+        {
+            if (_sampleRecords == null || _sampleRecords.Count == 0)
+                return FallbackSample;
+
+            IReadOnlyDictionary<string, string> current = GetCurrentSample();
+            if (TryResolvePreviewExpression(current, expression, out _))
+                return current;
+
+            for (int index = 0; index < _sampleRecords.Count; index++)
+            {
+                IReadOnlyDictionary<string, string> candidate = _sampleRecords[index];
+                if (TryResolvePreviewExpression(candidate, expression, out _))
+                {
+                    _currentSampleIndex = index;
+                    return candidate;
+                }
+            }
+
+            return current;
+        }
+
+        private static bool TryResolvePreviewExpression(
+            IReadOnlyDictionary<string, string> sample,
+            string expression,
+            out string previewText)
+        {
             string expanded = expression.Replace("\\n", "\n", StringComparison.Ordinal);
-            bool hasMissingFieldValue = false;
             expanded = Regex.Replace(
                 expanded,
                 @"\{(?<field>[^{}]+)\}",
                 match =>
                 {
                     string field = match.Groups["field"].Value.Trim();
-                    if (sample.TryGetValue(field, out string? val) && !string.IsNullOrWhiteSpace(val))
+                    if (TryGetSampleValue(sample, field, out string? val))
                         return FormatPreviewFieldValue(field, val);
 
-                    hasMissingFieldValue = true;
                     return string.Empty;
                 });
 
-            _lblPreviewOutput.ForeColor = Color.Black;
-            _lblPreviewOutput.Text = hasMissingFieldValue || string.IsNullOrWhiteSpace(expanded)
-                ? NoDataPreviewText
-                : expanded.Replace("\n", Environment.NewLine, StringComparison.Ordinal);
+            previewText = string.Join(
+                "\n",
+                expanded
+                    .Split('\n')
+                    .Select(line => line.Trim())
+                    .Where(line => !string.IsNullOrWhiteSpace(line)));
+
+            return !string.IsNullOrWhiteSpace(previewText);
         }
+
+        private static bool TryGetSampleValue(
+            IReadOnlyDictionary<string, string> sample,
+            string field,
+            out string value)
+        {
+            if (sample.TryGetValue(field, out string? direct) &&
+                !string.IsNullOrWhiteSpace(direct))
+            {
+                value = direct;
+                return true;
+            }
+
+            string normalizedField = NormalizeFieldKey(field);
+            foreach (var item in sample)
+            {
+                if (string.Equals(
+                        NormalizeFieldKey(item.Key),
+                        normalizedField,
+                        StringComparison.OrdinalIgnoreCase) &&
+                    !string.IsNullOrWhiteSpace(item.Value))
+                {
+                    value = item.Value;
+                    return true;
+                }
+            }
+
+            value = string.Empty;
+            return false;
+        }
+
+        private static string NormalizeFieldKey(string value) =>
+            value
+                .Replace(" ", string.Empty, StringComparison.Ordinal)
+                .Replace("_", string.Empty, StringComparison.Ordinal)
+                .Replace("-", string.Empty, StringComparison.Ordinal)
+                .Replace("+", string.Empty, StringComparison.Ordinal)
+                .Trim()
+                .ToLowerInvariant();
 
         private static string FormatPreviewFieldValue(string field, string value)
         {

@@ -37,7 +37,6 @@ namespace Land_Readjustment_Tool.UI.Dialogs
 
         private void InitializeComponent()
         {
-            components = new System.ComponentModel.Container();
             _rootLayout = new TableLayoutPanel();
             _lblSummary = new Label();
             _crsLayout = new TableLayoutPanel();
@@ -57,8 +56,8 @@ namespace Land_Readjustment_Tool.UI.Dialogs
             _bottomLayout = new TableLayoutPanel();
             _lblSelection = new Label();
             _buttonPanel = new FlowLayoutPanel();
-            _btnImport = new Button();
             _btnCancel = new Button();
+            _btnImport = new Button();
             _rootLayout.SuspendLayout();
             _crsLayout.SuspendLayout();
             _labelLayout.SuspendLayout();
@@ -119,6 +118,7 @@ namespace Land_Readjustment_Tool.UI.Dialogs
             _crsLayout.RowCount = 2;
             _crsLayout.RowStyles.Add(new RowStyle(SizeType.Absolute, 28F));
             _crsLayout.RowStyles.Add(new RowStyle(SizeType.Absolute, 28F));
+            _crsLayout.RowStyles.Add(new RowStyle(SizeType.Absolute, 20F));
             _crsLayout.Size = new Size(740, 58);
             _crsLayout.TabIndex = 1;
             // 
@@ -138,10 +138,10 @@ namespace Land_Readjustment_Tool.UI.Dialogs
             _cmbSourceCrs.Dock = DockStyle.Fill;
             _cmbSourceCrs.DropDownStyle = ComboBoxStyle.DropDownList;
             _cmbSourceCrs.FormattingEnabled = true;
-            _cmbSourceCrs.Location = new Point(92, 1);
+            _cmbSourceCrs.Location = new Point(0, 29);
             _cmbSourceCrs.Margin = new Padding(0, 1, 0, 1);
             _cmbSourceCrs.Name = "_cmbSourceCrs";
-            _cmbSourceCrs.Size = new Size(648, 28);
+            _cmbSourceCrs.Size = new Size(92, 28);
             _cmbSourceCrs.TabIndex = 1;
             // 
             // _lblSourceCrsValue
@@ -158,10 +158,10 @@ namespace Land_Readjustment_Tool.UI.Dialogs
             // _lblProjectCrsCaption
             // 
             _lblProjectCrsCaption.Dock = DockStyle.Fill;
-            _lblProjectCrsCaption.Location = new Point(0, 28);
+            _lblProjectCrsCaption.Location = new Point(92, 28);
             _lblProjectCrsCaption.Margin = new Padding(0);
             _lblProjectCrsCaption.Name = "_lblProjectCrsCaption";
-            _lblProjectCrsCaption.Size = new Size(92, 28);
+            _lblProjectCrsCaption.Size = new Size(648, 28);
             _lblProjectCrsCaption.TabIndex = 3;
             _lblProjectCrsCaption.Text = "Project CRS";
             _lblProjectCrsCaption.TextAlign = ContentAlignment.MiddleLeft;
@@ -171,10 +171,10 @@ namespace Land_Readjustment_Tool.UI.Dialogs
             _lblProjectCrsValue.AutoEllipsis = true;
             _lblProjectCrsValue.Dock = DockStyle.Fill;
             _lblProjectCrsValue.ForeColor = SystemColors.GrayText;
-            _lblProjectCrsValue.Location = new Point(92, 28);
+            _lblProjectCrsValue.Location = new Point(0, 56);
             _lblProjectCrsValue.Margin = new Padding(0);
             _lblProjectCrsValue.Name = "_lblProjectCrsValue";
-            _lblProjectCrsValue.Size = new Size(648, 28);
+            _lblProjectCrsValue.Size = new Size(92, 20);
             _lblProjectCrsValue.TabIndex = 4;
             _lblProjectCrsValue.TextAlign = ContentAlignment.MiddleLeft;
             // 
@@ -222,9 +222,7 @@ namespace Land_Readjustment_Tool.UI.Dialogs
             _grid.AllowUserToAddRows = false;
             _grid.AllowUserToDeleteRows = false;
             _grid.AllowUserToResizeRows = false;
-            _grid.AutoSizeRowsMode = DataGridViewAutoSizeRowsMode.None;
             _grid.BackgroundColor = SystemColors.Window;
-            _grid.BorderStyle = BorderStyle.FixedSingle;
             _grid.ColumnHeadersHeight = 28;
             _grid.ColumnHeadersHeightSizeMode = DataGridViewColumnHeadersHeightSizeMode.DisableResizing;
             _grid.Columns.AddRange(new DataGridViewColumn[] { _colInclude, _colLayer, _colTypes, _colTarget });
@@ -236,6 +234,7 @@ namespace Land_Readjustment_Tool.UI.Dialogs
             _grid.MultiSelect = false;
             _grid.Name = "_grid";
             _grid.RowHeadersVisible = false;
+            _grid.RowHeadersWidth = 51;
             _grid.RowTemplate.Height = 25;
             _grid.SelectionMode = DataGridViewSelectionMode.FullRowSelect;
             _grid.Size = new Size(740, 232);
@@ -250,14 +249,14 @@ namespace Land_Readjustment_Tool.UI.Dialogs
             // 
             _colInclude.HeaderText = "";
             _colInclude.MinimumWidth = 36;
-            _colInclude.Name = IncludeColumn;
+            _colInclude.Name = "_colInclude";
             _colInclude.Width = 36;
             // 
             // _colLayer
             // 
             _colLayer.HeaderText = "Source layer";
             _colLayer.MinimumWidth = 160;
-            _colLayer.Name = LayerColumn;
+            _colLayer.Name = "_colLayer";
             _colLayer.ReadOnly = true;
             _colLayer.Width = 220;
             // 
@@ -265,7 +264,7 @@ namespace Land_Readjustment_Tool.UI.Dialogs
             // 
             _colTypes.HeaderText = "Object types";
             _colTypes.MinimumWidth = 150;
-            _colTypes.Name = TypesColumn;
+            _colTypes.Name = "_colTypes";
             _colTypes.ReadOnly = true;
             _colTypes.Width = 180;
             // 
@@ -275,7 +274,7 @@ namespace Land_Readjustment_Tool.UI.Dialogs
             _colTarget.FlatStyle = FlatStyle.Flat;
             _colTarget.HeaderText = "Target layer";
             _colTarget.MinimumWidth = 180;
-            _colTarget.Name = TargetColumn;
+            _colTarget.Name = "_colTarget";
             // 
             // _bottomLayout
             // 
@@ -317,27 +316,27 @@ namespace Land_Readjustment_Tool.UI.Dialogs
             _buttonPanel.TabIndex = 1;
             _buttonPanel.WrapContents = false;
             // 
-            // _btnImport
-            // 
-            _btnImport.DialogResult = DialogResult.OK;
-            _btnImport.Location = new Point(7, 4);
-            _btnImport.Margin = new Padding(4);
-            _btnImport.Name = "_btnImport";
-            _btnImport.Size = new Size(86, 30);
-            _btnImport.TabIndex = 1;
-            _btnImport.Text = "Import";
-            _btnImport.UseVisualStyleBackColor = true;
-            // 
             // _btnCancel
             // 
             _btnCancel.DialogResult = DialogResult.Cancel;
-            _btnCancel.Location = new Point(99, 4);
+            _btnCancel.Location = new Point(98, 4);
             _btnCancel.Margin = new Padding(4);
             _btnCancel.Name = "_btnCancel";
             _btnCancel.Size = new Size(86, 30);
             _btnCancel.TabIndex = 0;
             _btnCancel.Text = "Cancel";
             _btnCancel.UseVisualStyleBackColor = true;
+            // 
+            // _btnImport
+            // 
+            _btnImport.DialogResult = DialogResult.OK;
+            _btnImport.Location = new Point(4, 4);
+            _btnImport.Margin = new Padding(4);
+            _btnImport.Name = "_btnImport";
+            _btnImport.Size = new Size(86, 30);
+            _btnImport.TabIndex = 1;
+            _btnImport.Text = "Import";
+            _btnImport.UseVisualStyleBackColor = true;
             // 
             // frmBlockLayoutPlanImport
             // 
@@ -361,49 +360,6 @@ namespace Land_Readjustment_Tool.UI.Dialogs
             _bottomLayout.ResumeLayout(false);
             _buttonPanel.ResumeLayout(false);
             ResumeLayout(false);
-
-            _lblSummary.Text = string.Format(
-                "{0}  |  {1}  |  {2} source layer(s)",
-                Path.GetFileName(_fileInfo.FilePath),
-                _fileInfo.FileFormat,
-                _fileInfo.Layers.Count);
-            _grid.ColumnHeadersDefaultCellStyle.BackColor = Color.FromArgb(248, 250, 252);
-            _grid.ColumnHeadersDefaultCellStyle.ForeColor = Color.FromArgb(32, 41, 57);
-            _grid.ColumnHeadersDefaultCellStyle.Font = new Font(Font, FontStyle.Bold);
-            foreach (string target in GetTargetLayerDisplayNames())
-                _colTarget.Items.Add(target);
-        }
-
-        private void cmbBlockLabelLayer_SelectedIndexChanged(object sender, EventArgs e)
-        {
-            EnsureSelectedLabelLayerIncluded();
-        }
-
-        private void grid_CurrentCellDirtyStateChanged(object sender, EventArgs e)
-        {
-            if (_grid.IsCurrentCellDirty)
-                _grid.CommitEdit(DataGridViewDataErrorContexts.Commit);
-        }
-
-        private void grid_CellValueChanged(object sender, DataGridViewCellEventArgs e)
-        {
-            if (e.RowIndex >= 0)
-                ApplyRowEnabledStyle(_grid.Rows[e.RowIndex]);
-
-            UpdateImportState();
-        }
-
-        private void grid_CellMouseClick(object sender, DataGridViewCellMouseEventArgs e)
-        {
-            DataGridViewColumn includeColumn = _grid.Columns[IncludeColumn];
-            int includeColumnIndex = includeColumn == null ? -1 : includeColumn.Index;
-            if (e.RowIndex == -1 && e.ColumnIndex == includeColumnIndex)
-                SetAllIncluded(_includeHeaderState != CheckState.Checked);
-        }
-
-        private void grid_DataError(object sender, DataGridViewDataErrorEventArgs e)
-        {
-            e.ThrowException = false;
         }
     }
 }

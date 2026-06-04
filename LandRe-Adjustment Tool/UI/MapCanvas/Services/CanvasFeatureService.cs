@@ -144,13 +144,13 @@ namespace Land_Readjustment_Tool.UI.MapCanvas.Services
                 LineTypeScale = 1.0,
                 LabelColor = isTextLayer ? ToHtml(Darken(paletteColor, 0.58f)) : "#000000",
                 LabelFontName = "Nirmala UI",
-                LabelFontSize = isTextLayer ? 10.0 : 2.0,
+                LabelFontSize = isTextLayer ? 10.0 : 1.0,
                 LabelScaleWithZoom = !isTextLayer,
                 TextAlignment = isTextLayer
                     ? TextShape.NormalizeHorizontalAlignment(shape.Properties.TryGetValue("TextAlignment", out object? alignment)
                         ? alignment?.ToString()
                         : null)
-                    : "Left",
+                    : "Center Middle",
                 FillStyle = "Solid",
                 ShowFillTransparency = false,
                 FillTransparency = 50,

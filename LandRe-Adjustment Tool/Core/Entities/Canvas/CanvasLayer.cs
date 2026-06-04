@@ -71,11 +71,11 @@ namespace Land_Readjustment_Tool.Core.Entities.Canvas
         // ── TEXT / LABEL STYLE ──────────────────────
         public bool ShowLabels { get; set; } = false;
         public string? LabelFontName { get; set; } = "Nirmala UI";
-        public double LabelFontSize { get; set; } = 2.0;
+        public double LabelFontSize { get; set; } = 1.0;
         public string LabelColor { get; set; } = "#000000";
         public string? LabelField { get; set; }
         public bool LabelScaleWithZoom { get; set; } = true;
-        public string TextAlignment { get; set; } = "Left";
+        public string TextAlignment { get; set; } = "Center Middle";
         // Which field to show as label
         // e.g. "ParcelNo", "OwnerName", "AreaSqm"
 

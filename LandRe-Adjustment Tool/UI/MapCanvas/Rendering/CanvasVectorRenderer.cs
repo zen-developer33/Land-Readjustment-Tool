@@ -1399,6 +1399,25 @@ namespace Land_Readjustment_Tool.UI.MapCanvas.Rendering
             {
                 try
                 {
+                    if (TryResolveLineGeometryLabelAnchor(geometry, out PointD lineAnchor))
+                    {
+                        if (cacheKey != Guid.Empty)
+                            _labelAnchorCache.TryAdd(cacheKey, lineAnchor);
+                        if (ContainsPoint(visibleWorldBounds, lineAnchor))
+                        {
+                            anchor = lineAnchor;
+                            return true;
+                        }
+                    }
+
+                    if (TryResolvePolygonGeometryLabelAnchor(geometry, visibleWorldBounds, out PointD polygonAnchor))
+                    {
+                        if (cacheKey != Guid.Empty)
+                            _labelAnchorCache.TryAdd(cacheKey, polygonAnchor);
+                        anchor = polygonAnchor;
+                        return true;
+                    }
+
                     NetTopologySuite.Geometries.Point point = geometry.PointOnSurface;
                     PointD pointAnchor = new(point.X, point.Y);
                     if (cacheKey != Guid.Empty)
@@ -1435,6 +1454,21 @@ namespace Land_Readjustment_Tool.UI.MapCanvas.Rendering
                 if (clippedGeometry.IsEmpty)
                     return false;
 
+                if (TryResolveLineGeometryLabelAnchor(clippedGeometry, out PointD lineAnchor))
+                {
+                    if (ContainsPoint(visibleWorldBounds, lineAnchor))
+                    {
+                        anchor = lineAnchor;
+                        return true;
+                    }
+                }
+
+                if (TryResolvePolygonGeometryLabelAnchor(clippedGeometry, visibleWorldBounds, out PointD polygonAnchor))
+                {
+                    anchor = polygonAnchor;
+                    return true;
+                }
+
                 NetTopologySuite.Geometries.Point centroid = clippedGeometry.Centroid;
                 if (IsUsableLabelPoint(centroid, clippedGeometry, visibleWorldBounds))
                 {
@@ -1455,6 +1489,231 @@ namespace Land_Readjustment_Tool.UI.MapCanvas.Rendering
             }
 
             return false;
+        }
+
+        private static bool TryResolvePolygonGeometryLabelAnchor(
+            Geometry geometry,
+            RectangleD visibleWorldBounds,
+            out PointD anchor)
+        {
+            anchor = default;
+            if (!ContainsPolygonalGeometry(geometry))
+                return false;
+
+            NetTopologySuite.Geometries.Point centroid = geometry.Centroid;
+            if (centroid.IsEmpty ||
+                !double.IsFinite(centroid.X) ||
+                !double.IsFinite(centroid.Y))
+            {
+                return false;
+            }
+
+            if (geometry.Covers(centroid))
+            {
+                anchor = new PointD(centroid.X, centroid.Y);
+                return ContainsPoint(visibleWorldBounds, anchor);
+            }
+
+            if (TryResolvePolygonVisualCenter(geometry, centroid, visibleWorldBounds, out anchor))
+                return true;
+
+            NetTopologySuite.Geometries.Point interiorPoint = geometry.PointOnSurface;
+            if (IsUsableLabelPoint(interiorPoint, geometry, visibleWorldBounds))
+            {
+                anchor = new PointD(interiorPoint.X, interiorPoint.Y);
+                return true;
+            }
+
+            return false;
+        }
+
+        private static bool TryResolvePolygonVisualCenter(
+            Geometry geometry,
+            NetTopologySuite.Geometries.Point centroid,
+            RectangleD visibleWorldBounds,
+            out PointD anchor)
+        {
+            anchor = default;
+
+            Envelope envelope = geometry.EnvelopeInternal;
+            if (envelope == null ||
+                envelope.IsNull ||
+                envelope.Width <= 0 ||
+                envelope.Height <= 0)
+            {
+                return false;
+            }
+
+            try
+            {
+                Geometry boundary = geometry.Boundary;
+                const int gridSize = 20;
+                const int refinementPasses = 3;
+
+                double minX = envelope.MinX;
+                double maxX = envelope.MaxX;
+                double minY = envelope.MinY;
+                double maxY = envelope.MaxY;
+                double bestScore = double.NegativeInfinity;
+                double bestCentroidDistance = double.PositiveInfinity;
+                Coordinate? bestCoordinate = null;
+
+                for (int pass = 0; pass < refinementPasses; pass++)
+                {
+                    double width = maxX - minX;
+                    double height = maxY - minY;
+                    if (width <= 0 || height <= 0)
+                        break;
+
+                    double stepX = width / gridSize;
+                    double stepY = height / gridSize;
+                    if (stepX <= 0 || stepY <= 0)
+                        break;
+
+                    for (int ix = 0; ix <= gridSize; ix++)
+                    {
+                        double x = minX + stepX * ix;
+                        for (int iy = 0; iy <= gridSize; iy++)
+                        {
+                            double y = minY + stepY * iy;
+                            if (!double.IsFinite(x) || !double.IsFinite(y))
+                                continue;
+
+                            NetTopologySuite.Geometries.Point candidate =
+                                LabelGeometryFactory.CreatePoint(new Coordinate(x, y));
+                            if (!geometry.Covers(candidate))
+                                continue;
+
+                            double edgeDistance = boundary.Distance(candidate);
+                            double centroidDistance = candidate.Distance(centroid);
+                            if (edgeDistance > bestScore ||
+                                (Math.Abs(edgeDistance - bestScore) < 1e-9 &&
+                                 centroidDistance < bestCentroidDistance))
+                            {
+                                bestScore = edgeDistance;
+                                bestCentroidDistance = centroidDistance;
+                                bestCoordinate = candidate.Coordinate;
+                            }
+                        }
+                    }
+
+                    if (bestCoordinate == null)
+                        break;
+
+                    double refineWidth = Math.Max(stepX * 2.0, width / gridSize);
+                    double refineHeight = Math.Max(stepY * 2.0, height / gridSize);
+                    minX = bestCoordinate.X - refineWidth;
+                    maxX = bestCoordinate.X + refineWidth;
+                    minY = bestCoordinate.Y - refineHeight;
+                    maxY = bestCoordinate.Y + refineHeight;
+                }
+
+                if (bestCoordinate == null)
+                    return false;
+
+                PointD bestAnchor = new(bestCoordinate.X, bestCoordinate.Y);
+                if (!ContainsPoint(visibleWorldBounds, bestAnchor))
+                    return false;
+
+                anchor = bestAnchor;
+                return true;
+            }
+            catch
+            {
+                return false;
+            }
+        }
+
+        private static bool ContainsPolygonalGeometry(Geometry geometry)
+        {
+            switch (geometry)
+            {
+                case Polygon:
+                case MultiPolygon:
+                    return true;
+                case GeometryCollection collection:
+                    for (int i = 0; i < collection.NumGeometries; i++)
+                    {
+                        if (ContainsPolygonalGeometry(collection.GetGeometryN(i)))
+                            return true;
+                    }
+
+                    return false;
+                default:
+                    return false;
+            }
+        }
+
+        private static bool TryResolveLineGeometryLabelAnchor(
+            Geometry geometry,
+            out PointD anchor)
+        {
+            anchor = default;
+            LineString? line = EnumerateLineStrings(geometry)
+                .Where(item => item.NumPoints >= 2 && item.Length > 0)
+                .OrderByDescending(item => item.Length)
+                .FirstOrDefault();
+
+            if (line == null)
+                return false;
+
+            double targetLength = line.Length / 2.0;
+            double traversed = 0.0;
+            Coordinate[] coordinates = line.Coordinates;
+
+            for (int i = 1; i < coordinates.Length; i++)
+            {
+                Coordinate a = coordinates[i - 1];
+                Coordinate b = coordinates[i];
+                double segmentLength = a.Distance(b);
+                if (segmentLength <= 0)
+                    continue;
+
+                if (traversed + segmentLength >= targetLength)
+                {
+                    double t = (targetLength - traversed) / segmentLength;
+                    double x = a.X + (b.X - a.X) * t;
+                    double y = a.Y + (b.Y - a.Y) * t;
+                    if (!double.IsFinite(x) || !double.IsFinite(y))
+                        return false;
+
+                    anchor = new PointD(x, y);
+                    return true;
+                }
+
+                traversed += segmentLength;
+            }
+
+            Coordinate last = coordinates[^1];
+            if (!double.IsFinite(last.X) || !double.IsFinite(last.Y))
+                return false;
+
+            anchor = new PointD(last.X, last.Y);
+            return true;
+        }
+
+        private static IEnumerable<LineString> EnumerateLineStrings(Geometry geometry)
+        {
+            switch (geometry)
+            {
+                case LineString line:
+                    yield return line;
+                    break;
+                case MultiLineString multiLine:
+                    for (int i = 0; i < multiLine.NumGeometries; i++)
+                    {
+                        if (multiLine.GetGeometryN(i) is LineString childLine)
+                            yield return childLine;
+                    }
+                    break;
+                case GeometryCollection collection:
+                    for (int i = 0; i < collection.NumGeometries; i++)
+                    {
+                        foreach (LineString childLine in EnumerateLineStrings(collection.GetGeometryN(i)))
+                            yield return childLine;
+                    }
+                    break;
+            }
         }
 
         private static Geometry CreateViewportGeometry(RectangleD visibleWorldBounds)
@@ -1689,43 +1948,119 @@ namespace Land_Readjustment_Tool.UI.MapCanvas.Rendering
                 "assignmentstatus" or "status"                                      => metadata?.AssignmentStatus,
 
                 // ── Road fields ────────────────────────────────────────────────────
-                "roadname"                                                          => GetPropertyValue(canvasObject.Road, "RoadName"),
-                "roadcode"                                                          => GetPropertyValue(canvasObject.Road, "RoadCode"),
-                "roadstatus"                                                        => GetPropertyValue(canvasObject.Road, "RoadStatus"),
-                "roadtype"                                                          => GetPropertyValue(canvasObject.Road, "RoadType"),
-                "surfacetype"                                                       => GetPropertyValue(canvasObject.Road, "SurfaceType"),
-                "roadwidth"                                                         => GetPropertyValue(canvasObject.Road, "RoadWidth"),
-                "rightofwaywidth" or "rowwidth"                                     => GetPropertyValue(canvasObject.Road, "RightOfWayWidth"),
-                "roaddescription"                                                   => GetPropertyValue(canvasObject.Road, "Description"),
+                "roadname"                                                          => ResolveFirst(
+                    GetPropertyValue(canvasObject.Road, "RoadName"),
+                    GetAttributeValue(metadata, labelField),
+                    GetAttributeValue(metadata, "Name"),
+                    canvasObject.LabelText,
+                    metadata?.MatchedText),
+                "roadcode"                                                          => ResolveFirst(
+                    GetPropertyValue(canvasObject.Road, "RoadCode"),
+                    GetAttributeValue(metadata, labelField),
+                    GetAttributeValue(metadata, "Code")),
+                "roadstatus"                                                        => ResolveFirst(
+                    GetPropertyValue(canvasObject.Road, "RoadStatus"),
+                    GetAttributeValue(metadata, labelField),
+                    GetAttributeValue(metadata, "Status")),
+                "roadtype"                                                          => ResolveFirst(
+                    GetPropertyValue(canvasObject.Road, "RoadType"),
+                    GetAttributeValue(metadata, labelField),
+                    GetAttributeValue(metadata, "Type")),
+                "surfacetype"                                                       => ResolveFirst(
+                    GetPropertyValue(canvasObject.Road, "SurfaceType"),
+                    GetAttributeValue(metadata, labelField),
+                    GetAttributeValue(metadata, "Surface")),
+                "roadwidth"                                                         => ResolveFirst(
+                    GetPropertyValue(canvasObject.Road, "RoadWidth"),
+                    GetAttributeValue(metadata, labelField),
+                    GetAttributeValue(metadata, "Width")),
+                "rightofwaywidth" or "rowwidth"                                     => ResolveFirst(
+                    GetPropertyValue(canvasObject.Road, "RightOfWayWidth"),
+                    GetAttributeValue(metadata, labelField),
+                    GetAttributeValue(metadata, "ROWWidth"),
+                    GetAttributeValue(metadata, "ROW Width")),
+                "roaddescription"                                                   => ResolveFirst(
+                    GetPropertyValue(canvasObject.Road, "Description"),
+                    GetAttributeValue(metadata, labelField),
+                    GetAttributeValue(metadata, "Description")),
 
                 // ── Block fields ───────────────────────────────────────────────────
-                "blockname"                                                         => GetPropertyValue(canvasObject.Block, "BlockName"),
-                "blockcode"                                                         => GetPropertyValue(canvasObject.Block, "BlockCode"),
-                "blocklanduse"                                                      => GetPropertyValue(canvasObject.Block, "BlockLandUse"),
-                "blockdepth"                                                        => GetPropertyValue(canvasObject.Block, "BlockDepth"),
+                "blockname"                                                         => ResolveFirst(
+                    GetPropertyValue(canvasObject.Block, "BlockName"),
+                    GetAttributeValue(metadata, labelField),
+                    GetAttributeValue(metadata, "Name"),
+                    canvasObject.LabelText,
+                    metadata?.MatchedText),
+                "blockcode"                                                         => ResolveFirst(
+                    GetPropertyValue(canvasObject.Block, "BlockCode"),
+                    GetAttributeValue(metadata, labelField),
+                    GetAttributeValue(metadata, "Code")),
+                "blocklanduse"                                                      => ResolveFirst(
+                    GetPropertyValue(canvasObject.Block, "BlockLandUse"),
+                    GetAttributeValue(metadata, labelField),
+                    GetAttributeValue(metadata, "LandUse"),
+                    GetAttributeValue(metadata, "Type")),
+                "blockdepth"                                                        => ResolveFirst(
+                    GetPropertyValue(canvasObject.Block, "BlockDepth"),
+                    GetAttributeValue(metadata, labelField),
+                    GetAttributeValue(metadata, "Depth")),
                 "blockdepthgeometry" or "blockdepthfromgeometry"                    => CanvasGeometryMetricsService.GetBlockDepthFromGeometry(canvasObject),
                 "blockareasqm" or "blockarea"                                       => FormatSqmArea(ResolveFirst(
                     CanvasGeometryMetricsService.GetArea(canvasObject),
-                    GetPropertyValue(canvasObject.Block, "BlockArea")), sqmPrecision),
+                    GetPropertyValue(canvasObject.Block, "BlockArea"),
+                    GetAttributeValue(metadata, labelField),
+                    GetAttributeValue(metadata, "Area")), sqmPrecision),
                 "blockarearapd"                                                     => FormatTraditionalArea(ResolveFirst(
                     CanvasGeometryMetricsService.GetArea(canvasObject),
-                    GetPropertyValue(canvasObject.Block, "BlockArea")), traditionalPrecision: traditionalPrecision),
+                    GetPropertyValue(canvasObject.Block, "BlockArea"),
+                    GetAttributeValue(metadata, "Area")), traditionalPrecision: traditionalPrecision),
                 "blockareabkd"                                                      => FormatTraditionalArea(ResolveFirst(
                     CanvasGeometryMetricsService.GetArea(canvasObject),
-                    GetPropertyValue(canvasObject.Block, "BlockArea")), useBkd: true, traditionalPrecision: traditionalPrecision),
-                "blockdescription"                                                  => GetPropertyValue(canvasObject.Block, "Description"),
+                    GetPropertyValue(canvasObject.Block, "BlockArea"),
+                    GetAttributeValue(metadata, "Area")), useBkd: true, traditionalPrecision: traditionalPrecision),
+                "blockdescription"                                                  => ResolveFirst(
+                    GetPropertyValue(canvasObject.Block, "Description"),
+                    GetAttributeValue(metadata, labelField),
+                    GetAttributeValue(metadata, "Description")),
 
                 // ── ReplottedParcel fields ─────────────────────────────────────────
-                "replottedparcelno" or "activeplotnumber"                           => GetActivePlotNumber(canvasObject.ReplottedParcel),
-                "systemgeneratednumber"                                             => GetPropertyValue(canvasObject.ReplottedParcel, "SystemGeneratedNumber"),
-                "derivednumber"                                                     => GetPropertyValue(canvasObject.ReplottedParcel, "DerivedNumber"),
-                "blocksequencenumber"                                               => GetPropertyValue(canvasObject.ReplottedParcel, "BlockSequenceNumber"),
-                "plottypename" or "plottype"                                        => GetPropertyValue(canvasObject.ReplottedParcel?.PlotType, "TypeName"),
-                "plotblockname" or "plotblock"                                      => GetPropertyValue(canvasObject.ReplottedParcel?.Block, "BlockName"),
-                "plotareasqm"                                                       => FormatSqmArea(GetPropertyValue(canvasObject.ReplottedParcel, "PlotAreaSqm"), sqmPrecision),
-                "plotarearapd"                                                      => FormatTraditionalArea(GetPropertyValue(canvasObject.ReplottedParcel, "PlotAreaSqm"), traditionalPrecision: traditionalPrecision),
-                "plotareabkd"                                                       => FormatTraditionalArea(GetPropertyValue(canvasObject.ReplottedParcel, "PlotAreaSqm"), useBkd: true, traditionalPrecision: traditionalPrecision),
-                "plotnotes"                                                         => GetPropertyValue(canvasObject.ReplottedParcel, "Notes"),
+                "replottedparcelno" or "activeplotnumber"                           => ResolveFirst(
+                    GetActivePlotNumber(canvasObject.ReplottedParcel),
+                    GetAttributeValue(metadata, labelField),
+                    GetAttributeValue(metadata, "PlotNo"),
+                    GetAttributeValue(metadata, "ParcelNo"),
+                    canvasObject.LabelText),
+                "systemgeneratednumber"                                             => ResolveFirst(
+                    GetPropertyValue(canvasObject.ReplottedParcel, "SystemGeneratedNumber"),
+                    GetAttributeValue(metadata, labelField)),
+                "derivednumber"                                                     => ResolveFirst(
+                    GetPropertyValue(canvasObject.ReplottedParcel, "DerivedNumber"),
+                    GetAttributeValue(metadata, labelField)),
+                "blocksequencenumber"                                               => ResolveFirst(
+                    GetPropertyValue(canvasObject.ReplottedParcel, "BlockSequenceNumber"),
+                    GetAttributeValue(metadata, labelField)),
+                "plottypename" or "plottype"                                        => ResolveFirst(
+                    GetPropertyValue(canvasObject.ReplottedParcel?.PlotType, "TypeName"),
+                    GetAttributeValue(metadata, labelField),
+                    GetAttributeValue(metadata, "Type")),
+                "plotblockname" or "plotblock"                                      => ResolveFirst(
+                    GetPropertyValue(canvasObject.ReplottedParcel?.Block, "BlockName"),
+                    GetAttributeValue(metadata, labelField),
+                    GetAttributeValue(metadata, "BlockName")),
+                "plotareasqm"                                                       => FormatSqmArea(ResolveFirst(
+                    GetPropertyValue(canvasObject.ReplottedParcel, "PlotAreaSqm"),
+                    GetAttributeValue(metadata, labelField),
+                    GetAttributeValue(metadata, "Area")), sqmPrecision),
+                "plotarearapd"                                                      => FormatTraditionalArea(ResolveFirst(
+                    GetPropertyValue(canvasObject.ReplottedParcel, "PlotAreaSqm"),
+                    GetAttributeValue(metadata, "Area")), traditionalPrecision: traditionalPrecision),
+                "plotareabkd"                                                       => FormatTraditionalArea(ResolveFirst(
+                    GetPropertyValue(canvasObject.ReplottedParcel, "PlotAreaSqm"),
+                    GetAttributeValue(metadata, "Area")), useBkd: true, traditionalPrecision: traditionalPrecision),
+                "plotnotes"                                                         => ResolveFirst(
+                    GetPropertyValue(canvasObject.ReplottedParcel, "Notes"),
+                    GetAttributeValue(metadata, labelField),
+                    GetAttributeValue(metadata, "Notes")),
 
                 // ── Import / tracing ───────────────────────────────────────────────
                 "sourcelayer"                                                       => metadata?.SourceLayer,

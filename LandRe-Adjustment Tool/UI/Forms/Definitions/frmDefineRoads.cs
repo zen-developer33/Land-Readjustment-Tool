@@ -19,6 +19,7 @@ namespace Land_Readjustment_Tool.UI.Forms.Definitions
             dgvRoads.DataSource = _bindingSource;
             dgvRoads.DataError += (_, _) => { };
             dgvRoads.CellEndEdit += dgvRoads_CellEndEdit;
+            dgvRoads.CellDoubleClick += dgvRoads_CellDoubleClick;
             dgvRoads.CurrentCellDirtyStateChanged += dgvRoads_CurrentCellDirtyStateChanged;
             RecordFormTheme.Apply(this);
         }
@@ -90,6 +91,14 @@ namespace Land_Readjustment_Tool.UI.Forms.Definitions
         }
 
         private async void dgvRoads_CellEndEdit(object? sender, DataGridViewCellEventArgs e) => await SaveCurrentEditsAsync();
+
+        private async void dgvRoads_CellDoubleClick(object? sender, DataGridViewCellEventArgs e)
+        {
+            if (e.RowIndex < 0)
+                return;
+
+            await ExecuteRoadOperationAsync(EditRoadDetailsAsync);
+        }
 
         private void dgvRoads_CurrentCellDirtyStateChanged(object? sender, EventArgs e)
         {

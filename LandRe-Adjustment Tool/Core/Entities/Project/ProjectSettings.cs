@@ -90,6 +90,10 @@ namespace Land_Readjustment_Tool.Core.Entities.Project
         // Enable orthogonal drawing mode by default for the project
         public bool OrthoEnabled { get; set; } = false;
 
+        // Project-wide editing guard. When true, records, canvas objects, and
+        // layer definitions are protected from modification until unlocked.
+        public bool ApplicationEditLocked { get; set; } = false;
+
         // Canvas zoom behavior: "Normal" or "StandardScaleSteps".
         [Required]
         public string CanvasZoomBehavior { get; set; } = "StandardScaleSteps";

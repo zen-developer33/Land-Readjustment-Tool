@@ -241,7 +241,7 @@ namespace Land_Readjustment_Tool.UI.Dialogs
             bool hasAttributeFields = _fileInfo?.AttributeFields.Count > 0;
 
             chkAutoAssign.Enabled = _hasOriginalParcelRecords;
-            chkAutoAssign.Checked = _hasOriginalParcelRecords;
+            chkAutoAssign.Checked = false;
             chkAutoAssign.Text = isShapefile
                 ? "Auto assign parcel records using mapped source attributes"
                 : "Auto assign parcel number from DXF text / SHP attributes when available";

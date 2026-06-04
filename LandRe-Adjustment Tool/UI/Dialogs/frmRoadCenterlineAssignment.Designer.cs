@@ -87,7 +87,7 @@ namespace Land_Readjustment_Tool.UI.Dialogs
             // colRoad
             // 
             colRoad.FlatStyle = FlatStyle.Flat;
-            colRoad.HeaderText = "Defined road data";
+            colRoad.HeaderText = "Defined Road";
             colRoad.MinimumWidth = 170;
             colRoad.Name = "colRoad";
             colRoad.Width = 170;
@@ -111,7 +111,7 @@ namespace Land_Readjustment_Tool.UI.Dialogs
             // colObjectRoad
             // 
             colObjectRoad.FlatStyle = FlatStyle.Flat;
-            colObjectRoad.HeaderText = "Defined road data";
+            colObjectRoad.HeaderText = "Defined Road";
             colObjectRoad.MinimumWidth = 170;
             colObjectRoad.Name = "colObjectRoad";
             colObjectRoad.Width = 170;

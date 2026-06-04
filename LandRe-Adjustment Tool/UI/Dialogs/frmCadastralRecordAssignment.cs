@@ -57,6 +57,9 @@ namespace Land_Readjustment_Tool.UI.Dialogs
             btnRemoveAssignment.Click += btnRemoveAssignment_Click;
             btnClearAssignments.Click += btnClearAssignments_Click;
             btnClose.Click += (_, _) => Close();
+
+            if (_preferredCanvasObjectId.HasValue && !_openAutoAssignmentOnLoad)
+                rdoManualAssign.Checked = true;
         }
 
         private async void frmCadastralRecordAssignment_Load(object? sender, EventArgs e)
@@ -243,6 +246,12 @@ namespace Land_Readjustment_Tool.UI.Dialogs
             return false;
         }
 
+        public void OpenManualAssignmentMode()
+        {
+            rdoManualAssign.Checked = true;
+            ApplyModeState();
+        }
+
         private bool TrySelectCandidateFromVisibleList(
             Guid canvasObjectId,
             bool previewOnCanvas)
@@ -273,8 +282,17 @@ namespace Land_Readjustment_Tool.UI.Dialogs
                 if (row.Tag is CadastralAssignmentCandidate candidate &&
                     candidate.CanvasObjectId == canvasObjectId)
                 {
+                    dgvObjects.ClearSelection();
                     row.Selected = true;
                     dgvObjects.CurrentCell = row.Cells[0];
+                    try
+                    {
+                        dgvObjects.FirstDisplayedScrollingRowIndex = Math.Max(0, row.Index);
+                    }
+                    catch (InvalidOperationException)
+                    {
+                    }
+
                     return true;
                 }
             }

@@ -201,21 +201,18 @@ namespace Land_Readjustment_Tool.Services.Import.Readers
                     layerOptions);
             }
 
-            if (options.AutoAssignParcelRecords)
-            {
-                List<CadastralTextFeature> textFeatures = [];
-                textFeatures.AddRange(dxf.Entities.Texts.Select(text => new CadastralTextFeature(
-                    ExtractParcelText(text.Value),
-                    text.Position.X,
-                    text.Position.Y,
-                    text.Layer?.Name ?? "0")));
-                textFeatures.AddRange(dxf.Entities.MTexts.Select(text => new CadastralTextFeature(
-                    ExtractParcelText(text.Value),
-                    text.Position.X,
-                    text.Position.Y,
-                    text.Layer?.Name ?? "0")));
-                AssignTextToParcels(parcels, textFeatures);
-            }
+            List<CadastralTextFeature> textFeatures = [];
+            textFeatures.AddRange(dxf.Entities.Texts.Select(text => new CadastralTextFeature(
+                ExtractParcelText(text.Value),
+                text.Position.X,
+                text.Position.Y,
+                text.Layer?.Name ?? "0")));
+            textFeatures.AddRange(dxf.Entities.MTexts.Select(text => new CadastralTextFeature(
+                ExtractParcelText(text.Value),
+                text.Position.X,
+                text.Position.Y,
+                text.Layer?.Name ?? "0")));
+            AssignTextToParcels(parcels, textFeatures);
 
             foreach (Text text in dxf.Entities.Texts)
             {
@@ -487,8 +484,7 @@ namespace Land_Readjustment_Tool.Services.Import.Readers
                 }
             }
 
-            if (options.AutoAssignParcelRecords)
-                AssignTextToParcels(parcels, textFeatures);
+            AssignTextToParcels(parcels, textFeatures);
 
             return parcels;
         }

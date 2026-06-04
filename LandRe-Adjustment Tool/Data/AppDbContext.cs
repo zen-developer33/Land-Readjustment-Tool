@@ -102,6 +102,10 @@ namespace Land_Readjustment_Tool.Data
                 .ToTable(t => t.HasCheckConstraint(
                     "CK_ProjectSettings_SingleRow", "Id = 1"));
 
+            modelBuilder.Entity<ProjectSettings>()
+                .Property(settings => settings.ApplicationEditLocked)
+                .HasDefaultValue(false);
+
             modelBuilder.Entity<CanvasLayer>()
                 .Property(layer => layer.IsLocked)
                 .HasDefaultValue(false);

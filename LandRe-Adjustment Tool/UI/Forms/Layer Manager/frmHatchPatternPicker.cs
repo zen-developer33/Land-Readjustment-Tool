@@ -3,16 +3,13 @@ using Land_Readjustment_Tool.UI.MapCanvas.Services;
 
 namespace Land_Readjustment_Tool.UI.Forms
 {
-    public sealed class frmHatchPatternPicker : Form
+    public sealed partial class frmHatchPatternPicker : Form
     {
         private readonly IHatchPatternService _hatchPatternService;
         private readonly Color _hatchColor;
         private readonly Color _fillColor;
         private readonly int _transparency;
         private readonly double _hatchScale;
-        private readonly FlowLayoutPanel _patternLayout = new();
-        private readonly Button _okButton = new();
-        private readonly Button _cancelButton = new();
 
         public string SelectedPatternKey { get; private set; }
 
@@ -34,51 +31,8 @@ namespace Land_Readjustment_Tool.UI.Forms
                 .GetPatternOrDefault(selectedPatternKey)
                 .Key;
 
-            InitializePicker();
+            InitializeComponent();
             BuildPatternButtons();
-        }
-
-        private void InitializePicker()
-        {
-            Text = "Choose Hatch Pattern";
-            StartPosition = FormStartPosition.CenterParent;
-            FormBorderStyle = FormBorderStyle.FixedDialog;
-            MinimizeBox = false;
-            MaximizeBox = false;
-            ShowInTaskbar = false;
-            ClientSize = new Size(560, 420);
-            Font = new Font("Segoe UI", 9F);
-
-            _patternLayout.Dock = DockStyle.Fill;
-            _patternLayout.AutoScroll = true;
-            _patternLayout.Padding = new Padding(12);
-            _patternLayout.FlowDirection = FlowDirection.LeftToRight;
-            _patternLayout.WrapContents = true;
-
-            FlowLayoutPanel buttonPanel = new()
-            {
-                Dock = DockStyle.Bottom,
-                FlowDirection = FlowDirection.RightToLeft,
-                Height = 54,
-                Padding = new Padding(12),
-                BackColor = SystemColors.Control
-            };
-
-            _okButton.Text = "OK";
-            _okButton.DialogResult = DialogResult.OK;
-            _okButton.Width = 92;
-
-            _cancelButton.Text = "Cancel";
-            _cancelButton.DialogResult = DialogResult.Cancel;
-            _cancelButton.Width = 92;
-
-            buttonPanel.Controls.Add(_okButton);
-            buttonPanel.Controls.Add(_cancelButton);
-
-            Controls.Add(_patternLayout);
-            Controls.Add(buttonPanel);
-            AcceptButton = _okButton;
-            CancelButton = _cancelButton;
         }
 
         private void BuildPatternButtons()
