@@ -1312,6 +1312,62 @@ namespace Land_Readjustment_Tool.UI.CustomControls
             }
         }
 
+        public Bitmap CaptureCurrentImage(float outputScale = 1.0f)
+        {
+            if (IsDisposed ||
+                Disposing ||
+                canvasSurface.IsDisposed ||
+                canvasSurface.ClientSize.Width <= 0 ||
+                canvasSurface.ClientSize.Height <= 0)
+            {
+                throw new InvalidOperationException("The map canvas is not ready for screenshot capture.");
+            }
+
+            if (float.IsNaN(outputScale) || float.IsInfinity(outputScale) || outputScale < 1.0f)
+            {
+                outputScale = 1.0f;
+            }
+
+            outputScale = Math.Min(outputScale, 4.0f);
+            int snapshotWidth = Math.Max(1, (int)Math.Ceiling(canvasSurface.ClientSize.Width * outputScale));
+            int snapshotHeight = Math.Max(1, (int)Math.Ceiling(canvasSurface.ClientSize.Height * outputScale));
+
+            Bitmap snapshot = new(
+                snapshotWidth,
+                snapshotHeight,
+                PixelFormat.Format32bppPArgb);
+
+            try
+            {
+                snapshot.SetResolution(96.0f * outputScale, 96.0f * outputScale);
+
+                using Graphics graphics = Graphics.FromImage(snapshot);
+                graphics.CompositingQuality = CompositingQuality.HighQuality;
+                graphics.InterpolationMode = InterpolationMode.HighQualityBicubic;
+                graphics.PixelOffsetMode = PixelOffsetMode.HighQuality;
+                graphics.SmoothingMode = SmoothingMode.HighQuality;
+                graphics.TextRenderingHint = System.Drawing.Text.TextRenderingHint.ClearTypeGridFit;
+                graphics.ScaleTransform(outputScale, outputScale);
+                graphics.Clear(canvasSurface.BackColor);
+
+                if (ShouldDrawRefreshHoldFrame())
+                {
+                    DrawRefreshHoldFrame(graphics);
+                }
+                else
+                {
+                    RenderCanvasFrame(graphics, updateDebugTiming: false);
+                }
+
+                return snapshot;
+            }
+            catch
+            {
+                snapshot.Dispose();
+                throw;
+            }
+        }
+
         private bool ShouldDrawRefreshHoldFrame()
         {
             return _refreshHoldFrame != null &&
@@ -6463,7 +6519,15 @@ namespace Land_Readjustment_Tool.UI.CustomControls
                    layer?.IsVisible == true &&
                    layer.IsSelectable &&
                    layer.IsLocked != true &&
-                   CanvasLayerTreeService.IsDrawingMarkupLayer(layer);
+                   (CanvasLayerTreeService.IsDrawingMarkupLayer(layer) ||
+                    IsGeneratedRoadParcelDependencyLayer(layer));
+        }
+
+        private static bool IsGeneratedRoadParcelDependencyLayer(CanvasLayer layer)
+        {
+            return CanvasLayerTreeService.IsProjectBoundaryLayer(layer) ||
+                   string.Equals(layer.LayerType, "Block", StringComparison.OrdinalIgnoreCase) ||
+                   string.Equals(layer.Name, "Blocks", StringComparison.OrdinalIgnoreCase);
         }
 
         private bool IsDeletableSelectedFeature(CanvasFeature feature)

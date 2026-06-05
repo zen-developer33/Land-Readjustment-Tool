@@ -298,6 +298,9 @@ namespace Land_Readjustment_Tool.Forms.Land_Owners_Record
 
         private void btnSave_Click(object sender, EventArgs e)
         {
+            if (_readOnlyMode)
+                return;
+
             // Validate required fields
             if (string.IsNullOrWhiteSpace(txtFullName.Text))
             {
@@ -439,11 +442,17 @@ namespace Land_Readjustment_Tool.Forms.Land_Owners_Record
 
         private void btnEdit_Click(object sender, EventArgs e)
         {
+            if (!_allowEditInReadOnly)
+                return;
+
             enableEditing();
         }
 
         private void enableEditing()
         {
+            if (!_allowEditInReadOnly && !_isAddMode)
+                return;
+
             // Readonly mode - disable all input controls
 
             txtFullName.ReadOnly = false;
@@ -544,6 +553,9 @@ namespace Land_Readjustment_Tool.Forms.Land_Owners_Record
 
         private void btnUploadChangePhoto_Click(object sender, EventArgs e)
         {
+            if (_readOnlyMode)
+                return;
+
             using var ofd = new OpenFileDialog();
             ofd.Filter = "Image Files|*.jpg;*.jpeg;*.png;*.bmp|All Files|*.*";
             ofd.Title = "Select Owner Photo";

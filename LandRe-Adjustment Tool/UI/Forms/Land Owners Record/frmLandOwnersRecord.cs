@@ -16,6 +16,7 @@ namespace Land_Readjustment_Tool.Forms
         private List<LandOwner> _allOwners = [];
         private List<LandOwner> _filteredOwners = [];
         private BindingList<LandOwnerDisplayModel> _displayedOwners = [];
+        private readonly bool _readOnlyMode;
 
         public frmLandOwnersRecord()
             : this(CreateDefaultLandRecordsService(out var projectPath), projectPath)
@@ -23,14 +24,26 @@ namespace Land_Readjustment_Tool.Forms
         }
 
         public frmLandOwnersRecord(LandRecordsService landRecordsService, string projectPath)
+            : this(landRecordsService, projectPath, readOnlyMode: false)
+        {
+        }
+
+        public frmLandOwnersRecord(
+            LandRecordsService landRecordsService,
+            string projectPath,
+            bool readOnlyMode)
         {
             InitializeComponent();
             _landRecordsService = landRecordsService ?? throw new ArgumentNullException(nameof(landRecordsService));
             _projectPath = projectPath ?? throw new ArgumentNullException(nameof(projectPath));
-            Text = "Land Owners Record";
+            _readOnlyMode = readOnlyMode;
+            Text = _readOnlyMode
+                ? "Land Owners Record (Read-Only)"
+                : "Land Owners Record";
 
             SetupEventHandlers();
             SetupDataGridView();
+            ApplyReadOnlyMode();
         }
 
         private static LandRecordsService CreateDefaultLandRecordsService(out string projectPath)
@@ -225,6 +238,9 @@ namespace Land_Readjustment_Tool.Forms
 
         private void BtnAdd_Click(object? sender, EventArgs e)
         {
+            if (_readOnlyMode)
+                return;
+
             using var addForm = new frmLandOwnerDetails(_landRecordsService, _projectPath);
             if (addForm.ShowDialog() == DialogResult.OK)
             {
@@ -247,15 +263,22 @@ namespace Land_Readjustment_Tool.Forms
                 model.LandOwnerId,
                 readOnlyMode: true,
                 _landRecordsService,
-                _projectPath);
+                _projectPath,
+                allowEditInReadOnly: !_readOnlyMode);
             if (detailsForm.ShowDialog() == DialogResult.OK)
             {
-                LoadOwners();
+                if (!_readOnlyMode)
+                {
+                    LoadOwners();
+                }
             }
         }
 
         private void BtnDelete_Click(object? sender, EventArgs e)
         {
+            if (_readOnlyMode)
+                return;
+
             if (dgvRecords.SelectedRows.Count == 0) return;
 
             var result = MessageBox.Show(
@@ -324,7 +347,19 @@ namespace Land_Readjustment_Tool.Forms
         {
             bool hasSelection = dgvRecords.SelectedRows.Count > 0;
             btnEdit.Enabled = hasSelection;
-            btnDelete.Enabled = hasSelection;
+            btnDelete.Enabled = hasSelection && !_readOnlyMode;
+            btnAdd.Enabled = !_readOnlyMode;
+            saveToolStripButton.Enabled = !_readOnlyMode;
+        }
+
+        private void ApplyReadOnlyMode()
+        {
+            btnAdd.Enabled = !_readOnlyMode;
+            btnDelete.Enabled = false;
+            saveToolStripButton.Enabled = !_readOnlyMode;
+            btnEdit.Text = _readOnlyMode ? "View" : "Edit";
+            btnEdit.ToolTipText = _readOnlyMode ? "View Record" : "Edit Record";
+            dgvRecords.ReadOnly = true;
         }
 
         private void btnRefresh_Click_1(object sender, EventArgs e)

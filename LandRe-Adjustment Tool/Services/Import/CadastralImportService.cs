@@ -5,6 +5,7 @@ using Land_Readjustment_Tool.Core.Interfaces;
 using Land_Readjustment_Tool.Core.Models.Import;
 using Land_Readjustment_Tool.Data;
 using Land_Readjustment_Tool.Services.Import.Readers;
+using Land_Readjustment_Tool.Services.Project;
 using Land_Readjustment_Tool.Services.Raster;
 using Land_Readjustment_Tool.UI.Helpers;
 using Land_Readjustment_Tool.UI.MapCanvas.Services;
@@ -97,7 +98,7 @@ namespace Land_Readjustment_Tool.Services.Import
 
             ReportProgress(progress, 66, "Preparing project database for cadastral objects...");
             AppDbContext context = session.GetDbContext();
-            await context.Database.MigrateAsync(ct);
+            await ProjectDatabaseCompatibility.EnsureAsync(context, ct);
 
             ReportProgress(progress, 72, "Preparing cadastral map layers...");
             Dictionary<string, CanvasLayer> targetLayers = await GetOrCreateTargetLayersAsync(

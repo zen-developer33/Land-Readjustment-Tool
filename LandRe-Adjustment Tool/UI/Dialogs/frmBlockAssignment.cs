@@ -17,6 +17,7 @@ namespace Land_Readjustment_Tool.UI.Dialogs
         private readonly ProjectSession _session;
         private readonly IBlockAssignmentService _assignmentService;
         private readonly Guid? _preferredCanvasObjectId;
+        private readonly bool _readOnlyMode;
         private List<BlockAssignmentCandidate> _candidates = [];
         private List<BlockRecordChoice> _blocks = [];
         private List<BlockLabelSourceChoice> _labelSources = [];
@@ -32,11 +33,13 @@ namespace Land_Readjustment_Tool.UI.Dialogs
         public frmBlockAssignment(
             ProjectSession session,
             IBlockAssignmentService assignmentService,
-            Guid? preferredCanvasObjectId = null)
+            Guid? preferredCanvasObjectId = null,
+            bool readOnlyMode = false)
         {
             _session = session ?? throw new ArgumentNullException(nameof(session));
             _assignmentService = assignmentService ?? throw new ArgumentNullException(nameof(assignmentService));
             _preferredCanvasObjectId = preferredCanvasObjectId;
+            _readOnlyMode = readOnlyMode;
 
             InitializeComponent();
             ApplyQuietGridStyle(_dgvLayerMappings);
@@ -79,6 +82,13 @@ namespace Land_Readjustment_Tool.UI.Dialogs
 
             if (preferredCanvasObjectId.HasValue)
                 _rdoObject.Checked = true;
+
+            if (_readOnlyMode)
+            {
+                Text = "Assign Block Data (Read Only)";
+                _dgvLayerMappings.ReadOnly = true;
+                _dgvObjects.ReadOnly = true;
+            }
 
             ApplyAssignmentMode();
         }
@@ -184,6 +194,7 @@ namespace Land_Readjustment_Tool.UI.Dialogs
         private void BlockGrid_CellValidating(object? sender, DataGridViewCellValidatingEventArgs e)
         {
             if (_loading ||
+                _readOnlyMode ||
                 _resolvingComboText ||
                 sender is not DataGridView grid ||
                 e.RowIndex < 0 ||
@@ -228,6 +239,7 @@ namespace Land_Readjustment_Tool.UI.Dialogs
         private void BlockGrid_CellParsing(object? sender, DataGridViewCellParsingEventArgs e)
         {
             if (sender is not DataGridView grid ||
+                _readOnlyMode ||
                 e.RowIndex < 0 ||
                 !IsBlockComboColumn(grid, e.ColumnIndex) ||
                 e.Value is not string text ||
@@ -344,6 +356,9 @@ namespace Land_Readjustment_Tool.UI.Dialogs
 
         private async void btnApplyMappings_Click(object? sender, EventArgs e)
         {
+            if (_readOnlyMode)
+                return;
+
             Dictionary<string, int> mappings = GetSourceLayerMappings();
             if (mappings.Count == 0)
             {
@@ -378,6 +393,9 @@ namespace Land_Readjustment_Tool.UI.Dialogs
 
         private async void btnAutoAssign_Click(object? sender, EventArgs e)
         {
+            if (_readOnlyMode)
+                return;
+
             try
             {
                 SetBusy(true, "Assigning blocks from contained label text...");
@@ -406,6 +424,9 @@ namespace Land_Readjustment_Tool.UI.Dialogs
 
         private async void btnAssignSelected_Click(object? sender, EventArgs e)
         {
+            if (_readOnlyMode)
+                return;
+
             BlockAssignmentCandidate? candidate = GetSelectedCandidate();
             BlockRecordChoice? block = GetSelectedObjectBlock();
             if (candidate == null || block == null)
@@ -433,6 +454,9 @@ namespace Land_Readjustment_Tool.UI.Dialogs
 
         private async void btnRemoveSelected_Click(object? sender, EventArgs e)
         {
+            if (_readOnlyMode)
+                return;
+
             BlockAssignmentCandidate? candidate = GetSelectedCandidate();
             if (candidate == null)
                 return;
@@ -461,6 +485,9 @@ namespace Land_Readjustment_Tool.UI.Dialogs
 
         private async void btnRemoveAll_Click(object? sender, EventArgs e)
         {
+            if (_readOnlyMode)
+                return;
+
             DialogResult result = MessageBox.Show(
                 this,
                 "Remove all block assignments?",
@@ -740,10 +767,10 @@ namespace Land_Readjustment_Tool.UI.Dialogs
             _btnClose.Enabled = !busy;
             _dgvLayerMappings.Enabled = !busy;
             _dgvObjects.Enabled = !busy;
-            _chkReplaceExisting.Enabled = !busy;
-            _chkCreateMissingBlocks.Enabled = !busy;
+            _chkReplaceExisting.Enabled = !busy && !_readOnlyMode;
+            _chkCreateMissingBlocks.Enabled = !busy && !_readOnlyMode;
             _chkZoomToSelected.Enabled = !busy;
-            _cboLabelLayer.Enabled = !busy;
+            _cboLabelLayer.Enabled = !busy && !_readOnlyMode;
             if (!string.IsNullOrWhiteSpace(status))
                 _lblStatus.Text = status;
 
@@ -769,6 +796,7 @@ namespace Land_Readjustment_Tool.UI.Dialogs
             bool autoLabels = _rdoAutoLabels.Checked;
             bool hasBlocks = _blocks.Count > 0;
             bool hasObjects = _dgvObjects.Rows.Count > 0;
+            bool canEdit = !_readOnlyMode;
 
             _rdoSourceLayer.Enabled = true;
             _rdoObject.Enabled = true;
@@ -787,11 +815,11 @@ namespace Land_Readjustment_Tool.UI.Dialogs
             _btnAssignSelected.Visible = manual;
             _btnRemoveSelected.Visible = manual;
             _btnRemoveAll.Visible = true;
-            _btnApplyMappings.Enabled = bySourceLayer && hasBlocks && _candidates.Count > 0;
-            _btnAutoAssign.Enabled = autoLabels && hasObjects;
-            _btnAssignSelected.Enabled = manual && hasBlocks && hasObjects;
-            _btnRemoveSelected.Enabled = manual && hasObjects;
-            _btnRemoveAll.Enabled = hasObjects;
+            _btnApplyMappings.Enabled = canEdit && bySourceLayer && hasBlocks && _candidates.Count > 0;
+            _btnAutoAssign.Enabled = canEdit && autoLabels && hasObjects;
+            _btnAssignSelected.Enabled = canEdit && manual && hasBlocks && hasObjects;
+            _btnRemoveSelected.Enabled = canEdit && manual && hasObjects;
+            _btnRemoveAll.Enabled = canEdit && hasObjects;
             AcceptButton = bySourceLayer
                 ? _btnApplyMappings
                 : autoLabels

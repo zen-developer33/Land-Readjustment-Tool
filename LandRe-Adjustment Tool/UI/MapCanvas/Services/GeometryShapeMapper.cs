@@ -334,7 +334,7 @@ namespace Land_Readjustment_Tool.UI.MapCanvas.Services
 
             Geometry simplified = ReduceGeometry(geometry);
 
-            if (ShouldInferArcSegments(layerType) &&
+            if (ShouldInferArcSegments(objectType, layerType) &&
                 TryCreatePolylineFromApproximatedGeometry(objectType, simplified, out PolylineShape? inferredPolyline))
             {
                 return inferredPolyline;
@@ -869,11 +869,12 @@ namespace Land_Readjustment_Tool.UI.MapCanvas.Services
             }
         }
 
-        private static bool ShouldInferArcSegments(string? layerType)
+        private static bool ShouldInferArcSegments(string objectType, string? layerType)
         {
-            return string.Equals(layerType, "Block", StringComparison.OrdinalIgnoreCase) ||
-                   string.Equals(layerType, "RoadParcel", StringComparison.OrdinalIgnoreCase) ||
-                   string.Equals(layerType, "ProposedRoad", StringComparison.OrdinalIgnoreCase) ||
+            if (objectType.Equals("Polygon", StringComparison.OrdinalIgnoreCase))
+                return false;
+
+            return string.Equals(layerType, "ProposedRoad", StringComparison.OrdinalIgnoreCase) ||
                    string.Equals(layerType, "ExistingRoad", StringComparison.OrdinalIgnoreCase) ||
                    string.Equals(layerType, "Road", StringComparison.OrdinalIgnoreCase) ||
                    string.Equals(layerType, CanvasLayerTreeService.RoadCenterlineLayerType, StringComparison.OrdinalIgnoreCase);

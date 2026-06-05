@@ -184,6 +184,7 @@ namespace Land_Readjustment_Tool.Services.Assignment
                 assigned++;
             }
 
+            await SynchronizeBlockCanvasLinksAsync(context, objects, ct).ConfigureAwait(false);
             await context.SaveChangesAsync(ct).ConfigureAwait(false);
             return assigned;
         }
@@ -270,6 +271,9 @@ namespace Land_Readjustment_Tool.Services.Assignment
                     continue;
 
                 ApplyBlockAssignment(canvasObject, block.Id);
+                if (!block.CanvasObjectId.HasValue)
+                    block.CanvasObjectId = canvasObject.Id;
+                block.LastModifiedDate = DateTime.Now;
                 assigned++;
             }
 
@@ -291,11 +295,15 @@ namespace Land_Readjustment_Tool.Services.Assignment
             if (!IsBlockObject(canvasObject))
                 throw new InvalidOperationException("The selected object is not a block layout object.");
 
-            bool blockExists = await context.Blocks.AnyAsync(block => block.Id == blockId, ct).ConfigureAwait(false);
-            if (!blockExists)
+            Block? block = await context.Blocks
+                .FirstOrDefaultAsync(item => item.Id == blockId, ct)
+                .ConfigureAwait(false);
+            if (block == null)
                 throw new InvalidOperationException("The selected block definition no longer exists.");
 
             ApplyBlockAssignment(canvasObject, blockId);
+            block.CanvasObjectId = canvasObject.Id;
+            block.LastModifiedDate = DateTime.Now;
             await context.SaveChangesAsync(ct).ConfigureAwait(false);
         }
 
@@ -311,8 +319,17 @@ namespace Land_Readjustment_Tool.Services.Assignment
             if (canvasObject == null || !canvasObject.BlockId.HasValue)
                 return false;
 
+            int blockId = canvasObject.BlockId.Value;
             canvasObject.BlockId = null;
             canvasObject.LastModifiedDate = DateTime.Now;
+            Block? block = await context.Blocks
+                .FirstOrDefaultAsync(item => item.Id == blockId && item.CanvasObjectId == canvasObjectId, ct)
+                .ConfigureAwait(false);
+            if (block != null)
+            {
+                block.CanvasObjectId = null;
+                block.LastModifiedDate = DateTime.Now;
+            }
             await context.SaveChangesAsync(ct).ConfigureAwait(false);
             return true;
         }
@@ -336,8 +353,51 @@ namespace Land_Readjustment_Tool.Services.Assignment
                 canvasObject.LastModifiedDate = modifiedAt;
             }
 
+            HashSet<Guid> assignedObjectIds = assignedObjects
+                .Select(item => item.Id)
+                .ToHashSet();
+            List<Block> linkedBlocks = await context.Blocks
+                .Where(block => block.CanvasObjectId.HasValue &&
+                                assignedObjectIds.Contains(block.CanvasObjectId.Value))
+                .ToListAsync(ct)
+                .ConfigureAwait(false);
+            foreach (Block block in linkedBlocks)
+            {
+                block.CanvasObjectId = null;
+                block.LastModifiedDate = modifiedAt;
+            }
+
             await context.SaveChangesAsync(ct).ConfigureAwait(false);
             return assignedObjects.Count;
+        }
+
+        private static async Task SynchronizeBlockCanvasLinksAsync(
+            DbContext context,
+            IReadOnlyList<CanvasObject> changedObjects,
+            CancellationToken ct)
+        {
+            Dictionary<int, Guid> objectIdByBlockId = changedObjects
+                .Where(item => item.BlockId.HasValue)
+                .GroupBy(item => item.BlockId!.Value)
+                .ToDictionary(group => group.Key, group => group.First().Id);
+            if (objectIdByBlockId.Count == 0)
+                return;
+
+            List<Block> blocks = await context.Set<Block>()
+                .Where(block => objectIdByBlockId.Keys.Contains(block.Id))
+                .ToListAsync(ct)
+                .ConfigureAwait(false);
+
+            DateTime now = DateTime.Now;
+            foreach (Block block in blocks)
+            {
+                if (!block.CanvasObjectId.HasValue &&
+                    objectIdByBlockId.TryGetValue(block.Id, out Guid objectId))
+                {
+                    block.CanvasObjectId = objectId;
+                    block.LastModifiedDate = now;
+                }
+            }
         }
 
         private static IQueryable<CanvasObject> LoadBlockObjects(DbContext context)

@@ -1083,6 +1083,16 @@ namespace Land_Readjustment_Tool.Properties {
         /// <summary>
         ///   Looks up a localized resource of type System.Drawing.Bitmap.
         /// </summary>
+        public static System.Drawing.Bitmap icons8_padlock_26 {
+            get {
+                object obj = ResourceManager.GetObject("icons8-padlock-26", resourceCulture);
+                return ((System.Drawing.Bitmap)(obj));
+            }
+        }
+        
+        /// <summary>
+        ///   Looks up a localized resource of type System.Drawing.Bitmap.
+        /// </summary>
         public static System.Drawing.Bitmap icons8_photo_25 {
             get {
                 object obj = ResourceManager.GetObject("icons8-photo-25", resourceCulture);

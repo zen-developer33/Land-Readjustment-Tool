@@ -14,6 +14,7 @@ namespace Land_Readjustment_Tool.Forms
         private readonly LandOwner _owner;
         private readonly LandRecordsService _landRecordsService;
         private readonly OwnerFileStorageService _ownerFileStorageService;
+        private readonly bool _isReadOnly;
         private bool _hasChanges;
 
 
@@ -27,6 +28,7 @@ namespace Land_Readjustment_Tool.Forms
             _owner = owner;
             _landRecordsService = landRecordsService;
             _ownerFileStorageService = ownerFileStorageService;
+            _isReadOnly = isReadOnly;
 
             Text = $"Documents - {_owner.LandOwnersName}";
             LoadDocuments();
@@ -64,6 +66,9 @@ namespace Land_Readjustment_Tool.Forms
 
         private string GetDocumentsFolder()
         {
+            if (_isReadOnly)
+                throw new InvalidOperationException("Documents are read-only while Edit Lock is active.");
+
             var (absolutePath, relativePath) = _ownerFileStorageService.EnsureOwnerDocumentsFolder(_owner.LandOwnerId);
 
             // Ensure database has the folder path
@@ -78,6 +83,9 @@ namespace Land_Readjustment_Tool.Forms
 
         private void btnAttach_Click(object sender, EventArgs e)
         {
+            if (_isReadOnly)
+                return;
+
             using var ofd = new OpenFileDialog();
             ofd.Filter = "All Files|*.*|PDF Files|*.pdf|Image Files|*.jpg;*.jpeg;*.png";
             ofd.Title = "Select Documents to Attach";
@@ -115,6 +123,9 @@ namespace Land_Readjustment_Tool.Forms
 
         private void btnDelete_Click(object sender, EventArgs e)
         {
+            if (_isReadOnly)
+                return;
+
             if (dgvDocuments.SelectedRows.Count == 0)
             {
                 MessageBox.Show("Please select a document to delete.", "No Selection",

@@ -1,6 +1,5 @@
 using Land_Readjustment_Tool.Data;
 using Land_Readjustment_Tool.Core.Interfaces;
-using Microsoft.EntityFrameworkCore;
 
 namespace Land_Readjustment_Tool.Services.Project
 {
@@ -51,7 +50,7 @@ namespace Land_Readjustment_Tool.Services.Project
         }
 
         /// <summary>
-        /// Opens a project session, migrates schema, and returns a ready project context.
+        /// Opens a project session, repairs known schema gaps, and returns a ready project context.
         /// </summary>
         public async Task<ProjectContext> OpenAsync(
             string projectFilePath,
@@ -62,7 +61,6 @@ namespace Land_Readjustment_Tool.Services.Project
             try
             {
                 session = _sessionFactory.CreateSession(projectFilePath);
-                await session.GetDbContext().Database.MigrateAsync(ct);
                 await ProjectDatabaseCompatibility.EnsureAsync(
                     session.GetDbContext(),
                     ct);

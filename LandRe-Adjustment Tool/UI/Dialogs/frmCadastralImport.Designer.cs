@@ -77,7 +77,7 @@ namespace Land_Readjustment_Tool.UI.Dialogs
             // mainLayout
             // 
             mainLayout.ColumnCount = 2;
-            mainLayout.ColumnStyles.Add(new ColumnStyle(SizeType.Absolute, 128F));
+            mainLayout.ColumnStyles.Add(new ColumnStyle(SizeType.Absolute, 166F));
             mainLayout.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 100F));
             mainLayout.Controls.Add(lblFileCaption, 0, 0);
             mainLayout.Controls.Add(lblFormatCaption, 0, 1);
@@ -105,16 +105,16 @@ namespace Land_Readjustment_Tool.UI.Dialogs
             mainLayout.RowStyles.Add(new RowStyle(SizeType.Absolute, 30F));
             mainLayout.RowStyles.Add(new RowStyle(SizeType.Absolute, 30F));
             mainLayout.RowStyles.Add(new RowStyle(SizeType.Absolute, 30F));
-            mainLayout.RowStyles.Add(new RowStyle(SizeType.Absolute, 100F));
-            mainLayout.RowStyles.Add(new RowStyle(SizeType.Absolute, 30F));
-            mainLayout.RowStyles.Add(new RowStyle(SizeType.Absolute, 212F));
-            mainLayout.RowStyles.Add(new RowStyle(SizeType.Absolute, 30F));
+            mainLayout.RowStyles.Add(new RowStyle(SizeType.Absolute, 129F));
+            mainLayout.RowStyles.Add(new RowStyle(SizeType.Absolute, 35F));
+            mainLayout.RowStyles.Add(new RowStyle(SizeType.Absolute, 209F));
+            mainLayout.RowStyles.Add(new RowStyle(SizeType.Absolute, 33F));
+            mainLayout.RowStyles.Add(new RowStyle(SizeType.Absolute, 29F));
+            mainLayout.RowStyles.Add(new RowStyle(SizeType.Absolute, 37F));
             mainLayout.RowStyles.Add(new RowStyle(SizeType.Absolute, 34F));
-            mainLayout.RowStyles.Add(new RowStyle(SizeType.Absolute, 36F));
-            mainLayout.RowStyles.Add(new RowStyle(SizeType.Absolute, 34F));
-            mainLayout.RowStyles.Add(new RowStyle(SizeType.Absolute, 32F));
-            mainLayout.RowStyles.Add(new RowStyle(SizeType.Absolute, 46F));
-            mainLayout.Size = new Size(760, 690);
+            mainLayout.RowStyles.Add(new RowStyle(SizeType.Absolute, 33F));
+            mainLayout.RowStyles.Add(new RowStyle(SizeType.Absolute, 15F));
+            mainLayout.Size = new Size(786, 700);
             mainLayout.TabIndex = 0;
             // 
             // lblFileCaption
@@ -122,7 +122,7 @@ namespace Land_Readjustment_Tool.UI.Dialogs
             lblFileCaption.Dock = DockStyle.Fill;
             lblFileCaption.Location = new Point(17, 14);
             lblFileCaption.Name = "lblFileCaption";
-            lblFileCaption.Size = new Size(122, 30);
+            lblFileCaption.Size = new Size(160, 30);
             lblFileCaption.TabIndex = 0;
             lblFileCaption.Text = "File";
             lblFileCaption.TextAlign = ContentAlignment.MiddleLeft;
@@ -132,7 +132,7 @@ namespace Land_Readjustment_Tool.UI.Dialogs
             lblFormatCaption.Dock = DockStyle.Fill;
             lblFormatCaption.Location = new Point(17, 44);
             lblFormatCaption.Name = "lblFormatCaption";
-            lblFormatCaption.Size = new Size(122, 30);
+            lblFormatCaption.Size = new Size(160, 30);
             lblFormatCaption.TabIndex = 1;
             lblFormatCaption.Text = "Format";
             lblFormatCaption.TextAlign = ContentAlignment.MiddleLeft;
@@ -142,7 +142,7 @@ namespace Land_Readjustment_Tool.UI.Dialogs
             lblLayersCaption.Dock = DockStyle.Fill;
             lblLayersCaption.Location = new Point(17, 74);
             lblLayersCaption.Name = "lblLayersCaption";
-            lblLayersCaption.Size = new Size(122, 30);
+            lblLayersCaption.Size = new Size(160, 30);
             lblLayersCaption.TabIndex = 2;
             lblLayersCaption.Text = "Layers";
             lblLayersCaption.TextAlign = ContentAlignment.MiddleLeft;
@@ -151,18 +151,18 @@ namespace Land_Readjustment_Tool.UI.Dialogs
             // 
             lblFileValue.AutoEllipsis = true;
             lblFileValue.Dock = DockStyle.Fill;
-            lblFileValue.Location = new Point(145, 14);
+            lblFileValue.Location = new Point(183, 14);
             lblFileValue.Name = "lblFileValue";
-            lblFileValue.Size = new Size(598, 30);
+            lblFileValue.Size = new Size(586, 30);
             lblFileValue.TabIndex = 3;
             lblFileValue.TextAlign = ContentAlignment.MiddleLeft;
             // 
             // lblFormatValue
             // 
             lblFormatValue.Dock = DockStyle.Fill;
-            lblFormatValue.Location = new Point(145, 44);
+            lblFormatValue.Location = new Point(183, 44);
             lblFormatValue.Name = "lblFormatValue";
-            lblFormatValue.Size = new Size(598, 30);
+            lblFormatValue.Size = new Size(586, 30);
             lblFormatValue.TabIndex = 4;
             lblFormatValue.TextAlign = ContentAlignment.MiddleLeft;
             // 
@@ -175,22 +175,22 @@ namespace Land_Readjustment_Tool.UI.Dialogs
             dgvLayers.BorderStyle = BorderStyle.Fixed3D;
             dgvLayers.ColumnHeadersHeightSizeMode = DataGridViewColumnHeadersHeightSizeMode.AutoSize;
             dgvLayers.Dock = DockStyle.Fill;
-            dgvLayers.Location = new Point(145, 77);
+            dgvLayers.Location = new Point(183, 77);
             dgvLayers.MultiSelect = false;
             dgvLayers.Name = "dgvLayers";
             dgvLayers.RowHeadersVisible = false;
             dgvLayers.RowHeadersWidth = 51;
             mainLayout.SetRowSpan(dgvLayers, 2);
             dgvLayers.SelectionMode = DataGridViewSelectionMode.FullRowSelect;
-            dgvLayers.Size = new Size(598, 124);
+            dgvLayers.Size = new Size(586, 153);
             dgvLayers.TabIndex = 0;
             // 
             // lblMapSheetMappingCaption
             // 
             lblMapSheetMappingCaption.Dock = DockStyle.Fill;
-            lblMapSheetMappingCaption.Location = new Point(17, 204);
+            lblMapSheetMappingCaption.Location = new Point(17, 233);
             lblMapSheetMappingCaption.Name = "lblMapSheetMappingCaption";
-            lblMapSheetMappingCaption.Size = new Size(122, 30);
+            lblMapSheetMappingCaption.Size = new Size(160, 35);
             lblMapSheetMappingCaption.TabIndex = 5;
             lblMapSheetMappingCaption.Text = "Map sheet mapping";
             lblMapSheetMappingCaption.TextAlign = ContentAlignment.MiddleLeft;
@@ -204,14 +204,14 @@ namespace Land_Readjustment_Tool.UI.Dialogs
             dgvMapSheetMappings.BorderStyle = BorderStyle.Fixed3D;
             dgvMapSheetMappings.ColumnHeadersHeightSizeMode = DataGridViewColumnHeadersHeightSizeMode.AutoSize;
             dgvMapSheetMappings.Dock = DockStyle.Fill;
-            dgvMapSheetMappings.Location = new Point(17, 237);
+            dgvMapSheetMappings.Location = new Point(17, 271);
             dgvMapSheetMappings.MultiSelect = false;
             dgvMapSheetMappings.Name = "dgvMapSheetMappings";
             dgvMapSheetMappings.RowHeadersVisible = false;
             dgvMapSheetMappings.RowHeadersWidth = 51;
             mainLayout.SetRowSpan(dgvMapSheetMappings, 2);
             dgvMapSheetMappings.SelectionMode = DataGridViewSelectionMode.FullRowSelect;
-            dgvMapSheetMappings.Size = new Size(122, 236);
+            dgvMapSheetMappings.Size = new Size(160, 236);
             dgvMapSheetMappings.TabIndex = 1;
             // 
             // attributeMappingLayout
@@ -225,14 +225,14 @@ namespace Land_Readjustment_Tool.UI.Dialogs
             attributeMappingLayout.Controls.Add(lblSourceParcelField, 0, 2);
             attributeMappingLayout.Controls.Add(cboSourceParcelField, 1, 2);
             attributeMappingLayout.Dock = DockStyle.Fill;
-            attributeMappingLayout.Location = new Point(145, 207);
+            attributeMappingLayout.Location = new Point(183, 236);
             attributeMappingLayout.Name = "attributeMappingLayout";
             attributeMappingLayout.RowCount = 3;
             mainLayout.SetRowSpan(attributeMappingLayout, 2);
             attributeMappingLayout.RowStyles.Add(new RowStyle(SizeType.Absolute, 32F));
             attributeMappingLayout.RowStyles.Add(new RowStyle(SizeType.Percent, 100F));
-            attributeMappingLayout.RowStyles.Add(new RowStyle(SizeType.Absolute, 32F));
-            attributeMappingLayout.Size = new Size(598, 236);
+            attributeMappingLayout.RowStyles.Add(new RowStyle(SizeType.Absolute, 34F));
+            attributeMappingLayout.Size = new Size(586, 238);
             attributeMappingLayout.TabIndex = 2;
             attributeMappingLayout.Visible = false;
             // 
@@ -253,7 +253,7 @@ namespace Land_Readjustment_Tool.UI.Dialogs
             cboSourceMapSheetField.FormattingEnabled = true;
             cboSourceMapSheetField.Location = new Point(158, 3);
             cboSourceMapSheetField.Name = "cboSourceMapSheetField";
-            cboSourceMapSheetField.Size = new Size(437, 28);
+            cboSourceMapSheetField.Size = new Size(425, 28);
             cboSourceMapSheetField.TabIndex = 1;
             // 
             // dgvAttributeMapSheetMappings
@@ -272,7 +272,7 @@ namespace Land_Readjustment_Tool.UI.Dialogs
             dgvAttributeMapSheetMappings.RowHeadersVisible = false;
             dgvAttributeMapSheetMappings.RowHeadersWidth = 51;
             dgvAttributeMapSheetMappings.SelectionMode = DataGridViewSelectionMode.FullRowSelect;
-            dgvAttributeMapSheetMappings.Size = new Size(592, 166);
+            dgvAttributeMapSheetMappings.Size = new Size(580, 166);
             dgvAttributeMapSheetMappings.TabIndex = 2;
             // 
             // lblSourceParcelField
@@ -280,7 +280,7 @@ namespace Land_Readjustment_Tool.UI.Dialogs
             lblSourceParcelField.Dock = DockStyle.Fill;
             lblSourceParcelField.Location = new Point(3, 204);
             lblSourceParcelField.Name = "lblSourceParcelField";
-            lblSourceParcelField.Size = new Size(149, 32);
+            lblSourceParcelField.Size = new Size(149, 34);
             lblSourceParcelField.TabIndex = 3;
             lblSourceParcelField.Text = "Parcel field";
             lblSourceParcelField.TextAlign = ContentAlignment.MiddleLeft;
@@ -292,15 +292,15 @@ namespace Land_Readjustment_Tool.UI.Dialogs
             cboSourceParcelField.FormattingEnabled = true;
             cboSourceParcelField.Location = new Point(158, 207);
             cboSourceParcelField.Name = "cboSourceParcelField";
-            cboSourceParcelField.Size = new Size(437, 28);
+            cboSourceParcelField.Size = new Size(425, 28);
             cboSourceParcelField.TabIndex = 4;
             // 
             // chkAutoAssign
             // 
             chkAutoAssign.Dock = DockStyle.Fill;
-            chkAutoAssign.Location = new Point(145, 449);
+            chkAutoAssign.Location = new Point(183, 480);
             chkAutoAssign.Name = "chkAutoAssign";
-            chkAutoAssign.Size = new Size(598, 24);
+            chkAutoAssign.Size = new Size(586, 27);
             chkAutoAssign.TabIndex = 6;
             chkAutoAssign.Text = "Auto assign parcel number from DXF text / SHP attributes when available";
             chkAutoAssign.UseVisualStyleBackColor = true;
@@ -309,9 +309,9 @@ namespace Land_Readjustment_Tool.UI.Dialogs
             // 
             lblAssignmentNote.Dock = DockStyle.Fill;
             lblAssignmentNote.ForeColor = Color.DimGray;
-            lblAssignmentNote.Location = new Point(145, 476);
+            lblAssignmentNote.Location = new Point(183, 510);
             lblAssignmentNote.Name = "lblAssignmentNote";
-            lblAssignmentNote.Size = new Size(598, 34);
+            lblAssignmentNote.Size = new Size(586, 29);
             lblAssignmentNote.TabIndex = 7;
             lblAssignmentNote.Text = "Map sheet assignment uses MapSheetNo + ParcelNo from imported records.";
             lblAssignmentNote.TextAlign = ContentAlignment.MiddleLeft;
@@ -319,9 +319,9 @@ namespace Land_Readjustment_Tool.UI.Dialogs
             // lblSourceCrsCaption
             // 
             lblSourceCrsCaption.Dock = DockStyle.Fill;
-            lblSourceCrsCaption.Location = new Point(17, 510);
+            lblSourceCrsCaption.Location = new Point(17, 539);
             lblSourceCrsCaption.Name = "lblSourceCrsCaption";
-            lblSourceCrsCaption.Size = new Size(122, 36);
+            lblSourceCrsCaption.Size = new Size(160, 37);
             lblSourceCrsCaption.TabIndex = 8;
             lblSourceCrsCaption.Text = "Source CRS";
             lblSourceCrsCaption.TextAlign = ContentAlignment.MiddleLeft;
@@ -331,17 +331,17 @@ namespace Land_Readjustment_Tool.UI.Dialogs
             cmbSourceCrs.Dock = DockStyle.Fill;
             cmbSourceCrs.DropDownStyle = ComboBoxStyle.DropDownList;
             cmbSourceCrs.FormattingEnabled = true;
-            cmbSourceCrs.Location = new Point(17, 549);
+            cmbSourceCrs.Location = new Point(17, 579);
             cmbSourceCrs.Name = "cmbSourceCrs";
-            cmbSourceCrs.Size = new Size(122, 28);
+            cmbSourceCrs.Size = new Size(160, 28);
             cmbSourceCrs.TabIndex = 9;
             // 
             // lblSourceCrsValue
             // 
             lblSourceCrsValue.Dock = DockStyle.Fill;
-            lblSourceCrsValue.Location = new Point(145, 510);
+            lblSourceCrsValue.Location = new Point(183, 539);
             lblSourceCrsValue.Name = "lblSourceCrsValue";
-            lblSourceCrsValue.Size = new Size(598, 36);
+            lblSourceCrsValue.Size = new Size(586, 37);
             lblSourceCrsValue.TabIndex = 10;
             lblSourceCrsValue.TextAlign = ContentAlignment.MiddleLeft;
             lblSourceCrsValue.Visible = false;
@@ -349,9 +349,9 @@ namespace Land_Readjustment_Tool.UI.Dialogs
             // lblProjectCrsCaption
             // 
             lblProjectCrsCaption.Dock = DockStyle.Fill;
-            lblProjectCrsCaption.Location = new Point(145, 546);
+            lblProjectCrsCaption.Location = new Point(183, 576);
             lblProjectCrsCaption.Name = "lblProjectCrsCaption";
-            lblProjectCrsCaption.Size = new Size(598, 34);
+            lblProjectCrsCaption.Size = new Size(586, 34);
             lblProjectCrsCaption.TabIndex = 11;
             lblProjectCrsCaption.Text = "Project CRS";
             lblProjectCrsCaption.TextAlign = ContentAlignment.MiddleLeft;
@@ -360,9 +360,9 @@ namespace Land_Readjustment_Tool.UI.Dialogs
             // 
             lblProjectCrsValue.AutoEllipsis = true;
             lblProjectCrsValue.Dock = DockStyle.Fill;
-            lblProjectCrsValue.Location = new Point(17, 580);
+            lblProjectCrsValue.Location = new Point(17, 610);
             lblProjectCrsValue.Name = "lblProjectCrsValue";
-            lblProjectCrsValue.Size = new Size(122, 32);
+            lblProjectCrsValue.Size = new Size(160, 33);
             lblProjectCrsValue.TabIndex = 12;
             lblProjectCrsValue.TextAlign = ContentAlignment.MiddleLeft;
             // 
@@ -370,9 +370,9 @@ namespace Land_Readjustment_Tool.UI.Dialogs
             // 
             lblStatus.Dock = DockStyle.Fill;
             lblStatus.ForeColor = Color.DimGray;
-            lblStatus.Location = new Point(145, 580);
+            lblStatus.Location = new Point(183, 610);
             lblStatus.Name = "lblStatus";
-            lblStatus.Size = new Size(598, 32);
+            lblStatus.Size = new Size(586, 33);
             lblStatus.TabIndex = 13;
             lblStatus.Text = "Ready.";
             lblStatus.TextAlign = ContentAlignment.MiddleLeft;
@@ -383,15 +383,15 @@ namespace Land_Readjustment_Tool.UI.Dialogs
             buttonPanel.Controls.Add(btnCancel);
             buttonPanel.Dock = DockStyle.Fill;
             buttonPanel.FlowDirection = FlowDirection.RightToLeft;
-            buttonPanel.Location = new Point(145, 615);
+            buttonPanel.Location = new Point(183, 646);
             buttonPanel.Name = "buttonPanel";
-            buttonPanel.Size = new Size(598, 58);
+            buttonPanel.Size = new Size(586, 37);
             buttonPanel.TabIndex = 1;
             // 
             // btnImport
             // 
             btnImport.Enabled = false;
-            btnImport.Location = new Point(505, 3);
+            btnImport.Location = new Point(493, 3);
             btnImport.Name = "btnImport";
             btnImport.Size = new Size(90, 32);
             btnImport.TabIndex = 0;
@@ -401,7 +401,7 @@ namespace Land_Readjustment_Tool.UI.Dialogs
             // btnCancel
             // 
             btnCancel.DialogResult = DialogResult.Cancel;
-            btnCancel.Location = new Point(409, 3);
+            btnCancel.Location = new Point(397, 3);
             btnCancel.Name = "btnCancel";
             btnCancel.Size = new Size(90, 32);
             btnCancel.TabIndex = 1;
@@ -414,7 +414,7 @@ namespace Land_Readjustment_Tool.UI.Dialogs
             AutoScaleDimensions = new SizeF(8F, 20F);
             AutoScaleMode = AutoScaleMode.Font;
             CancelButton = btnCancel;
-            ClientSize = new Size(760, 690);
+            ClientSize = new Size(786, 700);
             Controls.Add(mainLayout);
             Font = new Font("Segoe UI", 9F);
             FormBorderStyle = FormBorderStyle.FixedDialog;

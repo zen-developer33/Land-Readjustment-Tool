@@ -3,6 +3,8 @@ using Land_Readjustment_Tool.Core.Interfaces;
 using Land_Readjustment_Tool.Core.Models.Assignment;
 using Land_Readjustment_Tool.Data;
 using Land_Readjustment_Tool.Services.Import.Readers;
+using Land_Readjustment_Tool.Services.Project;
+using Land_Readjustment_Tool.Services.Roads;
 using Land_Readjustment_Tool.UI.MapCanvas.Services;
 using Microsoft.EntityFrameworkCore;
 using NetTopologySuite.Geometries;
@@ -114,7 +116,7 @@ namespace Land_Readjustment_Tool.Services.Assignment
         {
             ArgumentNullException.ThrowIfNull(session);
             AppDbContext context = session.GetDbContext();
-            await context.Database.MigrateAsync(ct);
+            await ProjectDatabaseCompatibility.EnsureAsync(context, ct);
 
             CanvasObject? sourceObject = await context.CanvasObjects
                 .AsNoTracking()
@@ -182,6 +184,7 @@ namespace Land_Readjustment_Tool.Services.Assignment
             try
             {
                 await context.SaveChangesAsync(ct);
+                await new BlockRoadParcelRefreshService().RefreshAsync(context, ct);
                 context.ChangeTracker.Clear();
             }
             catch (Exception ex)
@@ -204,7 +207,7 @@ namespace Land_Readjustment_Tool.Services.Assignment
         {
             ArgumentNullException.ThrowIfNull(session);
             AppDbContext context = session.GetDbContext();
-            await context.Database.MigrateAsync(ct);
+            await ProjectDatabaseCompatibility.EnsureAsync(context, ct);
 
             CanvasLayer? boundaryLayer = await context.CanvasLayers
                 .FirstOrDefaultAsync(
@@ -228,6 +231,7 @@ namespace Land_Readjustment_Tool.Services.Assignment
             try
             {
                 await context.SaveChangesAsync(ct);
+                await new BlockRoadParcelRefreshService().RefreshAsync(context, ct);
                 context.ChangeTracker.Clear();
             }
             catch (Exception ex)

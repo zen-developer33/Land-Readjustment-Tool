@@ -15,6 +15,7 @@ namespace Land_Readjustment_Tool.Forms
         private readonly BindingList<BaselineLandParcelRecord> _allRecords;
         private readonly OwnerDeduplicationService.DeduplicationResult _deduplicationResult;
         private readonly Dictionary<int, List<OwnerRowData>> _groupOwnerRowsCache = new();
+        private readonly bool _readOnlyMode;
 
         private readonly Stack<Dictionary<int, UserDecision>> _undoStack = new();
         private readonly Dictionary<int, UserDecision> _userDecisions = new();
@@ -45,7 +46,8 @@ namespace Land_Readjustment_Tool.Forms
 
         public frmReviewDuplicates(
             OwnerDeduplicationService.DeduplicationResult deduplicationResult,
-            BindingList<BaselineLandParcelRecord> allRecords)
+            BindingList<BaselineLandParcelRecord> allRecords,
+            bool readOnlyMode = false)
         {
             InitializeComponent();
 
@@ -55,6 +57,7 @@ namespace Land_Readjustment_Tool.Forms
             _deduplicationResult = deduplicationResult;
             _duplicateGroups = deduplicationResult.DuplicatesNeedingReview;
             _allRecords = allRecords;
+            _readOnlyMode = readOnlyMode;
 
             // If every group is auto-merged, show them immediately so the list is not empty.
             _showMergedRows = _duplicateGroups.All(g => g.IsAutoMerged);
@@ -64,8 +67,20 @@ namespace Land_Readjustment_Tool.Forms
             var miKeep = new ToolStripMenuItem("Set Keep Separate");
             miMerge.Click += (s, e) => ApplyDecisionToSelectedRows(UserDecision.Merge);
             miKeep.Click += (s, e) => ApplyDecisionToSelectedRows(UserDecision.KeepSeparate);
+            miMerge.Enabled = !readOnlyMode;
+            miKeep.Enabled = !readOnlyMode;
             menu.Items.AddRange([miMerge, miKeep]);
             dgvDuplicateGroups.ContextMenuStrip = menu;
+
+            if (_readOnlyMode)
+            {
+                Text = "Review Duplicate Owners (Read Only)";
+                btnMerge.Enabled = false;
+                btnKeepSeparate.Enabled = false;
+                btnUndoDecision.Enabled = false;
+                btnAcceptAll.Enabled = false;
+                btnCancel.Text = "Close";
+            }
         }
 
         private void frmReviewDuplicates_Load(object sender, EventArgs e)
@@ -493,6 +508,9 @@ namespace Land_Readjustment_Tool.Forms
 
         private void btnUndoDecision_Click(object? sender, EventArgs e)
         {
+            if (_readOnlyMode)
+                return;
+
             if (_undoStack.Count == 0)
             {
                 return;
@@ -512,16 +530,25 @@ namespace Land_Readjustment_Tool.Forms
 
         private void btnMerge_Click(object sender, EventArgs e)
         {
+            if (_readOnlyMode)
+                return;
+
             ApplyDecisionToSelectedRows(UserDecision.Merge);
         }
 
         private void btnKeepSeparate_Click(object sender, EventArgs e)
         {
+            if (_readOnlyMode)
+                return;
+
             ApplyDecisionToSelectedRows(UserDecision.KeepSeparate);
         }
 
         private void ApplyDecisionToSelectedRows(UserDecision decision)
         {
+            if (_readOnlyMode)
+                return;
+
             var rows = dgvDuplicateGroups.SelectedRows.Cast<DataGridViewRow>().ToList();
             if (rows.Count == 0)
             {
@@ -659,6 +686,9 @@ namespace Land_Readjustment_Tool.Forms
 
         private void btnAcceptAll_Click(object sender, EventArgs e)
         {
+            if (_readOnlyMode)
+                return;
+
             var unresolvedCount = _duplicateGroups.Count - _userDecisions.Count;
             if (unresolvedCount > 0)
             {
@@ -941,6 +971,14 @@ namespace Land_Readjustment_Tool.Forms
 
         private void btnCancel_Click(object sender, EventArgs e)
         {
+            if (_readOnlyMode)
+            {
+                ChangesWereMade = false;
+                DialogResult = DialogResult.Cancel;
+                Close();
+                return;
+            }
+
             var result = MessageBox.Show(
                 "Cancel duplicate review? Any changes will be lost.",
                 "Confirm Cancel",

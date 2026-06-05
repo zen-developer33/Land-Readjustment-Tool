@@ -134,6 +134,10 @@ namespace Land_Readjustment_Tool.Data
                 .Property(canvasObject => canvasObject.IsLocked)
                 .HasDefaultValue(false);
 
+            modelBuilder.Entity<CanvasObject>()
+                .Property(canvasObject => canvasObject.Shape)
+                .HasColumnType("GEOMETRY");
+
             // ── UNIQUE INDEXES ───────────────────────
 
             modelBuilder.Entity<CoordinateSystem>()

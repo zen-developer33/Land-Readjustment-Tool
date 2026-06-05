@@ -1356,12 +1356,296 @@ namespace Land_Readjustment_Tool.UI.MapCanvas.Rendering
                     _                      => position.Y,
                 };
                 RectangleF layoutRect = new(layoutX, layoutY, layoutWidth, size.Height);
-                graphics.DrawString(labelText, labelFont, context.GetSolidBrush(labelColor), layoutRect, sf);
+                if (TryResolveLinearLabelAngle(feature, labelAnchor, engine, out float labelAngleDegrees))
+                {
+                    DrawRotatedLabel(
+                        graphics,
+                        labelText,
+                        labelFont,
+                        context.GetSolidBrush(labelColor),
+                        position,
+                        layoutRect,
+                        sf,
+                        labelAngleDegrees);
+                }
+                else
+                {
+                    graphics.DrawString(labelText, labelFont, context.GetSolidBrush(labelColor), layoutRect, sf);
+                }
             }
             finally
             {
                 graphics.TextRenderingHint = previousTextRenderingHint;
             }
+        }
+
+        private static void DrawRotatedLabel(
+            Graphics graphics,
+            string text,
+            Font font,
+            Brush brush,
+            PointF position,
+            RectangleF layoutRect,
+            StringFormat format,
+            float angleDegrees)
+        {
+            GraphicsState state = graphics.Save();
+            try
+            {
+                graphics.TranslateTransform(position.X, position.Y);
+                graphics.RotateTransform(angleDegrees);
+                RectangleF localRect = new(
+                    layoutRect.X - position.X,
+                    layoutRect.Y - position.Y,
+                    layoutRect.Width,
+                    layoutRect.Height);
+                graphics.DrawString(text, font, brush, localRect, format);
+            }
+            finally
+            {
+                graphics.Restore(state);
+            }
+        }
+
+        private static bool TryResolveLinearLabelAngle(
+            CanvasFeature feature,
+            PointD labelAnchor,
+            MapCanvasEngine engine,
+            out float angleDegrees)
+        {
+            angleDegrees = 0.0f;
+            return feature.Shape switch
+            {
+                LineShape line => TryResolveReadableScreenAngle(line.Start, line.End, engine, out angleDegrees),
+                ArcShape arc => TryResolveArcTangentScreenAngle(arc, labelAnchor, engine, out angleDegrees),
+                PolylineShape { IsClosed: false } polyline =>
+                    TryResolvePolylineLabelAngle(polyline, labelAnchor, engine, out angleDegrees),
+                _ => TryResolveLineGeometryAngle(feature.CanvasObject.Shape, labelAnchor, engine, out angleDegrees)
+            };
+        }
+
+        private static bool TryResolvePolylineLabelAngle(
+            PolylineShape polyline,
+            PointD labelAnchor,
+            MapCanvasEngine engine,
+            out float angleDegrees)
+        {
+            angleDegrees = 0.0f;
+            if (polyline.Vertices.Count < 2)
+                return false;
+
+            PolylineShape.PolylineSegment? bestSegment = null;
+            double bestScore = double.PositiveInfinity;
+
+            foreach (PolylineShape.PolylineSegment segment in EnumeratePolylineLabelSegments(polyline))
+            {
+                double score = segment.Kind == PolylineShape.PolylineSegmentKind.Arc && segment.Arc != null
+                    ? DistanceToArcSquared(labelAnchor, segment.Arc)
+                    : DistanceToSegmentSquared(labelAnchor, segment.Start, segment.End);
+
+                if (score < bestScore)
+                {
+                    bestScore = score;
+                    bestSegment = segment;
+                }
+            }
+
+            if (bestSegment == null)
+                return false;
+
+            if (bestSegment.Kind == PolylineShape.PolylineSegmentKind.Arc && bestSegment.Arc != null)
+            {
+                return TryResolveArcTangentScreenAngle(bestSegment.Arc, labelAnchor, engine, out angleDegrees);
+            }
+
+            return TryResolveReadableScreenAngle(bestSegment.Start, bestSegment.End, engine, out angleDegrees);
+        }
+
+        private static IEnumerable<PolylineShape.PolylineSegment> EnumeratePolylineLabelSegments(PolylineShape polyline)
+        {
+            if (polyline.Segments.Count > 0)
+            {
+                foreach (PolylineShape.PolylineSegment segment in polyline.Segments)
+                    yield return segment;
+
+                yield break;
+            }
+
+            for (int i = 1; i < polyline.Vertices.Count; i++)
+            {
+                yield return new PolylineShape.PolylineSegment(
+                    PolylineShape.PolylineSegmentKind.Line,
+                    polyline.Vertices[i - 1],
+                    polyline.Vertices[i]);
+            }
+        }
+
+        private static bool TryResolveLineGeometryAngle(
+            Geometry? geometry,
+            PointD labelAnchor,
+            MapCanvasEngine engine,
+            out float angleDegrees)
+        {
+            angleDegrees = 0.0f;
+            if (geometry == null || geometry.IsEmpty)
+                return false;
+
+            LineString? bestLine = null;
+            int bestSegmentIndex = -1;
+            double bestScore = double.PositiveInfinity;
+
+            foreach (LineString line in EnumerateLineStrings(geometry))
+            {
+                Coordinate[] coordinates = line.Coordinates;
+                for (int i = 1; i < coordinates.Length; i++)
+                {
+                    PointD start = new(coordinates[i - 1].X, coordinates[i - 1].Y);
+                    PointD end = new(coordinates[i].X, coordinates[i].Y);
+                    double score = DistanceToSegmentSquared(labelAnchor, start, end);
+                    if (score < bestScore)
+                    {
+                        bestScore = score;
+                        bestLine = line;
+                        bestSegmentIndex = i;
+                    }
+                }
+            }
+
+            if (bestLine == null || bestSegmentIndex <= 0)
+                return false;
+
+            Coordinate a = bestLine.Coordinates[bestSegmentIndex - 1];
+            Coordinate b = bestLine.Coordinates[bestSegmentIndex];
+            return TryResolveReadableScreenAngle(
+                new PointD(a.X, a.Y),
+                new PointD(b.X, b.Y),
+                engine,
+                out angleDegrees);
+        }
+
+        private static bool TryResolveArcTangentScreenAngle(
+            ArcShape arc,
+            PointD labelAnchor,
+            MapCanvasEngine engine,
+            out float angleDegrees)
+        {
+            angleDegrees = 0.0f;
+            if (arc.Radius <= 0.0 ||
+                !double.IsFinite(arc.Radius) ||
+                Math.Abs(arc.SweepAngleRadians) <= 1e-9)
+            {
+                return false;
+            }
+
+            double anchorAngle = Math.Atan2(labelAnchor.Y - arc.Center.Y, labelAnchor.X - arc.Center.X);
+            double fraction = ResolveArcFraction(anchorAngle, arc.StartAngleRadians, arc.SweepAngleRadians);
+            fraction = Math.Clamp(fraction, 0.0, 1.0);
+            double angle = arc.StartAngleRadians + arc.SweepAngleRadians * fraction;
+            double direction = arc.SweepAngleRadians >= 0.0 ? 1.0 : -1.0;
+            double tangentLength = Math.Max(arc.Radius * 0.01, 1.0);
+            PointD point = arc.PointAt(fraction);
+            PointD tangentPoint = new(
+                point.X + -Math.Sin(angle) * direction * tangentLength,
+                point.Y + Math.Cos(angle) * direction * tangentLength);
+
+            return TryResolveReadableScreenAngle(point, tangentPoint, engine, out angleDegrees);
+        }
+
+        private static double ResolveArcFraction(double angle, double startAngle, double sweepAngle)
+        {
+            if (sweepAngle >= 0.0)
+                return NormalizePositiveAngle(angle - startAngle) / sweepAngle;
+
+            return NormalizePositiveAngle(startAngle - angle) / -sweepAngle;
+        }
+
+        private static double DistanceToArcSquared(PointD point, ArcShape arc)
+        {
+            double angle = Math.Atan2(point.Y - arc.Center.Y, point.X - arc.Center.X);
+            if (ArcShape.AngleLiesOnSweepPublic(angle, arc.StartAngleRadians, arc.SweepAngleRadians))
+            {
+                double radiusDelta = Distance(point, arc.Center) - arc.Radius;
+                return radiusDelta * radiusDelta;
+            }
+
+            return Math.Min(
+                DistanceSquared(point, arc.StartPoint),
+                DistanceSquared(point, arc.EndPoint));
+        }
+
+        private static bool TryResolveReadableScreenAngle(
+            PointD startWorld,
+            PointD endWorld,
+            MapCanvasEngine engine,
+            out float angleDegrees)
+        {
+            angleDegrees = 0.0f;
+            PointD startScreen = engine.WorldToScreen(startWorld);
+            PointD endScreen = engine.WorldToScreen(endWorld);
+            double dx = endScreen.X - startScreen.X;
+            double dy = endScreen.Y - startScreen.Y;
+            if (!double.IsFinite(dx) ||
+                !double.IsFinite(dy) ||
+                dx * dx + dy * dy <= 1e-6)
+            {
+                return false;
+            }
+
+            double angle = Math.Atan2(dy, dx) * 180.0 / Math.PI;
+            angle = NormalizeReadableTextAngle(angle);
+            if (!double.IsFinite(angle))
+                return false;
+
+            angleDegrees = (float)angle;
+            return true;
+        }
+
+        private static double NormalizeReadableTextAngle(double angleDegrees)
+        {
+            while (angleDegrees <= -180.0)
+                angleDegrees += 360.0;
+            while (angleDegrees > 180.0)
+                angleDegrees -= 360.0;
+
+            if (angleDegrees > 90.0)
+                angleDegrees -= 180.0;
+            else if (angleDegrees < -90.0)
+                angleDegrees += 180.0;
+
+            return angleDegrees;
+        }
+
+        private static double NormalizePositiveAngle(double angle)
+        {
+            double full = Math.PI * 2.0;
+            angle %= full;
+            return angle < 0.0 ? angle + full : angle;
+        }
+
+        private static double DistanceToSegmentSquared(PointD point, PointD start, PointD end)
+        {
+            double dx = end.X - start.X;
+            double dy = end.Y - start.Y;
+            double lengthSquared = dx * dx + dy * dy;
+            if (lengthSquared <= 0.0)
+                return DistanceSquared(point, start);
+
+            double t = ((point.X - start.X) * dx + (point.Y - start.Y) * dy) / lengthSquared;
+            t = Math.Clamp(t, 0.0, 1.0);
+            PointD projection = new(start.X + dx * t, start.Y + dy * t);
+            return DistanceSquared(point, projection);
+        }
+
+        private static double DistanceSquared(PointD first, PointD second)
+        {
+            double dx = first.X - second.X;
+            double dy = first.Y - second.Y;
+            return dx * dx + dy * dy;
+        }
+
+        private static double Distance(PointD first, PointD second)
+        {
+            return Math.Sqrt(DistanceSquared(first, second));
         }
 
         private bool TryResolveLabelAnchor(

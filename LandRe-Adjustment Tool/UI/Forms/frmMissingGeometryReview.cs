@@ -5,6 +5,7 @@ namespace Land_Readjustment_Tool.UI.Forms
     public sealed partial class frmMissingGeometryReview : Form
     {
         private readonly DataQualityReviewService _service;
+        private readonly bool _readOnlyMode;
 
         private List<DataQualityReviewService.MissingGeometryIssue> _issues = [];
         private bool _isBusy;
@@ -12,12 +13,20 @@ namespace Land_Readjustment_Tool.UI.Forms
         public event Action? OpenParcelLinkReviewRequested;
         public event Action? GeometryLinksChanged;
 
-        public frmMissingGeometryReview(DataQualityReviewService service)
+        public frmMissingGeometryReview(
+            DataQualityReviewService service,
+            bool readOnlyMode = false)
         {
             _service = service ?? throw new ArgumentNullException(nameof(service));
+            _readOnlyMode = readOnlyMode;
 
             InitializeComponent();
             WireEvents();
+            if (_readOnlyMode)
+            {
+                Text = "Missing Geometry Review (Read Only)";
+                _clearBrokenLinksButton.Enabled = false;
+            }
         }
 
         protected override async void OnLoad(EventArgs e)
@@ -127,12 +136,15 @@ namespace Land_Readjustment_Tool.UI.Forms
             _statusLabel.Text = rows.Count == 0
                 ? "No missing or broken original parcel geometry links found."
                 : $"{rows.Count:N0} of {_issues.Count:N0} geometry issue(s) shown.";
-            _clearBrokenLinksButton.Enabled = rows.Any(issue => issue.CanClearParcelLink);
+            _clearBrokenLinksButton.Enabled = !_readOnlyMode && rows.Any(issue => issue.CanClearParcelLink);
             _exportButton.Enabled = _issues.Count > 0;
         }
 
         private async Task ClearBrokenLinksAsync()
         {
+            if (_readOnlyMode)
+                return;
+
             List<DataQualityReviewService.MissingGeometryIssue> selected = GetSelectedIssues()
                 .Where(issue => issue.CanClearParcelLink)
                 .ToList();
@@ -226,7 +238,7 @@ namespace Land_Readjustment_Tool.UI.Forms
             _issueFilter.Enabled = !busy;
             _refreshButton.Enabled = !busy;
             _openParcelLinkReviewButton.Enabled = !busy;
-            _clearBrokenLinksButton.Enabled = !busy && _issues.Any(issue => issue.CanClearParcelLink);
+            _clearBrokenLinksButton.Enabled = !busy && !_readOnlyMode && _issues.Any(issue => issue.CanClearParcelLink);
             _exportButton.Enabled = !busy && _issues.Count > 0;
             if (!string.IsNullOrWhiteSpace(status))
                 _statusLabel.Text = status;

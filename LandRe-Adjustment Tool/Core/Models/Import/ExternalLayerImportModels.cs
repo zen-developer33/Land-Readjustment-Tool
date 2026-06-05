@@ -24,7 +24,8 @@ namespace Land_Readjustment_Tool.Core.Models.Import
         string SourceCrsCode,
         bool UseTargetLayerMapping = false,
         string ImportKind = "ExternalLayer",
-        string? BlockLabelLayerName = null);
+        string? BlockLabelLayerName = null,
+        bool ReplaceExistingTargetLayerObjects = false);
 
     /// <summary>
     /// How the import should resolve incoming objects whose geometry already exists in the

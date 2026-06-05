@@ -18,6 +18,7 @@ namespace Land_Readjustment_Tool.UI.Dialogs
         private readonly ProjectSession _session;
         private readonly IRoadCenterlineAssignmentService _assignmentService;
         private readonly Guid? _preferredCanvasObjectId;
+        private readonly bool _readOnlyMode;
         private List<RoadCenterlineAssignmentCandidate> _candidates = [];
         private List<RoadRecordChoice> _roads = [];
         private readonly Dictionary<string, int> _typedRoadValueOverrides = new(StringComparer.OrdinalIgnoreCase);
@@ -32,11 +33,13 @@ namespace Land_Readjustment_Tool.UI.Dialogs
         public frmRoadCenterlineAssignment(
             ProjectSession session,
             IRoadCenterlineAssignmentService assignmentService,
-            Guid? preferredCanvasObjectId = null)
+            Guid? preferredCanvasObjectId = null,
+            bool readOnlyMode = false)
         {
             _session = session ?? throw new ArgumentNullException(nameof(session));
             _assignmentService = assignmentService ?? throw new ArgumentNullException(nameof(assignmentService));
             _preferredCanvasObjectId = preferredCanvasObjectId;
+            _readOnlyMode = readOnlyMode;
 
             InitializeComponent();
             Load += frmRoadCenterlineAssignment_Load;
@@ -74,6 +77,13 @@ namespace Land_Readjustment_Tool.UI.Dialogs
 
             if (preferredCanvasObjectId.HasValue)
                 _rdoObject.Checked = true;
+
+            if (_readOnlyMode)
+            {
+                Text = "Assign Road Data (Read Only)";
+                _dgvLayerMappings.ReadOnly = true;
+                _dgvObjects.ReadOnly = true;
+            }
 
             ApplyAssignmentMode();
         }
@@ -177,6 +187,7 @@ namespace Land_Readjustment_Tool.UI.Dialogs
         private void RoadGrid_CellValidating(object? sender, DataGridViewCellValidatingEventArgs e)
         {
             if (_loading ||
+                _readOnlyMode ||
                 _resolvingComboText ||
                 sender is not DataGridView grid ||
                 e.RowIndex < 0 ||
@@ -221,6 +232,7 @@ namespace Land_Readjustment_Tool.UI.Dialogs
         private void RoadGrid_CellParsing(object? sender, DataGridViewCellParsingEventArgs e)
         {
             if (sender is not DataGridView grid ||
+                _readOnlyMode ||
                 e.RowIndex < 0 ||
                 !IsRoadComboColumn(grid, e.ColumnIndex) ||
                 e.Value is not string text ||
@@ -329,6 +341,9 @@ namespace Land_Readjustment_Tool.UI.Dialogs
 
         private async void btnApplyMappings_Click(object? sender, EventArgs e)
         {
+            if (_readOnlyMode)
+                return;
+
             Dictionary<string, int> mappings = GetSourceLayerMappings();
             if (mappings.Count == 0)
             {
@@ -363,6 +378,9 @@ namespace Land_Readjustment_Tool.UI.Dialogs
 
         private async void btnAssignSelected_Click(object? sender, EventArgs e)
         {
+            if (_readOnlyMode)
+                return;
+
             RoadCenterlineAssignmentCandidate? candidate = GetSelectedCandidate();
             RoadRecordChoice? road = GetSelectedObjectRoad();
             if (candidate == null || road == null)
@@ -390,6 +408,9 @@ namespace Land_Readjustment_Tool.UI.Dialogs
 
         private async void btnRemoveSelected_Click(object? sender, EventArgs e)
         {
+            if (_readOnlyMode)
+                return;
+
             RoadCenterlineAssignmentCandidate? candidate = GetSelectedCandidate();
             if (candidate == null)
                 return;
@@ -418,6 +439,9 @@ namespace Land_Readjustment_Tool.UI.Dialogs
 
         private async void btnRemoveAll_Click(object? sender, EventArgs e)
         {
+            if (_readOnlyMode)
+                return;
+
             DialogResult result = MessageBox.Show(
                 this,
                 "Remove all road assignments?",
@@ -693,7 +717,7 @@ namespace Land_Readjustment_Tool.UI.Dialogs
             _btnClose.Enabled = !busy;
             _dgvLayerMappings.Enabled = !busy;
             _dgvObjects.Enabled = !busy;
-            _chkReplaceExisting.Enabled = !busy;
+            _chkReplaceExisting.Enabled = !busy && !_readOnlyMode;
             _chkZoomToSelected.Enabled = !busy;
             if (!string.IsNullOrWhiteSpace(status))
                 _lblStatus.Text = status;
@@ -716,6 +740,7 @@ namespace Land_Readjustment_Tool.UI.Dialogs
             bool bySourceLayer = _rdoSourceLayer.Checked;
             bool hasRoads = _roads.Count > 0;
             bool hasObjects = _dgvObjects.Rows.Count > 0;
+            bool canEdit = !_readOnlyMode;
 
             _rdoSourceLayer.Enabled = true;
             _rdoObject.Enabled = true;
@@ -729,10 +754,10 @@ namespace Land_Readjustment_Tool.UI.Dialogs
             _btnAssignSelected.Visible = !bySourceLayer;
             _btnRemoveSelected.Visible = !bySourceLayer;
             _btnRemoveAll.Visible = true;
-            _btnApplyMappings.Enabled = bySourceLayer && hasRoads && _candidates.Count > 0;
-            _btnAssignSelected.Enabled = !bySourceLayer && hasRoads && hasObjects;
-            _btnRemoveSelected.Enabled = !bySourceLayer && hasObjects;
-            _btnRemoveAll.Enabled = hasObjects;
+            _btnApplyMappings.Enabled = canEdit && bySourceLayer && hasRoads && _candidates.Count > 0;
+            _btnAssignSelected.Enabled = canEdit && !bySourceLayer && hasRoads && hasObjects;
+            _btnRemoveSelected.Enabled = canEdit && !bySourceLayer && hasObjects;
+            _btnRemoveAll.Enabled = canEdit && hasObjects;
             AcceptButton = bySourceLayer ? _btnApplyMappings : _btnAssignSelected;
         }
 

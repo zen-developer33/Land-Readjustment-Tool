@@ -6,6 +6,7 @@ namespace Land_Readjustment_Tool.UI.Dialogs
     public partial class frmProjectBoundaryAssignment : Form
     {
         private readonly IReadOnlyList<ProjectBoundaryAssignmentCandidate> _allCandidates;
+        private readonly bool _readOnlyMode;
         private bool _suppressSelectionEvents;
 
         public event Action<Guid?, bool>? CandidatePreviewRequested;
@@ -16,10 +17,19 @@ namespace Land_Readjustment_Tool.UI.Dialogs
         public bool ImportProjectBoundaryRequested { get; private set; }
 
         public frmProjectBoundaryAssignment(
-            IReadOnlyList<ProjectBoundaryAssignmentCandidate> candidates)
+            IReadOnlyList<ProjectBoundaryAssignmentCandidate> candidates,
+            bool readOnlyMode = false)
         {
             InitializeComponent();
             _allCandidates = candidates ?? [];
+            _readOnlyMode = readOnlyMode;
+            if (_readOnlyMode)
+            {
+                Text = "Project Boundary Assignment (Read Only)";
+                btnAssign.Enabled = false;
+                btnImportBoundary.Enabled = false;
+                btnRemoveBoundary.Enabled = false;
+            }
             LoadLayerFilters();
             RefreshObjectList();
         }
@@ -94,7 +104,9 @@ namespace Land_Readjustment_Tool.UI.Dialogs
         private void UpdateCommandState()
         {
             bool hasSelection = GetSelectedCandidate() != null;
-            btnAssign.Enabled = hasSelection;
+            btnAssign.Enabled = !_readOnlyMode && hasSelection;
+            btnImportBoundary.Enabled = !_readOnlyMode;
+            btnRemoveBoundary.Enabled = !_readOnlyMode;
             btnPrevious.Enabled = lstObjects.Items.Count > 1;
             btnNext.Enabled = lstObjects.Items.Count > 1;
         }
@@ -166,6 +178,9 @@ namespace Land_Readjustment_Tool.UI.Dialogs
 
         private void btnAssign_Click(object? sender, EventArgs e)
         {
+            if (_readOnlyMode)
+                return;
+
             ProjectBoundaryAssignmentCandidate? candidate = GetSelectedCandidate();
             if (candidate == null)
                 return;
@@ -179,6 +194,9 @@ namespace Land_Readjustment_Tool.UI.Dialogs
 
         private void btnImportBoundary_Click(object? sender, EventArgs e)
         {
+            if (_readOnlyMode)
+                return;
+
             SelectedCandidateId = null;
             RemoveProjectBoundaryRequested = false;
             ImportProjectBoundaryRequested = true;
@@ -188,6 +206,9 @@ namespace Land_Readjustment_Tool.UI.Dialogs
 
         private void btnRemoveBoundary_Click(object? sender, EventArgs e)
         {
+            if (_readOnlyMode)
+                return;
+
             DialogResult result = MessageBox.Show(
                 this,
                 "Remove all existing Project Boundary objects?",

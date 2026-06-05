@@ -121,6 +121,9 @@
   <data name="diskette21" type="System.Resources.ResXFileRef, System.Windows.Forms">
     <value>..\Resources\diskette2.png;System.Drawing.Bitmap, System.Drawing, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b03f5f7f11d50a3a</value>
   </data>
+  <data name="icons8-open-left-pane-502" type="System.Resources.ResXFileRef, System.Windows.Forms">
+    <value>..\Resources\For RePlot Application\icons8-open-left-pane-50.png;System.Drawing.Bitmap, System.Drawing, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b03f5f7f11d50a3a</value>
+  </data>
   <data name="edit_icon" type="System.Resources.ResXFileRef, System.Windows.Forms">
     <value>..\Resources\edit_icon.png;System.Drawing.Bitmap, System.Drawing, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b03f5f7f11d50a3a</value>
   </data>
@@ -181,8 +184,8 @@
   <data name="icons8-data-recovery-50" type="System.Resources.ResXFileRef, System.Windows.Forms">
     <value>..\Resources\For RePlot Application\icons8-data-recovery-50.png;System.Drawing.Bitmap, System.Drawing, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b03f5f7f11d50a3a</value>
   </data>
-  <data name="icons8-wrench-503" type="System.Resources.ResXFileRef, System.Windows.Forms">
-    <value>..\Resources\For RePlot Application\icons8-wrench-50.png;System.Drawing.Bitmap, System.Drawing, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b03f5f7f11d50a3a</value>
+  <data name="icons8-file-502" type="System.Resources.ResXFileRef, System.Windows.Forms">
+    <value>..\Resources\For RePlot Application\icons8-file-50.png;System.Drawing.Bitmap, System.Drawing, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b03f5f7f11d50a3a</value>
   </data>
   <data name="icons8-add-25 (1)" type="System.Resources.ResXFileRef, System.Windows.Forms">
     <value>..\Resources\icons8-add-25 (1).ico;System.Drawing.Bitmap, System.Drawing, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b03f5f7f11d50a3a</value>
@@ -208,8 +211,8 @@
   <data name="search_icon" type="System.Resources.ResXFileRef, System.Windows.Forms">
     <value>..\Resources\icons8-find-48.ico;System.Byte[], mscorlib, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b77a5c561934e089</value>
   </data>
-  <data name="icons8-zoom-to-fit-502" type="System.Resources.ResXFileRef, System.Windows.Forms">
-    <value>..\Resources\For RePlot Application\icons8-zoom-to-fit-50.png;System.Drawing.Bitmap, System.Drawing, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b03f5f7f11d50a3a</value>
+  <data name="attach_icon" type="System.Resources.ResXFileRef, System.Windows.Forms">
+    <value>..\Resources\attach_icon.png;System.Drawing.Bitmap, System.Drawing, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b03f5f7f11d50a3a</value>
   </data>
   <data name="icons8-radius-24" type="System.Resources.ResXFileRef, System.Windows.Forms">
     <value>..\Resources\icons8-radius-24.png;System.Drawing.Bitmap, System.Drawing, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b03f5f7f11d50a3a</value>
@@ -241,14 +244,11 @@
   <data name="icons8-open-folder-501" type="System.Resources.ResXFileRef, System.Windows.Forms">
     <value>..\Resources\For RePlot Application\icons8-open-folder-50.png;System.Drawing.Bitmap, System.Drawing, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b03f5f7f11d50a3a</value>
   </data>
-  <data name="icons8-file-502" type="System.Resources.ResXFileRef, System.Windows.Forms">
-    <value>..\Resources\For RePlot Application\icons8-file-50.png;System.Drawing.Bitmap, System.Drawing, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b03f5f7f11d50a3a</value>
+  <data name="diskette3" type="System.Resources.ResXFileRef, System.Windows.Forms">
+    <value>..\Resources\diskette3.png;System.Drawing.Bitmap, System.Drawing, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b03f5f7f11d50a3a</value>
   </data>
   <data name="icons8-data-backup-502" type="System.Resources.ResXFileRef, System.Windows.Forms">
     <value>..\Resources\For RePlot Application\icons8-data-backup-50.png;System.Drawing.Bitmap, System.Drawing, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b03f5f7f11d50a3a</value>
-  </data>
-  <data name="icons8-time-machine-501" type="System.Resources.ResXFileRef, System.Windows.Forms">
-    <value>..\Resources\For RePlot Application\icons8-time-machine-50.png;System.Drawing.Bitmap, System.Drawing, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b03f5f7f11d50a3a</value>
   </data>
   <data name="icons8-zoom-out-24 (1)" type="System.Resources.ResXFileRef, System.Windows.Forms">
     <value>..\Resources\icons8-zoom-out-24 (1).png;System.Drawing.Bitmap, System.Drawing, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b03f5f7f11d50a3a</value>
@@ -259,23 +259,14 @@
   <data name="icons8-redo-501" type="System.Resources.ResXFileRef, System.Windows.Forms">
     <value>..\Resources\For RePlot Application\icons8-redo-50.png;System.Drawing.Bitmap, System.Drawing, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b03f5f7f11d50a3a</value>
   </data>
-  <data name="attach_icon" type="System.Resources.ResXFileRef, System.Windows.Forms">
-    <value>..\Resources\attach_icon.png;System.Drawing.Bitmap, System.Drawing, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b03f5f7f11d50a3a</value>
-  </data>
   <data name="business_15653292 (1)1" type="System.Resources.ResXFileRef, System.Windows.Forms">
     <value>..\Resources\business_15653292 (1).png;System.Drawing.Bitmap, System.Drawing, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b03f5f7f11d50a3a</value>
-  </data>
-  <data name="icons8-rectangle-241" type="System.Resources.ResXFileRef, System.Windows.Forms">
-    <value>..\Resources\icons8-rectangle-24.png;System.Drawing.Bitmap, System.Drawing, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b03f5f7f11d50a3a</value>
   </data>
   <data name="icons8-close-right-pane-50" type="System.Resources.ResXFileRef, System.Windows.Forms">
     <value>..\Resources\For RePlot Application\icons8-close-right-pane-50.png;System.Drawing.Bitmap, System.Drawing, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b03f5f7f11d50a3a</value>
   </data>
   <data name="rectangle1" type="System.Resources.ResXFileRef, System.Windows.Forms">
     <value>..\Resources\rectangle1.png;System.Drawing.Bitmap, System.Drawing, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b03f5f7f11d50a3a</value>
-  </data>
-  <data name="icons8-undo-50" type="System.Resources.ResXFileRef, System.Windows.Forms">
-    <value>..\Resources\For RePlot Application\icons8-undo-50.png;System.Drawing.Bitmap, System.Drawing, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b03f5f7f11d50a3a</value>
   </data>
   <data name="icons8-close-left-pane-50" type="System.Resources.ResXFileRef, System.Windows.Forms">
     <value>..\Resources\For RePlot Application\icons8-close-left-pane-50.png;System.Drawing.Bitmap, System.Drawing, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b03f5f7f11d50a3a</value>
@@ -295,11 +286,11 @@
   <data name="icons8-line-24" type="System.Resources.ResXFileRef, System.Windows.Forms">
     <value>..\Resources\icons8-line-24.png;System.Drawing.Bitmap, System.Drawing, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b03f5f7f11d50a3a</value>
   </data>
+  <data name="icons8-zoom-to-fit-502" type="System.Resources.ResXFileRef, System.Windows.Forms">
+    <value>..\Resources\For RePlot Application\icons8-zoom-to-fit-50.png;System.Drawing.Bitmap, System.Drawing, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b03f5f7f11d50a3a</value>
+  </data>
   <data name="icons8-zoom-in-50" type="System.Resources.ResXFileRef, System.Windows.Forms">
     <value>..\Resources\For RePlot Application\icons8-zoom-in-50.png;System.Drawing.Bitmap, System.Drawing, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b03f5f7f11d50a3a</value>
-  </data>
-  <data name="icons8-wrench-50" type="System.Resources.ResXFileRef, System.Windows.Forms">
-    <value>..\Resources\icons8-wrench-50.png;System.Drawing.Bitmap, System.Drawing, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b03f5f7f11d50a3a</value>
   </data>
   <data name="diskette2" type="System.Resources.ResXFileRef, System.Windows.Forms">
     <value>..\Resources\diskette2.png;System.Drawing.Bitmap, System.Drawing, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b03f5f7f11d50a3a</value>
@@ -358,8 +349,8 @@
   <data name="attach_icon4" type="System.Resources.ResXFileRef, System.Windows.Forms">
     <value>..\Resources\attach_icon.png;System.Drawing.Bitmap, System.Drawing, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b03f5f7f11d50a3a</value>
   </data>
-  <data name="business_15653292 (1)" type="System.Resources.ResXFileRef, System.Windows.Forms">
-    <value>..\Resources\business_15653292 (1).png;System.Drawing.Bitmap, System.Drawing, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b03f5f7f11d50a3a</value>
+  <data name="icons8-wrench-503" type="System.Resources.ResXFileRef, System.Windows.Forms">
+    <value>..\Resources\For RePlot Application\icons8-wrench-50.png;System.Drawing.Bitmap, System.Drawing, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b03f5f7f11d50a3a</value>
   </data>
   <data name="icons8-zoom-in-501" type="System.Resources.ResXFileRef, System.Windows.Forms">
     <value>..\Resources\For RePlot Application\icons8-zoom-in-50.png;System.Drawing.Bitmap, System.Drawing, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b03f5f7f11d50a3a</value>
@@ -379,14 +370,14 @@
   <data name="icons8-logout-501" type="System.Resources.ResXFileRef, System.Windows.Forms">
     <value>..\Resources\For RePlot Application\icons8-logout-50.png;System.Drawing.Bitmap, System.Drawing, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b03f5f7f11d50a3a</value>
   </data>
-  <data name="icons8-open-left-pane-502" type="System.Resources.ResXFileRef, System.Windows.Forms">
-    <value>..\Resources\For RePlot Application\icons8-open-left-pane-50.png;System.Drawing.Bitmap, System.Drawing, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b03f5f7f11d50a3a</value>
+  <data name="icons8-time-machine-501" type="System.Resources.ResXFileRef, System.Windows.Forms">
+    <value>..\Resources\For RePlot Application\icons8-time-machine-50.png;System.Drawing.Bitmap, System.Drawing, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b03f5f7f11d50a3a</value>
   </data>
   <data name="icons8-close-501" type="System.Resources.ResXFileRef, System.Windows.Forms">
     <value>..\Resources\icons8-close-501.png;System.Drawing.Bitmap, System.Drawing, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b03f5f7f11d50a3a</value>
   </data>
-  <data name="icons8-slider-50" type="System.Resources.ResXFileRef, System.Windows.Forms">
-    <value>..\Resources\For RePlot Application\icons8-slider-50.png;System.Drawing.Bitmap, System.Drawing, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b03f5f7f11d50a3a</value>
+  <data name="icons8-hand-rock-1-50" type="System.Resources.ResXFileRef, System.Windows.Forms">
+    <value>..\Resources\For RePlot Application\icons8-hand-rock-1-50.png;System.Drawing.Bitmap, System.Drawing, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b03f5f7f11d50a3a</value>
   </data>
   <data name="icons8-photo-25" type="System.Resources.ResXFileRef, System.Windows.Forms">
     <value>..\Resources\icons8-photo-25.png;System.Drawing.Bitmap, System.Drawing, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b03f5f7f11d50a3a</value>
@@ -454,8 +445,8 @@
   <data name="icons8-hand-502" type="System.Resources.ResXFileRef, System.Windows.Forms">
     <value>..\Resources\For RePlot Application\icons8-hand-50.png;System.Drawing.Bitmap, System.Drawing, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b03f5f7f11d50a3a</value>
   </data>
-  <data name="icons8-hand-rock-1-50" type="System.Resources.ResXFileRef, System.Windows.Forms">
-    <value>..\Resources\For RePlot Application\icons8-hand-rock-1-50.png;System.Drawing.Bitmap, System.Drawing, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b03f5f7f11d50a3a</value>
+  <data name="icons8-wrench-50" type="System.Resources.ResXFileRef, System.Windows.Forms">
+    <value>..\Resources\icons8-wrench-50.png;System.Drawing.Bitmap, System.Drawing, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b03f5f7f11d50a3a</value>
   </data>
   <data name="icons8-close-50" type="System.Resources.ResXFileRef, System.Windows.Forms">
     <value>..\Resources\icons8-close-50.png;System.Drawing.Bitmap, System.Drawing, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b03f5f7f11d50a3a</value>
@@ -465,6 +456,9 @@
   </data>
   <data name="icons8-zoom-to-extents-50" type="System.Resources.ResXFileRef, System.Windows.Forms">
     <value>..\Resources\For RePlot Application\icons8-zoom-to-extents-50.png;System.Drawing.Bitmap, System.Drawing, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b03f5f7f11d50a3a</value>
+  </data>
+  <data name="selection Tool" type="System.Resources.ResXFileRef, System.Windows.Forms">
+    <value>..\Resources\selection Tool.png;System.Drawing.Bitmap, System.Drawing, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b03f5f7f11d50a3a</value>
   </data>
   <data name="icons8-edit-48" type="System.Resources.ResXFileRef, System.Windows.Forms">
     <value>..\Resources\icons8-edit-481.ico;System.Drawing.Bitmap, System.Drawing, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b03f5f7f11d50a3a</value>
@@ -496,8 +490,8 @@
   <data name="icons8-database-restore-502" type="System.Resources.ResXFileRef, System.Windows.Forms">
     <value>..\Resources\For RePlot Application\icons8-database-restore-50.png;System.Drawing.Bitmap, System.Drawing, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b03f5f7f11d50a3a</value>
   </data>
-  <data name="icons8-logout-502" type="System.Resources.ResXFileRef, System.Windows.Forms">
-    <value>..\Resources\For RePlot Application\icons8-logout-50.png;System.Drawing.Bitmap, System.Drawing, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b03f5f7f11d50a3a</value>
+  <data name="icons8-slider-50" type="System.Resources.ResXFileRef, System.Windows.Forms">
+    <value>..\Resources\For RePlot Application\icons8-slider-50.png;System.Drawing.Bitmap, System.Drawing, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b03f5f7f11d50a3a</value>
   </data>
   <data name="find_icon" type="System.Resources.ResXFileRef, System.Windows.Forms">
     <value>..\Resources\find_icon.png;System.Drawing.Bitmap, System.Drawing, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b03f5f7f11d50a3a</value>
@@ -508,11 +502,11 @@
   <data name="Point" type="System.Resources.ResXFileRef, System.Windows.Forms">
     <value>..\Resources\Point.png;System.Drawing.Bitmap, System.Drawing, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b03f5f7f11d50a3a</value>
   </data>
+  <data name="arc" type="System.Resources.ResXFileRef, System.Windows.Forms">
+    <value>..\Resources\arc.png;System.Drawing.Bitmap, System.Drawing, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b03f5f7f11d50a3a</value>
+  </data>
   <data name="icons8-redo-502" type="System.Resources.ResXFileRef, System.Windows.Forms">
     <value>..\Resources\For RePlot Application\icons8-redo-50.png;System.Drawing.Bitmap, System.Drawing, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b03f5f7f11d50a3a</value>
-  </data>
-  <data name="icons8-close-right-pane-501" type="System.Resources.ResXFileRef, System.Windows.Forms">
-    <value>..\Resources\For RePlot Application\icons8-close-right-pane-50.png;System.Drawing.Bitmap, System.Drawing, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b03f5f7f11d50a3a</value>
   </data>
   <data name="icons8-database-export-50" type="System.Resources.ResXFileRef, System.Windows.Forms">
     <value>..\Resources\For RePlot Application\icons8-database-export-50.png;System.Drawing.Bitmap, System.Drawing, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b03f5f7f11d50a3a</value>
@@ -520,11 +514,11 @@
   <data name="icons8-hand-tool-501" type="System.Resources.ResXFileRef, System.Windows.Forms">
     <value>..\Resources\For RePlot Application\icons8-hand-tool-50.png;System.Drawing.Bitmap, System.Drawing, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b03f5f7f11d50a3a</value>
   </data>
-  <data name="diskette3" type="System.Resources.ResXFileRef, System.Windows.Forms">
-    <value>..\Resources\diskette3.png;System.Drawing.Bitmap, System.Drawing, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b03f5f7f11d50a3a</value>
-  </data>
   <data name="business_1565329212" type="System.Resources.ResXFileRef, System.Windows.Forms">
     <value>..\Resources\business_156532921.png;System.Drawing.Bitmap, System.Drawing, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b03f5f7f11d50a3a</value>
+  </data>
+  <data name="icons8-save-as-50" type="System.Resources.ResXFileRef, System.Windows.Forms">
+    <value>..\Resources\icons8-save-as-50.png;System.Drawing.Bitmap, System.Drawing, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b03f5f7f11d50a3a</value>
   </data>
   <data name="icons8-time-machine-502" type="System.Resources.ResXFileRef, System.Windows.Forms">
     <value>..\Resources\For RePlot Application\icons8-time-machine-50.png;System.Drawing.Bitmap, System.Drawing, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b03f5f7f11d50a3a</value>
@@ -547,6 +541,9 @@
   <data name="icons8-database-export-502" type="System.Resources.ResXFileRef, System.Windows.Forms">
     <value>..\Resources\For RePlot Application\icons8-database-export-50.png;System.Drawing.Bitmap, System.Drawing, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b03f5f7f11d50a3a</value>
   </data>
+  <data name="icons8-add-file-50" type="System.Resources.ResXFileRef, System.Windows.Forms">
+    <value>..\Resources\For RePlot Application\icons8-add-file-50.png;System.Drawing.Bitmap, System.Drawing, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b03f5f7f11d50a3a</value>
+  </data>
   <data name="diskette4" type="System.Resources.ResXFileRef, System.Windows.Forms">
     <value>..\Resources\diskette4.png;System.Drawing.Bitmap, System.Drawing, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b03f5f7f11d50a3a</value>
   </data>
@@ -559,8 +556,8 @@
   <data name="icons8-undo-501" type="System.Resources.ResXFileRef, System.Windows.Forms">
     <value>..\Resources\For RePlot Application\icons8-undo-50.png;System.Drawing.Bitmap, System.Drawing, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b03f5f7f11d50a3a</value>
   </data>
-  <data name="arc" type="System.Resources.ResXFileRef, System.Windows.Forms">
-    <value>..\Resources\arc.png;System.Drawing.Bitmap, System.Drawing, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b03f5f7f11d50a3a</value>
+  <data name="icons8-undo-50" type="System.Resources.ResXFileRef, System.Windows.Forms">
+    <value>..\Resources\For RePlot Application\icons8-undo-50.png;System.Drawing.Bitmap, System.Drawing, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b03f5f7f11d50a3a</value>
   </data>
   <data name="icons8-database-restore-501" type="System.Resources.ResXFileRef, System.Windows.Forms">
     <value>..\Resources\For RePlot Application\icons8-database-restore-50.png;System.Drawing.Bitmap, System.Drawing, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b03f5f7f11d50a3a</value>
@@ -577,6 +574,9 @@
   <data name="icons8-hand-501" type="System.Resources.ResXFileRef, System.Windows.Forms">
     <value>..\Resources\For RePlot Application\icons8-hand-50.png;System.Drawing.Bitmap, System.Drawing, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b03f5f7f11d50a3a</value>
   </data>
+  <data name="icons8-logout-502" type="System.Resources.ResXFileRef, System.Windows.Forms">
+    <value>..\Resources\For RePlot Application\icons8-logout-50.png;System.Drawing.Bitmap, System.Drawing, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b03f5f7f11d50a3a</value>
+  </data>
   <data name="icons8-exit-50" type="System.Resources.ResXFileRef, System.Windows.Forms">
     <value>..\Resources\For RePlot Application\icons8-exit-50.png;System.Drawing.Bitmap, System.Drawing, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b03f5f7f11d50a3a</value>
   </data>
@@ -589,14 +589,14 @@
   <data name="icons8-redo-50" type="System.Resources.ResXFileRef, System.Windows.Forms">
     <value>..\Resources\For RePlot Application\icons8-redo-50.png;System.Drawing.Bitmap, System.Drawing, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b03f5f7f11d50a3a</value>
   </data>
-  <data name="icons8-save-as-50" type="System.Resources.ResXFileRef, System.Windows.Forms">
-    <value>..\Resources\icons8-save-as-50.png;System.Drawing.Bitmap, System.Drawing, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b03f5f7f11d50a3a</value>
+  <data name="business_15653292 (1)" type="System.Resources.ResXFileRef, System.Windows.Forms">
+    <value>..\Resources\business_15653292 (1).png;System.Drawing.Bitmap, System.Drawing, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b03f5f7f11d50a3a</value>
   </data>
   <data name="icons8-zoom-to-fit-50" type="System.Resources.ResXFileRef, System.Windows.Forms">
     <value>..\Resources\For RePlot Application\icons8-zoom-to-fit-50.png;System.Drawing.Bitmap, System.Drawing, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b03f5f7f11d50a3a</value>
   </data>
-  <data name="icons8-add-file-50" type="System.Resources.ResXFileRef, System.Windows.Forms">
-    <value>..\Resources\For RePlot Application\icons8-add-file-50.png;System.Drawing.Bitmap, System.Drawing, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b03f5f7f11d50a3a</value>
+  <data name="icons8-close-right-pane-501" type="System.Resources.ResXFileRef, System.Windows.Forms">
+    <value>..\Resources\For RePlot Application\icons8-close-right-pane-50.png;System.Drawing.Bitmap, System.Drawing, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b03f5f7f11d50a3a</value>
   </data>
   <data name="icons8-zoom-to-fit-501" type="System.Resources.ResXFileRef, System.Windows.Forms">
     <value>..\Resources\For RePlot Application\icons8-zoom-to-fit-50.png;System.Drawing.Bitmap, System.Drawing, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b03f5f7f11d50a3a</value>
@@ -607,16 +607,19 @@
   <data name="icons8-time-machine-50" type="System.Resources.ResXFileRef, System.Windows.Forms">
     <value>..\Resources\icons8-time-machine-50.png;System.Drawing.Bitmap, System.Drawing, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b03f5f7f11d50a3a</value>
   </data>
+  <data name="icons8-hand-tool-50" type="System.Resources.ResXFileRef, System.Windows.Forms">
+    <value>..\Resources\For RePlot Application\icons8-hand-tool-50.png;System.Drawing.Bitmap, System.Drawing, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b03f5f7f11d50a3a</value>
+  </data>
   <data name="icons8-hand-rock-1-501" type="System.Resources.ResXFileRef, System.Windows.Forms">
     <value>..\Resources\For RePlot Application\icons8-hand-rock-1-50.png;System.Drawing.Bitmap, System.Drawing, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b03f5f7f11d50a3a</value>
   </data>
   <data name="icons8-hand-24" type="System.Resources.ResXFileRef, System.Windows.Forms">
     <value>..\Resources\icons8-hand-24.png;System.Drawing.Bitmap, System.Drawing, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b03f5f7f11d50a3a</value>
   </data>
-  <data name="icons8-hand-tool-50" type="System.Resources.ResXFileRef, System.Windows.Forms">
-    <value>..\Resources\For RePlot Application\icons8-hand-tool-50.png;System.Drawing.Bitmap, System.Drawing, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b03f5f7f11d50a3a</value>
+  <data name="icons8-rectangle-241" type="System.Resources.ResXFileRef, System.Windows.Forms">
+    <value>..\Resources\icons8-rectangle-24.png;System.Drawing.Bitmap, System.Drawing, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b03f5f7f11d50a3a</value>
   </data>
-  <data name="selection Tool" type="System.Resources.ResXFileRef, System.Windows.Forms">
-    <value>..\Resources\selection Tool.png;System.Drawing.Bitmap, System.Drawing, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b03f5f7f11d50a3a</value>
+  <data name="icons8-padlock-26" type="System.Resources.ResXFileRef, System.Windows.Forms">
+    <value>..\Resources\icons8-padlock-26.png;System.Drawing.Bitmap, System.Drawing, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b03f5f7f11d50a3a</value>
   </data>
 </root>

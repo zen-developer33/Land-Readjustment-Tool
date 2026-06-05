@@ -11,9 +11,11 @@ namespace Land_Readjustment_Tool.UI.Forms.Definitions
         private List<BlockDefinitionRow> _rows = [];
         private bool _isLoading;
         private bool _isSaving;
+        private readonly bool _readOnlyMode;
 
-        public frmDefineBlocks()
+        public frmDefineBlocks(bool readOnlyMode = false)
         {
+            _readOnlyMode = readOnlyMode;
             InitializeComponent();
             ConfigureGridColumns();
             dgvBlocks.DataSource = _bindingSource;
@@ -22,6 +24,20 @@ namespace Land_Readjustment_Tool.UI.Forms.Definitions
             dgvBlocks.CellDoubleClick += dgvBlocks_CellDoubleClick;
             dgvBlocks.CurrentCellDirtyStateChanged += dgvBlocks_CurrentCellDirtyStateChanged;
             RecordFormTheme.Apply(this);
+            ApplyReadOnlyMode();
+        }
+
+        private void ApplyReadOnlyMode()
+        {
+            if (!_readOnlyMode)
+                return;
+
+            Text = "Define Blocks (Read Only)";
+            dgvBlocks.ReadOnly = true;
+            btnAdd.Enabled = false;
+            btnDuplicate.Enabled = false;
+            btnDetails.Enabled = false;
+            btnDelete.Enabled = false;
         }
 
         private void ConfigureGridColumns()
@@ -105,6 +121,9 @@ namespace Land_Readjustment_Tool.UI.Forms.Definitions
 
         private async Task ExecuteBlockOperationAsync(Func<Task> operation)
         {
+            if (_readOnlyMode)
+                return;
+
             try
             {
                 await operation();
@@ -115,11 +134,17 @@ namespace Land_Readjustment_Tool.UI.Forms.Definitions
             }
         }
 
-        private async void dgvBlocks_CellEndEdit(object? sender, DataGridViewCellEventArgs e) => await SaveCurrentEditsAsync();
+        private async void dgvBlocks_CellEndEdit(object? sender, DataGridViewCellEventArgs e)
+        {
+            if (_readOnlyMode)
+                return;
+
+            await SaveCurrentEditsAsync();
+        }
 
         private async void dgvBlocks_CellDoubleClick(object? sender, DataGridViewCellEventArgs e)
         {
-            if (e.RowIndex < 0)
+            if (_readOnlyMode || e.RowIndex < 0)
                 return;
 
             await ExecuteBlockOperationAsync(EditBlockDetailsAsync);
@@ -127,7 +152,8 @@ namespace Land_Readjustment_Tool.UI.Forms.Definitions
 
         private void dgvBlocks_CurrentCellDirtyStateChanged(object? sender, EventArgs e)
         {
-            if (dgvBlocks.IsCurrentCellDirty &&
+            if (!_readOnlyMode &&
+                dgvBlocks.IsCurrentCellDirty &&
                 dgvBlocks.CurrentCell is DataGridViewComboBoxCell)
             {
                 dgvBlocks.CommitEdit(DataGridViewDataErrorContexts.Commit);

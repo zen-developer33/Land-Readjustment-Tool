@@ -2,7 +2,9 @@ using Land_Readjustment_Tool.Core.Entities.Canvas;
 using Land_Readjustment_Tool.Core.Interfaces;
 using Land_Readjustment_Tool.Core.Models.Import;
 using Land_Readjustment_Tool.Data;
+using Land_Readjustment_Tool.Services.Project;
 using Land_Readjustment_Tool.Services.Raster;
+using Land_Readjustment_Tool.Services.Roads;
 using Land_Readjustment_Tool.UI.MapCanvas.Services;
 using Microsoft.EntityFrameworkCore;
 using NetTopologySuite.Geometries;
@@ -72,7 +74,7 @@ namespace Land_Readjustment_Tool.Services.Import
                 NormalizeGeometryForCanvasDatabase(geometry);
 
             AppDbContext context = session.GetDbContext();
-            await context.Database.MigrateAsync(ct);
+            await ProjectDatabaseCompatibility.EnsureAsync(context, ct);
 
             CanvasLayer boundaryLayer = await GetOrCreateProjectBoundaryLayerAsync(
                 context,
@@ -119,6 +121,7 @@ namespace Land_Readjustment_Tool.Services.Import
             try
             {
                 await context.SaveChangesAsync(ct);
+                await new BlockRoadParcelRefreshService().RefreshAsync(context, ct);
                 context.Entry(boundaryLayer).State = EntityState.Detached;
                 foreach (CanvasObject canvasObject in objects)
                     context.Entry(canvasObject).State = EntityState.Detached;

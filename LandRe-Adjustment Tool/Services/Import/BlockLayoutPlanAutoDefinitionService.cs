@@ -210,7 +210,10 @@ namespace Land_Readjustment_Tool.Services.Import
 
                 blockObject.BlockId = block.Id;
                 blockObject.Block = null;
+                if (!block.CanvasObjectId.HasValue)
+                    block.CanvasObjectId = blockObject.Id;
                 blockObject.LastModifiedDate = now;
+                block.LastModifiedDate = now;
                 assigned++;
             }
 

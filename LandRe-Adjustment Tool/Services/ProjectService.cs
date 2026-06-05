@@ -148,14 +148,13 @@ namespace Land_Readjustment_Tool.Services
         }
 
         /// <summary>
-        /// Opens existing project and applies pending migrations.
+        /// Opens an existing project and repairs known schema gaps.
         /// Returns ProjectInfo or null if file is invalid.
         /// </summary>
         public async Task<ProjectInfo?> OpenProjectAsync(
             string projectFilePath)
         {
             using var context = new AppDbContext(projectFilePath);
-            await context.Database.MigrateAsync();
             await ProjectDatabaseCompatibility.EnsureAsync(context);
             return await context.ProjectInfo.FirstOrDefaultAsync();
         }

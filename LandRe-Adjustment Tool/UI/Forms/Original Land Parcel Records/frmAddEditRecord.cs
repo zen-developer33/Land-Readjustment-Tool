@@ -2,6 +2,7 @@
 using Land_Readjustment_Tool.Data;
 using Land_Readjustment_Tool.Services;
 using Land_Readjustment_Tool.Services.LandData;
+using System.ComponentModel;
 
 namespace Land_Readjustment_Tool.Forms
 {
@@ -14,9 +15,18 @@ namespace Land_Readjustment_Tool.Forms
         private int? _parcelId;
         private LandRecordsService? _landRecordsService;
         private List<BaselineLandParcelRecord>? _importedRecords;
+        private bool _readOnlyMode;
 
         public BaselineLandParcelRecord Record { get; private set; } = new();
         public bool IsDeleted { get; private set; } = false;
+
+        [Browsable(false)]
+        [DesignerSerializationVisibility(DesignerSerializationVisibility.Hidden)]
+        public bool ReadOnlyMode
+        {
+            get => _readOnlyMode;
+            set => SetReadOnlyMode(value);
+        }
 
         // Constructor for ADD mode (Import Manager - all fields editable)
         public frmAddEditRecord(Func<string?, string?, int?, bool>? parcelExists = null)
@@ -108,6 +118,52 @@ namespace Land_Readjustment_Tool.Forms
 
         }
 
+        private void SetReadOnlyMode(bool readOnly)
+        {
+            _readOnlyMode = readOnly;
+            if (!IsHandleCreated && !readOnly)
+                return;
+
+            Color readOnlyColor = Color.FromArgb(240, 240, 240);
+            foreach (Control control in GetAllChildControls(this))
+            {
+                if (control is TextBox textBox)
+                {
+                    textBox.ReadOnly = readOnly || textBox == txtAreaInRAPD || textBox == txtAreaInBKD;
+                    textBox.BackColor = readOnly ? readOnlyColor : SystemColors.Window;
+                }
+                else if (control is ComboBox comboBox)
+                {
+                    comboBox.Enabled = !readOnly;
+                }
+            }
+
+            btnLoadOwnerDetails.Enabled = !readOnly && btnLoadOwnerDetails.Visible;
+            btnAdd.Enabled = !readOnly && btnAdd.Visible;
+            btnUpdate.Enabled = !readOnly && btnUpdate.Visible;
+            btnDelete.Enabled = !readOnly && btnDelete.Visible;
+            btnCancel.Text = readOnly ? "Close" : "Cancel";
+            if (readOnly)
+            {
+                Text = "Parcel Record (Read-Only)";
+            }
+
+            if (_ownerFieldsReadOnly)
+            {
+                SetOwnerFieldsReadOnly();
+            }
+        }
+
+        private static IEnumerable<Control> GetAllChildControls(Control parent)
+        {
+            foreach (Control child in parent.Controls)
+            {
+                yield return child;
+                foreach (Control grandChild in GetAllChildControls(child))
+                    yield return grandChild;
+            }
+        }
+
         private void ConfigureInputBehavior()
         {
 
@@ -150,6 +206,9 @@ namespace Land_Readjustment_Tool.Forms
 
         private void BtnLoadOwnerDetails_Click(object? sender, EventArgs e)
         {
+            if (_readOnlyMode)
+                return;
+
             frmOwnerLookup lookupForm;
 
             // If we have imported records, use them for owner lookup (Import Manager mode)
@@ -562,6 +621,9 @@ namespace Land_Readjustment_Tool.Forms
 
         private void btnAdd_Click(object sender, EventArgs e)
         {
+            if (_readOnlyMode)
+                return;
+
             if (!ValidateRecord())
                 return;
 
@@ -572,6 +634,9 @@ namespace Land_Readjustment_Tool.Forms
 
         private void btnUpdate_Click(object sender, EventArgs e)
         {
+            if (_readOnlyMode)
+                return;
+
             if (!ValidateRecord())
                 return;
 
@@ -591,6 +656,9 @@ namespace Land_Readjustment_Tool.Forms
 
         private void btnDelete_Click(object sender, EventArgs e)
         {
+            if (_readOnlyMode)
+                return;
+
             DialogResult result = MessageBox.Show(
                 "Are you sure you want to delete this record?\n\nThis action cannot be undone.",
                 "Confirm Delete",

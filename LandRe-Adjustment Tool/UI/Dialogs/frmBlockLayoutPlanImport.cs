@@ -11,10 +11,10 @@ namespace Land_Readjustment_Tool.UI.Dialogs
         private readonly IReadOnlyList<CrsChoice> _sourceCrsChoices;
         private CheckState _includeHeaderState = CheckState.Checked;
 
-        private const string IncludeColumn = "Include";
-        private const string LayerColumn = "Layer";
-        private const string TypesColumn = "Types";
-        private const string TargetColumn = "Target";
+        private const string IncludeColumn = "_colInclude";
+        private const string LayerColumn = "_colLayer";
+        private const string TypesColumn = "_colTypes";
+        private const string TargetColumn = "_colTarget";
 
         public frmBlockLayoutPlanImport()
             : this(

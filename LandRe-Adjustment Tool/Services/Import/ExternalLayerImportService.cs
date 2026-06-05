@@ -6,6 +6,7 @@ using Land_Readjustment_Tool.Core.Models.Import;
 using Land_Readjustment_Tool.Data;
 using Land_Readjustment_Tool.Services.Canvas;
 using Land_Readjustment_Tool.Services.Import.Readers;
+using Land_Readjustment_Tool.Services.Project;
 using Land_Readjustment_Tool.Services.Raster;
 using Land_Readjustment_Tool.UI.MapCanvas.Services;
 using Microsoft.EntityFrameworkCore;
@@ -138,6 +139,7 @@ namespace Land_Readjustment_Tool.Services.Import
             // only lines may enter line layers (Road Centerline). Skipped objects are reported back.
             List<string> importWarnings = [];
             objects = FilterObjectsForTargetCompatibility(objects, options, importWarnings);
+            objects = FilterObjectsForCanvasDatabaseCompatibility(objects, importWarnings);
             if (objects.Count == 0)
             {
                 string message = importWarnings.Count > 0
@@ -150,7 +152,7 @@ namespace Land_Readjustment_Tool.Services.Import
                 ReadSourceLayerStyles(filePath);
             string? copiedSourceFile = CopySourceFileToProjectFolder(session, filePath);
             AppDbContext context = session.GetDbContext();
-            await context.Database.MigrateAsync(ct);
+            await ProjectDatabaseCompatibility.EnsureAsync(context, ct);
             Color canvasBackgroundColor = await ResolveCanvasBackgroundColorAsync(context, ct);
 
             Dictionary<string, CanvasLayer> targetLayers =
@@ -201,11 +203,30 @@ namespace Land_Readjustment_Tool.Services.Import
                 canvasObjects.Add(canvasObject);
             }
 
+            HashSet<int> replacedTargetLayerIds = [];
+            int replacedTargetLayerObjectCount = 0;
+            if (options.ReplaceExistingTargetLayerObjects)
+            {
+                replacedTargetLayerIds = targetLayers.Values
+                    .Select(layer => layer.Id)
+                    .ToHashSet();
+                if (replacedTargetLayerIds.Count > 0)
+                {
+                    List<CanvasObject> existingTargetObjects = await context.CanvasObjects
+                        .Where(item => replacedTargetLayerIds.Contains(item.CanvasLayerId))
+                        .ToListAsync(ct);
+                    replacedTargetLayerObjectCount = existingTargetObjects.Count;
+                    if (existingTargetObjects.Count > 0)
+                        context.CanvasObjects.RemoveRange(existingTargetObjects);
+                }
+            }
+
             ImportProjectBoundaryResolution projectBoundaryResolution =
                 await ResolveImportProjectBoundaryAsync(
                     context,
                     canvasObjects,
                     resolveProjectBoundaryConflict,
+                    replacedTargetLayerIds,
                     ct);
             if (projectBoundaryResolution.Cancelled)
             {
@@ -246,6 +267,7 @@ namespace Land_Readjustment_Tool.Services.Import
                 context,
                 canvasObjects,
                 resolveDuplicateGeometries,
+                replacedTargetLayerIds,
                 ct);
             if (duplicateResolution.Cancelled)
             {
@@ -273,9 +295,16 @@ namespace Land_Readjustment_Tool.Services.Import
                 context.CanvasObjects.RemoveRange(duplicateResolution.ExistingObjectsToRemove);
             }
 
+            if (replacedTargetLayerObjectCount > 0)
+            {
+                importWarnings.Add(
+                    $"Replaced {replacedTargetLayerObjectCount} existing object(s) in the selected target layer(s).");
+            }
+
             if (canvasObjects.Count == 0 &&
                 projectBoundaryResolution.ExistingObjectsToRemove.Count == 0 &&
-                duplicateResolution.ExistingObjectsToRemove.Count == 0)
+                duplicateResolution.ExistingObjectsToRemove.Count == 0 &&
+                replacedTargetLayerObjectCount == 0)
             {
                 return new ExternalLayerImportResult(
                     true,
@@ -286,6 +315,11 @@ namespace Land_Readjustment_Tool.Services.Import
                     null,
                     importWarnings);
             }
+
+            foreach (CanvasObject canvasObject in canvasObjects)
+                NormalizeGeometryForCanvasDatabase(canvasObject.Shape);
+
+            canvasObjects = FilterCanvasObjectsForCanvasDatabaseCompatibility(canvasObjects, importWarnings);
 
             await context.CanvasObjects.AddRangeAsync(canvasObjects, ct);
             foreach (CanvasLayer layer in targetLayers.Values)
@@ -1542,6 +1576,63 @@ namespace Land_Readjustment_Tool.Services.Import
             return accepted;
         }
 
+        private static List<ExternalRawObject> FilterObjectsForCanvasDatabaseCompatibility(
+            IReadOnlyList<ExternalRawObject> objects,
+            List<string> warnings)
+        {
+            List<ExternalRawObject> accepted = [];
+            Dictionary<string, int> skippedByLayer = new(StringComparer.OrdinalIgnoreCase);
+
+            foreach (ExternalRawObject item in objects)
+            {
+                NormalizeGeometryForCanvasDatabase(item.Geometry);
+                if (IsCanvasDatabaseCompatibleGeometry(item.Geometry))
+                {
+                    accepted.Add(item);
+                    continue;
+                }
+
+                skippedByLayer[item.SourceLayer] = skippedByLayer.GetValueOrDefault(item.SourceLayer) + 1;
+            }
+
+            foreach (KeyValuePair<string, int> entry in skippedByLayer)
+            {
+                warnings.Add(
+                    $"'{entry.Key}': skipped {entry.Value} object(s) because the geometry cannot be stored on the canvas.");
+            }
+
+            return accepted;
+        }
+
+        private static List<CanvasObject> FilterCanvasObjectsForCanvasDatabaseCompatibility(
+            IReadOnlyList<CanvasObject> objects,
+            List<string> warnings)
+        {
+            List<CanvasObject> accepted = [];
+            Dictionary<string, int> skippedByLayer = new(StringComparer.OrdinalIgnoreCase);
+
+            foreach (CanvasObject item in objects)
+            {
+                NormalizeGeometryForCanvasDatabase(item.Shape);
+                if (IsCanvasDatabaseCompatibleGeometry(item.Shape))
+                {
+                    accepted.Add(item);
+                    continue;
+                }
+
+                string layerName = item.CanvasLayer?.Name ?? item.CanvasLayerId.ToString();
+                skippedByLayer[layerName] = skippedByLayer.GetValueOrDefault(layerName) + 1;
+            }
+
+            foreach (KeyValuePair<string, int> entry in skippedByLayer)
+            {
+                warnings.Add(
+                    $"{entry.Key}: skipped {entry.Value} object(s) because the geometry cannot be stored on the canvas.");
+            }
+
+            return accepted;
+        }
+
         private static bool IsLineTargetLayerType(string layerType)
         {
             return string.Equals(layerType, "RoadCenterline", StringComparison.OrdinalIgnoreCase) ||
@@ -1577,6 +1668,7 @@ namespace Land_Readjustment_Tool.Services.Import
             AppDbContext context,
             List<CanvasObject> incomingObjects,
             Func<int, ImportDuplicateGeometryChoice>? resolveDuplicateGeometries,
+            IReadOnlySet<int> replacedTargetLayerIds,
             CancellationToken ct)
         {
             // 1) Remove duplicates within the incoming batch (keep the first per layer + geometry).
@@ -1604,6 +1696,12 @@ namespace Land_Readjustment_Tool.Services.Import
             List<(CanvasObject Incoming, CanvasObject Existing)> conflicts = [];
             foreach (KeyValuePair<int, List<CanvasObject>> entry in acceptedByLayer)
             {
+                if (replacedTargetLayerIds.Contains(entry.Key))
+                {
+                    nonConflicting.AddRange(entry.Value);
+                    continue;
+                }
+
                 List<CanvasObject> existingObjects = await context.CanvasObjects
                     .Where(item => item.CanvasLayerId == entry.Key)
                     .ToListAsync(ct);
@@ -1656,6 +1754,7 @@ namespace Land_Readjustment_Tool.Services.Import
             AppDbContext context,
             List<CanvasObject> incomingObjects,
             Func<int, ImportDuplicateGeometryChoice>? resolveProjectBoundaryConflict,
+            IReadOnlySet<int> replacedTargetLayerIds,
             CancellationToken ct)
         {
             List<CanvasObject> projectBoundaryObjects = incomingObjects
@@ -1678,6 +1777,7 @@ namespace Land_Readjustment_Tool.Services.Import
                 .Include(item => item.CanvasLayer)
                 .Where(item =>
                     item.CanvasLayer != null &&
+                    !replacedTargetLayerIds.Contains(item.CanvasLayerId) &&
                     (item.CanvasLayer.Name == "Project Boundary" ||
                      item.CanvasLayer.LayerType == "ProjectBoundary"))
                 .ToListAsync(ct);
@@ -2003,9 +2103,41 @@ namespace Land_Readjustment_Tool.Services.Import
 
         private static void NormalizeGeometryForCanvasDatabase(NtsGeometry geometry)
         {
+            if (geometry == null)
+                return;
+
             geometry.SRID = 0;
-            for (int index = 0; index < geometry.NumGeometries; index++)
-                geometry.GetGeometryN(index).SRID = 0;
+            if (geometry is GeometryCollection collection)
+            {
+                for (int index = 0; index < collection.NumGeometries; index++)
+                    NormalizeGeometryForCanvasDatabase(collection.GetGeometryN(index));
+            }
+        }
+
+        private static bool IsCanvasDatabaseCompatibleGeometry(NtsGeometry? geometry)
+        {
+            if (geometry == null || geometry.IsEmpty || geometry.SRID != 0)
+                return false;
+
+            if (geometry is GeometryCollection collection)
+            {
+                for (int index = 0; index < collection.NumGeometries; index++)
+                {
+                    if (!IsCanvasDatabaseCompatibleGeometry(collection.GetGeometryN(index)))
+                        return false;
+                }
+            }
+
+            return geometry switch
+            {
+                NtsPoint point => !point.IsEmpty,
+                MultiPoint multiPoint => multiPoint.NumGeometries > 0,
+                LineString line => line.NumPoints >= 2,
+                MultiLineString multiLine => multiLine.NumGeometries > 0,
+                Polygon polygon => polygon.Area > 0.000001,
+                MultiPolygon multiPolygon => multiPolygon.NumGeometries > 0,
+                _ => false
+            };
         }
 
         private sealed class CoordinateTransformFilter : ICoordinateSequenceFilter

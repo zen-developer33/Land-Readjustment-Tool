@@ -39,6 +39,7 @@ namespace Land_Readjustment_Tool.Forms.LandOwnersRecord_Managerment
 
         private double _maxAreaSqm;
         private bool _isUpdatingControls;
+        private readonly bool _readOnlyMode;
 
         private readonly FilterCriteria _appliedFilter = new();
         private readonly SearchCriteria _appliedSearch = new();
@@ -53,12 +54,23 @@ namespace Land_Readjustment_Tool.Forms.LandOwnersRecord_Managerment
         }
 
         public frmLandParcelOwnersRecord(LandRecordsService landRecordsService, string projectPath)
+            : this(landRecordsService, projectPath, readOnlyMode: false)
+        {
+        }
+
+        public frmLandParcelOwnersRecord(
+            LandRecordsService landRecordsService,
+            string projectPath,
+            bool readOnlyMode)
         {
             InitializeComponent();
             _landRecordsService = landRecordsService ?? throw new ArgumentNullException(nameof(landRecordsService));
             _projectPath = projectPath ?? throw new ArgumentNullException(nameof(projectPath));
+            _readOnlyMode = readOnlyMode;
             _traditionalAreaUnit = _landRecordsService.GetTraditionalAreaUnit();
-            Text = "Original Land Parcel Records";
+            Text = _readOnlyMode
+                ? "Original Land Parcel Records (Read-Only)"
+                : "Original Land Parcel Records";
 
             InitializeTraditionalAreaFilterGroups();
             SetupEventHandlers();
@@ -68,6 +80,7 @@ namespace Land_Readjustment_Tool.Forms.LandOwnersRecord_Managerment
             ApplyTraditionalAreaFilterGroupVisibility();
             UpdateAreaFilterPlaceholders();
             UpdateApplyButtonStates();
+            ApplyReadOnlyMode();
         }
 
         #endregion
@@ -1165,6 +1178,9 @@ namespace Land_Readjustment_Tool.Forms.LandOwnersRecord_Managerment
 
         private void BtnAdd_Click(object? sender, EventArgs e)
         {
+            if (_readOnlyMode)
+                return;
+
             using var addForm = new frmAddEditRecord(_landRecordsService.ParcelExists, ownerFieldsReadOnly: true);
             if (addForm.ShowDialog() == DialogResult.OK)
             {
@@ -1209,8 +1225,12 @@ namespace Land_Readjustment_Tool.Forms.LandOwnersRecord_Managerment
             var record = ConvertToEditableRecord(parcel);
 
             using var editForm = new frmAddEditRecord(record, model.ParcelId, _landRecordsService.ParcelExists, ownerFieldsReadOnly: true);
+            editForm.ReadOnlyMode = _readOnlyMode;
             if (editForm.ShowDialog() == DialogResult.OK)
             {
+                if (_readOnlyMode)
+                    return;
+
                 try
                 {
                     if (editForm.IsDeleted)
@@ -1246,6 +1266,9 @@ namespace Land_Readjustment_Tool.Forms.LandOwnersRecord_Managerment
 
         private void BtnDelete_Click(object? sender, EventArgs e)
         {
+            if (_readOnlyMode)
+                return;
+
             if (dgvRecords.SelectedRows.Count == 0) return;
 
             var result = MessageBox.Show(
@@ -1315,12 +1338,15 @@ namespace Land_Readjustment_Tool.Forms.LandOwnersRecord_Managerment
                 allowEditInReadOnly: false);
             detailsForm.ShowDialog();
 
-            // Refresh after details form closes in case changes were made
-            LoadAllRecords();
-            PopulateFilterDropdowns();
-            CaptureFilterCriteriaFromControls();
-            CaptureSearchCriteriaFromControls();
-            ApplyFilters();
+            if (!_readOnlyMode)
+            {
+                // Refresh after details form closes in case changes were made
+                LoadAllRecords();
+                PopulateFilterDropdowns();
+                CaptureFilterCriteriaFromControls();
+                CaptureSearchCriteriaFromControls();
+                ApplyFilters();
+            }
         }
 
         #endregion
@@ -1512,8 +1538,20 @@ namespace Land_Readjustment_Tool.Forms.LandOwnersRecord_Managerment
         {
             bool hasSelection = dgvRecords.SelectedRows.Count == 1;
             btnEdit.Enabled = hasSelection;
-            btnDelete.Enabled = hasSelection;
+            btnDelete.Enabled = hasSelection && !_readOnlyMode;
             toolStripButton1.Enabled = hasSelection;
+            btnAdd.Enabled = !_readOnlyMode;
+            saveToolStripButton.Enabled = !_readOnlyMode;
+        }
+
+        private void ApplyReadOnlyMode()
+        {
+            btnAdd.Enabled = !_readOnlyMode;
+            btnDelete.Enabled = false;
+            saveToolStripButton.Enabled = !_readOnlyMode;
+            btnEdit.Text = _readOnlyMode ? "View" : "Edit";
+            btnEdit.ToolTipText = _readOnlyMode ? "View Record" : "Edit Record";
+            dgvRecords.ReadOnly = true;
         }
 
         private void UpdateStatusLabels()

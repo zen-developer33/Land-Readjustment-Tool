@@ -15,6 +15,7 @@ using Land_Readjustment_Tool.Services.Canvas;
 using Land_Readjustment_Tool.Services.Import;
 using Land_Readjustment_Tool.Services.Project;
 using Land_Readjustment_Tool.Services.Raster;
+using Land_Readjustment_Tool.Services.Roads;
 using Land_Readjustment_Tool.UI.CustomControls;
 using Land_Readjustment_Tool.UI.Dialogs;
 using Land_Readjustment_Tool.UI.Forms;
@@ -203,8 +204,9 @@ namespace Land_Readjustment_Tool
         private readonly ToolStripMenuItem _mnuToggleLayerLock = new("Locked");
         private readonly ToolStripMenuItem _mnuToggleLayerLabels = new("Show Labels");
         private readonly ToolStripMenuItem _mnuToggleFillTransparency = new("Show Transparency");
-        private readonly ToolStripMenuItem _mnuLayerProperties = new("Layer Properties");
+        private readonly ToolStripMenuItem _mnuLayerProperties = new("Layer Properties...");
         private readonly ToolStripMenuItem _mnuCreateFeaturesFromLayer = new("Create Features from Layer...");
+        private readonly ToolStripMenuItem _mnuGenerateRoadParcel = new("Generate Road Parcel...");
         private readonly ToolStripMenuItem _mnuToggleLayerGroupLock = new("Locked");
         private readonly ToolStripMenuItem _mnuToggleLayerGroupSelection = new("Allow Selection");
         private readonly ToolStripMenuItem _mnuDeleteLayerGroup = new("Delete");
@@ -237,8 +239,16 @@ namespace Land_Readjustment_Tool
         private MapCanvasTool _currentCanvasTool = MapCanvasTool.Select;
         private bool _isApplicationEditLocked;
         private const string ApplicationEditLockName = "Edit Lock";
-        private readonly Image _projectEditLockIcon = CreateProjectEditLockIcon(locked: true);
-        private readonly Image _projectEditUnlockIcon = CreateProjectEditLockIcon(locked: false);
+        private static readonly string ProjectEditLockIconPath =
+    @"C:\Users\CYBORG\source\repos\zen-developer33\Land-Readjustment-Tool\LandRe-Adjustment Tool\Resources\For RePlot Application\icons8-lock-26.png";
+
+        private static readonly string ProjectEditUnlockIconPath =
+            @"C:\Users\CYBORG\source\repos\zen-developer33\Land-Readjustment-Tool\LandRe-Adjustment Tool\Resources\For RePlot Application\icons8-padlock-26.png";
+
+        private readonly Image _projectEditLockIcon = Image.FromFile(ProjectEditLockIconPath);
+        private readonly Image _projectEditUnlockIcon = Image.FromFile(ProjectEditUnlockIconPath);
+        private const float MapScreenshotExportScale = 2.0f;
+        private const long MapScreenshotJpegQuality = 100L;
 
         private sealed class LayerTreeNodeState
         {
@@ -442,6 +452,10 @@ namespace Land_Readjustment_Tool
             mnuImportExternalLayers.Click += async (_, _) => await ShowImportExternalLayersWorkflowAsync();
             originalScenarioSummaryToolStripMenuItem.Click += OriginalScenarioSummaryToolStripMenuItem_Click;
             btnOriginalScenarioSummary.Click += OriginalScenarioSummaryToolStripMenuItem_Click;
+            mapRefreshLayersToolStripMenuItem.Click -= PlannedFeatureToolStripMenuItem_Click;
+            mapRefreshLayersToolStripMenuItem.Click += mapRefreshLayersToolStripMenuItem_Click;
+            mapLayerPropertiesToolStripMenuItem.Click -= PlannedFeatureToolStripMenuItem_Click;
+            mapLayerPropertiesToolStripMenuItem.Click += mapLayerPropertiesToolStripMenuItem_Click;
 
         }
 
@@ -451,9 +465,6 @@ namespace Land_Readjustment_Tool
 
             _projectScopedProfessionalMenuItems.AddRange(new ToolStripItem[]
             {
-                mnuProjectCoordinateSystemUnits,
-                mnuProjectLayerStandards,
-                mnuProjectParcelNumberingRules,
                 mnuProjectHealthCheck,
                 mnuProjectLog,
                 dataQualityToolStripMenuItem,
@@ -475,6 +486,7 @@ namespace Land_Readjustment_Tool
                 mapZoomOutToolStripMenuItem,
                 mapZoomExtentsToolStripMenuItem,
                 mapZoomWindowToolStripMenuItem,
+                mapCaptureScreenshotToolStripMenuItem,
                 mapRefreshLayersToolStripMenuItem,
                 mapLayerPropertiesToolStripMenuItem,
                 contributionSettingsToolStripMenuItem,
@@ -526,9 +538,9 @@ namespace Land_Readjustment_Tool
             btnApplicationEditLock.AccessibleName = ApplicationEditLockName;
 
             mnuApplicationEditLock.CheckOnClick = false;
-            mnuApplicationEditLock.DisplayStyle = ToolStripItemDisplayStyle.Image;
+            mnuApplicationEditLock.DisplayStyle = ToolStripItemDisplayStyle.ImageAndText;
             mnuApplicationEditLock.ImageScaling = ToolStripItemImageScaling.SizeToFit;
-            mnuApplicationEditLock.Text = string.Empty;
+            mnuApplicationEditLock.Text = "Lock Edit";
             mnuApplicationEditLock.AccessibleName = ApplicationEditLockName;
 
             UpdateApplicationEditLockUi(forceNoProject: true);
@@ -547,6 +559,37 @@ namespace Land_Readjustment_Tool
         private void mapPanToolStripMenuItem_Click(object? sender, EventArgs e)
         {
             mnuPan.PerformClick();
+        }
+
+        private async void mapRefreshLayersToolStripMenuItem_Click(object? sender, EventArgs e)
+        {
+            if (!AppServices.HasContext)
+                return;
+
+            await RefreshMapCanvasAsync("Refreshing layer list");
+        }
+
+        private async void mapLayerPropertiesToolStripMenuItem_Click(object? sender, EventArgs e)
+        {
+            if (!AppServices.HasContext)
+                return;
+
+            TreeNode? layerNode = IsLayerNode(treeViewLayers.SelectedNode)
+                ? treeViewLayers.SelectedNode
+                : null;
+
+            if (layerNode == null)
+            {
+                MessageBox.Show(
+                    this,
+                    "Select a layer in the Layers panel before opening layer properties.",
+                    "Layer Properties",
+                    MessageBoxButtons.OK,
+                    MessageBoxIcon.Information);
+                return;
+            }
+
+            await OpenLayerPropertyManagerAsync(layerNode);
         }
 
         private void toggleLayerPanelToolStripMenuItem_Click(object? sender, EventArgs e)
@@ -727,24 +770,30 @@ namespace Land_Readjustment_Tool
             bool hasProject = !forceNoProject && AppServices.HasContext;
             btnApplicationEditLock.Enabled = hasProject;
             mnuApplicationEditLock.Enabled = hasProject;
-            btnApplicationEditLock.Checked = hasProject && _isApplicationEditLocked;
-            mnuApplicationEditLock.Checked = hasProject && _isApplicationEditLocked;
-            Image icon = _isApplicationEditLocked ? _projectEditUnlockIcon : _projectEditLockIcon;
+            btnApplicationEditLock.Checked = false;
+            mnuApplicationEditLock.Checked = false;
+            Image icon = _isApplicationEditLocked ? _projectEditLockIcon : _projectEditUnlockIcon;
             btnApplicationEditLock.Image = icon;
             mnuApplicationEditLock.Image = icon;
             btnApplicationEditLock.Text = string.Empty;
-            mnuApplicationEditLock.Text = string.Empty;
+            mnuApplicationEditLock.Text = _isApplicationEditLocked
+                ? "Unlock Edit"
+                : "Lock Edit";
             btnApplicationEditLock.ToolTipText = _isApplicationEditLocked
-                ? "Unlock canvas objects, canvas layers, layer properties, and feature creation"
-                : "Lock canvas objects, canvas layers, layer properties, and feature creation. Records remain viewable.";
+                ? "Unlock Edit"
+                : "Lock Edit";
             mnuApplicationEditLock.ToolTipText = btnApplicationEditLock.ToolTipText;
 
             bool canEdit = hasProject && !_isApplicationEditLocked;
             importDataToolStripMenuItem1.Enabled = hasProject;
-            assignToolStripMenuItem.Enabled = canEdit;
-            assignmentToolStripMenuItem.Enabled = canEdit;
+            assignToolStripMenuItem.Enabled = hasProject;
+            assignmentToolStripMenuItem.Enabled = hasProject;
             viewEditRecordToolStripMenuItem.Enabled = hasProject;
             landOwnerDataToolStripMenuItem.Enabled = hasProject;
+            dataQualityToolStripMenuItem.Enabled = hasProject;
+            ownerDeduplicationReviewToolStripMenuItem.Enabled = hasProject;
+            parcelLinkMatchingReviewToolStripMenuItem.Enabled = hasProject;
+            missingGeometryReviewToolStripMenuItem.Enabled = hasProject;
             SetDrawingToolButtonsEnabled(hasProject);
             SetCanvasEditToolButtonsEnabled(canEdit);
             cboCurrentDrawingLayer.Enabled = canEdit;
@@ -2182,6 +2231,9 @@ namespace Land_Readjustment_Tool
                 return;
             }
 
+            if (!EnsureApplicationUnlockedForEditing("importing parcel ownership records"))
+                return;
+
             var persistenceService = _projectScopedFactory.CreateImportPersistenceService(
                 AppServices.Context.Session);
             using var frm = new frmImportParcelOwnershipRecords(
@@ -2215,7 +2267,8 @@ namespace Land_Readjustment_Tool
                 AppServices.Context.ProjectFilePath);
             using var frm = new frmLandOwnersRecord(
                 landRecordsService,
-                AppServices.Context.ProjectFilePath);
+                AppServices.Context.ProjectFilePath,
+                readOnlyMode: _isApplicationEditLocked);
             frm.ShowDialog(this);
         }
 
@@ -2280,7 +2333,10 @@ namespace Land_Readjustment_Tool
                     return;
                 }
 
-                using var form = new frmReviewDuplicates(result, recordSet.Records);
+                using var form = new frmReviewDuplicates(
+                    result,
+                    recordSet.Records,
+                    readOnlyMode: _isApplicationEditLocked);
                 if (form.ShowDialog(this) != DialogResult.OK || !form.ChangesWereMade)
                     return;
 
@@ -2331,7 +2387,8 @@ namespace Land_Readjustment_Tool
             bool openParcelLinkReview = false;
             bool geometryLinksChanged = false;
             using var form = new frmMissingGeometryReview(
-                new DataQualityReviewService(AppServices.Context.Session));
+                new DataQualityReviewService(AppServices.Context.Session),
+                readOnlyMode: _isApplicationEditLocked);
             form.OpenParcelLinkReviewRequested += () =>
             {
                 openParcelLinkReview = true;
@@ -2450,6 +2507,17 @@ namespace Land_Readjustment_Tool
                 if (importForm.ShowDialog(this) != DialogResult.OK)
                     return;
 
+                ExternalLayerImportOptions importOptions = importForm.ImportOptions;
+                bool? replaceExistingTargetObjects =
+                    await ResolveBlockLayoutTargetReplacementAsync(importOptions);
+                if (!replaceExistingTargetObjects.HasValue)
+                    return;
+
+                importOptions = importOptions with
+                {
+                    ReplaceExistingTargetLayerObjects = replaceExistingTargetObjects.Value
+                };
+
                 DialogResult autoDefineChoice = MessageBox.Show(
                     this,
                     "Auto-define roads and blocks from imported layers?",
@@ -2471,8 +2539,13 @@ namespace Land_Readjustment_Tool
                         MessageBoxIcon.Question) == DialogResult.Yes;
                 }
 
+                if (replaceExistingTargetObjects.Value)
+                {
+                    SetOperationProgress(25, "Replacing existing block layout objects...", showProgressForm: false);
+                    await ClearExistingBlockLayoutTargetObjectsAsync(importOptions);
+                }
+
                 SetOperationProgress(30, "Importing block layout plan...", showProgressForm: false);
-                ExternalLayerImportOptions importOptions = importForm.ImportOptions;
                 ExternalLayerImportResult result =
                     await _externalLayerImportService.ImportAsync(
                         AppServices.Context.Session,
@@ -2492,6 +2565,7 @@ namespace Land_Readjustment_Tool
                     return;
                 }
 
+                List<string> importWarnings = result.Warnings?.ToList() ?? [];
                 BlockLayoutPlanAutoDefinitionResult? autoDefinitionResult = null;
                 if (autoDefineLayoutData)
                 {
@@ -2501,6 +2575,34 @@ namespace Land_Readjustment_Tool
                         result.ImportedObjectIds ?? [],
                         importOptions.BlockLabelLayerName,
                         replaceMatchingRoadDefinitions);
+                }
+
+                DialogResult generateRoadParcelChoice = MessageBox.Show(
+                    this,
+                    "Generate Road Parcel now?",
+                    "Block Layout Plan Import",
+                    MessageBoxButtons.YesNo,
+                    MessageBoxIcon.Question);
+                if (generateRoadParcelChoice == DialogResult.Yes)
+                {
+                    try
+                    {
+                        SetOperationProgress(84, "Generating road parcel...", showProgressForm: false);
+                        BlockRoadParcelRefreshResult roadParcelRefresh =
+                            await RefreshGeneratedRoadParcelAsync(AppServices.Context.Session.GetDbContext());
+                        if (!roadParcelRefresh.Created &&
+                            !string.IsNullOrWhiteSpace(roadParcelRefresh.SkippedReason))
+                        {
+                            importWarnings.Add(
+                                $"Road Parcel was not generated: {roadParcelRefresh.SkippedReason}");
+                        }
+                    }
+                    catch (Exception ex)
+                    {
+                        LogProjectError("Road parcel generation failed after block layout import.", ex);
+                        importWarnings.Add(
+                            $"Road Parcel was not generated: {GetMostUsefulExceptionMessage(ex)}");
+                    }
                 }
 
                 MarkProjectModifiedIfOpen();
@@ -2517,13 +2619,13 @@ namespace Land_Readjustment_Tool
                 SetCanvasCommandStatus(
                     $"Imported {result.ObjectsCreated} block layout object(s) into {result.LayersCreated} layer(s).{autoStatus}");
 
-                if (result.Warnings is { Count: > 0 })
+                if (importWarnings.Count > 0)
                 {
                     MessageBox.Show(
                         this,
                         $"Imported {result.ObjectsCreated} object(s) into {result.LayersCreated} layer(s).\r\n\r\n" +
                         "Some import decisions need your attention:\r\n\r\n" +
-                        string.Join("\r\n", result.Warnings),
+                        string.Join("\r\n", importWarnings),
                         "Block Layout Plan Import",
                         MessageBoxButtons.OK,
                         MessageBoxIcon.Information);
@@ -2587,6 +2689,97 @@ namespace Land_Readjustment_Tool
             }
 
             return choices;
+        }
+
+        private async Task<bool?> ResolveBlockLayoutTargetReplacementAsync(
+            ExternalLayerImportOptions importOptions)
+        {
+            if (!AppServices.HasContext)
+                return false;
+
+            string[] targetLayerNames = importOptions.Layers
+                .Where(option => option.Include &&
+                                 !string.IsNullOrWhiteSpace(option.TargetLayerName))
+                .Select(option => option.TargetLayerName!.Trim())
+                .Distinct(StringComparer.OrdinalIgnoreCase)
+                .ToArray();
+            if (targetLayerNames.Length == 0)
+                return false;
+
+            AppDbContext context = AppServices.Context.Session.GetDbContext();
+            List<CanvasLayer> targetLayers = (await context.CanvasLayers
+                    .AsNoTracking()
+                    .ToListAsync())
+                .Where(layer => targetLayerNames.Contains(layer.Name, StringComparer.OrdinalIgnoreCase))
+                .ToList();
+            if (targetLayers.Count == 0)
+                return false;
+
+            int[] targetLayerIds = targetLayers
+                .Select(layer => layer.Id)
+                .ToArray();
+            int existingObjectCount = await context.CanvasObjects
+                .AsNoTracking()
+                .CountAsync(item => targetLayerIds.Contains(item.CanvasLayerId));
+            if (existingObjectCount == 0)
+                return false;
+
+            string layerList = string.Join(
+                ", ",
+                targetLayers
+                    .OrderBy(layer => layer.Name)
+                    .Select(layer => layer.Name)
+                    .Take(5));
+            if (targetLayers.Count > 5)
+                layerList += $", +{targetLayers.Count - 5:N0} more";
+
+            DialogResult choice = MessageBox.Show(
+                this,
+                $"Selected target layer(s) already contain {existingObjectCount:N0} object(s): {layerList}.\r\n\r\n" +
+                "Replace existing objects and import again?",
+                "Replace Existing Block Layout",
+                MessageBoxButtons.YesNo,
+                MessageBoxIcon.Warning,
+                MessageBoxDefaultButton.Button2);
+
+            return choice == DialogResult.Yes ? true : null;
+        }
+
+        private async Task<int> ClearExistingBlockLayoutTargetObjectsAsync(
+            ExternalLayerImportOptions importOptions)
+        {
+            if (!AppServices.HasContext)
+                return 0;
+
+            string[] targetLayerNames = importOptions.Layers
+                .Where(option => option.Include &&
+                                 !string.IsNullOrWhiteSpace(option.TargetLayerName))
+                .Select(option => option.TargetLayerName!.Trim())
+                .Distinct(StringComparer.OrdinalIgnoreCase)
+                .ToArray();
+            if (targetLayerNames.Length == 0)
+                return 0;
+
+            AppDbContext context = AppServices.Context.Session.GetDbContext();
+            List<int> targetLayerIds = (await context.CanvasLayers
+                    .AsNoTracking()
+                    .ToListAsync())
+                .Where(layer => targetLayerNames.Contains(layer.Name, StringComparer.OrdinalIgnoreCase))
+                .Select(layer => layer.Id)
+                .ToList();
+            if (targetLayerIds.Count == 0)
+                return 0;
+
+            List<CanvasObject> existingObjects = await context.CanvasObjects
+                .Where(item => targetLayerIds.Contains(item.CanvasLayerId))
+                .ToListAsync();
+            if (existingObjects.Count == 0)
+                return 0;
+
+            context.CanvasObjects.RemoveRange(existingObjects);
+            await context.SaveChangesAsync();
+            context.ChangeTracker.Clear();
+            return existingObjects.Count;
         }
 
         private async Task<string?> TryBuildBlockLayoutSourceCrsDefinitionAsync(
@@ -2994,9 +3187,6 @@ namespace Land_Readjustment_Tool
 
         private async void ProjectBoundaryAssignmentToolStripMenuItem_Click(object? sender, EventArgs e)
         {
-            if (!EnsureApplicationUnlockedForEditing("assigning project boundaries"))
-                return;
-
             if (!AppServices.HasContext)
             {
                 MessageBox.Show(
@@ -3015,7 +3205,9 @@ namespace Land_Readjustment_Tool
                     await _projectBoundaryAssignmentService.GetCandidatesAsync(
                         AppServices.Context.Session);
 
-                using frmProjectBoundaryAssignment form = new(candidates);
+                using frmProjectBoundaryAssignment form = new(
+                    candidates,
+                    readOnlyMode: _isApplicationEditLocked);
                 form.CandidatePreviewRequested += PreviewAssignmentCandidateOnCanvas;
 
                 DialogResult dialogResult = form.ShowDialog(this);
@@ -3095,9 +3287,6 @@ namespace Land_Readjustment_Tool
 
         private void CadastralRecordsAssignmentToolStripMenuItem_Click(object? sender, EventArgs e)
         {
-            if (!EnsureApplicationUnlockedForEditing("assigning cadastral records"))
-                return;
-
             ShowCadastralRecordAssignmentForm(openAutoAssignment: false);
         }
 
@@ -3105,9 +3294,6 @@ namespace Land_Readjustment_Tool
             bool openAutoAssignment,
             Guid? preferredCanvasObjectId = null)
         {
-            if (!EnsureApplicationUnlockedForEditing("assigning cadastral records"))
-                return;
-
             if (!AppServices.HasContext)
             {
                 MessageBox.Show(
@@ -3140,7 +3326,8 @@ namespace Land_Readjustment_Tool
                 AppServices.Context.Session,
                 _cadastralRecordAssignmentService,
                 openAutoAssignment,
-                preferredCanvasObjectId);
+                preferredCanvasObjectId,
+                readOnlyMode: _isApplicationEditLocked);
             _cadastralRecordAssignmentForm = form;
             form.SelectedCanvasObjectChanged += PreviewAssignmentCandidateOnCanvas;
             form.AssignmentCommitted += CadastralRecordAssignmentForm_AssignmentCommitted;
@@ -3162,31 +3349,22 @@ namespace Land_Readjustment_Tool
                 return;
             }
 
-            using frmDefineRoads form = new();
+            using frmDefineRoads form = new(readOnlyMode: _isApplicationEditLocked);
             form.ShowDialog(this);
         }
 
         private void RoadAssignmentToolStripMenuItem_Click(object? sender, EventArgs e)
         {
-            if (!EnsureApplicationUnlockedForEditing("assigning road data"))
-                return;
-
             ShowRoadCenterlineAssignmentForm();
         }
 
         private void BlockAssignmentToolStripMenuItem_Click(object? sender, EventArgs e)
         {
-            if (!EnsureApplicationUnlockedForEditing("assigning block data"))
-                return;
-
             ShowBlockAssignmentForm();
         }
 
         private void ShowRoadCenterlineAssignmentForm(Guid? preferredCanvasObjectId = null)
         {
-            if (!EnsureApplicationUnlockedForEditing("assigning road data"))
-                return;
-
             if (!AppServices.HasContext)
             {
                 MessageBox.Show(
@@ -3214,7 +3392,8 @@ namespace Land_Readjustment_Tool
             frmRoadCenterlineAssignment form = new(
                 AppServices.Context.Session,
                 _roadCenterlineAssignmentService,
-                preferredCanvasObjectId);
+                preferredCanvasObjectId,
+                readOnlyMode: _isApplicationEditLocked);
             _roadCenterlineAssignmentForm = form;
             form.SelectedCanvasObjectChanged += PreviewRoadAssignmentCandidateOnCanvas;
             form.AssignmentCommitted += RoadCenterlineAssignmentForm_AssignmentCommitted;
@@ -3226,9 +3405,6 @@ namespace Land_Readjustment_Tool
 
         private void ShowBlockAssignmentForm(Guid? preferredCanvasObjectId = null)
         {
-            if (!EnsureApplicationUnlockedForEditing("assigning block data"))
-                return;
-
             if (!AppServices.HasContext)
             {
                 MessageBox.Show(
@@ -3256,7 +3432,8 @@ namespace Land_Readjustment_Tool
             frmBlockAssignment form = new(
                 AppServices.Context.Session,
                 _blockAssignmentService,
-                preferredCanvasObjectId);
+                preferredCanvasObjectId,
+                readOnlyMode: _isApplicationEditLocked);
             _blockAssignmentForm = form;
             form.SelectedCanvasObjectChanged += PreviewBlockAssignmentCandidateOnCanvas;
             form.AssignmentCommitted += BlockAssignmentForm_AssignmentCommitted;
@@ -3288,7 +3465,7 @@ namespace Land_Readjustment_Tool
                 return;
             }
 
-            using frmDefineBlocks form = new();
+            using frmDefineBlocks form = new(readOnlyMode: _isApplicationEditLocked);
             form.ShowDialog(this);
         }
 
@@ -3385,6 +3562,7 @@ namespace Land_Readjustment_Tool
             if (form.AssignmentChanged && !_isApplicationEditLocked)
             {
                 MarkProjectModifiedIfOpen();
+                await RefreshGeneratedRoadParcelAsync(AppServices.Context.Session.GetDbContext());
                 await RefreshVectorCanvasFeaturesAsync();
                 await LoadSelectedParcelPropertiesAsync(_currentSelectedCanvasObjectIds);
                 mapCanvasControlMain.RequestRender();
@@ -3398,6 +3576,7 @@ namespace Land_Readjustment_Tool
                 return;
 
             MarkProjectModifiedIfOpen();
+            await RefreshGeneratedRoadParcelAsync(AppServices.Context.Session.GetDbContext());
             await RefreshVectorCanvasFeaturesAsync();
             await LoadSelectedParcelPropertiesAsync(_currentSelectedCanvasObjectIds);
             mapCanvasControlMain.RequestRender();
@@ -7331,7 +7510,8 @@ namespace Land_Readjustment_Tool
                 AppServices.Context.ProjectFilePath);
             using var frm = new frmLandParcelOwnersRecord(
                 landRecordsService,
-                AppServices.Context.ProjectFilePath);
+                AppServices.Context.ProjectFilePath,
+                readOnlyMode: _isApplicationEditLocked);
             frm.ShowDialog(this);
         }
 
@@ -7425,6 +7605,96 @@ namespace Land_Readjustment_Tool
         private async void mnuDrawCircle_Click(object sender, EventArgs e)
         {
             await ActivateCanvasDrawingToolAsync(MapCanvasTool.Circle);
+        }
+
+        private void mapCaptureScreenshotToolStripMenuItem_Click(object sender, EventArgs e)
+        {
+            if (mapCanvasControlMain == null || mapCanvasControlMain.IsDisposed)
+            {
+                MessageBox.Show(
+                    "The map canvas is not available.",
+                    "Capture Map Screenshot",
+                    MessageBoxButtons.OK,
+                    MessageBoxIcon.Information);
+                return;
+            }
+
+            using SaveFileDialog dialog = new()
+            {
+                AddExtension = true,
+                DefaultExt = "png",
+                FileName = $"RePlot_Map_{DateTime.Now:yyyyMMdd_HHmmss}.png",
+                Filter = "PNG image (*.png)|*.png|JPEG image (*.jpg)|*.jpg|Bitmap image (*.bmp)|*.bmp",
+                FilterIndex = 1,
+                InitialDirectory = AppServices.HasContext
+                    ? AppServices.Context.ProjectFolderPath
+                    : Environment.GetFolderPath(Environment.SpecialFolder.MyPictures),
+                OverwritePrompt = true,
+                RestoreDirectory = true,
+                Title = "Capture Map Screenshot"
+            };
+
+            if (dialog.ShowDialog(this) != DialogResult.OK)
+            {
+                return;
+            }
+
+            try
+            {
+                using Bitmap screenshot = mapCanvasControlMain.CaptureCurrentImage(MapScreenshotExportScale);
+                SaveMapScreenshot(screenshot, dialog.FileName);
+                SetCanvasCommandStatus(
+                    $"Map screenshot saved: {Path.GetFileName(dialog.FileName)} ({screenshot.Width} x {screenshot.Height})");
+            }
+            catch (Exception ex)
+            {
+                MessageBox.Show(
+                    $"Failed to capture the map screenshot:\n{ex.Message}",
+                    "Capture Map Screenshot",
+                    MessageBoxButtons.OK,
+                    MessageBoxIcon.Error);
+            }
+        }
+
+        private static void SaveMapScreenshot(Bitmap screenshot, string filePath)
+        {
+            string extension = Path.GetExtension(filePath).ToLowerInvariant();
+            if (extension is ".jpg" or ".jpeg")
+            {
+                SaveJpegMapScreenshot(screenshot, filePath, MapScreenshotJpegQuality);
+                return;
+            }
+
+            if (extension == ".bmp")
+            {
+                screenshot.Save(filePath, ImageFormat.Bmp);
+                return;
+            }
+
+            screenshot.Save(filePath, ImageFormat.Png);
+        }
+
+        private static void SaveJpegMapScreenshot(Bitmap screenshot, string filePath, long quality)
+        {
+            ImageCodecInfo? jpegCodec = ImageCodecInfo
+                .GetImageEncoders()
+                .FirstOrDefault(codec => string.Equals(
+                    codec.MimeType,
+                    "image/jpeg",
+                    StringComparison.OrdinalIgnoreCase));
+
+            if (jpegCodec == null)
+            {
+                screenshot.Save(filePath, ImageFormat.Jpeg);
+                return;
+            }
+
+            using EncoderParameters parameters = new(1);
+            parameters.Param[0] = new EncoderParameter(
+                System.Drawing.Imaging.Encoder.Quality,
+                quality);
+
+            screenshot.Save(filePath, jpegCodec, parameters);
         }
 
         private void mnuCanvasDebugOverlay_Click(object sender, EventArgs e)
@@ -8248,6 +8518,7 @@ namespace Land_Readjustment_Tool
             _mnuToggleLayerLabels.Click += async (_, _) => await ToggleLayerLabelsAsync(_contextLayerNode);
             _mnuToggleFillTransparency.Click += async (_, _) => await ToggleLayerFillTransparencyAsync(_contextLayerNode);
             _mnuLayerProperties.Click += async (_, _) => await OpenLayerPropertyManagerAsync(_contextLayerNode);
+            _mnuGenerateRoadParcel.Click += async (_, _) => await GenerateRoadParcelFromLayerContextAsync();
             treeViewLayers.ContextMenuStrip = _layerContextMenu;
         }
 
@@ -8904,6 +9175,13 @@ namespace Land_Readjustment_Tool
             _mnuToggleFillTransparency.Enabled = canEditLayerDefinition && CanLayerUseFillTransparency(layer);
             _mnuLayerProperties.Enabled = canEditLayerDefinition;
             ConfigureCreateFeaturesFromLayerMenu(_contextLayerNode, layer);
+
+            if (BlockRoadParcelRefreshService.IsRoadParcelLayer(layer))
+            {
+                _mnuGenerateRoadParcel.Enabled = canEditLayerDefinition;
+                _layerContextMenu.Items.Insert(2, _mnuGenerateRoadParcel);
+                _layerContextMenu.Items.Insert(3, new ToolStripSeparator());
+            }
         }
 
         private static Color BlendColor(Color source, Color target, float targetWeight)
@@ -9887,6 +10165,12 @@ namespace Land_Readjustment_Tool
             }
 
             await context.SaveChangesAsync();
+            if (ShouldRefreshGeneratedRoadParcel(createdObjects) ||
+                ShouldRefreshGeneratedRoadParcel(deletedObjectSnapshots))
+            {
+                await RefreshGeneratedRoadParcelAsync(context);
+            }
+
             MarkProjectModifiedIfOpen();
             if (!keepSourceObjects.Value)
             {
@@ -9938,6 +10222,115 @@ namespace Land_Readjustment_Tool
 
             context.Attach(layer);
             return layer;
+        }
+
+        private async Task<BlockRoadParcelRefreshResult> RefreshGeneratedRoadParcelAsync(
+            AppDbContext context)
+        {
+            return await new BlockRoadParcelRefreshService().RefreshAsync(context);
+        }
+
+        private async Task GenerateRoadParcelFromLayerContextAsync()
+        {
+            if (!EnsureApplicationUnlockedForEditing("generating road parcel"))
+                return;
+
+            CanvasLayer? layer = GetLayerFromNode(_contextLayerNode);
+            if (layer == null || !BlockRoadParcelRefreshService.IsRoadParcelLayer(layer))
+                return;
+
+            DialogResult choice = MessageBox.Show(
+                this,
+                "Generate Road Parcel from Project Boundary and layout area layers?",
+                "Generate Road Parcel",
+                MessageBoxButtons.YesNo,
+                MessageBoxIcon.Question);
+            if (choice != DialogResult.Yes)
+                return;
+
+            try
+            {
+                SetOperationProgress(40, "Generating road parcel...", showProgressForm: false);
+                BlockRoadParcelRefreshResult result =
+                    await RefreshGeneratedRoadParcelAsync(AppServices.Context.Session.GetDbContext());
+
+                if (!result.Created)
+                {
+                    MessageBox.Show(
+                        this,
+                        result.SkippedReason ?? "Road Parcel could not be generated.",
+                        "Generate Road Parcel",
+                        MessageBoxButtons.OK,
+                        MessageBoxIcon.Information);
+                    return;
+                }
+
+                MarkProjectModifiedIfOpen();
+                await RefreshLayerTreeAsync();
+                await RefreshVectorCanvasFeaturesAsync();
+                SetCanvasCommandStatus(
+                    $"Generated {result.CreatedObjects:N0} road parcel object(s).");
+            }
+            catch (Exception ex)
+            {
+                LogProjectError("Road parcel generation failed.", ex);
+                MessageBox.Show(
+                    this,
+                    $"Failed to generate Road Parcel: {GetMostUsefulExceptionMessage(ex)}",
+                    "Generate Road Parcel",
+                    MessageBoxButtons.OK,
+                    MessageBoxIcon.Error);
+            }
+            finally
+            {
+                HideOperationProgress();
+            }
+        }
+
+        private static bool ShouldRefreshGeneratedRoadParcel(
+            IEnumerable<CanvasObject> canvasObjects)
+        {
+            return canvasObjects.Any(BlockRoadParcelRefreshService.AffectsGeneratedRoadParcel);
+        }
+
+        private static bool IsGeneratedRoadParcelDependencyLayer(CanvasLayer layer)
+        {
+            return BlockRoadParcelRefreshService.IsRoadParcelDependencyLayer(layer);
+        }
+
+        private async Task<bool> CanvasObjectSnapshotsAffectGeneratedRoadParcelAsync(
+            AppDbContext context,
+            IReadOnlyList<CanvasObject> snapshots)
+        {
+            if (snapshots.Count == 0)
+                return false;
+
+            int[] layerIds = snapshots
+                .Select(item => item.CanvasLayerId)
+                .Distinct()
+                .ToArray();
+            if (layerIds.Length == 0)
+                return false;
+
+            List<CanvasLayer> layers = await context.CanvasLayers
+                .Where(item => layerIds.Contains(item.Id))
+                .ToListAsync();
+            return layers.Any(IsGeneratedRoadParcelDependencyLayer);
+        }
+
+        private async Task<bool> CanvasObjectIdsAffectGeneratedRoadParcelAsync(
+            AppDbContext context,
+            IReadOnlyList<Guid> canvasObjectIds)
+        {
+            if (canvasObjectIds.Count == 0)
+                return false;
+
+            List<CanvasObject> canvasObjects = await context.CanvasObjects
+                .Include(item => item.CanvasLayer)
+                .Where(item => canvasObjectIds.Contains(item.Id))
+                .ToListAsync();
+
+            return canvasObjects.Any(BlockRoadParcelRefreshService.AffectsGeneratedRoadParcel);
         }
 
         private static int KeepSingleProjectBoundaryCandidate(List<CanvasObject> createdObjects)
@@ -12374,6 +12767,11 @@ namespace Land_Readjustment_Tool
 
             await context.SaveChangesAsync();
             await RestoreCanvasBackLinksAsync(context, snapshots);
+            if (await CanvasObjectSnapshotsAffectGeneratedRoadParcelAsync(context, snapshots))
+            {
+                await RefreshGeneratedRoadParcelAsync(context);
+            }
+
             MarkProjectModifiedIfOpen();
             await RefreshVectorCanvasFeaturesAsync();
         }
@@ -12391,10 +12789,18 @@ namespace Land_Readjustment_Tool
 
             CanvasFeatureService featureService =
                 _projectScopedFactory.CreateCanvasFeatureService(AppServices.Context.Session);
+            AppDbContext context = AppServices.Context.Session.GetDbContext();
+            bool shouldRefreshRoadParcel =
+                await CanvasObjectIdsAffectGeneratedRoadParcelAsync(context, canvasObjectIds);
 
             foreach (Guid canvasObjectId in canvasObjectIds.Distinct())
             {
                 await featureService.DeleteShapeAsync(canvasObjectId);
+            }
+
+            if (shouldRefreshRoadParcel)
+            {
+                await RefreshGeneratedRoadParcelAsync(context);
             }
 
             mapCanvasControlMain.ClearSelectionAfterDelete();
@@ -12605,6 +13011,12 @@ namespace Land_Readjustment_Tool
                 CanvasFeature feature = await featureService.SaveShapeAsync(
                     shape,
                     shape.LayerName);
+                AppDbContext context = AppServices.Context.Session.GetDbContext();
+                if (BlockRoadParcelRefreshService.AffectsGeneratedRoadParcel(feature.CanvasObject))
+                {
+                    await RefreshGeneratedRoadParcelAsync(context);
+                }
+
                 MarkProjectModifiedIfOpen();
                 await RefreshVectorCanvasFeaturesAsync();
                 RegisterCanvasUndoCommand(
@@ -12650,7 +13062,9 @@ namespace Land_Readjustment_Tool
 
                 if (existingObject.CanvasLayer?.IsLocked == true ||
                     (existingObject.CanvasLayer != null &&
-                     !CanvasLayerTreeService.IsDrawingMarkupLayer(existingObject.CanvasLayer)))
+                     !CanvasLayerTreeService.IsDrawingMarkupLayer(existingObject.CanvasLayer) &&
+                     !CanvasLayerTreeService.IsProjectBoundaryLayer(existingObject.CanvasLayer) &&
+                     !BlockRoadParcelRefreshService.IsBlockLayer(existingObject.CanvasLayer)))
                 {
                     SetCanvasCommandStatus("Grip edit ignored because the object layer is not editable");
                     await RefreshVectorCanvasFeaturesAsync();
@@ -12671,6 +13085,11 @@ namespace Land_Readjustment_Tool
                     shape.LayerName);
 
                 CanvasObject afterSnapshot = CloneCanvasObjectSnapshot(feature.CanvasObject);
+                if (BlockRoadParcelRefreshService.AffectsGeneratedRoadParcel(feature.CanvasObject))
+                {
+                    await RefreshGeneratedRoadParcelAsync(context);
+                }
+
                 MarkProjectModifiedIfOpen();
                 await RefreshVectorCanvasFeaturesAsync();
                 await RefreshCurrentSelectedCanvasObjectPropertiesAsync(shape.Id);
@@ -12765,6 +13184,11 @@ namespace Land_Readjustment_Tool
                 foreach (Guid shapeId in shapeIds.Distinct())
                 {
                     await featureService.DeleteShapeAsync(shapeId);
+                }
+
+                if (ShouldRefreshGeneratedRoadParcel(selectedObjects))
+                {
+                    await RefreshGeneratedRoadParcelAsync(context);
                 }
 
                 mapCanvasControlMain.ClearSelectionAfterDelete();

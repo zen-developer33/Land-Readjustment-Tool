@@ -17,6 +17,7 @@ namespace Land_Readjustment_Tool.UI.Dialogs
         private readonly ICadastralRecordAssignmentService _assignmentService;
         private readonly bool _openAutoAssignmentOnLoad;
         private readonly Guid? _preferredCanvasObjectId;
+        private readonly bool _readOnlyMode;
         private List<CadastralAssignmentCandidate> _allCandidates = [];
         private List<CadastralAssignmentCandidate> _visibleCandidates = [];
         private bool _suppressCanvasPreviewEvent;
@@ -31,11 +32,13 @@ namespace Land_Readjustment_Tool.UI.Dialogs
             ProjectSession session,
             ICadastralRecordAssignmentService assignmentService,
             bool openAutoAssignmentOnLoad = false,
-            Guid? preferredCanvasObjectId = null)
+            Guid? preferredCanvasObjectId = null,
+            bool readOnlyMode = false)
         {
             _session = session ?? throw new ArgumentNullException(nameof(session));
             _assignmentService = assignmentService ?? throw new ArgumentNullException(nameof(assignmentService));
-            _openAutoAssignmentOnLoad = openAutoAssignmentOnLoad;
+            _readOnlyMode = readOnlyMode;
+            _openAutoAssignmentOnLoad = openAutoAssignmentOnLoad && !readOnlyMode;
             _preferredCanvasObjectId = preferredCanvasObjectId;
 
             InitializeComponent();
@@ -45,7 +48,7 @@ namespace Land_Readjustment_Tool.UI.Dialogs
             dgvObjects.SelectionChanged += (_, _) => ShowSelectedCandidate();
             dgvObjects.CellDoubleClick += (_, e) =>
             {
-                if (e.RowIndex >= 0 && rdoManualAssign.Checked)
+                if (!_readOnlyMode && e.RowIndex >= 0 && rdoManualAssign.Checked)
                     OpenParcelPickerForSelectedCandidate();
             };
             rdoAutoAssign.CheckedChanged += (_, _) => ApplyModeState();
@@ -60,6 +63,12 @@ namespace Land_Readjustment_Tool.UI.Dialogs
 
             if (_preferredCanvasObjectId.HasValue && !_openAutoAssignmentOnLoad)
                 rdoManualAssign.Checked = true;
+
+            if (_readOnlyMode)
+            {
+                Text = "Assign Cadastral Records (Read Only)";
+                chkReplaceExisting.Enabled = false;
+            }
         }
 
         private async void frmCadastralRecordAssignment_Load(object? sender, EventArgs e)
@@ -313,6 +322,9 @@ namespace Land_Readjustment_Tool.UI.Dialogs
 
         private async void OpenParcelPickerForSelectedCandidate()
         {
+            if (_readOnlyMode)
+                return;
+
             CadastralAssignmentCandidate? candidate = GetSelectedCandidate();
             if (candidate == null)
                 return;
@@ -358,6 +370,9 @@ namespace Land_Readjustment_Tool.UI.Dialogs
 
         private async void btnRemoveAssignment_Click(object? sender, EventArgs e)
         {
+            if (_readOnlyMode)
+                return;
+
             CadastralAssignmentCandidate? candidate = GetSelectedCandidate();
             if (candidate == null || !IsAssigned(candidate))
                 return;
@@ -391,6 +406,9 @@ namespace Land_Readjustment_Tool.UI.Dialogs
 
         private async void btnClearAssignments_Click(object? sender, EventArgs e)
         {
+            if (_readOnlyMode)
+                return;
+
             DialogResult confirm = MessageBox.Show(
                 this,
                 "Remove all record-to-map assignments from imported cadastral parcel objects? Imported source attributes and geometry will be kept.",
@@ -430,6 +448,9 @@ namespace Land_Readjustment_Tool.UI.Dialogs
 
         public async void OpenAutoAssignmentDialog()
         {
+            if (_readOnlyMode)
+                return;
+
             using frmCadastralAutoAssignment form = new(_session, _assignmentService);
             PositionChildAssignmentForm(form);
             if (form.ShowDialog(this) != DialogResult.OK)
@@ -457,21 +478,22 @@ namespace Land_Readjustment_Tool.UI.Dialogs
         private void ApplyModeState()
         {
             bool manualMode = rdoManualAssign.Checked;
-            manualGroup.Enabled = manualMode && !_loadingCandidates;
-            btnOpenAutoAssignment.Enabled = !_loadingCandidates && rdoAutoAssign.Checked && _allCandidates.Count > 0;
+            bool canEdit = !_readOnlyMode && !_loadingCandidates;
+            manualGroup.Enabled = manualMode && canEdit;
+            btnOpenAutoAssignment.Enabled = canEdit && rdoAutoAssign.Checked && _allCandidates.Count > 0;
 
             CadastralAssignmentCandidate? candidate = GetSelectedCandidate();
-            btnAssignParcel.Enabled = !_loadingCandidates && manualMode && candidate != null;
-            btnRemoveAssignment.Enabled = !_loadingCandidates && manualMode && candidate != null && IsAssigned(candidate);
-            btnClearAssignments.Enabled = !_loadingCandidates && manualMode && _allCandidates.Any(IsAssigned);
-            chkReplaceExisting.Enabled = !_loadingCandidates && manualMode;
+            btnAssignParcel.Enabled = canEdit && manualMode && candidate != null;
+            btnRemoveAssignment.Enabled = canEdit && manualMode && candidate != null && IsAssigned(candidate);
+            btnClearAssignments.Enabled = canEdit && manualMode && _allCandidates.Any(IsAssigned);
+            chkReplaceExisting.Enabled = canEdit && manualMode;
         }
 
         private void SetBusy(bool busy, string? status = null)
         {
-            rdoAutoAssign.Enabled = !busy;
+            rdoAutoAssign.Enabled = !busy && !_readOnlyMode;
             rdoManualAssign.Enabled = !busy;
-            btnOpenAutoAssignment.Enabled = !busy && rdoAutoAssign.Checked && _allCandidates.Count > 0;
+            btnOpenAutoAssignment.Enabled = !busy && !_readOnlyMode && rdoAutoAssign.Checked && _allCandidates.Count > 0;
             btnClose.Enabled = !busy;
             btnPrevious.Enabled = !busy;
             btnNext.Enabled = !busy;

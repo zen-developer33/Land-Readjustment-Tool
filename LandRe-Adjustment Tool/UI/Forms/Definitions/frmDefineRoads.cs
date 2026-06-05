@@ -11,9 +11,11 @@ namespace Land_Readjustment_Tool.UI.Forms.Definitions
         private List<RoadDefinitionRow> _rows = [];
         private bool _isLoading;
         private bool _isSaving;
+        private readonly bool _readOnlyMode;
 
-        public frmDefineRoads()
+        public frmDefineRoads(bool readOnlyMode = false)
         {
+            _readOnlyMode = readOnlyMode;
             InitializeComponent();
             ConfigureGridColumns();
             dgvRoads.DataSource = _bindingSource;
@@ -22,6 +24,20 @@ namespace Land_Readjustment_Tool.UI.Forms.Definitions
             dgvRoads.CellDoubleClick += dgvRoads_CellDoubleClick;
             dgvRoads.CurrentCellDirtyStateChanged += dgvRoads_CurrentCellDirtyStateChanged;
             RecordFormTheme.Apply(this);
+            ApplyReadOnlyMode();
+        }
+
+        private void ApplyReadOnlyMode()
+        {
+            if (!_readOnlyMode)
+                return;
+
+            Text = "Define Roads (Read Only)";
+            dgvRoads.ReadOnly = true;
+            btnAdd.Enabled = false;
+            btnDuplicate.Enabled = false;
+            btnDetails.Enabled = false;
+            btnDelete.Enabled = false;
         }
 
         private void ConfigureGridColumns()
@@ -80,6 +96,9 @@ namespace Land_Readjustment_Tool.UI.Forms.Definitions
 
         private async Task ExecuteRoadOperationAsync(Func<Task> operation)
         {
+            if (_readOnlyMode)
+                return;
+
             try
             {
                 await operation();
@@ -90,11 +109,17 @@ namespace Land_Readjustment_Tool.UI.Forms.Definitions
             }
         }
 
-        private async void dgvRoads_CellEndEdit(object? sender, DataGridViewCellEventArgs e) => await SaveCurrentEditsAsync();
+        private async void dgvRoads_CellEndEdit(object? sender, DataGridViewCellEventArgs e)
+        {
+            if (_readOnlyMode)
+                return;
+
+            await SaveCurrentEditsAsync();
+        }
 
         private async void dgvRoads_CellDoubleClick(object? sender, DataGridViewCellEventArgs e)
         {
-            if (e.RowIndex < 0)
+            if (_readOnlyMode || e.RowIndex < 0)
                 return;
 
             await ExecuteRoadOperationAsync(EditRoadDetailsAsync);
@@ -102,7 +127,8 @@ namespace Land_Readjustment_Tool.UI.Forms.Definitions
 
         private void dgvRoads_CurrentCellDirtyStateChanged(object? sender, EventArgs e)
         {
-            if (dgvRoads.IsCurrentCellDirty &&
+            if (!_readOnlyMode &&
+                dgvRoads.IsCurrentCellDirty &&
                 dgvRoads.CurrentCell is DataGridViewComboBoxCell)
             {
                 dgvRoads.CommitEdit(DataGridViewDataErrorContexts.Commit);
