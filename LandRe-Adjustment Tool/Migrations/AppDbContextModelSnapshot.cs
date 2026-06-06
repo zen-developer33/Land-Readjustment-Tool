@@ -1127,6 +1127,393 @@ namespace Land_Readjustment_Tool.Migrations
                     b.ToTable("tblRoads");
                 });
 
+            modelBuilder.Entity("Land_Readjustment_Tool.Core.Entities.Policy.PolicyAttachment", b =>
+                {
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("INTEGER");
+
+                    b.Property<string>("Caption")
+                        .HasMaxLength(500)
+                        .HasColumnType("TEXT");
+
+                    b.Property<string>("ContentType")
+                        .IsRequired()
+                        .HasMaxLength(120)
+                        .HasColumnType("TEXT");
+
+                    b.Property<DateTime>("CreatedDate")
+                        .HasColumnType("TEXT");
+
+                    b.Property<string>("FileName")
+                        .IsRequired()
+                        .HasMaxLength(260)
+                        .HasColumnType("TEXT");
+
+                    b.Property<byte[]>("ImageData")
+                        .IsRequired()
+                        .HasColumnType("BLOB");
+
+                    b.Property<int?>("PolicyClauseId")
+                        .HasColumnType("INTEGER");
+
+                    b.Property<int>("PolicySetId")
+                        .HasColumnType("INTEGER");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("PolicyClauseId");
+
+                    b.HasIndex("PolicySetId");
+
+                    b.ToTable("tblPolicyAttachments");
+                });
+
+            modelBuilder.Entity("Land_Readjustment_Tool.Core.Entities.Policy.PolicyAuditEntry", b =>
+                {
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("INTEGER");
+
+                    b.Property<string>("Action")
+                        .IsRequired()
+                        .HasMaxLength(60)
+                        .HasColumnType("TEXT");
+
+                    b.Property<string>("Actor")
+                        .HasMaxLength(120)
+                        .HasColumnType("TEXT");
+
+                    b.Property<DateTime>("CreatedDate")
+                        .HasColumnType("TEXT");
+
+                    b.Property<string>("Details")
+                        .HasColumnType("TEXT");
+
+                    b.Property<int>("PolicySetId")
+                        .HasColumnType("INTEGER");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("PolicySetId");
+
+                    b.ToTable("tblPolicyAuditEntries");
+                });
+
+            modelBuilder.Entity("Land_Readjustment_Tool.Core.Entities.Policy.PolicyClause", b =>
+                {
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("INTEGER");
+
+                    b.Property<string>("ClauseCode")
+                        .HasMaxLength(80)
+                        .HasColumnType("TEXT");
+
+                    b.Property<DateTime>("CreatedDate")
+                        .HasColumnType("TEXT");
+
+                    b.Property<string>("Description")
+                        .IsRequired()
+                        .HasColumnType("TEXT");
+
+                    b.Property<int>("DisplayOrder")
+                        .HasColumnType("INTEGER");
+
+                    b.Property<string>("Heading")
+                        .IsRequired()
+                        .HasMaxLength(300)
+                        .HasColumnType("TEXT");
+
+                    b.Property<DateTime>("LastModifiedDate")
+                        .HasColumnType("TEXT");
+
+                    b.Property<int?>("ParentClauseId")
+                        .HasColumnType("INTEGER");
+
+                    b.Property<string>("PolicySection")
+                        .IsRequired()
+                        .HasMaxLength(80)
+                        .HasColumnType("TEXT");
+
+                    b.Property<int>("PolicySetId")
+                        .HasColumnType("INTEGER");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("ParentClauseId");
+
+                    b.HasIndex("PolicySetId", "ClauseCode");
+
+                    b.ToTable("tblPolicyClauses");
+                });
+
+            modelBuilder.Entity("Land_Readjustment_Tool.Core.Entities.Policy.PolicyLookupCell", b =>
+                {
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("INTEGER");
+
+                    b.Property<int>("PolicyLookupColumnId")
+                        .HasColumnType("INTEGER");
+
+                    b.Property<int>("PolicyLookupRowId")
+                        .HasColumnType("INTEGER");
+
+                    b.Property<string>("ValueText")
+                        .HasColumnType("TEXT");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("PolicyLookupColumnId");
+
+                    b.HasIndex("PolicyLookupRowId", "PolicyLookupColumnId")
+                        .IsUnique();
+
+                    b.ToTable("tblPolicyLookupCells");
+                });
+
+            modelBuilder.Entity("Land_Readjustment_Tool.Core.Entities.Policy.PolicyLookupColumn", b =>
+                {
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("INTEGER");
+
+                    b.Property<string>("ColumnKey")
+                        .IsRequired()
+                        .HasMaxLength(120)
+                        .HasColumnType("TEXT");
+
+                    b.Property<int>("DisplayOrder")
+                        .HasColumnType("INTEGER");
+
+                    b.Property<string>("HeaderText")
+                        .IsRequired()
+                        .HasMaxLength(180)
+                        .HasColumnType("TEXT");
+
+                    b.Property<int>("PolicyLookupTableId")
+                        .HasColumnType("INTEGER");
+
+                    b.Property<string>("Unit")
+                        .HasMaxLength(40)
+                        .HasColumnType("TEXT");
+
+                    b.Property<string>("ValueType")
+                        .IsRequired()
+                        .HasMaxLength(40)
+                        .HasColumnType("TEXT");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("PolicyLookupTableId");
+
+                    b.ToTable("tblPolicyLookupColumns");
+                });
+
+            modelBuilder.Entity("Land_Readjustment_Tool.Core.Entities.Policy.PolicyLookupRow", b =>
+                {
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("INTEGER");
+
+                    b.Property<int>("DisplayOrder")
+                        .HasColumnType("INTEGER");
+
+                    b.Property<int>("PolicyLookupTableId")
+                        .HasColumnType("INTEGER");
+
+                    b.Property<string>("RowLabel")
+                        .HasMaxLength(240)
+                        .HasColumnType("TEXT");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("PolicyLookupTableId");
+
+                    b.ToTable("tblPolicyLookupRows");
+                });
+
+            modelBuilder.Entity("Land_Readjustment_Tool.Core.Entities.Policy.PolicyLookupTable", b =>
+                {
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("INTEGER");
+
+                    b.Property<DateTime>("CreatedDate")
+                        .HasColumnType("TEXT");
+
+                    b.Property<string>("Description")
+                        .HasColumnType("TEXT");
+
+                    b.Property<int>("DisplayOrder")
+                        .HasColumnType("INTEGER");
+
+                    b.Property<DateTime>("LastModifiedDate")
+                        .HasColumnType("TEXT");
+
+                    b.Property<int?>("PolicyClauseId")
+                        .HasColumnType("INTEGER");
+
+                    b.Property<int>("PolicySetId")
+                        .HasColumnType("INTEGER");
+
+                    b.Property<string>("TableKey")
+                        .IsRequired()
+                        .HasMaxLength(120)
+                        .HasColumnType("TEXT");
+
+                    b.Property<string>("Title")
+                        .IsRequired()
+                        .HasMaxLength(220)
+                        .HasColumnType("TEXT");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("PolicyClauseId");
+
+                    b.HasIndex("PolicySetId", "TableKey")
+                        .IsUnique();
+
+                    b.ToTable("tblPolicyLookupTables");
+                });
+
+            modelBuilder.Entity("Land_Readjustment_Tool.Core.Entities.Policy.PolicyParameter", b =>
+                {
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("INTEGER");
+
+                    b.Property<DateTime>("CreatedDate")
+                        .HasColumnType("TEXT");
+
+                    b.Property<string>("DefaultValueText")
+                        .HasColumnType("TEXT");
+
+                    b.Property<string>("Description")
+                        .HasColumnType("TEXT");
+
+                    b.Property<int>("DisplayOrder")
+                        .HasColumnType("INTEGER");
+
+                    b.Property<string>("Label")
+                        .IsRequired()
+                        .HasMaxLength(180)
+                        .HasColumnType("TEXT");
+
+                    b.Property<DateTime>("LastModifiedDate")
+                        .HasColumnType("TEXT");
+
+                    b.Property<string>("MaxValueText")
+                        .HasColumnType("TEXT");
+
+                    b.Property<string>("MinValueText")
+                        .HasColumnType("TEXT");
+
+                    b.Property<string>("ParameterKey")
+                        .HasMaxLength(120)
+                        .HasColumnType("TEXT");
+
+                    b.Property<int?>("PolicyClauseId")
+                        .HasColumnType("INTEGER");
+
+                    b.Property<int>("PolicySetId")
+                        .HasColumnType("INTEGER");
+
+                    b.Property<string>("Unit")
+                        .HasMaxLength(40)
+                        .HasColumnType("TEXT");
+
+                    b.Property<string>("ValueText")
+                        .HasColumnType("TEXT");
+
+                    b.Property<string>("ValueType")
+                        .IsRequired()
+                        .HasMaxLength(40)
+                        .HasColumnType("TEXT");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("PolicyClauseId");
+
+                    b.HasIndex("PolicySetId", "ParameterKey");
+
+                    b.ToTable("tblPolicyParameters");
+                });
+
+            modelBuilder.Entity("Land_Readjustment_Tool.Core.Entities.Policy.PolicySet", b =>
+                {
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("INTEGER");
+
+                    b.Property<DateTime?>("ApprovedDate")
+                        .HasColumnType("TEXT");
+
+                    b.Property<DateTime>("CreatedDate")
+                        .HasColumnType("TEXT");
+
+                    b.Property<DateTime?>("EffectiveFrom")
+                        .HasColumnType("TEXT");
+
+                    b.Property<DateTime?>("EffectiveTo")
+                        .HasColumnType("TEXT");
+
+                    b.Property<bool>("IsLocked")
+                        .HasColumnType("INTEGER");
+
+                    b.Property<DateTime>("LastModifiedDate")
+                        .HasColumnType("TEXT");
+
+                    b.Property<string>("Notes")
+                        .HasColumnType("TEXT");
+
+                    b.Property<string>("PolicyCode")
+                        .IsRequired()
+                        .HasMaxLength(80)
+                        .HasColumnType("TEXT");
+
+                    b.Property<string>("PolicyGroupKey")
+                        .IsRequired()
+                        .HasMaxLength(120)
+                        .HasColumnType("TEXT");
+
+                    b.Property<string>("PolicyName")
+                        .IsRequired()
+                        .HasMaxLength(240)
+                        .HasColumnType("TEXT");
+
+                    b.Property<string>("PolicyType")
+                        .IsRequired()
+                        .HasMaxLength(40)
+                        .HasColumnType("TEXT");
+
+                    b.Property<string>("SourceReference")
+                        .HasMaxLength(500)
+                        .HasColumnType("TEXT");
+
+                    b.Property<string>("SourceTitle")
+                        .HasMaxLength(240)
+                        .HasColumnType("TEXT");
+
+                    b.Property<string>("Status")
+                        .IsRequired()
+                        .HasMaxLength(30)
+                        .HasColumnType("TEXT");
+
+                    b.Property<int>("VersionNo")
+                        .HasColumnType("INTEGER");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("PolicyCode");
+
+                    b.HasIndex("PolicyGroupKey", "VersionNo")
+                        .IsUnique();
+
+                    b.ToTable("tblPolicySets");
+                });
+
             modelBuilder.Entity("Land_Readjustment_Tool.Core.Entities.Project.ProjectInfo", b =>
                 {
                     b.Property<int>("Id")
@@ -2255,6 +2642,130 @@ namespace Land_Readjustment_Tool.Migrations
                     b.Navigation("CanvasObject");
                 });
 
+            modelBuilder.Entity("Land_Readjustment_Tool.Core.Entities.Policy.PolicyAttachment", b =>
+                {
+                    b.HasOne("Land_Readjustment_Tool.Core.Entities.Policy.PolicyClause", "PolicyClause")
+                        .WithMany("Attachments")
+                        .HasForeignKey("PolicyClauseId")
+                        .OnDelete(DeleteBehavior.SetNull);
+
+                    b.HasOne("Land_Readjustment_Tool.Core.Entities.Policy.PolicySet", "PolicySet")
+                        .WithMany("Attachments")
+                        .HasForeignKey("PolicySetId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.Navigation("PolicyClause");
+
+                    b.Navigation("PolicySet");
+                });
+
+            modelBuilder.Entity("Land_Readjustment_Tool.Core.Entities.Policy.PolicyAuditEntry", b =>
+                {
+                    b.HasOne("Land_Readjustment_Tool.Core.Entities.Policy.PolicySet", "PolicySet")
+                        .WithMany("AuditEntries")
+                        .HasForeignKey("PolicySetId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.Navigation("PolicySet");
+                });
+
+            modelBuilder.Entity("Land_Readjustment_Tool.Core.Entities.Policy.PolicyClause", b =>
+                {
+                    b.HasOne("Land_Readjustment_Tool.Core.Entities.Policy.PolicyClause", "ParentClause")
+                        .WithMany("ChildClauses")
+                        .HasForeignKey("ParentClauseId")
+                        .OnDelete(DeleteBehavior.Restrict);
+
+                    b.HasOne("Land_Readjustment_Tool.Core.Entities.Policy.PolicySet", "PolicySet")
+                        .WithMany("Clauses")
+                        .HasForeignKey("PolicySetId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.Navigation("ParentClause");
+
+                    b.Navigation("PolicySet");
+                });
+
+            modelBuilder.Entity("Land_Readjustment_Tool.Core.Entities.Policy.PolicyLookupCell", b =>
+                {
+                    b.HasOne("Land_Readjustment_Tool.Core.Entities.Policy.PolicyLookupColumn", "PolicyLookupColumn")
+                        .WithMany("Cells")
+                        .HasForeignKey("PolicyLookupColumnId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.HasOne("Land_Readjustment_Tool.Core.Entities.Policy.PolicyLookupRow", "PolicyLookupRow")
+                        .WithMany("Cells")
+                        .HasForeignKey("PolicyLookupRowId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.Navigation("PolicyLookupColumn");
+
+                    b.Navigation("PolicyLookupRow");
+                });
+
+            modelBuilder.Entity("Land_Readjustment_Tool.Core.Entities.Policy.PolicyLookupColumn", b =>
+                {
+                    b.HasOne("Land_Readjustment_Tool.Core.Entities.Policy.PolicyLookupTable", "PolicyLookupTable")
+                        .WithMany("Columns")
+                        .HasForeignKey("PolicyLookupTableId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.Navigation("PolicyLookupTable");
+                });
+
+            modelBuilder.Entity("Land_Readjustment_Tool.Core.Entities.Policy.PolicyLookupRow", b =>
+                {
+                    b.HasOne("Land_Readjustment_Tool.Core.Entities.Policy.PolicyLookupTable", "PolicyLookupTable")
+                        .WithMany("Rows")
+                        .HasForeignKey("PolicyLookupTableId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.Navigation("PolicyLookupTable");
+                });
+
+            modelBuilder.Entity("Land_Readjustment_Tool.Core.Entities.Policy.PolicyLookupTable", b =>
+                {
+                    b.HasOne("Land_Readjustment_Tool.Core.Entities.Policy.PolicyClause", "PolicyClause")
+                        .WithMany()
+                        .HasForeignKey("PolicyClauseId")
+                        .OnDelete(DeleteBehavior.SetNull);
+
+                    b.HasOne("Land_Readjustment_Tool.Core.Entities.Policy.PolicySet", "PolicySet")
+                        .WithMany("LookupTables")
+                        .HasForeignKey("PolicySetId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.Navigation("PolicyClause");
+
+                    b.Navigation("PolicySet");
+                });
+
+            modelBuilder.Entity("Land_Readjustment_Tool.Core.Entities.Policy.PolicyParameter", b =>
+                {
+                    b.HasOne("Land_Readjustment_Tool.Core.Entities.Policy.PolicyClause", "PolicyClause")
+                        .WithMany("Parameters")
+                        .HasForeignKey("PolicyClauseId")
+                        .OnDelete(DeleteBehavior.SetNull);
+
+                    b.HasOne("Land_Readjustment_Tool.Core.Entities.Policy.PolicySet", "PolicySet")
+                        .WithMany("Parameters")
+                        .HasForeignKey("PolicySetId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.Navigation("PolicyClause");
+
+                    b.Navigation("PolicySet");
+                });
+
             modelBuilder.Entity("Land_Readjustment_Tool.Core.Entities.Project.ProjectSettings", b =>
                 {
                     b.HasOne("Land_Readjustment_Tool.Core.Entities.Spatial.CoordinateSystem", "CoordinateSystem")
@@ -2442,6 +2953,45 @@ namespace Land_Readjustment_Tool.Migrations
             modelBuilder.Entity("Land_Readjustment_Tool.Core.Entities.Layout.Road", b =>
                 {
                     b.Navigation("ParcelFrontages");
+                });
+
+            modelBuilder.Entity("Land_Readjustment_Tool.Core.Entities.Policy.PolicyClause", b =>
+                {
+                    b.Navigation("Attachments");
+
+                    b.Navigation("ChildClauses");
+
+                    b.Navigation("Parameters");
+                });
+
+            modelBuilder.Entity("Land_Readjustment_Tool.Core.Entities.Policy.PolicyLookupColumn", b =>
+                {
+                    b.Navigation("Cells");
+                });
+
+            modelBuilder.Entity("Land_Readjustment_Tool.Core.Entities.Policy.PolicyLookupRow", b =>
+                {
+                    b.Navigation("Cells");
+                });
+
+            modelBuilder.Entity("Land_Readjustment_Tool.Core.Entities.Policy.PolicyLookupTable", b =>
+                {
+                    b.Navigation("Columns");
+
+                    b.Navigation("Rows");
+                });
+
+            modelBuilder.Entity("Land_Readjustment_Tool.Core.Entities.Policy.PolicySet", b =>
+                {
+                    b.Navigation("Attachments");
+
+                    b.Navigation("AuditEntries");
+
+                    b.Navigation("Clauses");
+
+                    b.Navigation("LookupTables");
+
+                    b.Navigation("Parameters");
                 });
 
             modelBuilder.Entity("Land_Readjustment_Tool.Core.Entities.Replotting.PlotType", b =>

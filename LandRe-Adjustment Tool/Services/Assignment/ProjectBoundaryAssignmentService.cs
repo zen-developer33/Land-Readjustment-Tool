@@ -316,12 +316,14 @@ namespace Land_Readjustment_Tool.Services.Assignment
 
         private static void ApplyProjectBoundaryDefaultStyle(CanvasLayer layer)
         {
-            layer.FillStyle = "None";
-            layer.FillColor = null;
-            layer.ShowFillTransparency = false;
-            layer.FillTransparency = 50;
+            if (string.IsNullOrWhiteSpace(layer.FillStyle))
+                layer.FillStyle = string.IsNullOrWhiteSpace(layer.FillColor) ? "None" : "Solid";
 
-            layer.BorderColor = "#FF0000";
+            if (layer.FillTransparency < 0 || layer.FillTransparency > 100)
+                layer.FillTransparency = 50;
+
+            if (string.IsNullOrWhiteSpace(layer.BorderColor))
+                layer.BorderColor = "#FF0000";
 
             if (layer.LineWeight <= 0)
                 layer.LineWeight = 2.0;

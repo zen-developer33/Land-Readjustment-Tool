@@ -993,7 +993,7 @@ namespace Land_Readjustment_Tool
             contributionSettingsToolStripMenuItem.Name = "contributionSettingsToolStripMenuItem";
             contributionSettingsToolStripMenuItem.Size = new Size(285, 26);
             contributionSettingsToolStripMenuItem.Text = "Contribution Policy Setup...";
-            contributionSettingsToolStripMenuItem.Click += PlannedFeatureToolStripMenuItem_Click;
+            contributionSettingsToolStripMenuItem.Click += PolicyManagerToolStripMenuItem_Click;
             // 
             // returnPolicySetupToolStripMenuItem
             // 
@@ -1001,7 +1001,7 @@ namespace Land_Readjustment_Tool
             returnPolicySetupToolStripMenuItem.Name = "returnPolicySetupToolStripMenuItem";
             returnPolicySetupToolStripMenuItem.Size = new Size(285, 26);
             returnPolicySetupToolStripMenuItem.Text = "Return Policy Setup...";
-            returnPolicySetupToolStripMenuItem.Click += PlannedFeatureToolStripMenuItem_Click;
+            returnPolicySetupToolStripMenuItem.Click += PolicyManagerToolStripMenuItem_Click;
             // 
             // policyVersionApprovalToolStripMenuItem
             // 
@@ -1009,7 +1009,7 @@ namespace Land_Readjustment_Tool
             policyVersionApprovalToolStripMenuItem.Name = "policyVersionApprovalToolStripMenuItem";
             policyVersionApprovalToolStripMenuItem.Size = new Size(285, 26);
             policyVersionApprovalToolStripMenuItem.Text = "Policy Version and Approval...";
-            policyVersionApprovalToolStripMenuItem.Click += PlannedFeatureToolStripMenuItem_Click;
+            policyVersionApprovalToolStripMenuItem.Click += PolicyManagerToolStripMenuItem_Click;
             // 
             // toolStripSeparator29
             // 

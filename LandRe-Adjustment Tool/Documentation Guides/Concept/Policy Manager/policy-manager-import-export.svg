@@ -1,0 +1,27 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="760" height="430" viewBox="0 0 760 430">
+  <rect width="760" height="430" fill="#e5e7eb"/>
+  <rect x="70" y="52" width="620" height="326" rx="2" fill="#ffffff" stroke="#64748b"/>
+  <rect x="70" y="52" width="620" height="34" fill="#f8fafc" stroke="#64748b"/>
+  <text x="88" y="74" font-family="Segoe UI" font-size="13" font-weight="600">Import Policy Package Preview</text>
+  <text x="92" y="118" font-family="Segoe UI" font-size="12">Package:</text>
+  <rect x="180" y="101" width="450" height="24" fill="#ffffff" stroke="#94a3b8"/>
+  <text x="188" y="118" font-family="Segoe UI" font-size="12">BAIRENI-LPP-v1.rpolicy</text>
+  <rect x="92" y="148" width="538" height="178" fill="#ffffff" stroke="#94a3b8"/>
+  <rect x="92" y="148" width="538" height="28" fill="#e2e8f0"/>
+  <text x="110" y="167" font-family="Segoe UI" font-size="12">Item</text>
+  <text x="320" y="167" font-family="Segoe UI" font-size="12">Count</text>
+  <text x="420" y="167" font-family="Segoe UI" font-size="12">Import Action</text>
+  <text x="110" y="203" font-family="Segoe UI" font-size="12">Clauses</text>
+  <text x="320" y="203" font-family="Segoe UI" font-size="12">27</text>
+  <text x="420" y="203" font-family="Segoe UI" font-size="12">Create draft copy</text>
+  <text x="110" y="236" font-family="Segoe UI" font-size="12">Parameters</text>
+  <text x="320" y="236" font-family="Segoe UI" font-size="12">20</text>
+  <text x="420" y="236" font-family="Segoe UI" font-size="12">Create draft copy</text>
+  <text x="110" y="269" font-family="Segoe UI" font-size="12">Lookup Tables</text>
+  <text x="320" y="269" font-family="Segoe UI" font-size="12">3</text>
+  <text x="420" y="269" font-family="Segoe UI" font-size="12">Create draft copy</text>
+  <rect x="470" y="342" width="76" height="28" fill="#f8fafc" stroke="#94a3b8"/>
+  <text x="496" y="361" font-family="Segoe UI" font-size="12">Import</text>
+  <rect x="558" y="342" width="76" height="28" fill="#f8fafc" stroke="#94a3b8"/>
+  <text x="586" y="361" font-family="Segoe UI" font-size="12">Cancel</text>
+</svg>

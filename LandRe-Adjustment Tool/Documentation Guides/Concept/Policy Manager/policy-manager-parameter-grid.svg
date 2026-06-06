@@ -1,0 +1,24 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1000" height="420" viewBox="0 0 1000 420">
+  <rect width="1000" height="420" fill="#f3f4f6"/>
+  <rect x="24" y="32" width="948" height="340" fill="#ffffff" stroke="#94a3b8"/>
+  <rect x="24" y="32" width="948" height="30" fill="#e2e8f0"/>
+  <text x="40" y="52" font-family="Segoe UI" font-size="13" font-weight="600">Parameters</text>
+  <line x1="180" y1="62" x2="180" y2="372" stroke="#cbd5e1"/>
+  <line x1="400" y1="62" x2="400" y2="372" stroke="#cbd5e1"/>
+  <line x1="490" y1="62" x2="490" y2="372" stroke="#cbd5e1"/>
+  <line x1="610" y1="62" x2="610" y2="372" stroke="#cbd5e1"/>
+  <line x1="685" y1="62" x2="685" y2="372" stroke="#cbd5e1"/>
+  <text x="36" y="83" font-family="Segoe UI" font-size="12">Key</text>
+  <text x="194" y="83" font-family="Segoe UI" font-size="12">Label</text>
+  <text x="414" y="83" font-family="Segoe UI" font-size="12">Type</text>
+  <text x="504" y="83" font-family="Segoe UI" font-size="12">Value</text>
+  <text x="624" y="83" font-family="Segoe UI" font-size="12">Unit</text>
+  <text x="700" y="83" font-family="Segoe UI" font-size="12">Description</text>
+  <rect x="24" y="94" width="948" height="28" fill="#bfdbfe"/>
+  <text x="36" y="113" font-family="Segoe UI" font-size="12">openAreaRate</text>
+  <text x="194" y="113" font-family="Segoe UI" font-size="12">Open Area Rate</text>
+  <text x="414" y="113" font-family="Segoe UI" font-size="12">Decimal</text>
+  <text x="504" y="113" font-family="Segoe UI" font-size="12">0.0504</text>
+  <text x="624" y="113" font-family="Segoe UI" font-size="12">ratio</text>
+  <text x="700" y="113" font-family="Segoe UI" font-size="12">Open-area share deducted from every parcel.</text>
+</svg>

@@ -4,6 +4,7 @@ using Land_Readjustment_Tool.Core.Entities.Contribution;
 using Land_Readjustment_Tool.Core.Entities.Import;
 using Land_Readjustment_Tool.Core.Entities.LandData;
 using Land_Readjustment_Tool.Core.Entities.Layout;
+using Land_Readjustment_Tool.Core.Entities.Policy;
 using Land_Readjustment_Tool.Core.Entities.Project;
 using Land_Readjustment_Tool.Core.Entities.Replotting;
 using Land_Readjustment_Tool.Core.Entities.Roads;
@@ -65,6 +66,17 @@ namespace Land_Readjustment_Tool.Data
         public DbSet<ContributionCategory> ContributionCategories { get; set; }
         public DbSet<ParcelContribution> ParcelContributions { get; set; }
         public DbSet<ParcelContributionSummary> ParcelContributionSummaries { get; set; }
+
+        // Policy standards
+        public DbSet<PolicySet> PolicySets { get; set; }
+        public DbSet<PolicyClause> PolicyClauses { get; set; }
+        public DbSet<PolicyParameter> PolicyParameters { get; set; }
+        public DbSet<PolicyLookupTable> PolicyLookupTables { get; set; }
+        public DbSet<PolicyLookupColumn> PolicyLookupColumns { get; set; }
+        public DbSet<PolicyLookupRow> PolicyLookupRows { get; set; }
+        public DbSet<PolicyLookupCell> PolicyLookupCells { get; set; }
+        public DbSet<PolicyAttachment> PolicyAttachments { get; set; }
+        public DbSet<PolicyAuditEntry> PolicyAuditEntries { get; set; }
 
         // Replotting
         public DbSet<ReplottedParcel> ReplottedParcels { get; set; }
@@ -171,6 +183,26 @@ namespace Land_Readjustment_Tool.Data
 
             modelBuilder.Entity<ValidationError>()
                 .HasIndex(v => v.ImportedRawRecordId);
+
+            modelBuilder.Entity<PolicySet>()
+                .HasIndex(p => new { p.PolicyGroupKey, p.VersionNo })
+                .IsUnique();
+
+            modelBuilder.Entity<PolicySet>()
+                .HasIndex(p => p.PolicyCode);
+
+            modelBuilder.Entity<PolicyClause>()
+                .HasIndex(c => new { c.PolicySetId, c.ClauseCode });
+
+            modelBuilder.Entity<PolicyParameter>()
+                .HasIndex(p => new { p.PolicySetId, p.ParameterKey });
+
+            modelBuilder.Entity<PolicyLookupTable>()
+                .HasIndex(t => new { t.PolicySetId, t.TableKey })
+                .IsUnique();
+
+            modelBuilder.Entity<PolicyLookupTable>()
+                .HasIndex(t => t.PolicyClauseId);
 
             // ── SPATIAL RELATIONSHIPS ────────────────
 
@@ -391,6 +423,90 @@ namespace Land_Readjustment_Tool.Data
                 entity.HasKey(opening => opening.Id);
                 entity.HasIndex(opening => new { opening.BuildingInventoryId, opening.Side, opening.OpeningType });
             });
+
+            // ── POLICY MANAGER ──────────────────────
+
+            modelBuilder.Entity<PolicyClause>()
+                .HasOne(clause => clause.PolicySet)
+                .WithMany(policy => policy.Clauses)
+                .HasForeignKey(clause => clause.PolicySetId)
+                .OnDelete(DeleteBehavior.Cascade);
+
+            modelBuilder.Entity<PolicyClause>()
+                .HasOne(clause => clause.ParentClause)
+                .WithMany(parent => parent.ChildClauses)
+                .HasForeignKey(clause => clause.ParentClauseId)
+                .OnDelete(DeleteBehavior.Restrict);
+
+            modelBuilder.Entity<PolicyParameter>()
+                .HasOne(parameter => parameter.PolicySet)
+                .WithMany(policy => policy.Parameters)
+                .HasForeignKey(parameter => parameter.PolicySetId)
+                .OnDelete(DeleteBehavior.Cascade);
+
+            modelBuilder.Entity<PolicyParameter>()
+                .HasOne(parameter => parameter.PolicyClause)
+                .WithMany(clause => clause.Parameters)
+                .HasForeignKey(parameter => parameter.PolicyClauseId)
+                .OnDelete(DeleteBehavior.SetNull);
+
+            modelBuilder.Entity<PolicyLookupTable>()
+                .HasOne(table => table.PolicySet)
+                .WithMany(policy => policy.LookupTables)
+                .HasForeignKey(table => table.PolicySetId)
+                .OnDelete(DeleteBehavior.Cascade);
+
+            modelBuilder.Entity<PolicyLookupTable>()
+                .HasOne(table => table.PolicyClause)
+                .WithMany()
+                .HasForeignKey(table => table.PolicyClauseId)
+                .OnDelete(DeleteBehavior.SetNull);
+
+            modelBuilder.Entity<PolicyLookupColumn>()
+                .HasOne(column => column.PolicyLookupTable)
+                .WithMany(table => table.Columns)
+                .HasForeignKey(column => column.PolicyLookupTableId)
+                .OnDelete(DeleteBehavior.Cascade);
+
+            modelBuilder.Entity<PolicyLookupRow>()
+                .HasOne(row => row.PolicyLookupTable)
+                .WithMany(table => table.Rows)
+                .HasForeignKey(row => row.PolicyLookupTableId)
+                .OnDelete(DeleteBehavior.Cascade);
+
+            modelBuilder.Entity<PolicyLookupCell>()
+                .HasOne(cell => cell.PolicyLookupRow)
+                .WithMany(row => row.Cells)
+                .HasForeignKey(cell => cell.PolicyLookupRowId)
+                .OnDelete(DeleteBehavior.Cascade);
+
+            modelBuilder.Entity<PolicyLookupCell>()
+                .HasOne(cell => cell.PolicyLookupColumn)
+                .WithMany(column => column.Cells)
+                .HasForeignKey(cell => cell.PolicyLookupColumnId)
+                .OnDelete(DeleteBehavior.Cascade);
+
+            modelBuilder.Entity<PolicyLookupCell>()
+                .HasIndex(cell => new { cell.PolicyLookupRowId, cell.PolicyLookupColumnId })
+                .IsUnique();
+
+            modelBuilder.Entity<PolicyAttachment>()
+                .HasOne(attachment => attachment.PolicySet)
+                .WithMany(policy => policy.Attachments)
+                .HasForeignKey(attachment => attachment.PolicySetId)
+                .OnDelete(DeleteBehavior.Cascade);
+
+            modelBuilder.Entity<PolicyAttachment>()
+                .HasOne(attachment => attachment.PolicyClause)
+                .WithMany(clause => clause.Attachments)
+                .HasForeignKey(attachment => attachment.PolicyClauseId)
+                .OnDelete(DeleteBehavior.SetNull);
+
+            modelBuilder.Entity<PolicyAuditEntry>()
+                .HasOne(entry => entry.PolicySet)
+                .WithMany(policy => policy.AuditEntries)
+                .HasForeignKey(entry => entry.PolicySetId)
+                .OnDelete(DeleteBehavior.Cascade);
 
             // ── SEED DATA ────────────────────────────
 

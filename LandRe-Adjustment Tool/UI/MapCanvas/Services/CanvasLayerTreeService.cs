@@ -238,17 +238,6 @@ namespace Land_Readjustment_Tool.UI.MapCanvas.Services
             CanvasLayer layer,
             DefaultLayerDefinition definition)
         {
-            bool isManagedDefault =
-                string.Equals(
-                    layer.Description,
-                    $"Default layer: {definition.Name}",
-                    StringComparison.OrdinalIgnoreCase) ||
-                (!string.IsNullOrWhiteSpace(definition.LegacyName) &&
-                 string.Equals(
-                     layer.Description,
-                     $"Default layer: {definition.LegacyName}",
-                     StringComparison.OrdinalIgnoreCase));
-
             if (string.Equals(definition.GroupKey, DrawingMarkupGroupKey, StringComparison.OrdinalIgnoreCase))
             {
                 return false;
@@ -275,10 +264,16 @@ namespace Land_Readjustment_Tool.UI.MapCanvas.Services
             }
 
             if (string.IsNullOrWhiteSpace(layer.LineStyle))
+            {
                 layer.LineStyle = definition.LineStyle;
+                changed = true;
+            }
 
             if (layer.LineTypeScale <= 0)
+            {
                 layer.LineTypeScale = 1.0;
+                changed = true;
+            }
 
             if (string.IsNullOrWhiteSpace(layer.LabelFontName))
             {
@@ -286,8 +281,7 @@ namespace Land_Readjustment_Tool.UI.MapCanvas.Services
                 changed = true;
             }
 
-            if (layer.LabelFontSize <= 0 ||
-                Math.Abs(layer.LabelFontSize - 2.0) < 0.0001)
+            if (layer.LabelFontSize <= 0)
             {
                 layer.LabelFontSize = 1.0;
                 changed = true;
@@ -302,38 +296,22 @@ namespace Land_Readjustment_Tool.UI.MapCanvas.Services
                 changed = true;
             }
 
-            if (string.Equals(definition.LayerType, "ProjectBoundary", StringComparison.OrdinalIgnoreCase))
+            if (string.IsNullOrWhiteSpace(layer.BorderColor))
             {
-                if (string.IsNullOrWhiteSpace(layer.BorderColor) ||
-                    string.Equals(layer.BorderColor, "#CF7C82", StringComparison.OrdinalIgnoreCase))
-                {
-                    layer.BorderColor = definition.BorderColor;
-                    changed = true;
-                }
+                layer.BorderColor = definition.BorderColor;
+                changed = true;
+            }
 
-                if (!string.Equals(layer.FillStyle, "None", StringComparison.OrdinalIgnoreCase))
-                {
-                    layer.FillStyle = "None";
-                    changed = true;
-                }
+            if (string.IsNullOrWhiteSpace(layer.FillStyle))
+            {
+                layer.FillStyle = string.IsNullOrWhiteSpace(layer.FillColor) ? "None" : "Solid";
+                changed = true;
+            }
 
-                if (!string.IsNullOrWhiteSpace(layer.FillColor))
-                {
-                    layer.FillColor = null;
-                    changed = true;
-                }
-
-                if (layer.ShowFillTransparency)
-                {
-                    layer.ShowFillTransparency = false;
-                    changed = true;
-                }
-
-                if (layer.FillTransparency != 50)
-                {
-                    layer.FillTransparency = 50;
-                    changed = true;
-                }
+            if (layer.FillTransparency < 0 || layer.FillTransparency > 100)
+            {
+                layer.FillTransparency = 50;
+                changed = true;
             }
 
             if (changed)

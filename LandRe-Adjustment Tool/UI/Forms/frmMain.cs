@@ -77,6 +77,7 @@ namespace Land_Readjustment_Tool
         //Canvas Control for drawing
         private MapCanvasControl? _workspaceCanvas;
         private frmReplotWorkspace? _replotWorkspaceForm;
+        private frmPolicyManagerMdiHost? _policyManagerForm;
         private frmAreaConverter? _areaConverterForm;
         private readonly List<ToolStripItem> _projectScopedProfessionalMenuItems = new();
         private CanvasLayerTreeService? _layerTreeService;
@@ -456,6 +457,12 @@ namespace Land_Readjustment_Tool
             mapRefreshLayersToolStripMenuItem.Click += mapRefreshLayersToolStripMenuItem_Click;
             mapLayerPropertiesToolStripMenuItem.Click -= PlannedFeatureToolStripMenuItem_Click;
             mapLayerPropertiesToolStripMenuItem.Click += mapLayerPropertiesToolStripMenuItem_Click;
+            contributionSettingsToolStripMenuItem.Click -= PolicyManagerToolStripMenuItem_Click;
+            returnPolicySetupToolStripMenuItem.Click -= PolicyManagerToolStripMenuItem_Click;
+            policyVersionApprovalToolStripMenuItem.Click -= PolicyManagerToolStripMenuItem_Click;
+            contributionSettingsToolStripMenuItem.Click += PolicyManagerToolStripMenuItem_Click;
+            returnPolicySetupToolStripMenuItem.Click += PolicyManagerToolStripMenuItem_Click;
+            policyVersionApprovalToolStripMenuItem.Click += PolicyManagerToolStripMenuItem_Click;
 
         }
 
@@ -832,6 +839,34 @@ namespace Land_Readjustment_Tool
                 "Feature Planned",
                 MessageBoxButtons.OK,
                 MessageBoxIcon.Information);
+        }
+
+        private void PolicyManagerToolStripMenuItem_Click(object? sender, EventArgs e)
+        {
+            OpenPolicyManager();
+        }
+
+        private void OpenPolicyManager()
+        {
+            if (!AppServices.HasContext)
+                return;
+
+            if (_policyManagerForm != null && !_policyManagerForm.IsDisposed)
+            {
+                _policyManagerForm.Activate();
+                return;
+            }
+
+            ProjectSession policySession = _sessionFactory.CreateSession(
+                AppServices.Context.Session.ProjectFilePath);
+            var service = _projectScopedFactory.CreatePolicyManagerService(
+                policySession);
+            _policyManagerForm = new frmPolicyManagerMdiHost(
+                service,
+                readOnlyMode: _isApplicationEditLocked,
+                ownedSession: policySession);
+            _policyManagerForm.FormClosed += (_, _) => _policyManagerForm = null;
+            _policyManagerForm.Show(this);
         }
 
         private bool EnsureApplicationUnlockedForEditing(string action)
@@ -12208,61 +12243,13 @@ namespace Land_Readjustment_Tool
         }
 
         /// <summary>
-        /// Updates all layer colors to be theme-aware based on the canvas background color.
-        /// When canvas theme changes, layer colors are adjusted for visibility and contrast.
+        /// Keeps layer colors user-authored. Theme contrast adjustment is applied only
+        /// when creating new layers, never by rewriting existing saved layer properties.
         /// </summary>
         private async Task UpdateLayerColorsForCanvasThemeAsync(Color canvasBackgroundColor)
         {
-            if (!AppServices.HasContext) return;
-
-            try
-            {
-                var repository = _projectScopedFactory.CreateCanvasLayerRepository(
-                    AppServices.Context.Session);
-                var layers = await repository.GetAllOrderedAsync();
-
-                if (layers.Count == 0) return;
-
-                bool colorsUpdated = false;
-
-                // Update each layer's colors based on canvas theme
-                foreach (var layer in layers)
-                {
-                    string? currentBorderColor = layer.BorderColor;
-                    string? currentFillColor = layer.FillColor;
-                    string? currentLabelColor = layer.LabelColor;
-
-                    ApplyCanvasThemeToLayerColors(layer, canvasBackgroundColor);
-
-                    // Only update if colors changed
-                    if (currentBorderColor != layer.BorderColor ||
-                        currentFillColor != layer.FillColor ||
-                        currentLabelColor != layer.LabelColor)
-                    {
-                        layer.LastModifiedDate = DateTime.Now;
-
-                        await repository.UpdateAsync(layer);
-                        colorsUpdated = true;
-                    }
-                }
-
-                // If any colors were updated, refresh everything
-                if (colorsUpdated)
-                {
-                    // Reload layers and refresh tree view (which shows swatches and properties)
-                    var updatedLayers = await repository.GetAllOrderedAsync();
-                    await RefreshLayerTreeAsync();
-
-                    // Refresh canvas with updated colors
-                    mapCanvasControlMain.SetVectorLayers(updatedLayers);
-                    mapCanvasControlMain.RequestRender();
-                }
-            }
-            catch (Exception ex)
-            {
-                System.Diagnostics.Debug.WriteLine(
-                    $"UpdateLayerColorsForCanvasTheme failed: {ex.Message}");
-            }
+            _ = canvasBackgroundColor;
+            await Task.CompletedTask;
         }
 
         private async Task ApplyCurrentCanvasThemeToLayerColorsAsync()
