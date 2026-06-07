@@ -458,11 +458,9 @@ namespace Land_Readjustment_Tool
             mapLayerPropertiesToolStripMenuItem.Click -= PlannedFeatureToolStripMenuItem_Click;
             mapLayerPropertiesToolStripMenuItem.Click += mapLayerPropertiesToolStripMenuItem_Click;
             contributionSettingsToolStripMenuItem.Click -= PolicyManagerToolStripMenuItem_Click;
-            returnPolicySetupToolStripMenuItem.Click -= PolicyManagerToolStripMenuItem_Click;
-            policyVersionApprovalToolStripMenuItem.Click -= PolicyManagerToolStripMenuItem_Click;
+
             contributionSettingsToolStripMenuItem.Click += PolicyManagerToolStripMenuItem_Click;
-            returnPolicySetupToolStripMenuItem.Click += PolicyManagerToolStripMenuItem_Click;
-            policyVersionApprovalToolStripMenuItem.Click += PolicyManagerToolStripMenuItem_Click;
+
 
         }
 
@@ -497,8 +495,7 @@ namespace Land_Readjustment_Tool
                 mapRefreshLayersToolStripMenuItem,
                 mapLayerPropertiesToolStripMenuItem,
                 contributionSettingsToolStripMenuItem,
-                returnPolicySetupToolStripMenuItem,
-                policyVersionApprovalToolStripMenuItem,
+
                 parcelContributionInputsToolStripMenuItem,
                 deriveInputsFromMapToolStripMenuItem,
                 calculateContributionToolStripMenuItem,
@@ -741,6 +738,8 @@ namespace Land_Readjustment_Tool
             mapCanvasControlMain.ApplicationEditLocked = _isApplicationEditLocked;
             if (_workspaceCanvas != null && !_workspaceCanvas.IsDisposed)
                 _workspaceCanvas.ApplicationEditLocked = _isApplicationEditLocked;
+            if (_policyManagerForm != null && !_policyManagerForm.IsDisposed)
+                _policyManagerForm.SetReadOnlyMode(_isApplicationEditLocked);
 
             if (_isApplicationEditLocked)
             {

@@ -3,21 +3,13 @@ namespace Land_Readjustment_Tool.UI.Forms
     partial class frmPolicyParametersWindow
     {
         private System.ComponentModel.IContainer components = null;
-        private ToolStrip toolStrip;
-        private ToolStripLabel lblPolicy;
-        private ToolStripComboBox cboPolicies;
-        private ToolStripButton btnAddParameter;
-        private ToolStripButton btnDeleteParameter;
-        private ToolStripButton btnRefresh;
-        private ToolStripLabel lblEditHint;
+        private Panel headerPanel;
+        private Label lblPolicy;
+        private ComboBox cboPolicies;
+        private Button btnAddParameter;
+        private Button btnDeleteParameter;
+        private Button btnRefresh;
         private DataGridView dgvParameters;
-        private DataGridViewTextBoxColumn colClause;
-        private DataGridViewTextBoxColumn colKey;
-        private DataGridViewTextBoxColumn colLabel;
-        private DataGridViewTextBoxColumn colValue;
-        private DataGridViewTextBoxColumn colUnit;
-        private DataGridViewTextBoxColumn colType;
-        private DataGridViewTextBoxColumn colDescription;
 
         protected override void Dispose(bool disposing)
         {
@@ -29,141 +21,162 @@ namespace Land_Readjustment_Tool.UI.Forms
 
         private void InitializeComponent()
         {
-            toolStrip = new ToolStrip();
-            lblPolicy = new ToolStripLabel();
-            cboPolicies = new ToolStripComboBox();
-            btnAddParameter = new ToolStripButton();
-            btnDeleteParameter = new ToolStripButton();
-            btnRefresh = new ToolStripButton();
-            lblEditHint = new ToolStripLabel();
+            headerPanel = new Panel();
+            lblPolicy = new Label();
+            cboPolicies = new ComboBox();
+            btnAddParameter = new Button();
+            btnDeleteParameter = new Button();
+            btnRefresh = new Button();
             dgvParameters = new DataGridView();
             colClause = new DataGridViewTextBoxColumn();
-            colKey = new DataGridViewTextBoxColumn();
             colLabel = new DataGridViewTextBoxColumn();
             colValue = new DataGridViewTextBoxColumn();
             colUnit = new DataGridViewTextBoxColumn();
-            colType = new DataGridViewTextBoxColumn();
             colDescription = new DataGridViewTextBoxColumn();
-            toolStrip.SuspendLayout();
+            headerPanel.SuspendLayout();
             ((System.ComponentModel.ISupportInitialize)dgvParameters).BeginInit();
             SuspendLayout();
             // 
-            // toolStrip
+            // headerPanel
             // 
-            toolStrip.GripStyle = ToolStripGripStyle.Hidden;
-            toolStrip.ImageScalingSize = new Size(20, 20);
-            toolStrip.Items.AddRange(new ToolStripItem[] { lblPolicy, cboPolicies, new ToolStripSeparator(), btnAddParameter, btnDeleteParameter, btnRefresh, new ToolStripSeparator(), lblEditHint });
-            toolStrip.Location = new Point(0, 0);
-            toolStrip.Name = "toolStrip";
-            toolStrip.Size = new Size(1100, 28);
-            toolStrip.TabIndex = 0;
+            headerPanel.BorderStyle = BorderStyle.FixedSingle;
+            headerPanel.Controls.Add(lblPolicy);
+            headerPanel.Controls.Add(cboPolicies);
+            headerPanel.Controls.Add(btnAddParameter);
+            headerPanel.Controls.Add(btnDeleteParameter);
+            headerPanel.Controls.Add(btnRefresh);
+            headerPanel.Dock = DockStyle.Top;
+            headerPanel.Location = new Point(0, 0);
+            headerPanel.Name = "headerPanel";
+            headerPanel.Padding = new Padding(8, 6, 8, 6);
+            headerPanel.Size = new Size(1100, 40);
+            headerPanel.TabIndex = 0;
             // 
             // lblPolicy
             // 
+            lblPolicy.Font = new Font("Segoe UI", 9F, FontStyle.Bold);
+            lblPolicy.Location = new Point(8, 8);
             lblPolicy.Name = "lblPolicy";
-            lblPolicy.Size = new Size(52, 25);
+            lblPolicy.Size = new Size(54, 24);
+            lblPolicy.TabIndex = 0;
             lblPolicy.Text = "Policy:";
+            lblPolicy.TextAlign = ContentAlignment.MiddleLeft;
             // 
             // cboPolicies
             // 
             cboPolicies.DropDownStyle = ComboBoxStyle.DropDownList;
+            cboPolicies.Location = new Point(66, 6);
             cboPolicies.Name = "cboPolicies";
             cboPolicies.Size = new Size(360, 28);
+            cboPolicies.TabIndex = 1;
             cboPolicies.SelectedIndexChanged += cboPolicies_SelectedIndexChanged;
             // 
             // btnAddParameter
             // 
-            btnAddParameter.DisplayStyle = ToolStripItemDisplayStyle.Text;
+            btnAddParameter.Location = new Point(438, 6);
             btnAddParameter.Name = "btnAddParameter";
-            btnAddParameter.Size = new Size(111, 25);
+            btnAddParameter.Size = new Size(118, 28);
+            btnAddParameter.TabIndex = 2;
             btnAddParameter.Text = "Add Parameter";
+            btnAddParameter.UseVisualStyleBackColor = true;
             btnAddParameter.Click += btnAddParameter_Click;
             // 
             // btnDeleteParameter
             // 
-            btnDeleteParameter.DisplayStyle = ToolStripItemDisplayStyle.Text;
+            btnDeleteParameter.Location = new Point(562, 6);
             btnDeleteParameter.Name = "btnDeleteParameter";
-            btnDeleteParameter.Size = new Size(126, 25);
+            btnDeleteParameter.Size = new Size(132, 28);
+            btnDeleteParameter.TabIndex = 3;
             btnDeleteParameter.Text = "Delete Parameter";
+            btnDeleteParameter.UseVisualStyleBackColor = true;
             btnDeleteParameter.Click += btnDeleteParameter_Click;
             // 
             // btnRefresh
             // 
-            btnRefresh.DisplayStyle = ToolStripItemDisplayStyle.Text;
+            btnRefresh.Location = new Point(700, 6);
             btnRefresh.Name = "btnRefresh";
-            btnRefresh.Size = new Size(64, 25);
+            btnRefresh.Size = new Size(76, 28);
+            btnRefresh.TabIndex = 4;
             btnRefresh.Text = "Refresh";
+            btnRefresh.UseVisualStyleBackColor = true;
             btnRefresh.Click += btnRefresh_Click;
-            // 
-            // lblEditHint
-            // 
-            lblEditHint.Name = "lblEditHint";
-            lblEditHint.Size = new Size(227, 25);
-            lblEditHint.Text = "Beige cells are editable draft values";
             // 
             // dgvParameters
             // 
             dgvParameters.AllowUserToAddRows = false;
-            dgvParameters.AutoSizeColumnsMode = DataGridViewAutoSizeColumnsMode.None;
             dgvParameters.ColumnHeadersHeightSizeMode = DataGridViewColumnHeadersHeightSizeMode.AutoSize;
-            dgvParameters.Columns.AddRange(new DataGridViewColumn[] { colClause, colKey, colLabel, colValue, colUnit, colType, colDescription });
+            dgvParameters.Columns.AddRange(new DataGridViewColumn[] { colClause, colLabel, colValue, colUnit, colDescription });
             dgvParameters.Dock = DockStyle.Fill;
-            dgvParameters.Location = new Point(0, 28);
+            dgvParameters.Location = new Point(0, 40);
             dgvParameters.MultiSelect = false;
             dgvParameters.Name = "dgvParameters";
             dgvParameters.RowHeadersWidth = 35;
             dgvParameters.SelectionMode = DataGridViewSelectionMode.FullRowSelect;
-            dgvParameters.Size = new Size(1100, 592);
+            dgvParameters.Size = new Size(1100, 580);
             dgvParameters.TabIndex = 1;
             dgvParameters.CellEndEdit += dgvParameters_CellEndEdit;
+            dgvParameters.SelectionChanged += dgvParameters_SelectionChanged;
             // 
-            // columns
+            // colClause
             // 
-            colClause.HeaderText = "Clause";
+            colClause.HeaderText = "Ref. Clause";
+            colClause.MinimumWidth = 6;
             colClause.Name = "colClause";
             colClause.ReadOnly = true;
             colClause.SortMode = DataGridViewColumnSortMode.NotSortable;
-            colClause.Width = 90;
-            colKey.HeaderText = "Key";
-            colKey.Name = "colKey";
-            colKey.SortMode = DataGridViewColumnSortMode.NotSortable;
-            colKey.Width = 170;
-            colLabel.HeaderText = "Label";
+            colClause.Width = 120;
+            // 
+            // colLabel
+            // 
+            colLabel.HeaderText = "Parameter";
+            colLabel.MinimumWidth = 6;
             colLabel.Name = "colLabel";
             colLabel.SortMode = DataGridViewColumnSortMode.NotSortable;
-            colLabel.Width = 220;
+            colLabel.Width = 260;
+            // 
+            // colValue
+            // 
             colValue.HeaderText = "Value";
+            colValue.MinimumWidth = 6;
             colValue.Name = "colValue";
             colValue.SortMode = DataGridViewColumnSortMode.NotSortable;
-            colValue.Width = 110;
+            colValue.Width = 130;
+            // 
+            // colUnit
+            // 
             colUnit.HeaderText = "Unit";
+            colUnit.MinimumWidth = 6;
             colUnit.Name = "colUnit";
             colUnit.SortMode = DataGridViewColumnSortMode.NotSortable;
             colUnit.Width = 80;
-            colType.HeaderText = "Type";
-            colType.Name = "colType";
-            colType.SortMode = DataGridViewColumnSortMode.NotSortable;
-            colType.Width = 95;
+            // 
+            // colDescription
+            // 
             colDescription.HeaderText = "Description";
+            colDescription.MinimumWidth = 6;
             colDescription.Name = "colDescription";
             colDescription.SortMode = DataGridViewColumnSortMode.NotSortable;
-            colDescription.Width = 430;
+            colDescription.Width = 520;
             // 
             // frmPolicyParametersWindow
             // 
             AutoScaleMode = AutoScaleMode.None;
             ClientSize = new Size(1100, 620);
             Controls.Add(dgvParameters);
-            Controls.Add(toolStrip);
+            Controls.Add(headerPanel);
             MinimumSize = new Size(900, 520);
             Name = "frmPolicyParametersWindow";
             Text = "Policy Parameters";
             Load += frmPolicyParametersWindow_Load;
-            toolStrip.ResumeLayout(false);
-            toolStrip.PerformLayout();
+            headerPanel.ResumeLayout(false);
             ((System.ComponentModel.ISupportInitialize)dgvParameters).EndInit();
             ResumeLayout(false);
-            PerformLayout();
         }
+
+        private DataGridViewTextBoxColumn colClause;
+        private DataGridViewTextBoxColumn colLabel;
+        private DataGridViewTextBoxColumn colValue;
+        private DataGridViewTextBoxColumn colUnit;
+        private DataGridViewTextBoxColumn colDescription;
     }
 }

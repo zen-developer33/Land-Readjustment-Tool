@@ -163,6 +163,7 @@ namespace Land_Readjustment_Tool.UI.MapCanvas.Rendering
                 .OrderBy(GetDrawingMarkupRenderPass)
                 .ThenBy(GetCadastralParcelRenderPass)
                 .ThenBy(GetProjectBoundaryRenderPass)
+                .ThenBy(GetOpenSpaceRenderPass)
                 .ThenBy(GetDisplayOrder)
                 .ThenBy(f => f.CanvasObject.Id)
                 .ToList();
@@ -257,6 +258,47 @@ namespace Land_Readjustment_Tool.UI.MapCanvas.Rendering
             {
                 DrawCircleRadiusPreview(graphics, engine, circle, context);
             }
+        }
+
+        /// <summary>
+        /// Draws only the selection decoration (highlight glow for data-layer
+        /// polygons, or the selection stroke for markup shapes) for a single
+        /// selected feature, on top of the cached vector frame. Interior fills
+        /// and hatch are intentionally skipped so the overlay never doubles the
+        /// cached frame's fill opacity. This lets selection feedback appear
+        /// instantly without rebuilding the whole vector bitmap cache.
+        /// </summary>
+        public void RenderSelectionDecoration(
+            Graphics graphics,
+            MapCanvasEngine engine,
+            IShape? shape,
+            CanvasLayer? layer,
+            CanvasFeature? feature)
+        {
+            if (shape == null || !shape.IsSelected)
+            {
+                return;
+            }
+
+            using PenCache penCache = new();
+            using BrushCache brushCache = new();
+            VectorRenderContext context = new(
+                penCache,
+                brushCache,
+                engine.ZoomScale,
+                antiAliasingEnabled: true,
+                isPreview: false,
+                selectionDecorationOnly: true);
+
+            DrawShape(
+                graphics,
+                engine,
+                shape,
+                ResolveStyle(shape, layer, feature?.CanvasObject),
+                context,
+                feature,
+                layer,
+                suppressParcelHighlight: false);
         }
 
         private void DrawCircleRadiusPreview(
@@ -427,6 +469,12 @@ namespace Land_Readjustment_Tool.UI.MapCanvas.Rendering
             return layer != null && CanvasLayerTreeService.IsProjectBoundaryLayer(layer) ? 1 : 0;
         }
 
+        private int GetOpenSpaceRenderPass(CanvasFeature feature)
+        {
+            CanvasLayer? layer = ResolveLayer(feature);
+            return IsOpenSpaceLayer(layer) ? 1 : 0;
+        }
+
         private int GetCadastralParcelRenderPass(CanvasFeature feature)
         {
             CanvasLayer? layer = ResolveLayer(feature);
@@ -444,6 +492,13 @@ namespace Land_Readjustment_Tool.UI.MapCanvas.Rendering
                          StringComparison.OrdinalIgnoreCase) == true) ||
                     (!string.IsNullOrWhiteSpace(feature.CanvasObject.GeometryMetadataJson) &&
                      feature.CanvasObject.GeometryMetadataJson.Contains("CadastralParcel", StringComparison.OrdinalIgnoreCase)));
+        }
+
+        private static bool IsOpenSpaceLayer(CanvasLayer? layer)
+        {
+            return layer != null &&
+                   (string.Equals(layer.LayerType, "OpenSpace", StringComparison.OrdinalIgnoreCase) ||
+                    string.Equals(layer.Name, "Open Spaces/Parks", StringComparison.OrdinalIgnoreCase));
         }
 
         private CanvasLayer? ResolveLayer(CanvasFeature feature)
@@ -1039,7 +1094,9 @@ namespace Land_Readjustment_Tool.UI.MapCanvas.Rendering
                 return;
             }
 
-            if (context.IsPreview)
+            // Selection-decoration overlays paint on top of a frame that is
+            // already filled, so skip interior fills/hatch to avoid doubling.
+            if (context.SelectionDecorationOnly)
             {
                 return;
             }

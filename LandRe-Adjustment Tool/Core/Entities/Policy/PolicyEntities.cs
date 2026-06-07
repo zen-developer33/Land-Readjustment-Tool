@@ -51,6 +51,34 @@ namespace Land_Readjustment_Tool.Core.Entities.Policy
         public ICollection<PolicyLookupTable> LookupTables { get; set; } = new List<PolicyLookupTable>();
         public ICollection<PolicyAttachment> Attachments { get; set; } = new List<PolicyAttachment>();
         public ICollection<PolicyAuditEntry> AuditEntries { get; set; } = new List<PolicyAuditEntry>();
+        public ICollection<PolicySectionDefinition> Sections { get; set; } = new List<PolicySectionDefinition>();
+    }
+
+    [Table("tblPolicySectionDefinitions")]
+    public class PolicySectionDefinition
+    {
+        [Key]
+        public int Id { get; set; }
+
+        public int PolicySetId { get; set; }
+
+        // "A", "B", "C", ..., "Z", "AA", "AB", ... auto-assigned on add.
+        [Required]
+        [MaxLength(8)]
+        public string SectionCode { get; set; } = string.Empty;
+
+        // Free-text human heading shown in the section grid and used by clauses
+        // (PolicyClause.PolicySection still stores this heading as text, so legacy
+        // clauses without a SectionDefinition row keep working until backfilled).
+        [Required]
+        [MaxLength(120)]
+        public string Heading { get; set; } = string.Empty;
+
+        public int DisplayOrder { get; set; }
+        public DateTime CreatedDate { get; set; }
+        public DateTime LastModifiedDate { get; set; }
+
+        public PolicySet PolicySet { get; set; } = null!;
     }
 
     [Table("tblPolicyClauses")]

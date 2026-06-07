@@ -6,7 +6,7 @@ namespace Land_Readjustment_Tool.UI.Forms
     {
         private readonly PolicyManagerService _policyManagerService;
         private readonly ProjectSession? _ownedSession;
-        private readonly bool _readOnlyMode;
+        private bool _readOnlyMode;
 
         public frmPolicyManagerMdiHost(
             PolicyManagerService policyManagerService,
@@ -24,40 +24,53 @@ namespace Land_Readjustment_Tool.UI.Forms
             RecordFormTheme.Apply(this);
         }
 
+        public void SetReadOnlyMode(bool readOnlyMode)
+        {
+            _readOnlyMode = readOnlyMode;
+            Text = readOnlyMode
+                ? "Contribution / Return Policy Manager - Read Only"
+                : "Contribution / Return Policy Manager";
+
+            foreach (Form child in MdiChildren)
+            {
+                if (child is frmPolicyManagerDashboard dashboard)
+                    dashboard.SetReadOnlyMode(readOnlyMode);
+                else if (child is frmPolicyParametersWindow parameters)
+                    parameters.SetReadOnlyMode(readOnlyMode);
+                else if (child is frmPolicyLookupTablesWindow lookupTables)
+                    lookupTables.SetReadOnlyMode(readOnlyMode);
+            }
+        }
+
         private void frmPolicyManagerMdiHost_Load(object? sender, EventArgs e)
         {
-            lblStatus.Text = "Opening policy dashboard...";
-            BeginInvoke(new Action(OpenDashboard));
+            lblStatus.Text = "Opening policy editor...";
+            BeginInvoke(new Action(OpenPolicyEditor));
         }
 
-        private void openDashboardToolStripMenuItem_Click(object? sender, EventArgs e)
+        private void btnPolicyEditor_Click(object? sender, EventArgs e)
         {
-            OpenDashboard();
+            OpenPolicyEditor();
         }
 
-        private void closeToolStripMenuItem_Click(object? sender, EventArgs e)
+        private void btnClose_Click(object? sender, EventArgs e)
         {
             Close();
         }
 
-        private void tileHorizontalToolStripMenuItem_Click(object? sender, EventArgs e)
+        private void btnTileHorizontal_Click(object? sender, EventArgs e)
         {
             LayoutMdi(MdiLayout.TileHorizontal);
         }
 
-        private void tileVerticalToolStripMenuItem_Click(object? sender, EventArgs e)
+        private void btnTileVertical_Click(object? sender, EventArgs e)
         {
             LayoutMdi(MdiLayout.TileVertical);
         }
 
-        private void cascadeToolStripMenuItem_Click(object? sender, EventArgs e)
+        private void btnCascade_Click(object? sender, EventArgs e)
         {
             LayoutMdi(MdiLayout.Cascade);
-        }
-
-        private void btnDashboard_Click(object? sender, EventArgs e)
-        {
-            OpenDashboard();
         }
 
         private void btnParameters_Click(object? sender, EventArgs e)
@@ -70,12 +83,7 @@ namespace Land_Readjustment_Tool.UI.Forms
             OpenLookupTables();
         }
 
-        private void btnCornerTypes_Click(object? sender, EventArgs e)
-        {
-            OpenCornerTypes();
-        }
-
-        private void OpenDashboard()
+        private void OpenPolicyEditor()
         {
             foreach (Form child in MdiChildren)
             {
@@ -89,7 +97,9 @@ namespace Land_Readjustment_Tool.UI.Forms
             frmPolicyManagerDashboard form = new(_policyManagerService, _readOnlyMode)
             {
                 MdiParent = this,
-                WindowState = FormWindowState.Maximized
+                WindowState = FormWindowState.Normal,
+                Size = new Size(1180, 700),
+                Location = new Point(12, 12)
             };
             form.StatusChanged += (_, message) => lblStatus.Text = message;
             form.Show();
@@ -101,7 +111,9 @@ namespace Land_Readjustment_Tool.UI.Forms
                 () => new frmPolicyParametersWindow(_policyManagerService, _readOnlyMode)
                 {
                     MdiParent = this,
-                    WindowState = FormWindowState.Maximized
+                    WindowState = FormWindowState.Normal,
+                    Size = new Size(1100, 620),
+                    Location = new Point(40, 40)
                 });
         }
 
@@ -111,20 +123,11 @@ namespace Land_Readjustment_Tool.UI.Forms
                 () => new frmPolicyLookupTablesWindow(_policyManagerService, _readOnlyMode, cornerTypesOnly: false)
                 {
                     MdiParent = this,
-                    WindowState = FormWindowState.Maximized
+                    WindowState = FormWindowState.Normal,
+                    Size = new Size(1120, 640),
+                    Location = new Point(70, 70)
                 },
                 form => form.Text == "Policy Lookup Tables");
-        }
-
-        private void OpenCornerTypes()
-        {
-            OpenOrActivate<frmPolicyLookupTablesWindow>(
-                () => new frmPolicyLookupTablesWindow(_policyManagerService, _readOnlyMode, cornerTypesOnly: true)
-                {
-                    MdiParent = this,
-                    WindowState = FormWindowState.Maximized
-                },
-                form => form.Text == "Project Corner Type Definitions");
         }
 
         private void OpenOrActivate<TForm>(

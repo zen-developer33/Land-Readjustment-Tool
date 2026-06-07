@@ -79,7 +79,18 @@ namespace Land_Readjustment_Tool.Services.Policy
                     parameter.Unit == "%",
                     ct);
 
-            return !hasPercentDisplay;
+            if (!hasPercentDisplay)
+                return true;
+
+            bool hasClauseLinkedParameter = await _context.PolicyParameters
+                .AsNoTracking()
+                .AnyAsync(parameter =>
+                    parameter.PolicySetId == policySetId &&
+                    parameter.ParameterKey == "minFrontageM" &&
+                    parameter.PolicyClauseId != null,
+                    ct);
+
+            return !hasClauseLinkedParameter;
         }
 
         private async Task UpgradeExistingBaireniTemplateAsync(int policySetId, CancellationToken ct)
@@ -108,6 +119,7 @@ namespace Land_Readjustment_Tool.Services.Policy
             changed |= NormalizePercentParameter(policy, "infrastructureRate", "4.79");
             changed |= NormalizePercentParameter(policy, "roadCornerRate", "1.00");
             changed |= NormalizePercentParameter(policy, "fixedCommonTotal", "10.83");
+            changed |= LinkExistingParametersToClauses(policy);
 
             PolicyLookupTable? cornerTypeTable = policy.LookupTables
                 .FirstOrDefault(t => string.Equals(t.TableKey, "cornerTypeDefinitions", StringComparison.OrdinalIgnoreCase));
@@ -430,8 +442,10 @@ namespace Land_Readjustment_Tool.Services.Policy
                 LastModifiedDate = now
             };
 
+            AddSections(policy, now);
             AddClauses(policy, now);
             AddParameters(policy, now);
+            LinkParametersToClauses(policy);
             AddCornerTypeDefinitionTable(policy, now);
             AddRoadContributionTable(policy, now);
             AddSpecialFacilityTable(policy, now);
@@ -446,10 +460,40 @@ namespace Land_Readjustment_Tool.Services.Policy
             return policy;
         }
 
+        private static void AddSections(PolicySet policy, DateTime now)
+        {
+            // Sections are auto-lettered A, B, C ... in the seeded policy and shown in the
+            // section grid above the clauses grid. The clause table still stores the section
+            // heading as a string (PolicyClause.PolicySection) so legacy logic keeps working.
+            (string Code, string Heading)[] sections =
+            [
+                ("A", "Preliminary"),
+                ("B", "Contribution Policy"),
+                ("C", "Return Policy"),
+            ];
+
+            for (int i = 0; i < sections.Length; i++)
+            {
+                policy.Sections.Add(new PolicySectionDefinition
+                {
+                    SectionCode = sections[i].Code,
+                    Heading = sections[i].Heading,
+                    DisplayOrder = i + 1,
+                    CreatedDate = now,
+                    LastModifiedDate = now
+                });
+            }
+        }
+
         private static void AddClauses(PolicySet policy, DateTime now)
         {
             (string Code, string Section, string Heading, string Description)[] clauses =
             [
+                ("2.1.1", "Preliminary", "Short title", "This document shall be known as the Baireni Land Pooling Project Land Contribution and Land Return Policy."),
+                ("2.1.2", "Preliminary", "Application area", "This policy applies to all parcels lying within the declared boundary of the Baireni Land Pooling Project."),
+                ("2.1.3", "Preliminary", "Project objective", "The project aims to consolidate fragmented holdings into planned parcels with road, drainage, open space, and basic infrastructure access, and to return developed parcels to original landowners on an equitable contribution basis."),
+                ("2.1.4", "Preliminary", "Definitions", "Terms used in this policy shall have the meaning assigned in the project's planning documents. Where a term is not defined, the meaning under prevailing Government of Nepal land-pooling law shall apply."),
+                ("2.1.5", "Preliminary", "Effective date", "This policy is effective from the date of approval by the project executive committee and remains in force until amended, superseded, or the project is formally closed."),
                 ("2.2.1", "Contribution Policy", "Contribution for infrastructure and services", "Land shall be deducted as contribution from each landowner within the project area in proportion to the benefits and facilities received for infrastructure, roads, drains, and other project services."),
                 ("2.2.2", "Contribution Policy", "Road and drain contribution by proposed road width", "Every landowner shall contribute land for roads and drains according to proposed road width. For parcels abutting an existing road, contribution is based on proposed road width, existing road width, and first returned parcel depth using Schedule 1 Table 1."),
                 ("2.2.3", "Contribution Policy", "Survey map controls road-width differences", "Where road width in the field differs from the survey map, or where a new road is opened, contribution shall be calculated on the basis of the survey map."),
@@ -542,6 +586,78 @@ namespace Land_Readjustment_Tool.Services.Policy
                 CreatedDate = now,
                 LastModifiedDate = now
             });
+        }
+
+        private static void LinkParametersToClauses(PolicySet policy)
+        {
+            LinkParameter(policy, "openAreaRate", "2.2.1");
+            LinkParameter(policy, "infrastructureRate", "2.2.1");
+            LinkParameter(policy, "roadCornerRate", "2.2.8");
+            LinkParameter(policy, "fixedCommonTotal", "2.2.1");
+            LinkParameter(policy, "roadFormulaId", "2.2.2");
+            LinkParameter(policy, "returnedParcelDepthRatio", "2.2.2");
+            LinkParameter(policy, "minPlotAreaSqM", "2.3.2");
+            LinkParameter(policy, "preferredMinPlotAreaSqM", "2.3.2");
+            LinkParameter(policy, "minFrontageM", "2.3.3");
+            LinkParameter(policy, "minDepthM", "2.3.12");
+            LinkParameter(policy, "maxDepthM", "2.3.12");
+            LinkParameter(policy, "blockDepthMinM", "2.3.12");
+            LinkParameter(policy, "blockDepthMaxM", "2.3.12");
+            LinkParameter(policy, "setbackRoadM", "2.3.11");
+            LinkParameter(policy, "setbackWindowM", "2.3.11");
+            LinkParameter(policy, "consolidationMaxAreaSqM", "2.3.10");
+            LinkParameter(policy, "jointReturnThresholdSqM", "2.3.9");
+            LinkParameter(policy, "jointReturnAllowedBelowMin", "2.3.9");
+            LinkParameter(policy, "salesPlotForUnfittedCorners", "2.3.13");
+            LinkParameter(policy, "projectLandRatePerSqM", "2.3.5");
+        }
+
+        private static void LinkParameter(PolicySet policy, string parameterKey, string clauseCode)
+        {
+            PolicyParameter? parameter = policy.Parameters.FirstOrDefault(p =>
+                string.Equals(p.ParameterKey, parameterKey, StringComparison.OrdinalIgnoreCase));
+            PolicyClause? clause = Clause(policy, clauseCode);
+            if (parameter != null && clause != null)
+                parameter.PolicyClause = clause;
+        }
+
+        private static bool LinkExistingParametersToClauses(PolicySet policy)
+        {
+            bool changed = false;
+            changed |= LinkExistingParameter(policy, "openAreaRate", "2.2.1");
+            changed |= LinkExistingParameter(policy, "infrastructureRate", "2.2.1");
+            changed |= LinkExistingParameter(policy, "roadCornerRate", "2.2.8");
+            changed |= LinkExistingParameter(policy, "fixedCommonTotal", "2.2.1");
+            changed |= LinkExistingParameter(policy, "roadFormulaId", "2.2.2");
+            changed |= LinkExistingParameter(policy, "returnedParcelDepthRatio", "2.2.2");
+            changed |= LinkExistingParameter(policy, "minPlotAreaSqM", "2.3.2");
+            changed |= LinkExistingParameter(policy, "preferredMinPlotAreaSqM", "2.3.2");
+            changed |= LinkExistingParameter(policy, "minFrontageM", "2.3.3");
+            changed |= LinkExistingParameter(policy, "minDepthM", "2.3.12");
+            changed |= LinkExistingParameter(policy, "maxDepthM", "2.3.12");
+            changed |= LinkExistingParameter(policy, "blockDepthMinM", "2.3.12");
+            changed |= LinkExistingParameter(policy, "blockDepthMaxM", "2.3.12");
+            changed |= LinkExistingParameter(policy, "setbackRoadM", "2.3.11");
+            changed |= LinkExistingParameter(policy, "setbackWindowM", "2.3.11");
+            changed |= LinkExistingParameter(policy, "consolidationMaxAreaSqM", "2.3.10");
+            changed |= LinkExistingParameter(policy, "jointReturnThresholdSqM", "2.3.9");
+            changed |= LinkExistingParameter(policy, "jointReturnAllowedBelowMin", "2.3.9");
+            changed |= LinkExistingParameter(policy, "salesPlotForUnfittedCorners", "2.3.13");
+            changed |= LinkExistingParameter(policy, "projectLandRatePerSqM", "2.3.5");
+            return changed;
+        }
+
+        private static bool LinkExistingParameter(PolicySet policy, string parameterKey, string clauseCode)
+        {
+            PolicyParameter? parameter = policy.Parameters.FirstOrDefault(p =>
+                string.Equals(p.ParameterKey, parameterKey, StringComparison.OrdinalIgnoreCase));
+            PolicyClause? clause = Clause(policy, clauseCode);
+            if (parameter == null || clause == null || parameter.PolicyClauseId == clause.Id)
+                return false;
+
+            parameter.PolicyClauseId = clause.Id;
+            parameter.LastModifiedDate = DateTime.Now;
+            return true;
         }
 
         private static void AddRoadContributionTable(PolicySet policy, DateTime now)

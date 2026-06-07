@@ -7,7 +7,7 @@ namespace Land_Readjustment_Tool.UI.Forms
     {
         private static readonly Color EditableCellBackColor = Color.FromArgb(255, 244, 214);
         private readonly PolicyManagerService _service;
-        private readonly bool _readOnlyMode;
+        private bool _readOnlyMode;
         private List<PolicySet> _policySummaries = [];
         private PolicySet? _currentPolicy;
         private bool _loading;
@@ -27,10 +27,19 @@ namespace Land_Readjustment_Tool.UI.Forms
                 await LoadSelectedPolicyAsync();
         }
 
-        private async void btnRefresh_Click(object? sender, EventArgs e) => await LoadSelectedPolicyAsync();
+        private async void btnRefresh_Click(object? sender, EventArgs e) => await LoadSelectedPolicyAsync(SelectedParameterId());
         private async void btnAddParameter_Click(object? sender, EventArgs e) => await AddParameterAsync();
         private async void btnDeleteParameter_Click(object? sender, EventArgs e) => await DeleteParameterAsync();
         private async void dgvParameters_CellEndEdit(object? sender, DataGridViewCellEventArgs e) => await SaveParameterRowAsync(e.RowIndex);
+        private void dgvParameters_SelectionChanged(object? sender, EventArgs e) => UpdateEditState();
+
+        public void SetReadOnlyMode(bool readOnlyMode)
+        {
+            _readOnlyMode = readOnlyMode;
+            UpdateEditState();
+            foreach (DataGridViewRow row in dgvParameters.Rows)
+                ApplyEditableStyle(row);
+        }
 
         private async Task ReloadPoliciesAsync()
         {
@@ -53,7 +62,7 @@ namespace Land_Readjustment_Tool.UI.Forms
             await LoadSelectedPolicyAsync();
         }
 
-        private async Task LoadSelectedPolicyAsync()
+        private async Task LoadSelectedPolicyAsync(int? selectParameterId = null)
         {
             if (cboPolicies.SelectedIndex < 0 || cboPolicies.SelectedIndex >= _policySummaries.Count)
                 return;
@@ -63,7 +72,7 @@ namespace Land_Readjustment_Tool.UI.Forms
             {
                 int policyId = _policySummaries[cboPolicies.SelectedIndex].Id;
                 _currentPolicy = await RunServiceAsync(() => _service.GetPolicyParametersAsync(policyId));
-                LoadGrid();
+                LoadGrid(selectParameterId);
             }
             finally
             {
@@ -71,7 +80,7 @@ namespace Land_Readjustment_Tool.UI.Forms
             }
         }
 
-        private void LoadGrid()
+        private void LoadGrid(int? selectParameterId = null)
         {
             dgvParameters.Rows.Clear();
             if (_currentPolicy == null)
@@ -84,18 +93,37 @@ namespace Land_Readjustment_Tool.UI.Forms
             {
                 int rowIndex = dgvParameters.Rows.Add(
                     parameter.PolicyClauseId.HasValue && clauseCodes.TryGetValue(parameter.PolicyClauseId.Value, out string? clauseCode) ? clauseCode ?? "" : "",
-                    parameter.ParameterKey ?? "",
                     parameter.Label,
                     parameter.ValueText ?? "",
                     parameter.Unit ?? "",
-                    parameter.ValueType,
                     parameter.Description ?? "");
                 DataGridViewRow row = dgvParameters.Rows[rowIndex];
                 row.Tag = parameter;
                 ApplyEditableStyle(row);
             }
 
+            SelectParameterByIdOrFirst(selectParameterId);
             dgvParameters.ReadOnly = !IsEditable();
+            UpdateEditState();
+        }
+
+        private void SelectParameterByIdOrFirst(int? parameterId)
+        {
+            if (dgvParameters.Rows.Count == 0)
+                return;
+
+            DataGridViewRow? rowToSelect = null;
+            if (parameterId.HasValue)
+            {
+                rowToSelect = dgvParameters.Rows
+                    .Cast<DataGridViewRow>()
+                    .FirstOrDefault(row => row.Tag is PolicyParameter parameter && parameter.Id == parameterId.Value);
+            }
+
+            rowToSelect ??= dgvParameters.Rows[0];
+            dgvParameters.ClearSelection();
+            rowToSelect.Selected = true;
+            dgvParameters.CurrentCell = rowToSelect.Cells[0];
         }
 
         private void ApplyEditableStyle(DataGridViewRow row)
@@ -118,7 +146,7 @@ namespace Land_Readjustment_Tool.UI.Forms
             {
                 PolicySetId = _currentPolicy.Id,
                 PolicyClauseId = selectedClause?.Id,
-                ParameterKey = "newParameter",
+                ParameterKey = $"newParameter{DateTime.Now:HHmmss}",
                 Label = "New Parameter",
                 ValueType = "Text",
                 ValueText = "",
@@ -127,8 +155,8 @@ namespace Land_Readjustment_Tool.UI.Forms
                 DisplayOrder = _currentPolicy.Parameters.Count + 1
             };
 
-            await RunServiceAsync(() => _service.SaveParameterAsync(parameter));
-            await LoadSelectedPolicyAsync();
+            PolicyParameter created = await RunServiceAsync(() => _service.SaveParameterAsync(parameter));
+            await LoadSelectedPolicyAsync(created.Id);
         }
 
         private async Task DeleteParameterAsync()
@@ -151,12 +179,10 @@ namespace Land_Readjustment_Tool.UI.Forms
             if (dgvParameters.Rows[rowIndex].Tag is not PolicyParameter parameter)
                 return;
 
-            parameter.ParameterKey = NullIfBlank(Value(rowIndex, 1));
-            parameter.Label = string.IsNullOrWhiteSpace(Value(rowIndex, 2)) ? "Parameter" : Value(rowIndex, 2);
-            parameter.ValueText = Value(rowIndex, 3);
-            parameter.Unit = NullIfBlank(Value(rowIndex, 4));
-            parameter.ValueType = string.IsNullOrWhiteSpace(Value(rowIndex, 5)) ? "Text" : Value(rowIndex, 5);
-            parameter.Description = Value(rowIndex, 6);
+            parameter.Label = string.IsNullOrWhiteSpace(Value(rowIndex, 1)) ? "Parameter" : Value(rowIndex, 1);
+            parameter.ValueText = Value(rowIndex, 2);
+            parameter.Unit = NullIfBlank(Value(rowIndex, 3));
+            parameter.Description = Value(rowIndex, 4);
             await RunServiceAsync(() => _service.SaveParameterAsync(parameter));
         }
 
@@ -165,6 +191,13 @@ namespace Land_Readjustment_Tool.UI.Forms
             return !_readOnlyMode &&
                    _currentPolicy != null &&
                    PolicyValidationService.IsEditable(_currentPolicy);
+        }
+
+        private void UpdateEditState()
+        {
+            bool editable = IsEditable();
+            btnAddParameter.Enabled = editable;
+            btnDeleteParameter.Enabled = editable && dgvParameters.SelectedRows.Count > 0;
         }
 
         private async Task<T> RunServiceAsync<T>(Func<Task<T>> operation)
@@ -180,6 +213,17 @@ namespace Land_Readjustment_Tool.UI.Forms
         private string Value(int rowIndex, int columnIndex)
         {
             return Convert.ToString(dgvParameters.Rows[rowIndex].Cells[columnIndex].Value)?.Trim() ?? "";
+        }
+
+        private int? SelectedParameterId()
+        {
+            if (dgvParameters.SelectedRows.Count == 0 ||
+                dgvParameters.SelectedRows[0].Tag is not PolicyParameter parameter)
+            {
+                return null;
+            }
+
+            return parameter.Id;
         }
 
         private static string? NullIfBlank(string value)

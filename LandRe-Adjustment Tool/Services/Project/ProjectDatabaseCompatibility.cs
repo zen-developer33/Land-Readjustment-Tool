@@ -408,6 +408,26 @@ namespace Land_Readjustment_Tool.Services.Project
                 ct);
 
             await context.Database.ExecuteSqlRawAsync(
+                """
+                CREATE TABLE IF NOT EXISTS tblPolicySectionDefinitions (
+                    Id INTEGER NOT NULL CONSTRAINT PK_tblPolicySectionDefinitions PRIMARY KEY AUTOINCREMENT,
+                    PolicySetId INTEGER NOT NULL,
+                    SectionCode TEXT NOT NULL,
+                    Heading TEXT NOT NULL,
+                    DisplayOrder INTEGER NOT NULL DEFAULT 0,
+                    CreatedDate TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
+                    LastModifiedDate TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
+                    CONSTRAINT FK_tblPolicySectionDefinitions_tblPolicySets_PolicySetId
+                        FOREIGN KEY (PolicySetId) REFERENCES tblPolicySets (Id) ON DELETE CASCADE
+                );
+                """,
+                ct);
+
+            await context.Database.ExecuteSqlRawAsync(
+                "CREATE UNIQUE INDEX IF NOT EXISTS IX_tblPolicySectionDefinitions_PolicySetId_SectionCode ON tblPolicySectionDefinitions (PolicySetId, SectionCode);",
+                ct);
+
+            await context.Database.ExecuteSqlRawAsync(
                 "CREATE UNIQUE INDEX IF NOT EXISTS IX_tblPolicySets_PolicyGroupKey_VersionNo ON tblPolicySets (PolicyGroupKey, VersionNo);",
                 ct);
             await context.Database.ExecuteSqlRawAsync(

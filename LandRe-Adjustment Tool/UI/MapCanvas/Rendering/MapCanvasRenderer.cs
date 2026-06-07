@@ -228,6 +228,32 @@ namespace Land_Readjustment_Tool.UI.MapCanvas.Rendering
             _vectorDeferredRenderer.Invalidate();
         }
 
+        public bool HasValidVectorCache => _vectorDeferredRenderer.HasValidCache;
+
+        /// <summary>
+        /// Draws selection decoration for one selected feature on top of the
+        /// current frame without rebuilding the deferred vector cache.
+        /// </summary>
+        public void RenderSelectionDecoration(
+            Graphics graphics,
+            IShape? shape,
+            CanvasLayer? layer,
+            CanvasFeature? feature)
+        {
+            if (shape == null)
+            {
+                return;
+            }
+
+            ConfigureVectorGraphics(graphics);
+            _vectorRenderer.RenderSelectionDecoration(
+                graphics,
+                _engine,
+                shape,
+                layer,
+                feature);
+        }
+
         public bool RefreshVectorCache(Size canvasSize)
         {
             return _vectorDeferredRenderer.RenderNow(

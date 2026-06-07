@@ -196,6 +196,10 @@ namespace Land_Readjustment_Tool.UI.CustomControls
         private Point _objectSelectionStart;
         private Point _objectSelectionCurrent;
         private IReadOnlyList<CanvasFeature> _immediateEditedOverlayFeatures = Array.Empty<CanvasFeature>();
+        private IReadOnlyList<CanvasFeature> _selectionDecorationOverlayFeatures = Array.Empty<CanvasFeature>();
+        private Guid _pendingDrawnShapeId = Guid.Empty;
+        private IShape? _justCompletedShape;
+        private CanvasLayer? _justCompletedShapeLayer;
         private SelectionGrip? _hoveredSelectionGrip;
         private ActiveGripEdit? _activeGripEdit;
         private IShape? _previewShape;
@@ -654,9 +658,39 @@ namespace Land_Readjustment_Tool.UI.CustomControls
                 string.Equals(layer.Name, shape.LayerName, StringComparison.OrdinalIgnoreCase));
         }
 
+        /// <summary>
+        /// Resolves the layer whose style the in-progress preview and the
+        /// just-completed shape should use so they exactly match the final
+        /// cached render (same line weight, color, dash, fill). Falls back to
+        /// the named layer snapshot when only the active drawing layer name is
+        /// known, preventing the white/1px default-style preview mismatch.
+        /// </summary>
+        private CanvasLayer? GetEffectiveDrawingLayer()
+        {
+            if (_activeDrawingLayer != null)
+            {
+                return _activeDrawingLayer;
+            }
+
+            if (!string.IsNullOrWhiteSpace(_activeDrawingLayerName))
+            {
+                return _vectorLayers.FirstOrDefault(layer =>
+                    string.Equals(layer.Name, _activeDrawingLayerName, StringComparison.OrdinalIgnoreCase));
+            }
+
+            return null;
+        }
+
         public void SetVectorFeatures(IEnumerable<CanvasFeature>? features)
         {
             CaptureRefreshHoldFrame();
+            // Snapshot the previous overlay so we can carry over shapes whose
+            // background cache refresh hasn't landed yet when the user draws
+            // a new shape quickly.
+            IReadOnlyList<CanvasFeature> previousOverlay = _immediateEditedOverlayFeatures;
+            Guid pendingDrawnShapeId = _pendingDrawnShapeId;
+            _pendingDrawnShapeId = Guid.Empty;
+
             _vectorFeatures = features?.ToList() ?? [];
             _hoveredSelectionGrip = null;
             _activeGripEdit = null;
@@ -672,6 +706,70 @@ namespace Land_Readjustment_Tool.UI.CustomControls
                     IsSelectableDrawingFeature(feature);
             }
 
+            // Rebind the instant selection overlay to the new feature instances
+            // so it never paints stale geometry while the cache rebuild runs.
+            UpdateSelectionDecorationOverlay();
+
+            CanvasFeature? pendingDrawnFeature = null;
+            if (pendingDrawnShapeId != Guid.Empty)
+            {
+                pendingDrawnFeature = _vectorFeatures
+                    .FirstOrDefault(f => f.Shape.Id == pendingDrawnShapeId);
+            }
+
+            bool useNewlyDrawnFastPath =
+                pendingDrawnFeature != null &&
+                _renderer.HasValidVectorCache;
+
+            if (useNewlyDrawnFastPath)
+            {
+                // Keep the existing cache valid: it shows everything that was on
+                // screen before this shape was drawn. The async refresh below
+                // will rebuild it with the new shape baked in.
+                _renderer.UpdateVectorFeatures(_vectorFeatures, invalidateCache: false);
+                UpdateWorldBounds();
+
+                // Build the transient overlay: the just-drawn shape, plus any
+                // previously-pending shapes that are still present in the new
+                // feature set (covers fast successive draws while a refresh is
+                // still in flight).
+                Dictionary<Guid, CanvasFeature> currentById = _vectorFeatures
+                    .GroupBy(f => f.Shape.Id)
+                    .ToDictionary(g => g.Key, g => g.First());
+                HashSet<Guid> overlayIds = new();
+                List<CanvasFeature> overlay = new();
+                foreach (CanvasFeature prior in previousOverlay)
+                {
+                    if (currentById.TryGetValue(prior.Shape.Id, out CanvasFeature? current) &&
+                        overlayIds.Add(current.Shape.Id))
+                    {
+                        overlay.Add(current);
+                    }
+                }
+
+                if (overlayIds.Add(pendingDrawnFeature!.Shape.Id))
+                {
+                    overlay.Add(pendingDrawnFeature);
+                }
+
+                _immediateEditedOverlayFeatures = overlay;
+
+                // The CanvasFeature overlay above paints the just-drawn shape
+                // with the persisted style, so the temporary handoff shape can
+                // be dropped without leaving a blank frame.
+                _justCompletedShape = null;
+                _justCompletedShapeLayer = null;
+
+                // Do NOT capture a zoom snapshot or set the hold flag — the
+                // live cache already shows the prior content correctly, and
+                // the overlay covers what's missing.
+                RefreshVectorCacheForCurrentViewAsync();
+                RequestRender();
+                return;
+            }
+
+            _justCompletedShape = null;
+            _justCompletedShapeLayer = null;
             _renderer.UpdateVectorFeatures(_vectorFeatures);
             UpdateWorldBounds();
             EnsureVectorZoomSnapshot();
@@ -1288,7 +1386,7 @@ namespace Land_Readjustment_Tool.UI.CustomControls
                 deferDirectVectorRendering,
                 GetZoomWindowRectangle(),
                 _previewShape,
-                _activeDrawingLayer,
+                GetEffectiveDrawingLayer(),
                 _showDebugOverlay,
                 suppressDecorations: _activeTextEditor != null,
                 suppressGridLabels: IsInteractiveNavigation,
@@ -1296,6 +1394,8 @@ namespace Land_Readjustment_Tool.UI.CustomControls
                 fixedReferenceFrame: fixedReferenceFrame);
 
             DrawImmediateEditedFeatureOverlay(graphics);
+            DrawJustCompletedShapeOverlay(graphics);
+            DrawSelectionDecorationOverlay(graphics);
             DrawActiveGripOriginalOverlay(graphics);
             DrawObjectSelectionRectangle(graphics);
             DrawActiveGripEditOverlay(graphics);
@@ -3354,8 +3454,19 @@ namespace Land_Readjustment_Tool.UI.CustomControls
             _polylineArcAwaitingEnd = false;
             _polylineArcCenterPoint = null;
             _pendingPolylineArcThroughPoint = null;
+            // Stash the just-drawn shape so the paint pipeline can keep it
+            // visible until SetVectorFeatures (called after the async save)
+            // hands us a CanvasFeature for the same shape and parks it in the
+            // _immediateEditedOverlayFeatures slot.
+            _justCompletedShape = shape;
+            _justCompletedShapeLayer = GetEffectiveDrawingLayer();
             _previewShape = null;
             _currentSnapPoint = null;
+            // Mark this shape so SetVectorFeatures (called after the async save)
+            // can keep the current vector cache valid, paint the new shape as an
+            // immediate overlay, and let the full re-render happen asynchronously
+            // — avoiding the freeze caused by a sync cache rebuild.
+            _pendingDrawnShapeId = shape.Id;
             ShapeCompleted?.Invoke(shape);
             UpdateStatusBar();
             RequestRender();
@@ -3372,6 +3483,9 @@ namespace Land_Readjustment_Tool.UI.CustomControls
             _pendingPolylineArcThroughPoint = null;
             _previewShape = null;
             _currentSnapPoint = null;
+            _justCompletedShape = null;
+            _justCompletedShapeLayer = null;
+            _pendingDrawnShapeId = Guid.Empty;
             UpdateStatusBar();
             RequestRender();
         }
@@ -5258,6 +5372,87 @@ namespace Land_Readjustment_Tool.UI.CustomControls
             }
         }
 
+        private void DrawJustCompletedShapeOverlay(Graphics graphics)
+        {
+            IShape? shape = _justCompletedShape;
+            if (shape == null)
+            {
+                return;
+            }
+
+            // Render with the active drawing layer's full style so the bridge
+            // frame between mouse-up and the SetVectorFeatures overlay matches
+            // exactly what the final cached render will look like.
+            _renderer.RenderTransientShape(
+                graphics,
+                shape,
+                _justCompletedShapeLayer);
+        }
+
+        /// <summary>
+        /// Paints selection decoration for the current selection directly on top
+        /// of the cached vector frame so selecting/deselecting feels instant,
+        /// without waiting for a full async vector cache rebuild. Only the
+        /// highlight/selection stroke is drawn (no fills) so it composites
+        /// cleanly over the already-filled cache.
+        /// </summary>
+        private void DrawSelectionDecorationOverlay(Graphics graphics)
+        {
+            if (_selectionDecorationOverlayFeatures.Count == 0)
+            {
+                return;
+            }
+
+            // During pan/zoom the cached frame is shifted/scaled while this
+            // overlay uses the live transform, which would detach the highlight.
+            // The cache already carries baked selection during navigation, so
+            // skip the instant overlay until the view settles.
+            if (IsInteractiveNavigation ||
+                _holdVectorPanFrameUntilRefresh ||
+                _holdVectorZoomFrameUntilRefresh)
+            {
+                return;
+            }
+
+            // Grip editing draws its own preview/overlay; avoid double decoration.
+            if (_activeGripEdit != null || _activeMoveOperation != null)
+            {
+                return;
+            }
+
+            foreach (CanvasFeature feature in _selectionDecorationOverlayFeatures)
+            {
+                if (!feature.Shape.IsSelected)
+                {
+                    continue;
+                }
+
+                _renderer.RenderSelectionDecoration(
+                    graphics,
+                    feature.Shape,
+                    ResolveFeatureLayer(feature),
+                    feature);
+            }
+        }
+
+        /// <summary>
+        /// Captures the currently selected features into the instant
+        /// selection-decoration overlay set.
+        /// </summary>
+        private void UpdateSelectionDecorationOverlay()
+        {
+            if (_selectedShapeIds.Count == 0)
+            {
+                _selectionDecorationOverlayFeatures = Array.Empty<CanvasFeature>();
+                return;
+            }
+
+            _selectionDecorationOverlayFeatures = _vectorFeatures
+                .Where(feature => feature.Shape.IsSelected &&
+                                  _selectedShapeIds.Contains(feature.Shape.Id))
+                .ToArray();
+        }
+
         private void DrawActiveGripOriginalOverlay(Graphics graphics)
         {
             if (_activeGripEdit == null)
@@ -5840,6 +6035,9 @@ namespace Land_Readjustment_Tool.UI.CustomControls
             }
 
             ApplySelectedShapeFlags();
+            // Paint the selection decoration immediately (instant feedback),
+            // then let the async cache rebuild bake it into the deferred bitmap.
+            RequestRender();
             RefreshVectorCacheForCurrentViewAsync();
             UpdateStatusBar();
             NotifySelectedCanvasObjectsChanged();
@@ -5960,6 +6158,7 @@ namespace Land_Readjustment_Tool.UI.CustomControls
             }
 
             ApplySelectedShapeFlags();
+            RequestRender();
             RefreshVectorCacheForCurrentViewAsync();
             UpdateStatusBar();
             NotifySelectedCanvasObjectsChanged();
@@ -5974,6 +6173,7 @@ namespace Land_Readjustment_Tool.UI.CustomControls
             _hoveredSelectionGrip = null;
             _selectedShapeIds.Clear();
             ApplySelectedShapeFlags();
+            RequestRender();
             RefreshVectorCacheForCurrentViewAsync();
             NotifySelectedCanvasObjectsChanged();
         }
@@ -5986,6 +6186,8 @@ namespace Land_Readjustment_Tool.UI.CustomControls
                     _selectedShapeIds.Contains(feature.Shape.Id) &&
                     IsSelectableDrawingFeature(feature);
             }
+
+            UpdateSelectionDecorationOverlay();
         }
 
         private void RequestDeleteSelectedObjects()
@@ -8127,6 +8329,9 @@ namespace Land_Readjustment_Tool.UI.CustomControls
                 _holdVectorZoomFrameUntilRefresh = false;
                 _heldVectorPanDelta = PointF.Empty;
                 _immediateEditedOverlayFeatures = Array.Empty<CanvasFeature>();
+                // The freshly rebuilt cache now bakes the selection decoration,
+                // so the instant overlay can be dropped to avoid doubling it.
+                _selectionDecorationOverlayFeatures = Array.Empty<CanvasFeature>();
                 DisposeCompositePanBitmap();
 
                 if (IsHandleCreated)

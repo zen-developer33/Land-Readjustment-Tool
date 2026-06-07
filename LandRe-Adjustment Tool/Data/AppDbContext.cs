@@ -77,6 +77,7 @@ namespace Land_Readjustment_Tool.Data
         public DbSet<PolicyLookupCell> PolicyLookupCells { get; set; }
         public DbSet<PolicyAttachment> PolicyAttachments { get; set; }
         public DbSet<PolicyAuditEntry> PolicyAuditEntries { get; set; }
+        public DbSet<PolicySectionDefinition> PolicySectionDefinitions { get; set; }
 
         // Replotting
         public DbSet<ReplottedParcel> ReplottedParcels { get; set; }
@@ -203,6 +204,16 @@ namespace Land_Readjustment_Tool.Data
 
             modelBuilder.Entity<PolicyLookupTable>()
                 .HasIndex(t => t.PolicyClauseId);
+
+            modelBuilder.Entity<PolicySectionDefinition>()
+                .HasIndex(s => new { s.PolicySetId, s.SectionCode })
+                .IsUnique();
+
+            modelBuilder.Entity<PolicySectionDefinition>()
+                .HasOne(s => s.PolicySet)
+                .WithMany(p => p.Sections)
+                .HasForeignKey(s => s.PolicySetId)
+                .OnDelete(DeleteBehavior.Cascade);
 
             // ── SPATIAL RELATIONSHIPS ────────────────
 

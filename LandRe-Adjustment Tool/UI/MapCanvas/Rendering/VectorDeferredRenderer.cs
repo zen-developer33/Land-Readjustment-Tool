@@ -44,6 +44,17 @@ namespace Land_Readjustment_Tool.UI.MapCanvas.Rendering
             }
         }
 
+        public bool HasValidCache
+        {
+            get
+            {
+                lock (_sync)
+                {
+                    return !_disposed && _cacheValid && _vectorCache != null;
+                }
+            }
+        }
+
         public void Resize(Size canvasSize)
         {
             lock (_sync)

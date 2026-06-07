@@ -7,7 +7,7 @@ namespace Land_Readjustment_Tool.UI.Forms
     {
         private static readonly Color EditableCellBackColor = Color.FromArgb(255, 244, 214);
         private readonly PolicyManagerService _service;
-        private readonly bool _readOnlyMode;
+        private bool _readOnlyMode;
         private readonly bool _cornerTypesOnly;
         private List<PolicySet> _policySummaries = [];
         private PolicySet? _currentPolicy;
@@ -29,7 +29,7 @@ namespace Land_Readjustment_Tool.UI.Forms
             lblTable.Text = cornerTypesOnly ? "Corner Types:" : "Table:";
             btnAddRow.Enabled = !cornerTypesOnly;
             btnDeleteRow.Enabled = !cornerTypesOnly;
-            btnRefresh.Text = cornerTypesOnly ? "Regenerate" : "Refresh";
+            btnRefresh.Text = "Refresh";
             RecordFormTheme.Apply(this);
         }
 
@@ -51,6 +51,12 @@ namespace Land_Readjustment_Tool.UI.Forms
         private async void btnAddRow_Click(object? sender, EventArgs e) => await AddRowAsync();
         private async void btnDeleteRow_Click(object? sender, EventArgs e) => await DeleteRowAsync();
         private async void dgvLookup_CellEndEdit(object? sender, DataGridViewCellEventArgs e) => await SaveLookupCellAsync(e.RowIndex, e.ColumnIndex);
+
+        public void SetReadOnlyMode(bool readOnlyMode)
+        {
+            _readOnlyMode = readOnlyMode;
+            LoadSelectedTable();
+        }
 
         private async Task ReloadPoliciesAsync()
         {
@@ -84,13 +90,10 @@ namespace Land_Readjustment_Tool.UI.Forms
                 int policyId = _policySummaries[cboPolicies.SelectedIndex].Id;
                 (PolicySet? policy, List<string> roadReferences) = await RunServiceAsync(async () =>
                 {
-                    if (_cornerTypesOnly)
-                        await _service.EnsureCornerTypeDefinitionsAsync(policyId);
+                    await _service.EnsureCornerTypeDefinitionsAsync(policyId);
 
                     PolicySet? selectedPolicy = await _service.GetPolicyLookupTablesAsync(policyId);
-                    List<string> roadOptions = _cornerTypesOnly
-                        ? await _service.GetProjectRoadReferenceOptionsAsync()
-                        : [];
+                    List<string> roadOptions = await _service.GetProjectRoadReferenceOptionsAsync();
                     return (selectedPolicy, roadOptions);
                 });
                 _currentPolicy = policy;
@@ -133,6 +136,9 @@ namespace Land_Readjustment_Tool.UI.Forms
 
             lblDescription.Text = table.Description ?? "";
             LoadClauseSelector(table);
+            bool cornerDefinitionTable = IsCornerTypeDefinitionTable(table);
+            btnAddRow.Enabled = IsEditable() && !cornerDefinitionTable && !_cornerTypesOnly;
+            btnDeleteRow.Enabled = IsEditable() && !cornerDefinitionTable && !_cornerTypesOnly;
 
             List<PolicyLookupColumn> columns = table.Columns.OrderBy(c => c.DisplayOrder).ToList();
             foreach (PolicyLookupColumn column in columns)
@@ -162,7 +168,7 @@ namespace Land_Readjustment_Tool.UI.Forms
 
         private DataGridViewColumn CreateGridColumn(PolicyLookupColumn column, PolicyLookupTable table)
         {
-            if (_cornerTypesOnly && IsRoadReferenceColumn(column))
+            if (IsCornerTypeDefinitionTable(table) && IsRoadReferenceColumn(column))
             {
                 DataGridViewComboBoxColumn comboColumn = new()
                 {
@@ -268,7 +274,7 @@ namespace Land_Readjustment_Tool.UI.Forms
         private async Task AddRowAsync()
         {
             PolicyLookupTable? table = SelectedTable();
-            if (table == null || !IsEditable())
+            if (table == null || !IsEditable() || IsCornerTypeDefinitionTable(table))
                 return;
 
             await RunServiceAsync(() => _service.AddLookupRowAsync(table.Id));
@@ -277,7 +283,10 @@ namespace Land_Readjustment_Tool.UI.Forms
 
         private async Task DeleteRowAsync()
         {
-            if (!IsEditable() || _cornerTypesOnly || dgvLookup.SelectedRows.Count == 0)
+            if (!IsEditable() || dgvLookup.SelectedRows.Count == 0)
+                return;
+
+            if (SelectedTable() is { } table && IsCornerTypeDefinitionTable(table))
                 return;
 
             if (dgvLookup.SelectedRows[0].Tag is not PolicyLookupRow row)
@@ -305,7 +314,7 @@ namespace Land_Readjustment_Tool.UI.Forms
                 return;
 
             string? value = Convert.ToString(dgvLookup.Rows[rowIndex].Cells[columnIndex].Value);
-            if (_cornerTypesOnly)
+            if (SelectedTable() is { } table && IsCornerTypeDefinitionTable(table))
             {
                 await RunServiceAsync(() => _service.SaveCornerRoadReferenceCellAsync(cellId, value));
                 await LoadSelectedPolicyAsync();
@@ -335,7 +344,10 @@ namespace Land_Readjustment_Tool.UI.Forms
             if (!IsEditable())
                 return false;
 
-            return !_cornerTypesOnly || IsRoadReferenceColumn(column);
+            PolicyLookupTable? table = SelectedTable();
+            return table == null ||
+                   !IsCornerTypeDefinitionTable(table) ||
+                   IsRoadReferenceColumn(column);
         }
 
         private static string Header(PolicyLookupColumn column)
@@ -361,6 +373,11 @@ namespace Land_Readjustment_Tool.UI.Forms
             return string.Equals(column.ColumnKey, "primaryFrontageRoad", StringComparison.OrdinalIgnoreCase) ||
                    string.Equals(column.ColumnKey, "secondaryFrontageRoad", StringComparison.OrdinalIgnoreCase) ||
                    string.Equals(column.ValueType, "RoadReference", StringComparison.OrdinalIgnoreCase);
+        }
+
+        private static bool IsCornerTypeDefinitionTable(PolicyLookupTable table)
+        {
+            return string.Equals(table.TableKey, "cornerTypeDefinitions", StringComparison.OrdinalIgnoreCase);
         }
 
         private async Task<T> RunServiceAsync<T>(Func<Task<T>> operation)

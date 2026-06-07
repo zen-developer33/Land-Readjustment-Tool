@@ -12,13 +12,15 @@ namespace Land_Readjustment_Tool.UI.MapCanvas.Rendering
             BrushCache brushCache,
             double zoomScale,
             bool antiAliasingEnabled = true,
-            bool isPreview = false)
+            bool isPreview = false,
+            bool selectionDecorationOnly = false)
         {
             _penCache = penCache;
             _brushCache = brushCache;
             ZoomScale = zoomScale;
             AntiAliasingEnabled = antiAliasingEnabled;
             IsPreview = isPreview;
+            SelectionDecorationOnly = selectionDecorationOnly;
         }
 
         public double ZoomScale { get; }
@@ -26,6 +28,14 @@ namespace Land_Readjustment_Tool.UI.MapCanvas.Rendering
         public bool AntiAliasingEnabled { get; }
 
         public bool IsPreview { get; }
+
+        /// <summary>
+        /// When true, only selection decoration (highlight glow / selection
+        /// stroke) is drawn — interior fills and hatch patterns are skipped so
+        /// the overlay can be painted on top of an already-filled cached frame
+        /// without doubling fill opacity.
+        /// </summary>
+        public bool SelectionDecorationOnly { get; }
 
         public float AdaptiveLineWidth =>
             ZoomScale > 5000 ? 1.5f :

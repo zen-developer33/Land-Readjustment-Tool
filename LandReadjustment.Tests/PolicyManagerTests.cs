@@ -73,6 +73,114 @@ namespace LandReadjustment.Tests
         }
 
         [Fact]
+        public async Task ClauseNumberingIsAutomaticForAddSubClauseAndDelete()
+        {
+            await using TestProject project = await TestProject.CreateAsync();
+            PolicyManagerService service = project.CreateService();
+            await service.EnsureSeedPolicyAsync();
+            PolicySet summary = (await service.GetPolicySummariesAsync()).Single();
+
+            PolicyClause root = await service.SaveClauseAsync(new PolicyClause
+            {
+                PolicySetId = summary.Id,
+                PolicySection = "Contribution Policy",
+                Heading = "Test automatic root",
+                Description = ""
+            });
+
+            PolicySet details = await service.GetPolicyAsync(summary.Id) ?? throw new InvalidOperationException();
+            root = details.Clauses.Single(c => c.Heading == "Test automatic root");
+            Assert.Equal("2.2.12", root.ClauseCode);
+
+            await service.SaveClauseAsync(new PolicyClause
+            {
+                PolicySetId = summary.Id,
+                ParentClauseId = root.Id,
+                PolicySection = root.PolicySection,
+                Heading = "Test automatic child one",
+                Description = ""
+            });
+            await service.SaveClauseAsync(new PolicyClause
+            {
+                PolicySetId = summary.Id,
+                ParentClauseId = root.Id,
+                PolicySection = root.PolicySection,
+                Heading = "Test automatic child two",
+                Description = ""
+            });
+
+            details = await service.GetPolicyAsync(summary.Id) ?? throw new InvalidOperationException();
+            Assert.Contains(details.Clauses, c => c.Heading == "Test automatic child one" && c.ClauseCode == "2.2.12.1");
+            Assert.Contains(details.Clauses, c => c.Heading == "Test automatic child two" && c.ClauseCode == "2.2.12.2");
+
+            PolicyClause oldSecond = details.Clauses.Single(c => c.ClauseCode == "2.2.2");
+            await service.DeleteClauseAsync(oldSecond.Id);
+
+            details = await service.GetPolicyAsync(summary.Id) ?? throw new InvalidOperationException();
+            Assert.Contains(details.Clauses, c => c.Heading == "Survey map controls road-width differences" && c.ClauseCode == "2.2.2");
+            Assert.Contains(details.Clauses, c => c.Heading == "Test automatic root" && c.ClauseCode == "2.2.11");
+            Assert.Contains(details.Clauses, c => c.Heading == "Test automatic child one" && c.ClauseCode == "2.2.11.1");
+        }
+
+        [Fact]
+        public async Task ClauseNumberingSupportsAnyNestedLevel()
+        {
+            await using TestProject project = await TestProject.CreateAsync();
+            PolicyManagerService service = project.CreateService();
+            await service.EnsureSeedPolicyAsync();
+            PolicySet summary = (await service.GetPolicySummariesAsync()).Single();
+            PolicySet details = await service.GetPolicyAsync(summary.Id) ?? throw new InvalidOperationException();
+
+            PolicyClause clause221 = details.Clauses.Single(c => c.ClauseCode == "2.2.1");
+            await service.SaveClauseAsync(new PolicyClause
+            {
+                PolicySetId = summary.Id,
+                ParentClauseId = clause221.Id,
+                PolicySection = clause221.PolicySection,
+                Heading = "Nested level one",
+                Description = ""
+            });
+
+            details = await service.GetPolicyAsync(summary.Id) ?? throw new InvalidOperationException();
+            PolicyClause levelOne = details.Clauses.Single(c => c.Heading == "Nested level one");
+            Assert.Equal("2.2.1.1", levelOne.ClauseCode);
+
+            await service.SaveClauseAsync(new PolicyClause
+            {
+                PolicySetId = summary.Id,
+                ParentClauseId = levelOne.Id,
+                PolicySection = levelOne.PolicySection,
+                Heading = "Nested level two",
+                Description = ""
+            });
+
+            details = await service.GetPolicyAsync(summary.Id) ?? throw new InvalidOperationException();
+            PolicyClause levelTwo = details.Clauses.Single(c => c.Heading == "Nested level two");
+            Assert.Equal("2.2.1.1.1", levelTwo.ClauseCode);
+
+            await service.SaveClauseAsync(new PolicyClause
+            {
+                PolicySetId = summary.Id,
+                ParentClauseId = levelTwo.Id,
+                PolicySection = levelTwo.PolicySection,
+                Heading = "Nested level three",
+                Description = ""
+            });
+            await service.SaveClauseAsync(new PolicyClause
+            {
+                PolicySetId = summary.Id,
+                ParentClauseId = levelTwo.Id,
+                PolicySection = levelTwo.PolicySection,
+                Heading = "Nested level three sibling",
+                Description = ""
+            });
+
+            details = await service.GetPolicyAsync(summary.Id) ?? throw new InvalidOperationException();
+            Assert.Contains(details.Clauses, c => c.Heading == "Nested level three" && c.ClauseCode == "2.2.1.1.1.1");
+            Assert.Contains(details.Clauses, c => c.Heading == "Nested level three sibling" && c.ClauseCode == "2.2.1.1.1.2");
+        }
+
+        [Fact]
         public async Task PolicyPackageRoundTripImportsDraftCopy()
         {
             await using TestProject project = await TestProject.CreateAsync();
