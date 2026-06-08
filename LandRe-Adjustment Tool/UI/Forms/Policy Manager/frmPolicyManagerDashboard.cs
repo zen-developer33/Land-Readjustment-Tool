@@ -1,17 +1,22 @@
 using Land_Readjustment_Tool.Core.Entities.Policy;
 using Land_Readjustment_Tool.Services.Policy;
+using Microsoft.VisualBasic;
 
 namespace Land_Readjustment_Tool.UI.Forms
 {
+    /// <summary>
+    /// Code-behind for the policy editor dashboard.
+    /// Static layout/sizes/colors live in <see cref="frmPolicyManagerDashboard.Designer.cs"/>.
+    /// This file only holds event wiring and runtime behavior.
+    /// </summary>
     public sealed partial class frmPolicyManagerDashboard : Form
     {
-        private static readonly Color EditableCellBackColor = Color.FromArgb(255, 244, 214);
         private readonly PolicyManagerService _service;
         private bool _readOnlyMode;
         private List<PolicySet> _policySummaries = [];
         private PolicySet? _currentPolicy;
-        private PolicyClause? _currentClause;
         private PolicySectionDefinition? _currentSection;
+        private PolicyClause? _currentClause;
         private bool _isReloadingSections;
         private int? _selectedParameterIdBeforeRefresh;
 
@@ -37,12 +42,12 @@ namespace Land_Readjustment_Tool.UI.Forms
             if (_currentPolicy == null)
                 return;
 
-            await ReloadPoliciesAsync(_currentPolicy.Id, _currentClause?.Id, SelectedParameterId());
+            await ReloadPoliciesAsync(_currentPolicy.Id, _currentClause?.Id, SelectedParameterId(), _currentSection?.Id);
         }
 
-        // -------------------------------------------------------------------------
-        // Service event
-        // -------------------------------------------------------------------------
+        // ──────────────────────────────────────────────────────────────────────
+        // Service events
+        // ──────────────────────────────────────────────────────────────────────
 
         private void PolicyManagerService_PolicyChanged(object? sender, int policySetId)
         {
@@ -56,9 +61,9 @@ namespace Land_Readjustment_Tool.UI.Forms
             }));
         }
 
-        // -------------------------------------------------------------------------
+        // ──────────────────────────────────────────────────────────────────────
         // Form load
-        // -------------------------------------------------------------------------
+        // ──────────────────────────────────────────────────────────────────────
 
         private async void frmPolicyManagerDashboard_Load(object? sender, EventArgs e)
         {
@@ -68,9 +73,9 @@ namespace Land_Readjustment_Tool.UI.Forms
             BeginInvoke(new Action(async () => await ReloadPoliciesSafelyAsync()));
         }
 
-        // -------------------------------------------------------------------------
+        // ──────────────────────────────────────────────────────────────────────
         // Header toolbar
-        // -------------------------------------------------------------------------
+        // ──────────────────────────────────────────────────────────────────────
 
         private async void btnManagePolicies_Click(object? sender, EventArgs e) =>
             await RunPolicyUiOperationAsync("Opening policy selector...", ManagePoliciesAsync);
@@ -87,11 +92,10 @@ namespace Land_Readjustment_Tool.UI.Forms
         private async void btnExport_Click(object? sender, EventArgs e) =>
             await RunPolicyUiOperationAsync("Exporting policy...", ExportAsync);
 
-        // -------------------------------------------------------------------------
-        // Clause list panel
-        // -------------------------------------------------------------------------
+        // ──────────────────────────────────────────────────────────────────────
+        // Sections grid
+        // ──────────────────────────────────────────────────────────────────────
 
-        // Section grid selection — replaces the old cboSections filter combo.
         private void dgvSections_SelectionChanged(object? sender, EventArgs e)
         {
             if (_isReloadingSections)
@@ -115,23 +119,20 @@ namespace Land_Readjustment_Tool.UI.Forms
         private async void btnDeleteSection_Click(object? sender, EventArgs e) =>
             await RunPolicyUiOperationAsync("Deleting section...", DeleteSectionAsync);
 
-        private async void btnSectionMoveUp_Click(object? sender, EventArgs e) =>
-            await RunPolicyUiOperationAsync("Moving section...", () => MoveSectionAsync(-1));
-
-        private async void btnSectionMoveDown_Click(object? sender, EventArgs e) =>
-            await RunPolicyUiOperationAsync("Moving section...", () => MoveSectionAsync(1));
-
         private async Task AddSectionAsync()
         {
             if (_currentPolicy == null || !IsCurrentEditable())
                 return;
 
-            using FrmTextPrompt prompt = new("Add Section", "Section heading:", "");
-            if (prompt.ShowDialog(this) != DialogResult.OK)
+            string heading = Interaction.InputBox(
+                "Enter the new section's heading:",
+                "Add Section",
+                "");
+            if (string.IsNullOrWhiteSpace(heading))
                 return;
 
             PolicySectionDefinition added = await RunServiceAsync(
-                () => _service.AddSectionAsync(_currentPolicy.Id, prompt.Value));
+                () => _service.AddSectionAsync(_currentPolicy.Id, heading));
             await ReloadPoliciesAsync(_currentPolicy.Id, _currentClause?.Id, SelectedParameterId(), added.Id);
             Notify("Section added");
         }
@@ -141,11 +142,15 @@ namespace Land_Readjustment_Tool.UI.Forms
             if (_currentPolicy == null || _currentSection == null || !IsCurrentEditable())
                 return;
 
-            using FrmTextPrompt prompt = new("Rename Section", "Section heading:", _currentSection.Heading);
-            if (prompt.ShowDialog(this) != DialogResult.OK)
+            string heading = Interaction.InputBox(
+                "Edit the section's heading:",
+                "Rename Section",
+                _currentSection.Heading);
+            if (string.IsNullOrWhiteSpace(heading) ||
+                string.Equals(heading, _currentSection.Heading, StringComparison.Ordinal))
                 return;
 
-            await RunServiceAsync(() => _service.RenameSectionAsync(_currentSection.Id, prompt.Value));
+            await RunServiceAsync(() => _service.RenameSectionAsync(_currentSection.Id, heading));
             await ReloadPoliciesAsync(_currentPolicy.Id, _currentClause?.Id, SelectedParameterId(), _currentSection.Id);
             Notify("Section renamed");
         }
@@ -156,7 +161,8 @@ namespace Land_Readjustment_Tool.UI.Forms
                 return;
 
             if (MessageBox.Show(
-                    $"Delete section '{_currentSection.SectionCode} - {_currentSection.Heading}'?\n\nA section with clauses cannot be deleted; reassign or delete its clauses first.",
+                    $"Delete section '{_currentSection.SectionCode} - {_currentSection.Heading}'?\n\n" +
+                    "A section that still has clauses cannot be deleted; reassign or delete its clauses first.",
                     "Policy Manager",
                     MessageBoxButtons.YesNo,
                     MessageBoxIcon.Warning,
@@ -170,22 +176,15 @@ namespace Land_Readjustment_Tool.UI.Forms
             Notify("Section deleted");
         }
 
-        private async Task MoveSectionAsync(int direction)
-        {
-            if (_currentPolicy == null || _currentSection == null || !IsCurrentEditable())
-                return;
-
-            await RunServiceAsync(() => _service.MoveSectionAsync(_currentSection.Id, direction));
-            await ReloadPoliciesAsync(_currentPolicy.Id, _currentClause?.Id, SelectedParameterId(), _currentSection.Id);
-            Notify("Section reordered");
-        }
+        // ──────────────────────────────────────────────────────────────────────
+        // Clause grid
+        // ──────────────────────────────────────────────────────────────────────
 
         private void dgvClauses_SelectionChanged(object? sender, EventArgs e) => SelectClauseFromGrid();
 
         private void dgvClauses_CellMouseDown(object? sender, DataGridViewCellMouseEventArgs e) =>
             SelectClauseRowForContextMenu(e);
 
-        // Clause toolbar buttons
         private async void btnAddClause_Click(object? sender, EventArgs e) =>
             await RunPolicyUiOperationAsync("Adding clause...", AddSiblingClauseAsync);
 
@@ -206,7 +205,7 @@ namespace Land_Readjustment_Tool.UI.Forms
 
         private void btnOpenDiagram_Click(object? sender, EventArgs e) => OpenDiagram();
 
-        // Right-click context menu (mirrors toolbar buttons)
+        // Right-click context menu mirrors the toolbar buttons.
         private async void menuAddClause_Click(object? sender, EventArgs e) =>
             await RunPolicyUiOperationAsync("Adding clause...", AddSiblingClauseAsync);
 
@@ -219,9 +218,9 @@ namespace Land_Readjustment_Tool.UI.Forms
         private async void menuDeleteClause_Click(object? sender, EventArgs e) =>
             await RunPolicyUiOperationAsync("Deleting clause...", DeleteClauseAsync);
 
-        // -------------------------------------------------------------------------
-        // Parameter panel
-        // -------------------------------------------------------------------------
+        // ──────────────────────────────────────────────────────────────────────
+        // Parameter grid
+        // ──────────────────────────────────────────────────────────────────────
 
         private async void btnAddParameter_Click(object? sender, EventArgs e) =>
             await RunPolicyUiOperationAsync("Adding parameter...", AddParameterAsync);
@@ -234,14 +233,15 @@ namespace Land_Readjustment_Tool.UI.Forms
 
         private void dgvParameters_SelectionChanged(object? sender, EventArgs e) => UpdateEditState();
 
-        // -------------------------------------------------------------------------
+        // ──────────────────────────────────────────────────────────────────────
         // Data loading
-        // -------------------------------------------------------------------------
+        // ──────────────────────────────────────────────────────────────────────
 
         private async Task ReloadPoliciesAsync(
             int? selectPolicyId = null,
             int? selectClauseId = null,
-            int? selectParameterId = null)
+            int? selectParameterId = null,
+            int? selectSectionId = null)
         {
             _policySummaries = await RunServiceAsync(() => _service.GetPolicySummariesAsync());
             if (_policySummaries.Count == 0)
@@ -255,21 +255,19 @@ namespace Land_Readjustment_Tool.UI.Forms
             if (!_policySummaries.Any(p => p.Id == policyId))
                 policyId = _policySummaries[0].Id;
 
-            await LoadPolicyByIdAsync(policyId, selectClauseId, selectParameterId);
+            await LoadPolicyByIdAsync(policyId, selectClauseId, selectParameterId, selectSectionId);
         }
 
         private async Task LoadPolicyByIdAsync(
             int policyId,
-            int? selectClauseId = null,
-            int? selectParameterId = null)
+            int? selectClauseId,
+            int? selectParameterId,
+            int? selectSectionId)
         {
             Notify("Loading selected policy...");
             _currentPolicy = await RunServiceAsync(() => _service.GetPolicyDashboardAsync(policyId));
-            _currentClause = selectClauseId.HasValue
-                ? _currentPolicy?.Clauses.FirstOrDefault(c => c.Id == selectClauseId.Value)
-                : _currentClause;
             _selectedParameterIdBeforeRefresh = selectParameterId;
-            LoadPolicyToUi(selectClauseId);
+            LoadPolicyToUi(selectClauseId, selectSectionId);
             ShowDashboardValidationPlaceholder();
             Notify("Policy loaded");
         }
@@ -281,9 +279,9 @@ namespace Land_Readjustment_Tool.UI.Forms
                 () => ReloadPoliciesAsync(selectPolicyId));
         }
 
-        // -------------------------------------------------------------------------
+        // ──────────────────────────────────────────────────────────────────────
         // UI population
-        // -------------------------------------------------------------------------
+        // ──────────────────────────────────────────────────────────────────────
 
         private void ClearPolicyUi()
         {
@@ -291,15 +289,14 @@ namespace Land_Readjustment_Tool.UI.Forms
             txtPolicyCode.Clear();
             txtPolicyName.Clear();
             lblStatus.Text = "No policy";
-            cboSections.Items.Clear();
-            cboClauseSection.Items.Clear();
+            dgvSections.Rows.Clear();
             dgvClauses.Rows.Clear();
             dgvParameters.Rows.Clear();
             SelectClause(null);
             UpdateEditState();
         }
 
-        private void LoadPolicyToUi(int? selectClauseId = null)
+        private void LoadPolicyToUi(int? selectClauseId, int? selectSectionId)
         {
             if (_currentPolicy == null)
             {
@@ -313,43 +310,54 @@ namespace Land_Readjustment_Tool.UI.Forms
             lblStatus.Text = $"{_currentPolicy.Status} v{_currentPolicy.VersionNo}";
             btnLockUnlock.Text = _currentPolicy.IsLocked ? "Unlock Editing" : "Lock Editing";
 
-            LoadSections();
-            if (selectClauseId.HasValue)
-                SelectSectionForClause(selectClauseId.Value);
+            LoadSections(selectSectionId, selectClauseId);
             LoadClauseGrid();
             SelectClauseByIdOrFirst(selectClauseId ?? _currentClause?.Id);
             UpdateEditState();
         }
 
-        private void LoadSections()
+        private void LoadSections(int? selectSectionId, int? selectClauseId)
         {
             _isReloadingSections = true;
             try
             {
-                string? previous = cboSections.SelectedItem as string;
-                cboSections.Items.Clear();
-                cboClauseSection.Items.Clear();
-
-                List<string> sections = _currentPolicy?.Clauses
-                    .Select(c => c.PolicySection)
-                    .Where(s => !string.IsNullOrWhiteSpace(s))
-                    .Distinct(StringComparer.OrdinalIgnoreCase)
-                    .OrderBy(SectionSortKey)
-                    .ThenBy(s => s)
-                    .ToList() ?? [];
-
-                foreach (string section in sections)
+                dgvSections.Rows.Clear();
+                if (_currentPolicy == null)
                 {
-                    cboSections.Items.Add(section);
-                    cboClauseSection.Items.Add(section);
+                    _currentSection = null;
+                    return;
                 }
 
-                if (cboSections.Items.Count > 0)
+                List<PolicySectionDefinition> sections = _currentPolicy.Sections
+                    .OrderBy(s => s.DisplayOrder)
+                    .ThenBy(s => s.SectionCode)
+                    .ToList();
+
+                int? targetId = selectSectionId
+                    ?? _currentSection?.Id
+                    ?? FindSectionIdForClause(sections, selectClauseId)
+                    ?? sections.FirstOrDefault()?.Id;
+
+                int rowToSelect = 0;
+                for (int i = 0; i < sections.Count; i++)
                 {
-                    int idx = !string.IsNullOrWhiteSpace(previous)
-                        ? Math.Max(0, sections.FindIndex(s => string.Equals(s, previous, StringComparison.OrdinalIgnoreCase)))
-                        : 0;
-                    cboSections.SelectedIndex = idx;
+                    PolicySectionDefinition section = sections[i];
+                    int rowIndex = dgvSections.Rows.Add(section.SectionCode, section.Heading);
+                    dgvSections.Rows[rowIndex].Tag = section;
+                    if (targetId.HasValue && section.Id == targetId.Value)
+                        rowToSelect = rowIndex;
+                }
+
+                if (dgvSections.Rows.Count > 0)
+                {
+                    dgvSections.ClearSelection();
+                    dgvSections.Rows[rowToSelect].Selected = true;
+                    dgvSections.CurrentCell = dgvSections.Rows[rowToSelect].Cells[0];
+                    _currentSection = dgvSections.Rows[rowToSelect].Tag as PolicySectionDefinition;
+                }
+                else
+                {
+                    _currentSection = null;
                 }
             }
             finally
@@ -358,40 +366,33 @@ namespace Land_Readjustment_Tool.UI.Forms
             }
         }
 
+        private int? FindSectionIdForClause(List<PolicySectionDefinition> sections, int? clauseId)
+        {
+            if (!clauseId.HasValue || _currentPolicy == null)
+                return null;
+            PolicyClause? clause = _currentPolicy.Clauses.FirstOrDefault(c => c.Id == clauseId.Value);
+            if (clause == null)
+                return null;
+            PolicySectionDefinition? match = sections.FirstOrDefault(
+                s => string.Equals(s.Heading, clause.PolicySection, StringComparison.OrdinalIgnoreCase));
+            return match?.Id;
+        }
+
         private void LoadClauseGrid()
         {
             dgvClauses.Rows.Clear();
             if (_currentPolicy == null)
                 return;
 
-            string? selectedSection = cboSections.SelectedItem as string;
+            string? sectionHeading = _currentSection?.Heading;
             foreach ((PolicyClause clause, int level) in FlattenClauses()
-                .Where(item => string.IsNullOrWhiteSpace(selectedSection) ||
-                               string.Equals(item.Clause.PolicySection, selectedSection, StringComparison.OrdinalIgnoreCase)))
+                .Where(item => string.IsNullOrWhiteSpace(sectionHeading) ||
+                               string.Equals(item.Clause.PolicySection, sectionHeading, StringComparison.OrdinalIgnoreCase)))
             {
                 int rowIndex = dgvClauses.Rows.Add(
                     clause.ClauseCode ?? "",
                     $"{new string(' ', level * 4)}{clause.Heading}");
                 dgvClauses.Rows[rowIndex].Tag = clause;
-            }
-        }
-
-        private void SelectSectionForClause(int clauseId)
-        {
-            if (_currentPolicy == null)
-                return;
-
-            string? section = _currentPolicy.Clauses.FirstOrDefault(c => c.Id == clauseId)?.PolicySection;
-            if (string.IsNullOrWhiteSpace(section))
-                return;
-
-            for (int i = 0; i < cboSections.Items.Count; i++)
-            {
-                if (string.Equals(Convert.ToString(cboSections.Items[i]), section, StringComparison.OrdinalIgnoreCase))
-                {
-                    cboSections.SelectedIndex = i;
-                    return;
-                }
             }
         }
 
@@ -421,9 +422,9 @@ namespace Land_Readjustment_Tool.UI.Forms
                     yield return item;
         }
 
-        // -------------------------------------------------------------------------
+        // ──────────────────────────────────────────────────────────────────────
         // Clause selection
-        // -------------------------------------------------------------------------
+        // ──────────────────────────────────────────────────────────────────────
 
         private void SelectFirstClause() => SelectClauseByIdOrFirst(null);
 
@@ -460,7 +461,7 @@ namespace Land_Readjustment_Tool.UI.Forms
             _currentClause = clause;
             txtClauseCode.Text = clause?.ClauseCode ?? "";
             txtClauseHeading.Text = clause?.Heading ?? "";
-            cboClauseSection.Text = clause?.PolicySection ?? "";
+            txtClauseSection.Text = clause?.PolicySection ?? "";
             txtClauseDescription.Text = clause?.Description ?? "";
             LoadClauseParameterGrid();
             UpdateEditState();
@@ -478,9 +479,9 @@ namespace Land_Readjustment_Tool.UI.Forms
             UpdateEditState();
         }
 
-        // -------------------------------------------------------------------------
-        // Parameter grid
-        // -------------------------------------------------------------------------
+        // ──────────────────────────────────────────────────────────────────────
+        // Parameter grid population
+        // ──────────────────────────────────────────────────────────────────────
 
         private void LoadClauseParameterGrid()
         {
@@ -498,7 +499,6 @@ namespace Land_Readjustment_Tool.UI.Forms
                     parameter.Unit ?? "",
                     parameter.Description ?? "");
                 dgvParameters.Rows[rowIndex].Tag = parameter;
-                ApplyParameterRowStyle(dgvParameters.Rows[rowIndex]);
             }
 
             SelectParameterByIdOrFirst(_selectedParameterIdBeforeRefresh);
@@ -521,21 +521,9 @@ namespace Land_Readjustment_Tool.UI.Forms
             dgvParameters.CurrentCell = row.Cells[0];
         }
 
-        private void ApplyParameterRowStyle(DataGridViewRow row)
-        {
-            bool editable = IsCurrentEditable();
-            for (int i = 0; i < row.Cells.Count; i++)
-            {
-                row.Cells[i].ReadOnly = !editable;
-                row.Cells[i].Style.BackColor = editable
-                    ? EditableCellBackColor
-                    : dgvParameters.DefaultCellStyle.BackColor;
-            }
-        }
-
-        // -------------------------------------------------------------------------
+        // ──────────────────────────────────────────────────────────────────────
         // Policy operations
-        // -------------------------------------------------------------------------
+        // ──────────────────────────────────────────────────────────────────────
 
         private async Task ManagePoliciesAsync()
         {
@@ -546,26 +534,14 @@ namespace Land_Readjustment_Tool.UI.Forms
 
         private async Task SaveCurrentEditorsAsync()
         {
+            // Header fields and clause text fields are read-only in this view; Save Draft is
+            // kept for downstream "saved" audit + refresh of any structural edits queued by
+            // section/clause/parameter buttons that already persisted on their own.
             if (_currentPolicy == null || !IsCurrentEditable())
                 return;
 
-            _currentPolicy.PolicyCode = txtPolicyCode.Text.Trim();
-            _currentPolicy.PolicyName = txtPolicyName.Text.Trim();
-            await RunServiceAsync(() => _service.SavePolicyMetadataAsync(_currentPolicy));
-
-            if (_currentClause != null)
-            {
-                _currentClause.ClauseCode = NullIfBlank(txtClauseCode.Text);
-                _currentClause.Heading = txtClauseHeading.Text.Trim();
-                _currentClause.PolicySection = string.IsNullOrWhiteSpace(cboClauseSection.Text)
-                    ? "General"
-                    : cboClauseSection.Text.Trim();
-                _currentClause.Description = txtClauseDescription.Text;
-                _ = await RunServiceAsync(() => _service.SaveClauseAsync(_currentClause));
-            }
-
-            await ReloadPoliciesAsync(_currentPolicy.Id, _currentClause?.Id, SelectedParameterId());
-            Notify("Draft saved");
+            await ReloadPoliciesAsync(_currentPolicy.Id, _currentClause?.Id, SelectedParameterId(), _currentSection?.Id);
+            Notify("Draft refreshed");
         }
 
         private async Task AddSiblingClauseAsync() => await AddClauseAsync(_currentClause?.ParentClauseId);
@@ -575,9 +551,9 @@ namespace Land_Readjustment_Tool.UI.Forms
             if (_currentPolicy == null || !IsCurrentEditable())
                 return;
 
-            string section = parentClauseId.HasValue && _currentClause != null
-                ? _currentClause.PolicySection
-                : (cboSections.SelectedItem as string) ?? "General";
+            string section = _currentSection?.Heading
+                ?? _currentClause?.PolicySection
+                ?? "General";
 
             PolicyClause clause = new()
             {
@@ -590,7 +566,7 @@ namespace Land_Readjustment_Tool.UI.Forms
                 DisplayOrder = 0
             };
             PolicyClause created = await RunServiceAsync(() => _service.SaveClauseAsync(clause));
-            await ReloadPoliciesAsync(_currentPolicy.Id, created.Id);
+            await ReloadPoliciesAsync(_currentPolicy.Id, created.Id, null, _currentSection?.Id);
             Notify("Clause added");
         }
 
@@ -600,7 +576,7 @@ namespace Land_Readjustment_Tool.UI.Forms
                 return;
 
             PolicyClause? duplicate = await RunServiceAsync(() => _service.DuplicateClauseAsync(_currentClause.Id));
-            await ReloadPoliciesAsync(_currentPolicy!.Id, duplicate?.Id ?? _currentClause.Id);
+            await ReloadPoliciesAsync(_currentPolicy!.Id, duplicate?.Id ?? _currentClause.Id, null, _currentSection?.Id);
             Notify("Clause duplicated");
         }
 
@@ -617,7 +593,7 @@ namespace Land_Readjustment_Tool.UI.Forms
 
             int? parentClauseId = _currentClause.ParentClauseId;
             await RunServiceAsync(() => _service.DeleteClauseAsync(_currentClause.Id));
-            await ReloadPoliciesAsync(_currentPolicy!.Id, parentClauseId);
+            await ReloadPoliciesAsync(_currentPolicy!.Id, parentClauseId, null, _currentSection?.Id);
             Notify("Clause deleted");
         }
 
@@ -627,7 +603,7 @@ namespace Land_Readjustment_Tool.UI.Forms
                 return;
 
             await RunServiceAsync(() => _service.MoveClauseAsync(_currentClause.Id, direction));
-            await ReloadPoliciesAsync(_currentPolicy!.Id, _currentClause.Id);
+            await ReloadPoliciesAsync(_currentPolicy!.Id, _currentClause.Id, null, _currentSection?.Id);
             Notify("Clause reordered");
         }
 
@@ -640,7 +616,7 @@ namespace Land_Readjustment_Tool.UI.Forms
             {
                 PolicySetId = _currentPolicy.Id,
                 PolicyClauseId = _currentClause.Id,
-                ParameterKey = $"clauseParameter{DateTime.Now:HHmmss}",
+                ParameterKey = $"clauseParameter{DateTime.Now:HHmmssfff}",
                 Label = "New Parameter",
                 ValueType = "Text",
                 ValueText = "",
@@ -649,7 +625,7 @@ namespace Land_Readjustment_Tool.UI.Forms
                 DisplayOrder = _currentPolicy.Parameters.Count + 1
             };
             PolicyParameter created = await RunServiceAsync(() => _service.SaveParameterAsync(parameter));
-            await ReloadPoliciesAsync(_currentPolicy.Id, _currentClause.Id, created.Id);
+            await ReloadPoliciesAsync(_currentPolicy.Id, _currentClause.Id, created.Id, _currentSection?.Id);
             Notify("Parameter added");
         }
 
@@ -662,12 +638,14 @@ namespace Land_Readjustment_Tool.UI.Forms
                 return;
 
             await RunServiceAsync(() => _service.DeleteParameterAsync(parameter.Id));
-            await ReloadPoliciesAsync(_currentPolicy!.Id, _currentClause?.Id);
+            await ReloadPoliciesAsync(_currentPolicy!.Id, _currentClause?.Id, null, _currentSection?.Id);
             Notify("Parameter deleted");
         }
 
         private async Task SaveParameterRowAsync(int rowIndex)
         {
+            // The parameter grid is read-only in this view; this handler still exists for
+            // future inline editing — when ReadOnly is flipped off it will persist edits.
             if (!IsCurrentEditable() || rowIndex < 0 || rowIndex >= dgvParameters.Rows.Count)
                 return;
 
@@ -692,7 +670,7 @@ namespace Land_Readjustment_Tool.UI.Forms
             try
             {
                 await RunServiceAsync(() => _service.ApprovePolicyAsync(_currentPolicy.Id));
-                await ReloadPoliciesAsync(_currentPolicy.Id, _currentClause?.Id, SelectedParameterId());
+                await ReloadPoliciesAsync(_currentPolicy.Id, _currentClause?.Id, SelectedParameterId(), _currentSection?.Id);
                 Notify("Policy approved");
             }
             catch (Exception ex)
@@ -719,7 +697,7 @@ namespace Land_Readjustment_Tool.UI.Forms
 
             bool targetLockState = !_currentPolicy.IsLocked;
             await RunServiceAsync(() => _service.SetPolicyLockAsync(_currentPolicy.Id, targetLockState));
-            await ReloadPoliciesAsync(_currentPolicy.Id, _currentClause?.Id, SelectedParameterId());
+            await ReloadPoliciesAsync(_currentPolicy.Id, _currentClause?.Id, SelectedParameterId(), _currentSection?.Id);
             Notify(targetLockState ? "Draft locked" : "Draft unlocked");
         }
 
@@ -737,7 +715,7 @@ namespace Land_Readjustment_Tool.UI.Forms
                 return;
 
             await RunServiceAsync(() => _service.ExportAsync(_currentPolicy.Id, dialog.FileName));
-            await ReloadPoliciesAsync(_currentPolicy.Id, _currentClause?.Id, SelectedParameterId());
+            await ReloadPoliciesAsync(_currentPolicy.Id, _currentClause?.Id, SelectedParameterId(), _currentSection?.Id);
             Notify("Policy exported");
         }
 
@@ -755,9 +733,9 @@ namespace Land_Readjustment_Tool.UI.Forms
             diagram.ShowDialog(this);
         }
 
-        // -------------------------------------------------------------------------
+        // ──────────────────────────────────────────────────────────────────────
         // Validation
-        // -------------------------------------------------------------------------
+        // ──────────────────────────────────────────────────────────────────────
 
         private async Task RefreshValidationAsync(bool approvalMode)
         {
@@ -798,29 +776,27 @@ namespace Land_Readjustment_Tool.UI.Forms
             lstValidation.Items.Add("Full validation runs during approval.");
         }
 
-        // -------------------------------------------------------------------------
+        // ──────────────────────────────────────────────────────────────────────
         // Edit state
-        // -------------------------------------------------------------------------
+        // ──────────────────────────────────────────────────────────────────────
 
         private void UpdateEditState()
         {
             bool editable = IsCurrentEditable();
             bool hasPolicy = _currentPolicy != null;
             bool hasClause = _currentClause != null;
-
-            txtPolicyCode.ReadOnly = !editable;
-            txtPolicyName.ReadOnly = !editable;
-            txtClauseCode.ReadOnly = true;
-            txtClauseHeading.ReadOnly = !editable || !hasClause;
-            cboClauseSection.Enabled = editable && hasClause;
-            txtClauseDescription.ReadOnly = !editable || !hasClause;
-            dgvParameters.ReadOnly = !editable || !hasClause;
+            bool hasSection = _currentSection != null;
 
             btnSaveDraft.Enabled = editable;
             btnApprove.Enabled = !_readOnlyMode && hasPolicy && editable;
             btnLockUnlock.Enabled = !_readOnlyMode && hasPolicy;
             btnExport.Enabled = hasPolicy;
-            btnAddClause.Enabled = editable;
+
+            btnAddSection.Enabled = editable;
+            btnRenameSection.Enabled = editable && hasSection;
+            btnDeleteSection.Enabled = editable && hasSection;
+
+            btnAddClause.Enabled = editable && hasSection;
             btnAddSubClause.Enabled = editable && hasClause;
             btnDuplicateClause.Enabled = editable && hasClause;
             btnDeleteClause.Enabled = editable && hasClause;
@@ -830,14 +806,10 @@ namespace Land_Readjustment_Tool.UI.Forms
             btnAddParameter.Enabled = editable && hasClause;
             btnDeleteParameter.Enabled = editable && dgvParameters.SelectedRows.Count > 0;
 
-            // Context menu mirrors toolbar state
-            menuAddClause.Enabled = editable && hasPolicy;
+            menuAddClause.Enabled = editable && hasSection;
             menuAddSubClause.Enabled = editable && hasClause;
             menuDuplicateClause.Enabled = editable && hasClause;
             menuDeleteClause.Enabled = editable && hasClause;
-
-            foreach (DataGridViewRow row in dgvParameters.Rows)
-                ApplyParameterRowStyle(row);
         }
 
         private bool IsCurrentEditable() =>
@@ -845,9 +817,9 @@ namespace Land_Readjustment_Tool.UI.Forms
             _currentPolicy != null &&
             PolicyValidationService.IsEditable(_currentPolicy);
 
-        // -------------------------------------------------------------------------
+        // ──────────────────────────────────────────────────────────────────────
         // Helpers
-        // -------------------------------------------------------------------------
+        // ──────────────────────────────────────────────────────────────────────
 
         private async Task RunPolicyUiOperationAsync(string status, Func<Task> operation)
         {
@@ -875,14 +847,6 @@ namespace Land_Readjustment_Tool.UI.Forms
 
         private async Task RunServiceAsync(Func<Task> operation) =>
             await Task.Run(async () => await _service.RunExclusiveAsync(operation).ConfigureAwait(false));
-
-        private static int SectionSortKey(string section)
-        {
-            if (section.Contains("Intro", StringComparison.OrdinalIgnoreCase)) return 1;
-            if (section.Contains("Contribution", StringComparison.OrdinalIgnoreCase)) return 2;
-            if (section.Contains("Return", StringComparison.OrdinalIgnoreCase)) return 3;
-            return 10;
-        }
 
         private static string Value(DataGridViewRow row, int index) =>
             Convert.ToString(row.Cells[index].Value)?.Trim() ?? "";

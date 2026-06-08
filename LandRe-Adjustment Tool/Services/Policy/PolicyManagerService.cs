@@ -280,7 +280,7 @@ namespace Land_Readjustment_Tool.Services.Policy
                 _context.PolicySectionDefinitions.Add(new PolicySectionDefinition
                 {
                     PolicySetId = policySetId,
-                    SectionCode = LetterCode(i),
+                    SectionCode = (i + 1).ToString(),
                     Heading = ordered[i],
                     DisplayOrder = i + 1,
                     CreatedDate = now,
@@ -290,31 +290,22 @@ namespace Land_Readjustment_Tool.Services.Policy
             await _context.SaveChangesAsync(ct);
         }
 
+        // Section codes are simple positive integers: "1", "2", "3", ...
+        // The next code is the smallest positive integer not already in use.
         private static string NextSectionCode(IEnumerable<string> existing)
         {
-            HashSet<string> used = new(existing, StringComparer.OrdinalIgnoreCase);
-            for (int i = 0; i < 26 * 27; i++)
+            HashSet<int> usedNumbers = new();
+            foreach (string code in existing)
             {
-                string code = LetterCode(i);
-                if (!used.Contains(code))
-                    return code;
+                if (int.TryParse(code, out int n) && n > 0)
+                    usedNumbers.Add(n);
+            }
+            for (int i = 1; i < int.MaxValue; i++)
+            {
+                if (!usedNumbers.Contains(i))
+                    return i.ToString();
             }
             return DateTime.Now.Ticks.ToString();
-        }
-
-        // 0->"A", 1->"B", ..., 25->"Z", 26->"AA", 27->"AB", ...
-        private static string LetterCode(int index)
-        {
-            if (index < 0) index = 0;
-            string code = string.Empty;
-            int n = index;
-            while (true)
-            {
-                code = (char)('A' + (n % 26)) + code;
-                n = (n / 26) - 1;
-                if (n < 0) break;
-            }
-            return code;
         }
 
         public async Task<PolicySet?> GetPolicyParametersAsync(int policySetId, CancellationToken ct = default)

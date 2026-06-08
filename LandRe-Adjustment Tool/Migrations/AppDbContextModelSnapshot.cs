@@ -1441,6 +1441,42 @@ namespace Land_Readjustment_Tool.Migrations
                     b.ToTable("tblPolicyParameters");
                 });
 
+            modelBuilder.Entity("Land_Readjustment_Tool.Core.Entities.Policy.PolicySectionDefinition", b =>
+                {
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("INTEGER");
+
+                    b.Property<DateTime>("CreatedDate")
+                        .HasColumnType("TEXT");
+
+                    b.Property<int>("DisplayOrder")
+                        .HasColumnType("INTEGER");
+
+                    b.Property<string>("Heading")
+                        .IsRequired()
+                        .HasMaxLength(120)
+                        .HasColumnType("TEXT");
+
+                    b.Property<DateTime>("LastModifiedDate")
+                        .HasColumnType("TEXT");
+
+                    b.Property<int>("PolicySetId")
+                        .HasColumnType("INTEGER");
+
+                    b.Property<string>("SectionCode")
+                        .IsRequired()
+                        .HasMaxLength(8)
+                        .HasColumnType("TEXT");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("PolicySetId", "SectionCode")
+                        .IsUnique();
+
+                    b.ToTable("tblPolicySectionDefinitions");
+                });
+
             modelBuilder.Entity("Land_Readjustment_Tool.Core.Entities.Policy.PolicySet", b =>
                 {
                     b.Property<int>("Id")
@@ -2766,6 +2802,17 @@ namespace Land_Readjustment_Tool.Migrations
                     b.Navigation("PolicySet");
                 });
 
+            modelBuilder.Entity("Land_Readjustment_Tool.Core.Entities.Policy.PolicySectionDefinition", b =>
+                {
+                    b.HasOne("Land_Readjustment_Tool.Core.Entities.Policy.PolicySet", "PolicySet")
+                        .WithMany("Sections")
+                        .HasForeignKey("PolicySetId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.Navigation("PolicySet");
+                });
+
             modelBuilder.Entity("Land_Readjustment_Tool.Core.Entities.Project.ProjectSettings", b =>
                 {
                     b.HasOne("Land_Readjustment_Tool.Core.Entities.Spatial.CoordinateSystem", "CoordinateSystem")
@@ -2992,6 +3039,8 @@ namespace Land_Readjustment_Tool.Migrations
                     b.Navigation("LookupTables");
 
                     b.Navigation("Parameters");
+
+                    b.Navigation("Sections");
                 });
 
             modelBuilder.Entity("Land_Readjustment_Tool.Core.Entities.Replotting.PlotType", b =>

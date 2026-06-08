@@ -467,9 +467,9 @@ namespace Land_Readjustment_Tool.Services.Policy
             // heading as a string (PolicyClause.PolicySection) so legacy logic keeps working.
             (string Code, string Heading)[] sections =
             [
-                ("A", "Preliminary"),
-                ("B", "Contribution Policy"),
-                ("C", "Return Policy"),
+                ("1", "Preliminary"),
+                ("2", "Contribution Policy"),
+                ("3", "Return Policy"),
             ];
 
             for (int i = 0; i < sections.Length; i++)
