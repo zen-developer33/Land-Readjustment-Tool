@@ -112,6 +112,13 @@ namespace Land_Readjustment_Tool.UI.MapCanvas.Rendering
             _vectorRenderer.GetFeatureBounds();
 
         /// <summary>
+        /// Spatially queries vector features intersecting the given world bounds
+        /// (fast index lookup) for per-mouse-move work like snapping.
+        /// </summary>
+        public IReadOnlyList<CanvasFeature> QueryVectorFeatures(RectangleD worldBounds) =>
+            _vectorRenderer.QueryFeatures(worldBounds);
+
+        /// <summary>
         /// Renders the full canvas frame for the current viewport state.
         /// </summary>
         /// <param name="graphics">Target graphics surface for drawing.</param>

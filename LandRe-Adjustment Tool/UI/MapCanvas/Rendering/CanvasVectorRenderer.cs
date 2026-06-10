@@ -111,6 +111,14 @@ namespace Land_Readjustment_Tool.UI.MapCanvas.Rendering
                 : null;
         }
 
+        /// <summary>
+        /// Returns the features whose bounding box intersects the given world
+        /// bounds using the spatial index (O(log n + k)). Used for per-mouse-move
+        /// queries such as snapping instead of a linear scan over every feature.
+        /// </summary>
+        public IReadOnlyList<CanvasFeature> QueryFeatures(RectangleD worldBounds) =>
+            _featureSpatialIndex.Query(worldBounds);
+
         public void Render(
             Graphics graphics,
             MapCanvasEngine engine,
@@ -191,12 +199,24 @@ namespace Land_Readjustment_Tool.UI.MapCanvas.Rendering
                     continue;
                 }
 
-                // The scene cache is rendered selection-free (forceUnselected);
-                // selection decoration is painted as a live overlay on top so
-                // selecting/deselecting never requires rebuilding the bitmap.
-                DrawShape(graphics, engine, feature.Shape, ResolveStyle(feature, layer), context, feature, layer, suppressParcelHighlight: true, forceUnselected: true);
+                // Selection (the glow) is baked straight into the cached bitmap
+                // here so every frame is just a fast blit of the cache — no
+                // per-frame re-rendering of selected shapes. The cache is rebuilt
+                // (off the UI thread) when the selection or geometry changes.
+                DrawShape(graphics, engine, feature.Shape, ResolveStyle(feature, layer), context, feature, layer, suppressParcelHighlight: true);
                 DrawLabelIfNeeded(graphics, engine, visibleWorldBounds, feature, layer, context, labelFontCache);
                 renderedCount++;
+            }
+
+            // Second pass: draw the data-layer polygon selection highlight on top
+            // of all features (so neighbouring fills never cover it).
+            foreach (CanvasFeature feature in orderedFeatures)
+            {
+                if (_excludedShapeIds.Contains(feature.Shape.Id)) continue;
+                CanvasLayer? layer = ResolveLayer(feature);
+                if (!IsDataLayerPolygonFeature(feature, feature.Shape, layer)) continue;
+                if (!IsRenderable(feature, layer, visibleWorldBounds)) continue;
+                DrawCadastralParcelHighlightOnly(graphics, engine, feature.Shape);
             }
 
             renderStopwatch.Stop();

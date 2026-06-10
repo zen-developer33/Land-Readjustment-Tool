@@ -8284,9 +8284,23 @@ namespace Land_Readjustment_Tool
 
         private CanvasLayer? GetSelectedCurrentDrawingLayer()
         {
-            return cboCurrentDrawingLayer.SelectedItem is DrawingLayerComboItem item
+            CanvasLayer? selected = cboCurrentDrawingLayer.SelectedItem is DrawingLayerComboItem item
                 ? item.Layer
                 : _currentDrawingLayer;
+
+            if (selected == null)
+            {
+                return null;
+            }
+
+            // The combo item holds a snapshot captured when the combo was last
+            // populated; if the layer's visibility/lock was toggled afterward
+            // (via the layer tree) that snapshot is stale and wrongly reports
+            // the layer as hidden/locked. Re-resolve the live layer from the
+            // tree so callers always see the current IsVisible/IsLocked state.
+            return GetDrawingMarkupLayersFromTree()
+                       .FirstOrDefault(layer => layer.Id == selected.Id)
+                   ?? selected;
         }
 
         private void SelectCurrentDrawingLayerById(int layerId)
