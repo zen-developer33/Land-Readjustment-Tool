@@ -19,14 +19,13 @@ namespace Land_Readjustment_Tool.UI.MapCanvas.Rendering
         private const string DefaultCanvasLabelFontName = "Nirmala UI";
         private const double MaxGdiCoordinate = 1_000_000.0;
         private const float HatchLineWidthPx = 0.65f;
-        private const float SelectionLineWidthPx = 2.0f;
         private const float LockedLayerColorAlphaFactor = 0.48f;
         private const float MinLabelFontSizePt = 1.0f;
         private const float MaxFixedLabelFontSizePt = 72.0f;
         private const float MaxScaledLabelFontSizePt = 120.0f;
         private const double MinLabelZoomFactor = 0.1;
         private const double MaxLabelZoomFactor = 12.0;
-        private static readonly Color SelectionStrokeColor = Color.FromArgb(0, 122, 204);
+        private static readonly Color SelectionStrokeColor = Color.FromArgb(0, 90, 255);
         private readonly Font _previewFont = new("Segoe UI", 8.0f, FontStyle.Bold);
         private readonly VectorFeatureSpatialIndex _featureSpatialIndex = new();
         private IReadOnlyList<CanvasFeature> _features = Array.Empty<CanvasFeature>();
@@ -192,19 +191,12 @@ namespace Land_Readjustment_Tool.UI.MapCanvas.Rendering
                     continue;
                 }
 
-                DrawShape(graphics, engine, feature.Shape, ResolveStyle(feature, layer), context, feature, layer, suppressParcelHighlight: true);
+                // The scene cache is rendered selection-free (forceUnselected);
+                // selection decoration is painted as a live overlay on top so
+                // selecting/deselecting never requires rebuilding the bitmap.
+                DrawShape(graphics, engine, feature.Shape, ResolveStyle(feature, layer), context, feature, layer, suppressParcelHighlight: true, forceUnselected: true);
                 DrawLabelIfNeeded(graphics, engine, visibleWorldBounds, feature, layer, context, labelFontCache);
                 renderedCount++;
-            }
-
-            // Second pass: draw selection highlights for data-layer polygon features on top of all features.
-            foreach (CanvasFeature feature in orderedFeatures)
-            {
-                if (_excludedShapeIds.Contains(feature.Shape.Id)) continue;
-                CanvasLayer? layer = ResolveLayer(feature);
-                if (!IsDataLayerPolygonFeature(feature, feature.Shape, layer)) continue;
-                if (!IsRenderable(feature, layer, visibleWorldBounds)) continue;
-                DrawCadastralParcelHighlightOnly(graphics, engine, feature.Shape);
             }
 
             renderStopwatch.Stop();
@@ -230,7 +222,8 @@ namespace Land_Readjustment_Tool.UI.MapCanvas.Rendering
             IShape? previewShape,
             CanvasLayer? previewLayer,
             CanvasObject? canvasObject = null,
-            bool drawAsPreview = true)
+            bool drawAsPreview = true,
+            bool forceUnselected = false)
         {
             if (previewShape == null)
             {
@@ -252,7 +245,8 @@ namespace Land_Readjustment_Tool.UI.MapCanvas.Rendering
                 previewShape,
                 ResolveStyle(previewShape, previewLayer, canvasObject),
                 context,
-                layer: previewLayer);
+                layer: previewLayer,
+                forceUnselected: forceUnselected);
 
             if (drawAsPreview && previewShape is CircleShape circle)
             {
@@ -634,30 +628,37 @@ namespace Land_Readjustment_Tool.UI.MapCanvas.Rendering
             VectorRenderContext context,
             CanvasFeature? feature = null,
             CanvasLayer? layer = null,
-            bool suppressParcelHighlight = false)
+            bool suppressParcelHighlight = false,
+            bool forceUnselected = false)
         {
+            // When forceUnselected is set the scene cache renders selection-free
+            // so selection can be drawn as a live overlay without rebuilding the
+            // whole bitmap. Selection decoration is handled separately.
+            bool effectiveSelected = shape.IsSelected && !forceUnselected;
+
             if (style.IsPointStyle && shape is CircleShape pointCircle)
             {
-                DrawPointMarker(graphics, engine, pointCircle, style);
+                DrawPointMarker(graphics, engine, pointCircle.Center, style, effectiveSelected);
                 return;
             }
 
-            bool isDataLayerPolygon = IsDataLayerPolygonFeature(feature, shape, layer);
+            bool isDataLayerPolygon = !forceUnselected && IsDataLayerPolygonFeature(feature, shape, layer);
             bool isCadastralParcelSelection = !suppressParcelHighlight && isDataLayerPolygon;
-            // Data-layer polygons always use their normal stroke — the glow is drawn in the second pass.
-            bool useDefaultSelectionStyle = shape.IsSelected && !isDataLayerPolygon;
-            bool shouldStroke = style.HasStroke || shape.IsSelected;
-            float width = useDefaultSelectionStyle
-                ? SelectionLineWidthPx
-                : Math.Max(0.25f, style.LineWidth);
-            Color stroke = useDefaultSelectionStyle ? SelectionStrokeColor : style.StrokeColor;
-            DashStyle dashStyle = useDefaultSelectionStyle ? DashStyle.Dash : style.DashStyle;
+
+            // Drawing/markup, external and road-centerline shapes keep their
+            // normal outline (same color, weight and line type) and add a soft
+            // glow offset to BOTH sides of the outline. Cadastral data-layer
+            // polygons keep their interior highlight instead.
+            bool drawSelectionGlow = effectiveSelected && !isDataLayerPolygon;
+
+            bool shouldStroke = style.HasStroke;
+            float width = Math.Max(0.25f, style.LineWidth);
             Pen? pen = shouldStroke
                 ? context.GetPen(
-                    stroke,
+                    style.StrokeColor,
                     width,
-                    dashStyle,
-                    useDefaultSelectionStyle ? 1.0f : style.LineTypeScale)
+                    style.DashStyle,
+                    style.LineTypeScale)
                 : null;
 
             switch (shape)
@@ -666,7 +667,7 @@ namespace Land_Readjustment_Tool.UI.MapCanvas.Rendering
                     DrawDonutPolygon(graphics, engine, donut, style, context, pen, isCadastralParcelSelection);
                     break;
                 case PolylineShape polyline:
-                    DrawPolyline(graphics, engine, polyline, style, context, pen, isCadastralParcelSelection);
+                    DrawPolyline(graphics, engine, polyline, style, context, pen, isCadastralParcelSelection, effectiveSelected);
                     break;
                 case LineShape line:
                     DrawLine(graphics, engine, line, pen);
@@ -684,11 +685,254 @@ namespace Land_Readjustment_Tool.UI.MapCanvas.Rendering
                     DrawEllipse(graphics, engine, ellipse, style, context, pen);
                     break;
                 case TextShape text:
-                    DrawText(graphics, engine, text, style, context, layer);
+                    DrawText(graphics, engine, text, style, context, layer, effectiveSelected);
                     break;
                 default:
                     shape.Draw(graphics, engine.WorldToScreen, context.IsPreview);
                     break;
+            }
+
+            // Draw the selection glow ON TOP of the shape (AutoCAD-style), as a
+            // translucent halo that covers the outline and extends beyond it on
+            // both sides. Sized from the object's own stroke width so the total
+            // glow span is the line weight + ~2px on each side, staying visible
+            // regardless of how thick the line weight is.
+            if (drawSelectionGlow)
+            {
+                DrawSelectionGlow(graphics, engine, shape, context, width);
+            }
+        }
+
+        // Selection halo color — same pure blue as the selection stroke.
+        private static readonly Color SelectionGlowColor = SelectionStrokeColor;
+
+        // Selection glow is sized RELATIVE to the object's own line weight so it
+        // is always visible past thick strokes: each band extends this many
+        // screen pixels beyond the stroke edge on BOTH sides. The object outline
+        // is drawn on top, so only the ring beyond the stroke shows, giving an
+        // AutoCAD-style halo that fades outward.
+        private const float SelectionGlowExtentPx = 2.0f;
+        private static readonly (float ExtraPerSide, int Alpha)[] SelectionGlowBands =
+        {
+            (SelectionGlowExtentPx, 55),
+            (SelectionGlowExtentPx * 0.5f, 95)
+        };
+
+        private static void DrawSelectionGlow(
+            Graphics graphics,
+            MapCanvasEngine engine,
+            IShape shape,
+            VectorRenderContext context,
+            float strokeWidth)
+        {
+            using GraphicsPath? path = TryBuildSelectionOutlinePath(shape, engine);
+            if (path == null || path.PointCount == 0)
+            {
+                return;
+            }
+
+            RectangleF bounds = path.GetBounds();
+            if (!IsValidPathBounds(bounds) ||
+                Math.Abs(bounds.Left) > MaxGdiCoordinate ||
+                Math.Abs(bounds.Top) > MaxGdiCoordinate ||
+                Math.Abs(bounds.Right) > MaxGdiCoordinate ||
+                Math.Abs(bounds.Bottom) > MaxGdiCoordinate)
+            {
+                return;
+            }
+
+            // Closed outlines (circle, ellipse, rectangle, polygon) need an
+            // even-odd fill so the widened band is a hollow concentric ring and
+            // does not flood the interior. Open outlines (line, arc, open
+            // polyline) use winding so the band stays solid across corners.
+            bool closedOutline = IsClosedSelectionOutline(shape);
+            System.Drawing.Drawing2D.FillMode bandFillMode = closedOutline
+                ? System.Drawing.Drawing2D.FillMode.Alternate
+                : System.Drawing.Drawing2D.FillMode.Winding;
+
+            GraphicsState state = graphics.Save();
+            try
+            {
+                graphics.SmoothingMode = SmoothingMode.AntiAlias;
+
+                float effectiveStroke = Math.Max(0.25f, strokeWidth);
+
+                foreach ((float extraPerSide, int alpha) in SelectionGlowBands)
+                {
+                    // Band total width = the object's own stroke width plus this
+                    // band's extent on each side, so the glow always reaches
+                    // SelectionGlowExtentPx beyond the stroke edge regardless of
+                    // how thick the layer line weight is.
+                    float bandWidth = effectiveStroke + (extraPerSide * 2.0f);
+
+                    // Widen the outline into a closed band of the given width.
+                    // For open segments this yields a parallel band offset to
+                    // both sides; for closed circles/arcs it yields a concentric
+                    // ring around the original radius.
+                    using GraphicsPath band = (GraphicsPath)path.Clone();
+                    using Pen widenPen = new(Color.Empty, bandWidth)
+                    {
+                        LineJoin = LineJoin.Round,
+                        StartCap = LineCap.Round,
+                        EndCap = LineCap.Round
+                    };
+
+                    try
+                    {
+                        band.Widen(widenPen);
+                    }
+                    catch (OutOfMemoryException)
+                    {
+                        // GDI+ rejects degenerate geometry; skip this band.
+                        continue;
+                    }
+
+                    band.FillMode = bandFillMode;
+                    using SolidBrush brush = new(Color.FromArgb(alpha, SelectionGlowColor));
+                    graphics.FillPath(brush, band);
+                }
+            }
+            catch (OutOfMemoryException)
+            {
+                // Ignore the glow pass for degenerate paths.
+            }
+            finally
+            {
+                graphics.Restore(state);
+            }
+        }
+
+        private static bool IsClosedSelectionOutline(IShape shape) => shape switch
+        {
+            CircleShape => true,
+            EllipseShape => true,
+            RectangleShape => true,
+            DonutPolygonShape => true,
+            PolylineShape polyline => polyline.IsClosed,
+            _ => false
+        };
+
+        /// <summary>
+        /// Builds a screen-space outline path for the supplied shape, used to
+        /// stroke the selection glow. Returns null for shapes that do not have a
+        /// strokeable outline (e.g. text).
+        /// </summary>
+        private static GraphicsPath? TryBuildSelectionOutlinePath(
+            IShape shape,
+            MapCanvasEngine engine)
+        {
+            switch (shape)
+            {
+                case PolylineShape polyline:
+                {
+                    if (polyline.Vertices.Count < 2)
+                    {
+                        return null;
+                    }
+
+                    GraphicsPath path = polyline.CreateScreenPath(engine.WorldToScreen);
+                    return path;
+                }
+                case DonutPolygonShape donut:
+                {
+                    if (donut.ExteriorRing.Count < 3)
+                    {
+                        return null;
+                    }
+
+                    return donut.CreateScreenPath(engine.WorldToScreen);
+                }
+                case RectangleShape rectangle:
+                {
+                    PointF rs = ToScreenPointF(engine.WorldToScreen(rectangle.Start));
+                    PointF re = ToScreenPointF(engine.WorldToScreen(rectangle.End));
+                    RectangleF rect = CreateScreenRectangle(rs, re);
+                    if (!IsValidRectangle(rect))
+                    {
+                        return null;
+                    }
+
+                    GraphicsPath path = new();
+                    path.AddRectangle(rect);
+                    return path;
+                }
+                case LineShape line:
+                {
+                    PointF ls = ToScreenPointF(engine.WorldToScreen(line.Start));
+                    PointF le = ToScreenPointF(engine.WorldToScreen(line.End));
+                    if (!IsValidPoint(ls) || !IsValidPoint(le) || Distance(ls, le) < 0.5f)
+                    {
+                        return null;
+                    }
+
+                    GraphicsPath path = new();
+                    path.AddLine(ls, le);
+                    return path;
+                }
+                case CircleShape circle:
+                {
+                    PointF center = ToScreenPointF(engine.WorldToScreen(circle.Center));
+                    PointF edge = ToScreenPointF(engine.WorldToScreen(circle.RadiusPoint));
+                    float radius = Distance(center, edge);
+                    RectangleF rect = new(center.X - radius, center.Y - radius, radius * 2.0f, radius * 2.0f);
+                    if (!IsValidRectangle(rect))
+                    {
+                        return null;
+                    }
+
+                    GraphicsPath path = new();
+                    path.AddEllipse(rect);
+                    return path;
+                }
+                case EllipseShape ellipse:
+                {
+                    PointF es = ToScreenPointF(engine.WorldToScreen(ellipse.Start));
+                    PointF ee = ToScreenPointF(engine.WorldToScreen(ellipse.End));
+                    RectangleF rect = CreateScreenRectangle(es, ee);
+                    if (!IsValidRectangle(rect))
+                    {
+                        return null;
+                    }
+
+                    GraphicsPath path = new();
+                    path.AddEllipse(rect);
+                    return path;
+                }
+                case ArcShape arc:
+                {
+                    if (arc.Radius <= 0.0 || !double.IsFinite(arc.Radius))
+                    {
+                        return null;
+                    }
+
+                    PointF center = ToScreenPointF(engine.WorldToScreen(arc.Center));
+                    PointF radiusPoint = ToScreenPointF(engine.WorldToScreen(
+                        new PointD(arc.Center.X + arc.Radius, arc.Center.Y)));
+                    float radius = Distance(center, radiusPoint);
+                    if (!IsValidPoint(center) || radius <= 0.5f || !float.IsFinite(radius))
+                    {
+                        return null;
+                    }
+
+                    RectangleF bounds = new(center.X - radius, center.Y - radius, radius * 2.0f, radius * 2.0f);
+                    if (!IsValidRectangle(bounds))
+                    {
+                        return null;
+                    }
+
+                    float startAngle = (float)(-arc.StartAngleRadians * 180.0 / Math.PI);
+                    float sweepAngle = (float)(-arc.SweepAngleRadians * 180.0 / Math.PI);
+                    if (!float.IsFinite(startAngle) || !float.IsFinite(sweepAngle) || Math.Abs(sweepAngle) < 0.001f)
+                    {
+                        return null;
+                    }
+
+                    GraphicsPath path = new();
+                    path.AddArc(bounds, startAngle, sweepAngle);
+                    return path;
+                }
+                default:
+                    return null;
             }
         }
 
@@ -753,11 +997,12 @@ namespace Land_Readjustment_Tool.UI.MapCanvas.Rendering
             VectorShapeStyle style,
             VectorRenderContext context,
             Pen? pen,
-            bool drawParcelSelectionHighlight = false)
+            bool drawParcelSelectionHighlight = false,
+            bool effectiveSelected = false)
         {
             if (polyline.Vertices.Count == 1)
             {
-                DrawPointMarker(graphics, engine, polyline.Vertices[0], style, polyline.IsSelected);
+                DrawPointMarker(graphics, engine, polyline.Vertices[0], style, effectiveSelected);
                 return;
             }
 
@@ -1202,7 +1447,8 @@ namespace Land_Readjustment_Tool.UI.MapCanvas.Rendering
             TextShape text,
             VectorShapeStyle style,
             VectorRenderContext context,
-            CanvasLayer? layer)
+            CanvasLayer? layer,
+            bool effectiveSelected = false)
         {
             if (text.IsBeingEdited)
                 return;
@@ -1221,7 +1467,7 @@ namespace Land_Readjustment_Tool.UI.MapCanvas.Rendering
                 : text.FillColor;
             if (layer?.IsLocked == true)
                 color = FadeLockedLayerColor(color);
-            if (text.IsSelected)
+            if (effectiveSelected)
                 color = SelectionHighlightColor;
 
             using Font? layerFont = CreateAnnotationTextFont(layer, engine.ZoomScale);

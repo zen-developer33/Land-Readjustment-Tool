@@ -206,7 +206,8 @@ namespace Land_Readjustment_Tool.UI.MapCanvas.Rendering
             Graphics graphics,
             IShape? shape,
             CanvasLayer? layer = null,
-            CanvasObject? canvasObject = null)
+            CanvasObject? canvasObject = null,
+            bool forceUnselected = false)
         {
             if (shape == null)
             {
@@ -220,7 +221,8 @@ namespace Land_Readjustment_Tool.UI.MapCanvas.Rendering
                 shape,
                 layer,
                 canvasObject,
-                drawAsPreview: false);
+                drawAsPreview: false,
+                forceUnselected: forceUnselected);
         }
 
         public void InvalidateVectorCache()

@@ -5,7 +5,6 @@ using Land_Readjustment_Tool.Repositories.Project;
 using Land_Readjustment_Tool.Repositories.Spatial;
 using Land_Readjustment_Tool.Services.Import;
 using Land_Readjustment_Tool.Services.LandData;
-using Land_Readjustment_Tool.Services.Policy;
 using Land_Readjustment_Tool.UI.MapCanvas.Services;
 
 namespace Land_Readjustment_Tool.Services.Project
@@ -76,27 +75,7 @@ namespace Land_Readjustment_Tool.Services.Project
             return new CanvasLayerTreeService(layerRepository);
         }
 
-        public PolicyManagerService CreatePolicyManagerService(ProjectSession session)
-        {
-            PolicyValidationService validationService = CreatePolicyValidationService();
-            PolicyPackageService packageService = CreatePolicyPackageService();
-            PolicyTemplateSeeder templateSeeder = CreatePolicyTemplateSeeder(session);
-            return new PolicyManagerService(session, validationService, packageService, templateSeeder);
-        }
-
-        public PolicyValidationService CreatePolicyValidationService()
-        {
-            return new PolicyValidationService();
-        }
-
-        public PolicyPackageService CreatePolicyPackageService()
-        {
-            return new PolicyPackageService();
-        }
-
-        public PolicyTemplateSeeder CreatePolicyTemplateSeeder(ProjectSession session)
-        {
-            return new PolicyTemplateSeeder(session);
-        }
+        // Policy manager moved to the Land Pooling Policy Manager project;
+        // see PolicyManagerLauncher there for the entry point.
     }
 }

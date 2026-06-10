@@ -77,7 +77,7 @@ namespace Land_Readjustment_Tool
         //Canvas Control for drawing
         private MapCanvasControl? _workspaceCanvas;
         private frmReplotWorkspace? _replotWorkspaceForm;
-        private frmPolicyManagerMdiHost? _policyManagerForm;
+        // Policy manager is now hosted modally by Land_Pooling_Policy_Manager.PolicyManagerLauncher.
         private frmAreaConverter? _areaConverterForm;
         private readonly List<ToolStripItem> _projectScopedProfessionalMenuItems = new();
         private CanvasLayerTreeService? _layerTreeService;
@@ -738,9 +738,6 @@ namespace Land_Readjustment_Tool
             mapCanvasControlMain.ApplicationEditLocked = _isApplicationEditLocked;
             if (_workspaceCanvas != null && !_workspaceCanvas.IsDisposed)
                 _workspaceCanvas.ApplicationEditLocked = _isApplicationEditLocked;
-            if (_policyManagerForm != null && !_policyManagerForm.IsDisposed)
-                _policyManagerForm.SetReadOnlyMode(_isApplicationEditLocked);
-
             if (_isApplicationEditLocked)
             {
                 ActivateCanvasTool(MapCanvasTool.Select);
@@ -850,22 +847,19 @@ namespace Land_Readjustment_Tool
             if (!AppServices.HasContext)
                 return;
 
-            if (_policyManagerForm != null && !_policyManagerForm.IsDisposed)
-            {
-                _policyManagerForm.Activate();
-                return;
-            }
-
-            ProjectSession policySession = _sessionFactory.CreateSession(
-                AppServices.Context.Session.ProjectFilePath);
-            var service = _projectScopedFactory.CreatePolicyManagerService(
-                policySession);
-            _policyManagerForm = new frmPolicyManagerMdiHost(
-                service,
-                readOnlyMode: _isApplicationEditLocked,
-                ownedSession: policySession);
-            _policyManagerForm.FormClosed += (_, _) => _policyManagerForm = null;
-            _policyManagerForm.Show(this);
+            // The policy manager now lives in the Land Pooling Policy Manager
+            // project. We pass the open .lpp file path so policies stay inside
+            // the project DB; the manager opens its own DbContext on top.
+            string lppPath = AppServices.Context.Session.ProjectFilePath;
+            // valueOnlyEditMode = true so a project user can tune the
+            // contribution rates and corner-plot percentages for this project
+            // without altering the policy structure (clauses, parameters,
+            // sections). Standalone runs of the policy manager keep full editing.
+            Land_Pooling_Policy_Manager.PolicyManagerLauncher.ShowDialog(
+                owner: this,
+                sqliteDbPath: lppPath,
+                readOnly: _isApplicationEditLocked,
+                valueOnlyEditMode: true);
         }
 
         private bool EnsureApplicationUnlockedForEditing(string action)
@@ -7926,6 +7920,27 @@ namespace Land_Readjustment_Tool
         {
             if (!EnsureApplicationUnlockedForEditing("drawing"))
             {
+                ActivateCanvasTool(MapCanvasTool.Select);
+                return;
+            }
+
+            // If a specific drawing layer is selected but it is locked and/or
+            // hidden, tell the user exactly that instead of the misleading
+            // "select a <type> drawing layer" (type-mismatch) message.
+            CanvasLayer? selectedDrawingLayer = GetSelectedCurrentDrawingLayer();
+            if (selectedDrawingLayer != null &&
+                (selectedDrawingLayer.IsLocked || !selectedDrawingLayer.IsVisible))
+            {
+                string state =
+                    selectedDrawingLayer.IsLocked && !selectedDrawingLayer.IsVisible ? "locked and hidden" :
+                    selectedDrawingLayer.IsLocked ? "locked" :
+                    "hidden";
+                MessageBox.Show(
+                    $"The layer '{selectedDrawingLayer.Name}' is {state}. " +
+                    "Unlock and show the layer before drawing on it.",
+                    "Drawing Not Allowed",
+                    MessageBoxButtons.OK,
+                    MessageBoxIcon.Information);
                 ActivateCanvasTool(MapCanvasTool.Select);
                 return;
             }

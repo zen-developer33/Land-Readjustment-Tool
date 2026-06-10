@@ -198,6 +198,7 @@ namespace Land_Readjustment_Tool.UI.CustomControls
         private IReadOnlyList<CanvasFeature> _immediateEditedOverlayFeatures = Array.Empty<CanvasFeature>();
         private IReadOnlyList<CanvasFeature> _selectionDecorationOverlayFeatures = Array.Empty<CanvasFeature>();
         private Guid _pendingDrawnShapeId = Guid.Empty;
+        private readonly HashSet<Guid> _pendingEditedShapeIds = new();
         private IShape? _justCompletedShape;
         private CanvasLayer? _justCompletedShapeLayer;
         private SelectionGrip? _hoveredSelectionGrip;
@@ -216,7 +217,7 @@ namespace Land_Readjustment_Tool.UI.CustomControls
         private readonly ToolStripMenuItem _mnuDeleteSelectedObjects = new("Delete Selected Object(s)");
         private readonly ToolStripMenuItem _mnuEditText = new("Edit Text");
         private readonly ToolStripMenuItem _mnuCreateFeaturesFromSelection = new("Create Features...");
-        private readonly ToolStripMenuItem _mnuMoveSelectedObjects = new("Move (Reference → Destination)");
+        private readonly ToolStripMenuItem _mnuMoveSelectedObjects = new("Move object(s)");
         private CanvasObjectAssignmentKind? _currentSelectionAssignmentKind;
         private MoveOperation? _activeMoveOperation;
         private Bitmap? _movePreviewBitmap;
@@ -667,9 +668,18 @@ namespace Land_Readjustment_Tool.UI.CustomControls
         /// </summary>
         private CanvasLayer? GetEffectiveDrawingLayer()
         {
+            // Always prefer the live layer snapshot from _vectorLayers so the
+            // preview uses the exact same line weight / color / style as the
+            // shapes already rendered on that layer. The cached
+            // _activeDrawingLayer object can be a stale copy with an outdated
+            // line weight, which makes the preview look thinner than the final.
             if (_activeDrawingLayer != null)
             {
-                return _activeDrawingLayer;
+                CanvasLayer? current =
+                    _vectorLayers.FirstOrDefault(layer => layer.Id == _activeDrawingLayer.Id) ??
+                    _vectorLayers.FirstOrDefault(layer =>
+                        string.Equals(layer.Name, _activeDrawingLayer.Name, StringComparison.OrdinalIgnoreCase));
+                return current ?? _activeDrawingLayer;
             }
 
             if (!string.IsNullOrWhiteSpace(_activeDrawingLayerName))
@@ -685,11 +695,20 @@ namespace Land_Readjustment_Tool.UI.CustomControls
         {
             CaptureRefreshHoldFrame();
             // Snapshot the previous overlay so we can carry over shapes whose
-            // background cache refresh hasn't landed yet when the user draws
-            // a new shape quickly.
+            // background cache refresh hasn't landed yet when the user draws or
+            // edits shapes quickly.
             IReadOnlyList<CanvasFeature> previousOverlay = _immediateEditedOverlayFeatures;
             Guid pendingDrawnShapeId = _pendingDrawnShapeId;
             _pendingDrawnShapeId = Guid.Empty;
+            HashSet<Guid> pendingEditedShapeIds = _pendingEditedShapeIds.Count > 0
+                ? new HashSet<Guid>(_pendingEditedShapeIds)
+                : new HashSet<Guid>();
+            _pendingEditedShapeIds.Clear();
+
+            // Capture cache validity BEFORE any cache mutation so the
+            // incremental fast-path can decide whether the existing bitmap is
+            // still trustworthy.
+            bool cacheValidBefore = _renderer.HasValidVectorCache;
 
             _vectorFeatures = features?.ToList() ?? [];
             _hoveredSelectionGrip = null;
@@ -697,7 +716,6 @@ namespace Land_Readjustment_Tool.UI.CustomControls
             _immediateEditedOverlayFeatures = Array.Empty<CanvasFeature>();
             _activeMoveOperation = null;
             DisposeMovePreviewBitmap();
-            _renderer.SetVectorRenderExclusions(null);
             PruneSelectionToSelectableFeatures();
             foreach (CanvasFeature feature in _vectorFeatures)
             {
@@ -710,66 +728,73 @@ namespace Land_Readjustment_Tool.UI.CustomControls
             // so it never paints stale geometry while the cache rebuild runs.
             UpdateSelectionDecorationOverlay();
 
-            CanvasFeature? pendingDrawnFeature = null;
-            if (pendingDrawnShapeId != Guid.Empty)
+            // Build the transient overlay = the just-drawn/edited shapes (plus
+            // any still-pending overlay shapes from a refresh that hasn't landed
+            // yet). These are painted on top of the kept cache so the change is
+            // visible instantly without a full synchronous re-render.
+            Dictionary<Guid, CanvasFeature> currentById = _vectorFeatures
+                .GroupBy(f => f.Shape.Id)
+                .ToDictionary(g => g.Key, g => g.First());
+            HashSet<Guid> overlayIds = new();
+            List<CanvasFeature> overlay = new();
+
+            void AddOverlay(Guid id)
             {
-                pendingDrawnFeature = _vectorFeatures
-                    .FirstOrDefault(f => f.Shape.Id == pendingDrawnShapeId);
+                if (currentById.TryGetValue(id, out CanvasFeature? current) &&
+                    overlayIds.Add(current.Shape.Id))
+                {
+                    overlay.Add(current);
+                }
             }
 
-            bool useNewlyDrawnFastPath =
-                pendingDrawnFeature != null &&
-                _renderer.HasValidVectorCache;
-
-            if (useNewlyDrawnFastPath)
+            foreach (CanvasFeature prior in previousOverlay)
             {
-                // Keep the existing cache valid: it shows everything that was on
-                // screen before this shape was drawn. The async refresh below
-                // will rebuild it with the new shape baked in.
+                AddOverlay(prior.Shape.Id);
+            }
+
+            if (pendingDrawnShapeId != Guid.Empty)
+            {
+                AddOverlay(pendingDrawnShapeId);
+            }
+
+            foreach (Guid editedId in pendingEditedShapeIds)
+            {
+                AddOverlay(editedId);
+            }
+
+            // Only take the incremental path for a genuine add/edit, where the
+            // changed shapes are absent from the cached bitmap (newly drawn) or
+            // were excluded from it during the grip edit. Other reloads
+            // (deletions, bulk refreshes) must do a real rebuild so removed or
+            // changed-elsewhere geometry is not left baked in the cache.
+            bool hasPendingAddOrEdit =
+                pendingDrawnShapeId != Guid.Empty || pendingEditedShapeIds.Count > 0;
+            bool useIncrementalFastPath =
+                hasPendingAddOrEdit && overlay.Count > 0 && cacheValidBefore;
+
+            if (useIncrementalFastPath)
+            {
+                // Keep the existing cached bitmap exactly as it is and paint the
+                // added/edited shapes as a live overlay on top. Do NOT trigger a
+                // full re-render here: the cache + overlay keep rendering until
+                // the next canvas operation (pan/zoom/etc.) bakes it in. This
+                // removes the post-draw/edit render delay and the slight line
+                // thickness shift caused by re-baking into the bitmap.
+                _renderer.SetVectorRenderExclusions(null, invalidateCache: false);
                 _renderer.UpdateVectorFeatures(_vectorFeatures, invalidateCache: false);
                 UpdateWorldBounds();
 
-                // Build the transient overlay: the just-drawn shape, plus any
-                // previously-pending shapes that are still present in the new
-                // feature set (covers fast successive draws while a refresh is
-                // still in flight).
-                Dictionary<Guid, CanvasFeature> currentById = _vectorFeatures
-                    .GroupBy(f => f.Shape.Id)
-                    .ToDictionary(g => g.Key, g => g.First());
-                HashSet<Guid> overlayIds = new();
-                List<CanvasFeature> overlay = new();
-                foreach (CanvasFeature prior in previousOverlay)
-                {
-                    if (currentById.TryGetValue(prior.Shape.Id, out CanvasFeature? current) &&
-                        overlayIds.Add(current.Shape.Id))
-                    {
-                        overlay.Add(current);
-                    }
-                }
-
-                if (overlayIds.Add(pendingDrawnFeature!.Shape.Id))
-                {
-                    overlay.Add(pendingDrawnFeature);
-                }
-
                 _immediateEditedOverlayFeatures = overlay;
-
-                // The CanvasFeature overlay above paints the just-drawn shape
-                // with the persisted style, so the temporary handoff shape can
-                // be dropped without leaving a blank frame.
                 _justCompletedShape = null;
                 _justCompletedShapeLayer = null;
 
-                // Do NOT capture a zoom snapshot or set the hold flag — the
-                // live cache already shows the prior content correctly, and
-                // the overlay covers what's missing.
-                RefreshVectorCacheForCurrentViewAsync();
                 RequestRender();
                 return;
             }
 
             _justCompletedShape = null;
             _justCompletedShapeLayer = null;
+            _renderer.SetVectorRenderExclusions(null);
             _renderer.UpdateVectorFeatures(_vectorFeatures);
             UpdateWorldBounds();
             EnsureVectorZoomSnapshot();
@@ -872,6 +897,24 @@ namespace Land_Readjustment_Tool.UI.CustomControls
                 layer = null;
                 layerName = null;
                 NotifyEditLocked();
+            }
+
+            if (tool != MapCanvasTool.Select)
+            {
+                CanvasLayer? targetLayer = layer
+                    ?? (string.IsNullOrWhiteSpace(layerName)
+                        ? null
+                        : _vectorLayers.FirstOrDefault(item =>
+                            string.Equals(item.Name, layerName, StringComparison.OrdinalIgnoreCase)));
+
+                if (IsDrawingLayerUnavailable(targetLayer))
+                {
+                    NotifyDrawingLayerUnavailable(targetLayer!);
+                    tool = MapCanvasTool.Select;
+                    layer = null;
+                    layerName = null;
+                    SelectToolRequested?.Invoke();
+                }
             }
 
             bool toolChanged = _activeTool != tool;
@@ -2111,6 +2154,14 @@ namespace Land_Readjustment_Tool.UI.CustomControls
             if (_applicationEditLocked)
             {
                 NotifyEditLocked();
+                SelectToolRequested?.Invoke();
+                return;
+            }
+
+            CanvasLayer? drawingLayer = GetEffectiveDrawingLayer();
+            if (IsDrawingLayerUnavailable(drawingLayer))
+            {
+                NotifyDrawingLayerUnavailable(drawingLayer!);
                 SelectToolRequested?.Invoke();
                 return;
             }
@@ -4430,6 +4481,8 @@ namespace Land_Readjustment_Tool.UI.CustomControls
         private static IShape CreateGripEditPreviewShape(IShape source)
         {
             IShape preview = source.Clone();
+            // Preview renders with the shape's normal color/line weight (no
+            // selection glow) so the user sees the actual geometry being edited.
             preview.IsSelected = false;
             return preview;
         }
@@ -4471,8 +4524,18 @@ namespace Land_Readjustment_Tool.UI.CustomControls
             _currentMouseWorld = grip.Position;
             _isSelectingObjects = false;
             canvasSurface.Capture = true;
-            ApplyGripEditVectorRenderExclusions();
-            RefreshVectorCacheForGripEditBase();
+            _pendingEditedShapeIds.Clear();
+
+            // A geometric-center grip is a whole-shape MOVE. Behave like the
+            // "Move object(s)" menu: keep the shape in the cached background
+            // (no exclusion, no synchronous base rebuild → no start hitch) and
+            // just paint the moving preview on top. Vertex/handle edits still
+            // exclude + rebuild so the cache shows the live deformation.
+            if (grip.Kind != SelectionGripKind.GeometricCenter)
+            {
+                ApplyGripEditVectorRenderExclusions();
+                RefreshVectorCacheForGripEditBase();
+            }
             // Ensure we don't show glyph on the held grip
             ClearCurrentSnapPoint();
             UpdateCanvasCursor();
@@ -4638,11 +4701,41 @@ namespace Land_Readjustment_Tool.UI.CustomControls
                 }
             }
 
-            _immediateEditedOverlayFeatures = editedFeatures;
-            _renderer.SetVectorRenderExclusions(null, invalidateCache: false);
-            _renderer.UpdateVectorFeatures(_vectorFeatures, invalidateCache: false);
-            UpdateWorldBounds();
-            RefreshVectorCacheForCurrentViewAsync();
+            bool wholeShapeMove = grip.Kind == SelectionGripKind.GeometricCenter;
+            _pendingEditedShapeIds.Clear();
+
+            if (wholeShapeMove)
+            {
+                // Geometric-center move kept the shape in the cache at its old
+                // position, so rebuild now (like the "Move object(s)" commit) to
+                // bake the new position and avoid a ghost at the old spot.
+                _immediateEditedOverlayFeatures = Array.Empty<CanvasFeature>();
+                _renderer.SetVectorRenderExclusions(null, invalidateCache: false);
+                _renderer.UpdateVectorFeatures(_vectorFeatures);
+                UpdateWorldBounds();
+                EnsureVectorZoomSnapshot();
+                _holdVectorZoomFrameUntilRefresh = true;
+                RefreshVectorCacheForCurrentViewAsync();
+            }
+            else
+            {
+                _immediateEditedOverlayFeatures = editedFeatures;
+                // Keep the bitmap cache (which already excludes the edited shapes)
+                // and paint the edited shapes as an overlay on top — do NOT trigger
+                // a full re-render here. The cache + edited-shape overlay continues
+                // to render until another canvas operation bakes it in (the DB
+                // reload below takes the incremental fast-path in SetVectorFeatures,
+                // and pan/zoom/etc. rebuild lazily). This keeps editing smooth.
+                foreach (CanvasFeature editedFeature in editedFeatures)
+                {
+                    _pendingEditedShapeIds.Add(editedFeature.Shape.Id);
+                }
+
+                _renderer.SetVectorRenderExclusions(null, invalidateCache: false);
+                _renderer.UpdateVectorFeatures(_vectorFeatures, invalidateCache: false);
+                UpdateWorldBounds();
+            }
+
             UpdateCanvasCursor();
             UpdateStatusBar();
             RequestRender();
@@ -5343,7 +5436,8 @@ namespace Land_Readjustment_Tool.UI.CustomControls
                 graphics,
                 _activeGripEdit.PreviewShape,
                 ResolveFeatureLayer(_activeGripEdit.Grip.Feature),
-                _activeGripEdit.Grip.Feature.CanvasObject);
+                _activeGripEdit.Grip.Feature.CanvasObject,
+                forceUnselected: true);
 
             foreach (LinkedGripEdit linkedEdit in _activeGripEdit.LinkedEdits)
             {
@@ -5351,7 +5445,8 @@ namespace Land_Readjustment_Tool.UI.CustomControls
                     graphics,
                     linkedEdit.PreviewShape,
                     ResolveFeatureLayer(linkedEdit.Grip.Feature),
-                    linkedEdit.Grip.Feature.CanvasObject);
+                    linkedEdit.Grip.Feature.CanvasObject,
+                    forceUnselected: true);
             }
         }
 
@@ -5427,12 +5522,34 @@ namespace Land_Readjustment_Tool.UI.CustomControls
                     continue;
                 }
 
+                // Just-drawn/edited shapes are painted by the immediate-edited
+                // overlay (which already renders their selection), so skip them
+                // here to avoid drawing the selection glow twice (which would
+                // make the line look thicker than its preview).
+                if (IsImmediateEditedOverlayShape(feature.Shape.Id))
+                {
+                    continue;
+                }
+
                 _renderer.RenderSelectionDecoration(
                     graphics,
                     feature.Shape,
                     ResolveFeatureLayer(feature),
                     feature);
             }
+        }
+
+        private bool IsImmediateEditedOverlayShape(Guid shapeId)
+        {
+            for (int i = 0; i < _immediateEditedOverlayFeatures.Count; i++)
+            {
+                if (_immediateEditedOverlayFeatures[i].Shape.Id == shapeId)
+                {
+                    return true;
+                }
+            }
+
+            return false;
         }
 
         /// <summary>
@@ -5458,11 +5575,18 @@ namespace Land_Readjustment_Tool.UI.CustomControls
             if (_activeGripEdit == null)
                 return;
 
+            // For a geometric-center (whole-shape) move the original is left in
+            // the cached background (move-menu style), so don't redraw it here —
+            // that avoids a doubled static copy and extra per-frame rendering.
+            if (_activeGripEdit.Grip.Kind == SelectionGripKind.GeometricCenter)
+                return;
+
             _renderer.RenderTransientShape(
                 graphics,
                 _activeGripEdit.Grip.Shape,
                 ResolveFeatureLayer(_activeGripEdit.Grip.Feature),
-                _activeGripEdit.Grip.Feature.CanvasObject);
+                _activeGripEdit.Grip.Feature.CanvasObject,
+                forceUnselected: true);
 
             foreach (LinkedGripEdit linkedEdit in _activeGripEdit.LinkedEdits)
             {
@@ -5470,7 +5594,8 @@ namespace Land_Readjustment_Tool.UI.CustomControls
                     graphics,
                     linkedEdit.Grip.Shape,
                     ResolveFeatureLayer(linkedEdit.Grip.Feature),
-                    linkedEdit.Grip.Feature.CanvasObject);
+                    linkedEdit.Grip.Feature.CanvasObject,
+                    forceUnselected: true);
             }
         }
 
@@ -5828,7 +5953,8 @@ namespace Land_Readjustment_Tool.UI.CustomControls
             }
 
             ApplySelectedShapeFlags();
-            RefreshVectorCacheForCurrentViewAsync();
+            // Selection-free cache + live decoration overlay: no rebuild needed.
+            RequestRender();
             UpdateStatusBar();
             NotifySelectedCanvasObjectsChanged();
         }
@@ -6035,10 +6161,10 @@ namespace Land_Readjustment_Tool.UI.CustomControls
             }
 
             ApplySelectedShapeFlags();
-            // Paint the selection decoration immediately (instant feedback),
-            // then let the async cache rebuild bake it into the deferred bitmap.
+            // Selection no longer rebuilds the bitmap cache: the cache is
+            // rendered selection-free and the selection decoration is painted
+            // as a live overlay on top, so selecting is instant and smooth.
             RequestRender();
-            RefreshVectorCacheForCurrentViewAsync();
             UpdateStatusBar();
             NotifySelectedCanvasObjectsChanged();
         }
@@ -6159,7 +6285,6 @@ namespace Land_Readjustment_Tool.UI.CustomControls
 
             ApplySelectedShapeFlags();
             RequestRender();
-            RefreshVectorCacheForCurrentViewAsync();
             UpdateStatusBar();
             NotifySelectedCanvasObjectsChanged();
         }
@@ -6174,7 +6299,6 @@ namespace Land_Readjustment_Tool.UI.CustomControls
             _selectedShapeIds.Clear();
             ApplySelectedShapeFlags();
             RequestRender();
-            RefreshVectorCacheForCurrentViewAsync();
             NotifySelectedCanvasObjectsChanged();
         }
 
@@ -6502,9 +6626,12 @@ namespace Land_Readjustment_Tool.UI.CustomControls
                 g.Clear(Color.Transparent);
                 foreach (MoveItem item in _activeMoveOperation.Items)
                 {
+                    // Render the unselected original-position clone so the move
+                    // preview shows the shape's normal color/line weight (no
+                    // selection glow) while it is being dragged.
                     _renderer.RenderTransientShape(
                         g,
-                        item.Feature.Shape,
+                        item.OriginalShape,
                         ResolveFeatureLayer(item.Feature),
                         item.Feature.CanvasObject);
                 }
@@ -6595,10 +6722,14 @@ namespace Land_Readjustment_Tool.UI.CustomControls
 
         private void DrawMoveOperationOverlay(Graphics graphics)
         {
+            // Keep rendering the moved shapes during pan too: the engine updates
+            // live while panning and the cached background shifts by the same
+            // delta, so the offset formula below stays correct (same approach as
+            // the grip/geometric-center move). Previously this returned early on
+            // pan, which made the moved shapes vanish while panning.
             if (_activeMoveOperation == null ||
                 _activeMoveOperation.Phase != MoveOperationPhase.AwaitingDestination ||
-                !_currentMouseWorld.HasValue ||
-                _isPanning)
+                !_currentMouseWorld.HasValue)
                 return;
 
             // Re-capture bitmap when zoom scale changes (pan-only changes are handled by offset math).
@@ -7227,13 +7358,15 @@ namespace Land_Readjustment_Tool.UI.CustomControls
 
         private void UpdateCanvasCursor()
         {
-            if (_activeGripEdit != null || _hoveredSelectionGrip != null)
-            {
-                canvasSurface.Cursor = Cursors.SizeAll;
-            }
-            else if (_isPanning || _panToolActive)
+            // Active panning always shows the pan cursor, even mid grip-edit or
+            // mid move operation (so panning during a move shows the hand).
+            if (_isPanning || _panToolActive)
             {
                 canvasSurface.Cursor = GetPanCursor();
+            }
+            else if (_activeGripEdit != null || _hoveredSelectionGrip != null)
+            {
+                canvasSurface.Cursor = Cursors.SizeAll;
             }
             else if (_isZooming)
             {
@@ -7454,8 +7587,8 @@ namespace Land_Readjustment_Tool.UI.CustomControls
             if (_activeMoveOperation != null)
             {
                 return _activeMoveOperation.Phase == MoveOperationPhase.AwaitingReference
-                    ? "Move: click reference point  [Esc/right-click to cancel]"
-                    : "Move: click destination point  [Esc/right-click to cancel]";
+                    ? "Move object(s): click the reference (base) point  [Esc/right-click to cancel]"
+                    : "Move object(s): click the destination point  [Esc/right-click to cancel]";
             }
 
             if (_activeGripEdit != null)
@@ -7557,6 +7690,35 @@ namespace Land_Readjustment_Tool.UI.CustomControls
                     : "E: --    N: --",
                 "Mode: Edit Locked",
                 _engine.ZoomScale);
+        }
+
+        /// <summary>
+        /// Returns true when the supplied drawing layer cannot be drawn on
+        /// because it is locked and/or hidden.
+        /// </summary>
+        private static bool IsDrawingLayerUnavailable(CanvasLayer? layer) =>
+            layer != null && (layer.IsLocked || !layer.IsVisible);
+
+        /// <summary>
+        /// Tells the user that the target drawing layer is locked and/or hidden
+        /// so drawing is not allowed, and updates the canvas command prompt.
+        /// </summary>
+        private void NotifyDrawingLayerUnavailable(CanvasLayer layer)
+        {
+            string reason =
+                layer.IsLocked && !layer.IsVisible ? "locked and hidden" :
+                layer.IsLocked ? "locked" :
+                "hidden";
+            string message =
+                $"The layer “{layer.Name}” is {reason}. " +
+                "Unlock and show the layer before drawing on it.";
+
+            _commandService.SetPrompt(message);
+            MessageBox.Show(
+                message,
+                "Drawing Not Allowed",
+                MessageBoxButtons.OK,
+                MessageBoxIcon.Information);
         }
 
         private bool IsCanvasInteractionLocked => _activeTextEditor != null;
@@ -7900,7 +8062,7 @@ namespace Land_Readjustment_Tool.UI.CustomControls
 
         private void BeginZoomNavigation(string direction)
         {
-            CancelActiveCanvasGesture(preserveActiveGripEdit: true);
+            CancelActiveCanvasGesture(preserveActiveEdit: true);
             CancelLiveTileLoading();
             SetLiveTileInternetFetchingSuspended(true);
             _suppressStaleRasterFrameUntilFreshRender = false;
@@ -8158,14 +8320,17 @@ namespace Land_Readjustment_Tool.UI.CustomControls
             }
         }
 
-        private void CancelActiveCanvasGesture(bool preserveActiveGripEdit = false)
+        private void CancelActiveCanvasGesture(bool preserveActiveEdit = false)
         {
-            if (!preserveActiveGripEdit)
+            // Grip edit and the two-click move are both in-progress editing
+            // gestures that must survive pan/zoom navigation (the navigation
+            // pipelines pass preserveActiveEdit: true). Only a hard reset
+            // (e.g. CRS rebuild, edit lock) cancels them.
+            if (!preserveActiveEdit)
             {
                 CancelActiveGripEdit(restoreOriginal: true);
+                CancelMoveOperation();
             }
-
-            CancelMoveOperation();
 
             if (_isPanning)
             {
@@ -8329,9 +8494,9 @@ namespace Land_Readjustment_Tool.UI.CustomControls
                 _holdVectorZoomFrameUntilRefresh = false;
                 _heldVectorPanDelta = PointF.Empty;
                 _immediateEditedOverlayFeatures = Array.Empty<CanvasFeature>();
-                // The freshly rebuilt cache now bakes the selection decoration,
-                // so the instant overlay can be dropped to avoid doubling it.
-                _selectionDecorationOverlayFeatures = Array.Empty<CanvasFeature>();
+                // Note: the selection decoration overlay is intentionally NOT
+                // cleared here. The scene cache is rendered selection-free, so
+                // the overlay remains the single live source of selection.
                 DisposeCompositePanBitmap();
 
                 if (IsHandleCreated)

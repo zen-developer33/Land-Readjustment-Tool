@@ -4,7 +4,6 @@ using Land_Readjustment_Tool.Repositories.Project;
 using Land_Readjustment_Tool.Repositories.Spatial;
 using Land_Readjustment_Tool.Services.Import;
 using Land_Readjustment_Tool.Services.LandData;
-using Land_Readjustment_Tool.Services.Policy;
 using Land_Readjustment_Tool.Services.Project;
 using Land_Readjustment_Tool.UI.MapCanvas.Services;
 
@@ -27,9 +26,5 @@ namespace Land_Readjustment_Tool.Core.Interfaces
         CanvasObjectRepository CreateCanvasObjectRepository(ProjectSession session);
         CanvasFeatureService CreateCanvasFeatureService(ProjectSession session);
         CanvasLayerTreeService CreateCanvasLayerTreeService(ProjectSession session);
-        PolicyManagerService CreatePolicyManagerService(ProjectSession session);
-        PolicyValidationService CreatePolicyValidationService();
-        PolicyPackageService CreatePolicyPackageService();
-        PolicyTemplateSeeder CreatePolicyTemplateSeeder(ProjectSession session);
     }
 }

@@ -99,6 +99,7 @@
 
   <ItemGroup>
     <ProjectReference Include="..\Area Converter\Area Converter.csproj" />
+    <ProjectReference Include="..\Land Pooling Policy Manager\Land Pooling Policy Manager.csproj" />
   </ItemGroup>
 
   <ItemGroup>

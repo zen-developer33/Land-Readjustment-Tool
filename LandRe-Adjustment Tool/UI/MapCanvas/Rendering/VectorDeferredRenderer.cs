@@ -441,9 +441,11 @@ namespace Land_Readjustment_Tool.UI.MapCanvas.Rendering
 
             graphics.SmoothingMode = SmoothingMode.AntiAlias;
             graphics.PixelOffsetMode = PixelOffsetMode.HighQuality;
-            graphics.CompositingQuality = featureCount <= 1_000
-                ? CompositingQuality.HighQuality
-                : CompositingQuality.AssumeLinear;
+            // Use the same compositing quality the live/direct draw uses so a
+            // line baked into the cache has the SAME apparent weight as the live
+            // preview. AssumeLinear blends antialiased edges differently (bolder),
+            // which made the live preview look thinner than the cached shapes.
+            graphics.CompositingQuality = CompositingQuality.HighQuality;
             graphics.InterpolationMode = InterpolationMode.NearestNeighbor;
             graphics.CompositingMode = CompositingMode.SourceOver;
             graphics.TextRenderingHint = System.Drawing.Text.TextRenderingHint.AntiAliasGridFit;
