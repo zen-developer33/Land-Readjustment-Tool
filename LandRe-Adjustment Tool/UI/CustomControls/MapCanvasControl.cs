@@ -124,7 +124,6 @@ namespace Land_Readjustment_Tool.UI.CustomControls
 
         public event Action<string, string, double>? StatusChanged;
         public event Action<IShape>? ShapeCompleted;
-        public event Action<IShape>? ShapeEdited;
         // Raised once for a whole batch of edited shapes (move/grip/text) so the
         // host persists and reloads ONCE instead of per shape.
         public event Action<IReadOnlyList<IShape>>? ShapesEdited;

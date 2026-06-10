@@ -401,7 +401,7 @@ namespace Land_Readjustment_Tool
                     lblStatusMessage.Text = prompt;
             };
             mapCanvasControlMain.ShapeCompleted += MapCanvasControlMain_ShapeCompleted;
-            mapCanvasControlMain.ShapeEdited += MapCanvasControlMain_ShapeEdited;
+            mapCanvasControlMain.ShapesEdited += MapCanvasControlMain_ShapesEdited;
             mapCanvasControlMain.SelectToolRequested += () => ActivateCanvasTool(MapCanvasTool.Select);
             mapCanvasControlMain.SelectedObjectsDeleteRequested += MapCanvasControlMain_SelectedObjectsDeleteRequested;
             mapCanvasControlMain.SelectedObjectsAssignDataRequested += MapCanvasControlMain_SelectedObjectsAssignDataRequested;
@@ -13048,8 +13048,13 @@ namespace Land_Readjustment_Tool
             }
         }
 
-        private async void MapCanvasControlMain_ShapeEdited(IShape shape)
+        private async void MapCanvasControlMain_ShapesEdited(IReadOnlyList<IShape> shapes)
         {
+            if (shapes == null || shapes.Count == 0)
+            {
+                return;
+            }
+
             if (!EnsureApplicationUnlockedForEditing("editing canvas objects"))
             {
                 await RefreshVectorCanvasFeaturesAsync();
@@ -13065,57 +13070,91 @@ namespace Land_Readjustment_Tool
             try
             {
                 AppDbContext context = AppServices.Context.Session.GetDbContext();
-                CanvasObject? existingObject = await context.CanvasObjects
-                    .AsNoTracking()
-                    .Include(item => item.CanvasLayer)
-                    .FirstOrDefaultAsync(item => item.Id == shape.Id);
+                CanvasFeatureService featureService =
+                    _projectScopedFactory.CreateCanvasFeatureService(AppServices.Context.Session);
 
-                if (existingObject == null)
+                List<CanvasObject> beforeSnapshots = new();
+                List<CanvasObject> afterSnapshots = new();
+                bool anyAffectsRoadParcel = false;
+                Guid? firstSavedShapeId = null;
+                string? lastSavedLabel = null;
+
+                // Persist every edited shape, but defer the (expensive) feature
+                // reload / cache rebuild / property reload to a SINGLE call after
+                // the whole batch — moving N shapes must not reload the project N
+                // times.
+                foreach (IShape shape in shapes)
                 {
-                    return;
+                    CanvasObject? existingObject = await context.CanvasObjects
+                        .AsNoTracking()
+                        .Include(item => item.CanvasLayer)
+                        .FirstOrDefaultAsync(item => item.Id == shape.Id);
+
+                    if (existingObject == null)
+                    {
+                        continue;
+                    }
+
+                    if (existingObject.CanvasLayer?.IsLocked == true ||
+                        (existingObject.CanvasLayer != null &&
+                         !CanvasLayerTreeService.IsDrawingMarkupLayer(existingObject.CanvasLayer) &&
+                         !CanvasLayerTreeService.IsProjectBoundaryLayer(existingObject.CanvasLayer) &&
+                         !BlockRoadParcelRefreshService.IsBlockLayer(existingObject.CanvasLayer)))
+                    {
+                        // Skip shapes whose layer is not editable.
+                        continue;
+                    }
+
+                    CanvasObject beforeSnapshot = CloneCanvasObjectSnapshot(existingObject);
+                    if (existingObject.CanvasLayer != null)
+                    {
+                        shape.LayerName = existingObject.CanvasLayer.Name;
+                        shape.Properties[CanvasFeatureService.CanvasLayerIdPropertyKey] = existingObject.CanvasLayer.Id;
+                    }
+
+                    CanvasFeature feature = await featureService.SaveShapeAsync(shape, shape.LayerName);
+                    CanvasObject afterSnapshot = CloneCanvasObjectSnapshot(feature.CanvasObject);
+
+                    beforeSnapshots.Add(beforeSnapshot);
+                    afterSnapshots.Add(afterSnapshot);
+                    firstSavedShapeId ??= shape.Id;
+                    lastSavedLabel = $"{feature.CanvasObject.ObjectType}: {feature.Layer?.Name ?? shape.LayerName}";
+
+                    if (BlockRoadParcelRefreshService.AffectsGeneratedRoadParcel(feature.CanvasObject))
+                    {
+                        anyAffectsRoadParcel = true;
+                    }
                 }
 
-                if (existingObject.CanvasLayer?.IsLocked == true ||
-                    (existingObject.CanvasLayer != null &&
-                     !CanvasLayerTreeService.IsDrawingMarkupLayer(existingObject.CanvasLayer) &&
-                     !CanvasLayerTreeService.IsProjectBoundaryLayer(existingObject.CanvasLayer) &&
-                     !BlockRoadParcelRefreshService.IsBlockLayer(existingObject.CanvasLayer)))
+                if (beforeSnapshots.Count == 0)
                 {
-                    SetCanvasCommandStatus("Grip edit ignored because the object layer is not editable");
+                    SetCanvasCommandStatus("Edit ignored because the object layer is not editable");
                     await RefreshVectorCanvasFeaturesAsync();
                     return;
                 }
 
-                CanvasObject beforeSnapshot = CloneCanvasObjectSnapshot(existingObject);
-                if (existingObject.CanvasLayer != null)
-                {
-                    shape.LayerName = existingObject.CanvasLayer.Name;
-                    shape.Properties[CanvasFeatureService.CanvasLayerIdPropertyKey] = existingObject.CanvasLayer.Id;
-                }
-
-                CanvasFeatureService featureService =
-                    _projectScopedFactory.CreateCanvasFeatureService(AppServices.Context.Session);
-                CanvasFeature feature = await featureService.SaveShapeAsync(
-                    shape,
-                    shape.LayerName);
-
-                CanvasObject afterSnapshot = CloneCanvasObjectSnapshot(feature.CanvasObject);
-                if (BlockRoadParcelRefreshService.AffectsGeneratedRoadParcel(feature.CanvasObject))
+                if (anyAffectsRoadParcel)
                 {
                     await RefreshGeneratedRoadParcelAsync(context);
                 }
 
                 MarkProjectModifiedIfOpen();
                 await RefreshVectorCanvasFeaturesAsync();
-                await RefreshCurrentSelectedCanvasObjectPropertiesAsync(shape.Id);
-                RegisterCanvasUndoCommand(new ModifyCanvasObjectCommand(beforeSnapshot, afterSnapshot));
-                SetCanvasCommandStatus($"Edited {feature.CanvasObject.ObjectType}: {feature.Layer?.Name ?? shape.LayerName}");
+                if (firstSavedShapeId.HasValue)
+                {
+                    await RefreshCurrentSelectedCanvasObjectPropertiesAsync(firstSavedShapeId.Value);
+                }
+
+                RegisterCanvasUndoCommand(new ModifyCanvasObjectsCommand(beforeSnapshots, afterSnapshots));
+                SetCanvasCommandStatus(beforeSnapshots.Count == 1
+                    ? $"Edited {lastSavedLabel}"
+                    : $"Edited {beforeSnapshots.Count} objects");
             }
             catch (Exception ex)
             {
                 MessageBox.Show(
-                    $"Failed to save the grip edit: {ex.Message}",
-                    "Grip Edit",
+                    $"Failed to save the edit: {ex.Message}",
+                    "Edit",
                     MessageBoxButtons.OK,
                     MessageBoxIcon.Error);
                 await RefreshVectorCanvasFeaturesAsync();
@@ -15300,6 +15339,38 @@ namespace Land_Readjustment_Tool
             public Task RedoAsync(frmMain owner)
             {
                 return owner.RestoreCanvasObjectSnapshotsAsync([_afterSnapshot]);
+            }
+        }
+
+        /// <summary>
+        /// Undo command for a batch of edited canvas objects (e.g. moving or grip
+        /// editing several shapes at once) — restored/redone in a single pass.
+        /// </summary>
+        private sealed class ModifyCanvasObjectsCommand : IPersistedCanvasUndoCommand
+        {
+            private readonly IReadOnlyList<CanvasObject> _beforeSnapshots;
+            private readonly IReadOnlyList<CanvasObject> _afterSnapshots;
+
+            public ModifyCanvasObjectsCommand(
+                IReadOnlyList<CanvasObject> beforeSnapshots,
+                IReadOnlyList<CanvasObject> afterSnapshots)
+            {
+                _beforeSnapshots = beforeSnapshots;
+                _afterSnapshots = afterSnapshots;
+            }
+
+            public string Description => _afterSnapshots.Count == 1
+                ? $"Modify {_afterSnapshots[0].ObjectType}"
+                : $"Modify {_afterSnapshots.Count} objects";
+
+            public Task UndoAsync(frmMain owner)
+            {
+                return owner.RestoreCanvasObjectSnapshotsAsync(_beforeSnapshots);
+            }
+
+            public Task RedoAsync(frmMain owner)
+            {
+                return owner.RestoreCanvasObjectSnapshotsAsync(_afterSnapshots);
             }
         }
 
