@@ -1470,9 +1470,12 @@ namespace Land_Readjustment_Tool.UI.CustomControls
                 suppressFixedReferenceLayers: IsInteractiveNavigation && fixedReferenceFrame == null,
                 fixedReferenceFrame: fixedReferenceFrame);
 
-            DrawImmediateEditedFeatureOverlay(graphics);
-            DrawJustCompletedShapeOverlay(graphics);
-            DrawSelectedFeatureDecorations(graphics);
+            if (!ShouldSuppressLiveVectorObjectOverlays)
+            {
+                DrawImmediateEditedFeatureOverlay(graphics);
+                DrawJustCompletedShapeOverlay(graphics);
+                DrawSelectedFeatureDecorations(graphics);
+            }
             DrawActiveGripOriginalOverlay(graphics);
             DrawObjectSelectionRectangle(graphics);
             DrawActiveGripEditOverlay(graphics);
@@ -7761,6 +7764,12 @@ namespace Land_Readjustment_Tool.UI.CustomControls
 
         private bool IsInteractiveNavigation =>
             _isPanning || _isZooming || _isSelectingZoomWindow;
+
+        private bool ShouldSuppressLiveVectorObjectOverlays =>
+            _isPanning ||
+            _isZooming ||
+            _holdVectorPanFrameUntilRefresh ||
+            _holdVectorZoomFrameUntilRefresh;
 
         private bool ShouldDeferDirectRasterRendering =>
             IsInteractiveNavigation ||
