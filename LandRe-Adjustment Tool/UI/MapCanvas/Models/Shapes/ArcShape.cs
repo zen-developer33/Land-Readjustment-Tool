@@ -5,10 +5,50 @@ namespace Land_Readjustment_Tool.UI.MapCanvas.Models.Shapes
 {
     public sealed class ArcShape : Shape, ISnapProvider
     {
-        public PointD Center { get; set; }
-        public double Radius { get; set; }
-        public double StartAngleRadians { get; set; }
-        public double SweepAngleRadians { get; set; }
+        private PointD _center;
+        private double _radius;
+        private double _startAngleRadians;
+        private double _sweepAngleRadians;
+
+        public PointD Center
+        {
+            get => _center;
+            set
+            {
+                _center = value;
+                InvalidateBounds();
+            }
+        }
+
+        public double Radius
+        {
+            get => _radius;
+            set
+            {
+                _radius = value;
+                InvalidateBounds();
+            }
+        }
+
+        public double StartAngleRadians
+        {
+            get => _startAngleRadians;
+            set
+            {
+                _startAngleRadians = value;
+                InvalidateBounds();
+            }
+        }
+
+        public double SweepAngleRadians
+        {
+            get => _sweepAngleRadians;
+            set
+            {
+                _sweepAngleRadians = value;
+                InvalidateBounds();
+            }
+        }
 
         public ArcShape(
             PointD center,
@@ -139,7 +179,7 @@ namespace Land_Readjustment_Tool.UI.MapCanvas.Models.Shapes
             }
         }
 
-        public override RectangleD GetBoundingBox()
+        protected override RectangleD ComputeBoundingBox()
         {
             // Seed with the two endpoints, then add any axis-extremum that lies on the arc.
             double minX = Math.Min(StartPoint.X, EndPoint.X);

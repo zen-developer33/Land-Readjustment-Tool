@@ -17,7 +17,8 @@ namespace Land_Readjustment_Tool.UI.MapCanvas.Rendering
     public sealed class CanvasVectorRenderer : IDisposable
     {
         private const string DefaultCanvasLabelFontName = "Nirmala UI";
-        private const double MaxGdiCoordinate = 1_000_000.0;
+        private const double ClipMarginScreenPixels = 64.0;
+        private const double MinClipWorldMargin = 0.001;
         private const float HatchLineWidthPx = 0.65f;
         private const float LockedLayerColorAlphaFactor = 0.48f;
         private const float MinLabelFontSizePt = 1.0f;
@@ -25,6 +26,7 @@ namespace Land_Readjustment_Tool.UI.MapCanvas.Rendering
         private const float MaxScaledLabelFontSizePt = 120.0f;
         private const double MinLabelZoomFactor = 0.1;
         private const double MaxLabelZoomFactor = 12.0;
+        private const double DeepZoomLabelViewportWorldSpan = 0.5;
         private static readonly Color SelectionStrokeColor = Color.FromArgb(0, 90, 255);
         private readonly Font _previewFont = new("Segoe UI", 8.0f, FontStyle.Bold);
         private readonly VectorFeatureSpatialIndex _featureSpatialIndex = new();
@@ -155,7 +157,8 @@ namespace Land_Readjustment_Tool.UI.MapCanvas.Rendering
                 penCache,
                 brushCache,
                 engine.ZoomScale,
-                antiAliasingEnabled);
+                antiAliasingEnabled,
+                clipWorldBounds: CreateClipWorldBounds(engine));
 
             Stopwatch queryStopwatch = Stopwatch.StartNew();
             IReadOnlyList<CanvasFeature> queriedFeatures =
@@ -199,24 +202,20 @@ namespace Land_Readjustment_Tool.UI.MapCanvas.Rendering
                     continue;
                 }
 
-                // Selection (the glow) is baked straight into the cached bitmap
-                // here so every frame is just a fast blit of the cache — no
-                // per-frame re-rendering of selected shapes. The cache is rebuilt
-                // (off the UI thread) when the selection or geometry changes.
-                DrawShape(graphics, engine, feature.Shape, ResolveStyle(feature, layer), context, feature, layer, suppressParcelHighlight: true);
+                // The cache is intentionally selection-free; selection
+                // decoration is drawn later as a small interaction overlay.
+                DrawShape(
+                    graphics,
+                    engine,
+                    feature.Shape,
+                    ResolveStyle(feature, layer),
+                    context,
+                    feature,
+                    layer,
+                    suppressParcelHighlight: true,
+                    forceUnselected: true);
                 DrawLabelIfNeeded(graphics, engine, visibleWorldBounds, feature, layer, context, labelFontCache);
                 renderedCount++;
-            }
-
-            // Second pass: draw the data-layer polygon selection highlight on top
-            // of all features (so neighbouring fills never cover it).
-            foreach (CanvasFeature feature in orderedFeatures)
-            {
-                if (_excludedShapeIds.Contains(feature.Shape.Id)) continue;
-                CanvasLayer? layer = ResolveLayer(feature);
-                if (!IsDataLayerPolygonFeature(feature, feature.Shape, layer)) continue;
-                if (!IsRenderable(feature, layer, visibleWorldBounds)) continue;
-                DrawCadastralParcelHighlightOnly(graphics, engine, feature.Shape);
             }
 
             renderStopwatch.Stop();
@@ -257,7 +256,8 @@ namespace Land_Readjustment_Tool.UI.MapCanvas.Rendering
                 brushCache,
                 engine.ZoomScale,
                 antiAliasingEnabled: true,
-                isPreview: drawAsPreview);
+                isPreview: drawAsPreview,
+                clipWorldBounds: CreateClipWorldBounds(engine));
 
             DrawShape(
                 graphics,
@@ -302,7 +302,8 @@ namespace Land_Readjustment_Tool.UI.MapCanvas.Rendering
                 engine.ZoomScale,
                 antiAliasingEnabled: true,
                 isPreview: false,
-                selectionDecorationOnly: true);
+                selectionDecorationOnly: true,
+                clipWorldBounds: CreateClipWorldBounds(engine));
 
             DrawShape(
                 graphics,
@@ -690,7 +691,7 @@ namespace Land_Readjustment_Tool.UI.MapCanvas.Rendering
                     DrawPolyline(graphics, engine, polyline, style, context, pen, isCadastralParcelSelection, effectiveSelected);
                     break;
                 case LineShape line:
-                    DrawLine(graphics, engine, line, pen);
+                    DrawLine(graphics, engine, line, context, pen);
                     break;
                 case RectangleShape rectangle:
                     DrawRectangle(graphics, engine, rectangle, style, context, pen, isCadastralParcelSelection);
@@ -745,18 +746,17 @@ namespace Land_Readjustment_Tool.UI.MapCanvas.Rendering
             VectorRenderContext context,
             float strokeWidth)
         {
-            using GraphicsPath? path = TryBuildSelectionOutlinePath(shape, engine);
+            using GraphicsPath? path = TryBuildSelectionOutlinePath(
+                shape,
+                engine,
+                context.ClipWorldBounds);
             if (path == null || path.PointCount == 0)
             {
                 return;
             }
 
             RectangleF bounds = path.GetBounds();
-            if (!IsValidPathBounds(bounds) ||
-                Math.Abs(bounds.Left) > MaxGdiCoordinate ||
-                Math.Abs(bounds.Top) > MaxGdiCoordinate ||
-                Math.Abs(bounds.Right) > MaxGdiCoordinate ||
-                Math.Abs(bounds.Bottom) > MaxGdiCoordinate)
+            if (!IsValidPathBounds(bounds))
             {
                 return;
             }
@@ -839,7 +839,8 @@ namespace Land_Readjustment_Tool.UI.MapCanvas.Rendering
         /// </summary>
         private static GraphicsPath? TryBuildSelectionOutlinePath(
             IShape shape,
-            MapCanvasEngine engine)
+            MapCanvasEngine engine,
+            RectangleD? clipWorldBounds)
         {
             switch (shape)
             {
@@ -850,7 +851,7 @@ namespace Land_Readjustment_Tool.UI.MapCanvas.Rendering
                         return null;
                     }
 
-                    GraphicsPath path = polyline.CreateScreenPath(engine.WorldToScreen);
+                    GraphicsPath path = polyline.CreateScreenPath(engine.WorldToScreen, clipWorldBounds);
                     return path;
                 }
                 case DonutPolygonShape donut:
@@ -860,26 +861,24 @@ namespace Land_Readjustment_Tool.UI.MapCanvas.Rendering
                         return null;
                     }
 
-                    return donut.CreateScreenPath(engine.WorldToScreen);
+                    return donut.CreateScreenPath(engine.WorldToScreen, clipWorldBounds);
                 }
                 case RectangleShape rectangle:
                 {
-                    PointF rs = ToScreenPointF(engine.WorldToScreen(rectangle.Start));
-                    PointF re = ToScreenPointF(engine.WorldToScreen(rectangle.End));
-                    RectangleF rect = CreateScreenRectangle(rs, re);
-                    if (!IsValidRectangle(rect))
+                    return CreateRectanglePath(engine, rectangle, clipWorldBounds);
+                }
+                case LineShape line:
+                {
+                    PointD startWorld = line.Start;
+                    PointD endWorld = line.End;
+                    if (clipWorldBounds.HasValue &&
+                        !ViewportClip.ClipSegment(startWorld, endWorld, clipWorldBounds.Value, out startWorld, out endWorld))
                     {
                         return null;
                     }
 
-                    GraphicsPath path = new();
-                    path.AddRectangle(rect);
-                    return path;
-                }
-                case LineShape line:
-                {
-                    PointF ls = ToScreenPointF(engine.WorldToScreen(line.Start));
-                    PointF le = ToScreenPointF(engine.WorldToScreen(line.End));
+                    PointF ls = ToScreenPointF(engine.WorldToScreen(startWorld));
+                    PointF le = ToScreenPointF(engine.WorldToScreen(endWorld));
                     if (!IsValidPoint(ls) || !IsValidPoint(le) || Distance(ls, le) < 0.5f)
                     {
                         return null;
@@ -1031,18 +1030,16 @@ namespace Land_Readjustment_Tool.UI.MapCanvas.Rendering
                 return;
             }
 
-            using GraphicsPath path = polyline.CreateScreenPath(engine.WorldToScreen);
+            using GraphicsPath path = polyline.CreateScreenPath(
+                engine.WorldToScreen,
+                context.ClipWorldBounds);
             if (path.PointCount == 0)
             {
                 return;
             }
 
             RectangleF bounds = path.GetBounds();
-            if (!IsValidPathBounds(bounds) ||
-                Math.Abs(bounds.Left) > MaxGdiCoordinate ||
-                Math.Abs(bounds.Top) > MaxGdiCoordinate ||
-                Math.Abs(bounds.Right) > MaxGdiCoordinate ||
-                Math.Abs(bounds.Bottom) > MaxGdiCoordinate)
+            if (!IsValidPathBounds(bounds))
             {
                 return;
             }
@@ -1085,18 +1082,16 @@ namespace Land_Readjustment_Tool.UI.MapCanvas.Rendering
                 return;
             }
 
-            using GraphicsPath path = donut.CreateScreenPath(engine.WorldToScreen);
+            using GraphicsPath path = donut.CreateScreenPath(
+                engine.WorldToScreen,
+                context.ClipWorldBounds);
             if (path.PointCount == 0)
             {
                 return;
             }
 
             RectangleF bounds = path.GetBounds();
-            if (!IsValidPathBounds(bounds) ||
-                Math.Abs(bounds.Left) > MaxGdiCoordinate ||
-                Math.Abs(bounds.Top) > MaxGdiCoordinate ||
-                Math.Abs(bounds.Right) > MaxGdiCoordinate ||
-                Math.Abs(bounds.Bottom) > MaxGdiCoordinate)
+            if (!IsValidPathBounds(bounds))
             {
                 return;
             }
@@ -1121,13 +1116,22 @@ namespace Land_Readjustment_Tool.UI.MapCanvas.Rendering
             Graphics graphics,
             MapCanvasEngine engine,
             LineShape line,
+            VectorRenderContext context,
             Pen? pen)
         {
             if (pen == null)
                 return;
 
-            PointF start = ToScreenPointF(engine.WorldToScreen(line.Start));
-            PointF end = ToScreenPointF(engine.WorldToScreen(line.End));
+            PointD startWorld = line.Start;
+            PointD endWorld = line.End;
+            if (context.ClipWorldBounds.HasValue &&
+                !ViewportClip.ClipSegment(startWorld, endWorld, context.ClipWorldBounds.Value, out startWorld, out endWorld))
+            {
+                return;
+            }
+
+            PointF start = ToScreenPointF(engine.WorldToScreen(startWorld));
+            PointF end = ToScreenPointF(engine.WorldToScreen(endWorld));
             if (IsValidPoint(start) && IsValidPoint(end))
             {
                 graphics.DrawLine(pen, start, end);
@@ -1143,18 +1147,23 @@ namespace Land_Readjustment_Tool.UI.MapCanvas.Rendering
             Pen? pen,
             bool drawParcelSelectionHighlight = false)
         {
-            PointF start = ToScreenPointF(engine.WorldToScreen(rectangle.Start));
-            PointF end = ToScreenPointF(engine.WorldToScreen(rectangle.End));
-            RectangleF rect = CreateScreenRectangle(start, end);
-            if (!IsValidRectangle(rect))
+            using GraphicsPath? path = CreateRectanglePath(
+                engine,
+                rectangle,
+                context.ClipWorldBounds);
+            if (path == null || path.PointCount == 0)
+            {
+                return;
+            }
+
+            RectangleF rect = path.GetBounds();
+            if (!IsValidPathBounds(rect) || !IsValidRectangle(rect))
             {
                 return;
             }
 
             if (style.FillMode != FillMode.None)
             {
-                using GraphicsPath path = new();
-                path.AddRectangle(rect);
                 FillClosedPath(graphics, path, rect, style, context);
 
                 if (drawParcelSelectionHighlight)
@@ -1164,14 +1173,12 @@ namespace Land_Readjustment_Tool.UI.MapCanvas.Rendering
             }
             else if (drawParcelSelectionHighlight)
             {
-                using GraphicsPath path = new();
-                path.AddRectangle(rect);
                 DrawCadastralParcelSelectionHighlight(graphics, path, rect);
             }
 
             if (pen != null)
             {
-                graphics.DrawRectangle(pen, rect.X, rect.Y, rect.Width, rect.Height);
+                graphics.DrawPath(pen, path);
             }
         }
 
@@ -1249,24 +1256,22 @@ namespace Land_Readjustment_Tool.UI.MapCanvas.Rendering
                 case DonutPolygonShape donut:
                 {
                     if (donut.ExteriorRing.Count < 3) return;
-                    using GraphicsPath path = donut.CreateScreenPath(engine.WorldToScreen);
+                    RectangleD clipWorldBounds = CreateClipWorldBounds(engine);
+                    using GraphicsPath path = donut.CreateScreenPath(engine.WorldToScreen, clipWorldBounds);
                     if (path.PointCount == 0) return;
                     RectangleF bounds = path.GetBounds();
-                    if (IsValidPathBounds(bounds) && IsValidRectangle(bounds) &&
-                        Math.Abs(bounds.Left) <= MaxGdiCoordinate &&
-                        Math.Abs(bounds.Top) <= MaxGdiCoordinate)
+                    if (IsValidPathBounds(bounds) && IsValidRectangle(bounds))
                         DrawCadastralParcelSelectionHighlight(graphics, path, bounds);
                     break;
                 }
                 case PolylineShape polyline:
                 {
                     if (!polyline.IsClosed || polyline.Vertices.Count <= 2) return;
-                    using GraphicsPath path = polyline.CreateScreenPath(engine.WorldToScreen);
+                    RectangleD clipWorldBounds = CreateClipWorldBounds(engine);
+                    using GraphicsPath path = polyline.CreateScreenPath(engine.WorldToScreen, clipWorldBounds);
                     if (path.PointCount == 0) return;
                     RectangleF bounds = path.GetBounds();
-                    if (IsValidPathBounds(bounds) && IsValidRectangle(bounds) &&
-                        Math.Abs(bounds.Left) <= MaxGdiCoordinate &&
-                        Math.Abs(bounds.Top) <= MaxGdiCoordinate)
+                    if (IsValidPathBounds(bounds) && IsValidRectangle(bounds))
                         DrawCadastralParcelSelectionHighlight(graphics, path, bounds);
                     break;
                 }
@@ -1980,9 +1985,18 @@ namespace Land_Readjustment_Tool.UI.MapCanvas.Rendering
             Guid cacheKey = feature.CanvasObject.Id;
             RectangleD shapeBounds = feature.Shape.GetBoundingBox();
             bool shapeFullyVisible = ContainsBounds(visibleWorldBounds, shapeBounds);
+            bool deepZoomViewport = IsDeepZoomLabelViewport(visibleWorldBounds);
+
+            if (!shapeFullyVisible &&
+                deepZoomViewport &&
+                TryResolveFastVisibleShapeLabelAnchor(feature.Shape, visibleWorldBounds, out PointD fastAnchor))
+            {
+                anchor = fastAnchor;
+                return true;
+            }
 
             Geometry? geometry = feature.CanvasObject.Shape;
-            if (!shapeFullyVisible && geometry != null)
+            if (!shapeFullyVisible && geometry != null && !deepZoomViewport)
             {
                 if (TryResolveClippedGeometryLabelAnchor(geometry, visibleWorldBounds, out PointD clippedAnchor))
                 {
@@ -2042,6 +2056,165 @@ namespace Land_Readjustment_Tool.UI.MapCanvas.Rendering
             }
 
             anchor = ClampAnchorToViewport(shapeBounds, visibleWorldBounds);
+            return ContainsPoint(visibleWorldBounds, anchor);
+        }
+
+        private static bool IsDeepZoomLabelViewport(RectangleD visibleWorldBounds)
+        {
+            double width = Math.Abs(MaxX(visibleWorldBounds) - MinX(visibleWorldBounds));
+            double height = Math.Abs(MaxY(visibleWorldBounds) - MinY(visibleWorldBounds));
+            return double.IsFinite(width) &&
+                   double.IsFinite(height) &&
+                   Math.Max(width, height) <= DeepZoomLabelViewportWorldSpan;
+        }
+
+        private static bool TryResolveFastVisibleShapeLabelAnchor(
+            IShape shape,
+            RectangleD visibleWorldBounds,
+            out PointD anchor)
+        {
+            anchor = default;
+
+            switch (shape)
+            {
+                case LineShape line:
+                    return TryResolveClippedSegmentAnchor(
+                        line.Start,
+                        line.End,
+                        visibleWorldBounds,
+                        out anchor);
+
+                case PolylineShape polyline:
+                    return TryResolvePolylineVisibleAnchor(
+                        polyline,
+                        visibleWorldBounds,
+                        out anchor);
+
+                case ArcShape arc:
+                    return TryResolveClippedSegmentAnchor(
+                        arc.StartPoint,
+                        arc.EndPoint,
+                        visibleWorldBounds,
+                        out anchor);
+
+                default:
+                    RectangleD bounds = shape.GetBoundingBox();
+                    if (!bounds.IntersectsWith(visibleWorldBounds))
+                    {
+                        return false;
+                    }
+
+                    anchor = ClampAnchorToViewport(bounds, visibleWorldBounds);
+                    return ContainsPoint(visibleWorldBounds, anchor);
+            }
+        }
+
+        private static bool TryResolvePolylineVisibleAnchor(
+            PolylineShape polyline,
+            RectangleD visibleWorldBounds,
+            out PointD anchor)
+        {
+            anchor = default;
+            if (polyline.Vertices.Count == 0)
+            {
+                return false;
+            }
+
+            double bestLengthSquared = double.NegativeInfinity;
+            PointD bestAnchor = default;
+
+            foreach (PolylineShape.PolylineSegment segment in EnumeratePolylineLabelSegments(polyline))
+            {
+                if (!TryResolveClippedSegmentAnchor(
+                        segment.Start,
+                        segment.End,
+                        visibleWorldBounds,
+                        out PointD segmentAnchor,
+                        out double lengthSquared))
+                {
+                    continue;
+                }
+
+                if (lengthSquared > bestLengthSquared)
+                {
+                    bestLengthSquared = lengthSquared;
+                    bestAnchor = segmentAnchor;
+                }
+            }
+
+            if (polyline.IsClosed && polyline.Vertices.Count > 2)
+            {
+                PointD start = polyline.Vertices[^1];
+                PointD end = polyline.Vertices[0];
+                if (TryResolveClippedSegmentAnchor(
+                        start,
+                        end,
+                        visibleWorldBounds,
+                        out PointD segmentAnchor,
+                        out double lengthSquared) &&
+                    lengthSquared > bestLengthSquared)
+                {
+                    bestLengthSquared = lengthSquared;
+                    bestAnchor = segmentAnchor;
+                }
+            }
+
+            if (bestLengthSquared >= 0.0)
+            {
+                anchor = bestAnchor;
+                return true;
+            }
+
+            RectangleD bounds = polyline.GetBoundingBox();
+            if (!bounds.IntersectsWith(visibleWorldBounds))
+            {
+                return false;
+            }
+
+            anchor = ClampAnchorToViewport(bounds, visibleWorldBounds);
+            return ContainsPoint(visibleWorldBounds, anchor);
+        }
+
+        private static bool TryResolveClippedSegmentAnchor(
+            PointD start,
+            PointD end,
+            RectangleD visibleWorldBounds,
+            out PointD anchor)
+        {
+            return TryResolveClippedSegmentAnchor(
+                start,
+                end,
+                visibleWorldBounds,
+                out anchor,
+                out _);
+        }
+
+        private static bool TryResolveClippedSegmentAnchor(
+            PointD start,
+            PointD end,
+            RectangleD visibleWorldBounds,
+            out PointD anchor,
+            out double lengthSquared)
+        {
+            anchor = default;
+            lengthSquared = 0.0;
+
+            if (!ViewportClip.ClipSegment(start, end, visibleWorldBounds, out PointD clippedStart, out PointD clippedEnd))
+            {
+                return false;
+            }
+
+            double dx = clippedEnd.X - clippedStart.X;
+            double dy = clippedEnd.Y - clippedStart.Y;
+            lengthSquared = dx * dx + dy * dy;
+            if (!double.IsFinite(lengthSquared))
+            {
+                return false;
+            }
+
+            anchor = new PointD(
+                (clippedStart.X + clippedEnd.X) / 2.0,
+                (clippedStart.Y + clippedEnd.Y) / 2.0);
             return ContainsPoint(visibleWorldBounds, anchor);
         }
 
@@ -2898,25 +3071,70 @@ namespace Land_Readjustment_Tool.UI.MapCanvas.Rendering
             return RectangleF.FromLTRB(left, top, right, bottom);
         }
 
+        private static RectangleD CreateClipWorldBounds(MapCanvasEngine engine)
+        {
+            double zoomScale = engine.ZoomScale;
+            double margin = double.IsFinite(zoomScale) && zoomScale > 0.0
+                ? Math.Max(MinClipWorldMargin, ClipMarginScreenPixels / zoomScale)
+                : MinClipWorldMargin;
+
+            return engine.GetClipWorldBounds(margin);
+        }
+
+        private static GraphicsPath? CreateRectanglePath(
+            MapCanvasEngine engine,
+            RectangleShape rectangle,
+            RectangleD? clipWorldBounds)
+        {
+            double left = Math.Min(rectangle.Start.X, rectangle.End.X);
+            double right = Math.Max(rectangle.Start.X, rectangle.End.X);
+            double bottom = Math.Min(rectangle.Start.Y, rectangle.End.Y);
+            double top = Math.Max(rectangle.Start.Y, rectangle.End.Y);
+            PointD[] ring =
+            [
+                new PointD(left, bottom),
+                new PointD(right, bottom),
+                new PointD(right, top),
+                new PointD(left, top)
+            ];
+
+            IReadOnlyList<PointD> worldPoints = clipWorldBounds.HasValue
+                ? ViewportClip.ClipPolygon(ring, clipWorldBounds.Value)
+                : ring;
+            if (worldPoints.Count < 3)
+            {
+                return null;
+            }
+
+            PointF[] points = worldPoints
+                .Select(point => ToScreenPointF(engine.WorldToScreen(point)))
+                .Where(IsValidPoint)
+                .ToArray();
+            if (points.Length < 3)
+            {
+                return null;
+            }
+
+            GraphicsPath path = new();
+            path.AddPolygon(points);
+            return path;
+        }
+
         private static PointF ToScreenPointF(PointD screenPoint)
         {
             return new PointF(
-                ClampToGdi(Math.Round(screenPoint.X)),
-                ClampToGdi(Math.Round(screenPoint.Y)));
+                ToFiniteFloat(Math.Round(screenPoint.X)),
+                ToFiniteFloat(Math.Round(screenPoint.Y)));
         }
 
-        private static float ClampToGdi(double value)
+        private static float ToFiniteFloat(double value)
         {
             if (double.IsNaN(value) || double.IsInfinity(value))
             {
                 return float.NaN;
             }
 
-            return value > MaxGdiCoordinate
-                ? (float)MaxGdiCoordinate
-                : value < -MaxGdiCoordinate
-                    ? (float)-MaxGdiCoordinate
-                    : (float)value;
+            return (float)value;
         }
 
         private static bool IsValidPoint(PointF point) =>

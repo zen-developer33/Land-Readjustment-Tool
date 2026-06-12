@@ -57,6 +57,11 @@ namespace Land_Readjustment_Tool.UI.MapCanvas.Models.Shapes
         RectangleD GetBoundingBox();
 
         /// <summary>
+        /// Clears any cached bounding box after geometry is edited in place.
+        /// </summary>
+        void InvalidateBounds();
+
+        /// <summary>
         /// Moves the shape by the given world-coordinate delta.
         /// </summary>
         /// <param name="delta">The horizontal and vertical world-coordinate distance to move.</param>

@@ -32,7 +32,7 @@ namespace Land_Readjustment_Tool.UI.MapCanvas.Models.Shapes
 
         public List<List<PointD>> InteriorRings { get; }
 
-        public override RectangleD GetBoundingBox()
+        protected override RectangleD ComputeBoundingBox()
         {
             if (ExteriorRing.Count == 0)
             {
@@ -46,14 +46,16 @@ namespace Land_Readjustment_Tool.UI.MapCanvas.Models.Shapes
             return new RectangleD(minX, minY, maxX - minX, maxY - minY);
         }
 
-        public GraphicsPath CreateScreenPath(Func<PointD, PointD> worldToScreen)
+        public GraphicsPath CreateScreenPath(
+            Func<PointD, PointD> worldToScreen,
+            RectangleD? clipWorldBounds = null)
         {
             GraphicsPath path = new() { FillMode = System.Drawing.Drawing2D.FillMode.Alternate };
-            AddRing(path, ExteriorRing, worldToScreen);
+            AddRing(path, ExteriorRing, worldToScreen, clipWorldBounds);
 
             foreach (List<PointD> ring in InteriorRings)
             {
-                AddRing(path, ring, worldToScreen);
+                AddRing(path, ring, worldToScreen, clipWorldBounds);
             }
 
             return path;
@@ -106,6 +108,8 @@ namespace Land_Readjustment_Tool.UI.MapCanvas.Models.Shapes
             {
                 TranslateRing(ring, delta);
             }
+
+            InvalidateBounds();
         }
 
         public override bool ContainsPoint(PointD worldPoint, float tolerance)
@@ -142,14 +146,23 @@ namespace Land_Readjustment_Tool.UI.MapCanvas.Models.Shapes
         private static void AddRing(
             GraphicsPath path,
             IReadOnlyList<PointD> ring,
-            Func<PointD, PointD> worldToScreen)
+            Func<PointD, PointD> worldToScreen,
+            RectangleD? clipWorldBounds)
         {
             if (ring.Count < 3)
             {
                 return;
             }
 
-            PointF[] points = ring
+            IReadOnlyList<PointD> worldPoints = clipWorldBounds.HasValue
+                ? ViewportClip.ClipPolygon(ring, clipWorldBounds.Value)
+                : ring;
+            if (worldPoints.Count < 3)
+            {
+                return;
+            }
+
+            PointF[] points = worldPoints
                 .Select(worldToScreen)
                 .Select(point => new PointF((float)Math.Round(point.X), (float)Math.Round(point.Y)))
                 .Where(point => float.IsFinite(point.X) && float.IsFinite(point.Y))

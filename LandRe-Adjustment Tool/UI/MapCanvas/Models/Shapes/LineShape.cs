@@ -10,8 +10,28 @@ namespace Land_Readjustment_Tool.UI.MapCanvas.Models.Shapes
     /// </summary>
     public class LineShape : Shape, ISnapProvider
     {
-        public PointD Start { get; set; }
-        public PointD End { get; set; }
+        private PointD _start;
+        private PointD _end;
+
+        public PointD Start
+        {
+            get => _start;
+            set
+            {
+                _start = value;
+                InvalidateBounds();
+            }
+        }
+
+        public PointD End
+        {
+            get => _end;
+            set
+            {
+                _end = value;
+                InvalidateBounds();
+            }
+        }
 
         public LineShape(PointD start, PointD end) : base()
         {
@@ -28,7 +48,7 @@ namespace Land_Readjustment_Tool.UI.MapCanvas.Models.Shapes
             End = source.End;
         }
 
-        public override RectangleD GetBoundingBox()
+        protected override RectangleD ComputeBoundingBox()
         {
             double minX = Math.Min(Start.X, End.X);
             double minY = Math.Min(Start.Y, End.Y);

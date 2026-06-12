@@ -1,0 +1,525 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>RePlot — Replotting Workspace</title>
+<style>
+  /* ---- Native Windows palette (chrome light, canvas dark) ---- */
+  :root{
+    --win-bg:#f0f0f0; --panel:#f3f3f3; --panel2:#fafafa;
+    --line:#c8c8c8; --line2:#a6a6a6; --ink:#1b1b1b; --ink2:#555;
+    --hdr:#eef0f2; --sel:#cbe8f6; --selbd:#7ac0e8;
+    --btn-a:#f7f7f7; --btn-b:#e9e9e9; --btn-bd:#adadad;
+    --hover:#e5f1fb; --hover-bd:#0a78d4; --checked:#cfe6fb; --checked-bd:#3a93d6;
+    --accent:#0a6cbf;
+    /* canvas */
+    --cv:#222933; --grid-a:rgba(255,255,255,.06); --grid-b:rgba(255,255,255,.025);
+    --plot:#64ff64; --plot-fill:rgba(100,255,100,.10);
+    --sabik:#c98a4b; --road:#7c8896; --block:#9aa7b4;
+    --selp:#aef0ff; --selp-fill:rgba(130,205,255,.16); --snap:#ff5ed0;
+    --dim:#c6d0da; --pid:#eef3f8;
+  }
+  *{box-sizing:border-box}
+  html,body{margin:0;height:100%}
+  body{
+    font-family:"Segoe UI",Tahoma,system-ui,sans-serif;font-size:12px;color:var(--ink);
+    background:var(--win-bg);overflow:hidden;
+  }
+  .app{display:flex;flex-direction:column;height:100vh;min-width:1180px;min-height:680px}
+
+  /* ---- Title bar ---- */
+  .titlebar{display:flex;align-items:center;height:30px;background:linear-gradient(#fbfbfb,#f1f1f1);
+    border-bottom:1px solid var(--line);padding:0 4px 0 10px;gap:8px;flex:0 0 auto}
+  .titlebar .ico{width:14px;height:14px;border-radius:2px;background:linear-gradient(135deg,#3a93d6,#0a6cbf)}
+  .titlebar .ttl{font-weight:600}
+  .titlebar .proj{color:var(--ink2)}
+  .titlebar .wbtns{margin-left:auto;display:flex}
+  .titlebar .wbtn{width:44px;height:30px;display:grid;place-items:center;color:#444}
+  .titlebar .wbtn:hover{background:#e6e6e6}
+  .titlebar .wbtn.close:hover{background:#e81123;color:#fff}
+
+  /* ---- Menu bar ---- */
+  .menubar{display:flex;height:24px;background:var(--panel2);border-bottom:1px solid var(--line);
+    padding:0 4px;flex:0 0 auto}
+  .menubar div{padding:0 9px;display:flex;align-items:center;cursor:default}
+  .menubar div:hover{background:var(--hover);border:1px solid var(--hover-bd);padding:0 8px}
+
+  /* ---- Toolbars ---- */
+  .tbar{display:flex;align-items:center;gap:2px;height:30px;padding:2px 6px;flex-wrap:wrap;
+    background:linear-gradient(#f6f6f6,#ececec);border-bottom:1px solid var(--line);flex:0 0 auto}
+  .tbtn{display:inline-flex;align-items:center;gap:5px;height:24px;padding:0 7px;border:1px solid transparent;
+    border-radius:3px;background:transparent;color:#222;cursor:default;white-space:nowrap;font-size:12px}
+  .tbtn .g{font-size:13px;line-height:1;width:14px;text-align:center}
+  .tbtn:hover{background:var(--hover);border-color:var(--hover-bd)}
+  .tbtn.on{background:var(--checked);border-color:var(--checked-bd)}
+  .tbtn.primary{background:linear-gradient(#eaf6ff,#cfe9ff);border-color:#3a93d6;font-weight:600}
+  .tbtn.primary:hover{background:linear-gradient(#e0f1ff,#bfe1ff)}
+  .sep{width:1px;height:18px;background:var(--line2);margin:0 4px}
+  .tlabel{color:var(--ink2);margin:0 4px 0 2px}
+
+  /* ---- Main split ---- */
+  .body{display:flex;flex:1 1 auto;min-height:0}
+  .split{width:5px;background:var(--win-bg);border-left:1px solid var(--line);
+    border-right:1px solid var(--line);cursor:col-resize;flex:0 0 auto}
+
+  /* ---- Side panels ---- */
+  .side{flex:0 0 auto;background:var(--panel);display:flex;flex-direction:column;min-height:0;overflow:auto}
+  .side.left{width:260px;border-right:1px solid var(--line)}
+  .side.right{width:300px;border-left:1px solid var(--line)}
+  .group{margin:8px 8px 4px;border:1px solid var(--line);background:var(--panel2);border-radius:2px}
+  .group>.cap{font-weight:600;color:#2a2a2a;padding:4px 8px;background:var(--hdr);
+    border-bottom:1px solid var(--line)}
+  .group>.in{padding:8px}
+
+  /* block selector */
+  .row{display:flex;align-items:center;gap:6px;margin-bottom:6px}
+  select,input[type=text],input[type=number]{font-family:inherit;font-size:12px;height:23px;
+    border:1px solid var(--btn-bd);background:#fff;padding:0 5px;border-radius:2px;width:100%}
+  .mini{width:100%;height:74px;background:#1c2430;border:1px solid var(--line2);border-radius:2px}
+  .hint{color:var(--ink2);font-size:11px;margin-top:4px;line-height:1.4}
+
+  /* layers */
+  .layer{display:grid;grid-template-columns:16px 1fr 70px;align-items:center;gap:7px;
+    padding:3px 2px;border-bottom:1px dotted #e2e2e2}
+  .layer:last-child{border-bottom:0}
+  .layer input[type=range]{width:70px;height:14px}
+  .swatch{display:inline-block;width:10px;height:10px;border-radius:2px;margin-right:5px;vertical-align:-1px}
+
+  /* grids (DataGridView look) */
+  table{border-collapse:collapse;width:100%;font-size:11.5px;background:#fff}
+  thead th{background:#f4f4f4;border:1px solid #dcdcdc;border-left:0;text-align:left;
+    font-weight:600;padding:4px 6px;color:#333;position:sticky;top:0}
+  thead th:first-child{border-left:1px solid #dcdcdc}
+  tbody td{border:1px solid #e3e3e3;border-left:0;padding:3px 6px;white-space:nowrap}
+  tbody td:first-child{border-left:1px solid #e3e3e3}
+  tbody tr.sel td{background:var(--sel)}
+  tbody tr:hover td{background:#eef6fc}
+  .num{text-align:right;font-family:Consolas,"Courier New",monospace}
+  .st{font-weight:600}
+  .st.plotted{color:#0a6cbf}.st.pending{color:#b8860b}.st.done{color:#2e7d32}
+  .gridwrap{max-height:150px;overflow:auto;border:1px solid var(--line)}
+
+  .pbtns{display:flex;gap:6px;margin-top:8px}
+  .btn{font-family:inherit;font-size:12px;height:27px;padding:0 12px;border:1px solid var(--btn-bd);
+    border-radius:3px;background:linear-gradient(var(--btn-a),var(--btn-b));cursor:default}
+  .btn:hover{background:var(--hover);border-color:var(--hover-bd)}
+  .btn.primary{background:linear-gradient(#eaf6ff,#cfe9ff);border-color:#3a93d6;font-weight:600;flex:1}
+
+  /* inspector form */
+  .form{display:grid;grid-template-columns:104px 1fr;gap:6px 8px;align-items:center}
+  .form label{color:var(--ink2)}
+  .form .val{font-family:Consolas,monospace;color:#143;font-weight:600}
+  .form input,.form select{height:22px}
+
+  /* ---- Canvas ---- */
+  .canvaswrap{flex:1 1 auto;position:relative;min-width:0;background:var(--cv);overflow:hidden}
+  svg{display:block;width:100%;height:100%;cursor:crosshair}
+  .cv-badge{position:absolute;left:10px;top:8px;background:rgba(20,26,34,.78);color:#cfe;
+    font:600 11px Consolas,monospace;padding:4px 9px;border:1px solid rgba(120,140,160,.4);border-radius:3px}
+  .cv-zoomnote{position:absolute;right:10px;top:8px;background:rgba(20,26,34,.7);color:#9fb3c6;
+    font:11px Consolas,monospace;padding:4px 9px;border:1px solid rgba(120,140,160,.3);border-radius:3px}
+
+  /* ---- Bottom grid ---- */
+  .bottom{flex:0 0 auto;height:170px;background:var(--panel);border-top:1px solid var(--line);
+    display:flex;flex-direction:column}
+  .bottom .bar{display:flex;align-items:center;gap:8px;height:26px;padding:0 8px;
+    background:var(--hdr);border-bottom:1px solid var(--line)}
+  .bottom .bar .cap{font-weight:600}
+  .bottom .bar .right{margin-left:auto;display:flex;gap:6px}
+  .bottom .tablewrap{flex:1 1 auto;overflow:auto}
+
+  /* ---- Status bar ---- */
+  .status{display:flex;align-items:center;height:24px;background:var(--panel);
+    border-top:1px solid var(--line);font-size:11.5px;flex:0 0 auto}
+  .status .cell{padding:0 10px;border-right:1px solid var(--line);height:100%;display:flex;align-items:center;
+    color:#333;font-family:Consolas,monospace}
+  .status .grow{flex:1 1 auto;border-right:0}
+  .badge{margin-left:auto;display:flex;align-items:center;gap:6px;padding:0 12px;font-weight:600;color:#1b6b2a}
+  .dot{width:9px;height:9px;border-radius:50%;background:#2e9e3f;box-shadow:0 0 0 2px #cdeccf}
+
+  ::-webkit-scrollbar{width:14px;height:14px}
+  ::-webkit-scrollbar-thumb{background:#cdcdcd;border:3px solid var(--panel)}
+  ::-webkit-scrollbar-track{background:var(--panel)}
+</style>
+</head>
+<body>
+<div class="app">
+
+  <!-- Title bar -->
+  <div class="titlebar">
+    <div class="ico"></div>
+    <span class="ttl">RePlot</span>
+    <span class="proj">— Replotting Workspace&nbsp;&nbsp;[ Baireni LPP — Phase 1 ]</span>
+    <div class="wbtns">
+      <div class="wbtn">—</div><div class="wbtn">▢</div><div class="wbtn close">✕</div>
+    </div>
+  </div>
+
+  <!-- Menu -->
+  <div class="menubar">
+    <div>File</div><div>Edit</div><div>View</div><div>Replot</div><div>Tools</div><div>Help</div>
+  </div>
+
+  <!-- Toolbar row 1: navigation + selection -->
+  <div class="tbar">
+    <button class="tbtn" title="Pan"><span class="g">✋</span>Pan</button>
+    <button class="tbtn" title="Zoom in (to 4-dp)"><span class="g">🔍</span>+</button>
+    <button class="tbtn" title="Zoom out (clamped: block ≥ 50px)"><span class="g">🔍</span>−</button>
+    <button class="tbtn" title="Zoom to block extent"><span class="g">⤢</span>Extent</button>
+    <button class="tbtn" title="Zoom to selection"><span class="g">⊡</span>Selection</button>
+    <span class="sep"></span>
+    <button class="tbtn on tool" title="Select"><span class="g">▭</span>Select</button>
+    <button class="tbtn tool" title="Window select"><span class="g">◫</span>Window</button>
+    <button class="tbtn tool" title="Lasso select"><span class="g">◌</span>Lasso</button>
+    <span class="sep"></span>
+    <span class="tlabel">Block:</span>
+    <select style="width:120px" id="blockSel">
+      <option>Block C</option><option>Block A</option><option>Block B</option><option>Block D</option>
+    </select>
+  </div>
+
+  <!-- Toolbar row 2: drawing + parcel operations + snaps -->
+  <div class="tbar">
+    <button class="tbtn tool" title="Draw polygon parcel"><span class="g">⬡</span>Polygon</button>
+    <button class="tbtn tool" title="Rectangle by width × depth"><span class="g">▱</span>Rect W×D</button>
+    <button class="tbtn tool" title="Bearing–distance traverse (DMS)"><span class="g">∠</span>Bearing</button>
+    <button class="tbtn tool" title="Trace from sabik boundary"><span class="g">✎</span>Trace</button>
+    <span class="sep"></span>
+    <button class="tbtn tool on2" title="Split parcel"><span class="g">⫽</span>Split</button>
+    <button class="tbtn tool" title="Merge / join adjacent"><span class="g">⊎</span>Merge</button>
+    <button class="tbtn tool" title="Move"><span class="g">✥</span>Move</button>
+    <button class="tbtn tool" title="Rotate"><span class="g">↻</span>Rotate</button>
+    <button class="tbtn tool" title="Copy / array"><span class="g">▦</span>Array</button>
+    <button class="tbtn tool" title="Edit vertices"><span class="g">◆</span>Vertex</button>
+    <span class="sep"></span>
+    <button class="tbtn" title="Assign sabik parcel(s) to selected"><span class="g">⛓</span>Assign Sabik</button>
+    <button class="tbtn" title="Link to contribution row"><span class="g">↪</span>Link Row</button>
+    <span class="sep"></span>
+    <button class="tbtn primary" title="Batch auto-replot this block from contribution chart">
+      <span class="g">⚡</span>Batch Auto-Replot</button>
+    <span class="sep"></span>
+    <button class="tbtn" title="Undo"><span class="g">↶</span></button>
+    <button class="tbtn" title="Redo"><span class="g">↷</span></button>
+    <span class="sep"></span>
+    <span class="tlabel">Snap:</span>
+    <button class="tbtn on snap" title="Vertex">Vtx</button>
+    <button class="tbtn snap" title="Endpoint">End</button>
+    <button class="tbtn snap" title="Midpoint">Mid</button>
+    <button class="tbtn on snap" title="Edge">Edge</button>
+    <button class="tbtn snap" title="Intersection">Int</button>
+    <button class="tbtn snap" title="Perpendicular">Perp</button>
+    <button class="tbtn snap" title="Road offset (ROW/2)">RoadOff</button>
+    <button class="tbtn snap" title="Grid">Grid</button>
+  </div>
+
+  <!-- Body -->
+  <div class="body">
+
+    <!-- LEFT PANEL -->
+    <div class="side left">
+
+      <div class="group">
+        <div class="cap">Block</div>
+        <div class="in">
+          <div class="row">
+            <select id="blockSel2"><option>Block C — 23 sabik · 4 roads</option>
+              <option>Block A</option><option>Block B</option><option>Block D</option></select>
+          </div>
+          <svg class="mini" viewBox="0 0 230 74" id="overview"></svg>
+          <div class="hint">Only one block is loaded at a time. Selecting a block rebuilds its
+            working set (intersecting sabik parcels + clipped roads).</div>
+        </div>
+      </div>
+
+      <div class="group">
+        <div class="cap">Layers</div>
+        <div class="in" id="layers">
+          <!-- filled by JS -->
+        </div>
+      </div>
+
+      <div class="group">
+        <div class="cap">Contribution Chart — finalized entitlements</div>
+        <div class="in">
+          <div class="gridwrap">
+            <table>
+              <thead><tr><th>Old Kitta</th><th>Owner</th><th class="num">Orig.</th>
+                <th class="num">%</th><th class="num">Return</th><th>Status</th></tr></thead>
+              <tbody>
+                <tr class="sel"><td>144</td><td>R. Thapa</td><td class="num">508.2</td><td class="num">28</td><td class="num">365.9</td><td class="st plotted">Plotted</td></tr>
+                <tr><td>145</td><td>S. Gurung</td><td class="num">642.0</td><td class="num">28</td><td class="num">462.2</td><td class="st plotted">Plotted</td></tr>
+                <tr><td>146</td><td>M. K.C.</td><td class="num">389.5</td><td class="num">30</td><td class="num">272.7</td><td class="st pending">Pending</td></tr>
+                <tr><td>147</td><td>B. Tamang</td><td class="num">733.8</td><td class="num">28</td><td class="num">528.3</td><td class="st plotted">Plotted</td></tr>
+                <tr><td>148</td><td>D. Magar</td><td class="num">211.0</td><td class="num">31</td><td class="num">145.6</td><td class="st pending">Pending</td></tr>
+                <tr><td>149</td><td>L. Shahi</td><td class="num">560.4</td><td class="num">28</td><td class="num">403.5</td><td class="st done">Done</td></tr>
+              </tbody>
+            </table>
+          </div>
+          <div class="pbtns">
+            <button class="btn primary" title="Generate plots for whole block">⚡ Batch Auto-Replot</button>
+            <button class="btn" title="Place the selected entitlement manually">Place ▸</button>
+          </div>
+        </div>
+      </div>
+
+    </div>
+
+    <div class="split"></div>
+
+    <!-- CANVAS -->
+    <div class="canvaswrap">
+      <svg id="canvas" viewBox="0 0 1024 660" preserveAspectRatio="xMidYMid meet"></svg>
+      <div class="cv-badge">Block C · 1 of 4 · 23 sabik parcels in set</div>
+      <div class="cv-zoomnote">extent locked · 1px = 0.0001 m max</div>
+    </div>
+
+    <div class="split"></div>
+
+    <!-- RIGHT PANEL -->
+    <div class="side right">
+      <div class="group">
+        <div class="cap">Parcel Inspector</div>
+        <div class="in">
+          <div class="form">
+            <label>New Kitta No</label><input type="text" value="144-C">
+            <label>Area (m²)</label><span class="val">366.4</span>
+            <label>Area (R-A-P-D)</label><span class="val">0 – 11 – 2 – 0.3</span>
+            <label>Perimeter</label><span class="val">79.0 m</span>
+            <label>Frontage</label><span class="val">12.50 m (Road A)</span>
+            <label>Vertices</label><span class="val">4</span>
+            <label>Assigned Sabik</label><input type="text" value="144">
+            <label>Linked Row</label><input type="text" value="Row #1 — Kitta 144">
+            <label>Owner</label><input type="text" value="R. Thapa">
+            <label>Status</label>
+            <select><option>Plotted</option><option>Pending</option><option>Done</option></select>
+          </div>
+        </div>
+      </div>
+
+      <div class="group">
+        <div class="cap">Tool Options — Split</div>
+        <div class="in">
+          <div class="form">
+            <label>Method</label>
+            <select><option>By target area</option><option>By line</option>
+              <option>Into N equal</option><option>By frontage width</option></select>
+            <label>Target area (m²)</label><input type="number" value="180.0">
+            <label>Snap result</label>
+            <select><option>To road offset</option><option>To grid</option><option>Free</option></select>
+          </div>
+          <div class="pbtns"><button class="btn primary">Apply</button><button class="btn">Cancel</button></div>
+          <div class="hint">A guide line follows the cursor; the area readout updates live until it
+            reaches the target, then commit. Result is one undoable command.</div>
+        </div>
+      </div>
+
+      <div class="group">
+        <div class="cap">Balance — Block C</div>
+        <div class="in">
+          <div class="form">
+            <label>Entitled (Σ)</label><span class="val">2 178.2 m²</span>
+            <label>Plotted (Σ)</label><span class="val">2 178.9 m²</span>
+            <label>Δ</label><span class="val" style="color:#1b6b2a">+0.7 m² (OK)</span>
+            <label>Unplotted rows</label><span class="val">2</span>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- BOTTOM: replot mapping -->
+  <div class="bottom">
+    <div class="bar">
+      <span class="cap">Replot Mapping</span>
+      <span style="color:var(--ink2)">old (sabik) ↔ new (replot)</span>
+      <div class="right">
+        <button class="btn" title="Run topology + balance checks">Validate</button>
+        <button class="btn" title="Mark block complete">Mark Done</button>
+        <button class="btn primary">Save</button>
+      </div>
+    </div>
+    <div class="tablewrap">
+      <table>
+        <thead><tr><th>Old Kitta</th><th>New Kitta</th><th class="num">Sabik (m²)</th>
+          <th class="num">Plotted (m²)</th><th class="num">Δ</th><th>Frontage</th>
+          <th>Assigned</th><th>Status</th></tr></thead>
+        <tbody>
+          <tr class="sel"><td>144</td><td>144-A · 144-B · 144-C</td><td class="num">365.9</td><td class="num">366.4</td><td class="num">+0.5</td><td>Road A</td><td>1→3</td><td class="st plotted">Plotted</td></tr>
+          <tr><td>145</td><td>145-A · 145-B</td><td class="num">462.2</td><td class="num">461.8</td><td class="num">−0.4</td><td>Road A</td><td>1→2</td><td class="st plotted">Plotted</td></tr>
+          <tr><td>146</td><td>—</td><td class="num">272.7</td><td class="num">0.0</td><td class="num">−272.7</td><td>—</td><td>—</td><td class="st pending">Pending</td></tr>
+          <tr><td>147</td><td>147-A · 147-B · 147-C</td><td class="num">528.3</td><td class="num">529.1</td><td class="num">+0.8</td><td>Road B</td><td>1→3</td><td class="st plotted">Plotted</td></tr>
+          <tr><td>148</td><td>—</td><td class="num">145.6</td><td class="num">0.0</td><td class="num">−145.6</td><td>—</td><td>—</td><td class="st pending">Pending</td></tr>
+          <tr><td>149</td><td>149-A</td><td class="num">403.5</td><td class="num">403.5</td><td class="num">0.0</td><td>Road B</td><td>2→1</td><td class="st done">Done</td></tr>
+        </tbody>
+      </table>
+    </div>
+  </div>
+
+  <!-- STATUS BAR -->
+  <div class="status">
+    <div class="cell">X: 552431.27&nbsp;&nbsp;Y: 3081744.91&nbsp;&nbsp;(MUTM-87)</div>
+    <div class="cell">Zoom: 1.0000</div>
+    <div class="cell">Snap: Vertex, Edge</div>
+    <div class="cell">Active: Split — By target area</div>
+    <div class="cell grow"></div>
+    <div class="badge"><span class="dot"></span>Balance: OK</div>
+  </div>
+</div>
+
+<script>
+/* ---------- Layers ---------- */
+const LAYERS = [
+  {id:'sabik',  name:'Sabik (original) parcels', sw:'var(--sabik)', on:true,  op:55},
+  {id:'roads',  name:'Road centerlines',         sw:'var(--road)',  on:true,  op:100},
+  {id:'build',  name:'Existing buildings',       sw:'#8a8f97',      on:true,  op:80},
+  {id:'block',  name:'Block boundary',           sw:'var(--block)', on:true,  op:100},
+  {id:'replot', name:'Replot parcels',           sw:'var(--plot)',  on:true,  op:100},
+  {id:'labels', name:'Labels & dimensions',      sw:'#dfe7ef',      on:true,  op:100},
+];
+const layersEl = document.getElementById('layers');
+LAYERS.forEach(L=>{
+  const r=document.createElement('div'); r.className='layer';
+  r.innerHTML=`<input type="checkbox" ${L.on?'checked':''} data-id="${L.id}">
+    <span><span class="swatch" style="background:${L.sw}"></span>${L.name}</span>
+    <input type="range" min="0" max="100" value="${L.op}">`;
+  layersEl.appendChild(r);
+  r.querySelector('input[type=checkbox]').addEventListener('change',e=>{
+    const g=document.getElementById('ly-'+L.id); if(g) g.style.display=e.target.checked?'':'none';
+  });
+  r.querySelector('input[type=range]').addEventListener('input',e=>{
+    const g=document.getElementById('ly-'+L.id); if(g) g.style.opacity=e.target.value/100;
+  });
+});
+
+/* ---------- Overview thumbnail ---------- */
+(function(){
+  const o=document.getElementById('overview');
+  const blocks=[[12,12,90,40],[110,12,105,28],[12,40,60,24],[80,42,60,24]];
+  blocks.forEach((b,i)=>{
+    const active=i===0;
+    o.insertAdjacentHTML('beforeend',
+      `<rect x="${b[0]}" y="${b[1]}" width="${b[2]}" height="${b[3]}" rx="2"
+        fill="${active?'rgba(100,255,100,.18)':'rgba(255,255,255,.04)'}"
+        stroke="${active?'#64ff64':'#5a6470'}" stroke-width="${active?1.4:0.8}"/>`);
+  });
+  o.insertAdjacentHTML('beforeend',
+    `<text x="57" y="36" fill="#9fe9a0" font-size="9" font-family="Segoe UI" text-anchor="middle">Block C</text>`);
+})();
+
+/* ---------- Canvas ---------- */
+const NS='http://www.w3.org/2000/svg';
+const cv=document.getElementById('canvas');
+function el(tag,attrs,parent){const e=document.createElementNS(NS,tag);
+  for(const k in attrs)e.setAttribute(k,attrs[k]);parent.appendChild(e);return e;}
+function layer(id){const g=el('g',{id:'ly-'+id},cv);return g;}
+
+// faint grid
+(function(){const g=el('g',{id:'ly-grid'},cv);
+  for(let x=0;x<=1024;x+=32)el('line',{x1:x,y1:0,x2:x,y2:660,stroke:x%128?'var(--grid-b)':'var(--grid-a)','stroke-width':1},g);
+  for(let y=0;y<=660;y+=32)el('line',{x1:0,y1:y,x2:1024,y2:y,stroke:y%128?'var(--grid-b)':'var(--grid-a)','stroke-width':1},g);
+})();
+
+// Block geometry (world placeholder)
+const BX=150,BY=70,BW=740,BH=470, BR=BX+BW, BB=BY+BH;
+
+// --- sabik layer (dashed muted-orange reference polygons crossing the block) ---
+const gS=layer('sabik');
+[
+  '150,70 470,70 430,300 150,250',
+  '470,70 890,70 890,260 520,300',
+  '150,250 430,300 380,540 150,540',
+  '520,300 890,260 890,540 470,540'
+].forEach(pts=>{
+  el('polygon',{points:pts,fill:'rgba(201,138,75,.06)',stroke:'var(--sabik)',
+    'stroke-width':1,'stroke-dasharray':'5 4'},gS);
+});
+[['144',250,180],['145',680,180],['147',250,420],['148',660,430]].forEach(t=>
+  el('text',{x:t[1],y:t[2],fill:'rgba(201,138,75,.85)','font-size':12,'font-family':'Segoe UI'},gS)
+    .textContent='sabik '+t[0]);
+
+// --- buildings ---
+const gB=layer('build');
+[[300,150,34,24],[560,140,30,30],[700,200,26,22],[230,360,30,26]].forEach(b=>
+  el('rect',{x:b[0],y:b[1],width:b[2],height:b[3],fill:'rgba(150,156,165,.5)',
+    stroke:'#aeb4bc','stroke-width':0.8},gB));
+
+// --- roads: centerlines clipped to the intersections bounding the block ---
+const gR=layer('roads');
+function roadCL(x1,y1,x2,y2,label,lx,ly){
+  el('line',{x1,y1,x2,y2,stroke:'var(--road)','stroke-width':2.4,'stroke-dasharray':'12 7'},gR);
+  // intersection node ticks
+  [[x1,y1],[x2,y2]].forEach(p=>el('circle',{cx:p[0],cy:p[1],r:3,fill:'none',
+    stroke:'var(--road)','stroke-width':1.4},gR));
+  const t=el('text',{x:lx,y:ly,fill:'#9fb0c0','font-size':11,'font-family':'Consolas'},gR);
+  t.textContent=label;
+}
+roadCL(110,565,930,565,'Road A · CL (8.0 m)',430,585);     // bottom frontage
+roadCL(125,40,125,565,'Road B · CL',132,300);              // left frontage
+roadCL(110,565,125,565,'',0,0);                            // corner join
+
+// --- replot parcels (two depth rows along Road A) + corner open space ---
+const gP=layer('replot');
+const gL=layer('labels');
+function plot(x,y,w,h,id,area,frontDim){
+  el('rect',{x,y,width:w,height:h,fill:'var(--plot-fill)',stroke:'var(--plot)','stroke-width':1.4},gP);
+  const tx=el('text',{x:x+w/2,y:y+h/2-2,fill:'var(--pid)','font-size':11,'font-family':'Segoe UI',
+    'text-anchor':'middle'},gL); tx.textContent=id;
+  const ta=el('text',{x:x+w/2,y:y+h/2+12,fill:'#a9e9aa','font-size':9.5,'font-family':'Consolas',
+    'text-anchor':'middle'},gL); ta.textContent=area+' m²';
+  if(frontDim){const td=el('text',{x:x+w/2,y:y+h-4,fill:'var(--dim)','font-size':9,
+    'font-family':'Consolas','text-anchor':'middle'},gL); td.textContent=frontDim;}
+}
+// front row (along Road A, bottom): depth ~120
+const frontW=[80,95,90,100,85,95,90,105];
+let cx=BX; const FY=BB-120, FH=120;
+frontW.forEach((w,i)=>{plot(cx,FY,w,FH,'144-'+String.fromCharCode(65+i),(w*0.16*100).toFixed(0),(w/8).toFixed(2)+'m');cx+=w;});
+// back row: depth ~110
+const backW=[92,100,96,104,88,98,86,76];
+cx=BX; const KY=FY-110, KH=110;
+backW.forEach((w,i)=>{plot(cx,KY,w,KH,'145-'+String.fromCharCode(65+i),(w*0.15*100).toFixed(0),'');cx+=w;});
+// corner open space (top strip) + a couple deeper plots
+el('rect',{x:BX,y:BY,width:300,height:KY-BY,fill:'rgba(80,180,120,.10)',
+  stroke:'#5bbf86','stroke-width':1,'stroke-dasharray':'4 3'},gP);
+el('text',{x:BX+150,y:BY+(KY-BY)/2,fill:'#8fe0b3','font-size':12,'font-family':'Segoe UI',
+  'text-anchor':'middle'},gL).textContent='OPEN SPACE / PARK';
+let ex=BX+300; [150,150,140].forEach((w,i)=>{plot(ex,BY,w,KY-BY,'146-'+String.fromCharCode(65+i),(w*0.21*100).toFixed(0),'');ex+=w;});
+
+// --- block boundary (on top of fills, under selection) ---
+const gBlk=layer('block');
+el('rect',{x:BX,y:BY,width:BW,height:BH,fill:'none',stroke:'var(--block)','stroke-width':2},gBlk);
+
+// --- selection: 144-C (3rd front plot) with vertex handles ---
+const selX=BX+80+95, selY=FY, selW=90, selH=FH;
+const gSel=layer('sel');
+el('rect',{x:selX,y:selY,width:selW,height:selH,fill:'var(--selp-fill)',
+  stroke:'var(--selp)','stroke-width':2},gSel);
+[[selX,selY],[selX+selW,selY],[selX+selW,selY+selH],[selX,selY+selH]].forEach(p=>
+  el('rect',{x:p[0]-3.5,y:p[1]-3.5,width:7,height:7,fill:'#fff',stroke:'#0a3550','stroke-width':1},gSel));
+// edge dimension on selected
+el('text',{x:selX+selW/2,y:selY-6,fill:'var(--selp)','font-size':10,'font-family':'Consolas',
+  'text-anchor':'middle'},gSel).textContent='12.50 m';
+
+// --- crosshair cursor + snap marker at a vertex ---
+const cxp=selX+selW, cyp=selY;
+const gC=el('g',{id:'ly-cursor'},cv);
+el('line',{x1:cxp,y1:0,x2:cxp,y2:660,stroke:'rgba(120,220,255,.35)','stroke-width':1},gC);
+el('line',{x1:0,y1:cyp,x2:1024,y2:cyp,stroke:'rgba(120,220,255,.35)','stroke-width':1},gC);
+el('rect',{x:cxp-5,y:cyp-5,width:10,height:10,fill:'none',stroke:'var(--snap)','stroke-width':1.6},gC);
+el('circle',{cx:cxp,cy:cyp,r:2.2,fill:'var(--snap)'},gC);
+el('text',{x:cxp+10,y:cyp-8,fill:'var(--snap)','font-size':10,'font-family':'Consolas'},gC).textContent='vertex snap';
+
+/* ---------- Toolbar interactions (visual only) ---------- */
+function radioGroup(sel){
+  const a=[...document.querySelectorAll(sel)];
+  a.forEach(b=>b.addEventListener('click',()=>{
+    a.forEach(x=>x.classList.remove('on'));
+    b.classList.add('on');
+  }));
+}
+radioGroup('.tbtn.tool');                 // one active draw/edit tool at a time
+document.querySelectorAll('.tbtn.snap')   // snaps toggle independently
+  .forEach(b=>b.addEventListener('click',()=>b.classList.toggle('on')));
+</script>
+</body>
+</html>

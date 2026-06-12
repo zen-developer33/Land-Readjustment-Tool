@@ -194,6 +194,7 @@ namespace Land_Readjustment_Tool.UI.CustomControls
         private List<CanvasFeature> _vectorFeatures = new List<CanvasFeature>();
         private List<CanvasLayer> _vectorLayers = new List<CanvasLayer>();
         private Dictionary<int, CanvasLayer> _vectorLayersById = new();
+        private Dictionary<Guid, CanvasFeature> _vectorFeaturesByShapeId = new();
         private readonly HashSet<Guid> _selectedShapeIds = new HashSet<Guid>();
         private bool _isSelectingObjects;
         private Point _objectSelectionStart;
@@ -225,10 +226,6 @@ namespace Land_Readjustment_Tool.UI.CustomControls
         private Bitmap? _movePreviewBitmap;
         private PointF _movePreviewBitmapReferenceScreen;
         private double _movePreviewBitmapScale;
-        // Frozen snapshot of the whole canvas captured when a geometric-center
-        // (whole-shape) grip move starts. While that move is active only this
-        // bitmap and the moving preview are painted — no other rendering.
-        private Bitmap? _gripMoveFreezeBitmap;
         private TextBox? _activeTextEditor;
         private PointD? _activeTextAnchorWorld;
         private string _activeTextEditorFontName = "Nirmala UI";
@@ -668,6 +665,29 @@ namespace Land_Readjustment_Tool.UI.CustomControls
                 : feature.Layer;
         }
 
+        private void RebuildVectorFeatureLookup()
+        {
+            _vectorFeaturesByShapeId = _vectorFeatures
+                .GroupBy(feature => feature.Shape.Id)
+                .ToDictionary(group => group.Key, group => group.First());
+        }
+
+        private IEnumerable<CanvasFeature> EnumerateSelectedFeatures()
+        {
+            if (_selectedShapeIds.Count == 0)
+            {
+                yield break;
+            }
+
+            foreach (Guid shapeId in _selectedShapeIds)
+            {
+                if (_vectorFeaturesByShapeId.TryGetValue(shapeId, out CanvasFeature? feature))
+                {
+                    yield return feature;
+                }
+            }
+        }
+
         private CanvasLayer? ResolveShapeLayer(IShape? shape)
         {
             if (shape == null)
@@ -731,12 +751,12 @@ namespace Land_Readjustment_Tool.UI.CustomControls
             bool cacheValidBefore = _renderer.HasValidVectorCache;
 
             _vectorFeatures = features?.ToList() ?? [];
+            RebuildVectorFeatureLookup();
             _hoveredSelectionGrip = null;
             _activeGripEdit = null;
             _immediateEditedOverlayFeatures = Array.Empty<CanvasFeature>();
             _activeMoveOperation = null;
             DisposeMovePreviewBitmap();
-            DisposeGripMoveFreezeBitmap();
             PruneSelectionToSelectableFeatures();
             foreach (CanvasFeature feature in _vectorFeatures)
             {
@@ -749,15 +769,12 @@ namespace Land_Readjustment_Tool.UI.CustomControls
             // any still-pending overlay shapes from a refresh that hasn't landed
             // yet). These are painted on top of the kept cache so the change is
             // visible instantly without a full synchronous re-render.
-            Dictionary<Guid, CanvasFeature> currentById = _vectorFeatures
-                .GroupBy(f => f.Shape.Id)
-                .ToDictionary(g => g.Key, g => g.First());
             HashSet<Guid> overlayIds = new();
             List<CanvasFeature> overlay = new();
 
             void AddOverlay(Guid id)
             {
-                if (currentById.TryGetValue(id, out CanvasFeature? current) &&
+                if (_vectorFeaturesByShapeId.TryGetValue(id, out CanvasFeature? current) &&
                     overlayIds.Add(current.Shape.Id))
                 {
                     overlay.Add(current);
@@ -1409,20 +1426,6 @@ namespace Land_Readjustment_Tool.UI.CustomControls
 
         private void RenderCanvasFrame(Graphics graphics, bool updateDebugTiming)
         {
-            // Geometric-center (whole-shape) grip move: paint ONLY the frozen
-            // canvas snapshot captured at move start plus the moving preview.
-            // No scene re-rendering happens until the move commits or cancels.
-            if (_gripMoveFreezeBitmap != null &&
-                _activeGripEdit != null &&
-                _activeGripEdit.Grip.Kind == SelectionGripKind.GeometricCenter)
-            {
-                graphics.DrawImageUnscaled(_gripMoveFreezeBitmap, 0, 0);
-                DrawActiveGripEditOverlay(graphics);
-                DrawSelectionGrips(graphics);
-                DrawSnapGlyph(graphics);
-                return;
-            }
-
             Stopwatch frameStopwatch = Stopwatch.StartNew();
             RasterRenderFrame? rasterFrame = GetRasterRenderFrame(out CanvasFrameSource rasterFrameSource);
             RasterRenderFrame? vectorFrame = GetVectorRenderFrame(out CanvasFrameSource vectorFrameSource);
@@ -1469,6 +1472,7 @@ namespace Land_Readjustment_Tool.UI.CustomControls
 
             DrawImmediateEditedFeatureOverlay(graphics);
             DrawJustCompletedShapeOverlay(graphics);
+            DrawSelectedFeatureDecorations(graphics);
             DrawActiveGripOriginalOverlay(graphics);
             DrawObjectSelectionRectangle(graphics);
             DrawActiveGripEditOverlay(graphics);
@@ -1816,19 +1820,13 @@ namespace Land_Readjustment_Tool.UI.CustomControls
 
             if (_activeTool == MapCanvasTool.Select && e.Button == MouseButtons.Right)
             {
-                CanvasFeature? hitFeature = FindSelectableFeatureAtScreenPoint(e.Location);
-                if (hitFeature != null)
-                {
-                    ReplaceSelectedObjects([hitFeature]);
-                    _objectSelectionContextMenu.Show(canvasSurface, e.Location);
-                    return;
-                }
-
                 if (_selectedShapeIds.Count > 0)
                 {
                     _objectSelectionContextMenu.Show(canvasSurface, e.Location);
                     return;
                 }
+
+                return;
             }
 
             if (isPanGesture)
@@ -1840,10 +1838,18 @@ namespace Land_Readjustment_Tool.UI.CustomControls
             if (_activeTool == MapCanvasTool.Select && e.Button == MouseButtons.Left)
             {
                 if (!_applicationEditLocked &&
-                    _hoveredSelectionGrip != null &&
-                    BeginGripEdit(_hoveredSelectionGrip, e.Location))
+                    _hoveredSelectionGrip != null)
                 {
-                    return;
+                    if (_hoveredSelectionGrip.Kind == SelectionGripKind.GeometricCenter &&
+                        BeginMoveSelectedObjectsFromGeometricCenterGrip(_hoveredSelectionGrip))
+                    {
+                        return;
+                    }
+
+                    if (BeginGripEdit(_hoveredSelectionGrip, e.Location))
+                    {
+                        return;
+                    }
                 }
 
                 _isSelectingObjects = true;
@@ -4261,15 +4267,9 @@ namespace Land_Readjustment_Tool.UI.CustomControls
                 yield break;
             }
 
-            foreach (CanvasFeature feature in _vectorFeatures)
+            foreach (CanvasFeature feature in EnumerateSelectedFeatures())
             {
-                // Cheap O(1) selected-set check first so the per-feature layer
-                // resolution in IsGripEditableFeature only runs for the (few)
-                // selected features — grips exist only for selected shapes.
-                // Keeps Select-mode hover fast on large scenes.
-                if (!_selectedShapeIds.Contains(feature.Shape.Id))
-                    continue;
-
+                // Grip hover/draw work is bounded by selected objects, not the whole scene.
                 if (!IsGripEditableFeature(feature))
                     continue;
 
@@ -4555,14 +4555,9 @@ namespace Land_Readjustment_Tool.UI.CustomControls
             if (!IsGripEditableFeature(grip.Feature))
                 return false;
 
-            // A geometric-center grip is a whole-shape MOVE. Snapshot the whole
-            // canvas exactly as shown right now (cache + selection glow at the
-            // original location) BEFORE entering the edit. While the move is
-            // active only that frozen bitmap and the moving preview are painted
-            // — no other rendering work per frame.
             if (grip.Kind == SelectionGripKind.GeometricCenter)
             {
-                CaptureGripMoveFreezeBitmap();
+                return BeginMoveSelectedObjectsFromGeometricCenterGrip(grip);
             }
 
             IReadOnlyList<LinkedGripEdit> linkedEdits = FindLinkedGripEdits(grip);
@@ -4582,16 +4577,8 @@ namespace Land_Readjustment_Tool.UI.CustomControls
             canvasSurface.Capture = true;
             _pendingEditedShapeIds.Clear();
 
-            // A geometric-center grip is a whole-shape MOVE. Behave like the
-            // "Move object(s)" menu: keep the shape in the cached background
-            // (no exclusion, no synchronous base rebuild → no start hitch) and
-            // just paint the moving preview on top. Vertex/handle edits still
-            // exclude + rebuild so the cache shows the live deformation.
-            if (grip.Kind != SelectionGripKind.GeometricCenter)
-            {
-                ApplyGripEditVectorRenderExclusions();
-                RefreshVectorCacheForGripEditBase();
-            }
+            ApplyGripEditVectorRenderExclusions();
+            RefreshVectorCacheForGripEditBase();
             // Ensure we don't show glyph on the held grip
             ClearCurrentSnapPoint();
             UpdateCanvasCursor();
@@ -4736,7 +4723,6 @@ namespace Land_Readjustment_Tool.UI.CustomControls
             _activeGripEdit = null;
             _hoveredSelectionGrip = null;
             canvasSurface.Capture = false;
-            DisposeGripMoveFreezeBitmap();
 
             CanvasLayer? gripLayer = ResolveFeatureLayer(grip.Feature);
             if (gripLayer != null)
@@ -4836,7 +4822,6 @@ namespace Land_Readjustment_Tool.UI.CustomControls
             _activeGripEdit = null;
             _hoveredSelectionGrip = null;
             canvasSurface.Capture = false;
-            DisposeGripMoveFreezeBitmap();
             _renderer.SetVectorRenderExclusions(null);
             EnsureVectorZoomSnapshot();
             _holdVectorZoomFrameUntilRefresh = true;
@@ -5019,6 +5004,8 @@ namespace Land_Readjustment_Tool.UI.CustomControls
                     text.Translate(target - originalText.Position);
                     break;
             }
+
+            grip.Shape.InvalidateBounds();
         }
 
         private static void ApplyLineGrip(LineShape line, LineShape originalLine, SelectionGrip grip, PointD target)
@@ -5522,7 +5509,30 @@ namespace Land_Readjustment_Tool.UI.CustomControls
                     graphics,
                     feature.Shape,
                     ResolveFeatureLayer(feature),
-                    feature.CanvasObject);
+                    feature.CanvasObject,
+                    forceUnselected: true);
+            }
+        }
+
+        private void DrawSelectedFeatureDecorations(Graphics graphics)
+        {
+            if (_selectedShapeIds.Count == 0)
+            {
+                return;
+            }
+
+            foreach (CanvasFeature feature in EnumerateSelectedFeatures())
+            {
+                if (!IsSelectableDrawingFeature(feature))
+                {
+                    continue;
+                }
+
+                _renderer.RenderSelectionDecoration(
+                    graphics,
+                    feature.Shape,
+                    ResolveFeatureLayer(feature),
+                    feature);
             }
         }
 
@@ -5926,9 +5936,6 @@ namespace Land_Readjustment_Tool.UI.CustomControls
             }
 
             ApplySelectedShapeFlags();
-            // The selection glow is baked into the cached bitmap, so rebuild the
-            // cache off the UI thread; every frame stays a fast cache blit.
-            RefreshVectorCacheForCurrentViewAsync();
             RequestRender();
             UpdateStatusBar();
             NotifySelectedCanvasObjectsChanged();
@@ -6136,9 +6143,6 @@ namespace Land_Readjustment_Tool.UI.CustomControls
             }
 
             ApplySelectedShapeFlags();
-            // The selection glow is baked into the cached bitmap, so rebuild the
-            // cache off the UI thread; every frame stays a fast cache blit.
-            RefreshVectorCacheForCurrentViewAsync();
             RequestRender();
             UpdateStatusBar();
             NotifySelectedCanvasObjectsChanged();
@@ -6259,7 +6263,6 @@ namespace Land_Readjustment_Tool.UI.CustomControls
             }
 
             ApplySelectedShapeFlags();
-            RefreshVectorCacheForCurrentViewAsync();
             RequestRender();
             UpdateStatusBar();
             NotifySelectedCanvasObjectsChanged();
@@ -6274,7 +6277,6 @@ namespace Land_Readjustment_Tool.UI.CustomControls
             _hoveredSelectionGrip = null;
             _selectedShapeIds.Clear();
             ApplySelectedShapeFlags();
-            RefreshVectorCacheForCurrentViewAsync();
             RequestRender();
             NotifySelectedCanvasObjectsChanged();
         }
@@ -6300,9 +6302,8 @@ namespace Land_Readjustment_Tool.UI.CustomControls
             if (_selectedShapeIds.Count == 0)
                 return;
 
-            Guid[] editableShapeIds = _vectorFeatures
-                .Where(feature => _selectedShapeIds.Contains(feature.Shape.Id) &&
-                                  IsDeletableSelectedFeature(feature))
+            Guid[] editableShapeIds = EnumerateSelectedFeatures()
+                .Where(IsDeletableSelectedFeature)
                 .Select(feature => feature.Shape.Id)
                 .ToArray();
             if (editableShapeIds.Length == 0)
@@ -6394,10 +6395,8 @@ namespace Land_Readjustment_Tool.UI.CustomControls
 
         private IReadOnlyList<CanvasFeature> GetSelectedFeatureCreationSourceFeatures()
         {
-            return _vectorFeatures
-                .Where(feature =>
-                    _selectedShapeIds.Contains(feature.Shape.Id) &&
-                    IsFeatureCreationSourceFeature(feature))
+            return EnumerateSelectedFeatures()
+                .Where(IsFeatureCreationSourceFeature)
                 .ToArray();
         }
 
@@ -6431,9 +6430,8 @@ namespace Land_Readjustment_Tool.UI.CustomControls
 
         private bool SelectionContainsSingleTextShape(out CanvasFeature? textFeature)
         {
-            var selected = _vectorFeatures
-                .Where(f => _selectedShapeIds.Contains(f.Shape.Id) &&
-                            IsSelectableDrawingFeature(f) &&
+            var selected = EnumerateSelectedFeatures()
+                .Where(f => IsSelectableDrawingFeature(f) &&
                             IsEditableDrawingFeature(f))
                 .ToList();
             if (selected.Count == 1 && selected[0].Shape is TextShape)
@@ -6484,10 +6482,8 @@ namespace Land_Readjustment_Tool.UI.CustomControls
 
         private CanvasObjectAssignmentKind? ResolveSelectionAssignmentKind()
         {
-            CanvasObjectAssignmentKind[] assignmentKinds = _vectorFeatures
-                .Where(feature =>
-                    _selectedShapeIds.Contains(feature.Shape.Id) &&
-                    IsSelectableDrawingFeature(feature))
+            CanvasObjectAssignmentKind[] assignmentKinds = EnumerateSelectedFeatures()
+                .Where(IsSelectableDrawingFeature)
                 .Select(ResolveAssignmentKind)
                 .Where(kind => kind.HasValue)
                 .Select(kind => kind!.Value)
@@ -6552,11 +6548,46 @@ namespace Land_Readjustment_Tool.UI.CustomControls
             if (_activeMoveOperation != null || _activeGripEdit != null)
                 return;
 
-            List<MoveItem> items = new();
-            foreach (CanvasFeature feature in _vectorFeatures)
+            List<MoveItem> items = CreateSelectedObjectMoveItems();
+            if (items.Count == 0)
+                return;
+
+            _activeMoveOperation = new MoveOperation { Items = items };
+            canvasSurface.Focus();
+            UpdateStatusBar();
+            RequestRender();
+        }
+
+        private bool BeginMoveSelectedObjectsFromGeometricCenterGrip(SelectionGrip grip)
+        {
+            if (_applicationEditLocked)
             {
-                if (!_selectedShapeIds.Contains(feature.Shape.Id))
-                    continue;
+                NotifyEditLocked();
+                return true;
+            }
+
+            if (grip.Kind != SelectionGripKind.GeometricCenter ||
+                _activeMoveOperation != null ||
+                _activeGripEdit != null)
+            {
+                return false;
+            }
+
+            List<MoveItem> items = CreateSelectedObjectMoveItems();
+            if (items.Count == 0)
+                return false;
+
+            _activeMoveOperation = new MoveOperation { Items = items };
+            canvasSurface.Focus();
+            BeginMoveOperationDestinationPhase(grip.Position);
+            return true;
+        }
+
+        private List<MoveItem> CreateSelectedObjectMoveItems()
+        {
+            List<MoveItem> items = new();
+            foreach (CanvasFeature feature in EnumerateSelectedFeatures())
+            {
                 if (!IsSelectableDrawingFeature(feature))
                     continue;
                 if (IsSelectableImportedCadastralParcel(feature))
@@ -6574,13 +6605,7 @@ namespace Land_Readjustment_Tool.UI.CustomControls
                 });
             }
 
-            if (items.Count == 0)
-                return;
-
-            _activeMoveOperation = new MoveOperation { Items = items };
-            canvasSurface.Focus();
-            UpdateStatusBar();
-            RequestRender();
+            return items;
         }
 
         private void CaptureMovePreviewBitmap()
@@ -6629,49 +6654,6 @@ namespace Land_Readjustment_Tool.UI.CustomControls
             _movePreviewBitmap = null;
         }
 
-        /// <summary>
-        /// Captures the whole canvas exactly as it is currently shown (cached
-        /// background plus the selected shape's glow at its original location)
-        /// into a frozen bitmap. Used as the static background for a
-        /// geometric-center grip move so only this bitmap and the moving
-        /// preview are painted while the move is active.
-        /// </summary>
-        private void CaptureGripMoveFreezeBitmap()
-        {
-            DisposeGripMoveFreezeBitmap();
-
-            Size canvasSize = canvasSurface.Size;
-            if (canvasSize.Width <= 0 || canvasSize.Height <= 0)
-                return;
-
-            Bitmap bmp = new(canvasSize.Width, canvasSize.Height, PixelFormat.Format32bppPArgb);
-            try
-            {
-                using Graphics g = Graphics.FromImage(bmp);
-                g.Clear(canvasSurface.BackColor);
-                // _gripMoveFreezeBitmap is still null and _activeGripEdit is not
-                // set yet, so RenderCanvasFrame renders the full normal frame
-                // (background + cache + selection glow) instead of recursing
-                // into the freeze path.
-                RenderCanvasFrame(g, updateDebugTiming: false);
-            }
-            catch (Exception ex)
-            {
-                System.Diagnostics.Debug.WriteLine(
-                    $"Grip move freeze capture failed: {ex.Message}");
-                bmp.Dispose();
-                return;
-            }
-
-            _gripMoveFreezeBitmap = bmp;
-        }
-
-        private void DisposeGripMoveFreezeBitmap()
-        {
-            _gripMoveFreezeBitmap?.Dispose();
-            _gripMoveFreezeBitmap = null;
-        }
-
         private void CommitMoveOperation()
         {
             if (_activeMoveOperation == null ||
@@ -6685,22 +6667,41 @@ namespace Land_Readjustment_Tool.UI.CustomControls
                 cursor.Y - _activeMoveOperation.ReferenceWorld.Y);
 
             List<IShape> editedShapes = new();
+            List<CanvasFeature> movedFeatures = new();
             foreach (MoveItem item in _activeMoveOperation.Items)
             {
                 // Reset live shape to its pre-move state, then translate by the final delta.
                 RestoreShapeGeometry(item.Feature.Shape, item.OriginalShape);
                 item.Feature.Shape.Translate(delta);
                 editedShapes.Add(item.Feature.Shape);
+                movedFeatures.Add(item.Feature);
             }
+
+            bool canUseOverlayFastPath =
+                !_vectorCacheRefreshPending &&
+                _renderer.HasValidVectorCache;
 
             _activeMoveOperation = null;
             DisposeMovePreviewBitmap();
-            _renderer.UpdateVectorFeatures(_vectorFeatures);
-            UpdateWorldBounds();
-            // Snapshot the just-rendered committed state into the zoom buffer so paint has
-            // something to show while the async cache rebuild runs (no blank-frame flicker).
-            EnsureVectorZoomSnapshot();
-            _holdVectorZoomFrameUntilRefresh = true;
+
+            if (canUseOverlayFastPath)
+            {
+                _immediateEditedOverlayFeatures = movedFeatures;
+                _renderer.SetVectorRenderExclusions(null, invalidateCache: false);
+                _renderer.UpdateVectorFeatures(_vectorFeatures, invalidateCache: false);
+                UpdateWorldBounds();
+            }
+            else
+            {
+                _immediateEditedOverlayFeatures = Array.Empty<CanvasFeature>();
+                _renderer.SetVectorRenderExclusions(null, invalidateCache: false);
+                _renderer.UpdateVectorFeatures(_vectorFeatures);
+                UpdateWorldBounds();
+                // Snapshot the committed state while the async cache rebuild runs.
+                EnsureVectorZoomSnapshot();
+                _holdVectorZoomFrameUntilRefresh = true;
+            }
+
             RefreshVectorCacheForCurrentViewAsync();
             UpdateStatusBar();
             RequestRender();
@@ -6730,6 +6731,8 @@ namespace Land_Readjustment_Tool.UI.CustomControls
 
             _activeMoveOperation = null;
             DisposeMovePreviewBitmap();
+            _immediateEditedOverlayFeatures = Array.Empty<CanvasFeature>();
+            _renderer.SetVectorRenderExclusions(null, invalidateCache: false);
             _renderer.UpdateVectorFeatures(_vectorFeatures);
             EnsureVectorZoomSnapshot();
             _holdVectorZoomFrameUntilRefresh = true;
@@ -6792,15 +6795,7 @@ namespace Land_Readjustment_Tool.UI.CustomControls
 
             if (_activeMoveOperation.Phase == MoveOperationPhase.AwaitingReference)
             {
-                _activeMoveOperation.ReferenceWorld = picked;
-                _activeMoveOperation.Phase = MoveOperationPhase.AwaitingDestination;
-                _currentMouseWorld = picked;
-
-                // Capture shapes at their original positions into a bitmap.
-                // The originals remain visible in the vector cache (selection highlight + grips).
-                CaptureMovePreviewBitmap();
-                UpdateStatusBar();
-                RequestRender();
+                BeginMoveOperationDestinationPhase(picked);
                 return true;
             }
 
@@ -6810,24 +6805,41 @@ namespace Land_Readjustment_Tool.UI.CustomControls
             return true;
         }
 
+        private void BeginMoveOperationDestinationPhase(PointD referenceWorld)
+        {
+            if (_activeMoveOperation == null)
+                return;
+
+            _activeMoveOperation.ReferenceWorld = referenceWorld;
+            _activeMoveOperation.Phase = MoveOperationPhase.AwaitingDestination;
+            _currentMouseWorld = referenceWorld;
+
+            // Capture shapes at their original positions into a bitmap.
+            // The originals remain visible in the vector cache (selection highlight + grips).
+            CaptureMovePreviewBitmap();
+            _renderer.SetVectorRenderExclusions(
+                _activeMoveOperation.Items.Select(item => item.Feature.Shape.Id),
+                invalidateCache: false);
+            RefreshVectorCacheForCurrentViewAsync();
+            UpdateStatusBar();
+            RequestRender();
+        }
+
         private bool SelectionContainsEditableObject()
         {
-            return _vectorFeatures.Any(feature =>
-                _selectedShapeIds.Contains(feature.Shape.Id) &&
-                IsEditableDrawingFeature(feature));
+            return EnumerateSelectedFeatures()
+                .Any(IsEditableDrawingFeature);
         }
 
         private bool SelectionContainsDeletableObject()
         {
-            return _vectorFeatures.Any(feature =>
-                _selectedShapeIds.Contains(feature.Shape.Id) &&
-                IsDeletableSelectedFeature(feature));
+            return EnumerateSelectedFeatures()
+                .Any(IsDeletableSelectedFeature);
         }
 
         private bool SelectionContainsMovableObject()
         {
-            return _vectorFeatures.Any(feature =>
-                _selectedShapeIds.Contains(feature.Shape.Id) &&
+            return EnumerateSelectedFeatures().Any(feature =>
                 IsSelectableDrawingFeature(feature) &&
                 !IsSelectableImportedCadastralParcel(feature) &&
                 ResolveFeatureLayer(feature) is CanvasLayer ml &&
@@ -6952,12 +6964,9 @@ namespace Land_Readjustment_Tool.UI.CustomControls
                 return;
             }
 
-            HashSet<Guid> selectableShapeIds = _vectorFeatures
-                .Where(IsSelectableDrawingFeature)
-                .Select(feature => feature.Shape.Id)
-                .ToHashSet();
-
-            int removedCount = _selectedShapeIds.RemoveWhere(id => !selectableShapeIds.Contains(id));
+            int removedCount = _selectedShapeIds.RemoveWhere(id =>
+                !_vectorFeaturesByShapeId.TryGetValue(id, out CanvasFeature? feature) ||
+                !IsSelectableDrawingFeature(feature));
             if (removedCount > 0)
             {
                 _hoveredSelectionGrip = null;
@@ -8171,19 +8180,9 @@ namespace Land_Readjustment_Tool.UI.CustomControls
                 return;
             }
 
-            try
+            if (!_vectorCacheRefreshPending)
             {
-                _renderer.RefreshVectorCache(canvasSurface.Size);
-                _renderer.BeginVectorPan(canvasSurface.Size);
-            }
-            catch (ObjectDisposedException)
-            {
-                // The control or renderer was disposed while preparing the pan snapshot.
-            }
-            catch (Exception ex)
-            {
-                System.Diagnostics.Debug.WriteLine(
-                    $"Vector pan snapshot preparation failed: {ex.Message}");
+                RefreshVectorCacheForCurrentViewAsync();
             }
         }
 
@@ -8211,15 +8210,18 @@ namespace Land_Readjustment_Tool.UI.CustomControls
                 RasterRenderFrame? rasterFrame = GetRasterRenderFrame(out _);
                 RasterRenderFrame? vectorFrame = GetVectorRenderFrame(out _);
 
-                bool deferRaster = rasterFrame == null && ShouldDeferDirectRasterRendering;
-                bool deferVector = vectorFrame == null && ShouldDeferDirectVectorRendering;
+                if (rasterFrame == null && vectorFrame == null)
+                {
+                    composite.Dispose();
+                    return;
+                }
 
                 _renderer.Render(
                     g,
                     rasterFrame,
-                    deferRaster,
+                    interactiveRaster: rasterFrame == null,
                     vectorFrame,
-                    deferVector,
+                    interactiveVector: vectorFrame == null,
                     zoomWindowRectangle: null,
                     previewShape: null,
                     previewLayer: null,
@@ -8303,21 +8305,6 @@ namespace Land_Readjustment_Tool.UI.CustomControls
             if (_renderer.BeginVectorZoom(canvasSurface.Size))
             {
                 return;
-            }
-
-            try
-            {
-                _renderer.RefreshVectorCache(canvasSurface.Size);
-                _renderer.BeginVectorZoom(canvasSurface.Size);
-            }
-            catch (ObjectDisposedException)
-            {
-                // The control or renderer was disposed while preparing the zoom snapshot.
-            }
-            catch (Exception ex)
-            {
-                System.Diagnostics.Debug.WriteLine(
-                    $"Vector zoom snapshot preparation failed: {ex.Message}");
             }
         }
 

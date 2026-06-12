@@ -11,8 +11,28 @@ namespace Land_Readjustment_Tool.UI.MapCanvas.Models.Shapes
     /// </summary>
     public class CircleShape : Shape, ISnapProvider
     {
-        public PointD Center { get; set; }
-        public PointD RadiusPoint { get; set; }
+        private PointD _center;
+        private PointD _radiusPoint;
+
+        public PointD Center
+        {
+            get => _center;
+            set
+            {
+                _center = value;
+                InvalidateBounds();
+            }
+        }
+
+        public PointD RadiusPoint
+        {
+            get => _radiusPoint;
+            set
+            {
+                _radiusPoint = value;
+                InvalidateBounds();
+            }
+        }
 
         public CircleShape(PointD center, PointD radiusPoint) 
         {
@@ -48,7 +68,7 @@ namespace Land_Readjustment_Tool.UI.MapCanvas.Models.Shapes
             return Distance(Center, RadiusPoint);
         }
 
-        public override RectangleD GetBoundingBox()
+        protected override RectangleD ComputeBoundingBox()
         {
             double radius = GetRadius();
             return new RectangleD(Center.X - radius, Center.Y - radius, radius * 2, radius * 2);

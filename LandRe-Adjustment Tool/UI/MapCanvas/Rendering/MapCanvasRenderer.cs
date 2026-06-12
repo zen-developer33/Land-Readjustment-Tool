@@ -16,7 +16,7 @@ namespace Land_Readjustment_Tool.UI.MapCanvas.Rendering
     /// </summary>
     public sealed class MapCanvasRenderer : IDisposable
     {
-        private const int LevelOfDetailDirectRenderThreshold = 1_000;
+        private const int LevelOfDetailDirectRenderThreshold = 20_000;
 
         private readonly record struct MapCanvasRenderViewport(
             RectangleD VisibleWorldBounds,
@@ -948,10 +948,12 @@ namespace Land_Readjustment_Tool.UI.MapCanvas.Rendering
                 PointD screenStart = _engine.WorldToScreen(new PointD(x, worldBottom));
                 PointD screenEnd = _engine.WorldToScreen(new PointD(x, worldTop));
 
-                if (IsValidPoint(screenStart) && IsValidPoint(screenEnd))
-                {
-                    graphics.DrawLine(pen, (float)screenStart.X, (float)screenStart.Y, (float)screenEnd.X, (float)screenEnd.Y);
-                }
+                DrawClippedScreenLine(
+                    graphics,
+                    pen,
+                    screenStart,
+                    screenEnd,
+                    viewport.VisibleScreenBounds);
 
                 if (isMajor && showLabels)
                 {
@@ -983,10 +985,12 @@ namespace Land_Readjustment_Tool.UI.MapCanvas.Rendering
                 PointD screenStart = _engine.WorldToScreen(new PointD(worldLeft, y));
                 PointD screenEnd = _engine.WorldToScreen(new PointD(worldRight, y));
 
-                if (IsValidPoint(screenStart) && IsValidPoint(screenEnd))
-                {
-                    graphics.DrawLine(pen, (float)screenStart.X, (float)screenStart.Y, (float)screenEnd.X, (float)screenEnd.Y);
-                }
+                DrawClippedScreenLine(
+                    graphics,
+                    pen,
+                    screenStart,
+                    screenEnd,
+                    viewport.VisibleScreenBounds);
 
                 if (isMajor && showLabels)
                 {
@@ -1070,35 +1074,33 @@ namespace Land_Readjustment_Tool.UI.MapCanvas.Rendering
         {
             RectangleF clientRect = viewport.VisibleScreenBounds;
             PointD originScreen = _engine.WorldToScreen(new PointD(0, 0));
-            PointD topScreen = _engine.WorldToScreen(
-                new PointD(0, viewport.VisibleWorldBounds.Bottom));
-            PointD rightScreen = _engine.WorldToScreen(
+            PointD xAxisStart = _engine.WorldToScreen(
+                new PointD(viewport.VisibleWorldBounds.Left, 0));
+            PointD xAxisEnd = _engine.WorldToScreen(
                 new PointD(viewport.VisibleWorldBounds.Right, 0));
+            PointD yAxisStart = _engine.WorldToScreen(
+                new PointD(0, viewport.VisibleWorldBounds.Bottom));
+            PointD yAxisEnd = _engine.WorldToScreen(
+                new PointD(0, viewport.VisibleWorldBounds.Top));
 
             if (_settings.ShowAxisLines)
             {
                 using Pen xAxisPen = new(_settings.AxisXColor, _settings.AxisLineWidth);
                 using Pen yAxisPen = new(_settings.AxisYColor, _settings.AxisLineWidth);
 
-                if (IsValidPoint(originScreen) && IsValidPoint(rightScreen) && IsFarEnough(originScreen, rightScreen))
-                {
-                    graphics.DrawLine(
-                        xAxisPen,
-                        (float)originScreen.X,
-                        (float)originScreen.Y,
-                        (float)rightScreen.X,
-                        (float)rightScreen.Y);
-                }
+                DrawClippedScreenLine(
+                    graphics,
+                    xAxisPen,
+                    xAxisStart,
+                    xAxisEnd,
+                    viewport.VisibleScreenBounds);
 
-                if (IsValidPoint(originScreen) && IsValidPoint(topScreen) && IsFarEnough(originScreen, topScreen))
-                {
-                    graphics.DrawLine(
-                        yAxisPen,
-                        (float)originScreen.X,
-                        (float)originScreen.Y,
-                        (float)topScreen.X,
-                        (float)topScreen.Y);
-                }
+                DrawClippedScreenLine(
+                    graphics,
+                    yAxisPen,
+                    yAxisStart,
+                    yAxisEnd,
+                    viewport.VisibleScreenBounds);
             }
 
             if (!_settings.ShowOriginMarker)
@@ -1162,15 +1164,11 @@ namespace Land_Readjustment_Tool.UI.MapCanvas.Rendering
         }
 
         /// <summary>
-        /// Checks whether a numeric value is finite and within drawable coordinate limits.
+        /// Checks whether a numeric value is finite before drawing.
         /// </summary>
-        /// <param name="value">Coordinate component to validate.</param>
-        /// <returns>
-        /// <see langword="true"/> when the value is finite and inside renderer limits; otherwise <see langword="false"/>.
-        /// </returns>
         private static bool IsValid(double value)
         {
-            return !double.IsNaN(value) && !double.IsInfinity(value) && value > -1e6 && value < 1e6;
+            return !double.IsNaN(value) && !double.IsInfinity(value);
         }
 
         /// <summary>
@@ -1186,6 +1184,120 @@ namespace Land_Readjustment_Tool.UI.MapCanvas.Rendering
         }
 
         /// <summary>
+        /// Draws a screen-space segment after clipping it to the visible canvas.
+        /// </summary>
+        private static void DrawClippedScreenLine(
+            Graphics graphics,
+            Pen pen,
+            PointD start,
+            PointD end,
+            RectangleF visibleScreenBounds)
+        {
+            if (!IsValidPoint(start) || !IsValidPoint(end))
+            {
+                return;
+            }
+
+            RectangleF clipBounds = RectangleF.Inflate(visibleScreenBounds, 2.0f, 2.0f);
+            if (!TryClipScreenSegment(start, end, clipBounds, out PointF clippedStart, out PointF clippedEnd) ||
+                !IsFarEnough(clippedStart, clippedEnd))
+            {
+                return;
+            }
+
+            graphics.DrawLine(pen, clippedStart, clippedEnd);
+        }
+
+        /// <summary>
+        /// Clips a finite screen segment to a rectangle using the Liang-Barsky algorithm.
+        /// </summary>
+        private static bool TryClipScreenSegment(
+            PointD start,
+            PointD end,
+            RectangleF clipBounds,
+            out PointF clippedStart,
+            out PointF clippedEnd)
+        {
+            clippedStart = default;
+            clippedEnd = default;
+
+            if (clipBounds.Width <= 0.0f || clipBounds.Height <= 0.0f)
+            {
+                return false;
+            }
+
+            double dx = end.X - start.X;
+            double dy = end.Y - start.Y;
+            double t0 = 0.0;
+            double t1 = 1.0;
+
+            if (!ClipScreenEdge(-dx, start.X - clipBounds.Left, ref t0, ref t1) ||
+                !ClipScreenEdge(dx, clipBounds.Right - start.X, ref t0, ref t1) ||
+                !ClipScreenEdge(-dy, start.Y - clipBounds.Top, ref t0, ref t1) ||
+                !ClipScreenEdge(dy, clipBounds.Bottom - start.Y, ref t0, ref t1))
+            {
+                return false;
+            }
+
+            double clippedStartX = start.X + t0 * dx;
+            double clippedStartY = start.Y + t0 * dy;
+            double clippedEndX = start.X + t1 * dx;
+            double clippedEndY = start.Y + t1 * dy;
+
+            if (!IsValid(clippedStartX) ||
+                !IsValid(clippedStartY) ||
+                !IsValid(clippedEndX) ||
+                !IsValid(clippedEndY))
+            {
+                return false;
+            }
+
+            clippedStart = new PointF((float)clippedStartX, (float)clippedStartY);
+            clippedEnd = new PointF((float)clippedEndX, (float)clippedEndY);
+            return true;
+        }
+
+        private static bool ClipScreenEdge(
+            double p,
+            double q,
+            ref double t0,
+            ref double t1)
+        {
+            if (Math.Abs(p) < double.Epsilon)
+            {
+                return q >= 0.0;
+            }
+
+            double r = q / p;
+            if (p < 0.0)
+            {
+                if (r > t1)
+                {
+                    return false;
+                }
+
+                if (r > t0)
+                {
+                    t0 = r;
+                }
+            }
+            else
+            {
+                if (r < t0)
+                {
+                    return false;
+                }
+
+                if (r < t1)
+                {
+                    t1 = r;
+                }
+            }
+
+            return true;
+        }
+
+        /// <summary>
         /// Returns whether two points are separated by at least one pixel.
         /// </summary>
         /// <param name="a">First point.</param>
@@ -1196,6 +1308,11 @@ namespace Land_Readjustment_Tool.UI.MapCanvas.Rendering
         private static bool IsFarEnough(PointD a, PointD b)
         {
             return Math.Abs(a.X - b.X) > 1.0 || Math.Abs(a.Y - b.Y) > 1.0;
+        }
+
+        private static bool IsFarEnough(PointF a, PointF b)
+        {
+            return Math.Abs(a.X - b.X) > 1.0f || Math.Abs(a.Y - b.Y) > 1.0f;
         }
 
         /// <summary>

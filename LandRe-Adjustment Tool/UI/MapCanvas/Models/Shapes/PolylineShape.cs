@@ -7,7 +7,6 @@ namespace Land_Readjustment_Tool.UI.MapCanvas.Models.Shapes
 {
     public class PolylineShape : Shape, ISnapProvider
     {
-        private const double MaxScreenCoordinate = 1_000_000.0;
         public sealed class PolylineSegment
         {
             public PolylineSegmentKind Kind { get; set; }
@@ -34,9 +33,39 @@ namespace Land_Readjustment_Tool.UI.MapCanvas.Models.Shapes
             Arc
         }
 
-        public List<PointD> Vertices { get; set; }
-        public List<PolylineSegment> Segments { get; set; }
-        public bool IsClosed { get; set; }
+        private List<PointD> _vertices = new();
+        private List<PolylineSegment> _segments = new();
+        private bool _isClosed;
+
+        public List<PointD> Vertices
+        {
+            get => _vertices;
+            set
+            {
+                _vertices = value ?? new List<PointD>();
+                InvalidateBounds();
+            }
+        }
+
+        public List<PolylineSegment> Segments
+        {
+            get => _segments;
+            set
+            {
+                _segments = value ?? new List<PolylineSegment>();
+                InvalidateBounds();
+            }
+        }
+
+        public bool IsClosed
+        {
+            get => _isClosed;
+            set
+            {
+                _isClosed = value;
+                InvalidateBounds();
+            }
+        }
 
         public PolylineShape(IEnumerable<PointD> points, bool isClosed = false)
             : this(points, Array.Empty<PolylineSegment>(), isClosed)
@@ -53,7 +82,7 @@ namespace Land_Readjustment_Tool.UI.MapCanvas.Models.Shapes
             IsClosed = isClosed;
         }
 
-        public override RectangleD GetBoundingBox()
+        protected override RectangleD ComputeBoundingBox()
         {
             IEnumerable<PointD> points = Segments.Count > 0
                 ? GetGeometryPoints(32)
@@ -82,7 +111,9 @@ namespace Land_Readjustment_Tool.UI.MapCanvas.Models.Shapes
             return new RectangleD(minX, minY, maxX - minX, maxY - minY);
         }
 
-        public GraphicsPath CreateScreenPath(Func<PointD, PointD> worldToScreen)
+        public GraphicsPath CreateScreenPath(
+            Func<PointD, PointD> worldToScreen,
+            RectangleD? clipWorldBounds = null)
         {
             GraphicsPath path = new();
 
@@ -91,21 +122,20 @@ namespace Land_Readjustment_Tool.UI.MapCanvas.Models.Shapes
                 return path;
             }
 
+            if (IsClosed && Vertices.Count >= 3 && clipWorldBounds.HasValue)
+            {
+                IReadOnlyList<PointD> ring = Segments.Count > 0
+                    ? GetGeometryPoints(64).ToList()
+                    : Vertices;
+                AddClippedPolygon(path, ring, worldToScreen, clipWorldBounds.Value);
+                return path;
+            }
+
             if (Segments.Count == 0)
             {
                 if (Vertices.Count >= 2)
                 {
-                    PointF[] points = Vertices
-                        .Select(point => ToRoundedScreenPoint(worldToScreen(point)))
-                        .ToArray();
-                    if (points.All(IsSafePoint))
-                    {
-                        path.AddLines(points);
-                        if (IsClosed && points.Length > 2)
-                        {
-                            path.AddLine(points[^1], points[0]);
-                        }
-                    }
+                    AddClippedPolyline(path, Vertices, IsClosed, worldToScreen, clipWorldBounds);
                 }
 
                 return path;
@@ -115,17 +145,17 @@ namespace Land_Readjustment_Tool.UI.MapCanvas.Models.Shapes
             {
                 if (segment.Kind == PolylineSegmentKind.Line || segment.Arc == null)
                 {
-                    PointF start = ToRoundedScreenPoint(worldToScreen(segment.Start));
-                    PointF end = ToRoundedScreenPoint(worldToScreen(segment.End));
-                    if (IsSafePoint(start) && IsSafePoint(end))
-                    {
-                        path.AddLine(start, end);
-                    }
-
+                    AddClippedLine(path, segment.Start, segment.End, worldToScreen, clipWorldBounds);
                     continue;
                 }
 
                 ArcShape arc = segment.Arc;
+                if (clipWorldBounds.HasValue)
+                {
+                    AddSampledArc(path, arc, worldToScreen, clipWorldBounds.Value);
+                    continue;
+                }
+
                 PointD centerScreenD = worldToScreen(arc.Center);
                 PointD radiusScreenD = worldToScreen(new PointD(arc.Center.X + arc.Radius, arc.Center.Y));
                 float centerX = (float)centerScreenD.X;
@@ -147,7 +177,7 @@ namespace Land_Readjustment_Tool.UI.MapCanvas.Models.Shapes
                     centerY - radius,
                     radius * 2.0f,
                     radius * 2.0f);
-                if (!IsSafeRect(bounds))
+                if (!IsValidRect(bounds))
                 {
                     continue;
                 }
@@ -166,12 +196,7 @@ namespace Land_Readjustment_Tool.UI.MapCanvas.Models.Shapes
             {
                 // Use the actual end of the last segment (arc endpoint may differ from Vertices[^1])
                 PointD lastEndWorld = Segments.Count > 0 ? Segments[^1].End : Vertices[^1];
-                PointF last = ToRoundedScreenPoint(worldToScreen(lastEndWorld));
-                PointF first = ToRoundedScreenPoint(worldToScreen(Vertices[0]));
-                if (IsSafePoint(last) && IsSafePoint(first))
-                {
-                    path.AddLine(last, first);
-                }
+                AddClippedLine(path, lastEndWorld, Vertices[0], worldToScreen, clipWorldBounds);
             }
 
             return path;
@@ -236,6 +261,8 @@ namespace Land_Readjustment_Tool.UI.MapCanvas.Models.Shapes
                 segment.End = new PointD(segment.End.X + delta.X, segment.End.Y + delta.Y);
                 segment.Arc?.Translate(delta);
             }
+
+            InvalidateBounds();
         }
 
         public override bool ContainsPoint(PointD worldPoint, float tolerance)
@@ -388,23 +415,98 @@ namespace Land_Readjustment_Tool.UI.MapCanvas.Models.Shapes
             return float.IsFinite(point.X) && float.IsFinite(point.Y);
         }
 
-        private static bool IsSafePoint(PointF point)
-        {
-            return IsValidPoint(point) &&
-                   Math.Abs(point.X) <= MaxScreenCoordinate &&
-                   Math.Abs(point.Y) <= MaxScreenCoordinate;
-        }
-
-        private static bool IsSafeRect(RectangleF rect)
+        private static bool IsValidRect(RectangleF rect)
         {
             return float.IsFinite(rect.Left) &&
                    float.IsFinite(rect.Top) &&
                    float.IsFinite(rect.Right) &&
                    float.IsFinite(rect.Bottom) &&
-                   Math.Abs(rect.Left) <= MaxScreenCoordinate &&
-                   Math.Abs(rect.Top) <= MaxScreenCoordinate &&
-                   Math.Abs(rect.Right) <= MaxScreenCoordinate &&
-                   Math.Abs(rect.Bottom) <= MaxScreenCoordinate;
+                   rect.Width > 0.0f &&
+                   rect.Height > 0.0f;
+        }
+
+        private static void AddClippedPolyline(
+            GraphicsPath path,
+            IReadOnlyList<PointD> vertices,
+            bool close,
+            Func<PointD, PointD> worldToScreen,
+            RectangleD? clipWorldBounds)
+        {
+            for (int i = 0; i < vertices.Count - 1; i++)
+            {
+                AddClippedLine(path, vertices[i], vertices[i + 1], worldToScreen, clipWorldBounds);
+            }
+
+            if (close && vertices.Count > 2)
+            {
+                AddClippedLine(path, vertices[^1], vertices[0], worldToScreen, clipWorldBounds);
+            }
+        }
+
+        private static void AddClippedLine(
+            GraphicsPath path,
+            PointD startWorld,
+            PointD endWorld,
+            Func<PointD, PointD> worldToScreen,
+            RectangleD? clipWorldBounds)
+        {
+            if (clipWorldBounds.HasValue &&
+                !ViewportClip.ClipSegment(startWorld, endWorld, clipWorldBounds.Value, out startWorld, out endWorld))
+            {
+                return;
+            }
+
+            PointF start = ToRoundedScreenPoint(worldToScreen(startWorld));
+            PointF end = ToRoundedScreenPoint(worldToScreen(endWorld));
+            if (!IsValidPoint(start) || !IsValidPoint(end) || Distance(start, end) < 0.25)
+            {
+                return;
+            }
+
+            path.StartFigure();
+            path.AddLine(start, end);
+        }
+
+        private static void AddClippedPolygon(
+            GraphicsPath path,
+            IReadOnlyList<PointD> ring,
+            Func<PointD, PointD> worldToScreen,
+            RectangleD clipWorldBounds)
+        {
+            List<PointD> clipped = ViewportClip.ClipPolygon(ring, clipWorldBounds);
+            if (clipped.Count < 3)
+            {
+                return;
+            }
+
+            PointF[] points = clipped
+                .Select(point => ToRoundedScreenPoint(worldToScreen(point)))
+                .Where(IsValidPoint)
+                .ToArray();
+            if (points.Length >= 3)
+            {
+                path.AddPolygon(points);
+            }
+        }
+
+        private static void AddSampledArc(
+            GraphicsPath path,
+            ArcShape arc,
+            Func<PointD, PointD> worldToScreen,
+            RectangleD clipWorldBounds)
+        {
+            PointD[] samples = arc.SamplePoints(64).ToArray();
+            for (int i = 0; i < samples.Length - 1; i++)
+            {
+                AddClippedLine(path, samples[i], samples[i + 1], worldToScreen, clipWorldBounds);
+            }
+        }
+
+        private static double Distance(PointF first, PointF second)
+        {
+            double dx = second.X - first.X;
+            double dy = second.Y - first.Y;
+            return Math.Sqrt(dx * dx + dy * dy);
         }
 
         private static double Distance(PointD first, PointD second)

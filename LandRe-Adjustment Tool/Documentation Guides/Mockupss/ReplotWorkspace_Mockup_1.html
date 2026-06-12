@@ -1,0 +1,710 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>RePlot — Block Replot Workspace [B-07]</title>
+<style>
+  :root{
+    --bg:#f4f5f7; --chrome:#fbfbfc; --panel:#f7f8fa; --panel2:#ffffff;
+    --line:#dcdfe3; --line2:#c3c8ce; --ink:#1d2530; --ink2:#5b636e;
+    --hdr:#eef1f4; --hover:#eaf3fc; --hover-bd:#4a9fe0; --sel:#cfe8fb; --sel-bd:#5aa9e6;
+    --btn-a:#fcfcfd; --btn-b:#eef0f3; --btn-bd:#bcc2c9;
+    --accent:#2f6bd8; --accent2:#1f57c0; --green:#2e9e4f; --amber:#d99a1c; --red:#d23b3b;
+    --blue-line:#2f6bd8; --orange:#e08a3c;
+    /* canvas */
+    --cv:#fcfcfb; --cvln:#e6e7ea;
+  }
+  *{box-sizing:border-box}
+  html,body{margin:0;height:100%}
+  body{font-family:"Segoe UI",Tahoma,system-ui,sans-serif;font-size:12px;color:var(--ink);
+    background:var(--bg);overflow:hidden}
+  .app{display:flex;flex-direction:column;height:100vh;min-width:1320px;min-height:760px}
+  svg.i{width:15px;height:15px;fill:none;stroke:currentColor;stroke-width:1.4;
+    stroke-linecap:round;stroke-linejoin:round;flex:0 0 auto}
+
+  /* Title bar */
+  .titlebar{display:flex;align-items:center;height:30px;background:#fff;border-bottom:1px solid var(--line);
+    padding:0 2px 0 9px;gap:8px;flex:0 0 auto}
+  .titlebar .ico{width:15px;height:15px;border-radius:3px;
+    background:linear-gradient(135deg,#3f93de,#2f6bd8)}
+  .titlebar .ttl{font-weight:600;color:#2a2f37}
+  .titlebar .wb{margin-left:auto;display:flex}
+  .titlebar .w{width:44px;height:30px;display:grid;place-items:center;color:#5b636e}
+  .titlebar .w:hover{background:#ebedf0}
+  .titlebar .w.x:hover{background:#e3142b;color:#fff}
+
+  /* Menu */
+  .menu{display:flex;height:25px;background:var(--chrome);border-bottom:1px solid var(--line);padding:0 4px;flex:0 0 auto}
+  .menu div{padding:0 9px;display:flex;align-items:center;color:#2a2f37}
+  .menu div:hover{background:var(--hover);border:1px solid var(--hover-bd);padding:0 8px}
+
+  /* Toolbars */
+  .tb-row{display:flex;align-items:center;gap:1px;min-height:34px;padding:3px 6px;flex-wrap:wrap;
+    background:linear-gradient(#fafbfc,#f0f2f5);border-bottom:1px solid var(--line);flex:0 0 auto}
+  .tb{display:inline-flex;align-items:center;gap:6px;height:27px;padding:0 7px;border:1px solid transparent;
+    border-radius:4px;background:transparent;color:#26303c;cursor:default;white-space:nowrap;font-size:12px}
+  .tb:hover{background:var(--hover);border-color:var(--hover-bd)}
+  .tb.on{background:var(--sel);border-color:var(--sel-bd)}
+  .tb.split{padding-right:3px}
+  .tb .car{font-size:9px;color:#5b636e;margin-left:-2px}
+  .tb.btnish{border:1px solid var(--btn-bd);background:linear-gradient(var(--btn-a),var(--btn-b));padding:0 11px;height:27px}
+  .tb.btnish:hover{background:var(--hover);border-color:var(--hover-bd)}
+  .tb.commit svg{stroke:var(--green)}
+  .sep{width:1px;height:20px;background:var(--line2);margin:0 5px}
+  .grow{flex:1 1 auto}
+  .combo{display:flex;align-items:center;height:25px;border:1px solid var(--btn-bd);border-radius:4px;
+    background:#fff;padding:0 6px;gap:18px;min-width:150px;color:#26303c}
+  .combo .car{margin-left:auto;color:#5b636e;font-size:9px}
+
+  /* Body */
+  .body{display:flex;flex:1 1 auto;min-height:0}
+  .dock{flex:0 0 auto;background:var(--panel);display:flex;flex-direction:column;min-height:0;overflow:auto}
+  .dock.left{width:266px;border-right:1px solid var(--line)}
+  .dock.right{width:352px;border-left:1px solid var(--line)}
+
+  .sect{border-bottom:1px solid var(--line)}
+  .sect>.cap{display:flex;align-items:center;height:26px;padding:0 8px;background:var(--hdr);
+    font-weight:600;color:#2a2f37;border-bottom:1px solid var(--line)}
+  .sect>.cap .x{margin-left:auto;color:#90969e;cursor:default}
+  .sect>.cap .x:hover{color:#444}
+  .sect>.in{padding:9px 10px}
+
+  /* Block navigator form */
+  .kv{display:grid;grid-template-columns:92px 1fr;gap:7px 8px;align-items:center}
+  .kv label{color:var(--ink2)}
+  input[type=text],input[type=number],select{font-family:inherit;font-size:12px;height:24px;
+    border:1px solid var(--btn-bd);background:#fff;padding:0 6px;border-radius:3px;width:100%;color:#1d2530}
+  input[readonly]{background:#eef0f2;color:#6a7079}
+  .spin{position:relative}
+  .spin input{padding-right:18px}
+  .spin .ar{position:absolute;right:1px;top:1px;bottom:1px;width:16px;display:flex;flex-direction:column;
+    border-left:1px solid var(--btn-bd)}
+  .spin .ar span{flex:1;display:grid;place-items:center;font-size:8px;color:#5b636e;background:linear-gradient(var(--btn-a),var(--btn-b))}
+  .tag{font-weight:700}
+  .tag.blue{color:var(--accent)} .tag.green{color:var(--green)}
+
+  /* Layers */
+  .lay{display:grid;grid-template-columns:18px 20px 1fr 20px 20px;align-items:center;gap:2px;
+    height:24px;padding:0 2px}
+  .lay:hover{background:#eef2f6}
+  .lay .sw{display:grid;place-items:center}
+  .lay .nm{color:#26303c;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+  .lay .eye,.lay .lock{display:grid;place-items:center;color:#7a818a;cursor:default}
+  .lay .eye:hover,.lay .lock:hover{color:#2a2f37}
+  .lay.off .nm{color:#aab0b8}
+  .lay .eye.off svg{opacity:.3}
+  input[type=checkbox]{width:14px;height:14px;accent-color:var(--accent)}
+
+  /* Workflow */
+  .wf{display:flex;align-items:center;gap:7px;height:25px;padding:0 2px}
+  .wf .tri{color:#9aa0a8;font-size:9px;width:10px}
+  .wf .nm{color:#2a3340}
+  .wf.done .nm{color:#2a3340}
+  .wf .ck{width:15px;height:15px;border:1px solid var(--btn-bd);border-radius:2px;display:grid;place-items:center;background:#fff}
+  .wf.done .ck{background:var(--green);border-color:var(--green);color:#fff}
+  .wf .ck svg{width:11px;height:11px;stroke:#fff;stroke-width:2}
+
+  /* Canvas */
+  .cvwrap{flex:1 1 auto;position:relative;min-width:0;background:var(--cv);overflow:hidden}
+  svg#canvas{display:block;width:100%;height:100%}
+  .scalebox{position:absolute;left:14px;top:12px;background:rgba(255,255,255,.92);
+    border:1px solid var(--line2);border-radius:3px;padding:6px 10px;font-size:11.5px;color:#2a2f37;
+    line-height:1.55;box-shadow:0 1px 3px rgba(0,0,0,.08)}
+  .scalebox b{display:inline-block;width:64px;color:#5b636e;font-weight:400}
+
+  /* Tab bars */
+  .tabbar{display:flex;align-items:flex-end;height:30px;border-bottom:1px solid var(--line);
+    background:var(--panel);padding:0 6px;gap:2px;flex:0 0 auto}
+  .tab{padding:6px 12px 7px;color:#5b636e;border-bottom:2px solid transparent;cursor:default}
+  .tab:hover{color:#2a2f37}
+  .tab.on{color:var(--accent2);border-bottom-color:var(--accent2);font-weight:600}
+  .pane{display:none}.pane.on{display:block}
+
+  /* Right panel */
+  .rbody{padding:11px 12px;overflow:auto}
+  .shead{font-weight:700;color:#222;margin:2px 0 9px}
+  .frm{display:grid;grid-template-columns:128px 1fr auto;gap:8px 8px;align-items:center}
+  .frm label{color:var(--ink2)}
+  .frm .ctl{grid-column:2}
+  .frm .ctl.wbtn{grid-column:2/2}
+  .dots{width:26px;height:24px;border:1px solid var(--btn-bd);border-radius:3px;
+    background:linear-gradient(var(--btn-a),var(--btn-b));display:grid;place-items:center;color:#444}
+  .hr{height:1px;background:var(--line);margin:14px 0}
+
+  /* Contribution balance */
+  .bal{display:grid;grid-template-columns:118px 56px 1fr 48px;gap:9px 8px;align-items:center;margin-top:2px}
+  .bal label{color:var(--ink2)}
+  .bal .v{font-family:Consolas,monospace;text-align:right;font-weight:600}
+  .bal .v.red{color:var(--red)} 
+  .track{height:14px;background:#eef0f2;border:1px solid #d7dbe0;border-radius:2px;overflow:hidden}
+  .track i{display:block;height:100%}
+  .pct{font-family:Consolas,monospace;text-align:right;color:#3a414b}
+  .pct.red{color:var(--red)}
+  .locks{display:flex;gap:24px;margin:14px 0 12px}
+  .locks label{display:flex;align-items:center;gap:6px;color:#2a3340}
+  .rbtns{display:flex;gap:8px}
+  .btn{font-family:inherit;font-size:12px;height:30px;padding:0 12px;border:1px solid var(--btn-bd);
+    border-radius:4px;background:linear-gradient(var(--btn-a),var(--btn-b));cursor:default;color:#222}
+  .btn:hover{background:var(--hover);border-color:var(--hover-bd)}
+  .btn.pri{border-color:var(--accent);box-shadow:inset 0 0 0 1px rgba(47,107,216,.25)}
+
+  /* Tables */
+  table{border-collapse:collapse;width:100%;font-size:11.5px;background:#fff}
+  thead th{background:#f0f2f5;border:1px solid #dde0e4;border-left:0;text-align:left;font-weight:600;
+    padding:5px 8px;color:#333;position:sticky;top:0}
+  thead th:first-child{border-left:1px solid #dde0e4}
+  tbody td{border:1px solid #e6e8eb;border-left:0;padding:4px 8px;white-space:nowrap}
+  tbody td:first-child{border-left:1px solid #e6e8eb}
+  tbody tr:hover td{background:#eef6fc}
+  .num{text-align:right;font-family:Consolas,monospace}
+  .lnk{color:var(--accent);cursor:default}.lnk:hover{text-decoration:underline}
+  .muted{color:#9aa0a8}
+  .sev{display:inline-flex;align-items:center;gap:6px;font-weight:600}
+  .sev.warn{color:var(--amber)} .sev.info{color:#3a7bd0}
+
+  /* Bottom */
+  .bottom{flex:0 0 auto;height:216px;display:flex;flex-direction:column;background:var(--panel);
+    border-top:1px solid var(--line)}
+  .bcontent{flex:1 1 auto;display:flex;min-height:0}
+  .btab-area{flex:1 1 auto;display:flex;flex-direction:column;min-width:0;border-right:1px solid var(--line)}
+  .btab-panes{flex:1 1 auto;overflow:auto}
+  .metrics{flex:0 0 auto;width:300px;padding:10px 14px;overflow:auto}
+  .metrics .h{font-weight:700;color:#222;margin-bottom:9px}
+  .mrow{display:flex;justify-content:space-between;padding:5px 0;border-bottom:1px dotted #e4e7ea}
+  .mrow .l{color:var(--ink2)} .mrow .r{font-family:Consolas,monospace;font-weight:600}
+
+  /* Status bar */
+  .status{display:flex;align-items:center;height:27px;background:var(--panel);border-top:1px solid var(--line);
+    font-size:11.5px;flex:0 0 auto}
+  .status .c{padding:0 12px;border-right:1px solid var(--line);height:100%;display:flex;align-items:center;
+    gap:5px;color:#2a3340}
+  .status .c .lab{color:var(--ink2)}
+  .status .mono{font-family:Consolas,monospace}
+  .status .on{color:var(--green);font-weight:600}
+  .status .sp{flex:1 1 auto;border-right:0}
+  .status .dot{width:11px;height:11px;border-radius:50%;background:var(--green);
+    box-shadow:0 0 0 2px #cdeccf;margin-right:12px}
+
+  ::-webkit-scrollbar{width:14px;height:14px}
+  ::-webkit-scrollbar-thumb{background:#cdd2d8;border:3px solid var(--panel)}
+  ::-webkit-scrollbar-track{background:var(--panel)}
+</style>
+</head>
+<body>
+<div class="app">
+
+  <!-- TITLE -->
+  <div class="titlebar">
+    <div class="ico"></div>
+    <span class="ttl">RePlot — Block Replot Workspace — [Block B-07]</span>
+    <div class="wb"><div class="w">—</div><div class="w">▢</div><div class="w x">✕</div></div>
+  </div>
+
+  <!-- MENU -->
+  <div class="menu">
+    <div>File</div><div>Project</div><div>Data</div><div>Map</div><div>Review</div>
+    <div>Replot</div><div>Reports</div><div>Tools</div><div>Window</div><div>Help</div>
+  </div>
+
+  <!-- TOOLBAR ROW 1 -->
+  <div class="tb-row">
+    <button class="tb" data-ic="newdoc" title="New"></button>
+    <button class="tb" data-ic="open" title="Open"></button>
+    <button class="tb" data-ic="save" title="Save"></button>
+    <span class="sep"></span>
+    <button class="tb split" data-ic="undo" title="Undo"><span class="car">▾</span></button>
+    <button class="tb split" data-ic="redo" title="Redo"><span class="car">▾</span></button>
+    <span class="sep"></span>
+    <button class="tb on nav" data-ic="select" title="Select"></button>
+    <button class="tb nav" data-ic="pan" title="Pan"></button>
+    <button class="tb nav" data-ic="zoomarea" title="Zoom to area"></button>
+    <button class="tb nav" data-ic="zoomout" title="Zoom out"></button>
+    <button class="tb nav" data-ic="zoomin" title="Zoom in"></button>
+    <span class="sep"></span>
+    <div class="combo" style="min-width:168px"><b>Block</b>&nbsp;B-07<span class="car">▾</span></div>
+    <div class="combo" style="min-width:184px">Scenario A - Working<span class="car">▾</span></div>
+    <span class="sep"></span>
+    <button class="tb btnish" data-ic="validate">Validate Block</button>
+    <button class="tb btnish commit" data-ic="commit">Commit Design</button>
+    <span class="grow"></span>
+    <button class="tb" data-ic="gear" title="Settings"></button>
+  </div>
+
+  <!-- TOOLBAR ROW 2 -->
+  <div class="tb-row">
+    <button class="tb tool" data-ic="createParcel">Create Parcel</button>
+    <button class="tb tool" data-ic="drawPoly">Draw Polygon</button>
+    <button class="tb tool" data-ic="reshape">Reshape Edge</button>
+    <button class="tb tool" data-ic="addVertex">Add Vertex</button>
+    <button class="tb tool" data-ic="delVertex">Delete Vertex</button>
+    <button class="tb tool" data-ic="split">Split</button>
+    <button class="tb tool" data-ic="merge">Merge</button>
+    <button class="tb tool" data-ic="offset">Offset Edge</button>
+    <button class="tb tool" data-ic="move">Move</button>
+    <button class="tb tool" data-ic="copy">Copy</button>
+    <button class="tb tool" data-ic="owner">Assign Owner</button>
+    <button class="tb tool" data-ic="genPlots">Generate Plots</button>
+    <button class="tb tool" data-ic="autoReplot">Auto Replot</button>
+    <span class="grow"></span>
+    <button class="tb on" id="snapBtn" data-ic="snap">Snap</button>
+    <button class="tb" id="orthoBtn" data-ic="ortho">Ortho</button>
+  </div>
+
+  <!-- BODY -->
+  <div class="body">
+
+    <!-- LEFT DOCK -->
+    <div class="dock left">
+      <div class="sect">
+        <div class="cap">Block Navigator<span class="x">✕</span></div>
+        <div class="in">
+          <div class="kv">
+            <label>Project:</label><input type="text" value="LR-2026">
+            <label>Active Block:</label><input type="text" value="B-07">
+            <label>Status:</label><div class="tag blue">In Replot</div>
+            <label>Readiness:</label><div class="tag green">Ready</div>
+          </div>
+        </div>
+      </div>
+
+      <div class="sect">
+        <div class="cap">Replot Layers<span class="x">✕</span></div>
+        <div class="in" id="layers" style="padding:6px 8px"></div>
+      </div>
+
+      <div class="sect">
+        <div class="cap">Workflow<span class="x">✕</span></div>
+        <div class="in" id="workflow" style="padding:6px 8px"></div>
+      </div>
+    </div>
+
+    <!-- CANVAS -->
+    <div class="cvwrap">
+      <svg id="canvas" viewBox="0 0 820 560" preserveAspectRatio="xMidYMid meet"></svg>
+      <div class="scalebox">
+        <div><b>Scale</b>1:500</div>
+        <div><b>Zoom</b>0.1264</div>
+        <div><b>Min Block</b>50x50 px</div>
+      </div>
+    </div>
+
+    <!-- RIGHT DOCK -->
+    <div class="dock right">
+      <div class="tabbar" data-tabs="right">
+        <div class="tab on" data-tab="pProps">Properties</div>
+        <div class="tab" data-tab="pAlloc">Allocation</div>
+        <div class="tab" data-tab="pSplit">Split/Generate</div>
+        <div class="tab" data-tab="pValid">Validation</div>
+      </div>
+
+      <!-- Properties -->
+      <div class="pane on rbody" id="pProps">
+        <div class="shead">Selected Parcel</div>
+        <div class="frm">
+          <label>Replot Parcel No:</label><input class="ctl" type="text" value="R-07-007">
+          <label>Plot Type:</label><select class="ctl"><option>Residential</option><option>Commercial</option><option>Mixed Use</option><option>Open Space</option></select>
+          <label>Design Area (sqm):</label>
+          <div class="ctl spin"><input type="text" value="125.40"><div class="ar"><span>▲</span><span>▼</span></div></div>
+          <label>Calculated Area (sqm):</label><input class="ctl" type="text" value="125.33" readonly>
+          <label>Original Parcel Links:</label><input class="ctl" type="text" value="C-205, C-206">
+          <label>Owner:</label>
+          <select style="grid-column:2"><option>Owner-034 (B.K. Sharma)</option><option>Owner-021 (S. Gurung)</option><option>Unassigned</option></select>
+          <div class="dots">…</div>
+          <label>Road Access:</label><select class="ctl"><option>Front &amp; Back</option><option>Front</option><option>Corner</option></select>
+          <label>Frontage (m):</label>
+          <div class="ctl spin"><input type="text" value="10.50"><div class="ar"><span>▲</span><span>▼</span></div></div>
+          <label>Allocation Status:</label><select class="ctl"><option>Unassigned</option><option>Assigned</option><option>Confirmed</option></select>
+        </div>
+
+        <div class="hr"></div>
+        <div class="shead">Contribution Balance</div>
+        <div class="bal">
+          <label>Returnable (sqm):</label><div class="v">126.00</div>
+          <div class="track"><i style="width:100%;background:var(--green)"></i></div><div class="pct">100.00%</div>
+          <label>Assigned (sqm):</label><div class="v">125.40</div>
+          <div class="track"><i style="width:99.5%;background:var(--accent)"></i></div><div class="pct">99.52%</div>
+          <label>Difference (sqm):</label><div class="v red">-0.60</div>
+          <div class="track"><i style="width:0"></i></div><div class="pct red">-0.48%</div>
+        </div>
+        <div class="locks">
+          <label><input type="checkbox"> Lock Area</label>
+          <label><input type="checkbox"> Lock Frontage</label>
+        </div>
+        <div class="rbtns">
+          <button class="btn">Assign Original Parcel</button>
+          <button class="btn">Preview Split</button>
+          <button class="btn pri">Apply Change</button>
+        </div>
+      </div>
+
+      <!-- Allocation -->
+      <div class="pane rbody" id="pAlloc">
+        <div class="shead">Owner Allocation — Block B-07</div>
+        <div style="border:1px solid var(--line);max-height:300px;overflow:auto">
+          <table>
+            <thead><tr><th>Owner</th><th>Orig. Kitta</th><th class="num">Entitled</th><th>Plot</th><th>Status</th></tr></thead>
+            <tbody>
+              <tr><td>Owner-034 (B.K. Sharma)</td><td>C-205</td><td class="num">126.00</td><td>R-07-007</td><td class="sev warn">Pending</td></tr>
+              <tr><td>Owner-021 (S. Gurung)</td><td>C-198</td><td class="num">128.30</td><td>R-07-002</td><td class="sev info">Assigned</td></tr>
+              <tr><td>Owner-009 (R. Thapa)</td><td>C-204</td><td class="num">125.40</td><td>R-07-001</td><td class="sev info">Assigned</td></tr>
+              <tr><td>Owner-052 (M. K.C.)</td><td>C-210</td><td class="num">129.60</td><td>R-07-008</td><td class="sev info">Assigned</td></tr>
+              <tr><td>Owner-017 (D. Magar)</td><td>C-211</td><td class="num">133.20</td><td>—</td><td class="sev warn">Unallocated</td></tr>
+              <tr><td>Owner-040 (L. Shahi)</td><td>C-196</td><td class="num">130.80</td><td>—</td><td class="sev warn">Unallocated</td></tr>
+            </tbody>
+          </table>
+        </div>
+        <div class="rbtns" style="margin-top:12px">
+          <button class="btn pri">Auto-Allocate</button>
+          <button class="btn">Match Frontage</button>
+          <button class="btn">Clear</button>
+        </div>
+        <div style="margin-top:12px;color:var(--ink2)">2 owners unallocated · 4 of 6 entitlements placed.</div>
+      </div>
+
+      <!-- Split / Generate -->
+      <div class="pane rbody" id="pSplit">
+        <div class="shead">Generate Candidate Plots</div>
+        <div class="frm">
+          <label>Method:</label><select class="ctl"><option>Grid (depth × frontage)</option><option>Frontage-driven</option><option>Equal area</option><option>By contribution row</option></select>
+          <label>Target plot (sqm):</label><div class="ctl spin"><input type="text" value="125.00"><div class="ar"><span>▲</span><span>▼</span></div></div>
+          <label>Min frontage (m):</label><div class="ctl spin"><input type="text" value="8.00"><div class="ar"><span>▲</span><span>▼</span></div></div>
+          <label>Block depth (m):</label><div class="ctl spin"><input type="text" value="20.00"><div class="ar"><span>▲</span><span>▼</span></div></div>
+          <label>Road setback (m):</label><div class="ctl spin"><input type="text" value="3.00"><div class="ar"><span>▲</span><span>▼</span></div></div>
+          <label>Corner handling:</label><select class="ctl"><option>Priority (larger)</option><option>Standard</option></select>
+        </div>
+        <div class="hr"></div>
+        <div class="shead">Split Selected (R-07-007)</div>
+        <div class="frm">
+          <label>Split by:</label><select class="ctl"><option>Target area</option><option>Line</option><option>N equal parts</option><option>Frontage width</option></select>
+          <label>Target area (sqm):</label><div class="ctl spin"><input type="text" value="62.50"><div class="ar"><span>▲</span><span>▼</span></div></div>
+        </div>
+        <div class="rbtns" style="margin-top:14px">
+          <button class="btn pri">Generate Plots</button>
+          <button class="btn">Preview</button>
+        </div>
+      </div>
+
+      <!-- Validation -->
+      <div class="pane rbody" id="pValid">
+        <div class="shead">Validation — Block B-07</div>
+        <div id="vchecks"></div>
+        <div class="hr"></div>
+        <div class="bal" style="grid-template-columns:160px 1fr">
+          <label>Checks passed:</label><div class="v" style="text-align:left">5 of 7</div>
+          <label>Topology errors:</label><div class="v" style="text-align:left">0</div>
+          <label>Tolerance warnings:</label><div class="v red" style="text-align:left">3</div>
+        </div>
+        <div class="rbtns" style="margin-top:14px">
+          <button class="btn pri">Run Validation</button>
+          <button class="btn">Export Report</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- BOTTOM -->
+  <div class="bottom">
+    <div class="bcontent">
+      <div class="btab-area">
+        <div class="tabbar" data-tabs="bottom" style="height:30px">
+          <div class="tab" data-tab="bLog">Operation Log</div>
+          <div class="tab on" data-tab="bIssues">Issues</div>
+          <div class="tab" data-tab="bMetrics">Scenario Metrics</div>
+          <div class="tab" data-tab="bLand">Land Contribution Table</div>
+        </div>
+        <div class="btab-panes">
+
+          <div class="pane on" id="bIssues">
+            <table>
+              <thead><tr><th style="width:110px">Severity</th><th style="width:90px">Feature</th><th>Message</th><th style="width:140px">Action</th></tr></thead>
+              <tbody>
+                <tr><td><span class="sev warn">⚠ Warning</span></td><td>R-07-007</td><td>Gap under tolerance (0.07 m) at vertex between R-07-007 and R-07-008.</td><td><span class="lnk">Review Geometry</span></td></tr>
+                <tr><td><span class="sev warn">⚠ Warning</span></td><td>R-07-011</td><td>Owner allocation pending.</td><td><span class="lnk">Assign Owner</span></td></tr>
+                <tr><td><span class="sev info">ⓘ Info</span></td><td>R-07-004</td><td>Road frontage confirmed.</td><td class="muted">None</td></tr>
+                <tr><td><span class="sev info">ⓘ Info</span></td><td>Block B-07</td><td>Block area within tolerance.</td><td class="muted">None</td></tr>
+                <tr><td><span class="sev warn">⚠ Warning</span></td><td>R-07-015</td><td>Area difference (-0.10 sqm) exceeds allocation tolerance.</td><td><span class="lnk">Adjust Area</span></td></tr>
+              </tbody>
+            </table>
+          </div>
+
+          <div class="pane" id="bLog">
+            <table>
+              <thead><tr><th style="width:74px">Time</th><th style="width:110px">User</th><th>Operation</th><th style="width:120px">Target</th><th style="width:90px">Result</th></tr></thead>
+              <tbody>
+                <tr><td>09:14:02</td><td>survey.eng</td><td>Generate Plots (grid 4×4)</td><td>Block B-07</td><td class="sev info">16 created</td></tr>
+                <tr><td>09:15:41</td><td>survey.eng</td><td>Split parcel by target area</td><td>R-07-006</td><td class="sev info">OK</td></tr>
+                <tr><td>09:17:23</td><td>survey.eng</td><td>Assign owner</td><td>R-07-001</td><td class="sev info">OK</td></tr>
+                <tr><td>09:19:08</td><td>survey.eng</td><td>Reshape edge (vertex move)</td><td>R-07-007</td><td class="sev warn">Gap 0.07 m</td></tr>
+                <tr><td>09:21:55</td><td>survey.eng</td><td>Auto Replot preview</td><td>Block B-07</td><td class="sev info">Preview</td></tr>
+              </tbody>
+            </table>
+          </div>
+
+          <div class="pane" id="bMetrics">
+            <table>
+              <thead><tr><th>Scenario</th><th class="num">Plots</th><th class="num">Developable</th><th class="num">Road %</th><th class="num">Unalloc.</th><th>Status</th></tr></thead>
+              <tbody>
+                <tr><td>Scenario A - Working</td><td class="num">16</td><td class="num">1,820.30</td><td class="num">27.19</td><td class="num">2</td><td class="sev info">Active</td></tr>
+                <tr><td>Scenario B - Wider Roads</td><td class="num">14</td><td class="num">1,712.50</td><td class="num">31.50</td><td class="num">0</td><td class="muted">Saved</td></tr>
+                <tr><td>Scenario C - Max Yield</td><td class="num">18</td><td class="num">1,905.10</td><td class="num">23.80</td><td class="num">4</td><td class="muted">Saved</td></tr>
+              </tbody>
+            </table>
+          </div>
+
+          <div class="pane" id="bLand">
+            <table>
+              <thead><tr><th>Kitta</th><th>Owner</th><th class="num">Orig.</th><th class="num">Contrib %</th><th class="num">Deduction</th><th class="num">Returnable</th><th class="num">Assigned</th><th class="num">Diff</th></tr></thead>
+              <tbody>
+                <tr><td>C-204</td><td>R. Thapa</td><td class="num">178.20</td><td class="num">29.6</td><td class="num">52.80</td><td class="num">125.40</td><td class="num">125.40</td><td class="num">0.00</td></tr>
+                <tr><td>C-205</td><td>B.K. Sharma</td><td class="num">179.10</td><td class="num">29.6</td><td class="num">53.10</td><td class="num">126.00</td><td class="num">125.40</td><td class="num">-0.60</td></tr>
+                <tr><td>C-198</td><td>S. Gurung</td><td class="num">182.40</td><td class="num">29.6</td><td class="num">54.10</td><td class="num">128.30</td><td class="num">128.30</td><td class="num">0.00</td></tr>
+                <tr><td>C-210</td><td>M. K.C.</td><td class="num">184.10</td><td class="num">29.6</td><td class="num">54.50</td><td class="num">129.60</td><td class="num">129.60</td><td class="num">0.00</td></tr>
+                <tr><td>C-211</td><td>D. Magar</td><td class="num">189.30</td><td class="num">29.6</td><td class="num">56.10</td><td class="num">133.20</td><td class="num">0.00</td><td class="num">-133.20</td></tr>
+                <tr><td>C-196</td><td>L. Shahi</td><td class="num">185.80</td><td class="num">29.6</td><td class="num">55.00</td><td class="num">130.80</td><td class="num">0.00</td><td class="num">-130.80</td></tr>
+              </tbody>
+            </table>
+          </div>
+
+        </div>
+      </div>
+
+      <div class="metrics">
+        <div class="h">Scenario Metrics (Scenario A - Working)</div>
+        <div class="mrow"><span class="l">Block Area (sqm):</span><span class="r">2,500.00</span></div>
+        <div class="mrow"><span class="l">Developable Area (sqm):</span><span class="r">1,820.30</span></div>
+        <div class="mrow"><span class="l">Road Deduction (sqm):</span><span class="r">679.70</span></div>
+        <div class="mrow"><span class="l">Plot Count (Candidate):</span><span class="r">16</span></div>
+        <div class="mrow" style="border-bottom:0"><span class="l">Unallocated Owners:</span><span class="r">2</span></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- STATUS -->
+  <div class="status">
+    <div class="c"><span class="lab">Project:</span> Kamalpokhari LR</div>
+    <div class="c"><span class="lab">Tool:</span> Split Parcel Preview</div>
+    <div class="c mono"><span class="lab">X:</span> 612,435.1234 &nbsp;<span class="lab">Y:</span> 3,052,198.5678</div>
+    <div class="c"><span class="lab">Scale:</span> 1:500</div>
+    <div class="c"><span class="lab">Snap:</span> <span class="on">On</span></div>
+    <div class="c"><span class="lab">Ortho:</span> <span class="on">On</span></div>
+    <div class="c sp"></div>
+    <div class="c mono" style="border-right:0"><span class="lab">Zoom:</span> 0.1264</div>
+    <div class="dot"></div>
+  </div>
+</div>
+
+<script>
+/* ---------------- Icons ---------------- */
+const ICONS = {
+  newdoc:'<path d="M4 1.5h6l3 3v10H4z"/><path d="M10 1.5v3h3"/>',
+  open:'<path d="M1.5 4.5h4.5l1.2 1.8H14.5v7H1.5z"/><path d="M1.5 6.3h13"/>',
+  save:'<path d="M2 2h9.5L14 4.5V14H2z"/><path d="M5 2v4h5V2.6"/><rect x="5" y="9" width="6" height="5"/>',
+  undo:'<path d="M6 4.5 2.5 8 6 11.5"/><path d="M2.5 8H9a4 4 0 0 1 4 4v.5"/>',
+  redo:'<path d="M10 4.5 13.5 8 10 11.5"/><path d="M13.5 8H7a4 4 0 0 0-4 4v.5"/>',
+  select:'<path d="M3 2l9.5 6-4.3.9 2 5-1.9.8-2-5L3 13.5z" fill="currentColor" stroke="none"/>',
+  pan:'<path d="M5 8V4.6a1 1 0 0 1 2 0V7m0-.4V3.6a1 1 0 0 1 2 0V7m0-.4V4.4a1 1 0 0 1 2 0V8m0-.2a1 1 0 0 1 2 .2v2.3a4.5 4.5 0 0 1-4.5 4.5H8.6A4.5 4.5 0 0 1 4 11.2"/>',
+  zoomarea:'<circle cx="6.5" cy="6.5" r="4"/><path d="M9.5 9.5 14 14"/><path d="M4.5 6.5h4M6.5 4.5v4"/>',
+  zoomout:'<circle cx="6.5" cy="6.5" r="4"/><path d="M9.5 9.5 14 14M4.5 6.5h4"/>',
+  zoomin:'<circle cx="6.5" cy="6.5" r="4"/><path d="M9.5 9.5 14 14M4.5 6.5h4M6.5 4.5v4"/>',
+  gear:'<circle cx="8" cy="8" r="2.4"/><path d="M8 1.5v2M8 12.5v2M1.5 8h2M12.5 8h2M3.4 3.4 4.8 4.8M11.2 11.2 12.6 12.6M12.6 3.4 11.2 4.8M4.8 11.2 3.4 12.6"/>',
+  validate:'<path d="M8 1.5l5 1.8v4.4c0 3.6-5 6.8-5 6.8s-5-3.2-5-6.8V3.3z"/><path d="M5.6 8l1.7 1.8 3.1-3.6"/>',
+  commit:'<circle cx="8" cy="8" r="6"/><path d="M5.2 8.2 7.2 10.3 11 5.9"/>',
+  createParcel:'<path d="M8 2.2l5 3.6-1.9 5.9H4.9L3 5.8z"/><path d="M8 6v4M6 8h4"/>',
+  drawPoly:'<path d="M8 2.4l5 3.6-1.9 5.8H4.9L3 6z"/><circle cx="8" cy="2.4" r="1.1" fill="currentColor" stroke="none"/><circle cx="13" cy="6" r="1.1" fill="currentColor" stroke="none"/><circle cx="3" cy="6" r="1.1" fill="currentColor" stroke="none"/>',
+  reshape:'<path d="M2 12.5 6.5 4l4 6 3-4"/><rect x="5.4" y="2.9" width="2.2" height="2.2" fill="currentColor" stroke="none"/>',
+  addVertex:'<path d="M2 12 12.5 8"/><circle cx="7" cy="10" r="1.6" fill="currentColor" stroke="none"/><path d="M12 2.5v4M10 4.5h4"/>',
+  delVertex:'<path d="M2 12 12.5 8"/><circle cx="7" cy="10" r="1.6" fill="currentColor" stroke="none"/><path d="M10.5 3 14 6.5M14 3l-3.5 3.5"/>',
+  split:'<circle cx="4" cy="5" r="1.8"/><circle cx="4" cy="11" r="1.8"/><path d="M5.6 5.9 14 11M5.6 10.1 14 5"/>',
+  merge:'<path d="M2 4 6.5 8 2 12M14 4 9.5 8 14 12"/><path d="M6.5 8h3"/>',
+  offset:'<path d="M2 5.2h12M2 10.4h12"/><path d="M4 5.2v5.2M12 5.2v5.2" stroke-dasharray="1.5 1.5"/>',
+  move:'<path d="M8 2v12M2 8h12"/><path d="M8 2 6.4 3.8M8 2l1.6 1.8M8 14l-1.6-1.8M8 14l1.6-1.8M2 8l1.8-1.6M2 8l1.8 1.6M14 8l-1.8-1.6M14 8l-1.8 1.6"/>',
+  copy:'<rect x="2" y="2" width="8" height="8" rx="1"/><rect x="6" y="6" width="8" height="8" rx="1"/>',
+  owner:'<circle cx="8" cy="5.2" r="2.8"/><path d="M3 14a5 5 0 0 1 10 0"/>',
+  genPlots:'<rect x="2" y="2" width="12" height="12" rx="1"/><path d="M6 2v12M10 2v12M2 6h12M2 10h12"/>',
+  autoReplot:'<path d="M13.2 8a5.2 5.2 0 1 1-1.6-3.7"/><path d="M13.4 2.4v3.2h-3.2"/>',
+  snap:'<path d="M4.5 3v4.6a3.5 3.5 0 0 0 7 0V3H9v4.6a1 1 0 0 1-2 0V3z"/><path d="M4.5 3H7M9 3h2.5"/>',
+  ortho:'<g fill="currentColor" stroke="none"><circle cx="3" cy="3" r="1"/><circle cx="8" cy="3" r="1"/><circle cx="13" cy="3" r="1"/><circle cx="3" cy="8" r="1"/><circle cx="8" cy="8" r="1"/><circle cx="13" cy="8" r="1"/><circle cx="3" cy="13" r="1"/><circle cx="8" cy="13" r="1"/><circle cx="13" cy="13" r="1"/></g>',
+  eye:'<path d="M1 8s2.6-4.5 7-4.5S15 8 15 8s-2.6 4.5-7 4.5S1 8 1 8z"/><circle cx="8" cy="8" r="1.8"/>',
+  lock:'<rect x="3.5" y="7" width="9" height="6.5" rx="1"/><path d="M5.5 7V5a2.5 2.5 0 0 1 5 0v2"/>',
+  check:'<path d="M3 8l3.2 3.5L13 4"/>'
+};
+function svg(name){return '<svg class="i" viewBox="0 0 16 16">'+(ICONS[name]||'')+'</svg>';}
+document.querySelectorAll('[data-ic]').forEach(e=>e.insertAdjacentHTML('afterbegin',svg(e.dataset.ic)));
+
+/* ---------------- Layers panel ---------------- */
+const LAYERS=[
+  {id:'block', name:'Block Boundary', sw:'line', c:'#2f6bd8', on:true, lock:true},
+  {id:'roads', name:'Road Centerlines', sw:'line', c:'#e08a3c', on:true, lock:true},
+  {id:'cad',   name:'Intersecting Cadastral Parcels', sw:'dash', c:'#9aa0a8', on:true, lock:true},
+  {id:'build', name:'Existing Buildings', sw:'box', c:'#b8bcc2', on:true, lock:false},
+  {id:'proad', name:'Proposed Internal Roads', sw:'dash', c:'#e08a3c', on:true, lock:true},
+  {id:'cand',  name:'Candidate Replotted Parcels', sw:'box', c:'#bfe0b8', on:true, lock:true},
+  {id:'appr',  name:'Approved Replotted Parcels', sw:'box', c:'#dfe3e8', on:false, lock:true},
+  {id:'labels',name:'Allocation Labels', sw:'A', c:'#555', on:true, lock:true},
+  {id:'topo',  name:'Topology Issues', sw:'tri', c:'#d99a1c', on:true, lock:true},
+  {id:'guides',name:'Temporary Guides', sw:'dash', c:'#888', on:false, lock:true},
+];
+function swatch(t,c){
+  if(t==='line')return '<svg width="18" height="14"><line x1="1" y1="7" x2="17" y2="7" stroke="'+c+'" stroke-width="2.4"/></svg>';
+  if(t==='dash')return '<svg width="18" height="14"><line x1="1" y1="7" x2="17" y2="7" stroke="'+c+'" stroke-width="1.6" stroke-dasharray="3 2"/></svg>';
+  if(t==='box')return '<svg width="14" height="12"><rect x="1" y="1" width="12" height="10" rx="1" fill="'+c+'" stroke="#9aa0a8" stroke-width="1"/></svg>';
+  if(t==='tri')return '<svg width="14" height="13"><path d="M7 1 13 12H1z" fill="none" stroke="'+c+'" stroke-width="1.4"/><path d="M7 5v3" stroke="'+c+'" stroke-width="1.4"/><circle cx="7" cy="10" r=".8" fill="'+c+'"/></svg>';
+  if(t==='A')return '<span style="font-weight:700;color:'+c+';font-size:12px">A</span>';
+  return '';
+}
+const layersEl=document.getElementById('layers');
+LAYERS.forEach(L=>{
+  const row=document.createElement('div');
+  row.className='lay'+(L.on?'':' off');
+  row.innerHTML='<input type="checkbox" '+(L.on?'checked':'')+'>'
+    +'<span class="sw">'+swatch(L.sw,L.c)+'</span>'
+    +'<span class="nm" title="'+L.name+'">'+L.name+'</span>'
+    +'<span class="eye'+(L.on?'':' off')+'" title="Toggle visibility">'+svg('eye')+'</span>'
+    +'<span class="lock" title="Lock">'+(L.lock?svg('lock'):'')+'</span>';
+  layersEl.appendChild(row);
+  const cb=row.querySelector('input'), eye=row.querySelector('.eye');
+  function setVis(v){
+    const g=document.getElementById('ly-'+L.id); if(g)g.style.display=v?'':'none';
+    row.classList.toggle('off',!v); eye.classList.toggle('off',!v); cb.checked=v;
+  }
+  cb.addEventListener('change',()=>setVis(cb.checked));
+  eye.addEventListener('click',()=>setVis(!cb.checked));
+});
+
+/* ---------------- Workflow ---------------- */
+const WF=[['Boundary Confirmed',1],['Roads Confirmed',1],['Contribution Loaded',1],
+  ['Candidate Plots',0],['Owner Allocation',0],['Validation',0],['Approval',0]];
+const wfEl=document.getElementById('workflow');
+WF.forEach(([n,done])=>{
+  const r=document.createElement('div'); r.className='wf'+(done?' done':'');
+  r.innerHTML='<span class="tri">▶</span><span class="ck">'+(done?svg('check'):'')+'</span><span class="nm">'+n+'</span>';
+  wfEl.appendChild(r);
+});
+
+/* ---------------- Validation checks ---------------- */
+const VC=[['Block boundary closed & valid',1],['Road network continuous',1],['No self-intersections',1],
+  ['Frontage minimums met',1],['Area balance within tolerance',0],['All owners allocated',0],['Topology clean',1]];
+document.getElementById('vchecks').innerHTML=VC.map(([n,ok])=>
+  '<div style="display:flex;align-items:center;gap:8px;height:26px">'
+  +'<span style="color:'+(ok?'#2e9e4f':'#d99a1c')+'">'+(ok?'✔':'⚠')+'</span>'
+  +'<span style="color:'+(ok?'#2a3340':'#7a5a10')+'">'+n+'</span></div>').join('');
+
+/* ---------------- Canvas ---------------- */
+const NS='http://www.w3.org/2000/svg', cv=document.getElementById('canvas');
+function E(t,a,p,txt){const e=document.createElementNS(NS,t);for(const k in a)e.setAttribute(k,a[k]);
+  if(txt!=null)e.textContent=txt;(p||cv).appendChild(e);return e;}
+function G(id){return E('g',{id:'ly-'+id},cv);}
+
+// Block corners (irregular quad, wider at top)
+const TL=[120,82], TR=[700,64], BR=[742,486], BL=[150,500];
+function bl(u,v){const tx=TL[0]+(TR[0]-TL[0])*u, ty=TL[1]+(TR[1]-TL[1])*u,
+  bx=BL[0]+(BR[0]-BL[0])*u, by=BL[1]+(BR[1]-BL[1])*u;
+  return [tx+(bx-tx)*v, ty+(by-ty)*v];}
+
+// layer order (bottom -> top)
+const gCad=G('cad'), gRoads=G('roads'), gProad=G('proad'), gCand=G('cand'),
+      gBuild=G('build'), gAppr=G('appr'), gLabels=G('labels'), gBlock=G('block'),
+      gTopo=G('topo'), gGuides=G('guides'), gSel=E('g',{id:'ly-sel'},cv);
+
+// --- cadastral context (faint dashed neighbours + labels) ---
+[['C-204',300,46],['C-205',610,46],['C-198',74,232],['C-197',74,420],
+ ['C-210',772,250],['C-211',772,452],['C-196',250,548],['C-195',470,548],['C-194',650,548]]
+ .forEach(([t,x,y])=>E('text',{x,y,fill:'#9aa0a8','font-size':12,'text-anchor':'middle'},gCad,t));
+// a few faint neighbour parcel hints
+[['40,120 120,82 150,500 40,470'],['700,64 790,150 772,470 742,486'],
+ ['120,82 700,64 690,30 150,40'],['150,500 742,486 720,540 180,540']]
+ .forEach(p=>E('polygon',{points:p[0],fill:'none',stroke:'#cdd1d6','stroke-width':1,'stroke-dasharray':'5 4'},gCad));
+
+// --- roads around block (orange dashed centerlines, offset outside) ---
+function off(p,dx,dy){return (p[0]+dx)+','+(p[1]+dy);}
+E('polyline',{points:[off(TL,-16,-12),off(TR,16,-12)].join(' '),fill:'none',stroke:'#e08a3c','stroke-width':1.6,'stroke-dasharray':'8 5'},gRoads);
+E('polyline',{points:[off(TR,16,-12),off(BR,18,12)].join(' '),fill:'none',stroke:'#e08a3c','stroke-width':1.6,'stroke-dasharray':'8 5'},gRoads);
+E('polyline',{points:[off(BR,18,12),off(BL,-14,14)].join(' '),fill:'none',stroke:'#e08a3c','stroke-width':1.6,'stroke-dasharray':'8 5'},gRoads);
+E('polyline',{points:[off(BL,-14,14),off(TL,-16,-12)].join(' '),fill:'none',stroke:'#e08a3c','stroke-width':1.6,'stroke-dasharray':'8 5'},gRoads);
+
+// --- candidate parcels (4x4 grid following the quad) ---
+const fills=[
+ ['#e3f2e1','#9ccb96'],['#e3f2e1','#9ccb96'],['#f7e2e6','#e0a9b4'],['#faf3d8','#d8c47a'],
+ ['#e3f2e1','#9ccb96'],['#e7e4f5','#b3acd9'],['#e7e4f5','#b3acd9'],['#e3f2e1','#9ccb96'],
+ ['#e3f2e1','#9ccb96'],['#f7e2e6','#e0a9b4'],['#f7e2e6','#e0a9b4'],['#f7e2e6','#e0a9b4'],
+ ['#e3f2e1','#9ccb96'],['#e3f2e1','#9ccb96'],['#f7e2e6','#e0a9b4'],['#e3f2e1','#9ccb96']];
+const areas=[125.40,128.30,126.80,130.10, 122.10,123.20,125.40,129.60,
+             131.00,118.70,124.00,133.20, 127.90,121.50,130.80,128.60];
+const SEL=6; const cellCorners=[];
+for(let r=0;r<4;r++)for(let c=0;c<4;c++){
+  const i=r*4+c;
+  const a=bl(c/4,r/4), b=bl((c+1)/4,r/4), d=bl((c+1)/4,(r+1)/4), e=bl(c/4,(r+1)/4);
+  cellCorners[i]=[a,b,d,e];
+  E('polygon',{points:[a,b,d,e].map(p=>p.join(',')).join(' '),
+    fill:fills[i][0],stroke:fills[i][1],'stroke-width':1},gCand);
+  const cx=(a[0]+b[0]+d[0]+e[0])/4, cy=(a[1]+b[1]+d[1]+e[1])/4;
+  const id='R-07-'+String(i+1).padStart(3,'0');
+  E('text',{x:cx,y:cy-4,fill:'#2a3340','font-size':11.5,'text-anchor':'middle'},gLabels,id);
+  E('text',{x:cx,y:cy+11,fill:'#3a4350','font-size':10.5,'text-anchor':'middle','font-family':'Consolas'},gLabels,areas[i].toFixed(2)+' sqm');
+}
+
+// --- proposed internal roads (interior grid lines, orange dashed) ---
+for(let c=1;c<4;c++){const a=bl(c/4,0), b=bl(c/4,1);
+  E('line',{x1:a[0],y1:a[1],x2:b[0],y2:b[1],stroke:'#e08a3c','stroke-width':1.4,'stroke-dasharray':'7 4'},gProad);}
+for(let r=1;r<4;r++){const a=bl(0,r/4), b=bl(1,r/4);
+  E('line',{x1:a[0],y1:a[1],x2:b[0],y2:b[1],stroke:'#e08a3c','stroke-width':1.4,'stroke-dasharray':'7 4'},gProad);}
+
+// --- existing buildings (small gray squares) ---
+const bx=[[0,0.35],[1,0.6],[2,0.3],[3,0.55],[4,0.7],[5,0.35],[6,0.6],[7,0.3],
+          [8,0.65],[9,0.4],[10,0.55],[11,0.3],[12,0.6],[13,0.35],[14,0.5],[15,0.65]];
+bx.forEach(([i,t])=>{const cc=cellCorners[i];
+  const cx=(cc[0][0]+cc[1][0]+cc[2][0]+cc[3][0])/4, cy=(cc[0][1]+cc[1][1]+cc[2][1]+cc[3][1])/4;
+  const ox=(t-0.5)*40;
+  E('rect',{x:cx+ox-7,y:cy+16,width:13,height:11,fill:'#c4c8cd',stroke:'#a8adb3','stroke-width':.8},gBuild);});
+
+// --- block boundary + vertex circles ---
+E('polygon',{points:[TL,TR,BR,BL].map(p=>p.join(',')).join(' '),
+  fill:'none',stroke:'#2f6bd8','stroke-width':2.6},gBlock);
+function vtx(p){E('circle',{cx:p[0],cy:p[1],r:5,fill:'#fff',stroke:'#2f6bd8','stroke-width':2},gBlock);}
+[TL,TR,BR,BL].forEach(vtx);
+[[TL,TR],[TR,BR],[BR,BL],[BL,TL]].forEach(([a,b])=>vtx([(a[0]+b[0])/2,(a[1]+b[1])/2]));
+
+// --- topology issue markers (red triangles) ---
+function tri(p){E('path',{d:'M'+p[0]+' '+(p[1]-7)+' L'+(p[0]+7)+' '+(p[1]+6)+' L'+(p[0]-7)+' '+(p[1]+6)+' Z',
+  fill:'#fff5e0',stroke:'#d99a1c','stroke-width':1.3},gTopo);
+  E('text',{x:p[0],y:p[1]+4,fill:'#d99a1c','font-size':9,'text-anchor':'middle','font-weight':'700'},gTopo,'!');}
+[7,11,15].forEach(i=>{const cc=cellCorners[i];tri([cc[1][0]-10,cc[1][1]+14]);});
+
+// --- selection: R-07-007 ---
+(function(){
+  const cc=cellCorners[SEL], [a,b,d,e]=cc;
+  E('polygon',{points:[a,b,d,e].map(p=>p.join(',')).join(' '),
+    fill:'rgba(80,150,235,.16)',stroke:'#2f6bd8','stroke-width':2},gSel);
+  const mids=[[a,b],[b,d],[d,e],[e,a]].map(([p,q])=>[(p[0]+q[0])/2,(p[1]+q[1])/2]);
+  [a,b,d,e].concat(mids).forEach(p=>
+    E('rect',{x:p[0]-4,y:p[1]-4,width:8,height:8,fill:'#fff',stroke:'#2f6bd8','stroke-width':1.6},gSel));
+  // circle handle on right edge
+  E('circle',{cx:mids[1][0],cy:mids[1][1],r:5,fill:'#fff',stroke:'#2f6bd8','stroke-width':2},gSel);
+  // magenta crosshair to the right
+  const cxp=b[0]+34, cyp=(b[1]+d[1])/2+8;
+  E('line',{x1:cxp-12,y1:cyp,x2:cxp+12,y2:cyp,stroke:'#e23bd0','stroke-width':1.6},gSel);
+  E('line',{x1:cxp,y1:cyp-12,x2:cxp,y2:cyp+12,stroke:'#e23bd0','stroke-width':1.6},gSel);
+})();
+
+/* ---------------- Interactions ---------------- */
+// tab groups
+document.querySelectorAll('.tabbar').forEach(bar=>{
+  bar.querySelectorAll('.tab').forEach(tab=>tab.addEventListener('click',()=>{
+    bar.querySelectorAll('.tab').forEach(t=>t.classList.remove('on'));
+    tab.classList.add('on');
+    const pane=document.getElementById(tab.dataset.tab);
+    if(pane){[...pane.parentElement.children].forEach(p=>p.classList.remove('on')); pane.classList.add('on');}
+  }));
+});
+// radio groups for nav + tools
+function radio(sel){const a=[...document.querySelectorAll(sel)];
+  a.forEach(b=>b.addEventListener('click',()=>{a.forEach(x=>x.classList.remove('on'));b.classList.add('on');}));}
+radio('.tb.nav');
+radio('.tb.tool');
+// snap / ortho toggles
+['snapBtn','orthoBtn'].forEach(id=>document.getElementById(id)
+  .addEventListener('click',e=>e.currentTarget.classList.toggle('on')));
+</script>
+</body>
+</html>

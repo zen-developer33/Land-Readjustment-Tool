@@ -121,6 +121,20 @@ namespace Land_Readjustment_Tool.UI.MapCanvas.Core
             return new RectangleD(left, bottom, right - left, top - bottom);
         }
 
+        public RectangleD GetClipWorldBounds(double worldMargin)
+        {
+            RectangleD visible = GetVisibleWorldBounds();
+            double margin = double.IsFinite(worldMargin) && worldMargin > 0.0
+                ? worldMargin
+                : 0.0;
+
+            return new RectangleD(
+                visible.Left - margin,
+                visible.Top - margin,
+                visible.Width + margin * 2.0,
+                visible.Height + margin * 2.0);
+        }
+
         public void SetViewport(PointD centerWorld, double zoomScale)
         {
             if (!double.IsFinite(centerWorld.X) ||

@@ -13,6 +13,8 @@ namespace Land_Readjustment_Tool.UI.MapCanvas.Models.Shapes
     /// </summary>
     public abstract class Shape : IShape
     {
+        private RectangleD? _cachedBounds;
+
         // Auto-property with backing field for Id
         public Guid Id { get; protected set; }
 
@@ -51,7 +53,18 @@ namespace Land_Readjustment_Tool.UI.MapCanvas.Models.Shapes
         }
 
         // Abstract members - must be implemented by concrete shapes
-        public abstract RectangleD GetBoundingBox();
+        protected abstract RectangleD ComputeBoundingBox();
+
+        public RectangleD GetBoundingBox()
+        {
+            return _cachedBounds ??= ComputeBoundingBox();
+        }
+
+        public void InvalidateBounds()
+        {
+            _cachedBounds = null;
+        }
+
         public abstract void Draw(Graphics g, Func<PointD, PointD> worldToScreen, bool isPreview = false);
         public abstract IShape Clone();
         public abstract bool ContainsPoint(PointD worldPoint, float tolerance);
@@ -68,6 +81,7 @@ namespace Land_Readjustment_Tool.UI.MapCanvas.Models.Shapes
         /// </remarks>
         public virtual void Translate(PointD delta)
         {
+            InvalidateBounds();
         }
 
         /// <summary>

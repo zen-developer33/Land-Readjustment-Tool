@@ -1378,9 +1378,6 @@ namespace Land_Readjustment_Tool.Services.Import
                     item => item.Name == layerName,
                     ct);
 
-            if (layer != null)
-                return layer;
-
             BlockLayoutPlanTargetLayerDefinition definition =
                 BlockLayoutPlanImportTargets.Find(layerName)
                 ?? new BlockLayoutPlanTargetLayerDefinition(
@@ -1391,6 +1388,12 @@ namespace Land_Readjustment_Tool.Services.Import
                     50,
                     1.2,
                     "Solid");
+
+            if (layer != null)
+            {
+                ApplyMissingApplicationTargetLayerStyle(layer, definition);
+                return layer;
+            }
 
             DateTime now = DateTime.Now;
             layer = new CanvasLayer
@@ -1424,6 +1427,95 @@ namespace Land_Readjustment_Tool.Services.Import
 
             await context.CanvasLayers.AddAsync(layer, ct);
             return layer;
+        }
+
+        private static void ApplyMissingApplicationTargetLayerStyle(
+            CanvasLayer layer,
+            BlockLayoutPlanTargetLayerDefinition definition)
+        {
+            bool changed = false;
+
+            if (!string.Equals(layer.LayerType, definition.LayerType, StringComparison.OrdinalIgnoreCase))
+            {
+                layer.LayerType = definition.LayerType;
+                changed = true;
+            }
+
+            if (string.IsNullOrWhiteSpace(layer.BorderColor))
+            {
+                layer.BorderColor = definition.BorderColor;
+                changed = true;
+            }
+
+            if (layer.LineWeight <= 0.0)
+            {
+                layer.LineWeight = definition.LineWeight;
+                changed = true;
+            }
+
+            if (string.IsNullOrWhiteSpace(layer.LineStyle))
+            {
+                layer.LineStyle = definition.LineStyle;
+                changed = true;
+            }
+
+            if (layer.LineTypeScale <= 0.0)
+            {
+                layer.LineTypeScale = 1.0;
+                changed = true;
+            }
+
+            if (!string.IsNullOrWhiteSpace(definition.FillColor))
+            {
+                bool missingFillStyle = string.IsNullOrWhiteSpace(layer.FillStyle);
+                bool missingFillColor = string.IsNullOrWhiteSpace(layer.FillColor);
+                if (missingFillStyle || (missingFillColor && string.Equals(layer.FillStyle, "None", StringComparison.OrdinalIgnoreCase)))
+                {
+                    layer.FillStyle = "Solid";
+                    changed = true;
+                }
+
+                if (missingFillColor &&
+                    !string.Equals(layer.FillStyle, "None", StringComparison.OrdinalIgnoreCase))
+                {
+                    layer.FillColor = definition.FillColor;
+                    changed = true;
+                }
+            }
+            else if (string.IsNullOrWhiteSpace(layer.FillStyle))
+            {
+                layer.FillStyle = "None";
+                changed = true;
+            }
+
+            if (layer.FillTransparency < 0 || layer.FillTransparency > 100)
+            {
+                layer.FillTransparency = definition.FillTransparency;
+                changed = true;
+            }
+
+            if (string.IsNullOrWhiteSpace(layer.LabelFontName))
+            {
+                layer.LabelFontName = "Nirmala UI";
+                changed = true;
+            }
+
+            if (layer.LabelFontSize <= 0.0)
+            {
+                layer.LabelFontSize = 1.0;
+                changed = true;
+            }
+
+            if (string.IsNullOrWhiteSpace(layer.TextAlignment))
+            {
+                layer.TextAlignment = "Center Middle";
+                changed = true;
+            }
+
+            if (changed)
+            {
+                layer.LastModifiedDate = DateTime.Now;
+            }
         }
 
         private static CanvasLayer CreateExternalLayer(

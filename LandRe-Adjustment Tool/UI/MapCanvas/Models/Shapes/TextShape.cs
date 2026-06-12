@@ -6,9 +6,28 @@ namespace Land_Readjustment_Tool.UI.MapCanvas.Models.Shapes
     public class TextShape : IShape
     {
         private static readonly Color SelectionColor = Color.FromArgb(0, 168, 232);
+        private RectangleD? _cachedBounds;
+        private PointD _position;
+        private string _text;
         public Guid Id { get; set; } = Guid.NewGuid();
-        public PointD Position { get; private set; }
-        public string Text { get; set; }
+        public PointD Position
+        {
+            get => _position;
+            private set
+            {
+                _position = value;
+                InvalidateBounds();
+            }
+        }
+        public string Text
+        {
+            get => _text;
+            set
+            {
+                _text = value;
+                InvalidateBounds();
+            }
+        }
         public Font Font { get; }
         public string HorizontalAlignment { get; }
         public Color BorderColor { get; set; } = Color.Black;
@@ -29,13 +48,23 @@ namespace Land_Readjustment_Tool.UI.MapCanvas.Models.Shapes
 
         public TextShape(PointD position, string text, Font? font = null, string horizontalAlignment = "Left")
         {
-            Position = position;
-            Text = text;
+            _position = position;
+            _text = text;
             Font = font ?? SystemFonts.DefaultFont;
             HorizontalAlignment = NormalizeHorizontalAlignment(horizontalAlignment);
         }
 
         public RectangleD GetBoundingBox()
+        {
+            return _cachedBounds ??= ComputeBoundingBox();
+        }
+
+        public void InvalidateBounds()
+        {
+            _cachedBounds = null;
+        }
+
+        private RectangleD ComputeBoundingBox()
         {
             // Estimate based on font metrics; canvas hit-testing uses LastRenderedBounds.
             SizeF approx = TextRenderer.MeasureText(

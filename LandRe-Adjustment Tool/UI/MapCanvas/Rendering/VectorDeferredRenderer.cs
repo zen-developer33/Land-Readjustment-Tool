@@ -13,7 +13,7 @@ namespace Land_Readjustment_Tool.UI.MapCanvas.Rendering
     /// </summary>
     public sealed class VectorDeferredRenderer : IDisposable
     {
-        private const int LevelOfDetailThreshold = 1_000;
+        private const int LevelOfDetailThreshold = 20_000;
         private readonly object _sync = new();
         private readonly List<Bitmap> _retiredBitmaps = new List<Bitmap>();
         private Bitmap? _vectorCache;

@@ -1,4 +1,5 @@
 using System.Drawing.Drawing2D;
+using Land_Readjustment_Tool.UI.MapCanvas.Models.Shapes;
 
 namespace Land_Readjustment_Tool.UI.MapCanvas.Rendering
 {
@@ -13,7 +14,8 @@ namespace Land_Readjustment_Tool.UI.MapCanvas.Rendering
             double zoomScale,
             bool antiAliasingEnabled = true,
             bool isPreview = false,
-            bool selectionDecorationOnly = false)
+            bool selectionDecorationOnly = false,
+            RectangleD? clipWorldBounds = null)
         {
             _penCache = penCache;
             _brushCache = brushCache;
@@ -21,6 +23,7 @@ namespace Land_Readjustment_Tool.UI.MapCanvas.Rendering
             AntiAliasingEnabled = antiAliasingEnabled;
             IsPreview = isPreview;
             SelectionDecorationOnly = selectionDecorationOnly;
+            ClipWorldBounds = clipWorldBounds;
         }
 
         public double ZoomScale { get; }
@@ -28,6 +31,8 @@ namespace Land_Readjustment_Tool.UI.MapCanvas.Rendering
         public bool AntiAliasingEnabled { get; }
 
         public bool IsPreview { get; }
+
+        public RectangleD? ClipWorldBounds { get; }
 
         /// <summary>
         /// When true, only selection decoration (highlight glow / selection
