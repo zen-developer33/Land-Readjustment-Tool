@@ -5,11 +5,13 @@ namespace Land_Readjustment_Tool.UI.Forms.Definitions
     internal sealed partial class frmBlockDefinitionEditor : Form
     {
         private readonly Block _block;
+        private readonly bool _readOnlyMode;
 
         public Block Block => _block;
 
-        public frmBlockDefinitionEditor(Block? block)
+        public frmBlockDefinitionEditor(Block? block, bool readOnlyMode = false)
         {
+            _readOnlyMode = readOnlyMode;
             _block = block == null
                 ? new Block { BlockLandUse = "Residential" }
                 : new Block
@@ -30,6 +32,7 @@ namespace Land_Readjustment_Tool.UI.Forms.Definitions
             InitializeComponent();
             Text = _block.Id == 0 ? "Add Block Definition" : "Edit Block Definition";
             LoadValues();
+            ApplyReadOnlyMode();
             RecordFormTheme.Apply(this);
         }
 
@@ -52,6 +55,13 @@ namespace Land_Readjustment_Tool.UI.Forms.Definitions
 
         private void btnOk_Click(object? sender, EventArgs e)
         {
+            if (_readOnlyMode)
+            {
+                DialogResult = DialogResult.Cancel;
+                Close();
+                return;
+            }
+
             string name = txtName.Text.Trim();
             string type = cboType.Text.Trim();
             string code = txtCode.Text.Trim();
@@ -80,6 +90,23 @@ namespace Land_Readjustment_Tool.UI.Forms.Definitions
             _block.Description = string.IsNullOrWhiteSpace(txtDescription.Text)
                 ? null
                 : txtDescription.Text.Trim();
+        }
+
+        private void ApplyReadOnlyMode()
+        {
+            if (!_readOnlyMode)
+                return;
+
+            Text = "Block Definition (Read-Only)";
+            txtCode.ReadOnly = true;
+            txtName.ReadOnly = true;
+            txtDescription.ReadOnly = true;
+            cboType.Enabled = false;
+            nudDepth.Enabled = false;
+            nudLength.Enabled = false;
+            btnSave.Enabled = false;
+            btnCancel.Text = "Close";
+            AcceptButton = null;
         }
     }
 }

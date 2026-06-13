@@ -6724,8 +6724,7 @@ namespace Land_Readjustment_Tool.UI.CustomControls
         {
             _currentSelectionViewEditKind = ResolveSelectionLinkedDataKind();
             _mnuViewEditData.Text = GetViewEditDataMenuText(_currentSelectionViewEditKind);
-            _mnuViewEditData.Enabled = !_applicationEditLocked &&
-                                       _currentSelectionViewEditKind.HasValue;
+            _mnuViewEditData.Enabled = _currentSelectionViewEditKind.HasValue;
         }
 
         private static string GetViewEditDataMenuText(CanvasObjectAssignmentKind? assignmentKind)
@@ -6895,12 +6894,6 @@ namespace Land_Readjustment_Tool.UI.CustomControls
 
         private void RequestViewEditDataForSelectedObjects()
         {
-            if (_applicationEditLocked)
-            {
-                NotifyEditLocked();
-                return;
-            }
-
             CanvasObjectAssignmentKind? assignmentKind =
                 _currentSelectionViewEditKind ?? ResolveSelectionLinkedDataKind();
             if (!assignmentKind.HasValue)

@@ -14429,9 +14429,6 @@ namespace Land_Readjustment_Tool
         private async void MapCanvasControlMain_SelectedObjectsViewEditDataRequested(
             CanvasObjectAssignmentKind assignmentKind)
         {
-            if (!EnsureApplicationUnlockedForEditing("editing linked data"))
-                return;
-
             try
             {
                 switch (assignmentKind)
@@ -14451,7 +14448,7 @@ namespace Land_Readjustment_Tool
             {
                 MessageBox.Show(
                     this,
-                    $"Could not open linked data for editing: {ex.Message}",
+                    $"Could not open linked data: {ex.Message}",
                     "View/Edit Data",
                     MessageBoxButtons.OK,
                     MessageBoxIcon.Error);
@@ -14494,7 +14491,11 @@ namespace Land_Readjustment_Tool
                 parcel.Id,
                 landRecordsService.ParcelExists,
                 ownerFieldsReadOnly: true);
+            editor.ReadOnlyMode = _isApplicationEditLocked;
             if (editor.ShowDialog(this) != DialogResult.OK)
+                return;
+
+            if (_isApplicationEditLocked)
                 return;
 
             if (editor.IsDeleted)
@@ -14559,8 +14560,13 @@ namespace Land_Readjustment_Tool
                 return;
             }
 
-            using var editor = new frmRoadDefinitionEditor(road);
+            using var editor = new frmRoadDefinitionEditor(
+                road,
+                readOnlyMode: _isApplicationEditLocked);
             if (editor.ShowDialog(this) != DialogResult.OK)
+                return;
+
+            if (_isApplicationEditLocked)
                 return;
 
             Core.Entities.Layout.Road edited = editor.Road;
@@ -14602,8 +14608,13 @@ namespace Land_Readjustment_Tool
                 return;
             }
 
-            using var editor = new frmBlockDefinitionEditor(block);
+            using var editor = new frmBlockDefinitionEditor(
+                block,
+                readOnlyMode: _isApplicationEditLocked);
             if (editor.ShowDialog(this) != DialogResult.OK)
+                return;
+
+            if (_isApplicationEditLocked)
                 return;
 
             Core.Entities.Layout.Block edited = editor.Block;

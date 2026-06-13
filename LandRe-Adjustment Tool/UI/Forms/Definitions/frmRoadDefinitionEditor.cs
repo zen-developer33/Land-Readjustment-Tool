@@ -5,11 +5,13 @@ namespace Land_Readjustment_Tool.UI.Forms.Definitions
     internal sealed partial class frmRoadDefinitionEditor : Form
     {
         private readonly Road _road;
+        private readonly bool _readOnlyMode;
 
         public Road Road => _road;
 
-        public frmRoadDefinitionEditor(Road? road)
+        public frmRoadDefinitionEditor(Road? road, bool readOnlyMode = false)
         {
+            _readOnlyMode = readOnlyMode;
             _road = road == null
                 ? new Road { SurfaceType = "Earthen" }
                 : new Road
@@ -30,6 +32,7 @@ namespace Land_Readjustment_Tool.UI.Forms.Definitions
             InitializeComponent();
             Text = _road.Id == 0 ? "Add Road Definition" : "Edit Road Definition";
             LoadValues();
+            ApplyReadOnlyMode();
             RecordFormTheme.Apply(this);
         }
 
@@ -61,6 +64,13 @@ namespace Land_Readjustment_Tool.UI.Forms.Definitions
 
         private void btnOk_Click(object? sender, EventArgs e)
         {
+            if (_readOnlyMode)
+            {
+                DialogResult = DialogResult.Cancel;
+                Close();
+                return;
+            }
+
             string code = txtCode.Text.Trim();
             if (string.IsNullOrWhiteSpace(code))
             {
@@ -88,6 +98,25 @@ namespace Land_Readjustment_Tool.UI.Forms.Definitions
             _road.Description = string.IsNullOrWhiteSpace(txtDescription.Text)
                 ? null
                 : txtDescription.Text.Trim();
+        }
+
+        private void ApplyReadOnlyMode()
+        {
+            if (!_readOnlyMode)
+                return;
+
+            Text = _road.Id == 0
+                ? "Road Definition (Read-Only)"
+                : "Road Definition (Read-Only)";
+            txtCode.ReadOnly = true;
+            txtName.ReadOnly = true;
+            txtDescription.ReadOnly = true;
+            cboType.Enabled = false;
+            cboSurface.Enabled = false;
+            nudRowWidth.Enabled = false;
+            btnSave.Enabled = false;
+            btnCancel.Text = "Close";
+            AcceptButton = null;
         }
     }
 }

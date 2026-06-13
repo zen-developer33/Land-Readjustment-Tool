@@ -815,15 +815,18 @@ namespace Land_Readjustment_Tool.UI.MapCanvas.Rendering
             {
                 graphics.SmoothingMode = SmoothingMode.AntiAlias;
                 float effectiveStroke = Math.Max(0.25f, strokeWidth);
-                foreach ((float extraWidth, int alpha) in SelectionOutlineGlowBands)
+                if (!IsLinearSelectionOutline(path))
                 {
-                    float selectionWidth = effectiveStroke + extraWidth;
-                    Pen glowPen = context.GetPen(
-                        Color.FromArgb(alpha, SelectionGlowColor),
-                        selectionWidth,
-                        style.DashStyle,
-                        GetSelectionDashScale(style.LineTypeScale, effectiveStroke, selectionWidth));
-                    graphics.DrawPath(glowPen, path);
+                    foreach ((float extraWidth, int alpha) in SelectionOutlineGlowBands)
+                    {
+                        float selectionWidth = effectiveStroke + extraWidth;
+                        Pen glowPen = context.GetPen(
+                            Color.FromArgb(alpha, SelectionGlowColor),
+                            selectionWidth,
+                            style.DashStyle,
+                            GetSelectionDashScale(style.LineTypeScale, effectiveStroke, selectionWidth));
+                        graphics.DrawPath(glowPen, path);
+                    }
                 }
 
                 Pen centerPen = context.GetPen(
@@ -841,6 +844,18 @@ namespace Land_Readjustment_Tool.UI.MapCanvas.Rendering
             {
                 graphics.Restore(state);
             }
+        }
+
+        private static bool IsLinearSelectionOutline(GraphicsPath path)
+        {
+            PointF[] points = path.PathPoints;
+            if (points.Length < 2)
+            {
+                return false;
+            }
+
+            byte[] types = path.PathTypes;
+            return (types[^1] & (byte)PathPointType.CloseSubpath) == 0;
         }
 
         private static float GetSelectionDashScale(
