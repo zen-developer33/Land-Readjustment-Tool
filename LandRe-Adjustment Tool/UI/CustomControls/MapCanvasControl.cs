@@ -22,28 +22,6 @@ using NtsPrecisionModel = NetTopologySuite.Geometries.PrecisionModel;
 
 namespace Land_Readjustment_Tool.UI.CustomControls
 {
-    public enum CanvasObjectAssignmentKind
-    {
-        Parcel,
-        Road,
-        Block
-    }
-
-    public sealed class CanvasCreateFeaturesMenuOpeningEventArgs : EventArgs
-    {
-        public CanvasCreateFeaturesMenuOpeningEventArgs(
-            IReadOnlyList<Guid> selectedObjectIds,
-            ToolStripMenuItem menuItem)
-        {
-            SelectedObjectIds = selectedObjectIds;
-            MenuItem = menuItem;
-        }
-
-        public IReadOnlyList<Guid> SelectedObjectIds { get; }
-
-        public ToolStripMenuItem MenuItem { get; }
-    }
-
     public partial class MapCanvasControl : UserControl
     {
         private enum ArcDrawingMode
@@ -156,6 +134,10 @@ namespace Land_Readjustment_Tool.UI.CustomControls
         private bool _vectorCacheRefreshPending;
         private int _renderUpdateBatchDepth;
         private bool _renderRequestPending;
+        private int _cacheRefreshBatchDepth;
+        private bool _rasterCacheRefreshDeferred;
+        private bool _deferredRasterEndZoomWhenComplete;
+        private bool _vectorCacheRefreshDeferred;
         private volatile bool _liveTileRefreshPending;
         private bool _showDebugOverlay = DefaultShowDebugOverlay;
         private long _debugFrameNumber;
@@ -170,6 +152,8 @@ namespace Land_Readjustment_Tool.UI.CustomControls
         private Bitmap? _compositePanBitmap;
         private Bitmap? _gridPanBitmap;
         private Bitmap? _refreshHoldFrame;
+        private bool _suppressContentUntilReady = true;
+        private bool _hasShownContentFrame;
         private GridPanPadding _gridPanPadding;
         private bool _snapEnabled = true;
         private bool _orthoModeEnabled;
@@ -416,6 +400,36 @@ namespace Land_Readjustment_Tool.UI.CustomControls
             return new RenderUpdateBatchScope(this);
         }
 
+        public IDisposable DeferCacheRefreshes()
+        {
+            return new CacheRefreshBatchScope(this);
+        }
+
+        public void ShowCanvasContent()
+        {
+            if (!_suppressContentUntilReady)
+            {
+                return;
+            }
+
+            _suppressContentUntilReady = false;
+            _hasShownContentFrame = true;
+            RequestRender();
+        }
+
+        public void SuppressCanvasContentUntilReady()
+        {
+            _hasShownContentFrame = false;
+
+            if (_suppressContentUntilReady)
+            {
+                return;
+            }
+
+            _suppressContentUntilReady = true;
+            RequestRender();
+        }
+
         private void BeginRenderUpdateBatch()
         {
             if (_renderUpdateBatchDepth == 0)
@@ -440,6 +454,49 @@ namespace Land_Readjustment_Tool.UI.CustomControls
             }
         }
 
+        private void BeginCacheRefreshBatch()
+        {
+            _cacheRefreshBatchDepth++;
+        }
+
+        private void EndCacheRefreshBatch()
+        {
+            if (_cacheRefreshBatchDepth <= 0)
+            {
+                _cacheRefreshBatchDepth = 0;
+                return;
+            }
+
+            _cacheRefreshBatchDepth--;
+            if (_cacheRefreshBatchDepth != 0)
+            {
+                return;
+            }
+
+            bool refreshRaster = _rasterCacheRefreshDeferred;
+            bool endRasterZoom = _deferredRasterEndZoomWhenComplete;
+            bool refreshVector = _vectorCacheRefreshDeferred;
+
+            _rasterCacheRefreshDeferred = false;
+            _deferredRasterEndZoomWhenComplete = false;
+            _vectorCacheRefreshDeferred = false;
+
+            if (refreshRaster)
+            {
+                RefreshRasterCacheForCurrentViewAsync(endRasterZoom);
+            }
+
+            if (refreshVector)
+            {
+                RefreshVectorCacheForCurrentViewAsync();
+            }
+
+            if (refreshRaster || refreshVector)
+            {
+                RequestRender();
+            }
+        }
+
         private sealed class RenderUpdateBatchScope : IDisposable
         {
             private readonly MapCanvasControl _owner;
@@ -458,6 +515,27 @@ namespace Land_Readjustment_Tool.UI.CustomControls
 
                 _disposed = true;
                 _owner.EndRenderUpdateBatch();
+            }
+        }
+
+        private sealed class CacheRefreshBatchScope : IDisposable
+        {
+            private readonly MapCanvasControl _owner;
+            private bool _disposed;
+
+            public CacheRefreshBatchScope(MapCanvasControl owner)
+            {
+                _owner = owner;
+                _owner.BeginCacheRefreshBatch();
+            }
+
+            public void Dispose()
+            {
+                if (_disposed)
+                    return;
+
+                _disposed = true;
+                _owner.EndCacheRefreshBatch();
             }
         }
 
@@ -1407,6 +1485,14 @@ namespace Land_Readjustment_Tool.UI.CustomControls
 
         private void canvasSurface_Paint(object? sender, PaintEventArgs e)
         {
+            if (DesignMode ||
+                LicenseManager.UsageMode == LicenseUsageMode.Designtime ||
+                _suppressContentUntilReady)
+            {
+                e.Graphics.Clear(canvasSurface.BackColor);
+                return;
+            }
+
             if (ShouldDrawRefreshHoldFrame())
             {
                 DrawRefreshHoldFrame(e.Graphics);
@@ -1415,10 +1501,17 @@ namespace Land_Readjustment_Tool.UI.CustomControls
 
             RenderCanvasFrame(e.Graphics, updateDebugTiming: true);
 
-            if (_refreshHoldFrame != null &&
+            bool contentSettled =
                 _renderUpdateBatchDepth == 0 &&
                 !_rasterCacheRefreshPending &&
-                !_vectorCacheRefreshPending)
+                !_vectorCacheRefreshPending;
+
+            if (contentSettled)
+            {
+                _hasShownContentFrame = true;
+            }
+
+            if (_refreshHoldFrame != null && contentSettled)
             {
                 ClearRefreshHoldFrame();
             }
@@ -1569,7 +1662,9 @@ namespace Land_Readjustment_Tool.UI.CustomControls
 
         private void CaptureRefreshHoldFrame()
         {
-            if (_refreshHoldFrame != null ||
+            if (_suppressContentUntilReady ||
+                !_hasShownContentFrame ||
+                _refreshHoldFrame != null ||
                 IsDisposed ||
                 Disposing ||
                 canvasSurface.IsDisposed ||
@@ -8481,6 +8576,15 @@ namespace Land_Readjustment_Tool.UI.CustomControls
                 return;
             }
 
+            if (_cacheRefreshBatchDepth > 0)
+            {
+                CancelPendingVectorRender();
+                _vectorRenderGeneration++;
+                _vectorCacheRefreshPending = false;
+                _vectorCacheRefreshDeferred = true;
+                return;
+            }
+
             if (_isPanning)
             {
                 return;
@@ -8553,6 +8657,16 @@ namespace Land_Readjustment_Tool.UI.CustomControls
         {
             if (IsDisposed || Disposing)
             {
+                return;
+            }
+
+            if (_cacheRefreshBatchDepth > 0)
+            {
+                CancelPendingRasterRender();
+                _rasterRenderGeneration++;
+                _rasterCacheRefreshPending = false;
+                _rasterCacheRefreshDeferred = true;
+                _deferredRasterEndZoomWhenComplete |= endZoomWhenComplete;
                 return;
             }
 

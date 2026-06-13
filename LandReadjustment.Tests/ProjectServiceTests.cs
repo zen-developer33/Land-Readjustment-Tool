@@ -38,6 +38,11 @@ public class ProjectServiceTests : IDisposable
         Assert.NotNull(settings);
         Assert.False(settings!.IsConfigured, "New project should start unconfigured");
         Assert.True(crsList.Count > 0, "CRS seed data should be present");
+        Assert.True(await TableExistsAsync(lppPath, "tblPolicySets"));
+        Assert.True(await TableExistsAsync(lppPath, "tblPolicyClauses"));
+        Assert.True(await TableExistsAsync(lppPath, "tblPolicyParameters"));
+        Assert.True(await TableExistsAsync(lppPath, "tblPolicyLookupTables"));
+        Assert.True(await TableExistsAsync(lppPath, "tblPolicyAttachments"));
     }
 
     [Fact]
@@ -109,6 +114,32 @@ public class ProjectServiceTests : IDisposable
         }
 
         return false;
+    }
+
+    private static async Task<bool> TableExistsAsync(
+        string dbPath,
+        string tableName)
+    {
+        SqliteConnectionStringBuilder builder = new()
+        {
+            DataSource = dbPath,
+            Pooling = false
+        };
+
+        await using SqliteConnection connection = new(builder.ToString());
+        await connection.OpenAsync();
+
+        await using SqliteCommand command = connection.CreateCommand();
+        command.CommandText = """
+            SELECT name
+            FROM sqlite_master
+            WHERE type = 'table' AND name = $tableName;
+            """;
+        command.Parameters.AddWithValue("$tableName", tableName);
+
+        object? result = await command.ExecuteScalarAsync();
+        return result is string existingName
+            && string.Equals(existingName, tableName, StringComparison.OrdinalIgnoreCase);
     }
 
     public void Dispose()

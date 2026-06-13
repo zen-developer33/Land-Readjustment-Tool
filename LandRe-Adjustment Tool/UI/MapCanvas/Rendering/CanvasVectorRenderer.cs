@@ -275,6 +275,50 @@ namespace Land_Readjustment_Tool.UI.MapCanvas.Rendering
         }
 
         /// <summary>
+        /// Live-renders a batch of transient shapes (e.g. the shapes being moved)
+        /// using a SINGLE shared pen/brush cache and render context, so per-frame
+        /// allocation stays flat regardless of how many shapes are moving.
+        /// </summary>
+        public void RenderTransientShapes(
+            Graphics graphics,
+            MapCanvasEngine engine,
+            IReadOnlyList<(IShape Shape, CanvasLayer? Layer, CanvasObject? CanvasObject)> shapes,
+            bool forceUnselected = false)
+        {
+            if (shapes == null || shapes.Count == 0)
+            {
+                return;
+            }
+
+            using PenCache penCache = new();
+            using BrushCache brushCache = new();
+            VectorRenderContext context = new(
+                penCache,
+                brushCache,
+                engine.ZoomScale,
+                antiAliasingEnabled: true,
+                isPreview: false,
+                clipWorldBounds: CreateClipWorldBounds(engine));
+
+            foreach ((IShape shape, CanvasLayer? layer, CanvasObject? canvasObject) in shapes)
+            {
+                if (shape == null)
+                {
+                    continue;
+                }
+
+                DrawShape(
+                    graphics,
+                    engine,
+                    shape,
+                    ResolveStyle(shape, layer, canvasObject),
+                    context,
+                    layer: layer,
+                    forceUnselected: forceUnselected);
+            }
+        }
+
+        /// <summary>
         /// Draws only the selection decoration (highlight glow for data-layer
         /// polygons, or the selection stroke for markup shapes) for a single
         /// selected feature, on top of the cached vector frame. Interior fills

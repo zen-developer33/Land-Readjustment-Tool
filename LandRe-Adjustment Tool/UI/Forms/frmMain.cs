@@ -1293,13 +1293,18 @@ namespace Land_Readjustment_Tool
                 mainSplitContainer.Visible = true;
             }
 
-            mapCanvasControlMain.RequestRender();
+            // Reveal canvas content only now that the saved viewport and layer caches are ready,
+            // so the default coordinate grid is never flashed during project loading.
+            mapCanvasControlMain.ShowCanvasContent();
         }
 
         private void UnloadProjectWorkspace()
         {
             CloseReplotWorkspace();
             mainSplitContainer.Visible = false;
+            // Re-arm the load gate so the next project that opens does not flash the default grid
+            // before its saved canvas state is restored.
+            mapCanvasControlMain.SuppressCanvasContentUntilReady();
             ClearCanvasUndoRedoHistory();
             DisableProjectMenuItems();
             _layerTreeService = null;
@@ -1699,8 +1704,15 @@ namespace Land_Readjustment_Tool
                 SetOperationProgress(65, "Loading project workspace");
 
                 InitializeProjectWorkspace();
-                await ApplySettingsAsync(showRefreshProgress: false);
-                await RefreshMapCanvasAsync("Opening project canvas", 75);
+
+                using (mapCanvasControlMain.DeferCacheRefreshes())
+                {
+                    await ApplySettingsAsync(showRefreshProgress: false);
+                    await RefreshMapCanvasAsync("Opening project canvas", 75);
+                }
+                // Reveal the canvas only after the initial refresh, so the empty grid is not
+                // shown while the new project workspace is still being built.
+                mapCanvasControlMain.ShowCanvasContent();
             }
             catch (Exception ex)
             {
@@ -1938,7 +1950,6 @@ namespace Land_Readjustment_Tool
                     mapCanvasControlMain.RequestRender();
                     SetCanvasCommandStatus("Canvas: Refreshed");
                     SetOperationProgress(100, "Canvas refreshed");
-                    await Task.Delay(250);
                 }
             }
             catch (Exception ex)
@@ -7060,12 +7071,16 @@ namespace Land_Readjustment_Tool
                 InitializeProjectWorkspace(showWorkspace: false);
                 await _rasterImportFileManagementService
                     .RepairRasterLayerReferencesAsync(context);
-                await _rasterImportFileManagementService
-                    .CleanupUnreferencedProjectRastersAsync(context);
-                await ApplySettingsAsync(showRefreshProgress: false);
-                await RestoreCanvasViewportStateAsync();
-                await RefreshMapCanvasAsync("Opening project canvas", 75);
+
+                using (mapCanvasControlMain.DeferCacheRefreshes())
+                {
+                    await ApplySettingsAsync(showRefreshProgress: false);
+                    await RestoreCanvasViewportStateAsync();
+                    await RefreshMapCanvasAsync("Opening project canvas", 75);
+                }
+
                 ShowProjectWorkspace();
+                SchedulePostOpenRasterCleanup(context);
             }
             catch (Exception ex)
             {
@@ -7079,6 +7094,35 @@ namespace Land_Readjustment_Tool
                     MessageBoxButtons.OK,
                     MessageBoxIcon.Error);
             }
+        }
+
+        private void SchedulePostOpenRasterCleanup(ProjectContext context)
+        {
+            if (IsDisposed || Disposing || !IsHandleCreated)
+                return;
+
+            BeginInvoke((System.Windows.Forms.MethodInvoker)(async () =>
+            {
+                if (IsDisposed ||
+                    Disposing ||
+                    !AppServices.HasContext ||
+                    !ReferenceEquals(AppServices.Context, context))
+                {
+                    return;
+                }
+
+                try
+                {
+                    await _rasterImportFileManagementService
+                        .CleanupUnreferencedProjectRastersAsync(context);
+                }
+                catch (Exception ex)
+                {
+                    LogProjectError(
+                        $"Deferred raster cleanup failed. Path={context.ProjectFilePath}",
+                        ex);
+                }
+            }));
         }
 
         private bool EnsureProjectFileCanBeOpened(string projectFilePath)
@@ -12607,7 +12651,6 @@ namespace Land_Readjustment_Tool
                 SetCanvasCommandStatus("Canvas: Refreshed");
 
                 SetOperationProgress(100, "Canvas refreshed", showProgressForm: false);
-                await Task.Delay(250);
             }
             finally
             {

@@ -232,6 +232,24 @@ namespace Land_Readjustment_Tool.UI.MapCanvas.Rendering
                 forceUnselected: forceUnselected);
         }
 
+        /// <summary>
+        /// Live-renders a batch of transient shapes (e.g. all shapes being moved)
+        /// with one shared render context.
+        /// </summary>
+        public void RenderTransientShapes(
+            Graphics graphics,
+            IReadOnlyList<(IShape Shape, CanvasLayer? Layer, CanvasObject? CanvasObject)> shapes,
+            bool forceUnselected = false)
+        {
+            if (shapes == null || shapes.Count == 0)
+            {
+                return;
+            }
+
+            ConfigureVectorGraphics(graphics);
+            _vectorRenderer.RenderTransientShapes(graphics, _engine, shapes, forceUnselected);
+        }
+
         public void InvalidateVectorCache()
         {
             _vectorDeferredRenderer.Invalidate();
