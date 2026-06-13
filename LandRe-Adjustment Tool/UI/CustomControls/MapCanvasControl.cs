@@ -3664,7 +3664,7 @@ namespace Land_Readjustment_Tool.UI.CustomControls
                 .Where(IsSelectableDrawingFeature)
                 .Where(feature =>
                 {
-                    NtsGeometry featureGeometry = CreateSelectionGeometry(feature.Shape);
+                    NtsGeometry featureGeometry = CreateSelectionGeometryForSketchTest(feature);
                     if (featureGeometry.IsEmpty)
                         return false;
 
@@ -6460,6 +6460,19 @@ namespace Land_Readjustment_Tool.UI.CustomControls
             }
 
             return selectionGeometry.Boundary;
+        }
+
+        private NtsGeometry CreateSelectionGeometryForSketchTest(CanvasFeature feature)
+        {
+            NtsGeometry selectionGeometry = CreateSelectionGeometry(feature.Shape);
+            if (selectionGeometry.IsEmpty)
+            {
+                return selectionGeometry;
+            }
+
+            return IsProjectBoundaryFeature(feature) && selectionGeometry.Area > 0
+                ? selectionGeometry.Boundary
+                : selectionGeometry;
         }
 
         private static double GetSelectionGeometryPickArea(NtsGeometry geometry)

@@ -1226,6 +1226,11 @@ namespace Land_Readjustment_Tool.UI.MapCanvas.Rendering
 
         private static bool IsDataLayerPolygonFeature(CanvasFeature? feature, IShape shape, CanvasLayer? layer = null)
         {
+            if (layer != null && CanvasLayerTreeService.IsProjectBoundaryLayer(layer))
+            {
+                return false;
+            }
+
             return shape.IsSelected &&
                    feature != null &&
                    string.Equals(feature.CanvasObject.ObjectType, "Polygon", StringComparison.OrdinalIgnoreCase) &&
