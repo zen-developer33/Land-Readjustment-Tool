@@ -37,18 +37,24 @@ namespace Land_Readjustment_Tool.UI.MapCanvas.Rendering
             {
                 case DashStyle.Dash:
                     pen.DashStyle = DashStyle.Custom;
+                    pen.DashCap = DashCap.Flat;
                     pen.DashPattern = [4f * scale, 2f * scale];
                     break;
                 case DashStyle.Dot:
                     pen.DashStyle = DashStyle.Custom;
-                    pen.DashPattern = [1f * scale, 2f * scale];
+                    pen.DashCap = DashCap.Round;
+                    pen.StartCap = LineCap.Round;
+                    pen.EndCap = LineCap.Round;
+                    pen.DashPattern = [0.1f, Math.Max(1.5f, 2f * scale)];
                     break;
                 case DashStyle.DashDot:
                     pen.DashStyle = DashStyle.Custom;
+                    pen.DashCap = DashCap.Flat;
                     pen.DashPattern = [4f * scale, 2f * scale, 1f * scale, 2f * scale];
                     break;
                 case DashStyle.DashDotDot:
                     pen.DashStyle = DashStyle.Custom;
+                    pen.DashCap = DashCap.Flat;
                     pen.DashPattern = [8f * scale, 3f * scale, 2f * scale, 3f * scale];
                     break;
                 default:

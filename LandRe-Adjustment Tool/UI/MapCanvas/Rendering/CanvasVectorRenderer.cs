@@ -27,7 +27,7 @@ namespace Land_Readjustment_Tool.UI.MapCanvas.Rendering
         private const double MinLabelZoomFactor = 0.1;
         private const double MaxLabelZoomFactor = 12.0;
         private const double DeepZoomLabelViewportWorldSpan = 0.5;
-        private static readonly Color SelectionStrokeColor = Color.FromArgb(0, 90, 255);
+        private static readonly Color SelectionStrokeColor = Color.FromArgb(0, 72, 255);
         private readonly Font _previewFont = new("Segoe UI", 8.0f, FontStyle.Bold);
         private readonly VectorFeatureSpatialIndex _featureSpatialIndex = new();
         private IReadOnlyList<CanvasFeature> _features = Array.Empty<CanvasFeature>();
@@ -764,23 +764,17 @@ namespace Land_Readjustment_Tool.UI.MapCanvas.Rendering
             // regardless of how thick the line weight is.
             if (drawSelectionGlow)
             {
-                DrawSelectionGlow(graphics, engine, shape, context, width);
+                DrawSelectionGlow(graphics, engine, shape, context, style, width);
             }
         }
 
         // Selection halo color — same pure blue as the selection stroke.
         private static readonly Color SelectionGlowColor = SelectionStrokeColor;
 
-        // Selection glow is sized RELATIVE to the object's own line weight so it
-        // is always visible past thick strokes: each band extends this many
-        // screen pixels beyond the stroke edge on BOTH sides. The object outline
-        // is drawn on top, so only the ring beyond the stroke shows, giving an
-        // AutoCAD-style halo that fades outward.
-        private const float SelectionGlowExtentPx = 2.0f;
-        private static readonly (float ExtraPerSide, int Alpha)[] SelectionGlowBands =
+        private static readonly (float ExtraWidth, int Alpha)[] SelectionOutlineGlowBands =
         {
-            (SelectionGlowExtentPx, 55),
-            (SelectionGlowExtentPx * 0.5f, 95)
+            (1.25f, 55),
+            (0.5f, 110)
         };
 
         private static void DrawSelectionGlow(
@@ -788,6 +782,7 @@ namespace Land_Readjustment_Tool.UI.MapCanvas.Rendering
             MapCanvasEngine engine,
             IShape shape,
             VectorRenderContext context,
+            VectorShapeStyle style,
             float strokeWidth)
         {
             using GraphicsPath? path = TryBuildSelectionOutlinePath(
@@ -805,56 +800,38 @@ namespace Land_Readjustment_Tool.UI.MapCanvas.Rendering
                 return;
             }
 
-            // Closed outlines (circle, ellipse, rectangle, polygon) need an
-            // even-odd fill so the widened band is a hollow concentric ring and
-            // does not flood the interior. Open outlines (line, arc, open
-            // polyline) use winding so the band stays solid across corners.
-            bool closedOutline = IsClosedSelectionOutline(shape);
-            System.Drawing.Drawing2D.FillMode bandFillMode = closedOutline
-                ? System.Drawing.Drawing2D.FillMode.Alternate
-                : System.Drawing.Drawing2D.FillMode.Winding;
+            DrawSelectionOutlineGlow(graphics, path, context, style, strokeWidth);
+        }
 
+        private static void DrawSelectionOutlineGlow(
+            Graphics graphics,
+            GraphicsPath path,
+            VectorRenderContext context,
+            VectorShapeStyle style,
+            float strokeWidth)
+        {
             GraphicsState state = graphics.Save();
             try
             {
                 graphics.SmoothingMode = SmoothingMode.AntiAlias;
-
                 float effectiveStroke = Math.Max(0.25f, strokeWidth);
-
-                foreach ((float extraPerSide, int alpha) in SelectionGlowBands)
+                foreach ((float extraWidth, int alpha) in SelectionOutlineGlowBands)
                 {
-                    // Band total width = the object's own stroke width plus this
-                    // band's extent on each side, so the glow always reaches
-                    // SelectionGlowExtentPx beyond the stroke edge regardless of
-                    // how thick the layer line weight is.
-                    float bandWidth = effectiveStroke + (extraPerSide * 2.0f);
-
-                    // Widen the outline into a closed band of the given width.
-                    // For open segments this yields a parallel band offset to
-                    // both sides; for closed circles/arcs it yields a concentric
-                    // ring around the original radius.
-                    using GraphicsPath band = (GraphicsPath)path.Clone();
-                    using Pen widenPen = new(Color.Empty, bandWidth)
-                    {
-                        LineJoin = LineJoin.Round,
-                        StartCap = LineCap.Round,
-                        EndCap = LineCap.Round
-                    };
-
-                    try
-                    {
-                        band.Widen(widenPen);
-                    }
-                    catch (OutOfMemoryException)
-                    {
-                        // GDI+ rejects degenerate geometry; skip this band.
-                        continue;
-                    }
-
-                    band.FillMode = bandFillMode;
-                    using SolidBrush brush = new(Color.FromArgb(alpha, SelectionGlowColor));
-                    graphics.FillPath(brush, band);
+                    float selectionWidth = effectiveStroke + extraWidth;
+                    Pen glowPen = context.GetPen(
+                        Color.FromArgb(alpha, SelectionGlowColor),
+                        selectionWidth,
+                        style.DashStyle,
+                        GetSelectionDashScale(style.LineTypeScale, effectiveStroke, selectionWidth));
+                    graphics.DrawPath(glowPen, path);
                 }
+
+                Pen centerPen = context.GetPen(
+                    SelectionStrokeColor,
+                    effectiveStroke,
+                    style.DashStyle,
+                    style.LineTypeScale);
+                graphics.DrawPath(centerPen, path);
             }
             catch (OutOfMemoryException)
             {
@@ -866,15 +843,21 @@ namespace Land_Readjustment_Tool.UI.MapCanvas.Rendering
             }
         }
 
-        private static bool IsClosedSelectionOutline(IShape shape) => shape switch
+        private static float GetSelectionDashScale(
+            float objectLineTypeScale,
+            float objectStrokeWidth,
+            float selectionStrokeWidth)
         {
-            CircleShape => true,
-            EllipseShape => true,
-            RectangleShape => true,
-            DonutPolygonShape => true,
-            PolylineShape polyline => polyline.IsClosed,
-            _ => false
-        };
+            if (selectionStrokeWidth <= 0.0f)
+            {
+                return objectLineTypeScale;
+            }
+
+            // GDI+ dash pattern values are multiplied by pen width. The selection
+            // glow pen is wider than the object pen, so compensate to preserve
+            // the object's effective linetype scale on screen.
+            return objectLineTypeScale * (objectStrokeWidth / selectionStrokeWidth);
+        }
 
         /// <summary>
         /// Builds a screen-space outline path for the supplied shape, used to
@@ -1236,8 +1219,8 @@ namespace Land_Readjustment_Tool.UI.MapCanvas.Rendering
                                       !CanvasLayerTreeService.IsExternalImportedLayer(layer)));
         }
 
-        // Selection highlight color: cyan-blue (R=0, G=168, B=232).
-        private static readonly Color SelectionHighlightColor = Color.FromArgb(0, 168, 232);
+        // High-contrast selection blue, tuned to stay visible over pastel map fills.
+        private static readonly Color SelectionHighlightColor = Color.FromArgb(0, 96, 255);
 
         private static void DrawCadastralParcelSelectionHighlight(
             Graphics graphics,
@@ -1253,19 +1236,19 @@ namespace Land_Readjustment_Tool.UI.MapCanvas.Rendering
             try
             {
                 // Transparent fill — slightly more visible than before.
-                using SolidBrush fillBrush = new(Color.FromArgb(55, SelectionHighlightColor));
+                using SolidBrush fillBrush = new(Color.FromArgb(105, SelectionHighlightColor));
                 graphics.FillPath(fillBrush, path);
 
                 // Inner glow — half the previous width, clipped so nothing bleeds outside.
                 float glowWidth = Math.Clamp(
-                    Math.Min(bounds.Width, bounds.Height) * 0.05f,
-                    2.0f,
-                    5.0f);
+                    Math.Min(bounds.Width, bounds.Height) * 0.065f,
+                    3.0f,
+                    7.0f);
 
                 graphics.SetClip(path, System.Drawing.Drawing2D.CombineMode.Intersect);
 
                 // Outer zone (25% opacity): covers full glowWidth inward from the border.
-                using Pen outerPen = new(Color.FromArgb(64, SelectionHighlightColor), glowWidth * 2f)
+                using Pen outerPen = new(Color.FromArgb(135, SelectionHighlightColor), glowWidth * 2.4f)
                 {
                     Alignment = PenAlignment.Center,
                     LineJoin = LineJoin.Round,
@@ -1275,7 +1258,7 @@ namespace Land_Readjustment_Tool.UI.MapCanvas.Rendering
                 graphics.DrawPath(outerPen, path);
 
                 // Near-border zone (75% opacity): tight band right at the border edge.
-                using Pen innerPen = new(Color.FromArgb(191, SelectionHighlightColor), glowWidth)
+                using Pen innerPen = new(Color.FromArgb(255, SelectionHighlightColor), glowWidth)
                 {
                     Alignment = PenAlignment.Center,
                     LineJoin = LineJoin.Round,

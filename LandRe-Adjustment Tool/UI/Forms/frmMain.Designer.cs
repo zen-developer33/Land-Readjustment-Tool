@@ -105,6 +105,20 @@ namespace Land_Readjustment_Tool
             missingGeometryReviewToolStripMenuItem = new ToolStripMenuItem();
             mapToolStripMenuItem = new ToolStripMenuItem();
             mapSelectToolStripMenuItem = new ToolStripMenuItem();
+            mapSelectPointerWindowToolStripMenuItem = new ToolStripMenuItem();
+            mapSelectPolygonToolStripMenuItem = new ToolStripMenuItem();
+            mapSelectIntersectPolyToolStripMenuItem = new ToolStripMenuItem();
+            mapSelectIntersectLineToolStripMenuItem = new ToolStripMenuItem();
+            mapSelectSep1 = new ToolStripSeparator();
+            mapSelectProjectBoundaryToolStripMenuItem = new ToolStripMenuItem();
+            mapSelectBlocksToolStripMenuItem = new ToolStripMenuItem();
+            mapSelectRoadsToolStripMenuItem = new ToolStripMenuItem();
+            mapSelectSep2 = new ToolStripSeparator();
+            mapSelectByAttributesToolStripMenuItem = new ToolStripMenuItem();
+            mapSelectSep3 = new ToolStripSeparator();
+            mapSelectByRecordsToolStripMenuItem = new ToolStripMenuItem();
+            mapSelectSep4 = new ToolStripSeparator();
+            mapSelectAllSelectableToolStripMenuItem = new ToolStripMenuItem();
             mapPanToolStripMenuItem = new ToolStripMenuItem();
             mapDrawToolStripMenuItem = new ToolStripMenuItem();
             mapDrawPointToolStripMenuItem = new ToolStripMenuItem();
@@ -246,7 +260,6 @@ namespace Land_Readjustment_Tool
             tsCanvasTools = new ToolStrip();
             tsmExpandCollapseLeftPanel = new ToolStripButton();
             toolStripSeparator10 = new ToolStripSeparator();
-            mnuSelectTool = new ToolStripButton();
             mnuDrawPoint = new ToolStripButton();
             mnuDrawLine = new ToolStripButton();
             mnuDrawPolyline = new ToolStripButton();
@@ -311,6 +324,11 @@ namespace Land_Readjustment_Tool
             toolStripSeparator15 = new ToolStripSeparator();
             toolStripSeparator16 = new ToolStripSeparator();
             tsProjectMenu = new ToolStrip();
+            mnuSelectTool = new ToolStripSplitButton();
+            mnuSelectPointerWindow = new ToolStripMenuItem();
+            mnuSelectPolygon = new ToolStripMenuItem();
+            mnuSelectIntersectingPoly = new ToolStripMenuItem();
+            mnuSelectIntersectingLine = new ToolStripMenuItem();
             mainMenuStrip.SuspendLayout();
             ((System.ComponentModel.ISupportInitialize)leftSplitContainer).BeginInit();
             leftSplitContainer.Panel1.SuspendLayout();
@@ -752,14 +770,106 @@ namespace Land_Readjustment_Tool
             // 
             // mapSelectToolStripMenuItem
             // 
+            mapSelectToolStripMenuItem.DropDownItems.AddRange(new ToolStripItem[] { mapSelectPointerWindowToolStripMenuItem, mapSelectPolygonToolStripMenuItem, mapSelectIntersectPolyToolStripMenuItem, mapSelectIntersectLineToolStripMenuItem, mapSelectSep1, mapSelectProjectBoundaryToolStripMenuItem, mapSelectBlocksToolStripMenuItem, mapSelectRoadsToolStripMenuItem, mapSelectSep2, mapSelectByAttributesToolStripMenuItem, mapSelectSep3, mapSelectByRecordsToolStripMenuItem, mapSelectSep4, mapSelectAllSelectableToolStripMenuItem });
             mapSelectToolStripMenuItem.Enabled = false;
             mapSelectToolStripMenuItem.Image = Properties.Resources.selection_Tool;
             mapSelectToolStripMenuItem.ImageTransparentColor = Color.Magenta;
             mapSelectToolStripMenuItem.Name = "mapSelectToolStripMenuItem";
-            mapSelectToolStripMenuItem.ShortcutKeyDisplayString = "S";
             mapSelectToolStripMenuItem.Size = new Size(229, 26);
             mapSelectToolStripMenuItem.Text = "Select";
-            mapSelectToolStripMenuItem.Click += mapSelectToolStripMenuItem_Click;
+            // 
+            // mapSelectPointerWindowToolStripMenuItem
+            // 
+            mapSelectPointerWindowToolStripMenuItem.Image = Properties.Resources.selection_Tool;
+            mapSelectPointerWindowToolStripMenuItem.ImageTransparentColor = Color.Magenta;
+            mapSelectPointerWindowToolStripMenuItem.Name = "mapSelectPointerWindowToolStripMenuItem";
+            mapSelectPointerWindowToolStripMenuItem.ShortcutKeyDisplayString = "S";
+            mapSelectPointerWindowToolStripMenuItem.Size = new Size(236, 26);
+            mapSelectPointerWindowToolStripMenuItem.Text = "Pointer/Window";
+            mapSelectPointerWindowToolStripMenuItem.ToolTipText = "Click to select one object; drag left-to-right to select contained objects, right-to-left to select crossing objects.";
+            // 
+            // mapSelectPolygonToolStripMenuItem
+            // 
+            mapSelectPolygonToolStripMenuItem.Name = "mapSelectPolygonToolStripMenuItem";
+            mapSelectPolygonToolStripMenuItem.Size = new Size(236, 26);
+            mapSelectPolygonToolStripMenuItem.Text = "Polygon";
+            mapSelectPolygonToolStripMenuItem.ToolTipText = "Sketch a polygon and select objects fully inside it.";
+            // 
+            // mapSelectIntersectPolyToolStripMenuItem
+            // 
+            mapSelectIntersectPolyToolStripMenuItem.Name = "mapSelectIntersectPolyToolStripMenuItem";
+            mapSelectIntersectPolyToolStripMenuItem.Size = new Size(236, 26);
+            mapSelectIntersectPolyToolStripMenuItem.Text = "Intersecting Poly";
+            mapSelectIntersectPolyToolStripMenuItem.ToolTipText = "Sketch a polygon and select objects intersecting it.";
+            // 
+            // mapSelectIntersectLineToolStripMenuItem
+            // 
+            mapSelectIntersectLineToolStripMenuItem.Name = "mapSelectIntersectLineToolStripMenuItem";
+            mapSelectIntersectLineToolStripMenuItem.Size = new Size(236, 26);
+            mapSelectIntersectLineToolStripMenuItem.Text = "Intersecting Line";
+            mapSelectIntersectLineToolStripMenuItem.ToolTipText = "Sketch a line and select objects intersecting it.";
+            // 
+            // mapSelectSep1
+            // 
+            mapSelectSep1.Name = "mapSelectSep1";
+            mapSelectSep1.Size = new Size(233, 6);
+            // 
+            // mapSelectProjectBoundaryToolStripMenuItem
+            // 
+            mapSelectProjectBoundaryToolStripMenuItem.Name = "mapSelectProjectBoundaryToolStripMenuItem";
+            mapSelectProjectBoundaryToolStripMenuItem.Size = new Size(236, 26);
+            mapSelectProjectBoundaryToolStripMenuItem.Text = "Project Boundary";
+            mapSelectProjectBoundaryToolStripMenuItem.ToolTipText = "Select the project boundary object.";
+            // 
+            // mapSelectBlocksToolStripMenuItem
+            // 
+            mapSelectBlocksToolStripMenuItem.Name = "mapSelectBlocksToolStripMenuItem";
+            mapSelectBlocksToolStripMenuItem.Size = new Size(236, 26);
+            mapSelectBlocksToolStripMenuItem.Text = "Blocks...";
+            mapSelectBlocksToolStripMenuItem.ToolTipText = "Open the block selector tool.";
+            // 
+            // mapSelectRoadsToolStripMenuItem
+            // 
+            mapSelectRoadsToolStripMenuItem.Name = "mapSelectRoadsToolStripMenuItem";
+            mapSelectRoadsToolStripMenuItem.Size = new Size(236, 26);
+            mapSelectRoadsToolStripMenuItem.Text = "Roads...";
+            mapSelectRoadsToolStripMenuItem.ToolTipText = "Open the road selector tool.";
+            // 
+            // mapSelectSep2
+            // 
+            mapSelectSep2.Name = "mapSelectSep2";
+            mapSelectSep2.Size = new Size(233, 6);
+            // 
+            // mapSelectByAttributesToolStripMenuItem
+            // 
+            mapSelectByAttributesToolStripMenuItem.Name = "mapSelectByAttributesToolStripMenuItem";
+            mapSelectByAttributesToolStripMenuItem.Size = new Size(236, 26);
+            mapSelectByAttributesToolStripMenuItem.Text = "By Object Attributes...";
+            mapSelectByAttributesToolStripMenuItem.ToolTipText = "Build a query to select objects by their attributes.";
+            // 
+            // mapSelectSep3
+            // 
+            mapSelectSep3.Name = "mapSelectSep3";
+            mapSelectSep3.Size = new Size(233, 6);
+            // 
+            // mapSelectByRecordsToolStripMenuItem
+            // 
+            mapSelectByRecordsToolStripMenuItem.Name = "mapSelectByRecordsToolStripMenuItem";
+            mapSelectByRecordsToolStripMenuItem.Size = new Size(236, 26);
+            mapSelectByRecordsToolStripMenuItem.Text = "By Records...";
+            mapSelectByRecordsToolStripMenuItem.ToolTipText = "Select objects from their parcel, road, or block records.";
+            // 
+            // mapSelectSep4
+            // 
+            mapSelectSep4.Name = "mapSelectSep4";
+            mapSelectSep4.Size = new Size(233, 6);
+            // 
+            // mapSelectAllSelectableToolStripMenuItem
+            // 
+            mapSelectAllSelectableToolStripMenuItem.Name = "mapSelectAllSelectableToolStripMenuItem";
+            mapSelectAllSelectableToolStripMenuItem.Size = new Size(236, 26);
+            mapSelectAllSelectableToolStripMenuItem.Text = "Select All Selectable...";
+            mapSelectAllSelectableToolStripMenuItem.ToolTipText = "Select every selectable object on visible, unlocked layers.";
             // 
             // mapPanToolStripMenuItem
             // 
@@ -2050,20 +2160,6 @@ namespace Land_Readjustment_Tool
             toolStripSeparator10.Name = "toolStripSeparator10";
             toolStripSeparator10.Size = new Size(6, 28);
             // 
-            // mnuSelectTool
-            // 
-            mnuSelectTool.Checked = true;
-            mnuSelectTool.CheckOnClick = true;
-            mnuSelectTool.CheckState = CheckState.Checked;
-            mnuSelectTool.DisplayStyle = ToolStripItemDisplayStyle.Image;
-            mnuSelectTool.Image = Properties.Resources.selection_Tool;
-            mnuSelectTool.ImageTransparentColor = Color.Magenta;
-            mnuSelectTool.Name = "mnuSelectTool";
-            mnuSelectTool.Size = new Size(29, 25);
-            mnuSelectTool.Text = "Select";
-            mnuSelectTool.ToolTipText = "Select (S)";
-            mnuSelectTool.Click += mnuSelectTool_Click;
-            // 
             // mnuDrawPoint
             // 
             mnuDrawPoint.CheckOnClick = true;
@@ -2133,6 +2229,7 @@ namespace Land_Readjustment_Tool
             mnuDrawPolygon.Name = "mnuDrawPolygon";
             mnuDrawPolygon.Size = new Size(29, 25);
             mnuDrawPolygon.Text = "Draw Polygon";
+            mnuDrawPolygon.ToolTipText = "Draw Polygon (O)";
             mnuDrawPolygon.Click += mnuDrawPolygon_Click;
             // 
             // mnuDrawCircle
@@ -2715,6 +2812,55 @@ namespace Land_Readjustment_Tool
             tsProjectMenu.TabIndex = 4;
             tsProjectMenu.Text = "Project Menu";
             // 
+            // mnuSelectTool
+            // 
+            mnuSelectTool.DisplayStyle = ToolStripItemDisplayStyle.Image;
+            mnuSelectTool.DropDownItems.AddRange(new ToolStripItem[] { mnuSelectPointerWindow, mnuSelectPolygon, mnuSelectIntersectingPoly, mnuSelectIntersectingLine });
+            mnuSelectTool.Image = Properties.Resources.selection_Tool;
+            mnuSelectTool.ImageTransparentColor = Color.Magenta;
+            mnuSelectTool.Name = "mnuSelectTool";
+            mnuSelectTool.Size = new Size(39, 25);
+            mnuSelectTool.Text = "Select";
+            mnuSelectTool.ToolTipText = "Select (S)";
+            mnuSelectTool.Click += mnuSelectTool_Click;
+            // 
+            // mnuSelectPointerWindow
+            // 
+            mnuSelectPointerWindow.Image = Properties.Resources.selection_Tool;
+            mnuSelectPointerWindow.ImageTransparentColor = Color.Magenta;
+            mnuSelectPointerWindow.Name = "mnuSelectPointerWindow";
+            mnuSelectPointerWindow.ShortcutKeyDisplayString = "S";
+            mnuSelectPointerWindow.Size = new Size(224, 26);
+            mnuSelectPointerWindow.Text = "Pointer/Window";
+            mnuSelectPointerWindow.ToolTipText = "Click to select one object; drag left-to-right to select contained objects, right-to-left to select crossing objects.";
+            // 
+            // mnuSelectPolygon
+            // 
+            mnuSelectPolygon.Image = Properties.Resources.icons8_polygon_24__1_;
+            mnuSelectPolygon.ImageTransparentColor = Color.Magenta;
+            mnuSelectPolygon.Name = "mnuSelectPolygon";
+            mnuSelectPolygon.Size = new Size(224, 26);
+            mnuSelectPolygon.Text = "Polygon";
+            mnuSelectPolygon.ToolTipText = "Sketch a polygon and select objects fully inside it.";
+            // 
+            // mnuSelectIntersectingPoly
+            // 
+            mnuSelectIntersectingPoly.Image = Properties.Resources.icons8_polygon_24__1_;
+            mnuSelectIntersectingPoly.ImageTransparentColor = Color.Magenta;
+            mnuSelectIntersectingPoly.Name = "mnuSelectIntersectingPoly";
+            mnuSelectIntersectingPoly.Size = new Size(224, 26);
+            mnuSelectIntersectingPoly.Text = "Intersecting Poly";
+            mnuSelectIntersectingPoly.ToolTipText = "Sketch a polygon and select objects intersecting it.";
+            // 
+            // mnuSelectIntersectingLine
+            // 
+            mnuSelectIntersectingLine.Image = Properties.Resources.icons8_line_24;
+            mnuSelectIntersectingLine.ImageTransparentColor = Color.Magenta;
+            mnuSelectIntersectingLine.Name = "mnuSelectIntersectingLine";
+            mnuSelectIntersectingLine.Size = new Size(224, 26);
+            mnuSelectIntersectingLine.Text = "Intersecting Line";
+            mnuSelectIntersectingLine.ToolTipText = "Sketch a line and select objects intersecting it.";
+            // 
             // frmMain
             // 
             AutoScaleMode = AutoScaleMode.None;
@@ -2922,7 +3068,6 @@ namespace Land_Readjustment_Tool
         private ToolStripButton tsmExpandCollapseRightPanel;
         private ToolStripSeparator toolStripSeparator10;
         private ToolStripSeparator toolStripSeparator11;
-        private ToolStripButton mnuSelectTool;
         private ToolStripButton mnuDrawPoint;
         private ToolStripButton mnuDrawLine;
         private ToolStripButton mnuDrawPolyline;
@@ -2975,6 +3120,20 @@ namespace Land_Readjustment_Tool
         private ToolStripMenuItem missingGeometryReviewToolStripMenuItem;
         private ToolStripMenuItem mapToolStripMenuItem;
         private ToolStripMenuItem mapSelectToolStripMenuItem;
+        private ToolStripMenuItem mapSelectPointerWindowToolStripMenuItem;
+        private ToolStripMenuItem mapSelectPolygonToolStripMenuItem;
+        private ToolStripMenuItem mapSelectIntersectPolyToolStripMenuItem;
+        private ToolStripMenuItem mapSelectIntersectLineToolStripMenuItem;
+        private ToolStripSeparator mapSelectSep1;
+        private ToolStripMenuItem mapSelectProjectBoundaryToolStripMenuItem;
+        private ToolStripMenuItem mapSelectBlocksToolStripMenuItem;
+        private ToolStripMenuItem mapSelectRoadsToolStripMenuItem;
+        private ToolStripSeparator mapSelectSep2;
+        private ToolStripMenuItem mapSelectByAttributesToolStripMenuItem;
+        private ToolStripSeparator mapSelectSep3;
+        private ToolStripMenuItem mapSelectByRecordsToolStripMenuItem;
+        private ToolStripSeparator mapSelectSep4;
+        private ToolStripMenuItem mapSelectAllSelectableToolStripMenuItem;
         private ToolStripMenuItem mapPanToolStripMenuItem;
         private ToolStripMenuItem mapDrawToolStripMenuItem;
         private ToolStripMenuItem mapDrawPointToolStripMenuItem;
@@ -3038,5 +3197,10 @@ namespace Land_Readjustment_Tool
         private ToolStripMenuItem openReplottingWorkspaceWindowToolStripMenuItem;
         private ToolStripMenuItem resetWorkspaceLayoutToolStripMenuItem;
         private ToolStripButton btnOriginalScenarioSummary;
+        private ToolStripSplitButton mnuSelectTool;
+        private ToolStripMenuItem mnuSelectPointerWindow;
+        private ToolStripMenuItem mnuSelectPolygon;
+        private ToolStripMenuItem mnuSelectIntersectingPoly;
+        private ToolStripMenuItem mnuSelectIntersectingLine;
     }
 }

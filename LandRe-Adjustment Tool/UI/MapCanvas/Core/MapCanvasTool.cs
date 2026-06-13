@@ -10,6 +10,9 @@ namespace Land_Readjustment_Tool.UI.MapCanvas.Core
         Rectangle,
         Circle,
         Arc,
-        Text
+        Text,
+        SelectionPolygon,
+        SelectionIntersectingPolygon,
+        SelectionIntersectingLine
     }
 }

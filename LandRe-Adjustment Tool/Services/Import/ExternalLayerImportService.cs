@@ -1190,11 +1190,38 @@ namespace Land_Readjustment_Tool.Services.Import
             if (string.IsNullOrWhiteSpace(value))
                 return null;
 
-            return value
+            string normalized = value
                 .Replace("\\P", " ")
+                .Replace("\\p", " ")
+                .Replace("\\~", " ")
+                .Replace("\\L", string.Empty)
+                .Replace("\\l", string.Empty)
+                .Replace("\\O", string.Empty)
+                .Replace("\\o", string.Empty)
                 .Replace("\r", " ")
                 .Replace("\n", " ")
                 .Trim();
+
+            normalized = System.Text.RegularExpressions.Regex.Replace(
+                normalized,
+                @"\{\\[^;{}]*;(?<text>[^{}]*)\}",
+                "${text}");
+            normalized = System.Text.RegularExpressions.Regex.Replace(
+                normalized,
+                @"\\[A-Za-z][^;\\{}]*;",
+                string.Empty);
+            normalized = System.Text.RegularExpressions.Regex.Replace(
+                normalized,
+                @"\\[A-Za-z]",
+                string.Empty);
+            normalized = normalized
+                .Replace("{", string.Empty)
+                .Replace("}", string.Empty)
+                .Trim();
+
+            return string.IsNullOrWhiteSpace(normalized)
+                ? null
+                : normalized;
         }
 
         private static IEnumerable<NtsGeometry> FlattenImportableGeometries(NtsGeometry geometry)
@@ -1272,16 +1299,58 @@ namespace Land_Readjustment_Tool.Services.Import
 
         private static string? ResolveLabel(IReadOnlyDictionary<string, string?> attributes)
         {
-            foreach (string key in new[] { "Name", "name", "Label", "label", "Description", "description" })
+            foreach (string key in new[]
+            {
+                "LabelText",
+                "labeltext",
+                "Text",
+                "text",
+                "TEXT",
+                "TextString",
+                "TEXTSTRING",
+                "String",
+                "string",
+                "Content",
+                "content",
+                "Name",
+                "name",
+                "Label",
+                "label",
+                "Description",
+                "description"
+            })
             {
                 if (attributes.TryGetValue(key, out string? value) &&
                     !string.IsNullOrWhiteSpace(value))
                 {
-                    return value.Trim();
+                    return NormalizeText(value);
                 }
             }
 
+            if (attributes.TryGetValue("OGR_STYLE", out string? styleLabel) &&
+                TryResolveOgrStyleText(styleLabel, out string? text))
+            {
+                return text;
+            }
+
             return null;
+        }
+
+        private static bool TryResolveOgrStyleText(string? style, out string? text)
+        {
+            text = null;
+            if (string.IsNullOrWhiteSpace(style))
+                return false;
+
+            System.Text.RegularExpressions.Match match = System.Text.RegularExpressions.Regex.Match(
+                style,
+                @"LABEL\s*\([^)]*\bt\s*:\s*""(?<text>(?:\\""|[^""])*)""",
+                System.Text.RegularExpressions.RegexOptions.IgnoreCase);
+            if (!match.Success)
+                return false;
+
+            text = NormalizeText(match.Groups["text"].Value.Replace("\\\"", "\""));
+            return !string.IsNullOrWhiteSpace(text);
         }
 
         private static async Task<Color> ResolveCanvasBackgroundColorAsync(
@@ -1551,9 +1620,12 @@ namespace Land_Readjustment_Tool.Services.Import
                 ShowFillTransparency = false,
                 FillTransparency = 55,
                 FillStyle = "None",
+                ShowLabels = annotation,
                 LabelColor = themeColor,
                 LabelFontName = "Nirmala UI",
                 LabelFontSize = annotation ? 10.0 : 1.0,
+                LabelField = annotation ? "LabelText" : null,
+                LabelScaleWithZoom = !annotation,
                 TextAlignment = "Center Middle",
                 PointSymbol = point ? "Circle" : "Dot",
                 PointSize = point ? 5.0 : 1.0,

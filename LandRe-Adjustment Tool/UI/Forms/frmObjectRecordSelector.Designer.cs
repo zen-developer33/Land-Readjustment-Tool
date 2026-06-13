@@ -44,6 +44,66 @@ namespace Land_Readjustment_Tool.UI.Forms
         private Button btnCancel;
         private Button btnApply;
 
+        // ── Replotted Parcels tab ───────────────────
+        private TableLayoutPanel replottedLayout;
+        private Panel searchPanelReplotted;
+        private Label lblSearchReplotted;
+        private TextBox txtSearchReplotted;
+        private Button btnClearSearchReplotted;
+        private FlowLayoutPanel selectionToolsPanelReplotted;
+        private Button btnSelectAllReplotted;
+        private Button btnSelectNoneReplotted;
+        private Button btnDeselectReplotted;
+        private Button btnInvertReplotted;
+        private DataGridView dgvReplottedParcels;
+        private DataGridViewCheckBoxColumn colReplottedSelected;
+        private DataGridViewTextBoxColumn colReplottedPlotNo;
+        private DataGridViewTextBoxColumn colReplottedBlock;
+        private DataGridViewTextBoxColumn colReplottedOwner;
+        private DataGridViewTextBoxColumn colReplottedArea;
+        private DataGridViewTextBoxColumn colReplottedLayer;
+        private DataGridViewTextBoxColumn colReplottedStatus;
+
+        // ── Blocks tab ──────────────────────────────
+        private TableLayoutPanel blocksLayout;
+        private Panel searchPanelBlocks;
+        private Label lblSearchBlocks;
+        private TextBox txtSearchBlocks;
+        private Button btnClearSearchBlocks;
+        private FlowLayoutPanel selectionToolsPanelBlocks;
+        private Button btnSelectAllBlocks;
+        private Button btnSelectNoneBlocks;
+        private Button btnDeselectBlocks;
+        private Button btnInvertBlocks;
+        private DataGridView dgvBlocks;
+        private DataGridViewCheckBoxColumn colBlockSelected;
+        private DataGridViewTextBoxColumn colBlockName;
+        private DataGridViewTextBoxColumn colBlockCode;
+        private DataGridViewTextBoxColumn colBlockLandUse;
+        private DataGridViewTextBoxColumn colBlockArea;
+        private DataGridViewTextBoxColumn colBlockLayer;
+        private DataGridViewTextBoxColumn colBlockStatus;
+
+        // ── Roads tab ───────────────────────────────
+        private TableLayoutPanel roadsLayout;
+        private Panel searchPanelRoads;
+        private Label lblSearchRoads;
+        private TextBox txtSearchRoads;
+        private Button btnClearSearchRoads;
+        private FlowLayoutPanel selectionToolsPanelRoads;
+        private Button btnSelectAllRoads;
+        private Button btnSelectNoneRoads;
+        private Button btnDeselectRoads;
+        private Button btnInvertRoads;
+        private DataGridView dgvRoads;
+        private DataGridViewCheckBoxColumn colRoadSelected;
+        private DataGridViewTextBoxColumn colRoadName;
+        private DataGridViewTextBoxColumn colRoadCode;
+        private DataGridViewTextBoxColumn colRoadType;
+        private DataGridViewTextBoxColumn colRoadWidth;
+        private DataGridViewTextBoxColumn colRoadLayer;
+        private DataGridViewTextBoxColumn colRoadStatus;
+
         protected override void Dispose(bool disposing)
         {
             if (disposing && components != null)
@@ -95,6 +155,60 @@ namespace Land_Readjustment_Tool.UI.Forms
             actionPanel = new FlowLayoutPanel();
             btnCancel = new Button();
             btnApply = new Button();
+            replottedLayout = new TableLayoutPanel();
+            searchPanelReplotted = new Panel();
+            lblSearchReplotted = new Label();
+            txtSearchReplotted = new TextBox();
+            btnClearSearchReplotted = new Button();
+            selectionToolsPanelReplotted = new FlowLayoutPanel();
+            btnSelectAllReplotted = new Button();
+            btnSelectNoneReplotted = new Button();
+            btnDeselectReplotted = new Button();
+            btnInvertReplotted = new Button();
+            dgvReplottedParcels = new DataGridView();
+            colReplottedSelected = new DataGridViewCheckBoxColumn();
+            colReplottedPlotNo = new DataGridViewTextBoxColumn();
+            colReplottedBlock = new DataGridViewTextBoxColumn();
+            colReplottedOwner = new DataGridViewTextBoxColumn();
+            colReplottedArea = new DataGridViewTextBoxColumn();
+            colReplottedLayer = new DataGridViewTextBoxColumn();
+            colReplottedStatus = new DataGridViewTextBoxColumn();
+            blocksLayout = new TableLayoutPanel();
+            searchPanelBlocks = new Panel();
+            lblSearchBlocks = new Label();
+            txtSearchBlocks = new TextBox();
+            btnClearSearchBlocks = new Button();
+            selectionToolsPanelBlocks = new FlowLayoutPanel();
+            btnSelectAllBlocks = new Button();
+            btnSelectNoneBlocks = new Button();
+            btnDeselectBlocks = new Button();
+            btnInvertBlocks = new Button();
+            dgvBlocks = new DataGridView();
+            colBlockSelected = new DataGridViewCheckBoxColumn();
+            colBlockName = new DataGridViewTextBoxColumn();
+            colBlockCode = new DataGridViewTextBoxColumn();
+            colBlockLandUse = new DataGridViewTextBoxColumn();
+            colBlockArea = new DataGridViewTextBoxColumn();
+            colBlockLayer = new DataGridViewTextBoxColumn();
+            colBlockStatus = new DataGridViewTextBoxColumn();
+            roadsLayout = new TableLayoutPanel();
+            searchPanelRoads = new Panel();
+            lblSearchRoads = new Label();
+            txtSearchRoads = new TextBox();
+            btnClearSearchRoads = new Button();
+            selectionToolsPanelRoads = new FlowLayoutPanel();
+            btnSelectAllRoads = new Button();
+            btnSelectNoneRoads = new Button();
+            btnDeselectRoads = new Button();
+            btnInvertRoads = new Button();
+            dgvRoads = new DataGridView();
+            colRoadSelected = new DataGridViewCheckBoxColumn();
+            colRoadName = new DataGridViewTextBoxColumn();
+            colRoadCode = new DataGridViewTextBoxColumn();
+            colRoadType = new DataGridViewTextBoxColumn();
+            colRoadWidth = new DataGridViewTextBoxColumn();
+            colRoadLayer = new DataGridViewTextBoxColumn();
+            colRoadStatus = new DataGridViewTextBoxColumn();
             mainLayout.SuspendLayout();
             headerPanel.SuspendLayout();
             tabRecords.SuspendLayout();
@@ -103,6 +217,21 @@ namespace Land_Readjustment_Tool.UI.Forms
             searchPanel.SuspendLayout();
             selectionToolsPanel.SuspendLayout();
             ((System.ComponentModel.ISupportInitialize)dgvOriginalParcels).BeginInit();
+            tabReplottedParcels.SuspendLayout();
+            replottedLayout.SuspendLayout();
+            searchPanelReplotted.SuspendLayout();
+            selectionToolsPanelReplotted.SuspendLayout();
+            ((System.ComponentModel.ISupportInitialize)dgvReplottedParcels).BeginInit();
+            tabBlocks.SuspendLayout();
+            blocksLayout.SuspendLayout();
+            searchPanelBlocks.SuspendLayout();
+            selectionToolsPanelBlocks.SuspendLayout();
+            ((System.ComponentModel.ISupportInitialize)dgvBlocks).BeginInit();
+            tabRoads.SuspendLayout();
+            roadsLayout.SuspendLayout();
+            searchPanelRoads.SuspendLayout();
+            selectionToolsPanelRoads.SuspendLayout();
+            ((System.ComponentModel.ISupportInitialize)dgvRoads).BeginInit();
             footerPanel.SuspendLayout();
             actionPanel.SuspendLayout();
             SuspendLayout();
@@ -445,6 +574,7 @@ namespace Land_Readjustment_Tool.UI.Forms
             // 
             // tabReplottedParcels
             // 
+            tabReplottedParcels.Controls.Add(replottedLayout);
             tabReplottedParcels.Location = new Point(4, 29);
             tabReplottedParcels.Name = "tabReplottedParcels";
             tabReplottedParcels.Padding = new Padding(10);
@@ -452,26 +582,553 @@ namespace Land_Readjustment_Tool.UI.Forms
             tabReplottedParcels.TabIndex = 1;
             tabReplottedParcels.Text = "Replotted Parcel Records";
             tabReplottedParcels.UseVisualStyleBackColor = true;
+            //
+            // replottedLayout
+            //
+            replottedLayout.ColumnCount = 1;
+            replottedLayout.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 100F));
+            replottedLayout.Controls.Add(searchPanelReplotted, 0, 0);
+            replottedLayout.Controls.Add(selectionToolsPanelReplotted, 0, 1);
+            replottedLayout.Controls.Add(dgvReplottedParcels, 0, 2);
+            replottedLayout.Dock = DockStyle.Fill;
+            replottedLayout.Location = new Point(10, 10);
+            replottedLayout.Name = "replottedLayout";
+            replottedLayout.RowCount = 3;
+            replottedLayout.RowStyles.Add(new RowStyle(SizeType.Absolute, 44F));
+            replottedLayout.RowStyles.Add(new RowStyle(SizeType.Absolute, 44F));
+            replottedLayout.RowStyles.Add(new RowStyle(SizeType.Percent, 100F));
+            replottedLayout.Size = new Size(862, 419);
+            replottedLayout.TabIndex = 0;
+            //
+            // searchPanelReplotted
+            //
+            searchPanelReplotted.Controls.Add(lblSearchReplotted);
+            searchPanelReplotted.Controls.Add(txtSearchReplotted);
+            searchPanelReplotted.Controls.Add(btnClearSearchReplotted);
+            searchPanelReplotted.Dock = DockStyle.Fill;
+            searchPanelReplotted.Location = new Point(0, 0);
+            searchPanelReplotted.Margin = new Padding(0);
+            searchPanelReplotted.Name = "searchPanelReplotted";
+            searchPanelReplotted.Size = new Size(862, 44);
+            searchPanelReplotted.TabIndex = 0;
+            //
+            // lblSearchReplotted
+            //
+            lblSearchReplotted.AutoSize = true;
+            lblSearchReplotted.Font = new Font("Segoe UI", 9F, FontStyle.Bold);
+            lblSearchReplotted.Location = new Point(0, 11);
+            lblSearchReplotted.Name = "lblSearchReplotted";
+            lblSearchReplotted.Size = new Size(56, 20);
+            lblSearchReplotted.TabIndex = 0;
+            lblSearchReplotted.Text = "Search";
+            //
+            // txtSearchReplotted
+            //
+            txtSearchReplotted.Anchor = AnchorStyles.Top | AnchorStyles.Left | AnchorStyles.Right;
+            txtSearchReplotted.Location = new Point(70, 7);
+            txtSearchReplotted.Name = "txtSearchReplotted";
+            txtSearchReplotted.PlaceholderText = "Plot no, block, owner, layer...";
+            txtSearchReplotted.Size = new Size(680, 27);
+            txtSearchReplotted.TabIndex = 1;
+            //
+            // btnClearSearchReplotted
+            //
+            btnClearSearchReplotted.Anchor = AnchorStyles.Top | AnchorStyles.Right;
+            btnClearSearchReplotted.Location = new Point(762, 5);
+            btnClearSearchReplotted.Name = "btnClearSearchReplotted";
+            btnClearSearchReplotted.Size = new Size(96, 31);
+            btnClearSearchReplotted.TabIndex = 2;
+            btnClearSearchReplotted.Text = "Clear";
+            btnClearSearchReplotted.UseVisualStyleBackColor = true;
+            //
+            // selectionToolsPanelReplotted
+            //
+            selectionToolsPanelReplotted.Controls.Add(btnSelectAllReplotted);
+            selectionToolsPanelReplotted.Controls.Add(btnSelectNoneReplotted);
+            selectionToolsPanelReplotted.Controls.Add(btnDeselectReplotted);
+            selectionToolsPanelReplotted.Controls.Add(btnInvertReplotted);
+            selectionToolsPanelReplotted.Dock = DockStyle.Fill;
+            selectionToolsPanelReplotted.Location = new Point(0, 44);
+            selectionToolsPanelReplotted.Margin = new Padding(0);
+            selectionToolsPanelReplotted.Name = "selectionToolsPanelReplotted";
+            selectionToolsPanelReplotted.Padding = new Padding(0, 5, 0, 0);
+            selectionToolsPanelReplotted.Size = new Size(862, 44);
+            selectionToolsPanelReplotted.TabIndex = 1;
+            //
+            // btnSelectAllReplotted
+            //
+            btnSelectAllReplotted.Margin = new Padding(0, 0, 8, 0);
+            btnSelectAllReplotted.Name = "btnSelectAllReplotted";
+            btnSelectAllReplotted.Size = new Size(96, 31);
+            btnSelectAllReplotted.TabIndex = 0;
+            btnSelectAllReplotted.Text = "Select All";
+            btnSelectAllReplotted.UseVisualStyleBackColor = true;
+            //
+            // btnSelectNoneReplotted
+            //
+            btnSelectNoneReplotted.Margin = new Padding(0, 0, 8, 0);
+            btnSelectNoneReplotted.Name = "btnSelectNoneReplotted";
+            btnSelectNoneReplotted.Size = new Size(102, 31);
+            btnSelectNoneReplotted.TabIndex = 1;
+            btnSelectNoneReplotted.Text = "Select None";
+            btnSelectNoneReplotted.UseVisualStyleBackColor = true;
+            //
+            // btnDeselectReplotted
+            //
+            btnDeselectReplotted.Margin = new Padding(0, 0, 8, 0);
+            btnDeselectReplotted.Name = "btnDeselectReplotted";
+            btnDeselectReplotted.Size = new Size(124, 31);
+            btnDeselectReplotted.TabIndex = 2;
+            btnDeselectReplotted.Text = "Deselect";
+            btnDeselectReplotted.UseVisualStyleBackColor = true;
+            //
+            // btnInvertReplotted
+            //
+            btnInvertReplotted.Margin = new Padding(0, 0, 8, 0);
+            btnInvertReplotted.Name = "btnInvertReplotted";
+            btnInvertReplotted.Size = new Size(132, 31);
+            btnInvertReplotted.TabIndex = 3;
+            btnInvertReplotted.Text = "Inverse Selection";
+            btnInvertReplotted.UseVisualStyleBackColor = true;
+            //
+            // dgvReplottedParcels
+            //
+            dgvReplottedParcels.AllowUserToAddRows = false;
+            dgvReplottedParcels.AllowUserToDeleteRows = false;
+            dgvReplottedParcels.AllowUserToResizeRows = false;
+            dgvReplottedParcels.ColumnHeadersHeightSizeMode = DataGridViewColumnHeadersHeightSizeMode.DisableResizing;
+            dgvReplottedParcels.Columns.AddRange(new DataGridViewColumn[] { colReplottedSelected, colReplottedPlotNo, colReplottedBlock, colReplottedOwner, colReplottedArea, colReplottedLayer, colReplottedStatus });
+            dgvReplottedParcels.Dock = DockStyle.Fill;
+            dgvReplottedParcels.Location = new Point(0, 88);
+            dgvReplottedParcels.Margin = new Padding(0);
+            dgvReplottedParcels.MultiSelect = true;
+            dgvReplottedParcels.Name = "dgvReplottedParcels";
+            dgvReplottedParcels.RowHeadersVisible = false;
+            dgvReplottedParcels.RowTemplate.Height = 30;
+            dgvReplottedParcels.SelectionMode = DataGridViewSelectionMode.FullRowSelect;
+            dgvReplottedParcels.Size = new Size(862, 331);
+            dgvReplottedParcels.TabIndex = 2;
+            //
+            // colReplottedSelected
+            //
+            colReplottedSelected.HeaderText = "";
+            colReplottedSelected.Name = "colReplottedSelected";
+            colReplottedSelected.Width = 42;
+            //
+            // colReplottedPlotNo
+            //
+            colReplottedPlotNo.HeaderText = "Plot No.";
+            colReplottedPlotNo.Name = "colReplottedPlotNo";
+            colReplottedPlotNo.ReadOnly = true;
+            colReplottedPlotNo.Width = 110;
+            //
+            // colReplottedBlock
+            //
+            colReplottedBlock.HeaderText = "Block";
+            colReplottedBlock.Name = "colReplottedBlock";
+            colReplottedBlock.ReadOnly = true;
+            colReplottedBlock.Width = 120;
+            //
+            // colReplottedOwner
+            //
+            colReplottedOwner.AutoSizeMode = DataGridViewAutoSizeColumnMode.Fill;
+            colReplottedOwner.HeaderText = "Owner";
+            colReplottedOwner.MinimumWidth = 150;
+            colReplottedOwner.Name = "colReplottedOwner";
+            colReplottedOwner.ReadOnly = true;
+            //
+            // colReplottedArea
+            //
+            colReplottedArea.HeaderText = "Area";
+            colReplottedArea.Name = "colReplottedArea";
+            colReplottedArea.ReadOnly = true;
+            colReplottedArea.Width = 120;
+            //
+            // colReplottedLayer
+            //
+            colReplottedLayer.HeaderText = "Layer";
+            colReplottedLayer.Name = "colReplottedLayer";
+            colReplottedLayer.ReadOnly = true;
+            colReplottedLayer.Width = 140;
+            //
+            // colReplottedStatus
+            //
+            colReplottedStatus.HeaderText = "Status";
+            colReplottedStatus.Name = "colReplottedStatus";
+            colReplottedStatus.ReadOnly = true;
+            colReplottedStatus.Width = 110;
             // 
             // tabBlocks
             // 
+            tabBlocks.Controls.Add(blocksLayout);
             tabBlocks.Location = new Point(4, 29);
             tabBlocks.Name = "tabBlocks";
             tabBlocks.Padding = new Padding(10);
             tabBlocks.Size = new Size(882, 439);
             tabBlocks.TabIndex = 2;
-            tabBlocks.Text = "Blocks";
+            tabBlocks.Text = "Block Data";
             tabBlocks.UseVisualStyleBackColor = true;
+            //
+            // blocksLayout
+            //
+            blocksLayout.ColumnCount = 1;
+            blocksLayout.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 100F));
+            blocksLayout.Controls.Add(searchPanelBlocks, 0, 0);
+            blocksLayout.Controls.Add(selectionToolsPanelBlocks, 0, 1);
+            blocksLayout.Controls.Add(dgvBlocks, 0, 2);
+            blocksLayout.Dock = DockStyle.Fill;
+            blocksLayout.Location = new Point(10, 10);
+            blocksLayout.Name = "blocksLayout";
+            blocksLayout.RowCount = 3;
+            blocksLayout.RowStyles.Add(new RowStyle(SizeType.Absolute, 44F));
+            blocksLayout.RowStyles.Add(new RowStyle(SizeType.Absolute, 44F));
+            blocksLayout.RowStyles.Add(new RowStyle(SizeType.Percent, 100F));
+            blocksLayout.Size = new Size(862, 419);
+            blocksLayout.TabIndex = 0;
+            //
+            // searchPanelBlocks
+            //
+            searchPanelBlocks.Controls.Add(lblSearchBlocks);
+            searchPanelBlocks.Controls.Add(txtSearchBlocks);
+            searchPanelBlocks.Controls.Add(btnClearSearchBlocks);
+            searchPanelBlocks.Dock = DockStyle.Fill;
+            searchPanelBlocks.Location = new Point(0, 0);
+            searchPanelBlocks.Margin = new Padding(0);
+            searchPanelBlocks.Name = "searchPanelBlocks";
+            searchPanelBlocks.Size = new Size(862, 44);
+            searchPanelBlocks.TabIndex = 0;
+            //
+            // lblSearchBlocks
+            //
+            lblSearchBlocks.AutoSize = true;
+            lblSearchBlocks.Font = new Font("Segoe UI", 9F, FontStyle.Bold);
+            lblSearchBlocks.Location = new Point(0, 11);
+            lblSearchBlocks.Name = "lblSearchBlocks";
+            lblSearchBlocks.Size = new Size(56, 20);
+            lblSearchBlocks.TabIndex = 0;
+            lblSearchBlocks.Text = "Search";
+            //
+            // txtSearchBlocks
+            //
+            txtSearchBlocks.Anchor = AnchorStyles.Top | AnchorStyles.Left | AnchorStyles.Right;
+            txtSearchBlocks.Location = new Point(70, 7);
+            txtSearchBlocks.Name = "txtSearchBlocks";
+            txtSearchBlocks.PlaceholderText = "Block name, code, land use, layer...";
+            txtSearchBlocks.Size = new Size(680, 27);
+            txtSearchBlocks.TabIndex = 1;
+            //
+            // btnClearSearchBlocks
+            //
+            btnClearSearchBlocks.Anchor = AnchorStyles.Top | AnchorStyles.Right;
+            btnClearSearchBlocks.Location = new Point(762, 5);
+            btnClearSearchBlocks.Name = "btnClearSearchBlocks";
+            btnClearSearchBlocks.Size = new Size(96, 31);
+            btnClearSearchBlocks.TabIndex = 2;
+            btnClearSearchBlocks.Text = "Clear";
+            btnClearSearchBlocks.UseVisualStyleBackColor = true;
+            //
+            // selectionToolsPanelBlocks
+            //
+            selectionToolsPanelBlocks.Controls.Add(btnSelectAllBlocks);
+            selectionToolsPanelBlocks.Controls.Add(btnSelectNoneBlocks);
+            selectionToolsPanelBlocks.Controls.Add(btnDeselectBlocks);
+            selectionToolsPanelBlocks.Controls.Add(btnInvertBlocks);
+            selectionToolsPanelBlocks.Dock = DockStyle.Fill;
+            selectionToolsPanelBlocks.Location = new Point(0, 44);
+            selectionToolsPanelBlocks.Margin = new Padding(0);
+            selectionToolsPanelBlocks.Name = "selectionToolsPanelBlocks";
+            selectionToolsPanelBlocks.Padding = new Padding(0, 5, 0, 0);
+            selectionToolsPanelBlocks.Size = new Size(862, 44);
+            selectionToolsPanelBlocks.TabIndex = 1;
+            //
+            // btnSelectAllBlocks
+            //
+            btnSelectAllBlocks.Margin = new Padding(0, 0, 8, 0);
+            btnSelectAllBlocks.Name = "btnSelectAllBlocks";
+            btnSelectAllBlocks.Size = new Size(96, 31);
+            btnSelectAllBlocks.TabIndex = 0;
+            btnSelectAllBlocks.Text = "Select All";
+            btnSelectAllBlocks.UseVisualStyleBackColor = true;
+            //
+            // btnSelectNoneBlocks
+            //
+            btnSelectNoneBlocks.Margin = new Padding(0, 0, 8, 0);
+            btnSelectNoneBlocks.Name = "btnSelectNoneBlocks";
+            btnSelectNoneBlocks.Size = new Size(102, 31);
+            btnSelectNoneBlocks.TabIndex = 1;
+            btnSelectNoneBlocks.Text = "Select None";
+            btnSelectNoneBlocks.UseVisualStyleBackColor = true;
+            //
+            // btnDeselectBlocks
+            //
+            btnDeselectBlocks.Margin = new Padding(0, 0, 8, 0);
+            btnDeselectBlocks.Name = "btnDeselectBlocks";
+            btnDeselectBlocks.Size = new Size(124, 31);
+            btnDeselectBlocks.TabIndex = 2;
+            btnDeselectBlocks.Text = "Deselect";
+            btnDeselectBlocks.UseVisualStyleBackColor = true;
+            //
+            // btnInvertBlocks
+            //
+            btnInvertBlocks.Margin = new Padding(0, 0, 8, 0);
+            btnInvertBlocks.Name = "btnInvertBlocks";
+            btnInvertBlocks.Size = new Size(132, 31);
+            btnInvertBlocks.TabIndex = 3;
+            btnInvertBlocks.Text = "Inverse Selection";
+            btnInvertBlocks.UseVisualStyleBackColor = true;
+            //
+            // dgvBlocks
+            //
+            dgvBlocks.AllowUserToAddRows = false;
+            dgvBlocks.AllowUserToDeleteRows = false;
+            dgvBlocks.AllowUserToResizeRows = false;
+            dgvBlocks.ColumnHeadersHeightSizeMode = DataGridViewColumnHeadersHeightSizeMode.DisableResizing;
+            dgvBlocks.Columns.AddRange(new DataGridViewColumn[] { colBlockSelected, colBlockName, colBlockCode, colBlockLandUse, colBlockArea, colBlockLayer, colBlockStatus });
+            dgvBlocks.Dock = DockStyle.Fill;
+            dgvBlocks.Location = new Point(0, 88);
+            dgvBlocks.Margin = new Padding(0);
+            dgvBlocks.MultiSelect = true;
+            dgvBlocks.Name = "dgvBlocks";
+            dgvBlocks.RowHeadersVisible = false;
+            dgvBlocks.RowTemplate.Height = 30;
+            dgvBlocks.SelectionMode = DataGridViewSelectionMode.FullRowSelect;
+            dgvBlocks.Size = new Size(862, 331);
+            dgvBlocks.TabIndex = 2;
+            //
+            // colBlockSelected
+            //
+            colBlockSelected.HeaderText = "";
+            colBlockSelected.Name = "colBlockSelected";
+            colBlockSelected.Width = 42;
+            //
+            // colBlockName
+            //
+            colBlockName.HeaderText = "Block Name";
+            colBlockName.Name = "colBlockName";
+            colBlockName.ReadOnly = true;
+            colBlockName.Width = 150;
+            //
+            // colBlockCode
+            //
+            colBlockCode.HeaderText = "Block Code";
+            colBlockCode.Name = "colBlockCode";
+            colBlockCode.ReadOnly = true;
+            colBlockCode.Width = 110;
+            //
+            // colBlockLandUse
+            //
+            colBlockLandUse.AutoSizeMode = DataGridViewAutoSizeColumnMode.Fill;
+            colBlockLandUse.HeaderText = "Land Use";
+            colBlockLandUse.MinimumWidth = 120;
+            colBlockLandUse.Name = "colBlockLandUse";
+            colBlockLandUse.ReadOnly = true;
+            //
+            // colBlockArea
+            //
+            colBlockArea.HeaderText = "Area";
+            colBlockArea.Name = "colBlockArea";
+            colBlockArea.ReadOnly = true;
+            colBlockArea.Width = 120;
+            //
+            // colBlockLayer
+            //
+            colBlockLayer.HeaderText = "Layer";
+            colBlockLayer.Name = "colBlockLayer";
+            colBlockLayer.ReadOnly = true;
+            colBlockLayer.Width = 140;
+            //
+            // colBlockStatus
+            //
+            colBlockStatus.HeaderText = "Status";
+            colBlockStatus.Name = "colBlockStatus";
+            colBlockStatus.ReadOnly = true;
+            colBlockStatus.Width = 110;
             // 
             // tabRoads
             // 
+            tabRoads.Controls.Add(roadsLayout);
             tabRoads.Location = new Point(4, 29);
             tabRoads.Name = "tabRoads";
             tabRoads.Padding = new Padding(10);
             tabRoads.Size = new Size(882, 439);
             tabRoads.TabIndex = 3;
-            tabRoads.Text = "Roads";
+            tabRoads.Text = "Road Data";
             tabRoads.UseVisualStyleBackColor = true;
+            //
+            // roadsLayout
+            //
+            roadsLayout.ColumnCount = 1;
+            roadsLayout.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 100F));
+            roadsLayout.Controls.Add(searchPanelRoads, 0, 0);
+            roadsLayout.Controls.Add(selectionToolsPanelRoads, 0, 1);
+            roadsLayout.Controls.Add(dgvRoads, 0, 2);
+            roadsLayout.Dock = DockStyle.Fill;
+            roadsLayout.Location = new Point(10, 10);
+            roadsLayout.Name = "roadsLayout";
+            roadsLayout.RowCount = 3;
+            roadsLayout.RowStyles.Add(new RowStyle(SizeType.Absolute, 44F));
+            roadsLayout.RowStyles.Add(new RowStyle(SizeType.Absolute, 44F));
+            roadsLayout.RowStyles.Add(new RowStyle(SizeType.Percent, 100F));
+            roadsLayout.Size = new Size(862, 419);
+            roadsLayout.TabIndex = 0;
+            //
+            // searchPanelRoads
+            //
+            searchPanelRoads.Controls.Add(lblSearchRoads);
+            searchPanelRoads.Controls.Add(txtSearchRoads);
+            searchPanelRoads.Controls.Add(btnClearSearchRoads);
+            searchPanelRoads.Dock = DockStyle.Fill;
+            searchPanelRoads.Location = new Point(0, 0);
+            searchPanelRoads.Margin = new Padding(0);
+            searchPanelRoads.Name = "searchPanelRoads";
+            searchPanelRoads.Size = new Size(862, 44);
+            searchPanelRoads.TabIndex = 0;
+            //
+            // lblSearchRoads
+            //
+            lblSearchRoads.AutoSize = true;
+            lblSearchRoads.Font = new Font("Segoe UI", 9F, FontStyle.Bold);
+            lblSearchRoads.Location = new Point(0, 11);
+            lblSearchRoads.Name = "lblSearchRoads";
+            lblSearchRoads.Size = new Size(56, 20);
+            lblSearchRoads.TabIndex = 0;
+            lblSearchRoads.Text = "Search";
+            //
+            // txtSearchRoads
+            //
+            txtSearchRoads.Anchor = AnchorStyles.Top | AnchorStyles.Left | AnchorStyles.Right;
+            txtSearchRoads.Location = new Point(70, 7);
+            txtSearchRoads.Name = "txtSearchRoads";
+            txtSearchRoads.PlaceholderText = "Road name, code, type, layer...";
+            txtSearchRoads.Size = new Size(680, 27);
+            txtSearchRoads.TabIndex = 1;
+            //
+            // btnClearSearchRoads
+            //
+            btnClearSearchRoads.Anchor = AnchorStyles.Top | AnchorStyles.Right;
+            btnClearSearchRoads.Location = new Point(762, 5);
+            btnClearSearchRoads.Name = "btnClearSearchRoads";
+            btnClearSearchRoads.Size = new Size(96, 31);
+            btnClearSearchRoads.TabIndex = 2;
+            btnClearSearchRoads.Text = "Clear";
+            btnClearSearchRoads.UseVisualStyleBackColor = true;
+            //
+            // selectionToolsPanelRoads
+            //
+            selectionToolsPanelRoads.Controls.Add(btnSelectAllRoads);
+            selectionToolsPanelRoads.Controls.Add(btnSelectNoneRoads);
+            selectionToolsPanelRoads.Controls.Add(btnDeselectRoads);
+            selectionToolsPanelRoads.Controls.Add(btnInvertRoads);
+            selectionToolsPanelRoads.Dock = DockStyle.Fill;
+            selectionToolsPanelRoads.Location = new Point(0, 44);
+            selectionToolsPanelRoads.Margin = new Padding(0);
+            selectionToolsPanelRoads.Name = "selectionToolsPanelRoads";
+            selectionToolsPanelRoads.Padding = new Padding(0, 5, 0, 0);
+            selectionToolsPanelRoads.Size = new Size(862, 44);
+            selectionToolsPanelRoads.TabIndex = 1;
+            //
+            // btnSelectAllRoads
+            //
+            btnSelectAllRoads.Margin = new Padding(0, 0, 8, 0);
+            btnSelectAllRoads.Name = "btnSelectAllRoads";
+            btnSelectAllRoads.Size = new Size(96, 31);
+            btnSelectAllRoads.TabIndex = 0;
+            btnSelectAllRoads.Text = "Select All";
+            btnSelectAllRoads.UseVisualStyleBackColor = true;
+            //
+            // btnSelectNoneRoads
+            //
+            btnSelectNoneRoads.Margin = new Padding(0, 0, 8, 0);
+            btnSelectNoneRoads.Name = "btnSelectNoneRoads";
+            btnSelectNoneRoads.Size = new Size(102, 31);
+            btnSelectNoneRoads.TabIndex = 1;
+            btnSelectNoneRoads.Text = "Select None";
+            btnSelectNoneRoads.UseVisualStyleBackColor = true;
+            //
+            // btnDeselectRoads
+            //
+            btnDeselectRoads.Margin = new Padding(0, 0, 8, 0);
+            btnDeselectRoads.Name = "btnDeselectRoads";
+            btnDeselectRoads.Size = new Size(124, 31);
+            btnDeselectRoads.TabIndex = 2;
+            btnDeselectRoads.Text = "Deselect";
+            btnDeselectRoads.UseVisualStyleBackColor = true;
+            //
+            // btnInvertRoads
+            //
+            btnInvertRoads.Margin = new Padding(0, 0, 8, 0);
+            btnInvertRoads.Name = "btnInvertRoads";
+            btnInvertRoads.Size = new Size(132, 31);
+            btnInvertRoads.TabIndex = 3;
+            btnInvertRoads.Text = "Inverse Selection";
+            btnInvertRoads.UseVisualStyleBackColor = true;
+            //
+            // dgvRoads
+            //
+            dgvRoads.AllowUserToAddRows = false;
+            dgvRoads.AllowUserToDeleteRows = false;
+            dgvRoads.AllowUserToResizeRows = false;
+            dgvRoads.ColumnHeadersHeightSizeMode = DataGridViewColumnHeadersHeightSizeMode.DisableResizing;
+            dgvRoads.Columns.AddRange(new DataGridViewColumn[] { colRoadSelected, colRoadName, colRoadCode, colRoadType, colRoadWidth, colRoadLayer, colRoadStatus });
+            dgvRoads.Dock = DockStyle.Fill;
+            dgvRoads.Location = new Point(0, 88);
+            dgvRoads.Margin = new Padding(0);
+            dgvRoads.MultiSelect = true;
+            dgvRoads.Name = "dgvRoads";
+            dgvRoads.RowHeadersVisible = false;
+            dgvRoads.RowTemplate.Height = 30;
+            dgvRoads.SelectionMode = DataGridViewSelectionMode.FullRowSelect;
+            dgvRoads.Size = new Size(862, 331);
+            dgvRoads.TabIndex = 2;
+            //
+            // colRoadSelected
+            //
+            colRoadSelected.HeaderText = "";
+            colRoadSelected.Name = "colRoadSelected";
+            colRoadSelected.Width = 42;
+            //
+            // colRoadName
+            //
+            colRoadName.HeaderText = "Road Name";
+            colRoadName.Name = "colRoadName";
+            colRoadName.ReadOnly = true;
+            colRoadName.Width = 150;
+            //
+            // colRoadCode
+            //
+            colRoadCode.HeaderText = "Road Code";
+            colRoadCode.Name = "colRoadCode";
+            colRoadCode.ReadOnly = true;
+            colRoadCode.Width = 110;
+            //
+            // colRoadType
+            //
+            colRoadType.AutoSizeMode = DataGridViewAutoSizeColumnMode.Fill;
+            colRoadType.HeaderText = "Type";
+            colRoadType.MinimumWidth = 120;
+            colRoadType.Name = "colRoadType";
+            colRoadType.ReadOnly = true;
+            //
+            // colRoadWidth
+            //
+            colRoadWidth.HeaderText = "Width";
+            colRoadWidth.Name = "colRoadWidth";
+            colRoadWidth.ReadOnly = true;
+            colRoadWidth.Width = 100;
+            //
+            // colRoadLayer
+            //
+            colRoadLayer.HeaderText = "Layer";
+            colRoadLayer.Name = "colRoadLayer";
+            colRoadLayer.ReadOnly = true;
+            colRoadLayer.Width = 140;
+            //
+            // colRoadStatus
+            //
+            colRoadStatus.HeaderText = "Status";
+            colRoadStatus.Name = "colRoadStatus";
+            colRoadStatus.ReadOnly = true;
+            colRoadStatus.Width = 110;
             // 
             // footerPanel
             // 
@@ -564,6 +1221,24 @@ namespace Land_Readjustment_Tool.UI.Forms
             searchPanel.PerformLayout();
             selectionToolsPanel.ResumeLayout(false);
             ((System.ComponentModel.ISupportInitialize)dgvOriginalParcels).EndInit();
+            tabReplottedParcels.ResumeLayout(false);
+            replottedLayout.ResumeLayout(false);
+            searchPanelReplotted.ResumeLayout(false);
+            searchPanelReplotted.PerformLayout();
+            selectionToolsPanelReplotted.ResumeLayout(false);
+            ((System.ComponentModel.ISupportInitialize)dgvReplottedParcels).EndInit();
+            tabBlocks.ResumeLayout(false);
+            blocksLayout.ResumeLayout(false);
+            searchPanelBlocks.ResumeLayout(false);
+            searchPanelBlocks.PerformLayout();
+            selectionToolsPanelBlocks.ResumeLayout(false);
+            ((System.ComponentModel.ISupportInitialize)dgvBlocks).EndInit();
+            tabRoads.ResumeLayout(false);
+            roadsLayout.ResumeLayout(false);
+            searchPanelRoads.ResumeLayout(false);
+            searchPanelRoads.PerformLayout();
+            selectionToolsPanelRoads.ResumeLayout(false);
+            ((System.ComponentModel.ISupportInitialize)dgvRoads).EndInit();
             footerPanel.ResumeLayout(false);
             footerPanel.PerformLayout();
             actionPanel.ResumeLayout(false);

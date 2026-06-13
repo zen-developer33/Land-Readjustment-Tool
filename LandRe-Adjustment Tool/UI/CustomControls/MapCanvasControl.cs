@@ -6,6 +6,7 @@ using System.Diagnostics;
 using System.Globalization;
 using System.IO;
 using System.Runtime.InteropServices;
+using System.Text.Json;
 using System.Threading;
 using System.Windows.Forms;
 using Land_Readjustment_Tool.Core.Entities.Canvas;
@@ -85,6 +86,10 @@ namespace Land_Readjustment_Tool.UI.CustomControls
         private const bool DefaultShowDebugOverlay = false;
         private static readonly double[] StandardScaleDenominators = BuildStandardScaleDenominators();
         private static readonly NtsGeometryFactory SelectionGeometryFactory = new(new NtsPrecisionModel(), 0);
+        private static readonly Color WindowSelectionBorderColor = Color.FromArgb(33, 148, 204);
+        private static readonly Color WindowSelectionFillColor = Color.FromArgb(40, 33, 148, 204);
+        private static readonly Color CrossingSelectionBorderColor = Color.FromArgb(30, 168, 50);
+        private static readonly Color CrossingSelectionFillColor = Color.FromArgb(40, 30, 168, 50);
 
         [DllImport("user32.dll", SetLastError = true, CharSet = CharSet.Auto)]
         private static extern IntPtr LoadCursorFromFile(string path);
@@ -108,6 +113,7 @@ namespace Land_Readjustment_Tool.UI.CustomControls
         public event Action? SelectToolRequested;
         public event Action<IReadOnlyList<Guid>>? SelectedObjectsDeleteRequested;
         public event Action<CanvasObjectAssignmentKind>? SelectedObjectsAssignDataRequested;
+        public event Action<CanvasObjectAssignmentKind>? SelectedObjectsViewEditDataRequested;
         public event Action<IReadOnlyList<Guid>>? SelectedCanvasObjectsChanged;
         public event EventHandler<CanvasCreateFeaturesMenuOpeningEventArgs>? SelectedObjectsCreateFeaturesMenuOpening;
 
@@ -132,6 +138,8 @@ namespace Land_Readjustment_Tool.UI.CustomControls
         private CancellationTokenSource? _vectorRenderCancellation;
         private int _vectorRenderGeneration;
         private bool _vectorCacheRefreshPending;
+        private TaskCompletionSource<bool>? _vectorCacheRefreshWaiter;
+        private TaskCompletionSource<bool>? _settledRenderWaiter;
         private int _renderUpdateBatchDepth;
         private bool _renderRequestPending;
         private int _cacheRefreshBatchDepth;
@@ -198,14 +206,8 @@ namespace Land_Readjustment_Tool.UI.CustomControls
         private Cursor? _zoomInCursor;
         private Cursor? _zoomOutCursor;
         private Cursor? _zoomWindowCursor;
-        private readonly ContextMenuStrip _objectSelectionContextMenu = new();
-        private readonly ContextMenuStrip _drawingOptionsContextMenu = new();
-        private readonly ToolStripMenuItem _mnuAssignData = new("Assign Data");
-        private readonly ToolStripMenuItem _mnuDeleteSelectedObjects = new("Delete Selected Object(s)");
-        private readonly ToolStripMenuItem _mnuEditText = new("Edit Text");
-        private readonly ToolStripMenuItem _mnuCreateFeaturesFromSelection = new("Create Features...");
-        private readonly ToolStripMenuItem _mnuMoveSelectedObjects = new("Move object(s)");
         private CanvasObjectAssignmentKind? _currentSelectionAssignmentKind;
+        private CanvasObjectAssignmentKind? _currentSelectionViewEditKind;
         private MoveOperation? _activeMoveOperation;
         private Bitmap? _movePreviewBitmap;
         private PointF _movePreviewBitmapReferenceScreen;
@@ -235,16 +237,10 @@ namespace Land_Readjustment_Tool.UI.CustomControls
             _zoomingStatusTimer.Tick += ZoomingStatusTimer_Tick;
             _objectSelectionContextMenu.Opening += ObjectSelectionContextMenu_Opening;
             _mnuAssignData.Click += (_, _) => RequestAssignDataForSelectedObjects();
+            _mnuViewEditData.Click += (_, _) => RequestViewEditDataForSelectedObjects();
             _mnuDeleteSelectedObjects.Click += (_, _) => RequestDeleteSelectedObjects();
             _mnuEditText.Click += (_, _) => BeginTextEditFromContextMenu();
             _mnuMoveSelectedObjects.Click += (_, _) => BeginMoveSelectedObjectsFromContextMenu();
-            _objectSelectionContextMenu.Items.Add(_mnuEditText);
-            _objectSelectionContextMenu.Items.Add(new ToolStripSeparator());
-            _objectSelectionContextMenu.Items.Add(_mnuMoveSelectedObjects);
-            _objectSelectionContextMenu.Items.Add(_mnuAssignData);
-            _objectSelectionContextMenu.Items.Add(_mnuCreateFeaturesFromSelection);
-            _objectSelectionContextMenu.Items.Add(new ToolStripSeparator());
-            _objectSelectionContextMenu.Items.Add(_mnuDeleteSelectedObjects);
             _drawingOptionsContextMenu.Closed += (_, _) => canvasSurface.Focus();
             WireInteractionEvents();
             UpdateStatusBar();
@@ -417,6 +413,14 @@ namespace Land_Readjustment_Tool.UI.CustomControls
             RequestRender();
         }
 
+        public async Task ShowCanvasContentWhenReadyAsync(
+            CancellationToken cancellationToken = default)
+        {
+            ShowCanvasContent();
+            _hasShownContentFrame = false;
+            await WaitForSettledRenderAsync(cancellationToken);
+        }
+
         public void SuppressCanvasContentUntilReady()
         {
             _hasShownContentFrame = false;
@@ -428,6 +432,35 @@ namespace Land_Readjustment_Tool.UI.CustomControls
 
             _suppressContentUntilReady = true;
             RequestRender();
+        }
+
+        public async Task WaitForSettledRenderAsync(
+            CancellationToken cancellationToken = default)
+        {
+            if (IsDisposed ||
+                Disposing ||
+                canvasSurface.IsDisposed ||
+                !IsHandleCreated)
+            {
+                return;
+            }
+
+            if (!_suppressContentUntilReady &&
+                _hasShownContentFrame &&
+                !_rasterCacheRefreshPending &&
+                !_vectorCacheRefreshPending)
+            {
+                return;
+            }
+
+            TaskCompletionSource<bool> waiter = new(
+                TaskCreationOptions.RunContinuationsAsynchronously);
+            _settledRenderWaiter = waiter;
+            RequestRender();
+
+            using CancellationTokenRegistration registration =
+                cancellationToken.Register(() => waiter.TrySetCanceled(cancellationToken));
+            await waiter.Task;
         }
 
         private void BeginRenderUpdateBatch()
@@ -915,6 +948,31 @@ namespace Land_Readjustment_Tool.UI.CustomControls
             RequestRender();
         }
 
+        public async Task SetVectorFeaturesAndWaitForCacheAsync(
+            IEnumerable<CanvasFeature>? features,
+            CancellationToken cancellationToken = default)
+        {
+            SetVectorFeatures(features);
+            await WaitForVectorCacheRefreshAsync(cancellationToken);
+        }
+
+        public async Task WaitForVectorCacheRefreshAsync(
+            CancellationToken cancellationToken = default)
+        {
+            if (!_vectorCacheRefreshPending)
+            {
+                return;
+            }
+
+            TaskCompletionSource<bool> waiter = new(
+                TaskCreationOptions.RunContinuationsAsynchronously);
+            _vectorCacheRefreshWaiter = waiter;
+
+            using CancellationTokenRegistration registration =
+                cancellationToken.Register(() => waiter.TrySetCanceled(cancellationToken));
+            await waiter.Task;
+        }
+
         public void PreviewSelectCanvasObject(Guid canvasObjectId, bool zoomToObject)
         {
             CanvasFeature? feature = _vectorFeatures
@@ -961,6 +1019,89 @@ namespace Land_Readjustment_Tool.UI.CustomControls
             RequestRender();
         }
 
+        public int ApplyCanvasSelection(
+            IEnumerable<Guid> canvasObjectIds,
+            CanvasSelectionApplyMode mode,
+            bool zoomToSelection)
+        {
+            if (mode == CanvasSelectionApplyMode.Clear)
+            {
+                ClearSelectedObjects();
+                return 0;
+            }
+
+            HashSet<Guid> ids = canvasObjectIds
+                .Where(id => id != Guid.Empty)
+                .ToHashSet();
+
+            List<CanvasFeature> candidateFeatures = ids.Count == 0
+                ? []
+                : _vectorFeatures
+                    .Where(item => ids.Contains(item.CanvasObject.Id) || ids.Contains(item.Shape.Id))
+                    .Where(IsSelectableDrawingFeature)
+                    .ToList();
+            HashSet<Guid> candidateShapeIds = candidateFeatures
+                .Select(feature => feature.Shape.Id)
+                .ToHashSet();
+
+            switch (mode)
+            {
+                case CanvasSelectionApplyMode.Create:
+                    ReplaceSelectedObjects(candidateFeatures);
+                    break;
+                case CanvasSelectionApplyMode.Add:
+                    AddSelectedObjects(candidateFeatures);
+                    break;
+                case CanvasSelectionApplyMode.Remove:
+                    RemoveSelectedObjects(candidateShapeIds);
+                    break;
+                case CanvasSelectionApplyMode.Subset:
+                    SubsetSelectedObjects(candidateShapeIds);
+                    break;
+                case CanvasSelectionApplyMode.Switch:
+                    SwitchSelectedObjects(candidateFeatures);
+                    break;
+            }
+
+            int selectedCount = EnumerateSelectedFeatures().Count();
+            if (zoomToSelection)
+            {
+                List<CanvasFeature> selectedFeatures = EnumerateSelectedFeatures().ToList();
+                if (selectedFeatures.Count > 0 &&
+                    TryGetCombinedFeatureBounds(selectedFeatures, out RectangleD bounds))
+                {
+                    ZoomToSelectionBounds(bounds);
+                }
+            }
+
+            return selectedCount;
+        }
+
+        public void SelectAllSelectableObjects(bool zoomToSelection)
+        {
+            ApplyCanvasSelection(
+                _vectorFeatures
+                    .Where(IsSelectableDrawingFeature)
+                    .Select(feature => feature.CanvasObject.Id),
+                CanvasSelectionApplyMode.Create,
+                zoomToSelection);
+        }
+
+        public void BeginContainedPolygonSelection()
+        {
+            SetActiveSelectionSketchTool(MapCanvasTool.SelectionPolygon);
+        }
+
+        public void BeginIntersectingPolygonSelection()
+        {
+            SetActiveSelectionSketchTool(MapCanvasTool.SelectionIntersectingPolygon);
+        }
+
+        public void BeginIntersectingLineSelection()
+        {
+            SetActiveSelectionSketchTool(MapCanvasTool.SelectionIntersectingLine);
+        }
+
         public void ZoomToCanvasObjects(IEnumerable<Guid> canvasObjectIds)
         {
             HashSet<Guid> ids = canvasObjectIds
@@ -1003,7 +1144,7 @@ namespace Land_Readjustment_Tool.UI.CustomControls
             CanvasLayer? layer,
             string? layerName)
         {
-            if (_applicationEditLocked && tool != MapCanvasTool.Select)
+            if (_applicationEditLocked && tool != MapCanvasTool.Select && !IsSelectionSketchTool(tool))
             {
                 tool = MapCanvasTool.Select;
                 layer = null;
@@ -1011,7 +1152,7 @@ namespace Land_Readjustment_Tool.UI.CustomControls
                 NotifyEditLocked();
             }
 
-            if (tool != MapCanvasTool.Select)
+            if (tool != MapCanvasTool.Select && !IsSelectionSketchTool(tool))
             {
                 CanvasLayer? targetLayer = layer
                     ?? (string.IsNullOrWhiteSpace(layerName)
@@ -1063,6 +1204,24 @@ namespace Land_Readjustment_Tool.UI.CustomControls
             UpdateCanvasCursor();
             UpdateStatusBar();
             RequestRender();
+        }
+
+        private void SetActiveSelectionSketchTool(MapCanvasTool tool)
+        {
+            SetActiveTool(tool, null, null);
+        }
+
+        private static bool IsSelectionSketchTool(MapCanvasTool tool)
+        {
+            return tool is MapCanvasTool.SelectionPolygon
+                or MapCanvasTool.SelectionIntersectingPolygon
+                or MapCanvasTool.SelectionIntersectingLine;
+        }
+
+        private static bool IsSelectionPolygonSketchTool(MapCanvasTool tool)
+        {
+            return tool is MapCanvasTool.SelectionPolygon
+                or MapCanvasTool.SelectionIntersectingPolygon;
         }
 
         private void RefreshActiveDrawingLayer(IReadOnlyList<CanvasLayer> vectorLayers)
@@ -1509,6 +1668,8 @@ namespace Land_Readjustment_Tool.UI.CustomControls
             if (contentSettled)
             {
                 _hasShownContentFrame = true;
+                _settledRenderWaiter?.TrySetResult(true);
+                _settledRenderWaiter = null;
             }
 
             if (_refreshHoldFrame != null && contentSettled)
@@ -1555,7 +1716,7 @@ namespace Land_Readjustment_Tool.UI.CustomControls
                 vectorFrame,
                 deferDirectVectorRendering,
                 GetZoomWindowRectangle(),
-                _previewShape,
+                IsSelectionSketchTool(_activeTool) ? null : _previewShape,
                 GetEffectiveDrawingLayer(),
                 _showDebugOverlay,
                 suppressDecorations: _activeTextEditor != null,
@@ -1571,6 +1732,7 @@ namespace Land_Readjustment_Tool.UI.CustomControls
             }
             DrawActiveGripOriginalOverlay(graphics);
             DrawObjectSelectionRectangle(graphics);
+            DrawSelectionSketchPreview(graphics);
             DrawActiveGripEditOverlay(graphics);
             DrawMoveOperationOverlay(graphics);
             DrawSelectionGrips(graphics);
@@ -2285,7 +2447,7 @@ namespace Land_Readjustment_Tool.UI.CustomControls
 
         private void HandleDrawingMouseDown(MouseEventArgs e)
         {
-            if (_applicationEditLocked)
+            if (_applicationEditLocked && !IsSelectionSketchTool(_activeTool))
             {
                 NotifyEditLocked();
                 SelectToolRequested?.Invoke();
@@ -2293,7 +2455,7 @@ namespace Land_Readjustment_Tool.UI.CustomControls
             }
 
             CanvasLayer? drawingLayer = GetEffectiveDrawingLayer();
-            if (IsDrawingLayerUnavailable(drawingLayer))
+            if (!IsSelectionSketchTool(_activeTool) && IsDrawingLayerUnavailable(drawingLayer))
             {
                 NotifyDrawingLayerUnavailable(drawingLayer!);
                 SelectToolRequested?.Invoke();
@@ -2339,6 +2501,9 @@ namespace Land_Readjustment_Tool.UI.CustomControls
                     break;
                 case MapCanvasTool.Polyline:
                 case MapCanvasTool.Polygon:
+                case MapCanvasTool.SelectionPolygon:
+                case MapCanvasTool.SelectionIntersectingPolygon:
+                case MapCanvasTool.SelectionIntersectingLine:
                     HandlePolylineOrPolygonDrawing(worldPoint, e.Location);
                     break;
             }
@@ -2367,7 +2532,9 @@ namespace Land_Readjustment_Tool.UI.CustomControls
             }
 
             return _activeTool == MapCanvasTool.Line ||
-                   ((_activeTool == MapCanvasTool.Polyline || _activeTool == MapCanvasTool.Polygon) &&
+                   ((_activeTool == MapCanvasTool.Polyline ||
+                     _activeTool == MapCanvasTool.Polygon ||
+                     IsSelectionSketchTool(_activeTool)) &&
                     _polylineSegmentMode == PolylineSegmentDrawingMode.Line &&
                     !_polylineArcAwaitingCenter &&
                     !_polylineArcAwaitingEnd &&
@@ -2956,6 +3123,9 @@ namespace Land_Readjustment_Tool.UI.CustomControls
 
                 case MapCanvasTool.Polyline:
                 case MapCanvasTool.Polygon:
+                case MapCanvasTool.SelectionPolygon:
+                case MapCanvasTool.SelectionIntersectingPolygon:
+                case MapCanvasTool.SelectionIntersectingLine:
                     AddSectionHeader("Segment Type");
                     AddDrawingOption("Line Segment", _polylineSegmentMode == PolylineSegmentDrawingMode.Line, () => SetPolylineSegmentMode(PolylineSegmentDrawingMode.Line));
                     AddDrawingOption("Tangent Arc", _polylineSegmentMode == PolylineSegmentDrawingMode.TangentArc, () => SetPolylineSegmentMode(PolylineSegmentDrawingMode.TangentArc));
@@ -2989,6 +3159,9 @@ namespace Land_Readjustment_Tool.UI.CustomControls
 
                 case MapCanvasTool.Polyline when drawingStarted:
                 case MapCanvasTool.Polygon when drawingStarted:
+                case MapCanvasTool.SelectionPolygon when drawingStarted:
+                case MapCanvasTool.SelectionIntersectingPolygon when drawingStarted:
+                case MapCanvasTool.SelectionIntersectingLine when drawingStarted:
                     if (_polylineSegmentMode == PolylineSegmentDrawingMode.Line ||
                         _polylineSegmentMode == PolylineSegmentDrawingMode.TangentArc ||
                         _polylineArcAwaitingCenter || _polylineArcAwaitingEnd)
@@ -3418,6 +3591,12 @@ namespace Land_Readjustment_Tool.UI.CustomControls
                 return;
             }
 
+            if (IsSelectionSketchTool(_activeTool))
+            {
+                CompleteSelectionSketch();
+                return;
+            }
+
             CompleteShape(new PolylineShape(
                 _drawingVertices.ToArray(),
                 _drawingSegments.ToArray(),
@@ -3426,13 +3605,74 @@ namespace Land_Readjustment_Tool.UI.CustomControls
 
         private bool CanCompleteMultiPointDrawing()
         {
-            int minimumVertices = _activeTool == MapCanvasTool.Polygon ? 3 : 2;
+            int minimumVertices = _activeTool == MapCanvasTool.Polygon ||
+                                  IsSelectionPolygonSketchTool(_activeTool)
+                ? 3
+                : 2;
             return (_activeTool == MapCanvasTool.Polyline ||
-                    _activeTool == MapCanvasTool.Polygon) &&
+                    _activeTool == MapCanvasTool.Polygon ||
+                    IsSelectionSketchTool(_activeTool)) &&
                    _drawingVertices.Count >= minimumVertices &&
                    !_polylineArcAwaitingCenter &&
                    !_polylineArcAwaitingEnd &&
                    !_pendingPolylineArcThroughPoint.HasValue;
+        }
+
+        private void CompleteSelectionSketch()
+        {
+            MapCanvasTool selectionTool = _activeTool;
+            PolylineShape sketch = new(
+                _drawingVertices.ToArray(),
+                _drawingSegments.ToArray(),
+                IsSelectionPolygonSketchTool(selectionTool));
+
+            IReadOnlyList<CanvasFeature> selectedFeatures =
+                QueryFeaturesBySelectionSketch(sketch, selectionTool);
+
+            _drawingVertices.Clear();
+            _drawingSegments.Clear();
+            _polylineSegmentMode = PolylineSegmentDrawingMode.Line;
+            _polylineArcAwaitingCenter = false;
+            _polylineArcAwaitingEnd = false;
+            _polylineArcCenterPoint = null;
+            _pendingPolylineArcThroughPoint = null;
+            _previewShape = null;
+
+            ReplaceSelectedObjects(selectedFeatures);
+            UpdateStatusBar();
+            RequestRender();
+        }
+
+        private IReadOnlyList<CanvasFeature> QueryFeaturesBySelectionSketch(
+            PolylineShape sketch,
+            MapCanvasTool selectionTool)
+        {
+            NtsGeometry selectionGeometry = CreateSelectionGeometry(sketch);
+            if (selectionGeometry.IsEmpty)
+            {
+                return [];
+            }
+
+            if (selectionTool == MapCanvasTool.SelectionIntersectingLine)
+            {
+                double toleranceWorld = _engine.ScreenToWorldDistance(ObjectSelectionTolerancePixels);
+                selectionGeometry = selectionGeometry.Buffer(toleranceWorld);
+            }
+
+            bool requireCovered = selectionTool == MapCanvasTool.SelectionPolygon;
+            return _vectorFeatures
+                .Where(IsSelectableDrawingFeature)
+                .Where(feature =>
+                {
+                    NtsGeometry featureGeometry = CreateSelectionGeometry(feature.Shape);
+                    if (featureGeometry.IsEmpty)
+                        return false;
+
+                    return requireCovered
+                        ? selectionGeometry.Covers(featureGeometry)
+                        : featureGeometry.Intersects(selectionGeometry);
+                })
+                .ToList();
         }
 
         private void UpdateDrawingPreview(Point screenPoint)
@@ -3452,6 +3692,9 @@ namespace Land_Readjustment_Tool.UI.CustomControls
                 MapCanvasTool.Arc => CreateArcPreview(worldPoint),
                 MapCanvasTool.Polyline => CreateMultiPointPreview(worldPoint, isClosed: false),
                 MapCanvasTool.Polygon => CreateMultiPointPreview(worldPoint, isClosed: true),
+                MapCanvasTool.SelectionPolygon => CreateMultiPointPreview(worldPoint, isClosed: true),
+                MapCanvasTool.SelectionIntersectingPolygon => CreateMultiPointPreview(worldPoint, isClosed: true),
+                MapCanvasTool.SelectionIntersectingLine => CreateMultiPointPreview(worldPoint, isClosed: false),
                 _ => null
             };
 
@@ -6366,6 +6609,58 @@ namespace Land_Readjustment_Tool.UI.CustomControls
             NotifySelectedCanvasObjectsChanged();
         }
 
+        private void RemoveSelectedObjects(IReadOnlySet<Guid> shapeIds)
+        {
+            if (shapeIds.Count == 0)
+                return;
+
+            _hoveredSelectionGrip = null;
+            bool changed = _selectedShapeIds.RemoveWhere(shapeIds.Contains) > 0;
+            if (!changed)
+                return;
+
+            ApplySelectedShapeFlags();
+            RequestRender();
+            UpdateStatusBar();
+            NotifySelectedCanvasObjectsChanged();
+        }
+
+        private void SubsetSelectedObjects(IReadOnlySet<Guid> shapeIds)
+        {
+            _hoveredSelectionGrip = null;
+            int removedCount = _selectedShapeIds.RemoveWhere(id => !shapeIds.Contains(id));
+            if (removedCount == 0)
+                return;
+
+            ApplySelectedShapeFlags();
+            RequestRender();
+            UpdateStatusBar();
+            NotifySelectedCanvasObjectsChanged();
+        }
+
+        private void SwitchSelectedObjects(IEnumerable<CanvasFeature> candidateFeatures)
+        {
+            _hoveredSelectionGrip = null;
+            bool changed = false;
+            foreach (CanvasFeature feature in candidateFeatures.Where(IsSelectableDrawingFeature))
+            {
+                if (!_selectedShapeIds.Add(feature.Shape.Id))
+                {
+                    _selectedShapeIds.Remove(feature.Shape.Id);
+                }
+
+                changed = true;
+            }
+
+            if (!changed)
+                return;
+
+            ApplySelectedShapeFlags();
+            RequestRender();
+            UpdateStatusBar();
+            NotifySelectedCanvasObjectsChanged();
+        }
+
         private void ClearSelectedObjects()
         {
             if (_selectedShapeIds.Count == 0)
@@ -6414,6 +6709,7 @@ namespace Land_Readjustment_Tool.UI.CustomControls
         {
             bool hasSingleText = SelectionContainsSingleTextShape(out _);
             _mnuEditText.Visible = hasSingleText && !_applicationEditLocked;
+            ConfigureViewEditDataMenusForSelection();
             ConfigureAssignDataMenuForSelection();
             _mnuDeleteSelectedObjects.Enabled = !_applicationEditLocked &&
                                                 SelectionContainsDeletableObject();
@@ -6422,6 +6718,25 @@ namespace Land_Readjustment_Tool.UI.CustomControls
                                               _activeGripEdit == null &&
                                               SelectionContainsMovableObject();
             ConfigureCreateFeaturesFromSelectionMenu();
+        }
+
+        private void ConfigureViewEditDataMenusForSelection()
+        {
+            _currentSelectionViewEditKind = ResolveSelectionLinkedDataKind();
+            _mnuViewEditData.Text = GetViewEditDataMenuText(_currentSelectionViewEditKind);
+            _mnuViewEditData.Enabled = !_applicationEditLocked &&
+                                       _currentSelectionViewEditKind.HasValue;
+        }
+
+        private static string GetViewEditDataMenuText(CanvasObjectAssignmentKind? assignmentKind)
+        {
+            return assignmentKind switch
+            {
+                CanvasObjectAssignmentKind.Parcel => "View/Edit Parcel Data",
+                CanvasObjectAssignmentKind.Road => "View/Edit Road Data",
+                CanvasObjectAssignmentKind.Block => "View/Edit Block Data",
+                _ => "View/Edit Data"
+            };
         }
 
         private void ConfigureAssignDataMenuForSelection()
@@ -6576,6 +6891,115 @@ namespace Land_Readjustment_Tool.UI.CustomControls
                 return;
 
             SelectedObjectsAssignDataRequested?.Invoke(assignmentKind.Value);
+        }
+
+        private void RequestViewEditDataForSelectedObjects()
+        {
+            if (_applicationEditLocked)
+            {
+                NotifyEditLocked();
+                return;
+            }
+
+            CanvasObjectAssignmentKind? assignmentKind =
+                _currentSelectionViewEditKind ?? ResolveSelectionLinkedDataKind();
+            if (!assignmentKind.HasValue)
+                return;
+
+            SelectedObjectsViewEditDataRequested?.Invoke(assignmentKind.Value);
+        }
+
+        private CanvasObjectAssignmentKind? ResolveSelectionLinkedDataKind()
+        {
+            CanvasFeature[] selectedFeatures = EnumerateSelectedFeatures()
+                .Where(IsSelectableDrawingFeature)
+                .ToArray();
+            if (selectedFeatures.Length != 1)
+                return null;
+
+            CanvasObjectAssignmentKind[] assignmentKinds = selectedFeatures
+                .SelectMany(ResolveLinkedDataKinds)
+                .Distinct()
+                .Take(2)
+                .ToArray();
+
+            return assignmentKinds.Length == 1
+                ? assignmentKinds[0]
+                : null;
+        }
+
+        private static IEnumerable<CanvasObjectAssignmentKind> ResolveLinkedDataKinds(CanvasFeature feature)
+        {
+            if (FeatureHasLinkedData(feature, CanvasObjectAssignmentKind.Parcel))
+                yield return CanvasObjectAssignmentKind.Parcel;
+
+            if (FeatureHasLinkedData(feature, CanvasObjectAssignmentKind.Road))
+                yield return CanvasObjectAssignmentKind.Road;
+
+            if (FeatureHasLinkedData(feature, CanvasObjectAssignmentKind.Block))
+                yield return CanvasObjectAssignmentKind.Block;
+        }
+
+        private static bool FeatureHasLinkedData(
+            CanvasFeature feature,
+            CanvasObjectAssignmentKind assignmentKind)
+        {
+            CanvasObject canvasObject = feature.CanvasObject;
+            return assignmentKind switch
+            {
+                CanvasObjectAssignmentKind.Parcel => canvasObject.BaselineParcel != null ||
+                                                     canvasObject.BaselineParcelId.HasValue ||
+                                                     HasAssignedBaselineParcelMetadata(canvasObject.GeometryMetadataJson),
+                CanvasObjectAssignmentKind.Road => canvasObject.Road != null || canvasObject.RoadId.HasValue,
+                CanvasObjectAssignmentKind.Block => canvasObject.Block != null || canvasObject.BlockId.HasValue,
+                _ => false
+            };
+        }
+
+        private static bool HasAssignedBaselineParcelMetadata(string? metadataJson)
+        {
+            if (string.IsNullOrWhiteSpace(metadataJson))
+                return false;
+
+            try
+            {
+                using JsonDocument document = JsonDocument.Parse(metadataJson);
+                JsonElement root = document.RootElement;
+                if (root.ValueKind != JsonValueKind.Object)
+                    return false;
+
+                string? kind = TryGetJsonString(root, "Kind");
+                if (!string.Equals(kind, "CadastralParcel", StringComparison.OrdinalIgnoreCase))
+                    return false;
+
+                if (root.TryGetProperty("BaselineParcelId", out JsonElement idElement) &&
+                    idElement.ValueKind == JsonValueKind.Number &&
+                    idElement.TryGetInt32(out int id) &&
+                    id > 0)
+                {
+                    return true;
+                }
+
+                string? assignmentStatus = TryGetJsonString(root, "AssignmentStatus");
+                if (string.Equals(assignmentStatus, "Unassigned", StringComparison.OrdinalIgnoreCase))
+                    return false;
+
+                return !string.IsNullOrWhiteSpace(TryGetJsonString(root, "FullUniqueParcelCode")) ||
+                       (!string.IsNullOrWhiteSpace(TryGetJsonString(root, "MapSheetNo")) &&
+                        !string.IsNullOrWhiteSpace(TryGetJsonString(root, "ParcelNo")));
+            }
+            catch (JsonException)
+            {
+                return false;
+            }
+        }
+
+        private static string? TryGetJsonString(JsonElement root, string propertyName)
+        {
+            return root.TryGetProperty(propertyName, out JsonElement element) &&
+                   element.ValueKind == JsonValueKind.String
+                ? element.GetString()
+                : null;
         }
 
         private CanvasObjectAssignmentKind? ResolveSelectionAssignmentKind()
@@ -6955,9 +7379,69 @@ namespace Land_Readjustment_Tool.UI.CustomControls
             RequestRender();
         }
 
+        public void RemoveCanvasObjectsImmediatelyAfterDelete(
+            IReadOnlyCollection<Guid> shapeIds)
+        {
+            if (shapeIds == null || shapeIds.Count == 0)
+            {
+                return;
+            }
+
+            HashSet<Guid> idsToRemove = shapeIds
+                .Where(id => id != Guid.Empty)
+                .ToHashSet();
+            if (idsToRemove.Count == 0)
+            {
+                return;
+            }
+
+            CancelActiveGripEdit(restoreOriginal: false);
+            CancelMoveOperation();
+            _hoveredSelectionGrip = null;
+            _currentSnapPoint = null;
+            _lastSnapCandidateCount = 0;
+            _lastSnapQueryFeatureCount = 0;
+            _lastSnapQueryElapsedMs = 0.0;
+            _selectedShapeIds.RemoveWhere(idsToRemove.Contains);
+            _immediateEditedOverlayFeatures = _immediateEditedOverlayFeatures
+                .Where(feature => !idsToRemove.Contains(feature.Shape.Id))
+                .ToArray();
+
+            int originalCount = _vectorFeatures.Count;
+            _vectorFeatures = _vectorFeatures
+                .Where(feature => !idsToRemove.Contains(feature.Shape.Id))
+                .ToList();
+
+            if (_vectorFeatures.Count == originalCount)
+            {
+                NotifySelectedCanvasObjectsChanged();
+                RequestRender();
+                return;
+            }
+
+            RebuildVectorFeatureLookup();
+            _renderer.SetVectorRenderExclusions(null, invalidateCache: false);
+            _renderer.UpdateVectorFeatures(_vectorFeatures);
+            UpdateWorldBounds();
+            NotifySelectedCanvasObjectsChanged();
+            RequestRender();
+            if (IsHandleCreated)
+            {
+                BeginInvoke((MethodInvoker)RefreshVectorCacheForCurrentViewAsync);
+            }
+            else
+            {
+                RefreshVectorCacheForCurrentViewAsync();
+            }
+        }
+
         private void NotifySelectedCanvasObjectsChanged()
         {
-            SelectedCanvasObjectsChanged?.Invoke(_selectedShapeIds.ToArray());
+            SelectedCanvasObjectsChanged?.Invoke(
+                EnumerateSelectedFeatures()
+                    .Select(feature => feature.CanvasObject.Id)
+                    .Distinct()
+                    .ToArray());
         }
 
         private bool IsSelectableDrawingFeature(CanvasFeature feature)
@@ -6971,6 +7455,7 @@ namespace Land_Readjustment_Tool.UI.CustomControls
                      CanvasLayerTreeService.IsDrawingMarkupLayer(layer)) ||
                     IsSelectableImportedCadastralParcel(feature) ||
                     IsSelectableRePlotDataFeature(feature) ||
+                    IsProjectBoundaryFeature(feature) ||
                     IsSelectableExternalReferenceFeature(feature));
         }
 
@@ -7436,11 +7921,11 @@ namespace Land_Readjustment_Tool.UI.CustomControls
 
             bool isWindowSelection = _objectSelectionCurrent.X >= _objectSelectionStart.X;
             Color borderColor = isWindowSelection
-                ? Color.FromArgb(33, 148, 204)   // window: AutoCAD blue
-                : Color.FromArgb(30, 168, 50);   // crossing: AutoCAD green
+                ? WindowSelectionBorderColor
+                : CrossingSelectionBorderColor;
             Color fillColor = isWindowSelection
-                ? Color.FromArgb(40, 33, 148, 204)
-                : Color.FromArgb(40, 30, 168, 50);
+                ? WindowSelectionFillColor
+                : CrossingSelectionFillColor;
 
             using SolidBrush fillBrush = new(fillColor);
             using Pen borderPen = new(borderColor, 1.0f);
@@ -7451,6 +7936,44 @@ namespace Land_Readjustment_Tool.UI.CustomControls
 
             graphics.FillRectangle(fillBrush, rect);
             graphics.DrawRectangle(borderPen, rect);
+        }
+
+        private void DrawSelectionSketchPreview(Graphics graphics)
+        {
+            if (!IsSelectionSketchTool(_activeTool) ||
+                _activeTextEditor != null ||
+                _previewShape is not PolylineShape preview ||
+                preview.Vertices.Count < 2)
+            {
+                return;
+            }
+
+            bool isWindowSelection = _activeTool == MapCanvasTool.SelectionPolygon;
+            using GraphicsPath path = preview.CreateScreenPath(_engine.WorldToScreen);
+            if (path.PointCount == 0)
+            {
+                return;
+            }
+
+            using SolidBrush fillBrush = new(isWindowSelection
+                ? WindowSelectionFillColor
+                : CrossingSelectionFillColor);
+            using Pen borderPen = new(isWindowSelection
+                ? WindowSelectionBorderColor
+                : CrossingSelectionBorderColor, 1.0f)
+            {
+                LineJoin = LineJoin.Round,
+                StartCap = LineCap.Round,
+                EndCap = LineCap.Round,
+                DashStyle = isWindowSelection ? DashStyle.Solid : DashStyle.Dash
+            };
+
+            if (preview.IsClosed && preview.Vertices.Count >= 3)
+            {
+                graphics.FillPath(fillBrush, path);
+            }
+
+            graphics.DrawPath(borderPen, path);
         }
 
         private Rectangle? GetZoomWindowRectangle()
@@ -7508,7 +8031,7 @@ namespace Land_Readjustment_Tool.UI.CustomControls
             {
                 canvasSurface.Cursor = GetZoomWindowCursor();
             }
-            else if (_activeTool != MapCanvasTool.Select)
+            else if (_activeTool != MapCanvasTool.Select && !IsSelectionSketchTool(_activeTool))
             {
                 canvasSurface.Cursor = Cursors.Cross;
             }
@@ -7793,19 +8316,29 @@ namespace Land_Readjustment_Tool.UI.CustomControls
 
                 case MapCanvasTool.Polyline:
                 case MapCanvasTool.Polygon:
+                case MapCanvasTool.SelectionPolygon:
+                case MapCanvasTool.SelectionIntersectingPolygon:
+                case MapCanvasTool.SelectionIntersectingLine:
+                    string toolLabel = _activeTool switch
+                    {
+                        MapCanvasTool.SelectionPolygon => "Select Polygon",
+                        MapCanvasTool.SelectionIntersectingPolygon => "Select Intersecting Poly",
+                        MapCanvasTool.SelectionIntersectingLine => "Select Intersecting Line",
+                        _ => _activeTool.ToString()
+                    };
                     if (_polylineArcAwaitingCenter)
-                        return $"{_activeTool}: Click arc center point  [Backspace to cancel]";
+                        return $"{toolLabel}: Click arc center point  [Backspace to cancel]";
                     if (_polylineArcAwaitingEnd)
-                        return $"{_activeTool}: Click arc end point  [Backspace to cancel]";
+                        return $"{toolLabel}: Click arc end point  [Backspace to cancel]";
                     if (_drawingVertices.Count == 0)
-                        return $"{_activeTool}: Click first point";
+                        return $"{toolLabel}: Click first point";
                     if (_polylineSegmentMode == PolylineSegmentDrawingMode.ThreePointArc)
                         return _pendingPolylineArcThroughPoint.HasValue
-                            ? $"{_activeTool} (3-pt Arc): Click end point  [Backspace to undo]"
-                            : $"{_activeTool} (3-pt Arc): Click through point  [Right-click: options / Finish / Cancel]";
+                            ? $"{toolLabel} (3-pt Arc): Click end point  [Backspace to undo]"
+                            : $"{toolLabel} (3-pt Arc): Click through point  [Right-click: options / Finish / Cancel]";
                     if (_polylineSegmentMode == PolylineSegmentDrawingMode.TangentArc)
-                        return $"{_activeTool} (Tangent Arc): Click end point  [Right-click: options / Finish / Cancel]";
-                    return $"{_activeTool}: Click next point  [Right-click: options / Finish / Cancel]";
+                        return $"{toolLabel} (Tangent Arc): Click end point  [Right-click: options / Finish / Cancel]";
+                    return $"{toolLabel}: Click next point  [Right-click: options / Finish / Cancel]";
             }
 
             return "Ready";
@@ -8275,6 +8808,8 @@ namespace Land_Readjustment_Tool.UI.CustomControls
             previousCancellation?.Cancel();
             previousCancellation?.Dispose();
             _vectorCacheRefreshPending = false;
+            _vectorCacheRefreshWaiter?.TrySetResult(true);
+            _vectorCacheRefreshWaiter = null;
         }
 
         private void EnsureVectorPanSnapshot()
@@ -8646,6 +9181,8 @@ namespace Land_Readjustment_Tool.UI.CustomControls
                 {
                     _vectorRenderCancellation = null;
                     _vectorCacheRefreshPending = false;
+                    _vectorCacheRefreshWaiter?.TrySetResult(true);
+                    _vectorCacheRefreshWaiter = null;
                     RequestRefreshHoldReleaseRenderIfReady();
                 }
 

@@ -30,6 +30,7 @@ namespace Land_Readjustment_Tool.Services.Project
 
             await EnsureProjectSettingsColumnsAsync(context, ct);
             await EnsureCanvasLayerColumnsAsync(context, ct);
+            await EnsureImportedAnnotationLayerDefaultsAsync(context, ct);
             await EnsureCanvasObjectColumnsAsync(context, ct);
             await EnsureBlockColumnsAsync(context, ct);
             await EnsureBuildingInventoryTablesAsync(context, ct);
@@ -119,6 +120,38 @@ namespace Land_Readjustment_Tool.Services.Project
                     "ALTER TABLE tblCanvasLayers ADD COLUMN ShowFillTransparency INTEGER NOT NULL DEFAULT 0;",
                     ct);
             }
+        }
+
+        private static async Task EnsureImportedAnnotationLayerDefaultsAsync(
+            AppDbContext context,
+            CancellationToken ct)
+        {
+            HashSet<string> columns = await ReadTableColumnsAsync(
+                context,
+                "tblCanvasLayers",
+                ct);
+
+            if (!columns.Contains("LayerType") ||
+                !columns.Contains("SourceFile") ||
+                !columns.Contains("LabelField") ||
+                !columns.Contains("ShowLabels") ||
+                !columns.Contains("LabelScaleWithZoom"))
+            {
+                return;
+            }
+
+            await context.Database.ExecuteSqlRawAsync(
+                """
+                UPDATE tblCanvasLayers
+                SET LabelField = 'LabelText',
+                    ShowLabels = 1,
+                    LabelScaleWithZoom = 0
+                WHERE LayerType = 'Annotation'
+                  AND SourceFile IS NOT NULL
+                  AND TRIM(SourceFile) <> ''
+                  AND (LabelField IS NULL OR TRIM(LabelField) = '');
+                """,
+                ct);
         }
 
         private static async Task EnsureCanvasObjectColumnsAsync(

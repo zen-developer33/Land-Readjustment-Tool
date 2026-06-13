@@ -1169,18 +1169,24 @@ namespace Land_Readjustment_Tool.UI.Forms
             {
                 case "DASHED":
                     pen.DashStyle = System.Drawing.Drawing2D.DashStyle.Custom;
+                    pen.DashCap = System.Drawing.Drawing2D.DashCap.Flat;
                     pen.DashPattern = [4f * scale, 2f * scale];
                     break;
                 case "DOTTED":
                     pen.DashStyle = System.Drawing.Drawing2D.DashStyle.Custom;
-                    pen.DashPattern = [1f * scale, 2f * scale];
+                    pen.DashCap = System.Drawing.Drawing2D.DashCap.Round;
+                    pen.StartCap = System.Drawing.Drawing2D.LineCap.Round;
+                    pen.EndCap = System.Drawing.Drawing2D.LineCap.Round;
+                    pen.DashPattern = [0.1f, Math.Max(1.5f, 2f * scale)];
                     break;
                 case "DASHDOT":
                     pen.DashStyle = System.Drawing.Drawing2D.DashStyle.Custom;
+                    pen.DashCap = System.Drawing.Drawing2D.DashCap.Flat;
                     pen.DashPattern = [4f * scale, 2f * scale, 1f * scale, 2f * scale];
                     break;
                 case "CENTERLINE":
                     pen.DashStyle = System.Drawing.Drawing2D.DashStyle.Custom;
+                    pen.DashCap = System.Drawing.Drawing2D.DashCap.Flat;
                     pen.DashPattern = [8f * scale, 3f * scale, 2f * scale, 3f * scale];
                     break;
                 default:
