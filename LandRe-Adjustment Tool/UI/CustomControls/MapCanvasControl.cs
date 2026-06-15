@@ -1021,7 +1021,7 @@ namespace Land_Readjustment_Tool.UI.CustomControls
 
             if (zoomToObject && features.Length > 0)
             {
-                PaintZoomFrameBeforeSelectionHighlight(features);
+                PrepareViewportBeforeSelectionHighlight(features);
             }
 
             ReplaceSelectedObjects(
@@ -1042,7 +1042,7 @@ namespace Land_Readjustment_Tool.UI.CustomControls
 
             if (zoomToSelection && features.Count > 0)
             {
-                PaintZoomFrameBeforeSelectionHighlight(features);
+                PrepareViewportBeforeSelectionHighlight(features);
             }
 
             ReplaceSelectedObjects(features);
@@ -1080,7 +1080,7 @@ namespace Land_Readjustment_Tool.UI.CustomControls
 
             if (zoomToSelection && finalSelectedFeatures.Count > 0)
             {
-                PaintZoomFrameBeforeSelectionHighlight(finalSelectedFeatures);
+                PrepareViewportBeforeSelectionHighlight(finalSelectedFeatures);
             }
 
             SetSelectedShapeIds(finalShapeIds);
@@ -1232,6 +1232,9 @@ namespace Land_Readjustment_Tool.UI.CustomControls
         {
             return tool == MapCanvasTool.Select || IsSelectionSketchTool(tool);
         }
+
+        private bool IsDrawingSketchInProgress() =>
+            _activeTool != MapCanvasTool.Select && _drawingVertices.Count > 0;
 
         private static bool IsSelectionPolygonSketchTool(MapCanvasTool tool)
         {
@@ -1852,6 +1855,7 @@ namespace Land_Readjustment_Tool.UI.CustomControls
         private bool ShouldDrawRefreshHoldFrame()
         {
             return _refreshHoldFrame != null &&
+                   !IsDrawingSketchInProgress() &&
                    !IsInteractiveNavigation &&
                    (_renderUpdateBatchDepth > 0 ||
                     _rasterCacheRefreshPending ||
@@ -6795,12 +6799,11 @@ namespace Land_Readjustment_Tool.UI.CustomControls
             NotifySelectedCanvasObjectsChanged();
         }
 
-        private void PaintZoomFrameBeforeSelectionHighlight(IReadOnlyList<CanvasFeature> features)
+        private void PrepareViewportBeforeSelectionHighlight(IReadOnlyList<CanvasFeature> features)
         {
             if (!TryGetCombinedFeatureBounds(features, out RectangleD bounds))
                 return;
 
-            HashSet<Guid> previousSelection = new(_selectedShapeIds);
             if (_selectedShapeIds.Count > 0)
             {
                 _hoveredSelectionGrip = null;
@@ -6809,22 +6812,6 @@ namespace Land_Readjustment_Tool.UI.CustomControls
             }
 
             ZoomToSelectionBounds(bounds);
-
-            if (canvasSurface.IsHandleCreated && !canvasSurface.IsDisposed)
-            {
-                canvasSurface.Refresh();
-            }
-
-            if (previousSelection.Count == 0)
-                return;
-
-            _selectedShapeIds.Clear();
-            foreach (Guid shapeId in previousSelection)
-            {
-                _selectedShapeIds.Add(shapeId);
-            }
-
-            ApplySelectedShapeFlags();
         }
 
         private bool TryGetCombinedFeatureBounds(

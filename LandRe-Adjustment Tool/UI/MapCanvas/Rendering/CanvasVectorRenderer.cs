@@ -27,8 +27,11 @@ namespace Land_Readjustment_Tool.UI.MapCanvas.Rendering
         private const double MinLabelZoomFactor = 0.1;
         private const double MaxLabelZoomFactor = 12.0;
         private const double DeepZoomLabelViewportWorldSpan = 0.5;
-        private const float SelectionStrokeWidthExtraPx = 1.0f;
-        private static readonly Color SelectionStrokeColor = Color.FromArgb(0, 72, 255);
+        private const float SelectionStrokeWidthExtraPx = 2.0f;
+        private const float LinearSelectionStrokeWidthExtraPx = 0.75f;
+        private const float ParcelSelectionOuterStrokeWidthPx = 4.0f;
+        private const float ParcelSelectionGlowWidthPx = 6.0f;
+        private static readonly Color SelectionStrokeColor = Color.FromArgb(0, 120, 212);
         private readonly Font _previewFont = new("Segoe UI", 8.0f, FontStyle.Bold);
         private readonly VectorFeatureSpatialIndex _featureSpatialIndex = new();
         private IReadOnlyList<CanvasFeature> _features = Array.Empty<CanvasFeature>();
@@ -709,14 +712,15 @@ namespace Land_Readjustment_Tool.UI.MapCanvas.Rendering
                 return;
             }
 
-            bool isDataLayerPolygon = !forceUnselected && IsDataLayerPolygonFeature(feature, shape, layer);
-            bool isCadastralParcelSelection = !suppressParcelHighlight && isDataLayerPolygon;
+            bool isReplotSelectionFillFeature = !forceUnselected &&
+                                                IsReplotSelectionFillFeature(feature, shape, layer);
+            bool drawReplotSelectionFill = !suppressParcelHighlight && isReplotSelectionFillFeature;
 
             // Drawing/markup, external and road-centerline shapes keep their
             // normal outline (same color, weight and line type) and add a soft
-            // glow offset to BOTH sides of the outline. Cadastral data-layer
+            // glow offset to BOTH sides of the outline. Replot data-layer
             // polygons keep their interior highlight instead.
-            bool drawSelectionGlow = effectiveSelected && !isDataLayerPolygon;
+            bool drawSelectionGlow = effectiveSelected && !isReplotSelectionFillFeature;
 
             bool shouldStroke = style.HasStroke;
             float width = Math.Max(0.25f, style.LineWidth);
@@ -731,16 +735,38 @@ namespace Land_Readjustment_Tool.UI.MapCanvas.Rendering
             switch (shape)
             {
                 case DonutPolygonShape donut:
-                    DrawDonutPolygon(graphics, engine, donut, style, context, pen, isCadastralParcelSelection);
+                    DrawDonutPolygon(
+                        graphics,
+                        engine,
+                        donut,
+                        style,
+                        context,
+                        pen,
+                        drawReplotSelectionFill);
                     break;
                 case PolylineShape polyline:
-                    DrawPolyline(graphics, engine, polyline, style, context, pen, isCadastralParcelSelection, effectiveSelected);
+                    DrawPolyline(
+                        graphics,
+                        engine,
+                        polyline,
+                        style,
+                        context,
+                        pen,
+                        drawReplotSelectionFill,
+                        effectiveSelected);
                     break;
                 case LineShape line:
                     DrawLine(graphics, engine, line, context, pen);
                     break;
                 case RectangleShape rectangle:
-                    DrawRectangle(graphics, engine, rectangle, style, context, pen, isCadastralParcelSelection);
+                    DrawRectangle(
+                        graphics,
+                        engine,
+                        rectangle,
+                        style,
+                        context,
+                        pen,
+                        drawReplotSelectionFill);
                     break;
                 case CircleShape circle:
                     DrawCircle(graphics, engine, circle, style, context, pen);
@@ -775,8 +801,8 @@ namespace Land_Readjustment_Tool.UI.MapCanvas.Rendering
 
         private static readonly (float ExtraWidth, int Alpha)[] SelectionOutlineGlowBands =
         {
-            (1.25f, 55),
-            (0.5f, 110)
+            (5.0f, 70),
+            (2.5f, 130)
         };
 
         private static void DrawSelectionGlow(
@@ -819,8 +845,12 @@ namespace Land_Readjustment_Tool.UI.MapCanvas.Rendering
                     ? SmoothingMode.AntiAlias
                     : SmoothingMode.None;
                 float effectiveStroke = Math.Max(0.25f, strokeWidth);
-                float selectionStroke = effectiveStroke + SelectionStrokeWidthExtraPx;
-                if (!IsLinearSelectionOutline(path))
+                bool isLinearSelection = IsLinearSelectionOutline(path);
+                float selectionStroke = effectiveStroke +
+                                        (isLinearSelection
+                                            ? LinearSelectionStrokeWidthExtraPx
+                                            : SelectionStrokeWidthExtraPx);
+                if (!isLinearSelection)
                 {
                     foreach ((float extraWidth, int alpha) in SelectionOutlineGlowBands)
                     {
@@ -1104,7 +1134,10 @@ namespace Land_Readjustment_Tool.UI.MapCanvas.Rendering
                 drawParcelSelectionHighlight &&
                 IsValidRectangle(bounds))
             {
-                DrawCadastralParcelSelectionHighlight(graphics, path, bounds);
+                DrawCadastralParcelSelectionHighlight(
+                    graphics,
+                    path,
+                    bounds);
             }
 
             if (pen == null)
@@ -1150,7 +1183,10 @@ namespace Land_Readjustment_Tool.UI.MapCanvas.Rendering
 
             if (drawParcelSelectionHighlight && IsValidRectangle(bounds))
             {
-                DrawCadastralParcelSelectionHighlight(graphics, path, bounds);
+                DrawCadastralParcelSelectionHighlight(
+                    graphics,
+                    path,
+                    bounds);
             }
 
             if (pen != null)
@@ -1215,12 +1251,18 @@ namespace Land_Readjustment_Tool.UI.MapCanvas.Rendering
 
                 if (drawParcelSelectionHighlight)
                 {
-                    DrawCadastralParcelSelectionHighlight(graphics, path, rect);
+                    DrawCadastralParcelSelectionHighlight(
+                        graphics,
+                        path,
+                        rect);
                 }
             }
             else if (drawParcelSelectionHighlight)
             {
-                DrawCadastralParcelSelectionHighlight(graphics, path, rect);
+                DrawCadastralParcelSelectionHighlight(
+                    graphics,
+                    path,
+                    rect);
             }
 
             if (pen != null)
@@ -1229,9 +1271,9 @@ namespace Land_Readjustment_Tool.UI.MapCanvas.Rendering
             }
         }
 
-        private static bool IsDataLayerPolygonFeature(CanvasFeature? feature, IShape shape, CanvasLayer? layer = null)
+        private static bool IsReplotSelectionFillFeature(CanvasFeature? feature, IShape shape, CanvasLayer? layer)
         {
-            if (layer != null && CanvasLayerTreeService.IsProjectBoundaryLayer(layer))
+            if (layer == null || CanvasLayerTreeService.IsProjectBoundaryLayer(layer))
             {
                 return false;
             }
@@ -1239,13 +1281,11 @@ namespace Land_Readjustment_Tool.UI.MapCanvas.Rendering
             return shape.IsSelected &&
                    feature != null &&
                    string.Equals(feature.CanvasObject.ObjectType, "Polygon", StringComparison.OrdinalIgnoreCase) &&
-                   (layer == null || (!CanvasLayerTreeService.IsAnnotationLayer(layer) &&
-                                      !CanvasLayerTreeService.IsDrawingMarkupLayer(layer) &&
-                                      !CanvasLayerTreeService.IsExternalImportedLayer(layer)));
+                   CanvasLayerTreeService.IsRePlotDataLayer(layer);
         }
 
         // High-contrast selection blue, tuned to stay visible over pastel map fills.
-        private static readonly Color SelectionHighlightColor = Color.FromArgb(0, 96, 255);
+        private static readonly Color SelectionHighlightColor = SelectionStrokeColor;
 
         private static void DrawCadastralParcelSelectionHighlight(
             Graphics graphics,
@@ -1260,20 +1300,18 @@ namespace Land_Readjustment_Tool.UI.MapCanvas.Rendering
             GraphicsState state = graphics.Save();
             try
             {
-                // Transparent fill — slightly more visible than before.
-                using SolidBrush fillBrush = new(Color.FromArgb(105, SelectionHighlightColor));
-                graphics.FillPath(fillBrush, path);
+                const int fillAlpha = 128;
+                const int outerAlpha = 125;
+                const int innerAlpha = 255;
 
-                // Inner glow — half the previous width, clipped so nothing bleeds outside.
-                float glowWidth = Math.Clamp(
-                    Math.Min(bounds.Width, bounds.Height) * 0.065f,
-                    3.0f,
-                    7.0f);
+                // Subtle transparent fill keeps selected parcels readable.
+                using SolidBrush fillBrush = new(Color.FromArgb(fillAlpha, SelectionHighlightColor));
+                graphics.FillPath(fillBrush, path);
 
                 graphics.SetClip(path, System.Drawing.Drawing2D.CombineMode.Intersect);
 
-                // Outer zone (25% opacity): covers full glowWidth inward from the border.
-                using Pen outerPen = new(Color.FromArgb(135, SelectionHighlightColor), glowWidth * 2.4f)
+                // Outer zone: faint transition band inward from the border.
+                using Pen outerPen = new(Color.FromArgb(outerAlpha, SelectionHighlightColor), ParcelSelectionGlowWidthPx)
                 {
                     Alignment = PenAlignment.Center,
                     LineJoin = LineJoin.Round,
@@ -1282,8 +1320,8 @@ namespace Land_Readjustment_Tool.UI.MapCanvas.Rendering
                 };
                 graphics.DrawPath(outerPen, path);
 
-                // Near-border zone (75% opacity): tight band right at the border edge.
-                using Pen innerPen = new(Color.FromArgb(255, SelectionHighlightColor), glowWidth)
+                // Near-border zone: narrow crisp edge for selection recognition.
+                using Pen innerPen = new(Color.FromArgb(innerAlpha, SelectionHighlightColor), ParcelSelectionOuterStrokeWidthPx)
                 {
                     Alignment = PenAlignment.Center,
                     LineJoin = LineJoin.Round,
