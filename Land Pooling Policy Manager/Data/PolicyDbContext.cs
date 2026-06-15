@@ -78,6 +78,16 @@ namespace Land_Pooling_Policy_Manager.Data
         {
             await Database.ExecuteSqlRawAsync(
                 """
+                CREATE TABLE IF NOT EXISTS tblPolicyManagerState (
+                    Key TEXT NOT NULL CONSTRAINT PK_tblPolicyManagerState PRIMARY KEY,
+                    Value TEXT NULL,
+                    LastModifiedDate TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
+                );
+                """,
+                ct);
+
+            await Database.ExecuteSqlRawAsync(
+                """
                 CREATE TABLE IF NOT EXISTS tblPolicySets (
                     Id INTEGER NOT NULL CONSTRAINT PK_tblPolicySets PRIMARY KEY AUTOINCREMENT,
                     PolicyGroupKey TEXT NOT NULL,

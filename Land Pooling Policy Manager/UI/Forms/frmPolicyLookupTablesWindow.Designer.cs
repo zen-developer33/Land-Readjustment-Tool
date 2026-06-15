@@ -192,7 +192,7 @@ namespace Land_Pooling_Policy_Manager.UI.Forms
             Controls.Add(dgvLookup);
             Controls.Add(headerPanel);
             Controls.Add(commandPanel);
-            MinimumSize = new Size(940, 540);
+            MinimumSize = new Size(0, 0);
             Name = "frmPolicyLookupTablesWindow";
             Text = "Policy Lookup Tables";
             Load += frmPolicyLookupTablesWindow_Load;

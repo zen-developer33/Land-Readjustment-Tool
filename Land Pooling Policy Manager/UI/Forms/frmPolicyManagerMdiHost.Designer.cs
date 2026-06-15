@@ -4,25 +4,26 @@ namespace Land_Pooling_Policy_Manager.UI.Forms
     {
         private System.ComponentModel.IContainer components = null;
         private MenuStrip menuStrip;
-        private ToolStripMenuItem fileToolStripMenuItem;
-        private ToolStripMenuItem openPolicyEditorToolStripMenuItem;
+        private ToolStripMenuItem fileMenuItem;
+        private ToolStripMenuItem policyEditorMenuItem;
         private ToolStripSeparator fileSeparator1;
-        private ToolStripMenuItem closeToolStripMenuItem;
-        private ToolStripMenuItem viewToolStripMenuItem;
-        private ToolStripMenuItem openParametersToolStripMenuItem;
-        private ToolStripMenuItem openLookupTablesToolStripMenuItem;
-        private ToolStripMenuItem windowToolStripMenuItem;
-        private ToolStripMenuItem tileHorizontalToolStripMenuItem;
-        private ToolStripMenuItem tileVerticalToolStripMenuItem;
-        private ToolStripMenuItem cascadeToolStripMenuItem;
-        private ToolStrip toolStrip;
-        private ToolStripButton btnPolicyEditor;
-        private ToolStripButton btnParameters;
-        private ToolStripButton btnLookupTables;
-        private ToolStripSeparator toolStripSeparator1;
-        private ToolStripButton btnTileHorizontal;
-        private ToolStripButton btnTileVertical;
-        private ToolStripButton btnCascade;
+        private ToolStripMenuItem closeMenuItem;
+        private ToolStripMenuItem viewMenuItem;
+        private ToolStripMenuItem parametersMenuItem;
+        private ToolStripMenuItem lookupTablesMenuItem;
+        private ToolStripMenuItem layoutMenuItem;
+        private ToolStripMenuItem layout2VerticalMenuItem;
+        private ToolStripMenuItem layout2HorizontalMenuItem;
+        private ToolStripMenuItem layout3EditorLeftMenuItem;
+        private ToolStripMenuItem layout3ColumnsMenuItem;
+        private ToolStripMenuItem layout3RowsMenuItem;
+        private ToolStripSeparator layoutSeparator1;
+        private ToolStripMenuItem cascadeMenuItem;
+        private ToolStripSeparator layoutSeparator2;
+        private ToolStripMenuItem sizeMenuItem;
+        private ToolStripMenuItem sizeFullMenuItem;
+        private ToolStripMenuItem sizeComfortMenuItem;
+        private ToolStripMenuItem sizeCompactMenuItem;
         private StatusStrip statusStrip;
         private ToolStripStatusLabel lblStatus;
 
@@ -37,187 +38,183 @@ namespace Land_Pooling_Policy_Manager.UI.Forms
         private void InitializeComponent()
         {
             menuStrip = new MenuStrip();
-            fileToolStripMenuItem = new ToolStripMenuItem();
-            openPolicyEditorToolStripMenuItem = new ToolStripMenuItem();
+            fileMenuItem = new ToolStripMenuItem();
+            policyEditorMenuItem = new ToolStripMenuItem();
             fileSeparator1 = new ToolStripSeparator();
-            closeToolStripMenuItem = new ToolStripMenuItem();
-            viewToolStripMenuItem = new ToolStripMenuItem();
-            openParametersToolStripMenuItem = new ToolStripMenuItem();
-            openLookupTablesToolStripMenuItem = new ToolStripMenuItem();
-            windowToolStripMenuItem = new ToolStripMenuItem();
-            tileHorizontalToolStripMenuItem = new ToolStripMenuItem();
-            tileVerticalToolStripMenuItem = new ToolStripMenuItem();
-            cascadeToolStripMenuItem = new ToolStripMenuItem();
-            toolStrip = new ToolStrip();
-            btnPolicyEditor = new ToolStripButton();
-            btnParameters = new ToolStripButton();
-            btnLookupTables = new ToolStripButton();
-            toolStripSeparator1 = new ToolStripSeparator();
-            btnTileHorizontal = new ToolStripButton();
-            btnTileVertical = new ToolStripButton();
-            btnCascade = new ToolStripButton();
+            closeMenuItem = new ToolStripMenuItem();
+            viewMenuItem = new ToolStripMenuItem();
+            parametersMenuItem = new ToolStripMenuItem();
+            lookupTablesMenuItem = new ToolStripMenuItem();
+            layoutMenuItem = new ToolStripMenuItem();
+            layout2VerticalMenuItem = new ToolStripMenuItem();
+            layout2HorizontalMenuItem = new ToolStripMenuItem();
+            layout3EditorLeftMenuItem = new ToolStripMenuItem();
+            layout3ColumnsMenuItem = new ToolStripMenuItem();
+            layout3RowsMenuItem = new ToolStripMenuItem();
+            layoutSeparator1 = new ToolStripSeparator();
+            cascadeMenuItem = new ToolStripMenuItem();
+            layoutSeparator2 = new ToolStripSeparator();
+            sizeMenuItem = new ToolStripMenuItem();
+            sizeFullMenuItem = new ToolStripMenuItem();
+            sizeComfortMenuItem = new ToolStripMenuItem();
+            sizeCompactMenuItem = new ToolStripMenuItem();
             statusStrip = new StatusStrip();
             lblStatus = new ToolStripStatusLabel();
             menuStrip.SuspendLayout();
-            toolStrip.SuspendLayout();
             statusStrip.SuspendLayout();
             SuspendLayout();
-            // 
+            //
             // menuStrip
-            // 
+            //
             menuStrip.ImageScalingSize = new Size(20, 20);
-            menuStrip.Items.AddRange(new ToolStripItem[] { fileToolStripMenuItem, viewToolStripMenuItem, windowToolStripMenuItem });
+            menuStrip.Items.AddRange(new ToolStripItem[] { fileMenuItem, viewMenuItem, layoutMenuItem });
             menuStrip.Location = new Point(0, 0);
             menuStrip.Name = "menuStrip";
             menuStrip.Size = new Size(1200, 28);
             menuStrip.TabIndex = 0;
             menuStrip.Text = "menuStrip";
-            // 
-            // fileToolStripMenuItem
-            // 
-            fileToolStripMenuItem.DropDownItems.AddRange(new ToolStripItem[] { openPolicyEditorToolStripMenuItem, fileSeparator1, closeToolStripMenuItem });
-            fileToolStripMenuItem.Name = "fileToolStripMenuItem";
-            fileToolStripMenuItem.Size = new Size(46, 24);
-            fileToolStripMenuItem.Text = "&File";
-            // 
-            // openPolicyEditorToolStripMenuItem
-            // 
-            openPolicyEditorToolStripMenuItem.Name = "openPolicyEditorToolStripMenuItem";
-            openPolicyEditorToolStripMenuItem.Size = new Size(174, 26);
-            openPolicyEditorToolStripMenuItem.Text = "&Policy Editor";
-            openPolicyEditorToolStripMenuItem.Click += btnPolicyEditor_Click;
-            // 
+            //
+            // fileMenuItem
+            //
+            fileMenuItem.DropDownItems.AddRange(new ToolStripItem[] { policyEditorMenuItem, fileSeparator1, closeMenuItem });
+            fileMenuItem.Name = "fileMenuItem";
+            fileMenuItem.Size = new Size(46, 24);
+            fileMenuItem.Text = "&File";
+            //
+            // policyEditorMenuItem
+            //
+            policyEditorMenuItem.Name = "policyEditorMenuItem";
+            policyEditorMenuItem.Size = new Size(200, 26);
+            policyEditorMenuItem.Text = "&Policy Editor";
+            policyEditorMenuItem.Click += btnPolicyEditor_Click;
+            //
             // fileSeparator1
-            // 
+            //
             fileSeparator1.Name = "fileSeparator1";
-            fileSeparator1.Size = new Size(171, 6);
-            // 
-            // closeToolStripMenuItem
-            // 
-            closeToolStripMenuItem.Name = "closeToolStripMenuItem";
-            closeToolStripMenuItem.Size = new Size(174, 26);
-            closeToolStripMenuItem.Text = "&Close";
-            closeToolStripMenuItem.Click += btnClose_Click;
-            // 
-            // viewToolStripMenuItem
-            // 
-            viewToolStripMenuItem.DropDownItems.AddRange(new ToolStripItem[] { openParametersToolStripMenuItem, openLookupTablesToolStripMenuItem });
-            viewToolStripMenuItem.Name = "viewToolStripMenuItem";
-            viewToolStripMenuItem.Size = new Size(55, 24);
-            viewToolStripMenuItem.Text = "&View";
-            // 
-            // openParametersToolStripMenuItem
-            // 
-            openParametersToolStripMenuItem.Name = "openParametersToolStripMenuItem";
-            openParametersToolStripMenuItem.Size = new Size(186, 26);
-            openParametersToolStripMenuItem.Text = "&Parameters";
-            openParametersToolStripMenuItem.Click += btnParameters_Click;
-            // 
-            // openLookupTablesToolStripMenuItem
-            // 
-            openLookupTablesToolStripMenuItem.Name = "openLookupTablesToolStripMenuItem";
-            openLookupTablesToolStripMenuItem.Size = new Size(186, 26);
-            openLookupTablesToolStripMenuItem.Text = "&Lookup Tables";
-            openLookupTablesToolStripMenuItem.Click += btnLookupTables_Click;
-            // 
-            // windowToolStripMenuItem
-            // 
-            windowToolStripMenuItem.DropDownItems.AddRange(new ToolStripItem[] { tileHorizontalToolStripMenuItem, tileVerticalToolStripMenuItem, cascadeToolStripMenuItem });
-            windowToolStripMenuItem.Name = "windowToolStripMenuItem";
-            windowToolStripMenuItem.Size = new Size(78, 24);
-            windowToolStripMenuItem.Text = "&Window";
-            // 
-            // tileHorizontalToolStripMenuItem
-            // 
-            tileHorizontalToolStripMenuItem.Name = "tileHorizontalToolStripMenuItem";
-            tileHorizontalToolStripMenuItem.Size = new Size(190, 26);
-            tileHorizontalToolStripMenuItem.Text = "Tile &Horizontal";
-            tileHorizontalToolStripMenuItem.Click += btnTileHorizontal_Click;
-            // 
-            // tileVerticalToolStripMenuItem
-            // 
-            tileVerticalToolStripMenuItem.Name = "tileVerticalToolStripMenuItem";
-            tileVerticalToolStripMenuItem.Size = new Size(190, 26);
-            tileVerticalToolStripMenuItem.Text = "Tile &Vertical";
-            tileVerticalToolStripMenuItem.Click += btnTileVertical_Click;
-            // 
-            // cascadeToolStripMenuItem
-            // 
-            cascadeToolStripMenuItem.Name = "cascadeToolStripMenuItem";
-            cascadeToolStripMenuItem.Size = new Size(190, 26);
-            cascadeToolStripMenuItem.Text = "&Cascade";
-            cascadeToolStripMenuItem.Click += btnCascade_Click;
-            // 
-            // toolStrip
-            // 
-            toolStrip.GripStyle = ToolStripGripStyle.Hidden;
-            toolStrip.ImageScalingSize = new Size(20, 20);
-            toolStrip.Items.AddRange(new ToolStripItem[] { btnPolicyEditor, btnParameters, btnLookupTables, toolStripSeparator1, btnTileHorizontal, btnTileVertical, btnCascade });
-            toolStrip.Location = new Point(0, 28);
-            toolStrip.Name = "toolStrip";
-            toolStrip.Padding = new Padding(4, 2, 4, 2);
-            toolStrip.Size = new Size(1200, 31);
-            toolStrip.TabIndex = 1;
-            toolStrip.Visible = false;
-            // 
-            // btnPolicyEditor
-            // 
-            btnPolicyEditor.DisplayStyle = ToolStripItemDisplayStyle.Text;
-            btnPolicyEditor.Name = "btnPolicyEditor";
-            btnPolicyEditor.Size = new Size(95, 24);
-            btnPolicyEditor.Text = "Policy Editor";
-            btnPolicyEditor.ToolTipText = "Open the policy editor";
-            btnPolicyEditor.Click += btnPolicyEditor_Click;
-            // 
-            // btnParameters
-            // 
-            btnParameters.DisplayStyle = ToolStripItemDisplayStyle.Text;
-            btnParameters.Name = "btnParameters";
-            btnParameters.Size = new Size(86, 24);
-            btnParameters.Text = "Parameters";
-            btnParameters.ToolTipText = "Open all-parameters grid";
-            btnParameters.Click += btnParameters_Click;
-            // 
-            // btnLookupTables
-            // 
-            btnLookupTables.DisplayStyle = ToolStripItemDisplayStyle.Text;
-            btnLookupTables.Name = "btnLookupTables";
-            btnLookupTables.Size = new Size(107, 24);
-            btnLookupTables.Text = "Lookup Tables";
-            btnLookupTables.ToolTipText = "Open lookup-tables editor";
-            btnLookupTables.Click += btnLookupTables_Click;
-            // 
-            // toolStripSeparator1
-            // 
-            toolStripSeparator1.Name = "toolStripSeparator1";
-            toolStripSeparator1.Size = new Size(6, 27);
-            // 
-            // btnTileHorizontal
-            // 
-            btnTileHorizontal.DisplayStyle = ToolStripItemDisplayStyle.Text;
-            btnTileHorizontal.Name = "btnTileHorizontal";
-            btnTileHorizontal.Size = new Size(111, 24);
-            btnTileHorizontal.Text = "Tile Horizontal";
-            btnTileHorizontal.Click += btnTileHorizontal_Click;
-            // 
-            // btnTileVertical
-            // 
-            btnTileVertical.DisplayStyle = ToolStripItemDisplayStyle.Text;
-            btnTileVertical.Name = "btnTileVertical";
-            btnTileVertical.Size = new Size(90, 24);
-            btnTileVertical.Text = "Tile Vertical";
-            btnTileVertical.Click += btnTileVertical_Click;
-            // 
-            // btnCascade
-            // 
-            btnCascade.DisplayStyle = ToolStripItemDisplayStyle.Text;
-            btnCascade.Name = "btnCascade";
-            btnCascade.Size = new Size(68, 24);
-            btnCascade.Text = "Cascade";
-            btnCascade.Click += btnCascade_Click;
-            // 
+            fileSeparator1.Size = new Size(197, 6);
+            //
+            // closeMenuItem
+            //
+            closeMenuItem.Name = "closeMenuItem";
+            closeMenuItem.Size = new Size(200, 26);
+            closeMenuItem.Text = "&Close";
+            closeMenuItem.Click += btnClose_Click;
+            //
+            // viewMenuItem
+            //
+            viewMenuItem.DropDownItems.AddRange(new ToolStripItem[] { parametersMenuItem, lookupTablesMenuItem });
+            viewMenuItem.Name = "viewMenuItem";
+            viewMenuItem.Size = new Size(55, 24);
+            viewMenuItem.Text = "&View";
+            //
+            // parametersMenuItem
+            //
+            parametersMenuItem.Name = "parametersMenuItem";
+            parametersMenuItem.Size = new Size(200, 26);
+            parametersMenuItem.Text = "&Parameters";
+            parametersMenuItem.Click += btnParameters_Click;
+            //
+            // lookupTablesMenuItem
+            //
+            lookupTablesMenuItem.Name = "lookupTablesMenuItem";
+            lookupTablesMenuItem.Size = new Size(200, 26);
+            lookupTablesMenuItem.Text = "&Lookup Tables";
+            lookupTablesMenuItem.Click += btnLookupTables_Click;
+            //
+            // layoutMenuItem
+            //
+            layoutMenuItem.DropDownItems.AddRange(new ToolStripItem[] { layout2VerticalMenuItem, layout2HorizontalMenuItem, layout3EditorLeftMenuItem, layout3ColumnsMenuItem, layout3RowsMenuItem, layoutSeparator1, cascadeMenuItem, layoutSeparator2, sizeMenuItem });
+            layoutMenuItem.Name = "layoutMenuItem";
+            layoutMenuItem.Size = new Size(67, 24);
+            layoutMenuItem.Text = "&Layout";
+            //
+            // layout2VerticalMenuItem
+            //
+            layout2VerticalMenuItem.Name = "layout2VerticalMenuItem";
+            layout2VerticalMenuItem.Size = new Size(220, 26);
+            layout2VerticalMenuItem.Text = "2 &Vertical";
+            layout2VerticalMenuItem.Click += btnLayout2Vertical_Click;
+            //
+            // layout2HorizontalMenuItem
+            //
+            layout2HorizontalMenuItem.Name = "layout2HorizontalMenuItem";
+            layout2HorizontalMenuItem.Size = new Size(220, 26);
+            layout2HorizontalMenuItem.Text = "2 &Horizontal";
+            layout2HorizontalMenuItem.Click += btnLayout2Horizontal_Click;
+            //
+            // layout3EditorLeftMenuItem
+            //
+            layout3EditorLeftMenuItem.Name = "layout3EditorLeftMenuItem";
+            layout3EditorLeftMenuItem.Size = new Size(220, 26);
+            layout3EditorLeftMenuItem.Text = "&Editor + 2";
+            layout3EditorLeftMenuItem.Click += btnLayout3EditorLeft_Click;
+            //
+            // layout3ColumnsMenuItem
+            //
+            layout3ColumnsMenuItem.Name = "layout3ColumnsMenuItem";
+            layout3ColumnsMenuItem.Size = new Size(220, 26);
+            layout3ColumnsMenuItem.Text = "3 &Columns";
+            layout3ColumnsMenuItem.Click += btnLayout3Columns_Click;
+            //
+            // layout3RowsMenuItem
+            //
+            layout3RowsMenuItem.Name = "layout3RowsMenuItem";
+            layout3RowsMenuItem.Size = new Size(220, 26);
+            layout3RowsMenuItem.Text = "3 &Rows";
+            layout3RowsMenuItem.Click += btnLayout3Rows_Click;
+            //
+            // layoutSeparator1
+            //
+            layoutSeparator1.Name = "layoutSeparator1";
+            layoutSeparator1.Size = new Size(217, 6);
+            //
+            // cascadeMenuItem
+            //
+            cascadeMenuItem.Name = "cascadeMenuItem";
+            cascadeMenuItem.Size = new Size(220, 26);
+            cascadeMenuItem.Text = "C&ascade";
+            cascadeMenuItem.Click += btnCascade_Click;
+            //
+            // layoutSeparator2
+            //
+            layoutSeparator2.Name = "layoutSeparator2";
+            layoutSeparator2.Size = new Size(217, 6);
+            //
+            // sizeMenuItem
+            //
+            sizeMenuItem.DropDownItems.AddRange(new ToolStripItem[] { sizeFullMenuItem, sizeComfortMenuItem, sizeCompactMenuItem });
+            sizeMenuItem.Name = "sizeMenuItem";
+            sizeMenuItem.Size = new Size(220, 26);
+            sizeMenuItem.Text = "&Size";
+            //
+            // sizeFullMenuItem
+            //
+            sizeFullMenuItem.Checked = true;
+            sizeFullMenuItem.CheckState = CheckState.Checked;
+            sizeFullMenuItem.Name = "sizeFullMenuItem";
+            sizeFullMenuItem.Size = new Size(200, 26);
+            sizeFullMenuItem.Tag = "0";
+            sizeFullMenuItem.Text = "&Full";
+            sizeFullMenuItem.Click += sizeMenuItem_Click;
+            //
+            // sizeComfortMenuItem
+            //
+            sizeComfortMenuItem.Name = "sizeComfortMenuItem";
+            sizeComfortMenuItem.Size = new Size(200, 26);
+            sizeComfortMenuItem.Tag = "1";
+            sizeComfortMenuItem.Text = "Comfort &90%";
+            sizeComfortMenuItem.Click += sizeMenuItem_Click;
+            //
+            // sizeCompactMenuItem
+            //
+            sizeCompactMenuItem.Name = "sizeCompactMenuItem";
+            sizeCompactMenuItem.Size = new Size(200, 26);
+            sizeCompactMenuItem.Tag = "2";
+            sizeCompactMenuItem.Text = "Compact &75%";
+            sizeCompactMenuItem.Click += sizeMenuItem_Click;
+            //
             // statusStrip
-            // 
+            //
             statusStrip.ImageScalingSize = new Size(20, 20);
             statusStrip.Items.AddRange(new ToolStripItem[] { lblStatus });
             statusStrip.Location = new Point(0, 674);
@@ -225,19 +222,18 @@ namespace Land_Pooling_Policy_Manager.UI.Forms
             statusStrip.Size = new Size(1200, 26);
             statusStrip.SizingGrip = false;
             statusStrip.TabIndex = 2;
-            // 
+            //
             // lblStatus
-            // 
+            //
             lblStatus.Name = "lblStatus";
             lblStatus.Size = new Size(50, 20);
             lblStatus.Text = "Ready";
-            // 
+            //
             // frmPolicyManagerMdiHost
-            // 
+            //
             AutoScaleMode = AutoScaleMode.None;
             ClientSize = new Size(1200, 700);
             Controls.Add(statusStrip);
-            Controls.Add(toolStrip);
             Controls.Add(menuStrip);
             IsMdiContainer = true;
             MainMenuStrip = menuStrip;
@@ -249,12 +245,11 @@ namespace Land_Pooling_Policy_Manager.UI.Forms
             Load += frmPolicyManagerMdiHost_Load;
             menuStrip.ResumeLayout(false);
             menuStrip.PerformLayout();
-            toolStrip.ResumeLayout(false);
-            toolStrip.PerformLayout();
             statusStrip.ResumeLayout(false);
             statusStrip.PerformLayout();
             ResumeLayout(false);
             PerformLayout();
+            RecordFormTheme.Apply(this);
         }
     }
 }

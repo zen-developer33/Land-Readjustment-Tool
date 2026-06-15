@@ -27,6 +27,7 @@ namespace Land_Readjustment_Tool.UI.MapCanvas.Rendering
         private const double MinLabelZoomFactor = 0.1;
         private const double MaxLabelZoomFactor = 12.0;
         private const double DeepZoomLabelViewportWorldSpan = 0.5;
+        private const float SelectionStrokeWidthExtraPx = 1.0f;
         private static readonly Color SelectionStrokeColor = Color.FromArgb(0, 72, 255);
         private readonly Font _previewFont = new("Segoe UI", 8.0f, FontStyle.Bold);
         private readonly VectorFeatureSpatialIndex _featureSpatialIndex = new();
@@ -331,7 +332,8 @@ namespace Land_Readjustment_Tool.UI.MapCanvas.Rendering
             MapCanvasEngine engine,
             IShape? shape,
             CanvasLayer? layer,
-            CanvasFeature? feature)
+            CanvasFeature? feature,
+            bool antiAliasingEnabled)
         {
             if (shape == null || !shape.IsSelected)
             {
@@ -344,7 +346,7 @@ namespace Land_Readjustment_Tool.UI.MapCanvas.Rendering
                 penCache,
                 brushCache,
                 engine.ZoomScale,
-                antiAliasingEnabled: true,
+                antiAliasingEnabled: antiAliasingEnabled,
                 isPreview: false,
                 selectionDecorationOnly: true,
                 clipWorldBounds: CreateClipWorldBounds(engine));
@@ -813,13 +815,16 @@ namespace Land_Readjustment_Tool.UI.MapCanvas.Rendering
             GraphicsState state = graphics.Save();
             try
             {
-                graphics.SmoothingMode = SmoothingMode.AntiAlias;
+                graphics.SmoothingMode = context.AntiAliasingEnabled
+                    ? SmoothingMode.AntiAlias
+                    : SmoothingMode.None;
                 float effectiveStroke = Math.Max(0.25f, strokeWidth);
+                float selectionStroke = effectiveStroke + SelectionStrokeWidthExtraPx;
                 if (!IsLinearSelectionOutline(path))
                 {
                     foreach ((float extraWidth, int alpha) in SelectionOutlineGlowBands)
                     {
-                        float selectionWidth = effectiveStroke + extraWidth;
+                        float selectionWidth = selectionStroke + extraWidth;
                         Pen glowPen = context.GetPen(
                             Color.FromArgb(alpha, SelectionGlowColor),
                             selectionWidth,
@@ -831,9 +836,9 @@ namespace Land_Readjustment_Tool.UI.MapCanvas.Rendering
 
                 Pen centerPen = context.GetPen(
                     SelectionStrokeColor,
-                    effectiveStroke,
+                    selectionStroke,
                     style.DashStyle,
-                    style.LineTypeScale);
+                    GetSelectionDashScale(style.LineTypeScale, effectiveStroke, selectionStroke));
                 graphics.DrawPath(centerPen, path);
             }
             catch (OutOfMemoryException)

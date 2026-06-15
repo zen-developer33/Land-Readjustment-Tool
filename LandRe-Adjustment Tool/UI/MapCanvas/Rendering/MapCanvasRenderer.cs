@@ -278,7 +278,8 @@ namespace Land_Readjustment_Tool.UI.MapCanvas.Rendering
                 _engine,
                 shape,
                 layer,
-                feature);
+                feature,
+                _settings.AntiAliasingEnabled);
         }
 
         public bool RefreshVectorCache(Size canvasSize)
@@ -371,11 +372,12 @@ namespace Land_Readjustment_Tool.UI.MapCanvas.Rendering
         private void RenderFixedReferenceLayers(
             Graphics graphics,
             MapCanvasRenderViewport viewport,
-            bool suppressGridLabels = false)
+            bool suppressGridLabels = false,
+            double? gridMinorWorldSize = null)
         {
             if (_settings.ShowGrid)
             {
-                RenderGrid(graphics, viewport, suppressGridLabels);
+                RenderGrid(graphics, viewport, suppressGridLabels, gridMinorWorldSize);
             }
         }
 
@@ -418,13 +420,34 @@ namespace Land_Readjustment_Tool.UI.MapCanvas.Rendering
 
         public void RenderFixedReferences(Graphics graphics, bool suppressGridLabels = false)
         {
+            RenderFixedReferences(graphics, suppressGridLabels, gridMinorWorldSize: null);
+        }
+
+        public void RenderFixedReferences(
+            Graphics graphics,
+            bool suppressGridLabels,
+            double? gridMinorWorldSize)
+        {
             ArgumentNullException.ThrowIfNull(graphics);
 
             ConfigureVectorGraphics(graphics);
             RenderFixedReferenceLayers(
                 graphics,
                 CreateViewport(graphics),
-                suppressGridLabels);
+                suppressGridLabels,
+                gridMinorWorldSize);
+        }
+
+        public double GetCurrentGridMinorWorldSize()
+        {
+            if (!_settings.ShowGrid ||
+                _engine.ZoomScale < 0.001 ||
+                _engine.ZoomScale > 100000)
+            {
+                return 0;
+            }
+
+            return ResolveAdaptiveMinorSize(_engine.ZoomScale);
         }
 
         public GridPanPadding GetGridPanPadding(Size canvasSize)
@@ -902,7 +925,8 @@ namespace Land_Readjustment_Tool.UI.MapCanvas.Rendering
         private void RenderGrid(
             Graphics graphics,
             MapCanvasRenderViewport viewport,
-            bool suppressLabels = false)
+            bool suppressLabels = false,
+            double? gridMinorWorldSize = null)
         {
             double zoomScale = _engine.ZoomScale;
             if (zoomScale < 0.001 || zoomScale > 100000)
@@ -922,10 +946,17 @@ namespace Land_Readjustment_Tool.UI.MapCanvas.Rendering
             const int majorDivisions = 5;
             const double minMinorPixels = 10.0;
             const double maxMinorPixels = 32.0;
-            double adaptiveMinorSize = ResolveAdaptiveMinorSize(
-                zoomScale,
-                minMinorPixels,
-                maxMinorPixels);
+            double adaptiveMinorSize = gridMinorWorldSize.GetValueOrDefault();
+            if (!gridMinorWorldSize.HasValue ||
+                !double.IsFinite(adaptiveMinorSize) ||
+                adaptiveMinorSize <= 0)
+            {
+                adaptiveMinorSize = ResolveAdaptiveMinorSize(
+                    zoomScale,
+                    minMinorPixels,
+                    maxMinorPixels);
+            }
+
             double adaptiveMajorSize = adaptiveMinorSize * majorDivisions;
 
             double worldWidth = worldRight - worldLeft;

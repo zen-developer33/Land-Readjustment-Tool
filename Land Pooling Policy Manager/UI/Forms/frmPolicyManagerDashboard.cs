@@ -595,8 +595,31 @@ namespace Land_Pooling_Policy_Manager.UI.Forms
         private async Task ManagePoliciesAsync()
         {
             using frmPolicyListManager manager = new(_service, _readOnlyMode, _currentPolicy?.Id);
-            if (manager.ShowDialog(this) == DialogResult.OK && manager.SelectedPolicyId.HasValue)
+            manager.PoliciesChangedLive += PolicyListManager_PoliciesChangedLive;
+
+            DialogResult result = manager.ShowDialog(this);
+            manager.PoliciesChangedLive -= PolicyListManager_PoliciesChangedLive;
+
+            if (result == DialogResult.OK && manager.SelectedPolicyId.HasValue)
+            {
                 await ReloadPoliciesAsync(manager.SelectedPolicyId.Value);
+                return;
+            }
+
+            if (manager.PoliciesChanged)
+                await ReloadPoliciesAsync(manager.LastChangedPolicyId);
+        }
+
+        private void PolicyListManager_PoliciesChangedLive(object? sender, int? policyId)
+        {
+            if (IsDisposed || !IsHandleCreated)
+                return;
+
+            BeginInvoke(new Action(async () =>
+            {
+                if (!IsDisposed)
+                    await ReloadPoliciesAsync(policyId);
+            }));
         }
 
         private async Task SaveCurrentEditorsAsync()

@@ -47,18 +47,6 @@ namespace Land_Pooling_Policy_Manager.Services
 
         private async Task<bool> NeedsBaireniTemplateUpgradeAsync(int policySetId, CancellationToken ct)
         {
-            bool hasRoadReferenceColumns = await _context.PolicyLookupColumns
-                .AsNoTracking()
-                .AnyAsync(column =>
-                    column.PolicyLookupTable.PolicySetId == policySetId &&
-                    column.PolicyLookupTable.TableKey == "cornerTypeDefinitions" &&
-                    column.ColumnKey == "primaryFrontageRoad" &&
-                    column.ValueType == "RoadReference",
-                    ct);
-
-            if (!hasRoadReferenceColumns)
-                return true;
-
             bool hasLinkedRoadTable = await _context.PolicyLookupTables
                 .AsNoTracking()
                 .AnyAsync(table =>
@@ -121,34 +109,23 @@ namespace Land_Pooling_Policy_Manager.Services
             changed |= NormalizePercentParameter(policy, "fixedCommonTotal", "10.83");
             changed |= LinkExistingParametersToClauses(policy);
 
-            PolicyLookupTable? cornerTypeTable = policy.LookupTables
-                .FirstOrDefault(t => string.Equals(t.TableKey, "cornerTypeDefinitions", StringComparison.OrdinalIgnoreCase));
-            if (cornerTypeTable == null)
-            {
-                AddCornerTypeDefinitionTable(policy, now);
-                changed = true;
-            }
-            else
-            {
-                changed |= LinkLookupTableToClause(policy, cornerTypeTable, "3.7", 1);
-                changed |= EnsureCornerTypeDefinitionSchema(cornerTypeTable);
-            }
+            changed |= RemoveObsoleteCornerTypeDefinitionTables(policy);
 
             PolicyLookupTable? roadTable = policy.LookupTables
                 .FirstOrDefault(t => string.Equals(t.TableKey, "roadContributionTable", StringComparison.OrdinalIgnoreCase));
             if (roadTable != null)
-                changed |= LinkLookupTableToClause(policy, roadTable, "3.2", 2);
+                changed |= LinkLookupTableToClause(policy, roadTable, "3.2", 1);
 
             PolicyLookupTable? specialTable = policy.LookupTables
                 .FirstOrDefault(t => string.Equals(t.TableKey, "specialFacilityRates", StringComparison.OrdinalIgnoreCase));
             if (specialTable != null)
-                changed |= LinkLookupTableToClause(policy, specialTable, "3.9", 3);
+                changed |= LinkLookupTableToClause(policy, specialTable, "3.9", 2);
 
             PolicyLookupTable? cornerTable = policy.LookupTables
                 .FirstOrDefault(t => string.Equals(t.TableKey, "cornerContributionTable", StringComparison.OrdinalIgnoreCase));
             if (cornerTable != null)
             {
-                changed |= LinkLookupTableToClause(policy, cornerTable, "3.7", 4);
+                changed |= LinkLookupTableToClause(policy, cornerTable, "3.7", 3);
                 changed |= EnsureCornerContributionCodes(cornerTable);
             }
 
@@ -159,7 +136,7 @@ namespace Land_Pooling_Policy_Manager.Services
             policy.AuditEntries.Add(new PolicyAuditEntry
             {
                 Action = "Template Updated",
-                Details = "Baireni policy draft upgraded with clause-linked lookup tables, corner type definitions, and percentage parameter display.",
+                Details = "Baireni policy draft upgraded with clause-linked lookup tables and percentage parameter display.",
                 CreatedDate = now
             });
             await _context.SaveChangesAsync(ct);
@@ -300,6 +277,21 @@ namespace Land_Pooling_Policy_Manager.Services
             }
 
             return changed;
+        }
+
+        private static bool RemoveObsoleteCornerTypeDefinitionTables(PolicySet policy)
+        {
+            List<PolicyLookupTable> obsoleteTables = policy.LookupTables
+                .Where(t => string.Equals(t.TableKey, "cornerTypeDefinitions", StringComparison.OrdinalIgnoreCase))
+                .ToList();
+
+            if (obsoleteTables.Count == 0)
+                return false;
+
+            foreach (PolicyLookupTable table in obsoleteTables)
+                policy.LookupTables.Remove(table);
+
+            return true;
         }
 
         private static bool EnsureCornerTypeDefinitionSchema(PolicyLookupTable table)
@@ -446,7 +438,6 @@ namespace Land_Pooling_Policy_Manager.Services
             AddClauses(policy, now);
             AddParameters(policy, now);
             LinkParametersToClauses(policy);
-            AddCornerTypeDefinitionTable(policy, now);
             AddRoadContributionTable(policy, now);
             AddSpecialFacilityTable(policy, now);
             AddCornerPlotTable(policy, now);
@@ -679,7 +670,7 @@ namespace Land_Pooling_Policy_Manager.Services
                 "roadContributionTable",
                 "Schedule 1 Table 1 - Road Contribution",
                 "Contribution payable by existing road width, block depth, and proposed road width.",
-                2,
+                1,
                 now,
                 [
                     ("existingRoadWidthM", "Existing Road (m)", "Decimal", "m"),
@@ -773,7 +764,7 @@ namespace Land_Pooling_Policy_Manager.Services
                 "specialFacilityRates",
                 "Schedule 1 Table 2(a) - Special Facility Rates",
                 "Additional contribution rates for special facilities and site conditions.",
-                3,
+                2,
                 now,
                 [
                     ("sn", "S.N.", "Text", null),
@@ -799,7 +790,7 @@ namespace Land_Pooling_Policy_Manager.Services
                 "cornerContributionTable",
                 "Schedule 1 Table 2(b) - Corner Plot Rates",
                 "Additional contribution rates by project-defined corner type.",
-                4,
+                3,
                 now,
                 [
                     ("cornerCode", "Corner Code", "Text", null),

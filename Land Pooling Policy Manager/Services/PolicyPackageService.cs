@@ -56,6 +56,18 @@ namespace Land_Pooling_Policy_Manager.Services
                 LastModifiedDate = now
             };
 
+            foreach (PolicySectionPackage sectionPackage in package.Sections.OrderBy(s => s.DisplayOrder))
+            {
+                policy.Sections.Add(new PolicySectionDefinition
+                {
+                    SectionCode = sectionPackage.SectionCode,
+                    Heading = sectionPackage.Heading,
+                    DisplayOrder = sectionPackage.DisplayOrder,
+                    CreatedDate = now,
+                    LastModifiedDate = now
+                });
+            }
+
             Dictionary<int, PolicyClause> clausesByLocalId = [];
             foreach (PolicyClausePackage clausePackage in package.Clauses.OrderBy(c => c.DisplayOrder))
             {
@@ -110,7 +122,9 @@ namespace Land_Pooling_Policy_Manager.Services
                 policy.Parameters.Add(parameter);
             }
 
-            foreach (PolicyLookupTablePackage tablePackage in package.LookupTables.OrderBy(t => t.DisplayOrder))
+            foreach (PolicyLookupTablePackage tablePackage in package.LookupTables
+                         .Where(t => !IsObsoleteCornerTypeDefinitionTable(t.TableKey))
+                         .OrderBy(t => t.DisplayOrder))
             {
                 PolicyLookupTable table = new()
                 {
@@ -219,6 +233,16 @@ namespace Land_Pooling_Policy_Manager.Services
                     SourceReference = policy.SourceReference,
                     Notes = policy.Notes
                 },
+                Sections = policy.Sections
+                    .OrderBy(section => section.DisplayOrder)
+                    .ThenBy(section => section.SectionCode)
+                    .Select(section => new PolicySectionPackage
+                    {
+                        SectionCode = section.SectionCode,
+                        Heading = section.Heading,
+                        DisplayOrder = section.DisplayOrder
+                    })
+                    .ToList(),
                 Clauses = policy.Clauses
                     .OrderBy(c => c.DisplayOrder)
                     .Select(clause => new PolicyClausePackage
@@ -256,6 +280,7 @@ namespace Land_Pooling_Policy_Manager.Services
                     })
                     .ToList(),
                 LookupTables = policy.LookupTables
+                    .Where(table => !IsObsoleteCornerTypeDefinitionTable(table.TableKey))
                     .OrderBy(t => t.DisplayOrder)
                     .Select(table => ToPackage(table, localClauseIds))
                     .ToList(),
@@ -310,6 +335,11 @@ namespace Land_Pooling_Policy_Manager.Services
                     })
                     .ToList()
             };
+        }
+
+        private static bool IsObsoleteCornerTypeDefinitionTable(string? tableKey)
+        {
+            return string.Equals(tableKey, "cornerTypeDefinitions", StringComparison.OrdinalIgnoreCase);
         }
     }
 }

@@ -164,7 +164,7 @@ namespace Land_Pooling_Policy_Manager.UI.Forms
             ClientSize = new Size(1100, 620);
             Controls.Add(dgvParameters);
             Controls.Add(headerPanel);
-            MinimumSize = new Size(900, 520);
+            MinimumSize = new Size(0, 0);
             Name = "frmPolicyParametersWindow";
             Text = "Policy Parameters";
             Load += frmPolicyParametersWindow_Load;

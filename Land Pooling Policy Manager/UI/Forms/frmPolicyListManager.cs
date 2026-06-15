@@ -13,6 +13,10 @@ namespace Land_Pooling_Policy_Manager.UI.Forms
         private bool _loading;
 
         public int? SelectedPolicyId { get; private set; }
+        public bool PoliciesChanged { get; private set; }
+        public int? LastChangedPolicyId { get; private set; }
+
+        public event EventHandler<int?>? PoliciesChangedLive;
 
         public frmPolicyListManager(
             PolicyManagerService service,
@@ -50,6 +54,7 @@ namespace Land_Pooling_Policy_Manager.UI.Forms
         private async void btnRename_Click(object? sender, EventArgs e) => await RunUiOperationAsync(RenamePolicyAsync);
         private async void btnDelete_Click(object? sender, EventArgs e) => await RunUiOperationAsync(DeletePolicyAsync);
         private async void btnImport_Click(object? sender, EventArgs e) => await RunUiOperationAsync(ImportPolicyAsync);
+        private async void btnExport_Click(object? sender, EventArgs e) => await RunUiOperationAsync(ExportPolicyAsync);
         private void btnClose_Click(object? sender, EventArgs e) => Close();
 
         private async Task ReloadPoliciesAsync(int? selectPolicyId = null)
@@ -63,7 +68,10 @@ namespace Land_Pooling_Policy_Manager.UI.Forms
                     lstPolicies.Items.Add(policy.PolicyName);
 
                 if (_policies.Count == 0)
+                {
+                    txtPolicyName.Text = "";
                     return;
+                }
 
                 int index = selectPolicyId.HasValue
                     ? _policies.FindIndex(p => p.Id == selectPolicyId.Value)
@@ -90,6 +98,7 @@ namespace Land_Pooling_Policy_Manager.UI.Forms
                 name,
                 $"POL-{DateTime.Now:yyyyMMddHHmm}"));
             await ReloadPoliciesAsync(policy.Id);
+            MarkPoliciesChanged(policy.Id);
         }
 
         private async Task CopyPolicyAsync()
@@ -103,6 +112,7 @@ namespace Land_Pooling_Policy_Manager.UI.Forms
             string name = GenerateUniqueName($"{selected.PolicyName} (copy)");
             PolicySet copy = await RunServiceAsync(() => _service.CopyPolicyAsDraftAsync(selected.Id, name));
             await ReloadPoliciesAsync(copy.Id);
+            MarkPoliciesChanged(copy.Id);
         }
 
         private string GenerateUniqueName(string baseName)
@@ -134,6 +144,7 @@ namespace Land_Pooling_Policy_Manager.UI.Forms
             PolicySet selected = SelectedPolicy()!;
             PolicySet draft = await RunServiceAsync(() => _service.CreateDraftFromApprovedAsync(selected.Id));
             await ReloadPoliciesAsync(draft.Id);
+            MarkPoliciesChanged(draft.Id);
         }
 
         private async Task RenamePolicyAsync()
@@ -144,6 +155,7 @@ namespace Land_Pooling_Policy_Manager.UI.Forms
             PolicySet selected = SelectedPolicy()!;
             await RunServiceAsync(() => _service.RenamePolicyAsync(selected.Id, txtPolicyName.Text));
             await ReloadPoliciesAsync(selected.Id);
+            MarkPoliciesChanged(selected.Id);
         }
 
         private async Task DeletePolicyAsync()
@@ -153,32 +165,14 @@ namespace Land_Pooling_Policy_Manager.UI.Forms
 
             PolicySet selected = SelectedPolicy()!;
 
-            // Must always keep at least one policy in the project.
-            if (_policies.Count <= 1)
-            {
-                MessageBox.Show(
-                    "At least one policy must remain in the project.\n\nCreate or import another policy before deleting this one.",
-                    "Delete Policy",
-                    MessageBoxButtons.OK,
-                    MessageBoxIcon.Information);
-                return;
-            }
-
-            // Locked policies (and approved policies, which are always locked) cannot be deleted.
-            // The user must unlock the draft, or create a new draft from an approved policy and
-            // delete that, before removing the underlying record.
-            if (selected.IsLocked)
-            {
-                MessageBox.Show(
-                    $"'{selected.PolicyName}' is locked and cannot be deleted.\n\nUnlock it from the Policy Editor first (approved policies must remain locked).",
-                    "Delete Policy",
-                    MessageBoxButtons.OK,
-                    MessageBoxIcon.Warning);
-                return;
-            }
-
+            string lockNote = selected.IsLocked
+                ? "\n\nThis policy is locked/approved. Deleting it removes the locked standard from this project database."
+                : "";
+            string lastPolicyNote = _policies.Count <= 1
+                ? "\n\nThis is the last policy. After deleting it, this project will have no policies until you create or import one."
+                : "";
             if (MessageBox.Show(
-                    $"Delete policy '{selected.PolicyName}'?\n\nThis removes its clauses, parameters, lookup tables, attachments, and audit entries from this project database.",
+                    $"Delete policy '{selected.PolicyName}'?\n\nThis removes its clauses, parameters, lookup tables, attachments, and audit entries from this project database.{lockNote}{lastPolicyNote}",
                     "Delete Policy",
                     MessageBoxButtons.YesNo,
                     MessageBoxIcon.Warning,
@@ -189,6 +183,7 @@ namespace Land_Pooling_Policy_Manager.UI.Forms
 
             await RunServiceAsync(() => _service.DeletePolicyAsync(selected.Id));
             await ReloadPoliciesAsync();
+            MarkPoliciesChanged(SelectedPolicy()?.Id);
         }
 
         private async Task ImportPolicyAsync()
@@ -205,6 +200,24 @@ namespace Land_Pooling_Policy_Manager.UI.Forms
 
             PolicySet policy = await RunServiceAsync(() => _service.ImportAsync(dialog.FileName));
             await ReloadPoliciesAsync(policy.Id);
+            MarkPoliciesChanged(policy.Id);
+        }
+
+        private async Task ExportPolicyAsync()
+        {
+            PolicySet? selected = SelectedPolicy();
+            if (selected == null)
+                return;
+
+            using SaveFileDialog dialog = new()
+            {
+                Filter = "RePlot Policy Package (*.rpolicy)|*.rpolicy",
+                FileName = $"{selected.PolicyCode}-v{selected.VersionNo}.rpolicy"
+            };
+            if (dialog.ShowDialog(this) != DialogResult.OK)
+                return;
+
+            await RunServiceAsync(() => _service.ExportAsync(selected.Id, dialog.FileName));
         }
 
         private void SelectAndClose()
@@ -224,6 +237,13 @@ namespace Land_Pooling_Policy_Manager.UI.Forms
                 return null;
 
             return _policies[lstPolicies.SelectedIndex];
+        }
+
+        private void MarkPoliciesChanged(int? policyId)
+        {
+            PoliciesChanged = true;
+            LastChangedPolicyId = policyId;
+            PoliciesChangedLive?.Invoke(this, policyId);
         }
 
         private async Task RunUiOperationAsync(Func<Task> operation)
@@ -268,11 +288,9 @@ namespace Land_Pooling_Policy_Manager.UI.Forms
             btnCopy.Enabled = !_readOnlyMode && hasSelection;
             btnDraftFromApproved.Enabled = !_readOnlyMode && approved;
             btnRename.Enabled = editable;
-            btnDelete.Enabled = !_readOnlyMode
-                && hasSelection
-                && !selected!.IsLocked
-                && _policies.Count > 1;
+            btnDelete.Enabled = !_readOnlyMode && hasSelection;
             btnImport.Enabled = !_readOnlyMode;
+            btnExport.Enabled = hasSelection;
         }
     }
 }

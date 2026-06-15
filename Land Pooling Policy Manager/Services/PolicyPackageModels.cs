@@ -2,9 +2,10 @@ namespace Land_Pooling_Policy_Manager.Services
 {
     public sealed class PolicyPackage
     {
-        public string SchemaVersion { get; set; } = "1.0";
+        public string SchemaVersion { get; set; } = "1.1";
         public DateTime ExportedAt { get; set; } = DateTime.Now;
         public PolicySetPackage Policy { get; set; } = new();
+        public List<PolicySectionPackage> Sections { get; set; } = [];
         public List<PolicyClausePackage> Clauses { get; set; } = [];
         public List<PolicyParameterPackage> Parameters { get; set; } = [];
         public List<PolicyLookupTablePackage> LookupTables { get; set; } = [];
@@ -25,6 +26,13 @@ namespace Land_Pooling_Policy_Manager.Services
         public string? SourceTitle { get; set; }
         public string? SourceReference { get; set; }
         public string? Notes { get; set; }
+    }
+
+    public sealed class PolicySectionPackage
+    {
+        public string SectionCode { get; set; } = string.Empty;
+        public string Heading { get; set; } = string.Empty;
+        public int DisplayOrder { get; set; }
     }
 
     public sealed class PolicyClausePackage

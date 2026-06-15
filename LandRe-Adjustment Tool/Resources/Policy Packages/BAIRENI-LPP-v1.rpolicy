@@ -1,0 +1,1259 @@
+{
+  "SchemaVersion": "1.1",
+  "ExportedAt": "2026-06-14T04:19:04.3098153+05:45",
+  "Policy": {
+    "PolicyGroupKey": "BAIRENI-LAND-POOLING-POLICY",
+    "PolicyCode": "BAIRENI-LPP",
+    "PolicyName": "Baireni Land Pooling Contribution and Return Policy",
+    "PolicyType": "Combined",
+    "VersionNo": 1,
+    "Status": "Draft",
+    "IsLocked": false,
+    "EffectiveFrom": null,
+    "EffectiveTo": null,
+    "SourceTitle": "Baireni Land Pooling Project Land Contribution and Land Return Policy",
+    "SourceReference": "Draft for Approval, 2079 BS (2022 AD)",
+    "Notes": "Initial editable policy draft created from the supplied reference documents. Parcel inputs and calculations are intentionally outside this manager."
+  },
+  "Sections": [
+    {
+      "SectionCode": "1",
+      "Heading": "Background",
+      "DisplayOrder": 1
+    },
+    {
+      "SectionCode": "2",
+      "Heading": "Preliminary",
+      "DisplayOrder": 2
+    },
+    {
+      "SectionCode": "3",
+      "Heading": "Land Contribution Policy",
+      "DisplayOrder": 3
+    },
+    {
+      "SectionCode": "4",
+      "Heading": "Land Return Policy",
+      "DisplayOrder": 4
+    },
+    {
+      "SectionCode": "5",
+      "Heading": "Schedules",
+      "DisplayOrder": 5
+    }
+  ],
+  "Clauses": [
+    {
+      "LocalId": 1,
+      "ParentLocalId": null,
+      "ClauseCode": "1.1",
+      "Heading": "Land pooling concept and project rationale",
+      "Description": "Land pooling (land readjustment) forms a single parcel from land held by various individuals and institutions, with each landowner contributing land in proportion to participation and the benefits received. The project then builds roads, drains, open spaces and basic infrastructure, re-divides the area into regular developed plots, and returns those plots to the original landowners. The Baireni Land Pooling Project covers approximately 261 ropani in Ward 10 of Vyas Municipality, Tanahun, and was published in the Nepal Gazette on 2078/11/02. Because infrastructure is funded from local resources, building-plot land of equal value is deducted proportionally from project-area landowners on the basis of services received.",
+      "PolicySection": "Background",
+      "DisplayOrder": 1
+    },
+    {
+      "LocalId": 2,
+      "ParentLocalId": null,
+      "ClauseCode": "2.1",
+      "Heading": "Short title",
+      "Description": "This policy shall be called the \u0022Baireni Land Pooling Project Land Contribution and Land Return Policy.\u0022",
+      "PolicySection": "Preliminary",
+      "DisplayOrder": 2
+    },
+    {
+      "LocalId": 3,
+      "ParentLocalId": null,
+      "ClauseCode": "2.2",
+      "Heading": "Commencement",
+      "Description": "This policy shall come into force upon the decision of the Project Consumer Committee and the Project Management Sub-Committee.",
+      "PolicySection": "Preliminary",
+      "DisplayOrder": 3
+    },
+    {
+      "LocalId": 4,
+      "ParentLocalId": null,
+      "ClauseCode": "2.3",
+      "Heading": "Application period",
+      "Description": "This policy shall apply throughout the project implementation period and thereafter.",
+      "PolicySection": "Preliminary",
+      "DisplayOrder": 4
+    },
+    {
+      "LocalId": 5,
+      "ParentLocalId": null,
+      "ClauseCode": "3.1",
+      "Heading": "Contribution for infrastructure and services",
+      "Description": "Land shall be deducted as contribution from each landowner within the project area in proportion to the benefits and facilities received for infrastructure, roads, drains, and other project services.",
+      "PolicySection": "Land Contribution Policy",
+      "DisplayOrder": 5
+    },
+    {
+      "LocalId": 6,
+      "ParentLocalId": null,
+      "ClauseCode": "3.2",
+      "Heading": "Road and drain contribution by proposed road width",
+      "Description": "Every landowner shall contribute land for roads and drains according to proposed road width. For parcels abutting an existing road, contribution is based on proposed road width, existing road width, and first returned parcel depth using Schedule 1 Table 1.",
+      "PolicySection": "Land Contribution Policy",
+      "DisplayOrder": 6
+    },
+    {
+      "LocalId": 7,
+      "ParentLocalId": null,
+      "ClauseCode": "3.3",
+      "Heading": "Survey map controls road-width differences",
+      "Description": "Where road width in the field differs from the survey map, or where a new road is opened, contribution shall be calculated on the basis of the survey map.",
+      "PolicySection": "Land Contribution Policy",
+      "DisplayOrder": 7
+    },
+    {
+      "LocalId": 8,
+      "ParentLocalId": null,
+      "ClauseCode": "3.4",
+      "Heading": "Internal branch road contribution",
+      "Description": "For internal branch roads requested by the majority of relevant landowners, half of the additional field-road width is deducted from relevant landowners, and remaining required contribution is deducted from the rest.",
+      "PolicySection": "Land Contribution Policy",
+      "DisplayOrder": 8
+    },
+    {
+      "LocalId": 9,
+      "ParentLocalId": null,
+      "ClauseCode": "3.5",
+      "Heading": "Collectively used private road ownership",
+      "Description": "Where a road is recorded in one landowner\u0027s certificate but has been used collectively by mutual understanding, contribution may be apportioned arithmetically among relevant landowners after supporting documents are submitted.",
+      "PolicySection": "Land Contribution Policy",
+      "DisplayOrder": 9
+    },
+    {
+      "LocalId": 10,
+      "ParentLocalId": null,
+      "ClauseCode": "3.6",
+      "Heading": "Two-road frontage retention",
+      "Description": "When new parcels are carved, a parcel fronting two roads shall retain both frontages and land required for both roads shall be deducted using Schedule 1 Table 1.",
+      "PolicySection": "Land Contribution Policy",
+      "DisplayOrder": 10
+    },
+    {
+      "LocalId": 11,
+      "ParentLocalId": null,
+      "ClauseCode": "3.7",
+      "Heading": "Corner parcel contribution",
+      "Description": "For a corner parcel at two roads, frontage is set toward the larger road; contribution for the larger road is deducted under Schedule 1 Table 1 and additional corner contribution is deducted under Schedule 1 Table 2(b).",
+      "PolicySection": "Land Contribution Policy",
+      "DisplayOrder": 11
+    },
+    {
+      "LocalId": 12,
+      "ParentLocalId": null,
+      "ClauseCode": "3.8",
+      "Heading": "Road junction and corner turning contribution",
+      "Description": "For land required for all road junctions and corner turnings, an additional contribution is deducted from each developed plot at the fixed road-corner percentage.",
+      "PolicySection": "Land Contribution Policy",
+      "DisplayOrder": 12
+    },
+    {
+      "LocalId": 13,
+      "ParentLocalId": null,
+      "ClauseCode": "3.9",
+      "Heading": "Open-space adjoining and across-road contribution",
+      "Description": "Land adjoining an open space within 8 m frontage and land directly across the road from open-space frontage receive additional contribution under Schedule 1 Table 2(a).",
+      "PolicySection": "Land Contribution Policy",
+      "DisplayOrder": 13
+    },
+    {
+      "LocalId": 14,
+      "ParentLocalId": null,
+      "ClauseCode": "3.10",
+      "Heading": "Slope and central depression contribution",
+      "Description": "Original sloped parcels on the northern boundary and parcels in the central depression area receive additional contribution under Schedule 1 Table 2(a).",
+      "PolicySection": "Land Contribution Policy",
+      "DisplayOrder": 14
+    },
+    {
+      "LocalId": 15,
+      "ParentLocalId": null,
+      "ClauseCode": "3.11",
+      "Heading": "No external service road opening",
+      "Description": "Opening a road from the project\u0027s developed plots to serve land outside the project but adjoining its boundary shall not be permitted.",
+      "PolicySection": "Land Contribution Policy",
+      "DisplayOrder": 15
+    },
+    {
+      "LocalId": 16,
+      "ParentLocalId": null,
+      "ClauseCode": "4.1",
+      "Heading": "Return at former or nearby location",
+      "Description": "Any parcel shall generally be returned at its former location or nearby, subject to project committee decision and technical feasibility.",
+      "PolicySection": "Land Return Policy",
+      "DisplayOrder": 16
+    },
+    {
+      "LocalId": 17,
+      "ParentLocalId": null,
+      "ClauseCode": "4.2",
+      "Heading": "Minimum plot area",
+      "Description": "The preferred minimum developed parcel area is 130 sq. m. Smaller returns may be allowed for already-small parcels, but the absolute minimum developed plot area is 79.50 sq. m.",
+      "PolicySection": "Land Return Policy",
+      "DisplayOrder": 17
+    },
+    {
+      "LocalId": 18,
+      "ParentLocalId": null,
+      "ClauseCode": "4.3",
+      "Heading": "Minimum frontage",
+      "Description": "The minimum frontage of a developed plot shall be 6.0 m.",
+      "PolicySection": "Land Return Policy",
+      "DisplayOrder": 18
+    },
+    {
+      "LocalId": 19,
+      "ParentLocalId": null,
+      "ClauseCode": "4.4",
+      "Heading": "Technical exception for affected road-front parcels",
+      "Description": "For parcels abutting former main roads and similar adversely affected parcels, the project is not bound to meet minimum frontage and area where technically infeasible.",
+      "PolicySection": "Land Return Policy",
+      "DisplayOrder": 19
+    },
+    {
+      "LocalId": 20,
+      "ParentLocalId": null,
+      "ClauseCode": "4.5",
+      "Heading": "Project land transaction price",
+      "Description": "Any purchase or sale transaction between the project and landowner shall use the price set by the project based on prevailing sale rates around the project area.",
+      "PolicySection": "Land Return Policy",
+      "DisplayOrder": 20
+    },
+    {
+      "LocalId": 21,
+      "ParentLocalId": null,
+      "ClauseCode": "4.6",
+      "Heading": "Top-up land to absolute minimum",
+      "Description": "Where a returned developed plot would be smaller than 79.50 sq. m, the project adds shortfall land to reach the minimum and the owner purchases the added land at the project-fixed rate.",
+      "PolicySection": "Land Return Policy",
+      "DisplayOrder": 21
+    },
+    {
+      "LocalId": 22,
+      "ParentLocalId": null,
+      "ClauseCode": "4.7",
+      "Heading": "Project buy-out option",
+      "Description": "If the owner is unwilling or unable to take added land and the prescribed developed plot, the project may purchase such land at the project-fixed price.",
+      "PolicySection": "Land Return Policy",
+      "DisplayOrder": 22
+    },
+    {
+      "LocalId": 23,
+      "ParentLocalId": null,
+      "ClauseCode": "4.8",
+      "Heading": "Deferred payment recommendation",
+      "Description": "Where an owner cannot pay top-up land cost in a lump sum, possession may be granted under committee recommendation with ownership certificate after full payment.",
+      "PolicySection": "Land Return Policy",
+      "DisplayOrder": 23
+    },
+    {
+      "LocalId": 24,
+      "ParentLocalId": null,
+      "ClauseCode": "4.9",
+      "Heading": "Joint return below minimum",
+      "Description": "Where a returned parcel would be below 79.50 sq. m or frontage below 6 m, two or more landowners may jointly take one parcel.",
+      "PolicySection": "Land Return Policy",
+      "DisplayOrder": 24
+    },
+    {
+      "LocalId": 25,
+      "ParentLocalId": null,
+      "ClauseCode": "4.10",
+      "Heading": "Consolidation of small/scattered holdings",
+      "Description": "A single landowner holding up to 200 sq. m total, or one household\u0027s parcels at different locations, may generally be consolidated and returned at one location.",
+      "PolicySection": "Land Return Policy",
+      "DisplayOrder": 25
+    },
+    {
+      "LocalId": 26,
+      "ParentLocalId": null,
+      "ClauseCode": "4.11",
+      "Heading": "House setback during new parcel creation",
+      "Description": "When a new parcel is carved on land containing a house, at least 1 m setback should be kept on the window/door side and road side as far as possible.",
+      "PolicySection": "Land Return Policy",
+      "DisplayOrder": 26
+    },
+    {
+      "LocalId": 27,
+      "ParentLocalId": null,
+      "ClauseCode": "4.12",
+      "Heading": "Block and parcel depth",
+      "Description": "Developed-plot blocks shall generally have block depth 26 m to 40 m, corresponding to parcel depth 13 m to 20 m.",
+      "PolicySection": "Land Return Policy",
+      "DisplayOrder": 27
+    },
+    {
+      "LocalId": 28,
+      "ParentLocalId": null,
+      "ClauseCode": "4.13",
+      "Heading": "Corner priority and sales plot",
+      "Description": "When new corner parcels are carved, priority goes to the original corner owner; if they do not want it, it may go to a nearby larger holding, otherwise it remains a sales plot.",
+      "PolicySection": "Land Return Policy",
+      "DisplayOrder": 28
+    },
+    {
+      "LocalId": 29,
+      "ParentLocalId": null,
+      "ClauseCode": "4.14",
+      "Heading": "Corner shortfall and relocation",
+      "Description": "For a corner parcel below minimum area, the owner may buy shortfall land to retain the corner; otherwise the parcel may be returned nearby where feasible.",
+      "PolicySection": "Land Return Policy",
+      "DisplayOrder": 29
+    },
+    {
+      "LocalId": 30,
+      "ParentLocalId": null,
+      "ClauseCode": "4.15",
+      "Heading": "Multiple corner splits in one original plot",
+      "Description": "Where two or more roads split one original plot into multiple corner plots, generally only one parcel shall be returned at the corner with the largest area.",
+      "PolicySection": "Land Return Policy",
+      "DisplayOrder": 30
+    },
+    {
+      "LocalId": 31,
+      "ParentLocalId": null,
+      "ClauseCode": "4.16",
+      "Heading": "Post-completion subdivision restriction",
+      "Description": "After project completion, developed plots shall not be subdivided below the area and frontage fixed by prevailing Government of Nepal law.",
+      "PolicySection": "Land Return Policy",
+      "DisplayOrder": 31
+    }
+  ],
+  "Parameters": [
+    {
+      "ClauseLocalId": 5,
+      "ParameterKey": "openAreaRate",
+      "Label": "Open Area Contribution",
+      "ValueType": "Percent",
+      "ValueText": "5.04",
+      "DefaultValueText": "5.04",
+      "Unit": "%",
+      "Description": "Open-area share deducted from every parcel.",
+      "MinValueText": null,
+      "MaxValueText": null,
+      "DisplayOrder": 1
+    },
+    {
+      "ClauseLocalId": 5,
+      "ParameterKey": "infrastructureRate",
+      "Label": "Infrastructure Contribution",
+      "ValueType": "Percent",
+      "ValueText": "4.79",
+      "DefaultValueText": "4.79",
+      "Unit": "%",
+      "Description": "Infrastructure construction share deducted from every parcel.",
+      "MinValueText": null,
+      "MaxValueText": null,
+      "DisplayOrder": 2
+    },
+    {
+      "ClauseLocalId": 12,
+      "ParameterKey": "roadCornerRate",
+      "Label": "Road Corner / Turning Contribution",
+      "ValueType": "Percent",
+      "ValueText": "1.00",
+      "DefaultValueText": "1.00",
+      "Unit": "%",
+      "Description": "Road junction and corner turning share deducted from every developed plot.",
+      "MinValueText": null,
+      "MaxValueText": null,
+      "DisplayOrder": 3
+    },
+    {
+      "ClauseLocalId": 5,
+      "ParameterKey": "fixedCommonTotal",
+      "Label": "Fixed Common Contribution Total",
+      "ValueType": "Percent",
+      "ValueText": "10.83",
+      "DefaultValueText": "10.83",
+      "Unit": "%",
+      "Description": "Convenience sum of open area, infrastructure, and road corner rates.",
+      "MinValueText": null,
+      "MaxValueText": null,
+      "DisplayOrder": 4
+    },
+    {
+      "ClauseLocalId": 6,
+      "ParameterKey": "roadFormulaId",
+      "Label": "Road Formula",
+      "ValueType": "Text",
+      "ValueText": "RoadContributionStandard",
+      "DefaultValueText": "RoadContributionStandard",
+      "Unit": null,
+      "Description": "Registered formula identifier for road contribution.",
+      "MinValueText": null,
+      "MaxValueText": null,
+      "DisplayOrder": 5
+    },
+    {
+      "ClauseLocalId": 6,
+      "ParameterKey": "returnedParcelDepthRatio",
+      "Label": "Returned Parcel Depth Ratio",
+      "ValueType": "Decimal",
+      "ValueText": "0.5",
+      "DefaultValueText": "0.5",
+      "Unit": "ratio",
+      "Description": "Returned parcel depth equals block depth multiplied by this ratio.",
+      "MinValueText": null,
+      "MaxValueText": null,
+      "DisplayOrder": 6
+    },
+    {
+      "ClauseLocalId": 17,
+      "ParameterKey": "minPlotAreaSqM",
+      "Label": "Absolute Minimum Plot Area",
+      "ValueType": "Decimal",
+      "ValueText": "79.5",
+      "DefaultValueText": "79.5",
+      "Unit": "sqm",
+      "Description": "Absolute minimum developed-plot area.",
+      "MinValueText": null,
+      "MaxValueText": null,
+      "DisplayOrder": 7
+    },
+    {
+      "ClauseLocalId": 17,
+      "ParameterKey": "preferredMinPlotAreaSqM",
+      "Label": "Preferred Minimum Plot Area",
+      "ValueType": "Decimal",
+      "ValueText": "130",
+      "DefaultValueText": "130",
+      "Unit": "sqm",
+      "Description": "Preferred minimum developed-plot area.",
+      "MinValueText": null,
+      "MaxValueText": null,
+      "DisplayOrder": 8
+    },
+    {
+      "ClauseLocalId": 18,
+      "ParameterKey": "minFrontageM",
+      "Label": "Minimum Frontage",
+      "ValueType": "Decimal",
+      "ValueText": "6",
+      "DefaultValueText": "6",
+      "Unit": "m",
+      "Description": "Minimum frontage of a developed plot.",
+      "MinValueText": null,
+      "MaxValueText": null,
+      "DisplayOrder": 9
+    },
+    {
+      "ClauseLocalId": 27,
+      "ParameterKey": "minDepthM",
+      "Label": "Minimum Depth",
+      "ValueType": "Decimal",
+      "ValueText": "13",
+      "DefaultValueText": "13",
+      "Unit": "m",
+      "Description": "Minimum parcel depth.",
+      "MinValueText": null,
+      "MaxValueText": null,
+      "DisplayOrder": 10
+    },
+    {
+      "ClauseLocalId": 27,
+      "ParameterKey": "maxDepthM",
+      "Label": "Maximum Depth",
+      "ValueType": "Decimal",
+      "ValueText": "20",
+      "DefaultValueText": "20",
+      "Unit": "m",
+      "Description": "Maximum parcel depth.",
+      "MinValueText": null,
+      "MaxValueText": null,
+      "DisplayOrder": 11
+    },
+    {
+      "ClauseLocalId": 27,
+      "ParameterKey": "blockDepthMinM",
+      "Label": "Minimum Block Depth",
+      "ValueType": "Decimal",
+      "ValueText": "26",
+      "DefaultValueText": "26",
+      "Unit": "m",
+      "Description": "Minimum block depth.",
+      "MinValueText": null,
+      "MaxValueText": null,
+      "DisplayOrder": 12
+    },
+    {
+      "ClauseLocalId": 27,
+      "ParameterKey": "blockDepthMaxM",
+      "Label": "Maximum Block Depth",
+      "ValueType": "Decimal",
+      "ValueText": "40",
+      "DefaultValueText": "40",
+      "Unit": "m",
+      "Description": "Maximum block depth.",
+      "MinValueText": null,
+      "MaxValueText": null,
+      "DisplayOrder": 13
+    },
+    {
+      "ClauseLocalId": 26,
+      "ParameterKey": "setbackRoadM",
+      "Label": "Road-Side Setback",
+      "ValueType": "Decimal",
+      "ValueText": "1",
+      "DefaultValueText": "1",
+      "Unit": "m",
+      "Description": "Road-side setback where a house is present.",
+      "MinValueText": null,
+      "MaxValueText": null,
+      "DisplayOrder": 14
+    },
+    {
+      "ClauseLocalId": 26,
+      "ParameterKey": "setbackWindowM",
+      "Label": "Window/Door-Side Setback",
+      "ValueType": "Decimal",
+      "ValueText": "1",
+      "DefaultValueText": "1",
+      "Unit": "m",
+      "Description": "Window/door-side setback where a house is present.",
+      "MinValueText": null,
+      "MaxValueText": null,
+      "DisplayOrder": 15
+    },
+    {
+      "ClauseLocalId": 25,
+      "ParameterKey": "consolidationMaxAreaSqM",
+      "Label": "Consolidation Maximum Area",
+      "ValueType": "Decimal",
+      "ValueText": "200",
+      "DefaultValueText": "200",
+      "Unit": "sqm",
+      "Description": "Scattered holdings up to this may merge to one return location.",
+      "MinValueText": null,
+      "MaxValueText": null,
+      "DisplayOrder": 16
+    },
+    {
+      "ClauseLocalId": 24,
+      "ParameterKey": "jointReturnThresholdSqM",
+      "Label": "Joint Return Threshold",
+      "ValueType": "Decimal",
+      "ValueText": "150",
+      "DefaultValueText": "150",
+      "Unit": "sqm",
+      "Description": "Above this area, merged return is normally by request.",
+      "MinValueText": null,
+      "MaxValueText": null,
+      "DisplayOrder": 17
+    },
+    {
+      "ClauseLocalId": 24,
+      "ParameterKey": "jointReturnAllowedBelowMin",
+      "Label": "Joint Return Allowed Below Minimum",
+      "ValueType": "Bool",
+      "ValueText": "true",
+      "DefaultValueText": "true",
+      "Unit": null,
+      "Description": "Two or more owners may jointly take one below-minimum parcel.",
+      "MinValueText": null,
+      "MaxValueText": null,
+      "DisplayOrder": 18
+    },
+    {
+      "ClauseLocalId": 28,
+      "ParameterKey": "salesPlotForUnfittedCorners",
+      "Label": "Sales Plot For Unfitted Corners",
+      "ValueType": "Bool",
+      "ValueText": "true",
+      "DefaultValueText": "true",
+      "Unit": null,
+      "Description": "Unfittable corner may become a sales plot.",
+      "MinValueText": null,
+      "MaxValueText": null,
+      "DisplayOrder": 19
+    },
+    {
+      "ClauseLocalId": 20,
+      "ParameterKey": "projectLandRatePerSqM",
+      "Label": "Project Land Rate",
+      "ValueType": "ProjectValue",
+      "ValueText": "",
+      "DefaultValueText": "",
+      "Unit": "currency/sqm",
+      "Description": "Project-set price for top-up purchase or buy-out.",
+      "MinValueText": null,
+      "MaxValueText": null,
+      "DisplayOrder": 20
+    }
+  ],
+  "LookupTables": [
+    {
+      "ClauseLocalId": 6,
+      "TableKey": "roadContributionTable",
+      "Title": "Schedule 1 Table 1 - Road Contribution",
+      "Description": "Contribution payable by existing road width, block depth, and proposed road width.",
+      "DisplayOrder": 1,
+      "Columns": [
+        {
+          "ColumnKey": "existingRoadWidthM",
+          "HeaderText": "Existing Road (m)",
+          "ValueType": "Decimal",
+          "Unit": "m",
+          "DisplayOrder": 1
+        },
+        {
+          "ColumnKey": "blockDepthM",
+          "HeaderText": "Block Depth (m)",
+          "ValueType": "Decimal",
+          "Unit": "m",
+          "DisplayOrder": 2
+        },
+        {
+          "ColumnKey": "proposed4M",
+          "HeaderText": "4 m",
+          "ValueType": "Percent",
+          "Unit": "%",
+          "DisplayOrder": 3
+        },
+        {
+          "ColumnKey": "proposed6M",
+          "HeaderText": "6 m",
+          "ValueType": "Percent",
+          "Unit": "%",
+          "DisplayOrder": 4
+        },
+        {
+          "ColumnKey": "proposed7M",
+          "HeaderText": "7 m",
+          "ValueType": "Percent",
+          "Unit": "%",
+          "DisplayOrder": 5
+        },
+        {
+          "ColumnKey": "proposed8M",
+          "HeaderText": "8 m",
+          "ValueType": "Percent",
+          "Unit": "%",
+          "DisplayOrder": 6
+        },
+        {
+          "ColumnKey": "proposed914M",
+          "HeaderText": "9.14 m",
+          "ValueType": "Percent",
+          "Unit": "%",
+          "DisplayOrder": 7
+        }
+      ],
+      "Rows": [
+        {
+          "RowLabel": "0",
+          "DisplayOrder": 1,
+          "Values": {
+            "existingRoadWidthM": "0",
+            "blockDepthM": "27",
+            "proposed4M": "23.73",
+            "proposed6M": "29.01",
+            "proposed7M": "31.42",
+            "proposed8M": "33.69",
+            "proposed914M": "36.12"
+          }
+        },
+        {
+          "RowLabel": "4",
+          "DisplayOrder": 2,
+          "Values": {
+            "existingRoadWidthM": "4",
+            "blockDepthM": "27",
+            "proposed4M": "10.83",
+            "proposed6M": "17.73",
+            "proposed7M": "20.83",
+            "proposed8M": "23.73",
+            "proposed914M": "26.82"
+          }
+        },
+        {
+          "RowLabel": "6",
+          "DisplayOrder": 3,
+          "Values": {
+            "existingRoadWidthM": "6",
+            "blockDepthM": "27",
+            "proposed4M": "2.83",
+            "proposed6M": "10.83",
+            "proposed7M": "14.40",
+            "proposed8M": "17.73",
+            "proposed914M": "21.25"
+          }
+        },
+        {
+          "RowLabel": "9.14",
+          "DisplayOrder": 4,
+          "Values": {
+            "existingRoadWidthM": "9.14",
+            "blockDepthM": "27",
+            "proposed4M": "-12.68",
+            "proposed6M": "-2.33",
+            "proposed7M": "2.22",
+            "proposed8M": "6.42",
+            "proposed914M": "10.83"
+          }
+        },
+        {
+          "RowLabel": "0",
+          "DisplayOrder": 5,
+          "Values": {
+            "existingRoadWidthM": "0",
+            "blockDepthM": "29",
+            "proposed4M": "22.95",
+            "proposed6M": "27.97",
+            "proposed7M": "30.27",
+            "proposed8M": "32.45",
+            "proposed914M": "34.79"
+          }
+        },
+        {
+          "RowLabel": "4",
+          "DisplayOrder": 6,
+          "Values": {
+            "existingRoadWidthM": "4",
+            "blockDepthM": "29",
+            "proposed4M": "10.83",
+            "proposed6M": "17.28",
+            "proposed7M": "20.21",
+            "proposed8M": "22.95",
+            "proposed914M": "25.89"
+          }
+        },
+        {
+          "RowLabel": "6",
+          "DisplayOrder": 7,
+          "Values": {
+            "existingRoadWidthM": "6",
+            "blockDepthM": "29",
+            "proposed4M": "3.42",
+            "proposed6M": "10.83",
+            "proposed7M": "14.16",
+            "proposed8M": "17.28",
+            "proposed914M": "20.60"
+          }
+        },
+        {
+          "RowLabel": "9.14",
+          "DisplayOrder": 8,
+          "Values": {
+            "existingRoadWidthM": "9.14",
+            "blockDepthM": "29",
+            "proposed4M": "-10.71",
+            "proposed6M": "-1.31",
+            "proposed7M": "2.86",
+            "proposed8M": "6.74",
+            "proposed914M": "10.83"
+          }
+        },
+        {
+          "RowLabel": "0",
+          "DisplayOrder": 9,
+          "Values": {
+            "existingRoadWidthM": "0",
+            "blockDepthM": "31",
+            "proposed4M": "22.26",
+            "proposed6M": "27.05",
+            "proposed7M": "29.25",
+            "proposed8M": "31.34",
+            "proposed914M": "33.60"
+          }
+        },
+        {
+          "RowLabel": "4",
+          "DisplayOrder": 10,
+          "Values": {
+            "existingRoadWidthM": "4",
+            "blockDepthM": "31",
+            "proposed4M": "10.83",
+            "proposed6M": "16.89",
+            "proposed7M": "19.65",
+            "proposed8M": "22.26",
+            "proposed914M": "25.05"
+          }
+        },
+        {
+          "RowLabel": "6",
+          "DisplayOrder": 11,
+          "Values": {
+            "existingRoadWidthM": "6",
+            "blockDepthM": "31",
+            "proposed4M": "3.93",
+            "proposed6M": "10.83",
+            "proposed7M": "13.96",
+            "proposed8M": "16.89",
+            "proposed914M": "20.03"
+          }
+        },
+        {
+          "RowLabel": "9.14",
+          "DisplayOrder": 12,
+          "Values": {
+            "existingRoadWidthM": "9.14",
+            "blockDepthM": "31",
+            "proposed4M": "-9.05",
+            "proposed6M": "-0.44",
+            "proposed7M": "3.41",
+            "proposed8M": "7.01",
+            "proposed914M": "10.83"
+          }
+        },
+        {
+          "RowLabel": "0",
+          "DisplayOrder": 13,
+          "Values": {
+            "existingRoadWidthM": "0",
+            "blockDepthM": "33",
+            "proposed4M": "21.64",
+            "proposed6M": "26.21",
+            "proposed7M": "28.33",
+            "proposed8M": "30.34",
+            "proposed914M": "32.52"
+          }
+        },
+        {
+          "RowLabel": "4",
+          "DisplayOrder": 14,
+          "Values": {
+            "existingRoadWidthM": "4",
+            "blockDepthM": "33",
+            "proposed4M": "10.83",
+            "proposed6M": "16.54",
+            "proposed7M": "19.16",
+            "proposed8M": "21.64",
+            "proposed914M": "24.31"
+          }
+        },
+        {
+          "RowLabel": "6",
+          "DisplayOrder": 15,
+          "Values": {
+            "existingRoadWidthM": "6",
+            "blockDepthM": "33",
+            "proposed4M": "4.38",
+            "proposed6M": "10.83",
+            "proposed7M": "13.77",
+            "proposed8M": "16.54",
+            "proposed914M": "19.52"
+          }
+        },
+        {
+          "RowLabel": "9.14",
+          "DisplayOrder": 16,
+          "Values": {
+            "existingRoadWidthM": "9.14",
+            "blockDepthM": "33",
+            "proposed4M": "-7.62",
+            "proposed6M": "0.31",
+            "proposed7M": "3.90",
+            "proposed8M": "7.25",
+            "proposed914M": "10.83"
+          }
+        },
+        {
+          "RowLabel": "0",
+          "DisplayOrder": 17,
+          "Values": {
+            "existingRoadWidthM": "0",
+            "blockDepthM": "35",
+            "proposed4M": "21.09",
+            "proposed6M": "25.46",
+            "proposed7M": "27.50",
+            "proposed8M": "29.43",
+            "proposed914M": "31.54"
+          }
+        },
+        {
+          "RowLabel": "4",
+          "DisplayOrder": 18,
+          "Values": {
+            "existingRoadWidthM": "4",
+            "blockDepthM": "35",
+            "proposed4M": "10.83",
+            "proposed6M": "16.24",
+            "proposed7M": "18.72",
+            "proposed8M": "21.09",
+            "proposed914M": "23.64"
+          }
+        },
+        {
+          "RowLabel": "6",
+          "DisplayOrder": 19,
+          "Values": {
+            "existingRoadWidthM": "6",
+            "blockDepthM": "35",
+            "proposed4M": "4.77",
+            "proposed6M": "10.83",
+            "proposed7M": "13.61",
+            "proposed8M": "16.24",
+            "proposed914M": "19.06"
+          }
+        },
+        {
+          "RowLabel": "9.14",
+          "DisplayOrder": 20,
+          "Values": {
+            "existingRoadWidthM": "9.14",
+            "blockDepthM": "35",
+            "proposed4M": "-6.38",
+            "proposed6M": "0.97",
+            "proposed7M": "4.32",
+            "proposed8M": "7.46",
+            "proposed914M": "10.83"
+          }
+        },
+        {
+          "RowLabel": "0",
+          "DisplayOrder": 21,
+          "Values": {
+            "existingRoadWidthM": "0",
+            "blockDepthM": "37",
+            "proposed4M": "20.59",
+            "proposed6M": "24.78",
+            "proposed7M": "26.74",
+            "proposed8M": "28.61",
+            "proposed914M": "30.64"
+          }
+        },
+        {
+          "RowLabel": "4",
+          "DisplayOrder": 22,
+          "Values": {
+            "existingRoadWidthM": "4",
+            "blockDepthM": "37",
+            "proposed4M": "10.83",
+            "proposed6M": "15.96",
+            "proposed7M": "18.33",
+            "proposed8M": "20.59",
+            "proposed914M": "23.03"
+          }
+        },
+        {
+          "RowLabel": "6",
+          "DisplayOrder": 23,
+          "Values": {
+            "existingRoadWidthM": "6",
+            "blockDepthM": "37",
+            "proposed4M": "5.12",
+            "proposed6M": "10.83",
+            "proposed7M": "13.46",
+            "proposed8M": "15.96",
+            "proposed914M": "18.65"
+          }
+        },
+        {
+          "RowLabel": "9.14",
+          "DisplayOrder": 24,
+          "Values": {
+            "existingRoadWidthM": "9.14",
+            "blockDepthM": "37",
+            "proposed4M": "-5.30",
+            "proposed6M": "1.56",
+            "proposed7M": "4.69",
+            "proposed8M": "7.65",
+            "proposed914M": "10.83"
+          }
+        },
+        {
+          "RowLabel": "0",
+          "DisplayOrder": 25,
+          "Values": {
+            "existingRoadWidthM": "0",
+            "blockDepthM": "39",
+            "proposed4M": "20.13",
+            "proposed6M": "24.16",
+            "proposed7M": "26.05",
+            "proposed8M": "27.85",
+            "proposed914M": "29.82"
+          }
+        },
+        {
+          "RowLabel": "4",
+          "DisplayOrder": 26,
+          "Values": {
+            "existingRoadWidthM": "4",
+            "blockDepthM": "39",
+            "proposed4M": "10.83",
+            "proposed6M": "15.71",
+            "proposed7M": "17.97",
+            "proposed8M": "20.13",
+            "proposed914M": "22.47"
+          }
+        },
+        {
+          "RowLabel": "6",
+          "DisplayOrder": 27,
+          "Values": {
+            "existingRoadWidthM": "6",
+            "blockDepthM": "39",
+            "proposed4M": "5.42",
+            "proposed6M": "10.83",
+            "proposed7M": "13.33",
+            "proposed8M": "15.71",
+            "proposed914M": "18.28"
+          }
+        },
+        {
+          "RowLabel": "9.14",
+          "DisplayOrder": 28,
+          "Values": {
+            "existingRoadWidthM": "9.14",
+            "blockDepthM": "39",
+            "proposed4M": "-4.35",
+            "proposed6M": "2.07",
+            "proposed7M": "5.02",
+            "proposed8M": "7.82",
+            "proposed914M": "10.83"
+          }
+        }
+      ]
+    },
+    {
+      "ClauseLocalId": 13,
+      "TableKey": "specialFacilityRates",
+      "Title": "Schedule 1 Table 2(a) - Special Facility Rates",
+      "Description": "Additional contribution rates for special facilities and site conditions.",
+      "DisplayOrder": 2,
+      "Columns": [
+        {
+          "ColumnKey": "sn",
+          "HeaderText": "S.N.",
+          "ValueType": "Text",
+          "Unit": null,
+          "DisplayOrder": 1
+        },
+        {
+          "ColumnKey": "description",
+          "HeaderText": "Parcel Description",
+          "ValueType": "Text",
+          "Unit": null,
+          "DisplayOrder": 2
+        },
+        {
+          "ColumnKey": "ratePercent",
+          "HeaderText": "Additional Contribution",
+          "ValueType": "Percent",
+          "Unit": "%",
+          "DisplayOrder": 3
+        }
+      ],
+      "Rows": [
+        {
+          "RowLabel": "1",
+          "DisplayOrder": 1,
+          "Values": {
+            "sn": "1",
+            "description": "Land adjoining an open space within 8 m frontage",
+            "ratePercent": "3.00"
+          }
+        },
+        {
+          "RowLabel": "2",
+          "DisplayOrder": 2,
+          "Values": {
+            "sn": "2",
+            "description": "Land directly across the road from an open space",
+            "ratePercent": "2.00"
+          }
+        },
+        {
+          "RowLabel": "3",
+          "DisplayOrder": 3,
+          "Values": {
+            "sn": "3",
+            "description": "Land falling in the central depression (dhaap)",
+            "ratePercent": "8.00"
+          }
+        },
+        {
+          "RowLabel": "4",
+          "DisplayOrder": 4,
+          "Values": {
+            "sn": "4",
+            "description": "Original land with slope steeper than 30 degrees",
+            "ratePercent": "12.00"
+          }
+        },
+        {
+          "RowLabel": "5",
+          "DisplayOrder": 5,
+          "Values": {
+            "sn": "5",
+            "description": "Corner plot with two frontages",
+            "ratePercent": "As per Table 2(b)"
+          }
+        }
+      ]
+    },
+    {
+      "ClauseLocalId": 11,
+      "TableKey": "cornerContributionTable",
+      "Title": "Schedule 1 Table 2(b) - Corner Plot Rates",
+      "Description": "Additional contribution rates by project-defined corner type.",
+      "DisplayOrder": 3,
+      "Columns": [
+        {
+          "ColumnKey": "cornerCode",
+          "HeaderText": "Corner Code",
+          "ValueType": "Text",
+          "Unit": null,
+          "DisplayOrder": 1
+        },
+        {
+          "ColumnKey": "cornerType",
+          "HeaderText": "Corner Type",
+          "ValueType": "Text",
+          "Unit": null,
+          "DisplayOrder": 2
+        },
+        {
+          "ColumnKey": "ratePercent",
+          "HeaderText": "Additional Contribution",
+          "ValueType": "Percent",
+          "Unit": "%",
+          "DisplayOrder": 3
+        }
+      ],
+      "Rows": [
+        {
+          "RowLabel": "C-P9-S9",
+          "DisplayOrder": 1,
+          "Values": {
+            "cornerCode": "C-P9-S9",
+            "cornerType": "9.14 m x 9.14 m corner",
+            "ratePercent": ""
+          }
+        },
+        {
+          "RowLabel": "C-P9-S8",
+          "DisplayOrder": 2,
+          "Values": {
+            "cornerCode": "C-P9-S8",
+            "cornerType": "9.14 m x 8 m corner",
+            "ratePercent": "9.00"
+          }
+        },
+        {
+          "RowLabel": "C-P9-S7",
+          "DisplayOrder": 3,
+          "Values": {
+            "cornerCode": "C-P9-S7",
+            "cornerType": "9.14 m x 7 m corner",
+            "ratePercent": ""
+          }
+        },
+        {
+          "RowLabel": "C-P9-S6",
+          "DisplayOrder": 4,
+          "Values": {
+            "cornerCode": "C-P9-S6",
+            "cornerType": "9.14 m x 6 m corner",
+            "ratePercent": ""
+          }
+        },
+        {
+          "RowLabel": "C-P9-S4",
+          "DisplayOrder": 5,
+          "Values": {
+            "cornerCode": "C-P9-S4",
+            "cornerType": "9.14 m x 4 m corner",
+            "ratePercent": ""
+          }
+        },
+        {
+          "RowLabel": "C-P8-S8",
+          "DisplayOrder": 6,
+          "Values": {
+            "cornerCode": "C-P8-S8",
+            "cornerType": "8 m x 8 m corner",
+            "ratePercent": "8.61"
+          }
+        },
+        {
+          "RowLabel": "C-P8-S7",
+          "DisplayOrder": 7,
+          "Values": {
+            "cornerCode": "C-P8-S7",
+            "cornerType": "8 m x 7 m corner",
+            "ratePercent": "8.23"
+          }
+        },
+        {
+          "RowLabel": "C-P8-S6",
+          "DisplayOrder": 8,
+          "Values": {
+            "cornerCode": "C-P8-S6",
+            "cornerType": "8 m x 6 m corner",
+            "ratePercent": "7.90"
+          }
+        },
+        {
+          "RowLabel": "C-P8-S4",
+          "DisplayOrder": 9,
+          "Values": {
+            "cornerCode": "C-P8-S4",
+            "cornerType": "8 m x 4 m corner",
+            "ratePercent": ""
+          }
+        },
+        {
+          "RowLabel": "C-P7-S7",
+          "DisplayOrder": 10,
+          "Values": {
+            "cornerCode": "C-P7-S7",
+            "cornerType": "7 m x 7 m corner",
+            "ratePercent": "7.29"
+          }
+        },
+        {
+          "RowLabel": "C-P7-S6",
+          "DisplayOrder": 11,
+          "Values": {
+            "cornerCode": "C-P7-S6",
+            "cornerType": "7 m x 6 m corner",
+            "ratePercent": "6.98"
+          }
+        },
+        {
+          "RowLabel": "C-P7-S4",
+          "DisplayOrder": 12,
+          "Values": {
+            "cornerCode": "C-P7-S4",
+            "cornerType": "7 m x 4 m corner",
+            "ratePercent": "4.74"
+          }
+        },
+        {
+          "RowLabel": "C-P6-S6",
+          "DisplayOrder": 13,
+          "Values": {
+            "cornerCode": "C-P6-S6",
+            "cornerType": "6 m x 6 m corner",
+            "ratePercent": "6.68"
+          }
+        },
+        {
+          "RowLabel": "C-P6-S4",
+          "DisplayOrder": 14,
+          "Values": {
+            "cornerCode": "C-P6-S4",
+            "cornerType": "6 m x 4 m corner",
+            "ratePercent": "4.23"
+          }
+        },
+        {
+          "RowLabel": "C-P4-S4",
+          "DisplayOrder": 15,
+          "Values": {
+            "cornerCode": "C-P4-S4",
+            "cornerType": "4 m x 4 m corner",
+            "ratePercent": "4.00"
+          }
+        }
+      ]
+    }
+  ],
+  "Attachments": []
+}

@@ -421,8 +421,10 @@ namespace Land_Readjustment_Tool
                     lblStatusMessage.Text = prompt;
             };
             mapCanvasControlMain.ShapeCompleted += MapCanvasControlMain_ShapeCompleted;
+            mapCanvasControlMain.ShapesCompleted += MapCanvasControlMain_ShapesCompleted;
             mapCanvasControlMain.ShapesEdited += MapCanvasControlMain_ShapesEdited;
             mapCanvasControlMain.SelectToolRequested += ResetSelectionToolbarMethodToPointerWindow;
+            mapCanvasControlMain.SelectionMethodRequested += MapCanvasControlMain_SelectionMethodRequested;
             mapCanvasControlMain.SelectedObjectsDeleteRequested += MapCanvasControlMain_SelectedObjectsDeleteRequested;
             mapCanvasControlMain.SelectedObjectsAssignDataRequested += MapCanvasControlMain_SelectedObjectsAssignDataRequested;
             mapCanvasControlMain.SelectedObjectsViewEditDataRequested += MapCanvasControlMain_SelectedObjectsViewEditDataRequested;
@@ -493,14 +495,12 @@ namespace Land_Readjustment_Tool
             mapSelectRoadsToolStripMenuItem.Click += mapSelectRoadsToolStripMenuItem_Click;
             mapSelectByAttributesToolStripMenuItem.Click += mapSelectByAttributesToolStripMenuItem_Click;
             mapSelectByRecordsToolStripMenuItem.Click += btnSelectFromRecords_Click;
-            mapSelectAllSelectableToolStripMenuItem.Click += mapSelectAllSelectableToolStripMenuItem_Click;
             contributionSettingsToolStripMenuItem.Click -= PolicyManagerToolStripMenuItem_Click;
 
             contributionSettingsToolStripMenuItem.Click += PolicyManagerToolStripMenuItem_Click;
 
 
         }
-
         private void ConfigureProfessionalMenus()
         {
             _projectScopedProfessionalMenuItems.Clear();
@@ -708,12 +708,7 @@ namespace Land_Readjustment_Tool
             _selectByAttributesForm = form;
             form.SelectionRequested += (ids, mode, zoomToSelection) =>
             {
-                if (zoomToSelection && ids.Count > 0)
-                {
-                    mapCanvasControlMain.ZoomToCanvasObjects(ids);
-                }
-
-                int selectedCount = mapCanvasControlMain.ApplyCanvasSelection(ids, mode, zoomToSelection: false);
+                int selectedCount = mapCanvasControlMain.ApplyCanvasSelection(ids, mode, zoomToSelection);
                 SetCanvasCommandStatus($"Select By Attributes: {ids.Count:N0} matched, {selectedCount:N0} selected.");
                 return selectedCount;
             };
@@ -724,7 +719,7 @@ namespace Land_Readjustment_Tool
 
         private void mapSelectAllSelectableToolStripMenuItem_Click(object? sender, EventArgs e)
         {
-            mapCanvasControlMain.SelectAllSelectableObjects(zoomToSelection: true);
+            mapCanvasControlMain.SelectAllSelectableObjects(zoomToSelection: false);
             SetCanvasCommandStatus("Selected all selectable visible objects.");
         }
 
@@ -8636,6 +8631,20 @@ namespace Land_Readjustment_Tool
                 return true;
             }
 
+            if (keyData == (Keys.Control | Keys.C))
+            {
+                return (mapCanvasControlMain.ContainsFocus &&
+                        mapCanvasControlMain.CopySelectedObjectsToBuffer()) ||
+                       base.ProcessCmdKey(ref msg, keyData);
+            }
+
+            if (keyData == (Keys.Control | Keys.V))
+            {
+                return (mapCanvasControlMain.ContainsFocus &&
+                        mapCanvasControlMain.BeginPasteCopiedObjects()) ||
+                       base.ProcessCmdKey(ref msg, keyData);
+            }
+
             Keys keyCode = keyData & Keys.KeyCode;
             if (keyCode == Keys.F3)
             {
@@ -8671,7 +8680,12 @@ namespace Land_Readjustment_Tool
                     ActivateSelectionToolbarMethod(SelectionToolbarMethod.PointerWindow);
                     return true;
 
-                case Keys.X:
+                case Keys.F13:
+                    mnuPan.Checked = !mnuPan.Checked;
+                    mnuPan_Click(this, EventArgs.Empty);
+                    return true;
+
+                case Keys.D:
                     _ = ActivateCanvasDrawingToolAsync(MapCanvasTool.Point);
                     return true;
 
@@ -8826,6 +8840,28 @@ namespace Land_Readjustment_Tool
         private void ResetSelectionToolbarMethodToPointerWindow()
         {
             ActivateSelectionToolbarMethod(SelectionToolbarMethod.PointerWindow);
+        }
+
+        private void MapCanvasControlMain_SelectionMethodRequested(MapCanvasTool tool)
+        {
+            switch (tool)
+            {
+                case MapCanvasTool.Select:
+                    ActivateSelectionToolbarMethod(SelectionToolbarMethod.PointerWindow);
+                    break;
+
+                case MapCanvasTool.SelectionPolygon:
+                    ActivateSelectionToolbarMethod(SelectionToolbarMethod.Polygon);
+                    break;
+
+                case MapCanvasTool.SelectionIntersectingPolygon:
+                    ActivateSelectionToolbarMethod(SelectionToolbarMethod.IntersectingPoly);
+                    break;
+
+                case MapCanvasTool.SelectionIntersectingLine:
+                    ActivateSelectionToolbarMethod(SelectionToolbarMethod.IntersectingLine);
+                    break;
+            }
         }
 
         private void SetActiveSelectionToolbarMethod(SelectionToolbarMethod method)
@@ -14137,6 +14173,68 @@ namespace Land_Readjustment_Tool
             }
         }
 
+        private async void MapCanvasControlMain_ShapesCompleted(IReadOnlyList<IShape> shapes)
+        {
+            if (shapes == null || shapes.Count == 0)
+            {
+                return;
+            }
+
+            if (!EnsureApplicationUnlockedForEditing("creating canvas objects"))
+            {
+                await RefreshVectorCanvasFeaturesAsync();
+                return;
+            }
+
+            if (!AppServices.HasContext)
+            {
+                return;
+            }
+
+            try
+            {
+                CanvasFeatureService featureService =
+                    _projectScopedFactory.CreateCanvasFeatureService(AppServices.Context.Session);
+                AppDbContext context = AppServices.Context.Session.GetDbContext();
+                List<CanvasObject> createdSnapshots = new();
+                List<Guid> createdObjectIds = new();
+                bool anyAffectsRoadParcel = false;
+
+                foreach (IShape shape in shapes)
+                {
+                    CanvasFeature feature = await featureService.SaveShapeAsync(
+                        shape,
+                        shape.LayerName);
+                    createdSnapshots.Add(CloneCanvasObjectSnapshot(feature.CanvasObject));
+                    createdObjectIds.Add(feature.CanvasObject.Id);
+                    anyAffectsRoadParcel |=
+                        BlockRoadParcelRefreshService.AffectsGeneratedRoadParcel(feature.CanvasObject);
+                }
+
+                if (anyAffectsRoadParcel)
+                {
+                    await RefreshGeneratedRoadParcelAsync(context);
+                }
+
+                MarkProjectModifiedIfOpen();
+                await RefreshVectorCanvasFeaturesAsync();
+                mapCanvasControlMain.SelectCanvasObjects(createdObjectIds, zoomToSelection: false);
+                RegisterCanvasUndoCommand(new AddCanvasObjectsCommand(createdSnapshots));
+                SetCanvasCommandStatus(createdObjectIds.Count == 1
+                    ? "Copied object"
+                    : $"Copied {createdObjectIds.Count} objects");
+            }
+            catch (Exception ex)
+            {
+                await RefreshVectorCanvasFeaturesAsync();
+                MessageBox.Show(
+                    $"Failed to save copied objects: {ex.Message}",
+                    "Copy Objects",
+                    MessageBoxButtons.OK,
+                    MessageBoxIcon.Error);
+            }
+        }
+
         private async void MapCanvasControlMain_ShapesEdited(IReadOnlyList<IShape> shapes)
         {
             if (shapes == null || shapes.Count == 0)
@@ -17181,6 +17279,11 @@ namespace Land_Readjustment_Tool
         private void tsCanvasTools_ItemClicked(object sender, ToolStripItemClickedEventArgs e)
         {
 
+        }
+
+        private void mapSelectAllSelectableToolStripMenuItem_Click_1(object sender, EventArgs e)
+        {
+            mapSelectAllSelectableToolStripMenuItem_Click(sender, e);
         }
     }
 }

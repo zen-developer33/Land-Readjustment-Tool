@@ -1723,6 +1723,46 @@ namespace Land_Readjustment_Tool.Properties {
         /// <summary>
         ///   Looks up a localized resource of type System.Drawing.Bitmap.
         /// </summary>
+        public static System.Drawing.Bitmap selection_intersecting_line {
+            get {
+                object obj = ResourceManager.GetObject("selection-intersecting-line", resourceCulture);
+                return ((System.Drawing.Bitmap)(obj));
+            }
+        }
+        
+        /// <summary>
+        ///   Looks up a localized resource of type System.Drawing.Bitmap.
+        /// </summary>
+        public static System.Drawing.Bitmap selection_intersecting_poly {
+            get {
+                object obj = ResourceManager.GetObject("selection-intersecting-poly", resourceCulture);
+                return ((System.Drawing.Bitmap)(obj));
+            }
+        }
+        
+        /// <summary>
+        ///   Looks up a localized resource of type System.Drawing.Bitmap.
+        /// </summary>
+        public static System.Drawing.Bitmap selection_polygon {
+            get {
+                object obj = ResourceManager.GetObject("selection-polygon", resourceCulture);
+                return ((System.Drawing.Bitmap)(obj));
+            }
+        }
+        
+        /// <summary>
+        ///   Looks up a localized resource of type System.Drawing.Bitmap.
+        /// </summary>
+        public static System.Drawing.Bitmap selection_polygon1 {
+            get {
+                object obj = ResourceManager.GetObject("selection-polygon1", resourceCulture);
+                return ((System.Drawing.Bitmap)(obj));
+            }
+        }
+        
+        /// <summary>
+        ///   Looks up a localized resource of type System.Drawing.Bitmap.
+        /// </summary>
         public static System.Drawing.Bitmap selection_Tool {
             get {
                 object obj = ResourceManager.GetObject("selection Tool", resourceCulture);

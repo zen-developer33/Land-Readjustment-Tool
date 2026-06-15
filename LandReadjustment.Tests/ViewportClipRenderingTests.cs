@@ -32,6 +32,36 @@ public sealed class ViewportClipRenderingTests
     }
 
     [Fact]
+    public void PolylineScreenPath_ClippedArcSegment_KeepsContinuousFigureForDashedStroke()
+    {
+        PointD start = new(50.0, 0.0);
+        PointD end = new(0.0, 50.0);
+        ArcShape arc = new(
+            new PointD(0.0, 0.0),
+            50.0,
+            0.0,
+            Math.PI / 2.0);
+        PolylineShape polyline = new(
+            [start, end],
+            [
+                new PolylineShape.PolylineSegment(
+                    PolylineShape.PolylineSegmentKind.Arc,
+                    start,
+                    end,
+                    arc)
+            ],
+            isClosed: false);
+        RectangleD clip = new(-100.0, -100.0, 200.0, 200.0);
+
+        using GraphicsPath path = polyline.CreateScreenPath(point => point, clip);
+
+        int figureStarts = path.PathTypes.Count(
+            pathType => ((PathPointType)pathType & PathPointType.PathTypeMask) == PathPointType.Start);
+        Assert.Equal(1, figureStarts);
+        Assert.True(path.PointCount > 2);
+    }
+
+    [Fact]
     public void PolylineScreenPath_ClosedSegmentedPolygonWithClip_RemainsFillable()
     {
         MapCanvasEngine engine = new(new Size(120, 120));

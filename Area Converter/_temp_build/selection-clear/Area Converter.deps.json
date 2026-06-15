@@ -1,0 +1,23 @@
+{
+  "runtimeTarget": {
+    "name": ".NETCoreApp,Version=v10.0",
+    "signature": ""
+  },
+  "compilationOptions": {},
+  "targets": {
+    ".NETCoreApp,Version=v10.0": {
+      "Area Converter/2.2": {
+        "runtime": {
+          "Area Converter.dll": {}
+        }
+      }
+    }
+  },
+  "libraries": {
+    "Area Converter/2.2": {
+      "type": "project",
+      "serviceable": false,
+      "sha512": ""
+    }
+  }
+}

@@ -844,7 +844,7 @@ namespace Land_Pooling_Policy_Manager.UI.Forms
             ClientSize = new Size(1380, 730);
             Controls.Add(mainSplit);
             Controls.Add(headerPanel);
-            MinimumSize = new Size(500, 500);
+            MinimumSize = new Size(0, 0);
             Name = "frmPolicyManagerDashboard";
             Text = "Policy Editor";
             Load += frmPolicyManagerDashboard_Load;

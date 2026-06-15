@@ -496,9 +496,34 @@ namespace Land_Readjustment_Tool.UI.MapCanvas.Models.Shapes
             RectangleD clipWorldBounds)
         {
             PointD[] samples = arc.SamplePoints(64).ToArray();
+            PointF lastEnd = default;
+            bool hasVisibleRun = false;
+
             for (int i = 0; i < samples.Length - 1; i++)
             {
-                AddClippedLine(path, samples[i], samples[i + 1], worldToScreen, clipWorldBounds);
+                PointD startWorld = samples[i];
+                PointD endWorld = samples[i + 1];
+                if (!ViewportClip.ClipSegment(startWorld, endWorld, clipWorldBounds, out startWorld, out endWorld))
+                {
+                    hasVisibleRun = false;
+                    continue;
+                }
+
+                PointF start = ToRoundedScreenPoint(worldToScreen(startWorld));
+                PointF end = ToRoundedScreenPoint(worldToScreen(endWorld));
+                if (!IsValidPoint(start) || !IsValidPoint(end) || Distance(start, end) < 0.25)
+                {
+                    continue;
+                }
+
+                if (!hasVisibleRun || Distance(lastEnd, start) > 0.5)
+                {
+                    path.StartFigure();
+                }
+
+                path.AddLine(start, end);
+                lastEnd = end;
+                hasVisibleRun = true;
             }
         }
 

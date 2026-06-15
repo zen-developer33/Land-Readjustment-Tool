@@ -14,6 +14,7 @@ namespace Land_Pooling_Policy_Manager.UI.Forms
         private Button btnRename;
         private Button btnDelete;
         private Button btnImport;
+        private Button btnExport;
         private Button btnClose;
         private Label lblName;
 
@@ -39,6 +40,7 @@ namespace Land_Pooling_Policy_Manager.UI.Forms
             btnRename = new Button();
             btnDelete = new Button();
             btnImport = new Button();
+            btnExport = new Button();
             btnClose = new Button();
             layout.SuspendLayout();
             buttonPanel.SuspendLayout();
@@ -61,7 +63,7 @@ namespace Land_Pooling_Policy_Manager.UI.Forms
             layout.RowStyles.Add(new RowStyle(SizeType.Percent, 100F));
             layout.RowStyles.Add(new RowStyle(SizeType.Absolute, 31F));
             layout.RowStyles.Add(new RowStyle(SizeType.Absolute, 52F));
-            layout.Size = new Size(776, 441);
+            layout.Size = new Size(862, 441);
             layout.TabIndex = 0;
             // 
             // lstPolicies
@@ -106,6 +108,7 @@ namespace Land_Pooling_Policy_Manager.UI.Forms
             buttonPanel.Controls.Add(btnRename);
             buttonPanel.Controls.Add(btnDelete);
             buttonPanel.Controls.Add(btnImport);
+            buttonPanel.Controls.Add(btnExport);
             buttonPanel.Controls.Add(btnClose);
             buttonPanel.Dock = DockStyle.Fill;
             buttonPanel.Location = new Point(13, 382);
@@ -183,14 +186,24 @@ namespace Land_Pooling_Policy_Manager.UI.Forms
             btnImport.TabIndex = 6;
             btnImport.Text = "Import";
             btnImport.Click += btnImport_Click;
-            // 
+            //
+            // btnExport
+            //
+            btnExport.AutoSize = true;
+            btnExport.Location = new Point(656, 3);
+            btnExport.Name = "btnExport";
+            btnExport.Size = new Size(75, 39);
+            btnExport.TabIndex = 7;
+            btnExport.Text = "Export";
+            btnExport.Click += btnExport_Click;
+            //
             // btnClose
-            // 
+            //
             btnClose.AutoSize = true;
-            btnClose.Location = new Point(656, 3);
+            btnClose.Location = new Point(737, 3);
             btnClose.Name = "btnClose";
             btnClose.Size = new Size(75, 39);
-            btnClose.TabIndex = 7;
+            btnClose.TabIndex = 8;
             btnClose.Text = "Close";
             btnClose.Click += btnClose_Click;
             // 
@@ -199,7 +212,7 @@ namespace Land_Pooling_Policy_Manager.UI.Forms
             AcceptButton = btnSelect;
             AutoScaleMode = AutoScaleMode.None;
             CancelButton = btnClose;
-            ClientSize = new Size(776, 441);
+            ClientSize = new Size(862, 441);
             Controls.Add(layout);
             FormBorderStyle = FormBorderStyle.FixedDialog;
             MaximizeBox = false;

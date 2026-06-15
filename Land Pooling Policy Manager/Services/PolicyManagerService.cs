@@ -1,6 +1,7 @@
 using Land_Pooling_Policy_Manager.Entities.Policy;
 using Land_Pooling_Policy_Manager.Data;
 using Microsoft.EntityFrameworkCore;
+using System.Data;
 
 namespace Land_Pooling_Policy_Manager.Services
 {
@@ -11,6 +12,7 @@ namespace Land_Pooling_Policy_Manager.Services
         private readonly PolicyPackageService _packageService;
         private readonly PolicyTemplateSeeder _templateSeeder;
         private readonly SemaphoreSlim _operationGate = new(1, 1);
+        private const string AutoSeedSuppressedStateKey = "AutoSeedSuppressed";
         private bool _seedEnsured;
 
         public event EventHandler<int>? PolicyChanged;
@@ -32,11 +34,19 @@ namespace Land_Pooling_Policy_Manager.Services
             if (_seedEnsured)
                 return;
 
+            if (await IsAutoSeedSuppressedAsync(ct))
+            {
+                _seedEnsured = true;
+                return;
+            }
+
             await _templateSeeder.EnsureBaireniTemplateAsync(ct);
             _seedEnsured = true;
         }
 
-        public async Task<List<PolicySet>> GetPolicySummariesAsync(CancellationToken ct = default)
+        public async Task<List<PolicySet>> GetPolicySummariesAsync(
+            bool seedIfEmpty = true,
+            CancellationToken ct = default)
         {
             List<PolicySet> policies = await _context.PolicySets
                 .AsNoTracking()
@@ -44,7 +54,7 @@ namespace Land_Pooling_Policy_Manager.Services
                 .ThenByDescending(policy => policy.VersionNo)
                 .ToListAsync(ct);
 
-            if (policies.Count > 0)
+            if (policies.Count > 0 || !seedIfEmpty)
                 return policies;
 
             await EnsureSeedPolicyAsync(ct);
@@ -72,6 +82,7 @@ namespace Land_Pooling_Policy_Manager.Services
                             .ThenInclude(cell => cell.PolicyLookupColumn)
                 .Include(policy => policy.Attachments)
                 .Include(policy => policy.AuditEntries)
+                .Include(policy => policy.Sections)
                 .FirstOrDefaultAsync(policy => policy.Id == policySetId, ct);
         }
 
@@ -320,8 +331,9 @@ namespace Land_Pooling_Policy_Manager.Services
 
         public async Task<PolicySet?> GetPolicyLookupTablesAsync(int policySetId, CancellationToken ct = default)
         {
+            await RemoveObsoleteCornerTypeDefinitionTablesAsync(policySetId, ct);
             await RemoveDuplicateLookupTablesAsync(policySetId, ct);
-            return await _context.PolicySets
+            PolicySet? policy = await _context.PolicySets
                 .AsNoTracking()
                 .AsSplitQuery()
                 .Include(policy => policy.Clauses)
@@ -334,6 +346,15 @@ namespace Land_Pooling_Policy_Manager.Services
                         .ThenInclude(row => row.Cells)
                             .ThenInclude(cell => cell.PolicyLookupColumn)
                 .FirstOrDefaultAsync(policy => policy.Id == policySetId, ct);
+
+            if (policy != null)
+            {
+                policy.LookupTables = policy.LookupTables
+                    .Where(t => !string.Equals(t.TableKey, "cornerTypeDefinitions", StringComparison.OrdinalIgnoreCase))
+                    .ToList();
+            }
+
+            return policy;
         }
 
         public async Task<byte[]?> GetPolicyAttachmentImageDataAsync(
@@ -506,6 +527,7 @@ namespace Land_Pooling_Policy_Manager.Services
             });
 
             await _context.PolicySets.AddAsync(policy, ct);
+            await SetAutoSeedSuppressedAsync(false, ct);
             await _context.SaveChangesAsync(ct);
             NotifyPolicyChanged(policy.Id);
             return policy;
@@ -536,6 +558,7 @@ namespace Land_Pooling_Policy_Manager.Services
             });
 
             await _context.PolicySets.AddAsync(draft, ct);
+            await SetAutoSeedSuppressedAsync(false, ct);
             await _context.SaveChangesAsync(ct);
             NotifyPolicyChanged(draft.Id);
             return draft;
@@ -564,6 +587,10 @@ namespace Land_Pooling_Policy_Manager.Services
                 .AnyAsync(p => p.Id == policySetId, ct);
             if (!exists)
                 return;
+
+            int policyCountBeforeDelete = await _context.PolicySets
+                .AsNoTracking()
+                .CountAsync(ct);
 
             // One bulk DELETE per table, server-side, no entity hydration.
             // Cells must go before rows; rows/columns before tables.
@@ -607,6 +634,9 @@ namespace Land_Pooling_Policy_Manager.Services
             await _context.PolicySets
                 .Where(p => p.Id == policySetId)
                 .ExecuteDeleteAsync(ct);
+
+            if (policyCountBeforeDelete <= 1)
+                await SetAutoSeedSuppressedAsync(true, ct);
 
             // Don't notify PolicyChanged for the deleted id — the dashboard's handler would
             // then re-fetch the just-deleted policy through the same operation gate, adding
@@ -1145,6 +1175,7 @@ namespace Land_Pooling_Policy_Manager.Services
             });
 
             await _context.PolicySets.AddAsync(draft, ct);
+            await SetAutoSeedSuppressedAsync(false, ct);
             await _context.SaveChangesAsync(ct);
             NotifyPolicyChanged(draft.Id);
             return draft;
@@ -1166,9 +1197,95 @@ namespace Land_Pooling_Policy_Manager.Services
             PolicyPackage package = await _packageService.ReadAsync(filePath, ct);
             PolicySet policy = _packageService.ToEntity(package);
             await _context.PolicySets.AddAsync(policy, ct);
+            await SetAutoSeedSuppressedAsync(false, ct);
             await _context.SaveChangesAsync(ct);
             NotifyPolicyChanged(policy.Id);
             return policy;
+        }
+
+        private async Task<bool> IsAutoSeedSuppressedAsync(CancellationToken ct)
+        {
+            await EnsurePolicyManagerStateTableAsync(ct);
+
+            var connection = _context.Database.GetDbConnection();
+            bool shouldClose = connection.State != ConnectionState.Open;
+            if (shouldClose)
+                await _context.Database.OpenConnectionAsync(ct);
+
+            try
+            {
+                await using var command = connection.CreateCommand();
+                command.CommandText = "SELECT Value FROM tblPolicyManagerState WHERE Key = $key LIMIT 1;";
+                var parameter = command.CreateParameter();
+                parameter.ParameterName = "$key";
+                parameter.Value = AutoSeedSuppressedStateKey;
+                command.Parameters.Add(parameter);
+
+                object? result = await command.ExecuteScalarAsync(ct);
+                return result is string value &&
+                       string.Equals(value, "1", StringComparison.OrdinalIgnoreCase);
+            }
+            finally
+            {
+                if (shouldClose)
+                    await _context.Database.CloseConnectionAsync();
+            }
+        }
+
+        private async Task SetAutoSeedSuppressedAsync(bool suppressed, CancellationToken ct)
+        {
+            await EnsurePolicyManagerStateTableAsync(ct);
+
+            var connection = _context.Database.GetDbConnection();
+            bool shouldClose = connection.State != ConnectionState.Open;
+            if (shouldClose)
+                await _context.Database.OpenConnectionAsync(ct);
+
+            try
+            {
+                await using var command = connection.CreateCommand();
+                command.CommandText =
+                    """
+                    INSERT INTO tblPolicyManagerState (Key, Value, LastModifiedDate)
+                    VALUES ($key, $value, CURRENT_TIMESTAMP)
+                    ON CONFLICT(Key) DO UPDATE SET
+                        Value = excluded.Value,
+                        LastModifiedDate = CURRENT_TIMESTAMP;
+                    """;
+
+                var keyParameter = command.CreateParameter();
+                keyParameter.ParameterName = "$key";
+                keyParameter.Value = AutoSeedSuppressedStateKey;
+                command.Parameters.Add(keyParameter);
+
+                var valueParameter = command.CreateParameter();
+                valueParameter.ParameterName = "$value";
+                valueParameter.Value = suppressed ? "1" : "0";
+                command.Parameters.Add(valueParameter);
+
+                await command.ExecuteNonQueryAsync(ct);
+            }
+            finally
+            {
+                if (shouldClose)
+                    await _context.Database.CloseConnectionAsync();
+            }
+
+            if (!suppressed)
+                _seedEnsured = false;
+        }
+
+        private async Task EnsurePolicyManagerStateTableAsync(CancellationToken ct)
+        {
+            await _context.Database.ExecuteSqlRawAsync(
+                """
+                CREATE TABLE IF NOT EXISTS tblPolicyManagerState (
+                    Key TEXT NOT NULL CONSTRAINT PK_tblPolicyManagerState PRIMARY KEY,
+                    Value TEXT NULL,
+                    LastModifiedDate TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
+                );
+                """,
+                ct);
         }
 
         private async Task RemoveDuplicateLookupTablesAsync(int policySetId, CancellationToken ct)
@@ -1199,6 +1316,44 @@ namespace Land_Pooling_Policy_Manager.Services
 
             _context.PolicyLookupTables.RemoveRange(duplicates);
             AddAudit(policySetId, "Saved Draft", "Duplicate lookup tables removed.");
+            await _context.SaveChangesAsync(ct);
+            NotifyPolicyChanged(policySetId);
+        }
+
+        private async Task RemoveObsoleteCornerTypeDefinitionTablesAsync(
+            int policySetId,
+            CancellationToken ct)
+        {
+            PolicySet? policy = await _context.PolicySets
+                .AsNoTracking()
+                .FirstOrDefaultAsync(p => p.Id == policySetId, ct);
+            if (policy == null || !PolicyValidationService.IsEditable(policy))
+                return;
+
+            List<int> tableIds = await _context.PolicyLookupTables
+                .AsNoTracking()
+                .Where(t =>
+                    t.PolicySetId == policySetId &&
+                    t.TableKey == "cornerTypeDefinitions")
+                .Select(t => t.Id)
+                .ToListAsync(ct);
+            if (tableIds.Count == 0)
+                return;
+
+            await _context.PolicyLookupCells
+                .Where(c => tableIds.Contains(c.PolicyLookupRow.PolicyLookupTableId))
+                .ExecuteDeleteAsync(ct);
+            await _context.PolicyLookupRows
+                .Where(r => tableIds.Contains(r.PolicyLookupTableId))
+                .ExecuteDeleteAsync(ct);
+            await _context.PolicyLookupColumns
+                .Where(c => tableIds.Contains(c.PolicyLookupTableId))
+                .ExecuteDeleteAsync(ct);
+            await _context.PolicyLookupTables
+                .Where(t => tableIds.Contains(t.Id))
+                .ExecuteDeleteAsync(ct);
+
+            AddAudit(policySetId, "Saved Draft", "Obsolete Project Corner Type Definitions lookup table removed.");
             await _context.SaveChangesAsync(ct);
             NotifyPolicyChanged(policySetId);
         }
