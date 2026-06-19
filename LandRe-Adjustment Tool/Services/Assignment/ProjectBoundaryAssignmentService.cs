@@ -328,8 +328,11 @@ namespace Land_Readjustment_Tool.Services.Assignment
             if (layer.LineWeight <= 0)
                 layer.LineWeight = 2.0;
 
-            if (string.IsNullOrWhiteSpace(layer.LineStyle))
-                layer.LineStyle = "Solid";
+            if (string.IsNullOrWhiteSpace(layer.LineStyle) ||
+                string.Equals(layer.LineStyle, "Solid", StringComparison.OrdinalIgnoreCase))
+            {
+                layer.LineStyle = "DashDoubleDot";
+            }
         }
 
         private static void NormalizeGeometryForCanvasDatabase(Geometry geometry)
@@ -369,7 +372,7 @@ namespace Land_Readjustment_Tool.Services.Assignment
                 DisplayOrder = displayOrder,
                 BorderColor = "#FF0000",
                 LineWeight = 2.0,
-                LineStyle = "Solid",
+                LineStyle = "DashDoubleDot",
                 LineTypeScale = 1.0,
                 FillColor = null,
                 ShowFillTransparency = false,

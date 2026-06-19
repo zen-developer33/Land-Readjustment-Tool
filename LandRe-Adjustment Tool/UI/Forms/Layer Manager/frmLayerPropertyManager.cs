@@ -1184,6 +1184,11 @@ namespace Land_Readjustment_Tool.UI.Forms
                     pen.DashCap = System.Drawing.Drawing2D.DashCap.Flat;
                     pen.DashPattern = [4f * scale, 2f * scale, 1f * scale, 2f * scale];
                     break;
+                case "DASHDOUBLEDOT":
+                    pen.DashStyle = System.Drawing.Drawing2D.DashStyle.Custom;
+                    pen.DashCap = System.Drawing.Drawing2D.DashCap.Flat;
+                    pen.DashPattern = [4f * scale, 2f * scale, 1f * scale, 2f * scale, 1f * scale, 2f * scale];
+                    break;
                 case "CENTERLINE":
                     pen.DashStyle = System.Drawing.Drawing2D.DashStyle.Custom;
                     pen.DashCap = System.Drawing.Drawing2D.DashCap.Flat;
@@ -1199,6 +1204,7 @@ namespace Land_Readjustment_Tool.UI.Forms
         {
             string normalized = (lineStyle ?? string.Empty)
                 .Replace("-", string.Empty, StringComparison.Ordinal)
+                .Replace("_", string.Empty, StringComparison.Ordinal)
                 .Replace(" ", string.Empty, StringComparison.Ordinal)
                 .Trim()
                 .ToUpperInvariant();
@@ -1207,6 +1213,7 @@ namespace Land_Readjustment_Tool.UI.Forms
             {
                 "DASH" => "DASHED",
                 "DOT" => "DOTTED",
+                "DASHDOTDOT" => "DASHDOUBLEDOT",
                 _ => normalized
             };
         }

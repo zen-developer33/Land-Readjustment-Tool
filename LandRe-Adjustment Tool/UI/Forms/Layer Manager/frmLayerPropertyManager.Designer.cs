@@ -376,7 +376,7 @@ namespace Land_Readjustment_Tool.UI.Forms
             // _cboLineStyle
             // 
             _cboLineStyle.DropDownStyle = ComboBoxStyle.DropDownList;
-            _cboLineStyle.Items.AddRange(new object[] { "Solid", "Dashed", "Dotted", "Centerline", "DashDot" });
+            _cboLineStyle.Items.AddRange(new object[] { "Solid", "Dashed", "Dotted", "Centerline", "DashDot", "DashDoubleDot" });
             _cboLineStyle.Location = new Point(0, 3);
             _cboLineStyle.Margin = new Padding(0, 3, 10, 0);
             _cboLineStyle.Name = "_cboLineStyle";

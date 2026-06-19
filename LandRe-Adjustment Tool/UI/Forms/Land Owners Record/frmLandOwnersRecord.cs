@@ -362,6 +362,17 @@ namespace Land_Readjustment_Tool.Forms
             dgvRecords.ReadOnly = true;
         }
 
+        public void ConfigureAsRegister(string title)
+        {
+            Text = string.IsNullOrWhiteSpace(title) ? "Owner Register" : title;
+            btnAdd.Visible = false;
+            btnDelete.Visible = false;
+            saveToolStripButton.Visible = false;
+            btnEdit.Text = "View";
+            btnEdit.ToolTipText = "View selected owner";
+            dgvRecords.ReadOnly = true;
+        }
+
         private void btnRefresh_Click_1(object sender, EventArgs e)
         {
 

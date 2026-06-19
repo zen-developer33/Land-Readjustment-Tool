@@ -170,8 +170,6 @@ namespace Land_Readjustment_Tool.UI.MapCanvas.Models.Shapes
             yield return new SnapPoint(SnapType.Midpoint, new PointD((Start.X + End.X) / 2, End.Y), this);
             yield return new SnapPoint(SnapType.Midpoint, new PointD(Start.X, (Start.Y + End.Y) / 2), this);
             yield return new SnapPoint(SnapType.Midpoint, new PointD(End.X, (Start.Y + End.Y) / 2), this);
-            // Center
-            yield return new SnapPoint(SnapType.Center, new PointD((Start.X + End.X) / 2, (Start.Y + End.Y) / 2), this);
         }
     }
 }

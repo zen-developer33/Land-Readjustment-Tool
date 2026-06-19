@@ -136,13 +136,10 @@ namespace Land_Readjustment_Tool.UI.MapCanvas.Models.Shapes
 
         public override IEnumerable<SnapPoint> GetSnapPoints()
         {
-            // Center
             double cx = (Start.X + End.X) / 2;
             double cy = (Start.Y + End.Y) / 2;
             double rx = Math.Abs(End.X - Start.X) / 2;
             double ry = Math.Abs(End.Y - Start.Y) / 2;
-            var center = new PointD(cx, cy);
-            yield return new SnapPoint(SnapType.Center, center, this);
             // Quadrants (right, top, left, bottom)
             yield return new SnapPoint(SnapType.Quadrant, new PointD(cx + rx, cy), this); // right
             yield return new SnapPoint(SnapType.Quadrant, new PointD(cx, cy + ry), this); // top

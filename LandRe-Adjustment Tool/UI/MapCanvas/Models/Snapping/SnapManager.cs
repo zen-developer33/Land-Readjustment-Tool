@@ -5,6 +5,9 @@ namespace Land_Readjustment_Tool.UI.MapCanvas.Models.Snapping
 {
     public sealed class MapCanvasSnapManager
     {
+        private const double GeometryTolerance = 1e-9;
+        private const double SnapPointDuplicateTolerance = 1e-6;
+
         public IEnumerable<SnapPoint> GetSnapCandidates(
             IReadOnlyList<IShape> nearbyShapes,
             IEnumerable<SnapPoint> extraSnapPoints,
@@ -124,48 +127,257 @@ namespace Land_Readjustment_Tool.UI.MapCanvas.Models.Snapping
         private IEnumerable<SnapPoint> GetShapePairIntersections(IShape shapeA, IShape shapeB)
         {
             List<SnapPoint> result = new List<SnapPoint>();
-            List<(PointD a, PointD b)> segmentsA = GetSegments(shapeA);
-            List<(PointD a, PointD b)> segmentsB = GetSegments(shapeB);
+            List<IntersectionPrimitive> primitivesA = GetIntersectionPrimitives(shapeA);
+            List<IntersectionPrimitive> primitivesB = GetIntersectionPrimitives(shapeB);
 
-            foreach ((PointD a, PointD b) segmentA in segmentsA)
+            foreach (IntersectionPrimitive primitiveA in primitivesA)
             {
-                foreach ((PointD a, PointD b) segmentB in segmentsB)
+                foreach (IntersectionPrimitive primitiveB in primitivesB)
                 {
-                    if (TryGetSegmentsIntersection(
-                            segmentA.a,
-                            segmentA.b,
-                            segmentB.a,
-                            segmentB.b,
-                            out PointD intersection))
-                    {
-                        result.Add(new SnapPoint(SnapType.Intersection, intersection, null));
-                    }
+                    AddPrimitiveIntersections(primitiveA, primitiveB, result);
                 }
-            }
-
-            if (shapeA is CircleShape circleA)
-            {
-                foreach ((PointD a, PointD b) segment in segmentsB)
-                {
-                    result.AddRange(LineCircleIntersections(segment.a, segment.b, circleA));
-                }
-            }
-
-            if (shapeB is CircleShape circleB)
-            {
-                foreach ((PointD a, PointD b) segment in segmentsA)
-                {
-                    result.AddRange(LineCircleIntersections(segment.a, segment.b, circleB));
-                }
-            }
-
-            if (shapeA is CircleShape firstCircle &&
-                shapeB is CircleShape secondCircle)
-            {
-                result.AddRange(CircleCircleIntersections(firstCircle, secondCircle));
             }
 
             return result;
+        }
+
+        private static List<IntersectionPrimitive> GetIntersectionPrimitives(IShape shape)
+        {
+            List<IntersectionPrimitive> primitives = new List<IntersectionPrimitive>();
+
+            switch (shape)
+            {
+                case LineShape line:
+                    AddLinePrimitive(primitives, line.Start, line.End);
+                    break;
+
+                case PolylineShape { Vertices.Count: > 1 } polyline:
+                    AddPolylinePrimitives(primitives, polyline);
+                    break;
+
+                case RectangleShape rectangle:
+                    PointD leftBottom = new(
+                        Math.Min(rectangle.Start.X, rectangle.End.X),
+                        Math.Min(rectangle.Start.Y, rectangle.End.Y));
+                    PointD rightBottom = new(
+                        Math.Max(rectangle.Start.X, rectangle.End.X),
+                        Math.Min(rectangle.Start.Y, rectangle.End.Y));
+                    PointD rightTop = new(
+                        Math.Max(rectangle.Start.X, rectangle.End.X),
+                        Math.Max(rectangle.Start.Y, rectangle.End.Y));
+                    PointD leftTop = new(
+                        Math.Min(rectangle.Start.X, rectangle.End.X),
+                        Math.Max(rectangle.Start.Y, rectangle.End.Y));
+
+                    AddLinePrimitive(primitives, leftBottom, rightBottom);
+                    AddLinePrimitive(primitives, rightBottom, rightTop);
+                    AddLinePrimitive(primitives, rightTop, leftTop);
+                    AddLinePrimitive(primitives, leftTop, leftBottom);
+                    break;
+
+                case CircleShape circle:
+                    AddCirclePrimitive(primitives, circle.Center, circle.GetRadius());
+                    break;
+
+                case ArcShape arc:
+                    AddArcPrimitive(primitives, arc);
+                    break;
+            }
+
+            return primitives;
+        }
+
+        private static void AddPolylinePrimitives(
+            ICollection<IntersectionPrimitive> primitives,
+            PolylineShape polyline)
+        {
+            if (polyline.Segments.Count > 0)
+            {
+                foreach (PolylineShape.PolylineSegment segment in polyline.Segments)
+                {
+                    if (segment.Kind == PolylineShape.PolylineSegmentKind.Arc && segment.Arc != null)
+                    {
+                        AddArcPrimitive(primitives, segment.Arc);
+                    }
+                    else
+                    {
+                        AddLinePrimitive(primitives, segment.Start, segment.End);
+                    }
+                }
+
+                if (polyline.IsClosed && polyline.Vertices.Count > 2)
+                {
+                    PointD lastEnd = polyline.Segments[^1].End;
+                    PointD first = polyline.Vertices[0];
+                    if (Distance(lastEnd, first) > GeometryTolerance)
+                    {
+                        AddLinePrimitive(primitives, lastEnd, first);
+                    }
+                }
+
+                return;
+            }
+
+            for (int i = 0; i < polyline.Vertices.Count - 1; i++)
+            {
+                AddLinePrimitive(primitives, polyline.Vertices[i], polyline.Vertices[i + 1]);
+            }
+
+            if (polyline.IsClosed && polyline.Vertices.Count > 2)
+            {
+                AddLinePrimitive(primitives, polyline.Vertices[^1], polyline.Vertices[0]);
+            }
+        }
+
+        private static void AddLinePrimitive(
+            ICollection<IntersectionPrimitive> primitives,
+            PointD start,
+            PointD end)
+        {
+            if (Distance(start, end) <= GeometryTolerance)
+            {
+                return;
+            }
+
+            primitives.Add(IntersectionPrimitive.Line(start, end));
+        }
+
+        private static void AddCirclePrimitive(
+            ICollection<IntersectionPrimitive> primitives,
+            PointD center,
+            double radius)
+        {
+            if (!double.IsFinite(radius) || radius <= GeometryTolerance)
+            {
+                return;
+            }
+
+            primitives.Add(IntersectionPrimitive.Circle(center, radius));
+        }
+
+        private static void AddArcPrimitive(
+            ICollection<IntersectionPrimitive> primitives,
+            ArcShape arc)
+        {
+            if (!double.IsFinite(arc.Radius) ||
+                arc.Radius <= GeometryTolerance ||
+                !double.IsFinite(arc.StartAngleRadians) ||
+                !double.IsFinite(arc.SweepAngleRadians) ||
+                Math.Abs(arc.SweepAngleRadians) <= GeometryTolerance)
+            {
+                return;
+            }
+
+            primitives.Add(IntersectionPrimitive.Arc(
+                arc.Center,
+                arc.Radius,
+                arc.StartAngleRadians,
+                arc.SweepAngleRadians));
+        }
+
+        private static void AddPrimitiveIntersections(
+            IntersectionPrimitive first,
+            IntersectionPrimitive second,
+            ICollection<SnapPoint> result)
+        {
+            if (first.Kind == IntersectionPrimitiveKind.Line &&
+                second.Kind == IntersectionPrimitiveKind.Line)
+            {
+                if (TryGetSegmentsIntersection(first.Start, first.End, second.Start, second.End, out PointD intersection))
+                {
+                    AddIntersection(result, intersection);
+                }
+
+                return;
+            }
+
+            if (first.Kind == IntersectionPrimitiveKind.Line &&
+                second.Kind is IntersectionPrimitiveKind.Circle or IntersectionPrimitiveKind.Arc)
+            {
+                AddLineCircularIntersections(first, second, result);
+                return;
+            }
+
+            if (second.Kind == IntersectionPrimitiveKind.Line &&
+                first.Kind is IntersectionPrimitiveKind.Circle or IntersectionPrimitiveKind.Arc)
+            {
+                AddLineCircularIntersections(second, first, result);
+                return;
+            }
+
+            if (first.Kind is IntersectionPrimitiveKind.Circle or IntersectionPrimitiveKind.Arc &&
+                second.Kind is IntersectionPrimitiveKind.Circle or IntersectionPrimitiveKind.Arc)
+            {
+                AddCircularCircularIntersections(first, second, result);
+            }
+        }
+
+        private static void AddLineCircularIntersections(
+            IntersectionPrimitive line,
+            IntersectionPrimitive circular,
+            ICollection<SnapPoint> result)
+        {
+            foreach (PointD point in GetLineCircleIntersectionPoints(
+                         line.Start,
+                         line.End,
+                         circular.Center,
+                         circular.Radius))
+            {
+                if (PrimitiveContainsPoint(circular, point))
+                {
+                    AddIntersection(result, point);
+                }
+            }
+        }
+
+        private static void AddCircularCircularIntersections(
+            IntersectionPrimitive first,
+            IntersectionPrimitive second,
+            ICollection<SnapPoint> result)
+        {
+            foreach (PointD point in GetCircleCircleIntersectionPoints(
+                         first.Center,
+                         first.Radius,
+                         second.Center,
+                         second.Radius))
+            {
+                if (PrimitiveContainsPoint(first, point) &&
+                    PrimitiveContainsPoint(second, point))
+                {
+                    AddIntersection(result, point);
+                }
+            }
+        }
+
+        private static bool PrimitiveContainsPoint(
+            IntersectionPrimitive primitive,
+            PointD point)
+        {
+            if (primitive.Kind != IntersectionPrimitiveKind.Arc)
+            {
+                return true;
+            }
+
+            double angle = Math.Atan2(point.Y - primitive.Center.Y, point.X - primitive.Center.X);
+            return ArcShape.AngleLiesOnSweepPublic(
+                angle,
+                primitive.StartAngleRadians,
+                primitive.SweepAngleRadians);
+        }
+
+        private static void AddIntersection(
+            ICollection<SnapPoint> result,
+            PointD point)
+        {
+            foreach (SnapPoint existing in result)
+            {
+                if (Distance(existing.Position, point) <= SnapPointDuplicateTolerance)
+                {
+                    return;
+                }
+            }
+
+            result.Add(new SnapPoint(SnapType.Intersection, point, null));
         }
 
         private static List<(PointD a, PointD b)> GetSegments(IShape shape)
@@ -340,19 +552,19 @@ namespace Land_Readjustment_Tool.UI.MapCanvas.Models.Snapping
             return true;
         }
 
-        private static IEnumerable<SnapPoint> LineCircleIntersections(
+        private static IEnumerable<PointD> GetLineCircleIntersectionPoints(
             PointD lineStart,
             PointD lineEnd,
-            CircleShape circle)
+            PointD center,
+            double radius)
         {
-            List<SnapPoint> result = new List<SnapPoint>();
-            double radius = circle.GetRadius();
-            double x1 = lineStart.X - circle.Center.X;
-            double y1 = lineStart.Y - circle.Center.Y;
+            List<PointD> result = new List<PointD>();
+            double x1 = lineStart.X - center.X;
+            double y1 = lineStart.Y - center.Y;
             double dx = lineEnd.X - lineStart.X;
             double dy = lineEnd.Y - lineStart.Y;
             double a = dx * dx + dy * dy;
-            if (a < 1e-12)
+            if (a < GeometryTolerance)
             {
                 return result;
             }
@@ -360,41 +572,46 @@ namespace Land_Readjustment_Tool.UI.MapCanvas.Models.Snapping
             double b = 2.0 * (x1 * dx + y1 * dy);
             double c = x1 * x1 + y1 * y1 - radius * radius;
             double discriminant = b * b - 4.0 * a * c;
-            if (discriminant < 0.0)
+            if (discriminant < -GeometryTolerance)
             {
                 return result;
+            }
+
+            if (Math.Abs(discriminant) <= GeometryTolerance)
+            {
+                discriminant = 0.0;
             }
 
             double root = Math.Sqrt(discriminant);
             for (int sign = -1; sign <= 1; sign += 2)
             {
                 double t = (-b + sign * root) / (2.0 * a);
-                if (t >= 0.0 && t <= 1.0)
+                if (t >= -GeometryTolerance && t <= 1.0 + GeometryTolerance)
                 {
-                    result.Add(new SnapPoint(
-                        SnapType.Intersection,
-                        new PointD(lineStart.X + t * dx, lineStart.Y + t * dy),
-                        null));
+                    t = Math.Clamp(t, 0.0, 1.0);
+                    AddUniquePoint(
+                        result,
+                        new PointD(lineStart.X + t * dx, lineStart.Y + t * dy));
                 }
             }
 
             return result;
         }
 
-        private static IEnumerable<SnapPoint> CircleCircleIntersections(
-            CircleShape first,
-            CircleShape second)
+        private static IEnumerable<PointD> GetCircleCircleIntersectionPoints(
+            PointD firstCenter,
+            double firstRadius,
+            PointD secondCenter,
+            double secondRadius)
         {
-            List<SnapPoint> result = [];
-            double dx = second.Center.X - first.Center.X;
-            double dy = second.Center.Y - first.Center.Y;
+            List<PointD> result = [];
+            double dx = secondCenter.X - firstCenter.X;
+            double dy = secondCenter.Y - firstCenter.Y;
             double distance = Math.Sqrt(dx * dx + dy * dy);
-            double firstRadius = first.GetRadius();
-            double secondRadius = second.GetRadius();
 
-            if (distance <= 1e-12 ||
-                distance > firstRadius + secondRadius ||
-                distance < Math.Abs(firstRadius - secondRadius))
+            if (distance <= GeometryTolerance ||
+                distance > firstRadius + secondRadius + GeometryTolerance ||
+                distance < Math.Abs(firstRadius - secondRadius) - GeometryTolerance)
             {
                 return result;
             }
@@ -403,26 +620,40 @@ namespace Land_Readjustment_Tool.UI.MapCanvas.Models.Snapping
                         secondRadius * secondRadius +
                         distance * distance) / (2.0 * distance);
             double hSquared = firstRadius * firstRadius - a * a;
-            if (hSquared < 0.0)
+            if (hSquared < -GeometryTolerance)
             {
                 return result;
             }
 
+            if (Math.Abs(hSquared) <= GeometryTolerance)
+            {
+                hSquared = 0.0;
+            }
+
             double h = Math.Sqrt(hSquared);
-            double baseX = first.Center.X + a * dx / distance;
-            double baseY = first.Center.Y + a * dy / distance;
+            double baseX = firstCenter.X + a * dx / distance;
+            double baseY = firstCenter.Y + a * dy / distance;
             double offsetX = -dy * h / distance;
             double offsetY = dx * h / distance;
 
-            result.Add(new SnapPoint(
-                SnapType.Intersection,
-                new PointD(baseX + offsetX, baseY + offsetY),
-                null));
-            result.Add(new SnapPoint(
-                SnapType.Intersection,
-                new PointD(baseX - offsetX, baseY - offsetY),
-                null));
+            AddUniquePoint(result, new PointD(baseX + offsetX, baseY + offsetY));
+            AddUniquePoint(result, new PointD(baseX - offsetX, baseY - offsetY));
             return result;
+        }
+
+        private static void AddUniquePoint(
+            ICollection<PointD> points,
+            PointD point)
+        {
+            foreach (PointD existing in points)
+            {
+                if (Distance(existing, point) <= SnapPointDuplicateTolerance)
+                {
+                    return;
+                }
+            }
+
+            points.Add(point);
         }
 
         private static double Distance(PointD first, PointD second)
@@ -444,6 +675,57 @@ namespace Land_Readjustment_Tool.UI.MapCanvas.Models.Snapping
                 SnapType.Perpendicular => 5,
                 _ => 10
             };
+        }
+
+        private enum IntersectionPrimitiveKind
+        {
+            Line,
+            Circle,
+            Arc
+        }
+
+        private readonly record struct IntersectionPrimitive(
+            IntersectionPrimitiveKind Kind,
+            PointD Start,
+            PointD End,
+            PointD Center,
+            double Radius,
+            double StartAngleRadians,
+            double SweepAngleRadians)
+        {
+            public static IntersectionPrimitive Line(PointD start, PointD end) =>
+                new(
+                    IntersectionPrimitiveKind.Line,
+                    start,
+                    end,
+                    default,
+                    0.0,
+                    0.0,
+                    0.0);
+
+            public static IntersectionPrimitive Circle(PointD center, double radius) =>
+                new(
+                    IntersectionPrimitiveKind.Circle,
+                    default,
+                    default,
+                    center,
+                    radius,
+                    0.0,
+                    0.0);
+
+            public static IntersectionPrimitive Arc(
+                PointD center,
+                double radius,
+                double startAngleRadians,
+                double sweepAngleRadians) =>
+                new(
+                    IntersectionPrimitiveKind.Arc,
+                    default,
+                    default,
+                    center,
+                    radius,
+                    startAngleRadians,
+                    sweepAngleRadians);
         }
     }
 }

@@ -19,8 +19,11 @@ namespace Land_Readjustment_Tool.UI.MapCanvas.Rendering
         private const string DefaultCanvasLabelFontName = "Nirmala UI";
         private const double ClipMarginScreenPixels = 64.0;
         private const double MinClipWorldMargin = 0.001;
+        private const double CircularCurveScreenFlatnessPixels = 0.25;
+        private const int MinCircularCurveSegments = 24;
+        private const int MaxCircularCurvePreviewSegments = 512;
+        private const int MaxCircularCurveSegments = 8192;
         private const float HatchLineWidthPx = 0.65f;
-        private const float LockedLayerColorAlphaFactor = 0.48f;
         private const float MinLabelFontSizePt = 1.0f;
         private const float MaxFixedLabelFontSizePt = 72.0f;
         private const float MaxScaledLabelFontSizePt = 120.0f;
@@ -605,12 +608,6 @@ namespace Land_Readjustment_Tool.UI.MapCanvas.Rendering
             int alpha = (int)Math.Round(255 * ((100 - transparency) / 100.0));
             fill = Color.FromArgb(alpha, fill.R, fill.G, fill.B);
 
-            if (layer?.IsLocked == true)
-            {
-                stroke = FadeLockedLayerColor(stroke);
-                fill = FadeLockedLayerColor(fill);
-            }
-
             double lineWeight = layer?.LineWeight ?? canvasObject?.LineWeightOverride ?? 1.0;
             string lineStyle = layer?.LineStyle ?? canvasObject?.LineStyleOverride ?? "Solid";
             double lineTypeScale = layer?.LineTypeScale ?? 1.0;
@@ -625,6 +622,7 @@ namespace Land_Readjustment_Tool.UI.MapCanvas.Rendering
                 (float)Math.Max(0, lineWeight),
                 hasStroke,
                 ResolveDashStyle(lineStyle),
+                NormalizeLineStyleKey(lineStyle),
                 (float)Math.Clamp(lineTypeScale, 0.1, 100.0),
                 fillMode,
                 string.IsNullOrWhiteSpace(layer?.HatchPattern) ? "ANSI31" : layer.HatchPattern.Trim(),
@@ -666,18 +664,6 @@ namespace Land_Readjustment_Tool.UI.MapCanvas.Rendering
             }
         }
 
-        private static Color FadeLockedLayerColor(Color color)
-        {
-            if (color.A == 0)
-                return color;
-
-            int alpha = Math.Clamp(
-                (int)Math.Round(color.A * LockedLayerColorAlphaFactor),
-                24,
-                color.A);
-            return Color.FromArgb(alpha, color.R, color.G, color.B);
-        }
-
         private static DashStyle ResolveDashStyle(string? lineStyle)
         {
             return lineStyle?.Trim().ToLowerInvariant() switch
@@ -685,8 +671,27 @@ namespace Land_Readjustment_Tool.UI.MapCanvas.Rendering
                 "dashed" => DashStyle.Dash,
                 "dotted" => DashStyle.Dot,
                 "dashdot" => DashStyle.DashDot,
+                "dashdoubledot" or "dashdotdot" => DashStyle.DashDotDot,
                 "centerline" => DashStyle.DashDotDot,
                 _ => DashStyle.Solid
+            };
+        }
+
+        private static string NormalizeLineStyleKey(string? lineStyle)
+        {
+            string normalized = (lineStyle ?? string.Empty)
+                .Replace("-", string.Empty, StringComparison.Ordinal)
+                .Replace("_", string.Empty, StringComparison.Ordinal)
+                .Replace(" ", string.Empty, StringComparison.Ordinal)
+                .Trim()
+                .ToUpperInvariant();
+
+            return normalized switch
+            {
+                "DASH" => "DASHED",
+                "DOT" => "DOTTED",
+                "DASHDOTDOT" => "DASHDOUBLEDOT",
+                _ => normalized
             };
         }
 
@@ -716,11 +721,16 @@ namespace Land_Readjustment_Tool.UI.MapCanvas.Rendering
                                                 IsReplotSelectionFillFeature(feature, shape, layer);
             bool drawReplotSelectionFill = !suppressParcelHighlight && isReplotSelectionFillFeature;
 
-            // Drawing/markup, external and road-centerline shapes keep their
-            // normal outline (same color, weight and line type) and add a soft
-            // glow offset to BOTH sides of the outline. Replot data-layer
-            // polygons keep their interior highlight instead.
+            // Default RePlot data-layer polygons keep their interior highlight.
+            // Other layers use the same compact blue selection stroke used by
+            // curve shapes, so selected polygons/rectangles do not get a wider
+            // halo than circles/arcs.
+            bool isProjectBoundaryLayer = layer != null &&
+                                          CanvasLayerTreeService.IsProjectBoundaryLayer(layer);
             bool drawSelectionGlow = effectiveSelected && !isReplotSelectionFillFeature;
+            bool useCurveStyleSelection = layer == null ||
+                                          isProjectBoundaryLayer ||
+                                          !CanvasLayerTreeService.IsRePlotDataLayer(layer);
 
             bool shouldStroke = style.HasStroke;
             float width = Math.Max(0.25f, style.LineWidth);
@@ -728,7 +738,7 @@ namespace Land_Readjustment_Tool.UI.MapCanvas.Rendering
                 ? context.GetPen(
                     style.StrokeColor,
                     width,
-                    style.DashStyle,
+                    style.LineStyleKey,
                     style.LineTypeScale)
                 : null;
 
@@ -772,7 +782,7 @@ namespace Land_Readjustment_Tool.UI.MapCanvas.Rendering
                     DrawCircle(graphics, engine, circle, style, context, pen);
                     break;
                 case ArcShape arc:
-                    DrawArc(graphics, engine, arc, pen);
+                    DrawArc(graphics, engine, arc, context, pen);
                     break;
                 case EllipseShape ellipse:
                     DrawEllipse(graphics, engine, ellipse, style, context, pen);
@@ -792,7 +802,15 @@ namespace Land_Readjustment_Tool.UI.MapCanvas.Rendering
             // regardless of how thick the line weight is.
             if (drawSelectionGlow)
             {
-                DrawSelectionGlow(graphics, engine, shape, context, style, width);
+                DrawSelectionGlow(
+                    graphics,
+                    engine,
+                    shape,
+                    layer,
+                    context,
+                    style,
+                    width,
+                    useCurveStyleSelection);
             }
         }
 
@@ -809,14 +827,17 @@ namespace Land_Readjustment_Tool.UI.MapCanvas.Rendering
             Graphics graphics,
             MapCanvasEngine engine,
             IShape shape,
+            CanvasLayer? layer,
             VectorRenderContext context,
             VectorShapeStyle style,
-            float strokeWidth)
+            float strokeWidth,
+            bool useCurveStyleSelection)
         {
             using GraphicsPath? path = TryBuildSelectionOutlinePath(
                 shape,
                 engine,
-                context.ClipWorldBounds);
+                context.ClipWorldBounds,
+                outerBoundaryOnly: layer != null && CanvasLayerTreeService.IsProjectBoundaryLayer(layer));
             if (path == null || path.PointCount == 0)
             {
                 return;
@@ -828,7 +849,13 @@ namespace Land_Readjustment_Tool.UI.MapCanvas.Rendering
                 return;
             }
 
-            DrawSelectionOutlineGlow(graphics, path, context, style, strokeWidth);
+            DrawSelectionOutlineGlow(
+                graphics,
+                path,
+                context,
+                style,
+                strokeWidth,
+                useCurveStyleSelection);
         }
 
         private static void DrawSelectionOutlineGlow(
@@ -836,7 +863,8 @@ namespace Land_Readjustment_Tool.UI.MapCanvas.Rendering
             GraphicsPath path,
             VectorRenderContext context,
             VectorShapeStyle style,
-            float strokeWidth)
+            float strokeWidth,
+            bool useCurveStyleSelection)
         {
             GraphicsState state = graphics.Save();
             try
@@ -847,10 +875,10 @@ namespace Land_Readjustment_Tool.UI.MapCanvas.Rendering
                 float effectiveStroke = Math.Max(0.25f, strokeWidth);
                 bool isLinearSelection = IsLinearSelectionOutline(path);
                 float selectionStroke = effectiveStroke +
-                                        (isLinearSelection
+                                        (useCurveStyleSelection || isLinearSelection
                                             ? LinearSelectionStrokeWidthExtraPx
                                             : SelectionStrokeWidthExtraPx);
-                if (!isLinearSelection)
+                if (!useCurveStyleSelection && !isLinearSelection)
                 {
                     foreach ((float extraWidth, int alpha) in SelectionOutlineGlowBands)
                     {
@@ -858,7 +886,7 @@ namespace Land_Readjustment_Tool.UI.MapCanvas.Rendering
                         Pen glowPen = context.GetPen(
                             Color.FromArgb(alpha, SelectionGlowColor),
                             selectionWidth,
-                            style.DashStyle,
+                            style.LineStyleKey,
                             GetSelectionDashScale(style.LineTypeScale, effectiveStroke, selectionWidth));
                         graphics.DrawPath(glowPen, path);
                     }
@@ -867,7 +895,7 @@ namespace Land_Readjustment_Tool.UI.MapCanvas.Rendering
                 Pen centerPen = context.GetPen(
                     SelectionStrokeColor,
                     selectionStroke,
-                    style.DashStyle,
+                    style.LineStyleKey,
                     GetSelectionDashScale(style.LineTypeScale, effectiveStroke, selectionStroke));
                 graphics.DrawPath(centerPen, path);
             }
@@ -917,7 +945,8 @@ namespace Land_Readjustment_Tool.UI.MapCanvas.Rendering
         private static GraphicsPath? TryBuildSelectionOutlinePath(
             IShape shape,
             MapCanvasEngine engine,
-            RectangleD? clipWorldBounds)
+            RectangleD? clipWorldBounds,
+            bool outerBoundaryOnly = false)
         {
             switch (shape)
             {
@@ -936,6 +965,14 @@ namespace Land_Readjustment_Tool.UI.MapCanvas.Rendering
                     if (donut.ExteriorRing.Count < 3)
                     {
                         return null;
+                    }
+
+                    if (outerBoundaryOnly)
+                    {
+                        return CreateClosedRingPath(
+                            donut.ExteriorRing,
+                            engine.WorldToScreen,
+                            clipWorldBounds);
                     }
 
                     return donut.CreateScreenPath(engine.WorldToScreen, clipWorldBounds);
@@ -967,18 +1004,15 @@ namespace Land_Readjustment_Tool.UI.MapCanvas.Rendering
                 }
                 case CircleShape circle:
                 {
-                    PointF center = ToScreenPointF(engine.WorldToScreen(circle.Center));
-                    PointF edge = ToScreenPointF(engine.WorldToScreen(circle.RadiusPoint));
-                    float radius = Distance(center, edge);
-                    RectangleF rect = new(center.X - radius, center.Y - radius, radius * 2.0f, radius * 2.0f);
-                    if (!IsValidRectangle(rect))
-                    {
-                        return null;
-                    }
-
-                    GraphicsPath path = new();
-                    path.AddEllipse(rect);
-                    return path;
+                    return CreateCircularCurvePath(
+                        engine,
+                        circle.Center,
+                        circle.GetRadius(),
+                        0.0,
+                        Math.PI * 2.0,
+                        clipWorldBounds,
+                        closeUnclippedPath: true,
+                        maxSegments: MaxCircularCurveSegments);
                 }
                 case EllipseShape ellipse:
                 {
@@ -996,46 +1030,54 @@ namespace Land_Readjustment_Tool.UI.MapCanvas.Rendering
                 }
                 case ArcShape arc:
                 {
-                    if (arc.Radius <= 0.0 || !double.IsFinite(arc.Radius))
-                    {
-                        return null;
-                    }
-
-                    PointF center = ToScreenPointF(engine.WorldToScreen(arc.Center));
-                    PointF radiusPoint = ToScreenPointF(engine.WorldToScreen(
-                        new PointD(arc.Center.X + arc.Radius, arc.Center.Y)));
-                    float radius = Distance(center, radiusPoint);
-                    if (!IsValidPoint(center) || radius <= 0.5f || !float.IsFinite(radius))
-                    {
-                        return null;
-                    }
-
-                    RectangleF bounds = new(center.X - radius, center.Y - radius, radius * 2.0f, radius * 2.0f);
-                    if (!IsValidRectangle(bounds))
-                    {
-                        return null;
-                    }
-
-                    float startAngle = (float)(-arc.StartAngleRadians * 180.0 / Math.PI);
-                    float sweepAngle = (float)(-arc.SweepAngleRadians * 180.0 / Math.PI);
-                    if (!float.IsFinite(startAngle) || !float.IsFinite(sweepAngle) || Math.Abs(sweepAngle) < 0.001f)
-                    {
-                        return null;
-                    }
-
-                    GraphicsPath path = new();
-                    path.AddArc(bounds, startAngle, sweepAngle);
-                    return path;
+                    return CreateCircularCurvePath(
+                        engine,
+                        arc.Center,
+                        arc.Radius,
+                        arc.StartAngleRadians,
+                        arc.SweepAngleRadians,
+                        clipWorldBounds,
+                        closeUnclippedPath: false,
+                        maxSegments: MaxCircularCurveSegments);
                 }
                 default:
                     return null;
             }
         }
 
+        private static GraphicsPath CreateClosedRingPath(
+            IReadOnlyList<PointD> ring,
+            Func<PointD, PointD> worldToScreen,
+            RectangleD? clipWorldBounds)
+        {
+            GraphicsPath path = new();
+            IReadOnlyList<PointD> worldPoints = clipWorldBounds.HasValue
+                ? ViewportClip.ClipPolygon(ring, clipWorldBounds.Value)
+                : ring;
+            if (worldPoints.Count < 3)
+            {
+                return path;
+            }
+
+            PointF[] points = worldPoints
+                .Select(worldToScreen)
+                .Select(point => new PointF((float)Math.Round(point.X), (float)Math.Round(point.Y)))
+                .Where(IsValidPoint)
+                .ToArray();
+
+            if (points.Length >= 3)
+            {
+                path.AddPolygon(points);
+            }
+
+            return path;
+        }
+
         private static void DrawArc(
             Graphics graphics,
             MapCanvasEngine engine,
             ArcShape arc,
+            VectorRenderContext context,
             Pen? pen)
         {
             if (pen == null ||
@@ -1045,6 +1087,36 @@ namespace Land_Readjustment_Tool.UI.MapCanvas.Rendering
                 return;
             }
 
+            if (context.IsPreview)
+            {
+                DrawScreenArcPreview(graphics, engine, arc, context, pen);
+                return;
+            }
+
+            using GraphicsPath? path = CreateCircularCurvePath(
+                engine,
+                arc.Center,
+                arc.Radius,
+                arc.StartAngleRadians,
+                arc.SweepAngleRadians,
+                context.ClipWorldBounds,
+                closeUnclippedPath: false,
+                maxSegments: MaxCircularCurveSegments);
+            if (path == null || path.PointCount == 0)
+            {
+                return;
+            }
+
+            graphics.DrawPath(pen, path);
+        }
+
+        private static void DrawScreenArcPreview(
+            Graphics graphics,
+            MapCanvasEngine engine,
+            ArcShape arc,
+            VectorRenderContext context,
+            Pen pen)
+        {
             PointF center = ToScreenPointF(engine.WorldToScreen(arc.Center));
             PointF radiusPoint = ToScreenPointF(engine.WorldToScreen(
                 new PointD(arc.Center.X + arc.Radius, arc.Center.Y)));
@@ -1053,6 +1125,7 @@ namespace Land_Readjustment_Tool.UI.MapCanvas.Rendering
                 radius <= 0.5f ||
                 !float.IsFinite(radius))
             {
+                DrawLine(graphics, engine, new LineShape(arc.StartPoint, arc.EndPoint), context, pen);
                 return;
             }
 
@@ -1061,29 +1134,18 @@ namespace Land_Readjustment_Tool.UI.MapCanvas.Rendering
                 center.Y - radius,
                 radius * 2.0f,
                 radius * 2.0f);
-            if (!IsValidRectangle(bounds))
-            {
-                return;
-            }
-
             float startAngleDegrees = (float)(-arc.StartAngleRadians * 180.0 / Math.PI);
             float sweepAngleDegrees = (float)(-arc.SweepAngleRadians * 180.0 / Math.PI);
-            if (!float.IsFinite(startAngleDegrees) ||
+            if (!IsValidRectangle(bounds) ||
+                !float.IsFinite(startAngleDegrees) ||
                 !float.IsFinite(sweepAngleDegrees) ||
                 Math.Abs(sweepAngleDegrees) < 0.001f)
             {
+                DrawLine(graphics, engine, new LineShape(arc.StartPoint, arc.EndPoint), context, pen);
                 return;
             }
 
-            GraphicsState state = graphics.Save();
-            try
-            {
-                graphics.DrawArc(pen, bounds, startAngleDegrees, sweepAngleDegrees);
-            }
-            finally
-            {
-                graphics.Restore(state);
-            }
+            graphics.DrawArc(pen, bounds, startAngleDegrees, sweepAngleDegrees);
         }
 
         private static void DrawPolyline(
@@ -1387,28 +1449,50 @@ namespace Land_Readjustment_Tool.UI.MapCanvas.Rendering
             VectorRenderContext context,
             Pen? pen)
         {
-            PointF center = ToScreenPointF(engine.WorldToScreen(circle.Center));
-            PointF edge = ToScreenPointF(engine.WorldToScreen(circle.RadiusPoint));
-            float radius = Distance(center, edge);
-            RectangleF rect = new(
-                center.X - radius,
-                center.Y - radius,
-                radius * 2.0f,
-                radius * 2.0f);
-
-            if (IsValidRectangle(rect))
+            double radius = circle.GetRadius();
+            if (!double.IsFinite(radius) || radius <= 0.0)
             {
-                if (style.FillMode != FillMode.None)
-                {
-                    using GraphicsPath path = new();
-                    path.AddEllipse(rect);
-                    FillClosedPath(graphics, path, rect, style, context);
-                }
+                return;
+            }
 
-                if (pen != null)
+            if (style.FillMode != FillMode.None)
+            {
+                using GraphicsPath? fillPath = CreateCircularCurvePath(
+                    engine,
+                    circle.Center,
+                    radius,
+                    0.0,
+                    Math.PI * 2.0,
+                    clipWorldBounds: null,
+                    closeUnclippedPath: true,
+                    maxSegments: context.IsPreview ? MaxCircularCurvePreviewSegments : MaxCircularCurveSegments);
+                if (fillPath != null)
                 {
-                    graphics.DrawEllipse(pen, rect);
+                    RectangleF bounds = fillPath.GetBounds();
+                    if (IsValidPathBounds(bounds))
+                    {
+                        FillClosedPath(graphics, fillPath, bounds, style, context);
+                    }
                 }
+            }
+
+            if (pen == null)
+            {
+                return;
+            }
+
+            using GraphicsPath? strokePath = CreateCircularCurvePath(
+                engine,
+                circle.Center,
+                radius,
+                0.0,
+                Math.PI * 2.0,
+                context.ClipWorldBounds,
+                closeUnclippedPath: true,
+                maxSegments: context.IsPreview ? MaxCircularCurvePreviewSegments : MaxCircularCurveSegments);
+            if (strokePath != null && strokePath.PointCount > 0)
+            {
+                graphics.DrawPath(pen, strokePath);
             }
         }
 
@@ -1580,8 +1664,6 @@ namespace Land_Readjustment_Tool.UI.MapCanvas.Rendering
                 : text.FillColor == Color.Transparent
                 ? style.StrokeColor
                 : text.FillColor;
-            if (layer?.IsLocked == true)
-                color = FadeLockedLayerColor(color);
             if (effectiveSelected)
                 color = SelectionHighlightColor;
 
@@ -1735,8 +1817,6 @@ namespace Land_Readjustment_Tool.UI.MapCanvas.Rendering
             }
 
             Color labelColor = ParseColor(layer.LabelColor, Color.Black);
-            if (layer.IsLocked)
-                labelColor = FadeLockedLayerColor(labelColor);
 
             Font labelFont = labelFontCache.Get(layer, context.ZoomScale);
             System.Drawing.Text.TextRenderingHint previousTextRenderingHint = graphics.TextRenderingHint;
@@ -3171,6 +3251,340 @@ namespace Land_Readjustment_Tool.UI.MapCanvas.Rendering
             return engine.GetClipWorldBounds(margin);
         }
 
+        private static bool ShouldDrawCircularPreviewAsChord(
+            MapCanvasEngine engine,
+            PointD center,
+            double radius,
+            double sweepAngle)
+        {
+            if (!double.IsFinite(center.X) ||
+                !double.IsFinite(center.Y) ||
+                !double.IsFinite(radius) ||
+                !double.IsFinite(sweepAngle) ||
+                !double.IsFinite(engine.ZoomScale) ||
+                engine.ZoomScale <= 0.0)
+            {
+                return true;
+            }
+
+            double screenRadius = radius * engine.ZoomScale;
+            double viewportSpan = Math.Max(engine.CanvasSize.Width, engine.CanvasSize.Height);
+            double sweepMagnitude = Math.Abs(sweepAngle);
+            if (!double.IsFinite(screenRadius) ||
+                screenRadius <= 0.0 ||
+                viewportSpan <= 0.0 ||
+                sweepMagnitude <= 1e-12)
+            {
+                return true;
+            }
+
+            if (screenRadius <= viewportSpan * 100.0 ||
+                sweepMagnitude >= Math.PI)
+            {
+                return false;
+            }
+
+            double sagitta = screenRadius * (1.0 - Math.Cos(sweepMagnitude * 0.5));
+            return double.IsFinite(sagitta) && sagitta <= 2.0;
+        }
+
+        private static GraphicsPath? CreateCircularCurvePath(
+            MapCanvasEngine engine,
+            PointD center,
+            double radius,
+            double startAngle,
+            double sweepAngle,
+            RectangleD? clipWorldBounds,
+            bool closeUnclippedPath,
+            int maxSegments)
+        {
+            if (!double.IsFinite(radius) ||
+                radius <= 0.0 ||
+                !double.IsFinite(startAngle) ||
+                !double.IsFinite(sweepAngle) ||
+                Math.Abs(sweepAngle) <= 1e-12 ||
+                !double.IsFinite(engine.ZoomScale) ||
+                engine.ZoomScale <= 0.0)
+            {
+                return null;
+            }
+
+            double screenRadius = radius * engine.ZoomScale;
+            if (!double.IsFinite(screenRadius) || screenRadius <= 0.5)
+            {
+                return null;
+            }
+
+            List<(double StartFraction, double EndFraction)> intervals = clipWorldBounds.HasValue
+                ? GetVisibleCircularCurveIntervals(center, radius, startAngle, sweepAngle, clipWorldBounds.Value)
+                : [(0.0, 1.0)];
+            if (intervals.Count == 0)
+            {
+                return null;
+            }
+
+            GraphicsPath path = new();
+            foreach ((double intervalStart, double intervalEnd) in intervals)
+            {
+                AddCircularCurveInterval(path, engine, center, radius, startAngle, sweepAngle, screenRadius, intervalStart, intervalEnd, maxSegments);
+            }
+
+            if (path.PointCount == 0)
+            {
+                path.Dispose();
+                return null;
+            }
+
+            if (closeUnclippedPath && !clipWorldBounds.HasValue)
+            {
+                path.CloseFigure();
+            }
+
+            return path;
+        }
+
+        private static List<(double StartFraction, double EndFraction)> GetVisibleCircularCurveIntervals(
+            PointD center,
+            double radius,
+            double startAngle,
+            double sweepAngle,
+            RectangleD clipWorldBounds)
+        {
+            List<double> fractions = [0.0, 1.0];
+            AddCircularClipFractions(fractions, center, radius, startAngle, sweepAngle, clipWorldBounds);
+            fractions.Sort();
+
+            List<double> uniqueFractions = [];
+            foreach (double fraction in fractions)
+            {
+                double clamped = Math.Clamp(fraction, 0.0, 1.0);
+                if (uniqueFractions.Count == 0 ||
+                    Math.Abs(uniqueFractions[^1] - clamped) > 1e-9)
+                {
+                    uniqueFractions.Add(clamped);
+                }
+            }
+
+            List<(double StartFraction, double EndFraction)> intervals = [];
+            for (int i = 0; i < uniqueFractions.Count - 1; i++)
+            {
+                double intervalStart = uniqueFractions[i];
+                double intervalEnd = uniqueFractions[i + 1];
+                if (intervalEnd - intervalStart <= 1e-9)
+                {
+                    continue;
+                }
+
+                double midFraction = (intervalStart + intervalEnd) * 0.5;
+                PointD midPoint = PointOnCircularCurve(center, radius, startAngle + sweepAngle * midFraction);
+                if (ContainsWorldPoint(clipWorldBounds, midPoint, 1e-9))
+                {
+                    intervals.Add((intervalStart, intervalEnd));
+                }
+            }
+
+            return intervals;
+        }
+
+        private static void AddCircularClipFractions(
+            ICollection<double> fractions,
+            PointD center,
+            double radius,
+            double startAngle,
+            double sweepAngle,
+            RectangleD clipWorldBounds)
+        {
+            double minX = Math.Min(clipWorldBounds.Left, clipWorldBounds.Right);
+            double maxX = Math.Max(clipWorldBounds.Left, clipWorldBounds.Right);
+            double minY = Math.Min(clipWorldBounds.Top, clipWorldBounds.Bottom);
+            double maxY = Math.Max(clipWorldBounds.Top, clipWorldBounds.Bottom);
+
+            AddVerticalCircularClipFractions(fractions, center, radius, startAngle, sweepAngle, minX, minY, maxY);
+            AddVerticalCircularClipFractions(fractions, center, radius, startAngle, sweepAngle, maxX, minY, maxY);
+            AddHorizontalCircularClipFractions(fractions, center, radius, startAngle, sweepAngle, minY, minX, maxX);
+            AddHorizontalCircularClipFractions(fractions, center, radius, startAngle, sweepAngle, maxY, minX, maxX);
+        }
+
+        private static void AddVerticalCircularClipFractions(
+            ICollection<double> fractions,
+            PointD center,
+            double radius,
+            double startAngle,
+            double sweepAngle,
+            double x,
+            double minY,
+            double maxY)
+        {
+            double dx = x - center.X;
+            double hSquared = radius * radius - dx * dx;
+            if (hSquared < -1e-9)
+            {
+                return;
+            }
+
+            double h = Math.Sqrt(Math.Max(0.0, hSquared));
+            AddCircularClipAngleIfOnSweep(fractions, center, startAngle, sweepAngle, x, center.Y + h, minY, maxY, verticalBoundary: true);
+            AddCircularClipAngleIfOnSweep(fractions, center, startAngle, sweepAngle, x, center.Y - h, minY, maxY, verticalBoundary: true);
+        }
+
+        private static void AddHorizontalCircularClipFractions(
+            ICollection<double> fractions,
+            PointD center,
+            double radius,
+            double startAngle,
+            double sweepAngle,
+            double y,
+            double minX,
+            double maxX)
+        {
+            double dy = y - center.Y;
+            double hSquared = radius * radius - dy * dy;
+            if (hSquared < -1e-9)
+            {
+                return;
+            }
+
+            double h = Math.Sqrt(Math.Max(0.0, hSquared));
+            AddCircularClipAngleIfOnSweep(fractions, center, startAngle, sweepAngle, center.X + h, y, minX, maxX, verticalBoundary: false);
+            AddCircularClipAngleIfOnSweep(fractions, center, startAngle, sweepAngle, center.X - h, y, minX, maxX, verticalBoundary: false);
+        }
+
+        private static void AddCircularClipAngleIfOnSweep(
+            ICollection<double> fractions,
+            PointD center,
+            double startAngle,
+            double sweepAngle,
+            double x,
+            double y,
+            double boundaryMin,
+            double boundaryMax,
+            bool verticalBoundary)
+        {
+            double boundaryValue = verticalBoundary ? y : x;
+            if (boundaryValue < boundaryMin - 1e-9 ||
+                boundaryValue > boundaryMax + 1e-9)
+            {
+                return;
+            }
+
+            double angle = Math.Atan2(y - center.Y, x - center.X);
+            if (TryGetCircularSweepFraction(angle, startAngle, sweepAngle, out double fraction))
+            {
+                fractions.Add(fraction);
+            }
+        }
+
+        private static bool TryGetCircularSweepFraction(
+            double angle,
+            double startAngle,
+            double sweepAngle,
+            out double fraction)
+        {
+            fraction = 0.0;
+            double sweepMagnitude = Math.Abs(sweepAngle);
+            if (sweepMagnitude <= 1e-12)
+            {
+                return false;
+            }
+
+            double delta = sweepAngle >= 0.0
+                ? NormalizePositiveAngle(angle - startAngle)
+                : NormalizePositiveAngle(startAngle - angle);
+            if (delta > sweepMagnitude + 1e-9)
+            {
+                return false;
+            }
+
+            fraction = Math.Clamp(delta / sweepMagnitude, 0.0, 1.0);
+            return true;
+        }
+
+        private static void AddCircularCurveInterval(
+            GraphicsPath path,
+            MapCanvasEngine engine,
+            PointD center,
+            double radius,
+            double startAngle,
+            double sweepAngle,
+            double screenRadius,
+            double intervalStart,
+            double intervalEnd,
+            int maxSegments)
+        {
+            double intervalSweep = sweepAngle * (intervalEnd - intervalStart);
+            int segmentCount = GetCircularCurveSegmentCount(screenRadius, Math.Abs(intervalSweep), maxSegments);
+            if (segmentCount <= 0)
+            {
+                return;
+            }
+
+            List<PointF> points = [];
+            for (int i = 0; i <= segmentCount; i++)
+            {
+                double fraction = intervalStart + (intervalEnd - intervalStart) * i / segmentCount;
+                PointD worldPoint = PointOnCircularCurve(center, radius, startAngle + sweepAngle * fraction);
+                PointF screenPoint = ToScreenPointF(engine.WorldToScreen(worldPoint));
+                if (!IsValidPoint(screenPoint))
+                {
+                    continue;
+                }
+
+                if (points.Count == 0 || Distance(points[^1], screenPoint) > 0.0f)
+                {
+                    points.Add(screenPoint);
+                }
+            }
+
+            if (points.Count < 2)
+            {
+                return;
+            }
+
+            path.StartFigure();
+            path.AddLines(points.ToArray());
+        }
+
+        private static int GetCircularCurveSegmentCount(double screenRadius, double sweepMagnitude, int maxSegments)
+        {
+            if (!double.IsFinite(screenRadius) ||
+                !double.IsFinite(sweepMagnitude) ||
+                screenRadius <= 0.0 ||
+                sweepMagnitude <= 1e-12)
+            {
+                return 0;
+            }
+
+            double ratio = Math.Clamp(1.0 - CircularCurveScreenFlatnessPixels / screenRadius, -1.0, 1.0);
+            double maxStep = 2.0 * Math.Acos(ratio);
+            if (!double.IsFinite(maxStep) || maxStep <= 1e-9)
+            {
+                maxStep = Math.PI / 180.0;
+            }
+
+            int segmentCount = (int)Math.Ceiling(sweepMagnitude / maxStep);
+            int minimum = Math.Max(2, (int)Math.Ceiling(MinCircularCurveSegments * sweepMagnitude / (Math.PI * 2.0)));
+            return Math.Clamp(segmentCount, minimum, Math.Max(minimum, maxSegments));
+        }
+
+        private static PointD PointOnCircularCurve(PointD center, double radius, double angle)
+        {
+            return new PointD(
+                center.X + radius * Math.Cos(angle),
+                center.Y + radius * Math.Sin(angle));
+        }
+
+        private static bool ContainsWorldPoint(RectangleD bounds, PointD point, double tolerance)
+        {
+            double minX = Math.Min(bounds.Left, bounds.Right) - tolerance;
+            double maxX = Math.Max(bounds.Left, bounds.Right) + tolerance;
+            double minY = Math.Min(bounds.Top, bounds.Bottom) - tolerance;
+            double maxY = Math.Max(bounds.Top, bounds.Bottom) + tolerance;
+            return point.X >= minX &&
+                   point.X <= maxX &&
+                   point.Y >= minY &&
+                   point.Y <= maxY;
+        }
+
         private static GraphicsPath? CreateRectanglePath(
             MapCanvasEngine engine,
             RectangleShape rectangle,
@@ -3301,6 +3715,7 @@ namespace Land_Readjustment_Tool.UI.MapCanvas.Rendering
             float LineWidth,
             bool HasStroke,
             DashStyle DashStyle,
+            string LineStyleKey,
             float LineTypeScale,
             FillMode FillMode,
             string HatchPattern,

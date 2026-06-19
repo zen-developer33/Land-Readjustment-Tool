@@ -77,7 +77,7 @@ namespace Land_Readjustment_Tool
         //Canvas Control for drawing
         private MapCanvasControl? _workspaceCanvas;
         private frmReplotWorkspace? _replotWorkspaceForm;
-        // Policy manager is now hosted modally by Land_Pooling_Policy_Manager.PolicyManagerLauncher.
+        // Policy manager is launched as an independent top-level modeless window.
         private frmAreaConverter? _areaConverterForm;
         private readonly List<ToolStripItem> _projectScopedProfessionalMenuItems = new();
         private CanvasLayerTreeService? _layerTreeService;
@@ -103,6 +103,7 @@ namespace Land_Readjustment_Tool
         private const int LayerNodeCheckBoxGap = 10;
         private const int LayerNodeColorBoxSize = 18;
         private const int LayerNodeColorBoxGap = 4;
+        private const int LayerNodeLockIconGap = 6;
         private const int CurrentDrawingLayerComboItemHeight = 24;
         private const int CurrentDrawingLayerComboPadding = 4;
         private const double ClosedPolylineTransferTolerance = 0.50;
@@ -911,6 +912,7 @@ namespace Land_Readjustment_Tool
             UpdateApplicationEditLockUi();
             UpdateCanvasUndoRedoToolbar();
             PopulatePropertyGridForSelectedComboItem();
+            SyncOpenPolicyManagerLockState();
         }
 
         private void CloseOpenEditingWorkflowForms()
@@ -1010,19 +1012,29 @@ namespace Land_Readjustment_Tool
             if (!AppServices.HasContext)
                 return;
 
-            // The policy manager now lives in the Land Pooling Policy Manager
-            // project. We pass the open .lpp file path so policies stay inside
-            // the project DB; the manager opens its own DbContext on top.
+            // The policy manager lives in the Land Pooling Policy Manager
+            // project. It is intentionally launched modeless and without owner
+            // coupling so minimizing/maximizing it does not affect RePlot.
             string lppPath = AppServices.Context.Session.ProjectFilePath;
-            // valueOnlyEditMode = true so a project user can tune the
-            // contribution rates and corner-plot percentages for this project
-            // without altering the policy structure (clauses, parameters,
-            // sections). Standalone runs of the policy manager keep full editing.
-            Land_Pooling_Policy_Manager.PolicyManagerLauncher.ShowDialog(
-                owner: this,
+            // valueOnlyEditMode = false so an unlocked project can fully draft,
+            // edit, add, and delete policy sections, clauses, parameters, and
+            // lookup rows. The readOnly flag below still locks everything when
+            // the main RePlot edit lock is enabled.
+            Land_Pooling_Policy_Manager.PolicyManagerLauncher.Show(
+                owner: null,
                 sqliteDbPath: lppPath,
                 readOnly: _isApplicationEditLocked,
-                valueOnlyEditMode: true);
+                valueOnlyEditMode: false);
+        }
+
+        private void SyncOpenPolicyManagerLockState()
+        {
+            if (!AppServices.HasContext)
+                return;
+
+            Land_Pooling_Policy_Manager.PolicyManagerLauncher.SetReadOnlyMode(
+                AppServices.Context.Session.ProjectFilePath,
+                _isApplicationEditLocked);
         }
 
         private bool EnsureApplicationUnlockedForEditing(string action)
@@ -1711,6 +1723,9 @@ namespace Land_Readjustment_Tool
 
             try
             {
+                Land_Pooling_Policy_Manager.PolicyManagerLauncher.Close(
+                    AppServices.Context.Session.ProjectFilePath);
+
                 // Release renderer-owned SQLite/GDAL handles before closing
                 // the project DB session and clearing pooled SQLite connections.
                 ReleaseProjectRenderingResources();
@@ -2545,6 +2560,53 @@ namespace Land_Readjustment_Tool
                 AppServices.Context.ProjectFilePath,
                 readOnlyMode: _isApplicationEditLocked);
             frm.ShowDialog(this);
+        }
+
+        private void OwnerRegisterToolStripMenuItem_Click(object sender, EventArgs e)
+        {
+            if (!EnsureProjectOpenForReport("Owner Register"))
+                return;
+
+            var landRecordsService = _projectScopedFactory.CreateLandRecordsService(
+                AppServices.Context.Session,
+                AppServices.Context.ProjectFilePath);
+
+            using var frm = new frmLandOwnersRecord(
+                landRecordsService,
+                AppServices.Context.ProjectFilePath,
+                readOnlyMode: true);
+            frm.ConfigureAsRegister("Owner Register");
+            frm.ShowDialog(this);
+        }
+
+        private void OriginalParcelRegisterToolStripMenuItem_Click(object sender, EventArgs e)
+        {
+            if (!EnsureProjectOpenForReport("Original Parcel Register"))
+                return;
+
+            var landRecordsService = _projectScopedFactory.CreateLandRecordsService(
+                AppServices.Context.Session,
+                AppServices.Context.ProjectFilePath);
+
+            using var frm = new frmLandParcelOwnersRecord(
+                landRecordsService,
+                AppServices.Context.ProjectFilePath,
+                readOnlyMode: true);
+            frm.ConfigureAsRegister("Original Parcel Register");
+            frm.ShowDialog(this);
+        }
+
+        private static bool EnsureProjectOpenForReport(string title)
+        {
+            if (AppServices.HasContext)
+                return true;
+
+            MessageBox.Show(
+                "Please open or create a project before opening this register.",
+                title,
+                MessageBoxButtons.OK,
+                MessageBoxIcon.Warning);
+            return false;
         }
 
         private void OriginalScenarioSummaryToolStripMenuItem_Click(object? sender, EventArgs e)
@@ -8397,6 +8459,26 @@ namespace Land_Readjustment_Tool
             mapCanvasControlMain.SetPanToolActive(mnuPan.Checked);
         }
 
+        /// <summary>
+        /// Drops the persistent Pan / Zoom Window navigation modes back to the
+        /// Select tool when Escape is pressed. (Zoom In/Out/Extents are momentary
+        /// and already revert to Select on their own.) Returns true when a mode
+        /// was active and handled, so the key is consumed.
+        /// </summary>
+        private bool TryDeactivateCanvasNavigationMode()
+        {
+            if (!mnuPan.Checked && !mapCanvasControlMain.IsZoomWindowActive)
+            {
+                return false;
+            }
+
+            mnuPan.Checked = false;
+            ActivateCanvasTool(MapCanvasTool.Select);
+            mapCanvasControlMain.SetPanToolActive(false);
+            SetCanvasCommandStatus("Select: Pointer/Window");
+            return true;
+        }
+
         private void mnuZoomIn_Click(object sender, EventArgs e)
         {
             mnuPan.Checked = false;
@@ -8646,6 +8728,11 @@ namespace Land_Readjustment_Tool
             }
 
             Keys keyCode = keyData & Keys.KeyCode;
+            if (keyCode == Keys.Escape && TryDeactivateCanvasNavigationMode())
+            {
+                return true;
+            }
+
             if (keyCode == Keys.F3)
             {
                 SetObjectSnapMode(!mnuOSnapToggle.Checked);
@@ -9636,6 +9723,7 @@ namespace Land_Readjustment_Tool
         private void ConfigureLayerContextMenu()
         {
             _layerContextMenu.Items.Clear();
+            _layerContextMenu.Renderer = ElegantMenuRenderer.Instance;
             _layerContextMenu.Opening += LayerContextMenu_Opening;
             _mnuToggleLayerVisibility.CheckOnClick = false;
             _mnuToggleLayerLock.CheckOnClick = false;
@@ -10039,6 +10127,95 @@ namespace Land_Readjustment_Tool
                 TextFormatFlags.SingleLine |
                 TextFormatFlags.VerticalCenter |
                 TextFormatFlags.NoPrefix);
+
+            // A locked layer gets a small padlock glyph trailing its name so the
+            // lock state is visible at a glance; unlocking simply omits the glyph.
+            if (isLayer && activeLayer!.IsLocked)
+            {
+                Size textSize = TextRenderer.MeasureText(
+                    g,
+                    e.Node.Text,
+                    treeViewLayers.Font,
+                    new Size(int.MaxValue, textRect.Height),
+                    TextFormatFlags.Left |
+                    TextFormatFlags.SingleLine |
+                    TextFormatFlags.VerticalCenter |
+                    TextFormatFlags.NoPrefix);
+
+                int lockHeight = 10;
+                int lockWidth = 8;
+                int lockX = textRect.X + Math.Min(textSize.Width, textRect.Width) + LayerNodeLockIconGap;
+                int lockY = textRect.Y + Math.Max(0, (textRect.Height - lockHeight) / 2);
+
+                Rectangle lockRect = new Rectangle(lockX, lockY, lockWidth, lockHeight);
+
+                if (lockRect.Right <= treeViewLayers.ClientSize.Width - 2)
+                {
+                    // The lock sits past the selection highlight (which only spans the
+                    // text), so keep it dark on the tree background in every state.
+                    Color lockColor = Color.FromArgb(70, 70, 70); // simple dark padlock
+                    DrawLockedLayerIcon(g, lockRect, lockColor, treeViewLayers.BackColor);
+                }
+            }
+        }
+
+        // Draws a padlock built from GDI+ primitives: a rounded body with a
+        // keyhole punched out, topped by a U-shaped shackle arc.
+        private static void DrawLockedLayerIcon(
+            Graphics g,
+            Rectangle rect,
+            Color color,
+            Color backColor)
+        {
+            SmoothingMode previousSmoothing = g.SmoothingMode;
+            g.SmoothingMode = SmoothingMode.AntiAlias;
+
+            try
+            {
+                int bodyHeight = Math.Max(5, (int)Math.Round(rect.Height * 0.6));
+                Rectangle body = new Rectangle(
+                    rect.X,
+                    rect.Bottom - bodyHeight,
+                    rect.Width,
+                    bodyHeight);
+
+                int shackleWidth = Math.Max(4, (int)Math.Round(rect.Width * 0.62));
+                int shackleTop = rect.Y;
+                int shackleHeight = body.Top - shackleTop;
+                Rectangle shackleArc = new Rectangle(
+                    rect.X + (rect.Width - shackleWidth) / 2,
+                    shackleTop,
+                    shackleWidth,
+                    Math.Max(4, shackleHeight * 2));
+
+                using (Pen shacklePen = new Pen(color, 1.1f))
+                {
+                    // Top half of an ellipse forms the U-shaped shackle.
+                    g.DrawArc(shacklePen, shackleArc, 180f, 180f);
+                }
+
+                using (GraphicsPath bodyPath = CreateRoundedRectanglePath(body, 1.6f))
+                using (SolidBrush bodyBrush = new SolidBrush(color))
+                {
+                    g.FillPath(bodyBrush, bodyPath);
+                }
+
+                // Keyhole: a small dot punched in the body using the background colour.
+                int holeSize = Math.Max(2, body.Width / 3);
+                Rectangle hole = new Rectangle(
+                    body.X + (body.Width - holeSize) / 2,
+                    body.Y + (body.Height - holeSize) / 2,
+                    holeSize,
+                    holeSize);
+                using (SolidBrush holeBrush = new SolidBrush(backColor))
+                {
+                    g.FillEllipse(holeBrush, hole);
+                }
+            }
+            finally
+            {
+                g.SmoothingMode = previousSmoothing;
+            }
         }
 
         private TreeNode CreateLayerGroupNode(string key, string text)
@@ -10660,6 +10837,11 @@ namespace Land_Readjustment_Tool
                     pen.DashCap = System.Drawing.Drawing2D.DashCap.Flat;
                     pen.DashPattern = [4f * scale, 2f * scale, 1f * scale, 2f * scale];
                     break;
+                case "DASHDOUBLEDOT":
+                    pen.DashStyle = System.Drawing.Drawing2D.DashStyle.Custom;
+                    pen.DashCap = System.Drawing.Drawing2D.DashCap.Flat;
+                    pen.DashPattern = [4f * scale, 2f * scale, 1f * scale, 2f * scale, 1f * scale, 2f * scale];
+                    break;
                 case "CENTERLINE":
                     pen.DashStyle = System.Drawing.Drawing2D.DashStyle.Custom;
                     pen.DashCap = System.Drawing.Drawing2D.DashCap.Flat;
@@ -10675,14 +10857,17 @@ namespace Land_Readjustment_Tool
         {
             return (lineStyle ?? string.Empty)
                 .Replace("-", string.Empty, StringComparison.Ordinal)
+                .Replace("_", string.Empty, StringComparison.Ordinal)
                 .Replace(" ", string.Empty, StringComparison.Ordinal)
                 .Trim()
                 .ToUpperInvariant() switch
             {
                 "DASH" => "DASHED",
                 "DOT" => "DOTTED",
+                "DASHDOTDOT" => "DASHDOUBLEDOT",
                 _ => (lineStyle ?? string.Empty)
                     .Replace("-", string.Empty, StringComparison.Ordinal)
+                    .Replace("_", string.Empty, StringComparison.Ordinal)
                     .Replace(" ", string.Empty, StringComparison.Ordinal)
                     .Trim()
                     .ToUpperInvariant()
@@ -10765,9 +10950,10 @@ namespace Land_Readjustment_Tool
             _mnuDeleteLayerGroup.Enabled = !_isApplicationEditLocked && layers.Count > 0;
             _mnuToggleLayerGroupLock.Enabled = !_isApplicationEditLocked && layers.Count > 0;
             _mnuToggleLayerGroupLock.Checked = layers.Count > 0 && layers.All(layer => layer.IsLocked);
-            _mnuToggleLayerGroupLock.Text = _mnuToggleLayerGroupLock.Checked
-                ? "Locked"
-                : "Unlocked";
+            // Keep a constant "Locked" label; lock state is conveyed by the
+            // menu item's checkbox (checked = locked), matching the single-layer
+            // lock menu item.
+            _mnuToggleLayerGroupLock.Text = "Locked";
 
             ConfigureLayerGroupSelectionMenuItem(groupNode);
         }

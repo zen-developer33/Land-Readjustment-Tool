@@ -1554,6 +1554,18 @@ namespace Land_Readjustment_Tool.Forms.LandOwnersRecord_Managerment
             dgvRecords.ReadOnly = true;
         }
 
+        public void ConfigureAsRegister(string title)
+        {
+            Text = string.IsNullOrWhiteSpace(title) ? "Original Parcel Register" : title;
+            btnAdd.Visible = false;
+            btnDelete.Visible = false;
+            saveToolStripButton.Visible = false;
+            btnEdit.Text = "View";
+            btnEdit.ToolTipText = "View selected parcel";
+            toolStripButton1.ToolTipText = "View selected parcel owner";
+            dgvRecords.ReadOnly = true;
+        }
+
         private void UpdateStatusLabels()
         {
             lblTotalRecords.Text = $"Total Records: {_allRecords.Count}";

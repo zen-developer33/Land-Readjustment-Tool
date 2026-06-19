@@ -15,7 +15,7 @@ namespace Land_Readjustment_Tool.Core.Models.Import
 
         public static readonly IReadOnlyList<BlockLayoutPlanTargetLayerDefinition> TargetLayers =
         [
-            new("Project Boundary", "ProjectBoundary", "#FF0000", null, 50, 2.0, "Solid"),
+            new("Project Boundary", "ProjectBoundary", "#FF0000", null, 50, 2.0, "DashDoubleDot"),
             new("Blocks", "Block", "#D99A5A", "#F6C766", 35, 1.5, "Solid"),
             new("Road Parcel", "RoadParcel", "#D99A5A", "#F6C766", 20, 1.5, "Solid"),
             new("Road Centerline", "RoadCenterline", "#C76E78", null, 50, 1.4, "Centerline"),

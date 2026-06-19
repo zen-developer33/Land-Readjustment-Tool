@@ -148,7 +148,7 @@ namespace Land_Readjustment_Tool.UI.MapCanvas.Rendering
             }
         }
 
-        public bool BeginPan(Size canvasSize)
+        public bool BeginPan(Size canvasSize, Action<Graphics>? renderOverlay = null)
         {
             Resize(canvasSize);
 
@@ -170,12 +170,16 @@ namespace Land_Readjustment_Tool.UI.MapCanvas.Rendering
                 graphics.CompositingMode = CompositingMode.SourceOver;
                 graphics.InterpolationMode = InterpolationMode.NearestNeighbor;
                 graphics.DrawImageUnscaled(_vectorCache, 0, 0);
+                renderOverlay?.Invoke(graphics);
                 _panBufferValid = true;
                 return true;
             }
         }
 
-        public bool BeginZoom(Size canvasSize, MapCanvasEngine engine)
+        public bool BeginZoom(
+            Size canvasSize,
+            MapCanvasEngine engine,
+            Action<Graphics>? renderOverlay = null)
         {
             Resize(canvasSize);
 
@@ -196,6 +200,8 @@ namespace Land_Readjustment_Tool.UI.MapCanvas.Rendering
                 graphics.CompositingMode = CompositingMode.SourceCopy;
                 graphics.InterpolationMode = InterpolationMode.NearestNeighbor;
                 graphics.DrawImageUnscaled(_vectorCache, 0, 0);
+                graphics.CompositingMode = CompositingMode.SourceOver;
+                renderOverlay?.Invoke(graphics);
 
                 _zoomStartView = new ViewSnapshot(
                     engine.ViewOriginWorld,
@@ -440,7 +446,11 @@ namespace Land_Readjustment_Tool.UI.MapCanvas.Rendering
             }
 
             graphics.SmoothingMode = SmoothingMode.AntiAlias;
-            graphics.PixelOffsetMode = PixelOffsetMode.HighQuality;
+            // Match the aliased branch (no pixel offset). Vector coordinates are
+            // integer-snapped in ToScreenPointF, so Half/HighQuality would shift
+            // baked shapes half a pixel north-west versus the AA-off rendering and
+            // make them jump when AA is toggled. None keeps the cache aligned.
+            graphics.PixelOffsetMode = PixelOffsetMode.None;
             // Use the same compositing quality the live/direct draw uses so a
             // line baked into the cache has the SAME apparent weight as the live
             // preview. AssumeLinear blends antialiased edges differently (bolder),

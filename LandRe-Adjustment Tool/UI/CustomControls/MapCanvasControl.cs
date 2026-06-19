@@ -15,6 +15,7 @@ using Land_Readjustment_Tool.UI.MapCanvas.Models.Shapes;
 using Land_Readjustment_Tool.UI.MapCanvas.Models.Snapping;
 using Land_Readjustment_Tool.UI.MapCanvas.Rendering;
 using Land_Readjustment_Tool.UI.MapCanvas.Services;
+using Land_Readjustment_Tool.Services.Canvas;
 using NtsCoordinate = NetTopologySuite.Geometries.Coordinate;
 using NtsGeometry = NetTopologySuite.Geometries.Geometry;
 using NtsGeometryFactory = NetTopologySuite.Geometries.GeometryFactory;
@@ -75,6 +76,10 @@ namespace Land_Readjustment_Tool.UI.CustomControls
         private const float GripSegmentThicknessPixels = 4.0f;
         private const double DefaultSnapPickTolerancePixels = 8.0;
         private const float DefaultSnapGlyphSizePixels = 14.0f;
+        private const int CurveCenterHintQueryPixels = 8;
+        private const float CurveCenterHintSizePixels = 8.0f;
+        private const float CurveCenterHintStrokeWidthPixels = 1.0f;
+        private const int MaxCenterHintMarks = 5;
         private const double CommonGripToleranceWorld = 0.005;
         private const double ActiveGripSnapSuppressionPixels = 4.0;
         private const double ScreenPixelsPerMetre = 96.0 / 0.0254;
@@ -174,6 +179,10 @@ namespace Land_Readjustment_Tool.UI.CustomControls
         private double _snapPickTolerancePixels = DefaultSnapPickTolerancePixels;
         private float _snapGlyphSizePixels = DefaultSnapGlyphSizePixels;
         private SnapPoint? _currentSnapPoint;
+        private enum CenterHintKind { Curve, Geometric }
+        private readonly record struct CenterHintMark(PointD World, CenterHintKind Kind, Guid ShapeId);
+        private readonly List<CenterHintMark> _centerHintMarks = new();
+        private MapCanvasTool _centerHintTool;
         private int _lastSnapQueryFeatureCount;
         private int _lastSnapCandidateCount;
         private double _lastSnapQueryElapsedMs;
@@ -245,6 +254,9 @@ namespace Land_Readjustment_Tool.UI.CustomControls
             _renderSettings = MapCanvasRenderSettings.CreateLightDefaults();
             _renderer = new MapCanvasRenderer(_engine, _renderSettings);
             _zoomingStatusTimer.Tick += ZoomingStatusTimer_Tick;
+            _objectSelectionContextMenu.Renderer = ElegantMenuRenderer.Instance;
+            _drawingOptionsContextMenu.Renderer = ElegantMenuRenderer.Instance;
+            _selectionOptionsContextMenu.Renderer = ElegantMenuRenderer.Instance;
             _objectSelectionContextMenu.Opening += ObjectSelectionContextMenu_Opening;
             _mnuAssignData.Click += (_, _) => RequestAssignDataForSelectedObjects();
             _mnuViewEditData.Click += (_, _) => RequestViewEditDataForSelectedObjects();
@@ -301,6 +313,7 @@ namespace Land_Readjustment_Tool.UI.CustomControls
             public bool HasPointerMoved { get; set; }
             public bool AwaitingClickCommit { get; set; }
             public IReadOnlyList<LinkedGripEdit> LinkedEdits { get; }
+            public IReadOnlyList<SnapPoint> SnapCandidates { get; set; } = Array.Empty<SnapPoint>();
         }
 
         private sealed class LinkedGripEdit
@@ -895,6 +908,7 @@ namespace Land_Readjustment_Tool.UI.CustomControls
 
             _vectorFeatures = features?.ToList() ?? [];
             RebuildVectorFeatureLookup();
+            PruneCenterHintMarksForMissingShapes();
             _hoveredSelectionGrip = null;
             _activeGripEdit = null;
             _immediateEditedOverlayFeatures = Array.Empty<CanvasFeature>();
@@ -1187,6 +1201,7 @@ namespace Land_Readjustment_Tool.UI.CustomControls
             _isSelectingZoomWindow = false;
             _isSelectingObjects = false;
             _hoveredSelectionGrip = null;
+            ClearCenterHintMarks();
             CancelActiveGripEdit(restoreOriginal: true);
             CancelActiveTextEditor();
             _drawingVertices.Clear();
@@ -1235,6 +1250,20 @@ namespace Land_Readjustment_Tool.UI.CustomControls
 
         private bool IsDrawingSketchInProgress() =>
             _activeTool != MapCanvasTool.Select && _drawingVertices.Count > 0;
+
+        // Center hint marks (+ / *) are only useful when the user is placing or
+        // relocating geometry: while a drawing tool is active, or while an
+        // edit/move operation is in progress. They are hidden during plain
+        // selection so the canvas stays clean when no center is needed.
+        private bool ShouldShowCenterHints()
+        {
+            if (_activeGripEdit != null || _activeMoveOperation != null)
+            {
+                return true;
+            }
+
+            return !IsSelectionInteractionTool(_activeTool);
+        }
 
         private static bool IsSelectionPolygonSketchTool(MapCanvasTool tool)
         {
@@ -1343,7 +1372,17 @@ namespace Land_Readjustment_Tool.UI.CustomControls
             }
 
             PrepareProgrammaticZoom();
+            // Snapshot the current vector cache BEFORE the viewport changes so it
+            // can be shown transformed-to-the-new-view while the async rebuild
+            // runs (BeginVectorZoom records the pre-zoom viewport as its
+            // reference). Holding the zoom frame also suppresses live vector
+            // overlays — including the selection decoration — until the fresh
+            // cache lands. That is what makes a zoom-to-selection settle on the
+            // new view FIRST and only then draw the highlight, instead of
+            // flashing a ghost highlight on the pre-zoom view.
+            EnsureVectorZoomSnapshot();
             _engine.ZoomToExtents(zoomBounds, padding);
+            _holdVectorZoomFrameUntilRefresh = true;
             RefreshRasterCacheForCurrentViewAsync();
             RefreshVectorCacheForCurrentViewAsync();
             RefreshActiveTextEditorMetrics();
@@ -1446,6 +1485,8 @@ namespace Land_Readjustment_Tool.UI.CustomControls
         }
 
         public bool IsPanToolActive => _panToolActive;
+
+        public bool IsZoomWindowActive => _zoomWindowActive || _isSelectingZoomWindow;
 
         public void SetRasterLayers(
             IEnumerable<CanvasLayer>? rasterLayers,
@@ -1778,14 +1819,15 @@ namespace Land_Readjustment_Tool.UI.CustomControls
                 DrawImmediateEditedFeatureOverlay(graphics);
                 DrawJustCompletedShapeOverlay(graphics);
                 DrawSelectedFeatureDecorations(graphics);
+                DrawActiveGripOriginalOverlay(graphics);
+                DrawSelectionGrips(graphics);
             }
-            DrawActiveGripOriginalOverlay(graphics);
             DrawObjectSelectionRectangle(graphics);
             DrawSelectionSketchPreview(graphics);
             DrawActiveGripEditOverlay(graphics);
             DrawMoveOperationOverlay(graphics);
-            DrawSelectionGrips(graphics);
             DrawSnapGlyph(graphics);
+            DrawCenterHintMarks(graphics);
             // Diameter preview drawing is handled by the vector renderer when the
             // preview shape contains the CenterDiameterEndpoint property.
             if (updateDebugTiming)
@@ -2281,6 +2323,7 @@ namespace Land_Readjustment_Tool.UI.CustomControls
                     _activeGripEdit.HasPointerMoved = true;
                 }
 
+                UpdateCenterHintsForScreenPoint(e.Location);
                 RequestRender();
                 return;
             }
@@ -2305,6 +2348,7 @@ namespace Land_Readjustment_Tool.UI.CustomControls
 
             if (_activeMoveOperation != null)
             {
+                UpdateCenterHintsForScreenPoint(e.Location);
                 RequestRender();
                 UpdateStatusBar();
                 return;
@@ -2319,6 +2363,7 @@ namespace Land_Readjustment_Tool.UI.CustomControls
                 UpdateHoveredSelectionGrip(e.Location);
             }
             UpdateDrawingPreview(e.Location);
+            UpdateCenterHintsForScreenPoint(e.Location);
             UpdateStatusBar();
         }
 
@@ -4247,6 +4292,32 @@ namespace Land_Readjustment_Tool.UI.CustomControls
             PointD mouseWorld = _engine.ScreenToWorld(screenPoint);
             SnapPoint? previousSnapPoint = _currentSnapPoint;
 
+            if (_activeGripEdit != null)
+            {
+                List<SnapPoint> gripCandidates = _activeGripEdit.SnapCandidates
+                    .Where(snapPoint => ScreenQueryContainsSnapPoint(screenQuery, snapPoint))
+                    .ToList();
+                AppendVisibleCenterSnapPoints(gripCandidates);
+
+                _currentSnapPoint = _snapManager.FindNearestSnapPointFromList(
+                    gripCandidates,
+                    screenPoint,
+                    _engine,
+                    _snapPickTolerancePixels);
+
+                stopwatch.Stop();
+                _lastSnapQueryFeatureCount = 0;
+                _lastSnapCandidateCount = gripCandidates.Count;
+                _lastSnapQueryElapsedMs = stopwatch.Elapsed.TotalMilliseconds;
+
+                if (!SameSnapPoint(previousSnapPoint, _currentSnapPoint))
+                {
+                    RequestRender();
+                }
+
+                return;
+            }
+
             // Use the spatial index to fetch only the handful of features near
             // the cursor instead of scanning every feature on each mouse move
             // (O(log n + k) vs O(n)). This keeps snapping — and therefore
@@ -4296,6 +4367,7 @@ namespace Land_Readjustment_Tool.UI.CustomControls
                 .Where(snapPoint => !IsSuppressedPreviewSnapPoint(snapPoint))
                 .Where(snapPoint => !IsActiveGripSnapPoint(snapPoint))
                 .ToList();
+            AppendVisibleCenterSnapPoints(candidates);
 
             _currentSnapPoint = _snapManager.FindNearestSnapPointFromList(
                 candidates,
@@ -4767,6 +4839,19 @@ namespace Land_Readjustment_Tool.UI.CustomControls
                    !IsActiveGripEditedShape(feature.Shape);
         }
 
+        // Center hints (+ and *) only appear for shapes on editable
+        // drawing/markup layers — not for the protected default cadastral layers.
+        private bool IsCenterHintFeature(CanvasFeature feature)
+        {
+            if (!IsSnapCandidateFeature(feature))
+            {
+                return false;
+            }
+
+            CanvasLayer? layer = ResolveFeatureLayer(feature);
+            return layer != null && CanvasLayerTreeService.IsDrawingMarkupLayer(layer);
+        }
+
         private static bool ShapeIntersectsWorldQuery(IShape shape, RectangleD worldQuery)
         {
             RectangleD bounds = shape.GetBoundingBox();
@@ -5135,6 +5220,11 @@ namespace Land_Readjustment_Tool.UI.CustomControls
             if (!IsGripEditableFeature(grip.Feature))
                 return false;
 
+            // Editing/moving relocates the shape outline — any center hint marks
+            // captured at the old geometry are now stale, so drop them. Fresh marks
+            // re-establish as the cursor hovers the new outline.
+            ClearCenterHintMarks();
+
             if (grip.Kind == SelectionGripKind.GeometricCenter)
             {
                 return BeginMoveSelectedObjectsFromGeometricCenterGrip(grip);
@@ -5156,6 +5246,7 @@ namespace Land_Readjustment_Tool.UI.CustomControls
             _isSelectingObjects = false;
             canvasSurface.Capture = true;
             _pendingEditedShapeIds.Clear();
+            _activeGripEdit.SnapCandidates = BuildGripEditSnapCandidates();
 
             ApplyGripEditVectorRenderExclusions();
             RefreshVectorCacheForGripEditBase();
@@ -5165,6 +5256,185 @@ namespace Land_Readjustment_Tool.UI.CustomControls
             UpdateStatusBar();
             RequestRender();
             return true;
+        }
+
+        private IReadOnlyList<SnapPoint> BuildGripEditSnapCandidates()
+        {
+            if (_activeGripEdit == null)
+            {
+                return Array.Empty<SnapPoint>();
+            }
+
+            List<SnapPoint> candidates = new();
+            foreach (CanvasFeature feature in _vectorFeatures.Where(IsVisibleSnapCandidateFeature))
+            {
+                candidates.AddRange(feature.Shape
+                    .GetSnapPoints()
+                    .Where(snapPoint => !IsGripEditExcludedSnapPoint(snapPoint)));
+            }
+
+            return candidates;
+        }
+
+        private bool IsVisibleSnapCandidateFeature(CanvasFeature feature)
+        {
+            CanvasLayer? layer = ResolveFeatureLayer(feature);
+            return feature.Shape.IsVisible &&
+                   feature.CanvasObject.IsVisible &&
+                   layer?.IsVisible == true;
+        }
+
+        private bool IsGripEditExcludedSnapPoint(SnapPoint snapPoint)
+        {
+            if (_activeGripEdit == null)
+            {
+                return false;
+            }
+
+            if (IsGripEditExcludedSnapPoint(snapPoint, _activeGripEdit.Grip, _activeGripEdit.OriginalShape))
+            {
+                return true;
+            }
+
+            foreach (LinkedGripEdit linkedEdit in _activeGripEdit.LinkedEdits)
+            {
+                if (IsGripEditExcludedSnapPoint(snapPoint, linkedEdit.Grip, linkedEdit.OriginalShape))
+                {
+                    return true;
+                }
+            }
+
+            return false;
+        }
+
+        private static bool IsGripEditExcludedSnapPoint(
+            SnapPoint snapPoint,
+            SelectionGrip grip,
+            IShape originalShape)
+        {
+            if (!ReferenceEquals(snapPoint.ParentShape, grip.Shape) &&
+                snapPoint.ParentShape?.Id != grip.Shape.Id)
+            {
+                return false;
+            }
+
+            if (SameWorldPoint(snapPoint.Position, grip.Position))
+            {
+                return true;
+            }
+
+            return snapPoint.Type == SnapType.Midpoint &&
+                   IsSnapPointOnEditedGripSegment(snapPoint.Position, grip, originalShape);
+        }
+
+        private static bool IsSnapPointOnEditedGripSegment(
+            PointD snapPosition,
+            SelectionGrip grip,
+            IShape originalShape)
+        {
+            if (grip.Kind != SelectionGripKind.SegmentMidpoint &&
+                grip.Kind != SelectionGripKind.ArcMidpoint)
+            {
+                return false;
+            }
+
+            switch (originalShape)
+            {
+                case LineShape line:
+                    return SameWorldPoint(snapPosition, Midpoint(line.Start, line.End));
+
+                case RectangleShape rectangle:
+                    return IsSnapPointOnEditedRectangleSegment(snapPosition, grip, rectangle);
+
+                case PolylineShape polyline:
+                    return IsSnapPointOnEditedPolylineSegment(snapPosition, grip, polyline);
+
+                case ArcShape arc:
+                    return SameWorldPoint(snapPosition, arc.MidPoint);
+
+                default:
+                    return false;
+            }
+        }
+
+        private static bool IsSnapPointOnEditedRectangleSegment(
+            PointD snapPosition,
+            SelectionGrip grip,
+            RectangleShape rectangle)
+        {
+            PointD[] corners = GetRectangleCorners(rectangle);
+            if (grip.Kind == SelectionGripKind.SegmentMidpoint &&
+                grip.SegmentIndex >= 0 &&
+                grip.SegmentIndex < corners.Length)
+            {
+                return SameWorldPoint(
+                    snapPosition,
+                    Midpoint(corners[grip.SegmentIndex], corners[(grip.SegmentIndex + 1) % corners.Length]));
+            }
+
+            if (grip.Kind != SelectionGripKind.Vertex ||
+                grip.VertexIndex < 0 ||
+                grip.VertexIndex >= corners.Length)
+            {
+                return false;
+            }
+
+            int previous = (grip.VertexIndex - 1 + corners.Length) % corners.Length;
+            int next = grip.VertexIndex;
+            return SameWorldPoint(snapPosition, Midpoint(corners[previous], corners[grip.VertexIndex])) ||
+                   SameWorldPoint(snapPosition, Midpoint(corners[next], corners[(next + 1) % corners.Length]));
+        }
+
+        private static bool IsSnapPointOnEditedPolylineSegment(
+            PointD snapPosition,
+            SelectionGrip grip,
+            PolylineShape polyline)
+        {
+            if (polyline.Segments.Count > 0)
+            {
+                for (int i = 0; i < polyline.Segments.Count; i++)
+                {
+                    PolylineShape.PolylineSegment segment = polyline.Segments[i];
+                    bool segmentIsEdited = i == grip.SegmentIndex;
+
+                    if (!segmentIsEdited)
+                    {
+                        continue;
+                    }
+
+                    PointD midpoint = segment.Kind == PolylineShape.PolylineSegmentKind.Arc && segment.Arc != null
+                        ? segment.Arc.MidPoint
+                        : Midpoint(segment.Start, segment.End);
+                    if (SameWorldPoint(snapPosition, midpoint))
+                    {
+                        return true;
+                    }
+                }
+
+                return false;
+            }
+
+            if (polyline.Vertices.Count < 2)
+            {
+                return false;
+            }
+
+            int segmentCount = polyline.IsClosed && polyline.Vertices.Count > 2
+                ? polyline.Vertices.Count
+                : polyline.Vertices.Count - 1;
+            for (int i = 0; i < segmentCount; i++)
+            {
+                int nextIndex = (i + 1) % polyline.Vertices.Count;
+                bool segmentIsEdited = i == grip.SegmentIndex;
+
+                if (segmentIsEdited &&
+                    SameWorldPoint(snapPosition, Midpoint(polyline.Vertices[i], polyline.Vertices[nextIndex])))
+                {
+                    return true;
+                }
+            }
+
+            return false;
         }
 
         private void ApplyActiveGripEdit(Point screenPoint)
@@ -5302,6 +5572,10 @@ namespace Land_Readjustment_Tool.UI.CustomControls
 
             _activeGripEdit = null;
             _hoveredSelectionGrip = null;
+            _currentSnapPoint = null;
+            _lastSnapCandidateCount = 0;
+            _lastSnapQueryFeatureCount = 0;
+            _lastSnapQueryElapsedMs = 0.0;
             canvasSurface.Capture = false;
 
             CanvasLayer? gripLayer = ResolveFeatureLayer(grip.Feature);
@@ -5401,6 +5675,10 @@ namespace Land_Readjustment_Tool.UI.CustomControls
 
             _activeGripEdit = null;
             _hoveredSelectionGrip = null;
+            _currentSnapPoint = null;
+            _lastSnapCandidateCount = 0;
+            _lastSnapQueryFeatureCount = 0;
+            _lastSnapQueryElapsedMs = 0.0;
             canvasSurface.Capture = false;
             _renderer.SetVectorRenderExclusions(null);
             EnsureVectorZoomSnapshot();
@@ -6108,12 +6386,24 @@ namespace Land_Readjustment_Tool.UI.CustomControls
                     continue;
                 }
 
+                if (IsActiveGripEditedShape(feature.Shape))
+                {
+                    continue;
+                }
+
                 _renderer.RenderSelectionDecoration(
                     graphics,
                     feature.Shape,
                     ResolveFeatureLayer(feature),
                     feature);
             }
+        }
+
+        private void DrawSelectedNavigationSnapshotOverlay(Graphics graphics)
+        {
+            DrawSelectedFeatureDecorations(graphics);
+            DrawActiveGripOriginalOverlay(graphics);
+            DrawSelectionGrips(graphics);
         }
 
         private void DrawJustCompletedShapeOverlay(Graphics graphics)
@@ -6155,22 +6445,37 @@ namespace Land_Readjustment_Tool.UI.CustomControls
             if (_activeGripEdit.Grip.Kind == SelectionGripKind.GeometricCenter)
                 return;
 
-            _renderer.RenderTransientShape(
+            DrawActiveGripOriginalShape(
                 graphics,
-                _activeGripEdit.Grip.Shape,
-                ResolveFeatureLayer(_activeGripEdit.Grip.Feature),
-                _activeGripEdit.Grip.Feature.CanvasObject,
-                forceUnselected: true);
+                _activeGripEdit.Grip.Feature,
+                _activeGripEdit.Grip.Shape);
 
             foreach (LinkedGripEdit linkedEdit in _activeGripEdit.LinkedEdits)
             {
-                _renderer.RenderTransientShape(
+                DrawActiveGripOriginalShape(
                     graphics,
-                    linkedEdit.Grip.Shape,
-                    ResolveFeatureLayer(linkedEdit.Grip.Feature),
-                    linkedEdit.Grip.Feature.CanvasObject,
-                    forceUnselected: true);
+                    linkedEdit.Grip.Feature,
+                    linkedEdit.Grip.Shape);
             }
+        }
+
+        private void DrawActiveGripOriginalShape(
+            Graphics graphics,
+            CanvasFeature feature,
+            IShape shape)
+        {
+            _renderer.RenderTransientShape(
+                graphics,
+                shape,
+                ResolveFeatureLayer(feature),
+                feature.CanvasObject,
+                forceUnselected: true);
+
+            _renderer.RenderSelectionDecoration(
+                graphics,
+                shape,
+                ResolveFeatureLayer(feature),
+                feature);
         }
 
         private void DrawSelectionGrip(Graphics graphics, SelectionGrip grip, bool isHot)
@@ -6407,6 +6712,477 @@ namespace Land_Readjustment_Tool.UI.CustomControls
                     graphics.DrawLine(pen, center.X - half, center.Y + half, center.X + half, center.Y + half);
                     break;
             }
+        }
+
+        private void UpdateCurveCenterHint(Point screenPoint)
+        {
+            if (TryFindCurveCenterHint(screenPoint, out PointD center, out Guid shapeId))
+            {
+                AddCenterHintMark(center, CenterHintKind.Curve, shapeId);
+            }
+        }
+
+        private void UpdateCenterHintsForScreenPoint(Point screenPoint)
+        {
+            if (ShouldShowCenterHints())
+            {
+                UpdateCurveCenterHint(screenPoint);
+                UpdateGeomCenterHint(screenPoint);
+            }
+            else if (_centerHintMarks.Count > 0)
+            {
+                ClearCenterHintMarks();
+                RequestRender();
+            }
+        }
+
+        // Both the curve centre (+) and geometric centre (*) hints share a single
+        // ordered buffer so the MaxCenterHintMarks cap applies to their COMBINED
+        // total: the oldest mark — whichever kind — is dropped first.
+        private void AddCenterHintMark(PointD center, CenterHintKind kind, Guid shapeId)
+        {
+            if (_centerHintMarks.Count > 0 && _centerHintTool != _activeTool)
+            {
+                ClearCenterHintMarks();
+            }
+
+            bool alreadyPresent = _centerHintMarks.Any(m => SameWorldPoint(m.World, center));
+            if (alreadyPresent)
+            {
+                return;
+            }
+
+            _centerHintMarks.Add(new CenterHintMark(center, kind, shapeId));
+            while (_centerHintMarks.Count > MaxCenterHintMarks)
+            {
+                _centerHintMarks.RemoveAt(0);
+            }
+            _centerHintTool = _activeTool;
+            RequestRender();
+        }
+
+        // Drops any center hint marks whose owning shape is no longer present in the
+        // vector feature set (e.g. the shape was deleted). Called after a reload.
+        private void PruneCenterHintMarksForMissingShapes()
+        {
+            if (_centerHintMarks.Count == 0)
+            {
+                return;
+            }
+
+            int removed = _centerHintMarks.RemoveAll(
+                m => !_vectorFeaturesByShapeId.ContainsKey(m.ShapeId));
+            if (removed > 0)
+            {
+                RequestRender();
+            }
+        }
+
+        private bool TryFindCurveCenterHint(Point screenPoint, out PointD center, out Guid shapeId)
+        {
+            center = default;
+            shapeId = Guid.Empty;
+            PointD mouseWorld = _engine.ScreenToWorld(screenPoint);
+            double bestDistancePixels = CurveCenterHintQueryPixels;
+            bool found = false;
+
+            Rectangle screenQuery = new(
+                screenPoint.X - CurveCenterHintQueryPixels,
+                screenPoint.Y - CurveCenterHintQueryPixels,
+                CurveCenterHintQueryPixels * 2,
+                CurveCenterHintQueryPixels * 2);
+            RectangleD worldQuery = CreateWorldRectangle(screenQuery);
+
+            foreach (CanvasFeature feature in _renderer.QueryVectorFeatures(worldQuery)
+                         .Where(IsCenterHintFeature)
+                         .Where(feature => ShapeIntersectsWorldQuery(feature.Shape, worldQuery)))
+            {
+                foreach ((PointD candidateCenter, double distancePixels) in EnumerateCurveCenterHintCandidates(
+                             feature.Shape,
+                             mouseWorld))
+                {
+                    if (distancePixels > bestDistancePixels)
+                    {
+                        continue;
+                    }
+
+                    bestDistancePixels = distancePixels;
+                    center = candidateCenter;
+                    shapeId = feature.Shape.Id;
+                    found = true;
+                }
+            }
+
+            return found;
+        }
+
+        private IEnumerable<(PointD Center, double DistancePixels)> EnumerateCurveCenterHintCandidates(
+            IShape shape,
+            PointD mouseWorld)
+        {
+            switch (shape)
+            {
+                case CircleShape circle:
+                {
+                    if (TryGetCircleOutlineDistancePixels(
+                            mouseWorld,
+                            circle.Center,
+                            circle.GetRadius(),
+                            requireAngleOnArc: false,
+                            startAngle: 0.0,
+                            sweepAngle: Math.PI * 2.0,
+                            out double distancePixels))
+                    {
+                        yield return (circle.Center, distancePixels);
+                    }
+
+                    break;
+                }
+
+                case ArcShape arc:
+                {
+                    if (TryGetCircleOutlineDistancePixels(
+                            mouseWorld,
+                            arc.Center,
+                            arc.Radius,
+                            requireAngleOnArc: true,
+                            startAngle: arc.StartAngleRadians,
+                            sweepAngle: arc.SweepAngleRadians,
+                            out double distancePixels))
+                    {
+                        yield return (arc.Center, distancePixels);
+                    }
+
+                    break;
+                }
+
+                case PolylineShape polyline:
+                {
+                    foreach (PolylineShape.PolylineSegment segment in polyline.Segments)
+                    {
+                        if (segment.Kind != PolylineShape.PolylineSegmentKind.Arc ||
+                            segment.Arc == null)
+                        {
+                            continue;
+                        }
+
+                        ArcShape arc = segment.Arc;
+                        if (TryGetCircleOutlineDistancePixels(
+                                mouseWorld,
+                                arc.Center,
+                                arc.Radius,
+                                requireAngleOnArc: true,
+                                startAngle: arc.StartAngleRadians,
+                                sweepAngle: arc.SweepAngleRadians,
+                                out double distancePixels))
+                        {
+                            yield return (arc.Center, distancePixels);
+                        }
+                    }
+
+                    break;
+                }
+            }
+        }
+
+        private bool TryGetCircleOutlineDistancePixels(
+            PointD mouseWorld,
+            PointD center,
+            double radius,
+            bool requireAngleOnArc,
+            double startAngle,
+            double sweepAngle,
+            out double distancePixels)
+        {
+            distancePixels = double.PositiveInfinity;
+            if (!double.IsFinite(radius) ||
+                radius <= 0.0 ||
+                !double.IsFinite(_engine.ZoomScale) ||
+                _engine.ZoomScale <= 0.0)
+            {
+                return false;
+            }
+
+            double dx = mouseWorld.X - center.X;
+            double dy = mouseWorld.Y - center.Y;
+            double distance = Math.Sqrt(dx * dx + dy * dy);
+            if (!double.IsFinite(distance))
+            {
+                return false;
+            }
+
+            if (requireAngleOnArc)
+            {
+                double angle = Math.Atan2(dy, dx);
+                if (!ArcShape.AngleLiesOnSweepPublic(angle, startAngle, sweepAngle))
+                {
+                    return false;
+                }
+            }
+
+            distancePixels = Math.Abs(distance - radius) * _engine.ZoomScale;
+            return double.IsFinite(distancePixels) &&
+                   distancePixels <= CurveCenterHintQueryPixels;
+        }
+
+        private void DrawCenterHintMarks(Graphics graphics)
+        {
+            if (_centerHintMarks.Count == 0 || _centerHintTool != _activeTool || !ShouldShowCenterHints())
+                return;
+
+            bool isDarkCanvas = CanvasThemeColorService.IsDarkCanvas(canvasSurface.BackColor);
+            Color strokeColor = isDarkCanvas ? Color.White : Color.Black;
+            float half = CurveCenterHintSizePixels / 2.0f;
+
+            using Pen pen = new(strokeColor, CurveCenterHintStrokeWidthPixels)
+            {
+                StartCap = LineCap.Flat,
+                EndCap = LineCap.Flat
+            };
+
+            foreach (CenterHintMark mark in _centerHintMarks)
+            {
+                PointD screen = _engine.WorldToScreen(mark.World);
+                if (!double.IsFinite(screen.X) || !double.IsFinite(screen.Y))
+                    continue;
+
+                float x = (float)Math.Round(screen.X);
+                float y = (float)Math.Round(screen.Y);
+                if (mark.Kind == CenterHintKind.Curve)
+                {
+                    graphics.DrawLine(pen, x - half, y, x + half, y);
+                    graphics.DrawLine(pen, x, y - half, x, y + half);
+                }
+                else
+                {
+                    DrawAsteriskMark(graphics, pen, x, y, half);
+                }
+            }
+        }
+
+        private void ClearCenterHintMarks()
+        {
+            _centerHintMarks.Clear();
+            _centerHintTool = _activeTool;
+        }
+
+        private void AppendVisibleCenterSnapPoints(List<SnapPoint> candidates)
+        {
+            if (_centerHintTool != _activeTool || !ShouldShowCenterHints())
+                return;
+
+            foreach (CenterHintMark mark in _centerHintMarks)
+                candidates.Add(new SnapPoint(SnapType.Center, mark.World, null));
+        }
+
+        // ── Geometric centre hint (*) ─────────────────────────────────────────
+
+        private void UpdateGeomCenterHint(Point screenPoint)
+        {
+            if (TryFindGeomCenterHint(screenPoint, out PointD center, out Guid shapeId))
+            {
+                AddCenterHintMark(center, CenterHintKind.Geometric, shapeId);
+            }
+        }
+
+        private bool TryFindGeomCenterHint(Point screenPoint, out PointD center, out Guid shapeId)
+        {
+            center = default;
+            shapeId = Guid.Empty;
+            PointD mouseWorld = _engine.ScreenToWorld(screenPoint);
+            double bestDistPx = CurveCenterHintQueryPixels;
+            bool found = false;
+
+            Rectangle screenQuery = new(
+                screenPoint.X - CurveCenterHintQueryPixels,
+                screenPoint.Y - CurveCenterHintQueryPixels,
+                CurveCenterHintQueryPixels * 2,
+                CurveCenterHintQueryPixels * 2);
+            RectangleD worldQuery = CreateWorldRectangle(screenQuery);
+
+            foreach (CanvasFeature feature in _renderer.QueryVectorFeatures(worldQuery)
+                         .Where(IsCenterHintFeature)
+                         .Where(f => ShapeIntersectsWorldQuery(f.Shape, worldQuery)))
+            {
+                if (!TryGetShapeGeomCenter(feature.Shape, out PointD shapeCenter))
+                    continue;
+                if (!TryGetShapeOutlineDistancePx(feature.Shape, mouseWorld, out double distPx))
+                    continue;
+                if (distPx < bestDistPx)
+                {
+                    bestDistPx = distPx;
+                    center = shapeCenter;
+                    shapeId = feature.Shape.Id;
+                    found = true;
+                }
+            }
+            return found;
+        }
+
+        private static bool TryGetShapeGeomCenter(IShape shape, out PointD center)
+        {
+            center = default;
+            switch (shape)
+            {
+                case CircleShape:
+                case ArcShape:
+                    return false; // handled by curve center hint (+)
+
+                case LineShape line:
+                    center = new PointD(
+                        (line.Start.X + line.End.X) / 2.0,
+                        (line.Start.Y + line.End.Y) / 2.0);
+                    return true;
+
+                case RectangleShape rect:
+                    center = new PointD(
+                        (rect.Start.X + rect.End.X) / 2.0,
+                        (rect.Start.Y + rect.End.Y) / 2.0);
+                    return true;
+
+                case EllipseShape ellipse:
+                    center = new PointD(
+                        (ellipse.Start.X + ellipse.End.X) / 2.0,
+                        (ellipse.Start.Y + ellipse.End.Y) / 2.0);
+                    return true;
+
+                case PolylineShape polyline when polyline.Vertices.Count >= 2:
+                    center = ComputePolylineGeomCenter(polyline);
+                    return true;
+
+                case DonutPolygonShape donut when donut.ExteriorRing.Count >= 3:
+                    center = ComputePolygonCentroid(donut.ExteriorRing);
+                    return true;
+
+                default:
+                    return false;
+            }
+        }
+
+        private bool TryGetShapeOutlineDistancePx(IShape shape, PointD mouseWorld, out double distPx)
+        {
+            distPx = double.MaxValue;
+            switch (shape)
+            {
+                case LineShape line:
+                    distPx = SegmentDistancePx(mouseWorld, line.Start, line.End);
+                    return true;
+
+                case RectangleShape rect:
+                {
+                    double x0 = Math.Min(rect.Start.X, rect.End.X), x1 = Math.Max(rect.Start.X, rect.End.X);
+                    double y0 = Math.Min(rect.Start.Y, rect.End.Y), y1 = Math.Max(rect.Start.Y, rect.End.Y);
+                    distPx = Math.Min(
+                        Math.Min(SegmentDistancePx(mouseWorld, new PointD(x0, y0), new PointD(x1, y0)),
+                                 SegmentDistancePx(mouseWorld, new PointD(x1, y0), new PointD(x1, y1))),
+                        Math.Min(SegmentDistancePx(mouseWorld, new PointD(x1, y1), new PointD(x0, y1)),
+                                 SegmentDistancePx(mouseWorld, new PointD(x0, y1), new PointD(x0, y0))));
+                    return true;
+                }
+
+                case EllipseShape ellipse:
+                {
+                    double cx = (ellipse.Start.X + ellipse.End.X) / 2.0;
+                    double cy = (ellipse.Start.Y + ellipse.End.Y) / 2.0;
+                    double rx = Math.Abs(ellipse.End.X - ellipse.Start.X) / 2.0;
+                    double ry = Math.Abs(ellipse.End.Y - ellipse.Start.Y) / 2.0;
+                    double rAvg = (rx + ry) / 2.0;
+                    double ddx = mouseWorld.X - cx, ddy = mouseWorld.Y - cy;
+                    double dist = Math.Sqrt(ddx * ddx + ddy * ddy);
+                    distPx = Math.Abs(dist - rAvg) * _engine.ZoomScale;
+                    return double.IsFinite(distPx);
+                }
+
+                case PolylineShape polyline when polyline.Vertices.Count >= 2:
+                {
+                    IReadOnlyList<PointD> v = polyline.Vertices;
+                    int n = v.Count;
+                    double best = double.MaxValue;
+                    for (int i = 0; i < n - 1; i++)
+                        best = Math.Min(best, SegmentDistancePx(mouseWorld, v[i], v[i + 1]));
+                    if (polyline.IsClosed && n > 2)
+                        best = Math.Min(best, SegmentDistancePx(mouseWorld, v[n - 1], v[0]));
+                    distPx = best;
+                    return true;
+                }
+
+                case DonutPolygonShape donut when donut.ExteriorRing.Count >= 2:
+                {
+                    List<PointD> ring = donut.ExteriorRing;
+                    int n = ring.Count;
+                    double best = double.MaxValue;
+                    for (int i = 0; i < n - 1; i++)
+                        best = Math.Min(best, SegmentDistancePx(mouseWorld, ring[i], ring[i + 1]));
+                    if (n > 2)
+                        best = Math.Min(best, SegmentDistancePx(mouseWorld, ring[n - 1], ring[0]));
+                    distPx = best;
+                    return true;
+                }
+
+                default:
+                    return false;
+            }
+        }
+
+        private double SegmentDistancePx(PointD pt, PointD a, PointD b)
+        {
+            double dx = b.X - a.X, dy = b.Y - a.Y;
+            double lenSq = dx * dx + dy * dy;
+            double worldDist;
+            if (lenSq < 1e-20)
+            {
+                double ex = pt.X - a.X, ey = pt.Y - a.Y;
+                worldDist = Math.Sqrt(ex * ex + ey * ey);
+            }
+            else
+            {
+                double t = Math.Clamp(((pt.X - a.X) * dx + (pt.Y - a.Y) * dy) / lenSq, 0.0, 1.0);
+                double px = a.X + t * dx - pt.X, py = a.Y + t * dy - pt.Y;
+                worldDist = Math.Sqrt(px * px + py * py);
+            }
+            return worldDist * _engine.ZoomScale;
+        }
+
+        private static PointD ComputePolylineGeomCenter(PolylineShape polyline)
+        {
+            IReadOnlyList<PointD> v = polyline.Vertices;
+            if (polyline.IsClosed && v.Count >= 3)
+                return ComputePolygonCentroid(v);
+            double x = 0, y = 0;
+            foreach (PointD p in v) { x += p.X; y += p.Y; }
+            return new PointD(x / v.Count, y / v.Count);
+        }
+
+        private static PointD ComputePolygonCentroid(IReadOnlyList<PointD> vertices)
+        {
+            double area = 0, cx = 0, cy = 0;
+            int n = vertices.Count;
+            for (int i = 0; i < n; i++)
+            {
+                PointD a = vertices[i], b = vertices[(i + 1) % n];
+                double cross = a.X * b.Y - b.X * a.Y;
+                area += cross;
+                cx += (a.X + b.X) * cross;
+                cy += (a.Y + b.Y) * cross;
+            }
+            area /= 2.0;
+            if (Math.Abs(area) < 1e-12)
+            {
+                double x = 0, y = 0;
+                foreach (PointD p in vertices) { x += p.X; y += p.Y; }
+                return new PointD(x / n, y / n);
+            }
+            return new PointD(cx / (6.0 * area), cy / (6.0 * area));
+        }
+
+        private static void DrawAsteriskMark(Graphics graphics, Pen pen, float cx, float cy, float half)
+        {
+            // 3 lines at 0°, 60°, 120° through centre — standard 6-point asterisk
+            const float cos60 = 0.5f;
+            const float sin60 = 0.8660254f;
+            graphics.DrawLine(pen, cx - half, cy, cx + half, cy);
+            graphics.DrawLine(pen, cx - half * cos60, cy - half * sin60, cx + half * cos60, cy + half * sin60);
+            graphics.DrawLine(pen, cx + half * cos60, cy - half * sin60, cx - half * cos60, cy + half * sin60);
         }
 
         private void DrawCircleDiameterPreview(Graphics graphics)
@@ -7447,6 +8223,7 @@ namespace Land_Readjustment_Tool.UI.CustomControls
                 return;
 
             _activeMoveOperation = new MoveOperation { Items = items };
+            ClearCenterHintMarks();
             canvasSurface.Focus();
             UpdateStatusBar();
             RequestRender();
@@ -7470,6 +8247,7 @@ namespace Land_Readjustment_Tool.UI.CustomControls
             // Like "Move object(s)", ask for the reference (base) and destination
             // points instead of copying from the geometric center.
             _activeMoveOperation = new MoveOperation { Items = items, IsCopy = true };
+            ClearCenterHintMarks();
             canvasSurface.Focus();
             UpdateStatusBar();
             RequestRender();
@@ -7525,6 +8303,7 @@ namespace Land_Readjustment_Tool.UI.CustomControls
                 Items = items,
                 IsCopy = true
             };
+            ClearCenterHintMarks();
             canvasSurface.Focus();
             BeginMoveOperationDestinationPhase(_copiedShapeReferenceWorld);
             _currentMouseWorld = GetPastePreviewStartWorld();
@@ -7650,33 +8429,129 @@ namespace Land_Readjustment_Tool.UI.CustomControls
             if (canvasSize.Width <= 0 || canvasSize.Height <= 0)
                 return;
 
-            Bitmap bmp = new(canvasSize.Width, canvasSize.Height, PixelFormat.Format32bppPArgb);
+            if (!TryCreateMovePreviewCaptureRectangle(out Rectangle captureRectangle))
+                return;
+
+            Bitmap? bmp = null;
             try
             {
+                bmp = new Bitmap(
+                    captureRectangle.Width,
+                    captureRectangle.Height,
+                    PixelFormat.Format32bppPArgb);
                 using Graphics g = Graphics.FromImage(bmp);
                 g.Clear(Color.Transparent);
-                foreach (MoveItem item in _activeMoveOperation.Items)
-                {
-                    // Render the unselected original-position clone so the move
-                    // preview shows the shape's normal color/line weight (no
-                    // selection glow) while it is being dragged.
-                    _renderer.RenderTransientShape(
-                        g,
-                        item.OriginalShape,
-                        GetMoveItemLayer(item),
-                        item.CanvasObject);
-                }
+
+                MapCanvasEngine previewEngine = _engine.CreateSnapshot();
+                previewEngine.UpdateCanvasSize(captureRectangle.Size);
+                previewEngine.PanByScreenDelta(
+                    -captureRectangle.Left,
+                    canvasSize.Height - captureRectangle.Top - captureRectangle.Height);
+
+                // Render the unselected original-position clones so the move
+                // preview shows each shape's normal color/line weight (no
+                // selection glow) while it is being dragged.
+                _renderer.RenderTransientShapes(
+                    g,
+                    previewEngine,
+                    _activeMoveOperation.Items
+                        .Select(item => (item.OriginalShape, GetMoveItemLayer(item), item.CanvasObject))
+                        .ToList(),
+                    forceUnselected: true);
             }
             catch
             {
-                bmp.Dispose();
+                bmp?.Dispose();
                 return;
             }
 
             _movePreviewBitmap = bmp;
             _movePreviewBitmapScale = _engine.ZoomScale;
             PointD refScreen = _engine.WorldToScreen(_activeMoveOperation.ReferenceWorld);
-            _movePreviewBitmapReferenceScreen = new PointF((float)refScreen.X, (float)refScreen.Y);
+            _movePreviewBitmapReferenceScreen = new PointF(
+                (float)(refScreen.X - captureRectangle.Left),
+                (float)(refScreen.Y - captureRectangle.Top));
+        }
+
+        private bool TryCreateMovePreviewCaptureRectangle(out Rectangle captureRectangle)
+        {
+            captureRectangle = Rectangle.Empty;
+            if (_activeMoveOperation == null ||
+                _activeMoveOperation.Items.Count == 0)
+            {
+                return false;
+            }
+
+            const int paddingPixels = 48;
+            bool hasBounds = false;
+            double left = 0;
+            double top = 0;
+            double right = 0;
+            double bottom = 0;
+
+            foreach (MoveItem item in _activeMoveOperation.Items)
+            {
+                RectangleD worldBounds = item.OriginalShape.GetBoundingBox();
+                if (!IsUsableBounds(worldBounds))
+                    continue;
+
+                PointD topLeft = _engine.WorldToScreen(new PointD(worldBounds.Left, worldBounds.Top));
+                PointD topRight = _engine.WorldToScreen(new PointD(worldBounds.Right, worldBounds.Top));
+                PointD bottomLeft = _engine.WorldToScreen(new PointD(worldBounds.Left, worldBounds.Bottom));
+                PointD bottomRight = _engine.WorldToScreen(new PointD(worldBounds.Right, worldBounds.Bottom));
+
+                double shapeLeft = Math.Min(Math.Min(topLeft.X, topRight.X), Math.Min(bottomLeft.X, bottomRight.X));
+                double shapeRight = Math.Max(Math.Max(topLeft.X, topRight.X), Math.Max(bottomLeft.X, bottomRight.X));
+                double shapeTop = Math.Min(Math.Min(topLeft.Y, topRight.Y), Math.Min(bottomLeft.Y, bottomRight.Y));
+                double shapeBottom = Math.Max(Math.Max(topLeft.Y, topRight.Y), Math.Max(bottomLeft.Y, bottomRight.Y));
+
+                if (!IsFiniteRectangle(shapeLeft, shapeTop, shapeRight, shapeBottom))
+                    continue;
+
+                if (!hasBounds)
+                {
+                    left = shapeLeft;
+                    top = shapeTop;
+                    right = shapeRight;
+                    bottom = shapeBottom;
+                    hasBounds = true;
+                    continue;
+                }
+
+                left = Math.Min(left, shapeLeft);
+                top = Math.Min(top, shapeTop);
+                right = Math.Max(right, shapeRight);
+                bottom = Math.Max(bottom, shapeBottom);
+            }
+
+            if (!hasBounds)
+                return false;
+
+            int x = (int)Math.Floor(left) - paddingPixels;
+            int y = (int)Math.Floor(top) - paddingPixels;
+            int width = Math.Max(1, (int)Math.Ceiling(right) - x + paddingPixels);
+            int height = Math.Max(1, (int)Math.Ceiling(bottom) - y + paddingPixels);
+
+            captureRectangle = new Rectangle(x, y, width, height);
+            return true;
+        }
+
+        private static bool IsUsableBounds(RectangleD bounds)
+        {
+            return bounds.Width >= 0.0 &&
+                   bounds.Height >= 0.0 &&
+                   double.IsFinite(bounds.Left) &&
+                   double.IsFinite(bounds.Right) &&
+                   double.IsFinite(bounds.Top) &&
+                   double.IsFinite(bounds.Bottom);
+        }
+
+        private static bool IsFiniteRectangle(double left, double top, double right, double bottom)
+        {
+            return double.IsFinite(left) &&
+                   double.IsFinite(top) &&
+                   double.IsFinite(right) &&
+                   double.IsFinite(bottom);
         }
 
         private void DisposeMovePreviewBitmap()
@@ -9382,7 +10257,7 @@ namespace Land_Readjustment_Tool.UI.CustomControls
 
         private void EnsureVectorPanSnapshot()
         {
-            if (_renderer.BeginVectorPan(canvasSurface.Size))
+            if (_renderer.BeginVectorPan(canvasSurface.Size, DrawSelectedNavigationSnapshotOverlay))
             {
                 return;
             }
@@ -9437,6 +10312,8 @@ namespace Land_Readjustment_Tool.UI.CustomControls
                     suppressGridLabels: true,
                     suppressFixedReferenceLayers: true,
                     suppressBackgroundClear: true);
+
+                DrawSelectedNavigationSnapshotOverlay(g);
 
                 rasterFrame?.Dispose();
                 vectorFrame?.Dispose();
@@ -9513,7 +10390,7 @@ namespace Land_Readjustment_Tool.UI.CustomControls
 
         private void EnsureVectorZoomSnapshot()
         {
-            if (_renderer.BeginVectorZoom(canvasSurface.Size))
+            if (_renderer.BeginVectorZoom(canvasSurface.Size, DrawSelectedNavigationSnapshotOverlay))
             {
                 return;
             }
@@ -9527,7 +10404,7 @@ namespace Land_Readjustment_Tool.UI.CustomControls
             {
                 if (_renderer.RefreshVectorCache(canvasSurface.Size))
                 {
-                    _renderer.BeginVectorZoom(canvasSurface.Size);
+                    _renderer.BeginVectorZoom(canvasSurface.Size, DrawSelectedNavigationSnapshotOverlay);
                 }
             }
             catch (Exception ex)

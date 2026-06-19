@@ -10,6 +10,8 @@ namespace Land_Pooling_Policy_Manager.UI.Forms
         private readonly bool _valueOnlyEditMode;
         private bool _readOnlyMode;
         private PolicyWindowLayout? _lastWindowLayout;
+
+        public bool ValueOnlyEditMode => _valueOnlyEditMode;
         private int _layoutSizeIndex;
 
         public frmPolicyManagerMdiHost(

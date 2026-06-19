@@ -33,7 +33,7 @@ namespace Land_Readjustment_Tool.UI.MapCanvas.Services
             new(BlockLayoutGroupKey, "Block Layout Plan"),
             new(RoadsGroupKey, "Roads"),
             new(ReplottedParcelsGroupKey, "Replotted Parcels"),
-            new(DrawingMarkupGroupKey, "Drawing/Mark Up Layers"),
+            new(DrawingMarkupGroupKey, "Drafting/Markup Layers"),
             new(ExternalGroupKey, "Other External Layers"),
             new(RasterGroupKey, "Raster Layers")
         ];
@@ -41,7 +41,7 @@ namespace Land_Readjustment_Tool.UI.MapCanvas.Services
         private static readonly IReadOnlyList<DefaultLayerDefinition> DefaultLayers =
         [
             // Colours follow the ArcMap-style palette used elsewhere in the app.
-            new(OriginalDataGroupKey, "Project Boundary", "ProjectBoundary", "#FF0000", null, 0, 2.0, "Solid", "Boundary"),
+            new(OriginalDataGroupKey, "Project Boundary", "ProjectBoundary", "#FF0000", null, 0, 2.0, "DashDoubleDot", "Boundary"),
             new(OriginalDataGroupKey, "Building Footprint", "BuildingFootprint", "#6B7280", "#C7D2FE", 40, 1.2, "Solid", null),
             new(BlockLayoutGroupKey, "Blocks", "Block", "#D99A5A", "#F6C766", 35, 1.5, "Solid", null),
             new(RoadsGroupKey, "Road Parcel", "RoadParcel", "#D99A5A", "#F6C766", 20, 1.5, "Solid", "Proposed Roads"),
@@ -263,7 +263,9 @@ namespace Land_Readjustment_Tool.UI.MapCanvas.Services
                 changed = true;
             }
 
-            if (string.IsNullOrWhiteSpace(layer.LineStyle))
+            if (string.IsNullOrWhiteSpace(layer.LineStyle) ||
+                (IsProjectBoundaryLayer(layer) &&
+                 string.Equals(layer.LineStyle, "Solid", StringComparison.OrdinalIgnoreCase)))
             {
                 layer.LineStyle = definition.LineStyle;
                 changed = true;

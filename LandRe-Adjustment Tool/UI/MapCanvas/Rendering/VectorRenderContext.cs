@@ -60,6 +60,13 @@ namespace Land_Readjustment_Tool.UI.MapCanvas.Rendering
             float lineTypeScale) =>
             _penCache.Get(color, width, dashStyle, lineTypeScale);
 
+        public Pen GetPen(
+            Color color,
+            float width,
+            string? lineStyle,
+            float lineTypeScale) =>
+            _penCache.Get(color, width, lineStyle, lineTypeScale);
+
         public SolidBrush GetSolidBrush(Color color) =>
             _brushCache.GetSolid(color);
 

@@ -43,7 +43,7 @@ namespace Land_Readjustment_Tool.Core.Entities.Canvas
         // In pixels
 
         public string LineStyle { get; set; } = "Solid";
-        // "Solid", "Dashed", "Dotted", "Centerline", "DashDot"
+        // "Solid", "Dashed", "Dotted", "Centerline", "DashDot", "DashDoubleDot"
 
         public double LineTypeScale { get; set; } = 1.0;
         // AutoCAD-style linetype pattern scale.

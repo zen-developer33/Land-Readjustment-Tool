@@ -12,9 +12,19 @@ namespace Land_Readjustment_Tool.UI.MapCanvas.Rendering
             DashStyle dashStyle = DashStyle.Solid,
             float lineTypeScale = 1.0f)
         {
+            return Get(color, width, NormalizeDashStyle(dashStyle), lineTypeScale);
+        }
+
+        public Pen Get(
+            Color color,
+            float width,
+            string? lineStyle,
+            float lineTypeScale = 1.0f)
+        {
             width = Math.Max(0.1f, width);
             lineTypeScale = Math.Clamp(lineTypeScale, 0.1f, 100.0f);
-            PenKey key = new(color.ToArgb(), width, dashStyle, lineTypeScale);
+            string lineStyleKey = NormalizeLineStyleKey(lineStyle);
+            PenKey key = new(color.ToArgb(), width, lineStyleKey, lineTypeScale);
             if (_pens.TryGetValue(key, out Pen? pen))
             {
                 return pen;
@@ -26,33 +36,38 @@ namespace Land_Readjustment_Tool.UI.MapCanvas.Rendering
                 EndCap = LineCap.Round,
                 LineJoin = LineJoin.Round
             };
-            ApplyDashStyle(pen, dashStyle, lineTypeScale);
+            ApplyLineStyle(pen, lineStyleKey, lineTypeScale);
             _pens[key] = pen;
             return pen;
         }
 
-        private static void ApplyDashStyle(Pen pen, DashStyle dashStyle, float scale)
+        private static void ApplyLineStyle(Pen pen, string lineStyleKey, float scale)
         {
-            switch (dashStyle)
+            switch (lineStyleKey)
             {
-                case DashStyle.Dash:
+                case "DASHED":
                     pen.DashStyle = DashStyle.Custom;
                     pen.DashCap = DashCap.Flat;
                     pen.DashPattern = [4f * scale, 2f * scale];
                     break;
-                case DashStyle.Dot:
+                case "DOTTED":
                     pen.DashStyle = DashStyle.Custom;
                     pen.DashCap = DashCap.Round;
                     pen.StartCap = LineCap.Round;
                     pen.EndCap = LineCap.Round;
                     pen.DashPattern = [0.1f, Math.Max(1.5f, 2f * scale)];
                     break;
-                case DashStyle.DashDot:
+                case "DASHDOT":
                     pen.DashStyle = DashStyle.Custom;
                     pen.DashCap = DashCap.Flat;
                     pen.DashPattern = [4f * scale, 2f * scale, 1f * scale, 2f * scale];
                     break;
-                case DashStyle.DashDotDot:
+                case "DASHDOUBLEDOT":
+                    pen.DashStyle = DashStyle.Custom;
+                    pen.DashCap = DashCap.Flat;
+                    pen.DashPattern = [4f * scale, 2f * scale, 1f * scale, 2f * scale, 1f * scale, 2f * scale];
+                    break;
+                case "CENTERLINE":
                     pen.DashStyle = DashStyle.Custom;
                     pen.DashCap = DashCap.Flat;
                     pen.DashPattern = [8f * scale, 3f * scale, 2f * scale, 3f * scale];
@@ -61,6 +76,36 @@ namespace Land_Readjustment_Tool.UI.MapCanvas.Rendering
                     pen.DashStyle = DashStyle.Solid;
                     break;
             }
+        }
+
+        private static string NormalizeDashStyle(DashStyle dashStyle)
+        {
+            return dashStyle switch
+            {
+                DashStyle.Dash => "DASHED",
+                DashStyle.Dot => "DOTTED",
+                DashStyle.DashDot => "DASHDOT",
+                DashStyle.DashDotDot => "DASHDOUBLEDOT",
+                _ => "SOLID"
+            };
+        }
+
+        private static string NormalizeLineStyleKey(string? lineStyle)
+        {
+            string normalized = (lineStyle ?? string.Empty)
+                .Replace("-", string.Empty, StringComparison.Ordinal)
+                .Replace("_", string.Empty, StringComparison.Ordinal)
+                .Replace(" ", string.Empty, StringComparison.Ordinal)
+                .Trim()
+                .ToUpperInvariant();
+
+            return normalized switch
+            {
+                "DASH" => "DASHED",
+                "DOT" => "DOTTED",
+                "DASHDOTDOT" => "DASHDOUBLEDOT",
+                _ => normalized
+            };
         }
 
         public void Dispose()
@@ -74,7 +119,7 @@ namespace Land_Readjustment_Tool.UI.MapCanvas.Rendering
         private readonly record struct PenKey(
             int ColorArgb,
             float Width,
-            DashStyle DashStyle,
+            string LineStyleKey,
             float LineTypeScale);
     }
 }

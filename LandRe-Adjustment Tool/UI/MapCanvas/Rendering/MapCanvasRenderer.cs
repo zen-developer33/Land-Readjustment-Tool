@@ -250,6 +250,21 @@ namespace Land_Readjustment_Tool.UI.MapCanvas.Rendering
             _vectorRenderer.RenderTransientShapes(graphics, _engine, shapes, forceUnselected);
         }
 
+        public void RenderTransientShapes(
+            Graphics graphics,
+            MapCanvasEngine engine,
+            IReadOnlyList<(IShape Shape, CanvasLayer? Layer, CanvasObject? CanvasObject)> shapes,
+            bool forceUnselected = false)
+        {
+            if (shapes == null || shapes.Count == 0)
+            {
+                return;
+            }
+
+            ConfigureVectorGraphics(graphics);
+            _vectorRenderer.RenderTransientShapes(graphics, engine, shapes, forceUnselected);
+        }
+
         public void InvalidateVectorCache()
         {
             _vectorDeferredRenderer.Invalidate();
@@ -308,14 +323,14 @@ namespace Land_Readjustment_Tool.UI.MapCanvas.Rendering
                 cancellationToken);
         }
 
-        public bool BeginVectorPan(Size canvasSize)
+        public bool BeginVectorPan(Size canvasSize, Action<Graphics>? renderOverlay = null)
         {
-            return _vectorDeferredRenderer.BeginPan(canvasSize);
+            return _vectorDeferredRenderer.BeginPan(canvasSize, renderOverlay);
         }
 
-        public bool BeginVectorZoom(Size canvasSize)
+        public bool BeginVectorZoom(Size canvasSize, Action<Graphics>? renderOverlay = null)
         {
-            return _vectorDeferredRenderer.BeginZoom(canvasSize, _engine);
+            return _vectorDeferredRenderer.BeginZoom(canvasSize, _engine, renderOverlay);
         }
 
         public void EndVectorZoom()
@@ -888,7 +903,12 @@ namespace Land_Readjustment_Tool.UI.MapCanvas.Rendering
             {
                 graphics.SmoothingMode = SmoothingMode.AntiAlias;
                 graphics.InterpolationMode = InterpolationMode.HighQualityBicubic;
-                graphics.PixelOffsetMode = PixelOffsetMode.HighQuality;
+                // Vector coordinates are integer-snapped in ToScreenPointF, so the
+                // aliased path (PixelOffsetMode.None) sits exactly on pixel
+                // boundaries. Using Half/HighQuality here would offset sampling by
+                // half a pixel and make shapes jump north-west when AA is toggled.
+                // Keep None so geometry stays put regardless of AA state.
+                graphics.PixelOffsetMode = PixelOffsetMode.None;
                 graphics.CompositingQuality = CompositingQuality.HighQuality;
                 graphics.TextRenderingHint = TextRenderingHint.ClearTypeGridFit;
                 return;

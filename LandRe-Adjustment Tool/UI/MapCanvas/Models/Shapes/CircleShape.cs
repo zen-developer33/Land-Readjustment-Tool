@@ -147,9 +147,6 @@ namespace Land_Readjustment_Tool.UI.MapCanvas.Models.Shapes
 
         public override IEnumerable<SnapPoint> GetSnapPoints()
         {
-            // Center
-            yield return new SnapPoint(SnapType.Center, Center, this);
-
             // Quadrant points (0°, 90°, 180°, 270°)
             double radius = GetRadius();
             double[] angles = { 0, Math.PI / 2, Math.PI, 3 * Math.PI / 2 };

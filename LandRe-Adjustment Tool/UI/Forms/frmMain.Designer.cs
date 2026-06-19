@@ -38,7 +38,7 @@ namespace Land_Readjustment_Tool
             TreeNode treeNode3 = new TreeNode("Block Layout Plan", new TreeNode[] { treeNode2 });
             TreeNode treeNode4 = new TreeNode("Replotted Parcels");
             TreeNode treeNode5 = new TreeNode("RePlot", new TreeNode[] { treeNode1, treeNode3, treeNode4 });
-            TreeNode treeNode6 = new TreeNode("Drawing/Mark Up Layers");
+            TreeNode treeNode6 = new TreeNode("Drafting/Markup Layers");
             TreeNode treeNode7 = new TreeNode("Other External Layers");
             TreeNode treeNode8 = new TreeNode("Raster Layers");
             DataGridViewCellStyle dataGridViewCellStyle1 = new DataGridViewCellStyle();
@@ -657,18 +657,18 @@ namespace Land_Readjustment_Tool
             // roadDataToolStripMenuItem
             // 
             roadDataToolStripMenuItem.Name = "roadDataToolStripMenuItem";
-            roadDataToolStripMenuItem.Size = new Size(212, 26);
+            roadDataToolStripMenuItem.Size = new Size(224, 26);
             roadDataToolStripMenuItem.Text = "Define Road Data";
             // 
             // toolStripSeparator20
             // 
             toolStripSeparator20.Name = "toolStripSeparator20";
-            toolStripSeparator20.Size = new Size(209, 6);
+            toolStripSeparator20.Size = new Size(221, 6);
             // 
             // blockDataToolStripMenuItem
             // 
             blockDataToolStripMenuItem.Name = "blockDataToolStripMenuItem";
-            blockDataToolStripMenuItem.Size = new Size(212, 26);
+            blockDataToolStripMenuItem.Size = new Size(224, 26);
             blockDataToolStripMenuItem.Text = "Define Block Data";
             // 
             // assignmentToolStripMenuItem
@@ -681,43 +681,43 @@ namespace Land_Readjustment_Tool
             // projectBoundaryAssignmentToolStripMenuItem
             // 
             projectBoundaryAssignmentToolStripMenuItem.Name = "projectBoundaryAssignmentToolStripMenuItem";
-            projectBoundaryAssignmentToolStripMenuItem.Size = new Size(257, 26);
-            projectBoundaryAssignmentToolStripMenuItem.Text = "Project Boundary";
+            projectBoundaryAssignmentToolStripMenuItem.Size = new Size(295, 26);
+            projectBoundaryAssignmentToolStripMenuItem.Text = "Assign Project Boundary";
             // 
             // toolStripSeparator21
             // 
             toolStripSeparator21.Name = "toolStripSeparator21";
-            toolStripSeparator21.Size = new Size(254, 6);
+            toolStripSeparator21.Size = new Size(292, 6);
             // 
             // cadastralRecordsAssignmentToolStripMenuItem
             // 
             cadastralRecordsAssignmentToolStripMenuItem.Name = "cadastralRecordsAssignmentToolStripMenuItem";
-            cadastralRecordsAssignmentToolStripMenuItem.Size = new Size(257, 26);
-            cadastralRecordsAssignmentToolStripMenuItem.Text = "Cadastral Records";
+            cadastralRecordsAssignmentToolStripMenuItem.Size = new Size(295, 26);
+            cadastralRecordsAssignmentToolStripMenuItem.Text = "Assign Cadastral Records";
             cadastralRecordsAssignmentToolStripMenuItem.Click += CadastralRecordsAssignmentToolStripMenuItem_Click;
             // 
             // buildingInventoryDataToolStripMenuItem
             // 
             buildingInventoryDataToolStripMenuItem.Name = "buildingInventoryDataToolStripMenuItem";
-            buildingInventoryDataToolStripMenuItem.Size = new Size(257, 26);
-            buildingInventoryDataToolStripMenuItem.Text = "Building Inventory Data";
+            buildingInventoryDataToolStripMenuItem.Size = new Size(295, 26);
+            buildingInventoryDataToolStripMenuItem.Text = "Assign Building Inventory Data";
             // 
             // toolStripSeparator22
             // 
             toolStripSeparator22.Name = "toolStripSeparator22";
-            toolStripSeparator22.Size = new Size(254, 6);
+            toolStripSeparator22.Size = new Size(292, 6);
             // 
             // toolStripMenuItem2
             // 
             toolStripMenuItem2.Name = "toolStripMenuItem2";
-            toolStripMenuItem2.Size = new Size(257, 26);
-            toolStripMenuItem2.Text = "Existing/Proposed Roads";
+            toolStripMenuItem2.Size = new Size(295, 26);
+            toolStripMenuItem2.Text = "Assign Roads";
             // 
             // toolStripMenuItem1
             // 
             toolStripMenuItem1.Name = "toolStripMenuItem1";
-            toolStripMenuItem1.Size = new Size(257, 26);
-            toolStripMenuItem1.Text = "Proposed Blocks";
+            toolStripMenuItem1.Size = new Size(295, 26);
+            toolStripMenuItem1.Text = "Assign Proposed Blocks";
             // 
             // toolStripSeparator26
             // 
@@ -1323,19 +1323,21 @@ namespace Land_Readjustment_Tool
             // 
             // ownerParcelReportToolStripMenuItem
             // 
-            ownerParcelReportToolStripMenuItem.Enabled = false;
+            ownerParcelReportToolStripMenuItem.Image = Properties.Resources.icons8_database_export_50;
             ownerParcelReportToolStripMenuItem.Name = "ownerParcelReportToolStripMenuItem";
             ownerParcelReportToolStripMenuItem.Size = new Size(291, 26);
             ownerParcelReportToolStripMenuItem.Text = "Owner Register";
-            ownerParcelReportToolStripMenuItem.Click += PlannedFeatureToolStripMenuItem_Click;
+            ownerParcelReportToolStripMenuItem.ToolTipText = "Open the read-only master owner register.";
+            ownerParcelReportToolStripMenuItem.Click += OwnerRegisterToolStripMenuItem_Click;
             // 
             // originalParcelRegisterToolStripMenuItem
             // 
-            originalParcelRegisterToolStripMenuItem.Enabled = false;
+            originalParcelRegisterToolStripMenuItem.Image = Properties.Resources.icons8_file_50;
             originalParcelRegisterToolStripMenuItem.Name = "originalParcelRegisterToolStripMenuItem";
             originalParcelRegisterToolStripMenuItem.Size = new Size(291, 26);
             originalParcelRegisterToolStripMenuItem.Text = "Original Parcel Register";
-            originalParcelRegisterToolStripMenuItem.Click += PlannedFeatureToolStripMenuItem_Click;
+            originalParcelRegisterToolStripMenuItem.ToolTipText = "Open the read-only original parcel register.";
+            originalParcelRegisterToolStripMenuItem.Click += OriginalParcelRegisterToolStripMenuItem_Click;
             // 
             // contributionSummaryReportToolStripMenuItem
             // 
@@ -1631,7 +1633,7 @@ namespace Land_Readjustment_Tool
             treeNode5.Name = "LayerGroup_RePlotRoot";
             treeNode5.Text = "RePlot";
             treeNode6.Name = "LayerGroup_DrawingMarkupLayers";
-            treeNode6.Text = "Drawing/Mark Up Layers";
+            treeNode6.Text = "Drafting/Markup Layers";
             treeNode7.Name = "LayerGroup_OtherExternalLayers";
             treeNode7.Text = "Other External Layers";
             treeNode8.Name = "LayerGroup_RasterLayer";
@@ -1761,7 +1763,7 @@ namespace Land_Readjustment_Tool
             cboLineStyle.Anchor = AnchorStyles.Top | AnchorStyles.Left | AnchorStyles.Right;
             cboLineStyle.DropDownStyle = ComboBoxStyle.DropDownList;
             cboLineStyle.Font = new Font("Segoe UI", 9F);
-            cboLineStyle.Items.AddRange(new object[] { "Solid", "Dashed", "Dotted", "DashDot" });
+            cboLineStyle.Items.AddRange(new object[] { "Solid", "Dashed", "Dotted", "DashDot", "DashDoubleDot" });
             cboLineStyle.Location = new Point(127, 123);
             cboLineStyle.Name = "cboLineStyle";
             cboLineStyle.Size = new Size(29, 28);
