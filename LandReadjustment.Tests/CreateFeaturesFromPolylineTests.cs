@@ -163,6 +163,39 @@ public sealed class CreateFeaturesFromPolylineTests
     }
 
     [Fact]
+    public void GeometryShapeMapper_ExactlyClosesSampledCurvedPolygon()
+    {
+        PointD start = new(0, 0);
+        PointD end = new(10, 0);
+        ArcShape arc = new(
+            new PointD(5, 0),
+            5,
+            0,
+            Math.PI);
+        PolylineShape shape = new(
+            [start, end],
+            [
+                new PolylineShape.PolylineSegment(
+                    PolylineShape.PolylineSegmentKind.Line,
+                    start,
+                    end),
+                new PolylineShape.PolylineSegment(
+                    PolylineShape.PolylineSegmentKind.Arc,
+                    end,
+                    start,
+                    arc)
+            ],
+            isClosed: true);
+
+        CanvasObject canvasObject = GeometryShapeMapper.ToCanvasObject(shape, layerId: 7);
+
+        Polygon polygon = Assert.IsType<Polygon>(canvasObject.Shape);
+        Coordinate first = polygon.ExteriorRing.GetCoordinateN(0);
+        Coordinate last = polygon.ExteriorRing.GetCoordinateN(polygon.ExteriorRing.NumPoints - 1);
+        Assert.True(first.Equals2D(last));
+    }
+
+    [Fact]
     public void BlockTarget_ReconstructsClosedShapeWhenSourceMetadataMarkedOpen()
     {
         // Reproduces the reported bug: a drawing polyline whose curve metadata still says

@@ -57,7 +57,23 @@ namespace Land_Readjustment_Tool.UI.MapCanvas.Services
 
             CanvasLayer layer = await ResolveTargetLayerAsync(shape, layerName, ct);
             CanvasObject? existing = await _canvasObjectRepository.GetByIdAsync(shape.Id, ct);
-            CanvasObject entity = GeometryShapeMapper.ToCanvasObject(shape, layer.Id, existing);
+            CanvasObject entity;
+            try
+            {
+                entity = GeometryShapeMapper.ToCanvasObject(shape, layer.Id, existing);
+            }
+            catch (Exception ex)
+            {
+                string shapeType = shape.GetType().Name;
+                string objectType = shape.Properties.TryGetValue("ObjectType", out object? value) &&
+                                    !string.IsNullOrWhiteSpace(value?.ToString())
+                    ? value.ToString()!
+                    : shapeType;
+                throw new InvalidOperationException(
+                    $"Could not prepare {objectType} ({shapeType}, {shape.Id}) on layer '{layer.Name}' for saving: {ex.Message}",
+                    ex);
+            }
+
             if (CanvasLayerTreeService.IsBlockLayoutLayer(layer))
             {
                 CanvasGeometryMetricsService.StoreBlockDepthFromGeometry(entity);

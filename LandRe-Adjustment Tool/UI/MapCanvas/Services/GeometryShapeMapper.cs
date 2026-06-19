@@ -168,7 +168,7 @@ namespace Land_Readjustment_Tool.UI.MapCanvas.Services
                         new Coordinate(line.Start.X, line.Start.Y),
                         new Coordinate(line.End.X, line.End.Y)
                     ]),
-                DonutPolygonShape donut => donut.ToGeometry(),
+                DonutPolygonShape donut => CreatePolygonFromDonut(donut),
                 PolylineShape polyline => CreateGeometryFromPolyline(polyline),
                 RectangleShape rectangle => CreatePolygonFromRectangle(rectangle),
                 CircleShape circle => CreatePolygonFromCircle(circle),
@@ -201,8 +201,7 @@ namespace Land_Readjustment_Tool.UI.MapCanvas.Services
 
                 if (polyline.IsClosed && sampledCoordinates.Count >= 3)
                 {
-                    CloseRing(sampledCoordinates);
-                    return GeometryFactory.CreatePolygon(sampledCoordinates.ToArray());
+                    return CreatePolygonFromRing(sampledCoordinates);
                 }
 
                 return GeometryFactory.CreateLineString(sampledCoordinates.ToArray());
@@ -214,8 +213,7 @@ namespace Land_Readjustment_Tool.UI.MapCanvas.Services
 
             if (polyline.IsClosed && coordinates.Count >= 3)
             {
-                CloseRing(coordinates);
-                return GeometryFactory.CreatePolygon(coordinates.ToArray());
+                return CreatePolygonFromRing(coordinates);
             }
 
             return GeometryFactory.CreateLineString(coordinates.ToArray());
@@ -233,7 +231,20 @@ namespace Land_Readjustment_Tool.UI.MapCanvas.Services
                 new Coordinate(bounds.Left, bounds.Top)
             ];
 
-            return GeometryFactory.CreatePolygon(ring.ToArray());
+            return CreatePolygonFromRing(ring);
+        }
+
+        private static Polygon CreatePolygonFromDonut(DonutPolygonShape donut)
+        {
+            LinearRing shell = GeometryFactory.CreateLinearRing(
+                NormalizeClosedRing(donut.ExteriorRing.Select(point => new Coordinate(point.X, point.Y))));
+            LinearRing[] holes = donut.InteriorRings
+                .Select(ring => NormalizeClosedRing(ring.Select(point => new Coordinate(point.X, point.Y))))
+                .Where(ring => ring.Length >= 4)
+                .Select(GeometryFactory.CreateLinearRing)
+                .ToArray();
+
+            return GeometryFactory.CreatePolygon(shell, holes);
         }
 
         private static Polygon CreatePolygonFromCircle(CircleShape circle)
@@ -271,7 +282,7 @@ namespace Land_Readjustment_Tool.UI.MapCanvas.Services
             }
 
             ring.Add(new Coordinate(ring[0].X, ring[0].Y));
-            return GeometryFactory.CreatePolygon(ring.ToArray());
+            return CreatePolygonFromRing(ring);
         }
 
         private static Polygon CreatePolygonFromBoundingBox(RectangleD bounds)
@@ -285,7 +296,7 @@ namespace Land_Readjustment_Tool.UI.MapCanvas.Services
                 new Coordinate(bounds.Left, bounds.Top)
             ];
 
-            return GeometryFactory.CreatePolygon(ring.ToArray());
+            return CreatePolygonFromRing(ring);
         }
 
         private static IShape CreateShapeFromGeometry(
@@ -468,10 +479,72 @@ namespace Land_Readjustment_Tool.UI.MapCanvas.Services
         {
             Coordinate first = coordinates[0];
             Coordinate last = coordinates[^1];
-            if (!NearlyEqual(first.X, last.X) || !NearlyEqual(first.Y, last.Y))
+            if (first.Equals2D(last))
+            {
+                return;
+            }
+
+            if (NearlyEqual(first.X, last.X) && NearlyEqual(first.Y, last.Y))
+            {
+                coordinates[^1] = new Coordinate(first.X, first.Y);
+            }
+            else
             {
                 coordinates.Add(new Coordinate(first.X, first.Y));
             }
+        }
+
+        private static Polygon CreatePolygonFromRing(IEnumerable<Coordinate> coordinates)
+        {
+            Coordinate[] ring = NormalizeClosedRing(coordinates);
+            return GeometryFactory.CreatePolygon(GeometryFactory.CreateLinearRing(ring));
+        }
+
+        private static Coordinate[] NormalizeClosedRing(IEnumerable<Coordinate> coordinates)
+        {
+            List<Coordinate> ring = new();
+            foreach (Coordinate coordinate in coordinates)
+            {
+                if (!IsFinite(coordinate.X) || !IsFinite(coordinate.Y))
+                {
+                    continue;
+                }
+
+                Coordinate copy = new(coordinate.X, coordinate.Y);
+                if (ring.Count == 0 || !CoordinatesNearlyEqual(ring[^1], copy))
+                {
+                    ring.Add(copy);
+                }
+            }
+
+            if (ring.Count < 3)
+            {
+                return [];
+            }
+
+            Coordinate first = ring[0];
+            Coordinate last = ring[^1];
+            if (first.Equals2D(last))
+            {
+                return ring.Count >= 4 ? ring.ToArray() : [];
+            }
+
+            if (CoordinatesNearlyEqual(first, last))
+            {
+                ring[^1] = new Coordinate(first.X, first.Y);
+            }
+            else
+            {
+                ring.Add(new Coordinate(first.X, first.Y));
+            }
+
+            return ring.Count >= 4 ? ring.ToArray() : [];
+        }
+
+        private static bool CoordinatesNearlyEqual(Coordinate first, Coordinate second)
+        {
+            return NearlyEqual(first.X, second.X) &&
+                   NearlyEqual(first.Y, second.Y);
         }
 
         private static string ResolveObjectType(IShape shape)
