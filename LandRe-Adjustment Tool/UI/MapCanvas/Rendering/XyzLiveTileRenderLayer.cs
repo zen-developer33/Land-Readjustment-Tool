@@ -1151,10 +1151,13 @@ namespace Land_Readjustment_Tool.UI.MapCanvas.Rendering
                 ImageLockMode.WriteOnly,
                 PixelFormat.Format32bppPArgb);
 
-            int sourceStride = Math.Abs(sourceData.Stride);
-            int targetStride = Math.Abs(targetData.Stride);
-            byte[] sourcePixels = new byte[sourceStride * mosaic.Height];
-            byte[] targetPixels = new byte[targetStride * warped.Height];
+            // 32bpp surfaces have a 4-byte aligned stride, so treat each pixel as a
+            // single int (BGRA) instead of four bytes — one copy per pixel instead
+            // of four, with no change to the sampled value.
+            int sourceStride = Math.Abs(sourceData.Stride) / 4;
+            int targetStride = Math.Abs(targetData.Stride) / 4;
+            int[] sourcePixels = new int[sourceStride * mosaic.Height];
+            int[] targetPixels = new int[targetStride * warped.Height];
 
             try
             {
@@ -1194,11 +1197,11 @@ namespace Land_Readjustment_Tool.UI.MapCanvas.Rendering
         }
 
         private void FillWarpedMosaicPixels(
-            byte[] sourcePixels,
+            int[] sourcePixels,
             int sourceStride,
             int sourceWidth,
             int sourceHeight,
-            byte[] targetPixels,
+            int[] targetPixels,
             int targetStride,
             int targetWidth,
             int targetHeight,
@@ -1214,34 +1217,104 @@ namespace Land_Readjustment_Tool.UI.MapCanvas.Rendering
             double sourceScaleX = (sourceWidth - 1.0) / (sourceMaxX - sourceMinX);
             double sourceScaleY = (sourceHeight - 1.0) / (sourceMaxY - sourceMinY);
 
-            for (int cellTop = 0; cellTop < targetHeight; cellTop += cellSize)
+            int cellCols = (targetWidth + cellSize - 1) / cellSize;
+            int cellRows = (targetHeight + cellSize - 1) / cellSize;
+            if (cellCols <= 0 || cellRows <= 0)
+            {
+                return;
+            }
+
+            int cornerCols = cellCols + 1;
+            int cornerRows = cellRows + 1;
+            int[] colBoundaries = new int[cornerCols];
+            for (int c = 0; c < cornerCols; c++)
+            {
+                colBoundaries[c] = Math.Min(targetWidth, c * cellSize);
+            }
+
+            int[] rowBoundaries = new int[cornerRows];
+            for (int r = 0; r < cornerRows; r++)
+            {
+                rowBoundaries[r] = Math.Min(targetHeight, r * cellSize);
+            }
+
+            // ── Phase 1: coarse reprojection mesh ──────────────────────────────
+            // GDAL's CoordinateTransformation is NOT thread-safe, so every
+            // screen->WebMercator transform happens here on a single thread. Each
+            // shared cell corner is transformed exactly once instead of up to four
+            // times (the old per-cell code re-transformed neighbouring corners),
+            // which alone cuts GDAL transform calls roughly 4x.
+            double[] cornerX = new double[cornerRows * cornerCols];
+            double[] cornerY = new double[cornerRows * cornerCols];
+            bool[] cornerValid = new bool[cornerRows * cornerCols];
+            for (int r = 0; r < cornerRows; r++)
             {
                 cancellationToken.ThrowIfCancellationRequested();
 
-                int cellBottom = Math.Min(targetHeight, cellTop + cellSize);
-                for (int cellLeft = 0; cellLeft < targetWidth; cellLeft += cellSize)
+                int rowBase = r * cornerCols;
+                int screenY = rowBoundaries[r];
+                for (int c = 0; c < cornerCols; c++)
                 {
-                    int cellRight = Math.Min(targetWidth, cellLeft + cellSize);
-                    if (!TryScreenToWebMercator(engine, cellLeft, cellTop, out PointD wm00) ||
-                        !TryScreenToWebMercator(engine, cellRight, cellTop, out PointD wm10) ||
-                        !TryScreenToWebMercator(engine, cellLeft, cellBottom, out PointD wm01) ||
-                        !TryScreenToWebMercator(engine, cellRight, cellBottom, out PointD wm11))
+                    if (TryScreenToWebMercator(engine, colBoundaries[c], screenY, out PointD wm))
+                    {
+                        cornerX[rowBase + c] = wm.X;
+                        cornerY[rowBase + c] = wm.Y;
+                        cornerValid[rowBase + c] = true;
+                    }
+                }
+            }
+
+            // ── Phase 2: per-pixel warp, parallel across cell rows ─────────────
+            // Pure CPU math + array sampling: no GDAL, no shared mutable state, and
+            // each cell row writes a disjoint band of target rows. The sampled
+            // result is identical to the single-threaded path (same mesh corners,
+            // same bilinear interpolation, same nearest-neighbour sampling), so the
+            // distortion is preserved exactly — only the throughput changes.
+            ParallelOptions options = new()
+            {
+                CancellationToken = cancellationToken,
+                MaxDegreeOfParallelism = Math.Max(1, Environment.ProcessorCount)
+            };
+
+            Parallel.For(0, cellRows, options, cellRowIndex =>
+            {
+                int cellTop = rowBoundaries[cellRowIndex];
+                int cellBottom = rowBoundaries[cellRowIndex + 1];
+                int cornerRowBase = cellRowIndex * cornerCols;
+                int cornerRowBaseNext = (cellRowIndex + 1) * cornerCols;
+
+                for (int cellColIndex = 0; cellColIndex < cellCols; cellColIndex++)
+                {
+                    options.CancellationToken.ThrowIfCancellationRequested();
+
+                    int cellLeft = colBoundaries[cellColIndex];
+                    int cellRight = colBoundaries[cellColIndex + 1];
+
+                    int i00 = cornerRowBase + cellColIndex;
+                    int i10 = i00 + 1;
+                    int i01 = cornerRowBaseNext + cellColIndex;
+                    int i11 = i01 + 1;
+                    if (!cornerValid[i00] || !cornerValid[i10] ||
+                        !cornerValid[i01] || !cornerValid[i11])
                     {
                         continue;
                     }
+
+                    double wm00X = cornerX[i00], wm00Y = cornerY[i00];
+                    double wm10X = cornerX[i10], wm10Y = cornerY[i10];
+                    double wm01X = cornerX[i01], wm01Y = cornerY[i01];
+                    double wm11X = cornerX[i11], wm11Y = cornerY[i11];
 
                     double invWidth = 1.0 / Math.Max(1, cellRight - cellLeft);
                     double invHeight = 1.0 / Math.Max(1, cellBottom - cellTop);
 
                     for (int y = cellTop; y < cellBottom; y++)
                     {
-                        cancellationToken.ThrowIfCancellationRequested();
-
                         double v = (y - cellTop + 0.5) * invHeight;
-                        double leftX = Lerp(wm00.X, wm01.X, v);
-                        double leftY = Lerp(wm00.Y, wm01.Y, v);
-                        double rightX = Lerp(wm10.X, wm11.X, v);
-                        double rightY = Lerp(wm10.Y, wm11.Y, v);
+                        double leftX = Lerp(wm00X, wm01X, v);
+                        double leftY = Lerp(wm00Y, wm01Y, v);
+                        double rightX = Lerp(wm10X, wm11X, v);
+                        double rightY = Lerp(wm10Y, wm11Y, v);
                         int targetRow = y * targetStride;
 
                         for (int x = cellLeft; x < cellRight; x++)
@@ -1263,16 +1336,12 @@ namespace Land_Readjustment_Tool.UI.MapCanvas.Rendering
                                 continue;
                             }
 
-                            int sourceOffset = sourceY * sourceStride + sourceX * 4;
-                            int targetOffset = targetRow + x * 4;
-                            targetPixels[targetOffset] = sourcePixels[sourceOffset];
-                            targetPixels[targetOffset + 1] = sourcePixels[sourceOffset + 1];
-                            targetPixels[targetOffset + 2] = sourcePixels[sourceOffset + 2];
-                            targetPixels[targetOffset + 3] = sourcePixels[sourceOffset + 3];
+                            targetPixels[targetRow + x] =
+                                sourcePixels[sourceY * sourceStride + sourceX];
                         }
                     }
                 }
-            }
+            });
         }
 
         private bool TryScreenToWebMercator(

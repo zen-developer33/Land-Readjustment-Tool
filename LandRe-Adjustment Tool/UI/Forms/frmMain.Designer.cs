@@ -278,6 +278,7 @@ namespace Land_Readjustment_Tool
             lblCurrentDrawingLayer = new ToolStripLabel();
             cboCurrentDrawingLayer = new ToolStripComboBox();
             mnuCanvasDebugOverlay = new ToolStripButton();
+            mnuCanvasPerformanceOverlay = new ToolStripButton();
             toolStripLabel1 = new ToolStripLabel();
             tsmExpandCollapseRightPanel = new ToolStripButton();
             toolStripSeparator11 = new ToolStripSeparator();
@@ -2153,7 +2154,7 @@ namespace Land_Readjustment_Tool
             tsCanvasTools.Font = new Font("Segoe UI", 9F);
             tsCanvasTools.GripStyle = ToolStripGripStyle.Hidden;
             tsCanvasTools.ImageScalingSize = new Size(20, 20);
-            tsCanvasTools.Items.AddRange(new ToolStripItem[] { tsmExpandCollapseLeftPanel, toolStripSeparator10, mnuSelectTool, mnuDrawPoint, mnuDrawLine, mnuDrawPolyline, mnuDrawArc, mnuDrawRectangle, mnuDrawPolygon, mnuDrawCircle, mnuDrawText, toolStripSeparator17, lblCurrentDrawingLayer, cboCurrentDrawingLayer, mnuCanvasDebugOverlay, toolStripLabel1, tsmExpandCollapseRightPanel, toolStripSeparator11, mnuOrthoToggle, mnuOSnapToggle });
+            tsCanvasTools.Items.AddRange(new ToolStripItem[] { tsmExpandCollapseLeftPanel, toolStripSeparator10, mnuSelectTool, mnuDrawPoint, mnuDrawLine, mnuDrawPolyline, mnuDrawArc, mnuDrawRectangle, mnuDrawPolygon, mnuDrawCircle, mnuDrawText, toolStripSeparator17, lblCurrentDrawingLayer, cboCurrentDrawingLayer, mnuCanvasDebugOverlay, mnuCanvasPerformanceOverlay, toolStripLabel1, tsmExpandCollapseRightPanel, toolStripSeparator11, mnuOrthoToggle, mnuOSnapToggle });
             tsCanvasTools.Location = new Point(0, 0);
             tsCanvasTools.Name = "tsCanvasTools";
             tsCanvasTools.Size = new Size(1016, 28);
@@ -2358,6 +2359,17 @@ namespace Land_Readjustment_Tool
             mnuCanvasDebugOverlay.Text = "Debug";
             mnuCanvasDebugOverlay.ToolTipText = "Show map canvas debug overlay";
             mnuCanvasDebugOverlay.Click += mnuCanvasDebugOverlay_Click;
+            // 
+            // mnuCanvasPerformanceOverlay
+            // 
+            mnuCanvasPerformanceOverlay.CheckOnClick = true;
+            mnuCanvasPerformanceOverlay.DisplayStyle = ToolStripItemDisplayStyle.Text;
+            mnuCanvasPerformanceOverlay.ImageTransparentColor = Color.Magenta;
+            mnuCanvasPerformanceOverlay.Name = "mnuCanvasPerformanceOverlay";
+            mnuCanvasPerformanceOverlay.Size = new Size(97, 25);
+            mnuCanvasPerformanceOverlay.Text = "Performance";
+            mnuCanvasPerformanceOverlay.ToolTipText = "Show canvas performance overlay";
+            mnuCanvasPerformanceOverlay.Click += mnuCanvasPerformanceOverlay_Click;
             // 
             // toolStripLabel1
             // 
@@ -3098,6 +3110,7 @@ namespace Land_Readjustment_Tool
         private ToolStripButton mnuDrawArc;
         private ToolStripButton mnuDrawText;
         private ToolStripButton mnuCanvasDebugOverlay;
+        private ToolStripButton mnuCanvasPerformanceOverlay;
         private ToolStripButton mnuOSnapToggle;
         private ToolStripButton mnuOrthoToggle;
         private ToolStripSeparator toolStripSeparator17;

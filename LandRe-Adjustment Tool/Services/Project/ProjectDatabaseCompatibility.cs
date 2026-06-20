@@ -32,6 +32,7 @@ namespace Land_Readjustment_Tool.Services.Project
             await EnsureCanvasLayerColumnsAsync(context, ct);
             await EnsureImportedAnnotationLayerDefaultsAsync(context, ct);
             await EnsureCanvasObjectColumnsAsync(context, ct);
+            await EnsureCanvasIndexesAsync(context, ct);
             await EnsureBlockColumnsAsync(context, ct);
             await EnsureBuildingInventoryTablesAsync(context, ct);
             await EnsurePolicyTablesAsync(context, ct);
@@ -177,6 +178,72 @@ namespace Land_Readjustment_Tool.Services.Project
             {
                 await context.Database.ExecuteSqlRawAsync(
                     "ALTER TABLE tblCanvasObjects ADD COLUMN GeometryMetadataJson TEXT NULL;",
+                    ct);
+            }
+        }
+
+        private static async Task EnsureCanvasIndexesAsync(
+            AppDbContext context,
+            CancellationToken ct)
+        {
+            HashSet<string> objectColumns = await ReadTableColumnsAsync(
+                context,
+                "tblCanvasObjects",
+                ct);
+
+            if (objectColumns.Contains("IsVisible") &&
+                objectColumns.Contains("CanvasLayerId"))
+            {
+                await context.Database.ExecuteSqlRawAsync(
+                    "CREATE INDEX IF NOT EXISTS IX_tblCanvasObjects_IsVisible_CanvasLayerId ON tblCanvasObjects (IsVisible, CanvasLayerId);",
+                    ct);
+            }
+
+            if (objectColumns.Contains("BaselineParcelId"))
+            {
+                await context.Database.ExecuteSqlRawAsync(
+                    "CREATE INDEX IF NOT EXISTS IX_tblCanvasObjects_BaselineParcelId ON tblCanvasObjects (BaselineParcelId) WHERE BaselineParcelId IS NOT NULL;",
+                    ct);
+            }
+
+            if (objectColumns.Contains("ReplottedParcelId"))
+            {
+                await context.Database.ExecuteSqlRawAsync(
+                    "CREATE INDEX IF NOT EXISTS IX_tblCanvasObjects_ReplottedParcelId ON tblCanvasObjects (ReplottedParcelId) WHERE ReplottedParcelId IS NOT NULL;",
+                    ct);
+            }
+
+            if (objectColumns.Contains("RoadId"))
+            {
+                await context.Database.ExecuteSqlRawAsync(
+                    "CREATE INDEX IF NOT EXISTS IX_tblCanvasObjects_RoadId ON tblCanvasObjects (RoadId) WHERE RoadId IS NOT NULL;",
+                    ct);
+            }
+
+            if (objectColumns.Contains("BlockId"))
+            {
+                await context.Database.ExecuteSqlRawAsync(
+                    "CREATE INDEX IF NOT EXISTS IX_tblCanvasObjects_BlockId ON tblCanvasObjects (BlockId) WHERE BlockId IS NOT NULL;",
+                    ct);
+            }
+
+            HashSet<string> layerColumns = await ReadTableColumnsAsync(
+                context,
+                "tblCanvasLayers",
+                ct);
+
+            if (layerColumns.Contains("Name"))
+            {
+                await context.Database.ExecuteSqlRawAsync(
+                    "CREATE INDEX IF NOT EXISTS IX_tblCanvasLayers_Name ON tblCanvasLayers (Name);",
+                    ct);
+            }
+
+            if (layerColumns.Contains("LayerType") &&
+                layerColumns.Contains("DisplayOrder"))
+            {
+                await context.Database.ExecuteSqlRawAsync(
+                    "CREATE INDEX IF NOT EXISTS IX_tblCanvasLayers_LayerType_DisplayOrder ON tblCanvasLayers (LayerType, DisplayOrder);",
                     ct);
             }
         }

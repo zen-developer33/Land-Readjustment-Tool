@@ -141,6 +141,35 @@ namespace Land_Readjustment_Tool.Data
                 .Property(canvasObject => canvasObject.Shape)
                 .HasColumnType("GEOMETRY");
 
+            modelBuilder.Entity<CanvasObject>()
+                .HasIndex(canvasObject => new
+                {
+                    canvasObject.IsVisible,
+                    canvasObject.CanvasLayerId
+                });
+
+            modelBuilder.Entity<CanvasObject>()
+                .HasIndex(canvasObject => canvasObject.BaselineParcelId)
+                .HasFilter("BaselineParcelId IS NOT NULL");
+
+            modelBuilder.Entity<CanvasObject>()
+                .HasIndex(canvasObject => canvasObject.ReplottedParcelId)
+                .HasFilter("ReplottedParcelId IS NOT NULL");
+
+            modelBuilder.Entity<CanvasObject>()
+                .HasIndex(canvasObject => canvasObject.RoadId)
+                .HasFilter("RoadId IS NOT NULL");
+
+            modelBuilder.Entity<CanvasObject>()
+                .HasIndex(canvasObject => canvasObject.BlockId)
+                .HasFilter("BlockId IS NOT NULL");
+
+            modelBuilder.Entity<CanvasLayer>()
+                .HasIndex(layer => layer.Name);
+
+            modelBuilder.Entity<CanvasLayer>()
+                .HasIndex(layer => new { layer.LayerType, layer.DisplayOrder });
+
             // ── UNIQUE INDEXES ───────────────────────
 
             modelBuilder.Entity<CoordinateSystem>()

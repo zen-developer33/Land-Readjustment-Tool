@@ -30,12 +30,24 @@ namespace Land_Readjustment_Tool.Core.Interfaces
             CanvasObject entity,
             CancellationToken ct = default);
 
+        Task AddRangeAsync(
+            IReadOnlyList<CanvasObject> entities,
+            CancellationToken ct = default);
+
         Task UpdateAsync(
             CanvasObject entity,
             CancellationToken ct = default);
 
+        Task UpdateRangeAsync(
+            IReadOnlyList<CanvasObject> entities,
+            CancellationToken ct = default);
+
         Task DeleteAsync(
             Guid id,
+            CancellationToken ct = default);
+
+        Task DeleteRangeAsync(
+            IReadOnlyList<Guid> ids,
             CancellationToken ct = default);
 
         Task<bool> ExistsAsync(

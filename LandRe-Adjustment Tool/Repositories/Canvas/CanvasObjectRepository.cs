@@ -12,6 +12,8 @@ namespace Land_Readjustment_Tool.Repositories.Canvas
     /// </summary>
     public sealed class CanvasObjectRepository : ICanvasObjectRepository
     {
+        private const int WriteBatchSize = 1000;
+        private const int IdBatchSize = 500;
         private readonly AppDbContext _context;
         private readonly DbSet<CanvasObject> _dbSet;
         private readonly Infrastructure.Logging.IAppLogger _logger;
@@ -32,16 +34,6 @@ namespace Land_Readjustment_Tool.Repositories.Canvas
                 CanvasObject? entity = await _dbSet
                     .AsNoTracking()
                     .Include(item => item.CanvasLayer)
-                    .Include(item => item.Road)
-                    .Include(item => item.Block)
-                    .Include(item => item.ReplottedParcel)
-                        .ThenInclude(parcel => parcel!.Block)
-                    .Include(item => item.ReplottedParcel)
-                        .ThenInclude(parcel => parcel!.PlotType)
-                    .Include(item => item.BaselineParcel)
-                        .ThenInclude(parcel => parcel!.LandOwner)
-                    .Include(item => item.BaselineParcel)
-                        .ThenInclude(parcel => parcel!.MalpotReference)
                     .FirstOrDefaultAsync(item => item.Id == id, ct);
 
                 if (entity != null)
@@ -64,16 +56,6 @@ namespace Land_Readjustment_Tool.Repositories.Canvas
                 List<CanvasObject> objects = await _dbSet
                     .AsNoTracking()
                     .Include(item => item.CanvasLayer)
-                    .Include(item => item.Road)
-                    .Include(item => item.Block)
-                    .Include(item => item.ReplottedParcel)
-                        .ThenInclude(parcel => parcel!.Block)
-                    .Include(item => item.ReplottedParcel)
-                        .ThenInclude(parcel => parcel!.PlotType)
-                    .Include(item => item.BaselineParcel)
-                        .ThenInclude(parcel => parcel!.LandOwner)
-                    .Include(item => item.BaselineParcel)
-                        .ThenInclude(parcel => parcel!.MalpotReference)
                     .ToListAsync(ct);
 
                 await HydrateScalarLinkedRecordsAsync(objects, ct);
@@ -94,16 +76,6 @@ namespace Land_Readjustment_Tool.Repositories.Canvas
                 List<CanvasObject> objects = await _dbSet
                     .AsNoTracking()
                     .Include(item => item.CanvasLayer)
-                    .Include(item => item.Road)
-                    .Include(item => item.Block)
-                    .Include(item => item.ReplottedParcel)
-                        .ThenInclude(parcel => parcel!.Block)
-                    .Include(item => item.ReplottedParcel)
-                        .ThenInclude(parcel => parcel!.PlotType)
-                    .Include(item => item.BaselineParcel)
-                        .ThenInclude(parcel => parcel!.LandOwner)
-                    .Include(item => item.BaselineParcel)
-                        .ThenInclude(parcel => parcel!.MalpotReference)
                     .Where(item => item.IsVisible)
                     .ToListAsync(ct);
 
@@ -126,16 +98,6 @@ namespace Land_Readjustment_Tool.Repositories.Canvas
                 List<CanvasObject> objects = await _dbSet
                     .AsNoTracking()
                     .Include(item => item.CanvasLayer)
-                    .Include(item => item.Road)
-                    .Include(item => item.Block)
-                    .Include(item => item.ReplottedParcel)
-                        .ThenInclude(parcel => parcel!.Block)
-                    .Include(item => item.ReplottedParcel)
-                        .ThenInclude(parcel => parcel!.PlotType)
-                    .Include(item => item.BaselineParcel)
-                        .ThenInclude(parcel => parcel!.LandOwner)
-                    .Include(item => item.BaselineParcel)
-                        .ThenInclude(parcel => parcel!.MalpotReference)
                     .Where(item => item.CanvasLayerId == canvasLayerId)
                     .ToListAsync(ct);
 
@@ -162,16 +124,6 @@ namespace Land_Readjustment_Tool.Repositories.Canvas
                 List<CanvasObject> candidates = await _dbSet
                     .AsNoTracking()
                     .Include(item => item.CanvasLayer)
-                    .Include(item => item.Road)
-                    .Include(item => item.Block)
-                    .Include(item => item.ReplottedParcel)
-                        .ThenInclude(parcel => parcel!.Block)
-                    .Include(item => item.ReplottedParcel)
-                        .ThenInclude(parcel => parcel!.PlotType)
-                    .Include(item => item.BaselineParcel)
-                        .ThenInclude(parcel => parcel!.LandOwner)
-                    .Include(item => item.BaselineParcel)
-                        .ThenInclude(parcel => parcel!.MalpotReference)
                     .Where(item => item.IsVisible)
                     .ToListAsync(ct);
 
@@ -216,6 +168,55 @@ namespace Land_Readjustment_Tool.Repositories.Canvas
             }
         }
 
+        public async Task AddRangeAsync(
+            IReadOnlyList<CanvasObject> entities,
+            CancellationToken ct = default)
+        {
+            if (entities.Count == 0)
+            {
+                return;
+            }
+
+            bool previousAutoDetectChanges = _context.ChangeTracker.AutoDetectChangesEnabled;
+            bool ownsTransaction = _context.Database.CurrentTransaction == null;
+            await using var transaction = ownsTransaction
+                ? await _context.Database.BeginTransactionAsync(ct)
+                : null;
+
+            try
+            {
+                _context.ChangeTracker.AutoDetectChangesEnabled = false;
+
+                foreach (CanvasObject[] batch in Chunk(entities, WriteBatchSize))
+                {
+                    foreach (CanvasObject entity in batch)
+                    {
+                        ClearNavigationProperties(entity);
+                    }
+
+                    await _dbSet.AddRangeAsync(batch, ct);
+                    await _context.SaveChangesAsync(ct);
+                    DetachRange(batch);
+                }
+
+                if (transaction != null)
+                {
+                    await transaction.CommitAsync(ct);
+                }
+
+                _logger.LogInfo($"[CanvasObject] added batch. Count={entities.Count}");
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError("[CanvasObject] AddRangeAsync failed.", ex);
+                throw;
+            }
+            finally
+            {
+                _context.ChangeTracker.AutoDetectChangesEnabled = previousAutoDetectChanges;
+            }
+        }
+
         public async Task UpdateAsync(
             CanvasObject entity,
             CancellationToken ct = default)
@@ -240,11 +241,7 @@ namespace Land_Readjustment_Tool.Repositories.Canvas
                 // arrive with no-tracking navigation objects from the map cache;
                 // attaching those can collide with already tracked layer/parcel
                 // instances in the shared project DbContext.
-                entity.CanvasLayer = null!;
-                entity.BaselineParcel = null;
-                entity.ReplottedParcel = null;
-                entity.Road = null;
-                entity.Block = null;
+                ClearNavigationProperties(entity);
 
                 _dbSet.Attach(entity);
                 _context.Entry(entity).State = EntityState.Modified;
@@ -259,6 +256,60 @@ namespace Land_Readjustment_Tool.Repositories.Canvas
                     $"[CanvasObject] UpdateAsync failed. Id={entity.Id}",
                     ex);
                 throw;
+            }
+        }
+
+        public async Task UpdateRangeAsync(
+            IReadOnlyList<CanvasObject> entities,
+            CancellationToken ct = default)
+        {
+            if (entities.Count == 0)
+            {
+                return;
+            }
+
+            bool previousAutoDetectChanges = _context.ChangeTracker.AutoDetectChangesEnabled;
+            bool ownsTransaction = _context.Database.CurrentTransaction == null;
+            await using var transaction = ownsTransaction
+                ? await _context.Database.BeginTransactionAsync(ct)
+                : null;
+
+            try
+            {
+                _context.ChangeTracker.AutoDetectChangesEnabled = false;
+
+                foreach (CanvasObject[] batch in Chunk(entities, WriteBatchSize))
+                {
+                    foreach (CanvasObject entity in batch)
+                    {
+                        DetachTrackedCanvasObject(entity.Id);
+                        if (entity.CanvasLayer != null)
+                            entity.CanvasLayerId = entity.CanvasLayer.Id;
+
+                        ClearNavigationProperties(entity);
+                        _dbSet.Attach(entity);
+                        _context.Entry(entity).State = EntityState.Modified;
+                    }
+
+                    await _context.SaveChangesAsync(ct);
+                    DetachRange(batch);
+                }
+
+                if (transaction != null)
+                {
+                    await transaction.CommitAsync(ct);
+                }
+
+                _logger.LogInfo($"[CanvasObject] updated batch. Count={entities.Count}");
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError("[CanvasObject] UpdateRangeAsync failed.", ex);
+                throw;
+            }
+            finally
+            {
+                _context.ChangeTracker.AutoDetectChangesEnabled = previousAutoDetectChanges;
             }
         }
 
@@ -289,6 +340,49 @@ namespace Land_Readjustment_Tool.Repositories.Canvas
             }
         }
 
+        public async Task DeleteRangeAsync(
+            IReadOnlyList<Guid> ids,
+            CancellationToken ct = default)
+        {
+            Guid[] distinctIds = ids
+                .Where(id => id != Guid.Empty)
+                .Distinct()
+                .ToArray();
+
+            if (distinctIds.Length == 0)
+            {
+                return;
+            }
+
+            bool ownsTransaction = _context.Database.CurrentTransaction == null;
+            await using var transaction = ownsTransaction
+                ? await _context.Database.BeginTransactionAsync(ct)
+                : null;
+
+            try
+            {
+                int deleted = 0;
+                foreach (Guid[] batch in Chunk(distinctIds, IdBatchSize))
+                {
+                    deleted += await _dbSet
+                        .Where(item => batch.Contains(item.Id))
+                        .ExecuteDeleteAsync(ct);
+                }
+
+                if (transaction != null)
+                {
+                    await transaction.CommitAsync(ct);
+                }
+
+                _logger.LogInfo($"[CanvasObject] deleted batch. Requested={distinctIds.Length}; Deleted={deleted}");
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError("[CanvasObject] DeleteRangeAsync failed.", ex);
+                throw;
+            }
+        }
+
         public async Task<bool> ExistsAsync(
             Guid id,
             CancellationToken ct = default)
@@ -301,6 +395,53 @@ namespace Land_Readjustment_Tool.Repositories.Canvas
             {
                 _logger.LogError($"[CanvasObject] ExistsAsync failed. Id={id}", ex);
                 throw;
+            }
+        }
+
+        private void DetachTrackedCanvasObject(Guid id)
+        {
+            var localTracked = _context
+                .ChangeTracker
+                .Entries<CanvasObject>()
+                .FirstOrDefault(entry => entry.Entity.Id == id);
+
+            if (localTracked is not null)
+            {
+                localTracked.State = EntityState.Detached;
+            }
+        }
+
+        private static void ClearNavigationProperties(CanvasObject entity)
+        {
+            entity.CanvasLayer = null!;
+            entity.BaselineParcel = null;
+            entity.ReplottedParcel = null;
+            entity.Road = null;
+            entity.Block = null;
+        }
+
+        private void DetachRange(IEnumerable<CanvasObject> entities)
+        {
+            foreach (CanvasObject entity in entities)
+            {
+                _context.Entry(entity).State = EntityState.Detached;
+            }
+        }
+
+        private static IEnumerable<T[]> Chunk<T>(
+            IReadOnlyList<T> source,
+            int size)
+        {
+            for (int index = 0; index < source.Count; index += size)
+            {
+                int count = Math.Min(size, source.Count - index);
+                T[] batch = new T[count];
+                for (int offset = 0; offset < count; offset++)
+                {
+                    batch[offset] = source[index + offset];
+                }
+
+                yield return batch;
             }
         }
 

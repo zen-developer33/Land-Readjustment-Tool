@@ -139,8 +139,8 @@ namespace Land_Readjustment_Tool.UI.MapCanvas.Rendering.Skia
         /// </summary>
         public void ClipPath(IMapPath path)
         {
-            using SKPath skiaPath = AsSkiaPath(path);
-            _canvas.ClipPath(skiaPath, SKClipOperation.Intersect, IsAntialiasEnabled);
+            using SkiaPathLease skiaPath = AsSkiaPath(path);
+            _canvas.ClipPath(skiaPath.Path, SKClipOperation.Intersect, IsAntialiasEnabled);
         }
 
         /// <summary>
@@ -168,14 +168,14 @@ namespace Land_Readjustment_Tool.UI.MapCanvas.Rendering.Skia
         /// </summary>
         public void DrawPath(IMapPath path, in StrokeStyle stroke)
         {
-            using SKPath skiaPath = AsSkiaPath(path);
-            if (skiaPath.PointCount == 0)
+            using SkiaPathLease skiaPath = AsSkiaPath(path);
+            if (skiaPath.Path.PointCount == 0)
             {
                 return;
             }
 
             SKPaint paint = CreateStrokePaint(stroke);
-            _canvas.DrawPath(skiaPath, paint);
+            _canvas.DrawPath(skiaPath.Path, paint);
         }
 
         /// <summary>
@@ -183,8 +183,8 @@ namespace Land_Readjustment_Tool.UI.MapCanvas.Rendering.Skia
         /// </summary>
         public void FillPath(IMapPath path, in FillStyle fill)
         {
-            using SKPath skiaPath = AsSkiaPath(path);
-            if (skiaPath.PointCount == 0)
+            using SkiaPathLease skiaPath = AsSkiaPath(path);
+            if (skiaPath.Path.PointCount == 0)
             {
                 return;
             }
@@ -192,11 +192,11 @@ namespace Land_Readjustment_Tool.UI.MapCanvas.Rendering.Skia
             if (fill.Pattern == FillPatternKind.Solid)
             {
                 SKPaint paint = CreateFillPaint(fill.Color);
-                _canvas.DrawPath(skiaPath, paint);
+                _canvas.DrawPath(skiaPath.Path, paint);
                 return;
             }
 
-            DrawHatchedFill(skiaPath, fill);
+            DrawHatchedFill(skiaPath.Path, fill);
         }
 
         /// <summary>
@@ -326,20 +326,13 @@ namespace Land_Readjustment_Tool.UI.MapCanvas.Rendering.Skia
                 return;
             }
 
-            using SKBitmap bitmap = AsSkiaBitmap(image);
+            using SkiaBitmapLease bitmap = AsSkiaBitmap(image);
             SKRect source = src.HasValue
                 ? SkiaMapPathBuilder.ToSkiaRect(src.Value)
-                : new SKRect(0, 0, bitmap.Width, bitmap.Height);
+                : new SKRect(0, 0, bitmap.Bitmap.Width, bitmap.Bitmap.Height);
             SKRect destination = SkiaMapPathBuilder.ToSkiaRect(dest);
-            using SKPaint paint = new()
-            {
-                IsAntialias = style.Interpolation == ImageInterpolation.HighQuality,
-                FilterQuality = style.Interpolation == ImageInterpolation.HighQuality
-                    ? SKFilterQuality.High
-                    : SKFilterQuality.None,
-                Color = SKColors.White.WithAlpha((byte)(Math.Clamp(style.Opacity, 0.0f, 1.0f) * 255.0f))
-            };
-            _canvas.DrawBitmap(bitmap, source, destination, paint);
+            using SKPaint paint = CreateImagePaint(style);
+            _canvas.DrawBitmap(bitmap.Bitmap, source, destination, paint);
         }
 
         /// <summary>
@@ -363,7 +356,7 @@ namespace Land_Readjustment_Tool.UI.MapCanvas.Rendering.Skia
                 return;
             }
 
-            using SKBitmap bitmap = AsSkiaBitmap(image);
+            using SkiaBitmapLease bitmap = AsSkiaBitmap(image);
             SKRect source = SkiaMapPathBuilder.ToSkiaRect(src);
             using SKPaint paint = CreateImagePaint(style);
             using IDisposable state = SaveState();
@@ -374,7 +367,7 @@ namespace Land_Readjustment_Tool.UI.MapCanvas.Rendering.Skia
                 upperRight,
                 lowerLeft);
             _canvas.Concat(in matrix);
-            _canvas.DrawBitmap(bitmap, source, source, paint);
+            _canvas.DrawBitmap(bitmap.Bitmap, source, source, paint);
         }
 
         /// <summary>
@@ -575,20 +568,20 @@ namespace Land_Readjustment_Tool.UI.MapCanvas.Rendering.Skia
         }
 
         /// <summary>
-        /// Converts a backend path, including legacy GDI paths, into a Skia path
-        /// clone owned by the caller.
+        /// Borrows a native Skia path when possible and converts legacy GDI paths
+        /// only as a fallback. This avoids cloning every Skia path in the hot path.
         /// </summary>
-        private static SKPath AsSkiaPath(IMapPath path)
+        private static SkiaPathLease AsSkiaPath(IMapPath path)
         {
             if (path is SkiaMapPath skiaPath)
             {
-                return new SKPath(skiaPath.Path);
+                return SkiaPathLease.Borrow(skiaPath.Path);
             }
 
             if (path is GdiMapPath gdiPath)
             {
                 RenderBackendTelemetry.RecordGdiPathFallback();
-                return ConvertGdiPath(gdiPath.Path, gdiPath.FillRule);
+                return SkiaPathLease.Own(ConvertGdiPath(gdiPath.Path, gdiPath.FillRule));
             }
 
             throw new ArgumentException("The supplied path cannot be drawn by the Skia CPU render surface.", nameof(path));
@@ -626,14 +619,14 @@ namespace Land_Readjustment_Tool.UI.MapCanvas.Rendering.Skia
         }
 
         /// <summary>
-        /// Converts a backend image, including current GDI images, into an
-        /// <see cref="SKBitmap"/> owned by the caller.
+        /// Borrows bitmap pixels directly for the duration of a CPU draw instead
+        /// of copying the same raster into a second Skia bitmap.
         /// </summary>
-        private static SKBitmap AsSkiaBitmap(IMapImage image)
+        private static SkiaBitmapLease AsSkiaBitmap(IMapImage image)
         {
             if (image is GdiMapImage gdiImage)
             {
-                return CopyBitmapToSkia(gdiImage.Image);
+                return SkiaBitmapLease.FromImage(gdiImage.Image);
             }
 
             throw new ArgumentException("The supplied image cannot be drawn by the Skia CPU render surface.", nameof(image));
@@ -686,30 +679,6 @@ namespace Land_Readjustment_Tool.UI.MapCanvas.Rendering.Skia
         }
 
         /// <summary>
-        /// Copies a GDI+ image into an Skia bitmap.
-        /// </summary>
-        private static SKBitmap CopyBitmapToSkia(Image image)
-        {
-            using Bitmap bitmap = image is Bitmap existing
-                ? new Bitmap(existing)
-                : new Bitmap(image);
-            Rectangle rect = new(0, 0, bitmap.Width, bitmap.Height);
-            BitmapData data = bitmap.LockBits(rect, ImageLockMode.ReadOnly, PixelFormat.Format32bppPArgb);
-            try
-            {
-                SKImageInfo info = new(bitmap.Width, bitmap.Height, SKColorType.Bgra8888, SKAlphaType.Premul);
-                SKBitmap skiaBitmap = new(info);
-                skiaBitmap.InstallPixels(info, data.Scan0, data.Stride);
-                SKBitmap copy = new(info);
-                skiaBitmap.CopyTo(copy);
-                return copy;
-            }
-            finally
-            {
-                bitmap.UnlockBits(data);
-            }
-        }
-
         /// <summary>
         /// Gets or creates a Skia typeface for the supplied text style.
         /// </summary>
@@ -886,6 +855,122 @@ namespace Land_Readjustment_Tool.UI.MapCanvas.Rendering.Skia
             float.IsFinite(rectangle.Bottom) &&
             rectangle.Width > 0.0f &&
             rectangle.Height > 0.0f;
+
+        /// <summary>
+        /// Lightweight path wrapper that disposes only fallback-converted paths.
+        /// </summary>
+        private readonly struct SkiaPathLease : IDisposable
+        {
+            private readonly bool _ownsPath;
+
+            private SkiaPathLease(SKPath path, bool ownsPath)
+            {
+                Path = path;
+                _ownsPath = ownsPath;
+            }
+
+            public SKPath Path { get; }
+
+            public static SkiaPathLease Borrow(SKPath path) =>
+                new(path, ownsPath: false);
+
+            public static SkiaPathLease Own(SKPath path) =>
+                new(path, ownsPath: true);
+
+            public void Dispose()
+            {
+                if (_ownsPath)
+                {
+                    Path.Dispose();
+                }
+            }
+        }
+
+        /// <summary>
+        /// Temporarily exposes GDI bitmap pixels as an Skia bitmap without a
+        /// second full-raster copy. Safe for CPU raster draws because the pixels
+        /// are consumed synchronously before the lease is disposed.
+        /// </summary>
+        private sealed class SkiaBitmapLease : IDisposable
+        {
+            private readonly Bitmap _sourceBitmap;
+            private readonly BitmapData _sourceData;
+            private readonly bool _ownsSourceBitmap;
+            private bool _disposed;
+
+            private SkiaBitmapLease(Bitmap sourceBitmap, BitmapData sourceData, bool ownsSourceBitmap)
+            {
+                _sourceBitmap = sourceBitmap;
+                _sourceData = sourceData;
+                _ownsSourceBitmap = ownsSourceBitmap;
+                SKImageInfo info = new(
+                    sourceBitmap.Width,
+                    sourceBitmap.Height,
+                    SKColorType.Bgra8888,
+                    SKAlphaType.Premul);
+                Bitmap = new SKBitmap();
+                if (!Bitmap.InstallPixels(info, sourceData.Scan0, sourceData.Stride))
+                {
+                    Bitmap.Dispose();
+                    sourceBitmap.UnlockBits(sourceData);
+                    if (ownsSourceBitmap)
+                    {
+                        sourceBitmap.Dispose();
+                    }
+
+                    throw new InvalidOperationException("Unable to expose GDI bitmap pixels to Skia.");
+                }
+            }
+
+            public SKBitmap Bitmap { get; }
+
+            public static SkiaBitmapLease FromImage(Image image)
+            {
+                ArgumentNullException.ThrowIfNull(image);
+                Bitmap sourceBitmap;
+                bool ownsSourceBitmap;
+                if (image is Bitmap existing &&
+                    existing.PixelFormat == PixelFormat.Format32bppPArgb)
+                {
+                    sourceBitmap = existing;
+                    ownsSourceBitmap = false;
+                }
+                else
+                {
+                    sourceBitmap = new Bitmap(
+                        Math.Max(1, image.Width),
+                        Math.Max(1, image.Height),
+                        PixelFormat.Format32bppPArgb);
+                    using Graphics graphics = Graphics.FromImage(sourceBitmap);
+                    graphics.CompositingMode = CompositingMode.SourceCopy;
+                    graphics.DrawImageUnscaled(image, 0, 0);
+                    ownsSourceBitmap = true;
+                }
+
+                Rectangle rect = new(0, 0, sourceBitmap.Width, sourceBitmap.Height);
+                BitmapData data = sourceBitmap.LockBits(
+                    rect,
+                    ImageLockMode.ReadOnly,
+                    PixelFormat.Format32bppPArgb);
+                return new SkiaBitmapLease(sourceBitmap, data, ownsSourceBitmap);
+            }
+
+            public void Dispose()
+            {
+                if (_disposed)
+                {
+                    return;
+                }
+
+                _disposed = true;
+                Bitmap.Dispose();
+                _sourceBitmap.UnlockBits(_sourceData);
+                if (_ownsSourceBitmap)
+                {
+                    _sourceBitmap.Dispose();
+                }
+            }
+        }
 
         /// <summary>
         /// Disposable Skia save/restore state token.

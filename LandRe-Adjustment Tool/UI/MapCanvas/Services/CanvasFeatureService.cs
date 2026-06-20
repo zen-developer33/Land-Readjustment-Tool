@@ -94,11 +94,123 @@ namespace Land_Readjustment_Tool.UI.MapCanvas.Services
             return new CanvasFeature(entity, mappedShape, layer);
         }
 
+        public async Task<IReadOnlyList<CanvasFeature>> SaveNewShapesAsync(
+            IReadOnlyList<IShape> shapes,
+            string fallbackLayerName,
+            CancellationToken ct = default)
+        {
+            if (shapes.Count == 0)
+            {
+                return [];
+            }
+
+            Dictionary<int, CanvasLayer> layersById = (await _canvasLayerRepository.GetAllOrderedAsync(ct))
+                .GroupBy(layer => layer.Id)
+                .ToDictionary(group => group.Key, group => group.First());
+            Dictionary<string, CanvasLayer> layersByName = layersById.Values
+                .GroupBy(layer => layer.Name, StringComparer.OrdinalIgnoreCase)
+                .ToDictionary(group => group.Key, group => group.First(), StringComparer.OrdinalIgnoreCase);
+
+            List<CanvasObject> entities = new(shapes.Count);
+            Dictionary<Guid, CanvasLayer> layersByShapeId = new(shapes.Count);
+
+            foreach (IShape shape in shapes)
+            {
+                CanvasLayer layer = await ResolveTargetLayerFromCacheAsync(
+                    shape,
+                    string.IsNullOrWhiteSpace(shape.LayerName) ? fallbackLayerName : shape.LayerName,
+                    layersById,
+                    layersByName,
+                    ct);
+
+                CanvasObject entity = GeometryShapeMapper.ToCanvasObject(shape, layer.Id);
+                if (CanvasLayerTreeService.IsBlockLayoutLayer(layer))
+                {
+                    CanvasGeometryMetricsService.StoreBlockDepthFromGeometry(entity);
+                }
+
+                entities.Add(entity);
+                layersByShapeId[shape.Id] = layer;
+            }
+
+            await _canvasObjectRepository.AddRangeAsync(entities, ct);
+
+            List<CanvasFeature> features = new(entities.Count);
+            foreach (CanvasObject entity in entities)
+            {
+                CanvasLayer layer = layersByShapeId[entity.Id];
+                entity.CanvasLayer = layer;
+                IShape mappedShape = GeometryShapeMapper.ToShape(entity);
+                mappedShape.LayerName = layer.Name;
+                features.Add(new CanvasFeature(entity, mappedShape, layer));
+            }
+
+            return features;
+        }
+
+        public async Task<IReadOnlyList<CanvasFeature>> SaveExistingShapesAsync(
+            IReadOnlyList<(IShape Shape, CanvasObject ExistingObject)> items,
+            CancellationToken ct = default)
+        {
+            if (items.Count == 0)
+            {
+                return [];
+            }
+
+            List<CanvasObject> entities = new(items.Count);
+            List<(CanvasObject Entity, CanvasLayer? Layer)> entityLayers = new(items.Count);
+
+            foreach ((IShape shape, CanvasObject existingObject) in items)
+            {
+                CanvasLayer? layer = existingObject.CanvasLayer;
+                CanvasObject entity = GeometryShapeMapper.ToCanvasObject(
+                    shape,
+                    existingObject.CanvasLayerId,
+                    existingObject);
+
+                if (layer != null && CanvasLayerTreeService.IsBlockLayoutLayer(layer))
+                {
+                    CanvasGeometryMetricsService.StoreBlockDepthFromGeometry(entity);
+                }
+
+                entities.Add(entity);
+                entityLayers.Add((entity, layer));
+            }
+
+            await _canvasObjectRepository.UpdateRangeAsync(entities, ct);
+
+            List<CanvasFeature> features = new(entities.Count);
+            foreach ((CanvasObject entity, CanvasLayer? layer) in entityLayers)
+            {
+                if (layer != null)
+                {
+                    entity.CanvasLayer = layer;
+                }
+
+                IShape mappedShape = GeometryShapeMapper.ToShape(entity);
+                if (layer != null)
+                {
+                    mappedShape.LayerName = layer.Name;
+                }
+
+                features.Add(new CanvasFeature(entity, mappedShape, layer));
+            }
+
+            return features;
+        }
+
         public async Task DeleteShapeAsync(
             Guid shapeId,
             CancellationToken ct = default)
         {
             await _canvasObjectRepository.DeleteAsync(shapeId, ct);
+        }
+
+        public async Task DeleteShapesAsync(
+            IReadOnlyList<Guid> shapeIds,
+            CancellationToken ct = default)
+        {
+            await _canvasObjectRepository.DeleteRangeAsync(shapeIds, ct);
         }
 
         private async Task<CanvasLayer> ResolveTargetLayerAsync(
@@ -117,6 +229,35 @@ namespace Land_Readjustment_Tool.UI.MapCanvas.Services
             }
 
             return await EnsureLayerAsync(shape, layerName, ct);
+        }
+
+        private async Task<CanvasLayer> ResolveTargetLayerFromCacheAsync(
+            IShape shape,
+            string layerName,
+            Dictionary<int, CanvasLayer> layersById,
+            Dictionary<string, CanvasLayer> layersByName,
+            CancellationToken ct)
+        {
+            if (shape.Properties.TryGetValue(CanvasLayerIdPropertyKey, out object? layerIdValue) &&
+                TryToInt(layerIdValue, out int layerId) &&
+                layersById.TryGetValue(layerId, out CanvasLayer? layerById))
+            {
+                return layerById;
+            }
+
+            string normalizedName = string.IsNullOrWhiteSpace(layerName)
+                ? "Default"
+                : layerName.Trim();
+
+            if (layersByName.TryGetValue(normalizedName, out CanvasLayer? layerByName))
+            {
+                return layerByName;
+            }
+
+            CanvasLayer created = await EnsureLayerAsync(shape, normalizedName, ct);
+            layersById[created.Id] = created;
+            layersByName[created.Name] = created;
+            return created;
         }
 
         private async Task<CanvasLayer> EnsureLayerAsync(

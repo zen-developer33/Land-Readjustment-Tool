@@ -170,6 +170,11 @@ namespace Land_Readjustment_Tool.UI.CustomControls
         private bool _lastDebugFrameWasDirectGpu;
         private bool _lastDebugFrameWasDirectSkiaCpu;
         private bool _lastDebugFrameUsedGpuInteractionCache;
+        // Per-frame phase timing (CPU command-issue time) so the debug overlay can
+        // show which part of a frame is expensive — base map vs interaction overlay
+        // (preview/grip/selection). Helps diagnose preview/edit smoothness.
+        private double _lastGpuBaseMs;
+        private double _lastGpuOverlayMs;
         private long _lastStatusBarUpdateTick;
         private bool _blockPanUntilZoomSettle;
         private bool _holdZoomStartFrameUntilRasterRefresh;
@@ -941,6 +946,34 @@ namespace Land_Readjustment_Tool.UI.CustomControls
             }
         }
 
+        public CanvasLivePerformanceSnapshot GetPerformanceSnapshot()
+        {
+            MapCanvasRendererDebugState rendererState = _renderer.GetDebugState();
+            VectorRenderStats vectorStats = rendererState.VectorStats;
+            DeferredRendererDebugState vectorCache = rendererState.VectorCache;
+            int visibleObjectCount = _vectorFeatures.Count(IsVisiblePerformanceFeature);
+
+            return new CanvasLivePerformanceSnapshot(
+                LoadedObjectCount: _vectorFeatures.Count,
+                VisibleObjectCount: visibleObjectCount,
+                SelectedObjectCount: _selectedShapeIds.Count,
+                SpatialCandidateCount: vectorStats.QueryCandidateCount,
+                RenderedObjectCount: vectorStats.RenderedFeatureCount,
+                HiddenSkippedCount: vectorStats.HiddenSkippedCount,
+                LodSkippedCount: vectorStats.LodSkippedCount,
+                LevelOfDetailEnabled: vectorStats.LevelOfDetailEnabled,
+                LastFrameElapsedMs: _lastDebugFrameElapsedMs,
+                AverageFrameElapsedMs: _averageDebugFrameElapsedMs,
+                FramesPerSecond: GetFramesPerSecond(),
+                VectorQueryElapsedMs: vectorStats.QueryElapsedMs,
+                VectorRenderElapsedMs: vectorStats.RenderElapsedMs,
+                VectorCacheValid: vectorCache.CacheValid,
+                VectorCacheRefreshElapsedMs: vectorCache.LastRefreshElapsedMs,
+                VectorLayerCount: rendererState.VectorLayerCount,
+                RasterLayerCount: rendererState.RasterLayerCount,
+                VisibleRasterLayerCount: rendererState.VisibleRasterLayerCount);
+        }
+
         public void SetVectorLayers(IEnumerable<CanvasLayer>? layers)
         {
             CaptureRefreshHoldFrame();
@@ -1187,6 +1220,57 @@ namespace Land_Readjustment_Tool.UI.CustomControls
             _holdVectorZoomFrameUntilRefresh = true;
             RefreshVectorCacheForCurrentViewAsync();
             RequestRender();
+        }
+
+        private bool IsVisiblePerformanceFeature(CanvasFeature feature)
+        {
+            CanvasLayer? layer = ResolveFeatureLayer(feature);
+            return feature.Shape.IsVisible &&
+                   feature.CanvasObject.IsVisible &&
+                   layer?.IsVisible == true;
+        }
+
+        public void UpsertVectorFeatures(
+            IEnumerable<CanvasFeature>? features,
+            bool selectUpsertedFeatures = false)
+        {
+            CanvasFeature[] incoming = features?.ToArray() ?? [];
+            if (incoming.Length == 0)
+            {
+                return;
+            }
+
+            Dictionary<Guid, int> indexByShapeId = new();
+            for (int index = 0; index < _vectorFeatures.Count; index++)
+            {
+                CanvasFeature existing = _vectorFeatures[index];
+                indexByShapeId[existing.Shape.Id] = index;
+                indexByShapeId[existing.CanvasObject.Id] = index;
+            }
+
+            List<CanvasFeature> merged = _vectorFeatures.ToList();
+            foreach (CanvasFeature feature in incoming)
+            {
+                if (indexByShapeId.TryGetValue(feature.Shape.Id, out int existingIndex) ||
+                    indexByShapeId.TryGetValue(feature.CanvasObject.Id, out existingIndex))
+                {
+                    merged[existingIndex] = feature;
+                    continue;
+                }
+
+                indexByShapeId[feature.Shape.Id] = merged.Count;
+                indexByShapeId[feature.CanvasObject.Id] = merged.Count;
+                merged.Add(feature);
+            }
+
+            SetVectorFeatures(merged);
+
+            if (selectUpsertedFeatures)
+            {
+                SelectCanvasObjects(
+                    incoming.Select(feature => feature.CanvasObject.Id),
+                    zoomToSelection: false);
+            }
         }
 
         public async Task SetVectorFeaturesAndWaitForCacheAsync(
@@ -2107,10 +2191,13 @@ namespace Land_Readjustment_Tool.UI.CustomControls
                 _renderer.RenderScreenDecorations(surface);
             }
 
+            _lastGpuBaseMs = frameStopwatch.Elapsed.TotalMilliseconds;
+            long overlayStart = Stopwatch.GetTimestamp();
             DrawDirectGpuOverlayContent(
                 surface,
                 suppressNavigationSnapshotOverlay:
                     usedInteractionCache || bakedNavigationSnapshotOverlay);
+            _lastGpuOverlayMs = (Stopwatch.GetTimestamp() - overlayStart) * 1000.0 / Stopwatch.Frequency;
 
             frameStopwatch.Stop();
             UpdateDebugFrameTiming(frameStopwatch.Elapsed.TotalMilliseconds);
@@ -11392,7 +11479,9 @@ namespace Land_Readjustment_Tool.UI.CustomControls
                 $"Vector layers {rendererState.VectorLayerCount}  features {vectorStats.TotalFeatureCount}  STRtree {vectorStats.SpatialIndexEntryCount}  draw {vectorFrameSource}  cache {(rendererState.VectorCache.CacheValid ? "valid" : "cold")}  pan {(rendererState.VectorCache.PanBufferValid ? "ready" : "no")}  refresh {rendererState.VectorCache.LastRefreshElapsedMs:0.0} ms",
                 $"Vector query {vectorStats.QueryCandidateCount} in {vectorStats.QueryElapsedMs:0.00} ms  rendered {vectorStats.RenderedFeatureCount}  hidden {vectorStats.HiddenSkippedCount}  LOD {(vectorStats.LevelOfDetailEnabled ? "on" : "off")} skipped {vectorStats.LodSkippedCount} min {vectorStats.MinimumVisibleWorldSize:0.###}",
                 $"Snap {(_snapEnabled ? (snapSuspendedForZoom ? "suspended" : "on") : "off")}  max scale 1:{MaxSnapScaleDenominator:0}  Ortho {(_orthoModeEnabled ? "on" : "off")}  glyph {_snapGlyphSizePixels:0.#} px  tolerance {_snapPickTolerancePixels:0.#} px  query features {_lastSnapQueryFeatureCount}  candidates {_lastSnapCandidateCount}  {_lastSnapQueryElapsedMs:0.00} ms  current {_currentSnapPoint?.Type.ToString() ?? "none"}",
-                $"Interaction tool {_activeTool}  pan {_isPanning}  zoom {_isZooming} {_zoomDirection ?? ""}  raster deferred {ShouldDeferDirectRasterRendering}  vector deferred {ShouldDeferDirectVectorRendering}  live pending {_liveTileRefreshPending}"
+                $"Interaction tool {_activeTool}  pan {_isPanning}  zoom {_isZooming} {_zoomDirection ?? ""}  raster deferred {ShouldDeferDirectRasterRendering}  vector deferred {ShouldDeferDirectVectorRendering}  live pending {_liveTileRefreshPending}",
+                $"Frame phases  base {_lastGpuBaseMs:0.0} ms  overlay {_lastGpuOverlayMs:0.0} ms  (overlay = preview/grip/selection draw)",
+                $"Edit/Draw  preview {(_previewShape?.GetType().Name ?? "none")}  drawingPts {_drawingVertices.Count}  gripEdit {(_activeGripEdit != null)}  move {(_activeMoveOperation != null)}  selected {_selectedShapeIds.Count}  immediateOverlay {_immediateEditedOverlayFeatures.Count}  snapshotOverlay {HasGpuNavigationSnapshotOverlayContent}"
             ];
 
             Land_Readjustment_Tool.UI.MapCanvas.Rendering.Diagnostics.RenderSurfaceWindow surf =

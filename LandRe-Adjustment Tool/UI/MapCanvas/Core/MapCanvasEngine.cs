@@ -10,7 +10,10 @@ namespace Land_Readjustment_Tool.UI.MapCanvas.Core
     public sealed class MapCanvasEngine
     {
         public const double MinZoom = 0.000001;
-        public const double MaxZoom = 100000.0;
+        // Maximum zoom-in is capped at map scale 1:0.001. ZoomScale is screen
+        // pixels per world metre, and scale denominator = (96 DPI / 0.0254) / ZoomScale,
+        // so denominator 0.001 corresponds to this ZoomScale. Do not allow more.
+        public const double MaxZoom = 96.0 / 0.0254 / 0.001;
         public const double ZoomStep = 1.4;
         private const double DefaultInitialCenterX = 245426.0206;
         private const double DefaultInitialCenterY = 3121303.7884;

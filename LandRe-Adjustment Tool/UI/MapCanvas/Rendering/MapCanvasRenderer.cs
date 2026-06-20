@@ -47,6 +47,12 @@ namespace Land_Readjustment_Tool.UI.MapCanvas.Rendering
         private IReadOnlyList<IRasterRenderLayer> _rasterLayers = [];
         private bool _debugOverlayRequested;
         private Bitmap? _skiaBackingBitmap;
+        // Reusable 1x1 graphics handed to the surface-based preview/transient render
+        // paths purely to satisfy an unused fallback parameter. Allocating one per
+        // call (the old behavior) churned GDI objects on every preview/grip-edit
+        // frame; a single reused instance removes that per-frame allocation.
+        private Bitmap? _transientFallbackBitmap;
+        private Graphics? _transientFallbackGraphics;
 
         /// <summary>
         /// Creates a renderer for drawing the map canvas using the supplied engine and settings.
@@ -383,12 +389,9 @@ namespace Land_Readjustment_Tool.UI.MapCanvas.Rendering
                 return;
             }
 
-            using Bitmap metricsBitmap = new(1, 1, PixelFormat.Format32bppPArgb);
-            using Graphics fallbackGraphics = Graphics.FromImage(metricsBitmap);
-            ConfigureVectorGraphics(fallbackGraphics);
             _vectorRenderer.RenderPreview(
                 surface,
-                fallbackGraphics,
+                GetTransientFallbackGraphics(),
                 _engine,
                 shape,
                 layer,
@@ -409,18 +412,32 @@ namespace Land_Readjustment_Tool.UI.MapCanvas.Rendering
                 return;
             }
 
-            using Bitmap metricsBitmap = new(1, 1, PixelFormat.Format32bppPArgb);
-            using Graphics fallbackGraphics = Graphics.FromImage(metricsBitmap);
-            ConfigureVectorGraphics(fallbackGraphics);
             _vectorRenderer.RenderPreview(
                 surface,
-                fallbackGraphics,
+                GetTransientFallbackGraphics(),
                 _engine,
                 shape,
                 layer,
                 canvasObject,
                 drawAsPreview: true,
                 forceUnselected: forceUnselected);
+        }
+
+        /// <summary>
+        /// Returns a reusable throwaway graphics used only to satisfy the unused
+        /// fallback parameter of the surface-based vector preview path. Configured
+        /// once and reused so preview/grip-edit frames do not allocate GDI objects.
+        /// </summary>
+        private Graphics GetTransientFallbackGraphics()
+        {
+            if (_transientFallbackGraphics == null)
+            {
+                _transientFallbackBitmap = new Bitmap(1, 1, PixelFormat.Format32bppPArgb);
+                _transientFallbackGraphics = Graphics.FromImage(_transientFallbackBitmap);
+                ConfigureVectorGraphics(_transientFallbackGraphics);
+            }
+
+            return _transientFallbackGraphics;
         }
 
         /// <summary>
@@ -451,10 +468,7 @@ namespace Land_Readjustment_Tool.UI.MapCanvas.Rendering
                 return;
             }
 
-            using Bitmap metricsBitmap = new(1, 1, PixelFormat.Format32bppPArgb);
-            using Graphics fallbackGraphics = Graphics.FromImage(metricsBitmap);
-            ConfigureVectorGraphics(fallbackGraphics);
-            _vectorRenderer.RenderTransientShapes(surface, fallbackGraphics, _engine, shapes, forceUnselected);
+            _vectorRenderer.RenderTransientShapes(surface, GetTransientFallbackGraphics(), _engine, shapes, forceUnselected);
         }
 
         public void RenderTransientShapes(
@@ -515,12 +529,9 @@ namespace Land_Readjustment_Tool.UI.MapCanvas.Rendering
                 return;
             }
 
-            using Bitmap metricsBitmap = new(1, 1, PixelFormat.Format32bppPArgb);
-            using Graphics fallbackGraphics = Graphics.FromImage(metricsBitmap);
-            ConfigureVectorGraphics(fallbackGraphics);
             _vectorRenderer.RenderSelectionDecoration(
                 surface,
-                fallbackGraphics,
+                GetTransientFallbackGraphics(),
                 _engine,
                 shape,
                 layer,
@@ -832,7 +843,7 @@ namespace Land_Readjustment_Tool.UI.MapCanvas.Rendering
         {
             if (!_settings.ShowGrid ||
                 _engine.ZoomScale < 0.001 ||
-                _engine.ZoomScale > 100000)
+                _engine.ZoomScale > MapCanvasEngine.MaxZoom)
             {
                 return 0;
             }
@@ -846,7 +857,7 @@ namespace Land_Readjustment_Tool.UI.MapCanvas.Rendering
                 canvasSize.Width <= 0 ||
                 canvasSize.Height <= 0 ||
                 _engine.ZoomScale < 0.001 ||
-                _engine.ZoomScale > 100000)
+                _engine.ZoomScale > MapCanvasEngine.MaxZoom)
             {
                 return GridPanPadding.Empty;
             }
@@ -1472,6 +1483,10 @@ namespace Land_Readjustment_Tool.UI.MapCanvas.Rendering
             _vectorDeferredRenderer.Dispose();
             _skiaBackingBitmap?.Dispose();
             _skiaBackingBitmap = null;
+            _transientFallbackGraphics?.Dispose();
+            _transientFallbackGraphics = null;
+            _transientFallbackBitmap?.Dispose();
+            _transientFallbackBitmap = null;
         }
 
         /// <summary>
@@ -1545,7 +1560,7 @@ namespace Land_Readjustment_Tool.UI.MapCanvas.Rendering
             double? gridMinorWorldSize = null)
         {
             double zoomScale = _engine.ZoomScale;
-            if (zoomScale < 0.001 || zoomScale > 100000)
+            if (zoomScale < 0.001 || zoomScale > MapCanvasEngine.MaxZoom)
             {
                 return;
             }
@@ -1594,7 +1609,7 @@ namespace Land_Readjustment_Tool.UI.MapCanvas.Rendering
                 !suppressLabels &&
                 _settings.ShowGridLabels &&
                 zoomScale > 0.00001 &&
-                zoomScale < 10000 &&
+                zoomScale < MapCanvasEngine.MaxZoom &&
                 estimatedVerticalLines < 500;
 
             StrokeStyle minorStroke = new(_settings.MinorGridColor, 0.25f, Cap: LineCapKind.Flat);
