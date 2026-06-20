@@ -8,6 +8,7 @@ using System.Drawing.Drawing2D;
 using System.Drawing.Imaging;
 using System.Globalization;
 using System.Runtime.InteropServices;
+using Land_Readjustment_Tool.UI.MapCanvas.Rendering.Abstractions;
 
 namespace Land_Readjustment_Tool.UI.MapCanvas.Rendering
 {
@@ -51,7 +52,6 @@ namespace Land_Readjustment_Tool.UI.MapCanvas.Rendering
         private readonly CoordinateTransformation _wgs84ToProject;
         private readonly MbTilesTileRowScheme _tileRowScheme;
         private readonly bool _projectIsWebMercator;
-        private ImageAttributes? _opacityImageAttributes;
 
 
 
@@ -87,7 +87,6 @@ namespace Land_Readjustment_Tool.UI.MapCanvas.Rendering
             _wgs84ToProject = wgs84ToProject;
             _tileRowScheme = tileRowScheme;
             _projectIsWebMercator = projectIsWebMercator;
-            UpdateOpacityAttributes();
         }
 
         public int LayerId { get; }
@@ -192,6 +191,7 @@ namespace Land_Readjustment_Tool.UI.MapCanvas.Rendering
             MapCanvasEngine engine,
             RectangleD visibleWorldBounds,
             bool interactive,
+            MapRenderBackend renderBackend = MapRenderBackend.GdiPlus,
             CancellationToken cancellationToken = default)
         {
             lock (_renderSync)
@@ -237,8 +237,9 @@ namespace Land_Readjustment_Tool.UI.MapCanvas.Rendering
                     graphics.CompositingQuality = CompositingQuality.HighSpeed;
                     graphics.CompositingMode = CompositingMode.SourceCopy;
 
+                    using RasterImageRenderContext imageContext = new(graphics, renderBackend);
                     return DrawVisibleTiles(
-                        graphics,
+                        imageContext,
                         engine,
                         visibleWorldBounds,
                         interactive,
@@ -252,13 +253,64 @@ namespace Land_Readjustment_Tool.UI.MapCanvas.Rendering
             }
         }
 
+        public bool RenderVisible(
+            IMapRenderSurface surface,
+            MapCanvasEngine engine,
+            RectangleD visibleWorldBounds,
+            bool interactive,
+            CancellationToken cancellationToken = default)
+        {
+            lock (_renderSync)
+            {
+                cancellationToken.ThrowIfCancellationRequested();
+
+                if (!IsVisible ||
+                    !TryIntersects(WorldBounds, visibleWorldBounds))
+                {
+                    return false;
+                }
+
+                if (!TryTransformBounds(
+                    _projectToWebMercator,
+                    visibleWorldBounds,
+                    out RectangleD visibleWebMercatorBounds))
+                {
+                    return false;
+                }
+
+                if (!TryClipWebMercatorBounds(
+                    visibleWebMercatorBounds,
+                    out RectangleD clippedWebMercatorBounds))
+                {
+                    return false;
+                }
+
+                int zoom = SelectZoom(engine, clippedWebMercatorBounds, interactive);
+                if (!TryCreateTileRange(
+                    zoom,
+                    clippedWebMercatorBounds,
+                    out MbTilesTileRange tileRange))
+                {
+                    return false;
+                }
+
+                using RasterImageRenderContext imageContext = new(surface);
+                return DrawVisibleTiles(
+                    imageContext,
+                    engine,
+                    visibleWorldBounds,
+                    interactive,
+                    tileRange,
+                    cancellationToken);
+            }
+        }
+
         public void UpdateRenderState(bool isVisible, int transparency)
         {
             lock (_renderSync)
             {
                 IsVisible = isVisible;
                 Transparency = 0;
-                UpdateOpacityAttributes();
             }
         }
 
@@ -276,8 +328,6 @@ namespace Land_Readjustment_Tool.UI.MapCanvas.Rendering
             {
                 ClearTileCache();
                 _projectTileBoundsCache.Clear();
-                _opacityImageAttributes?.Dispose();
-                _opacityImageAttributes = null;
                 _webMercatorToProject.Dispose();
                 _projectToWebMercator.Dispose();
                 _wgs84ToProject.Dispose();
@@ -289,7 +339,7 @@ namespace Land_Readjustment_Tool.UI.MapCanvas.Rendering
         }
 
         private bool DrawVisibleTiles(
-            Graphics graphics,
+            RasterImageRenderContext imageContext,
             MapCanvasEngine engine,
             RectangleD visibleWorldBounds,
             bool interactive,
@@ -353,7 +403,7 @@ namespace Land_Readjustment_Tool.UI.MapCanvas.Rendering
 
                 TouchTile(visibleTile.Key);
                 drawnAny |= DrawTileBitmap(
-                    graphics, engine, bitmap,
+                    imageContext, engine, bitmap,
                     visibleTile.ProjectBounds);
             }
         
@@ -505,7 +555,7 @@ namespace Land_Readjustment_Tool.UI.MapCanvas.Rendering
         }
 
         private bool DrawTileBitmap(
-            Graphics graphics,
+            RasterImageRenderContext imageContext,
             MapCanvasEngine engine,
             Bitmap bitmap,
             RectangleD projectBounds)
@@ -517,7 +567,7 @@ namespace Land_Readjustment_Tool.UI.MapCanvas.Rendering
             }
 
             DrawBitmapRegion(
-                graphics,
+                imageContext,
                 bitmap,
                 AlignDestinationToPixelGrid(destination),
                 new RectangleF(0, 0, bitmap.Width, bitmap.Height));
@@ -636,16 +686,10 @@ namespace Land_Readjustment_Tool.UI.MapCanvas.Rendering
                     useEmbeddedColorManagement: false,
                     validateImageData: false);
 
-                Bitmap bitmap = new(
-                    image.Width,
-                    image.Height,
+                using Bitmap sourceBitmap = new(image);
+                Bitmap bitmap = sourceBitmap.Clone(
+                    new Rectangle(0, 0, sourceBitmap.Width, sourceBitmap.Height),
                     PixelFormat.Format32bppPArgb);
-
-                using Graphics graphics = Graphics.FromImage(bitmap);
-                graphics.CompositingMode = CompositingMode.SourceCopy;
-                graphics.InterpolationMode = InterpolationMode.NearestNeighbor;
-                graphics.PixelOffsetMode = PixelOffsetMode.HighQuality;
-                graphics.DrawImageUnscaled(image, 0, 0);
 
                 if (_collarRemovalEnabled)
                 {
@@ -1254,69 +1298,24 @@ namespace Land_Readjustment_Tool.UI.MapCanvas.Rendering
         }
 
         private void DrawBitmapRegion(
-            Graphics graphics,
+            RasterImageRenderContext imageContext,
             Bitmap bitmap,
             RectangleF destination,
             RectangleF source)
         {
-            if (_opacityImageAttributes == null)
-            {
-                using ImageAttributes imageAttributes = new();
-                imageAttributes.SetWrapMode(WrapMode.TileFlipXY);
-                graphics.DrawImage(
-                    bitmap,
-                    [
-                        new PointF(destination.Left, destination.Top),
-                        new PointF(destination.Right, destination.Top),
-                        new PointF(destination.Left, destination.Bottom)
-                    ],
-                    source,
-                    GraphicsUnit.Pixel,
-                    imageAttributes);
-                return;
-            }
-
             Rectangle destinationRectangle =
                 CreateIntegerDestinationRectangle(destination);
-            graphics.DrawImage(
+            imageContext.DrawBitmap(
                 bitmap,
                 destinationRectangle,
-                source.X,
-                source.Y,
-                source.Width,
-                source.Height,
-                GraphicsUnit.Pixel,
-                _opacityImageAttributes);
+                source,
+                GetOpacityFactor(),
+                ImageInterpolation.NearestNeighbor,
+                tileFlipXY: true);
         }
 
-        private void UpdateOpacityAttributes()
-        {
-            _opacityImageAttributes?.Dispose();
-            _opacityImageAttributes = null;
-
-            double opacityFactor = (100 - Transparency) / 100d;
-            if (opacityFactor >= 1d)
-            {
-                return;
-            }
-
-            ImageAttributes imageAttributes = new();
-            ColorMatrix opacityMatrix = new(
-                [
-                    [1f, 0f, 0f, 0f, 0f],
-                    [0f, 1f, 0f, 0f, 0f],
-                    [0f, 0f, 1f, 0f, 0f],
-                    [0f, 0f, 0f, (float)opacityFactor, 0f],
-                    [0f, 0f, 0f, 0f, 1f]
-                ]);
-            imageAttributes.SetColorMatrix(
-                opacityMatrix,
-                ColorMatrixFlag.Default,
-                ColorAdjustType.Bitmap);
-            imageAttributes.SetWrapMode(WrapMode.TileFlipXY);
-
-            _opacityImageAttributes = imageAttributes;
-        }
+        private float GetOpacityFactor() =>
+            (float)Math.Clamp((100 - Transparency) / 100d, 0d, 1d);
 
         private void TouchTile(MbTilesTileKey key)
         {

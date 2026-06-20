@@ -1,5 +1,6 @@
 using Land_Readjustment_Tool.UI.MapCanvas.Core;
 using Land_Readjustment_Tool.UI.MapCanvas.Models.Shapes;
+using Land_Readjustment_Tool.UI.MapCanvas.Rendering.Abstractions;
 
 namespace Land_Readjustment_Tool.UI.MapCanvas.Rendering
 {
@@ -15,6 +16,14 @@ namespace Land_Readjustment_Tool.UI.MapCanvas.Rendering
 
         bool RenderVisible(
             Graphics graphics,
+            MapCanvasEngine engine,
+            RectangleD visibleWorldBounds,
+            bool interactive,
+            MapRenderBackend renderBackend = MapRenderBackend.GdiPlus,
+            CancellationToken cancellationToken = default);
+
+        bool RenderVisible(
+            IMapRenderSurface surface,
             MapCanvasEngine engine,
             RectangleD visibleWorldBounds,
             bool interactive,

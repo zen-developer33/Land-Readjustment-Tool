@@ -1225,6 +1225,10 @@ namespace Land_Readjustment_Tool.Migrations
                     b.Property<bool>("CanvasNorthMarkerVisible")
                         .HasColumnType("INTEGER");
 
+                    b.Property<string>("CanvasRenderBackend")
+                        .IsRequired()
+                        .HasColumnType("TEXT");
+
                     b.Property<double?>("CanvasViewportCenterX")
                         .HasColumnType("REAL");
 

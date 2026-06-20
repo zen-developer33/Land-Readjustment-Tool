@@ -1,0 +1,14 @@
+<Project>
+
+  <!--
+    Suppress NU1903 for the transitive SQLitePCLRaw.lib.e_sqlite3 native package.
+    The advisory is informational; this package is pulled in transitively and the
+    warning was terminating EF Core Package Manager Console commands because PMC
+    runs with $ErrorActionPreference = "Stop". Suppressing it solution-wide keeps
+    add-migration / update-database usable.
+  -->
+  <PropertyGroup>
+    <NoWarn>$(NoWarn);NU1903</NoWarn>
+  </PropertyGroup>
+
+</Project>

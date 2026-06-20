@@ -2,8 +2,13 @@ using Land_Readjustment_Tool.Core.Entities.Canvas;
 using Land_Readjustment_Tool.Services.Canvas;
 using Land_Readjustment_Tool.UI.MapCanvas.Core;
 using Land_Readjustment_Tool.UI.MapCanvas.Models.Shapes;
+using Land_Readjustment_Tool.UI.MapCanvas.Rendering.Abstractions;
+using Land_Readjustment_Tool.UI.MapCanvas.Rendering.Backends;
+using Land_Readjustment_Tool.UI.MapCanvas.Rendering.Gdi;
+using Land_Readjustment_Tool.UI.MapCanvas.Rendering.Skia;
 using Land_Readjustment_Tool.UI.MapCanvas.Services;
 using System.Drawing.Drawing2D;
+using System.Drawing.Imaging;
 using System.Drawing.Text;
 using System.Runtime.InteropServices;
 
@@ -17,21 +22,31 @@ namespace Land_Readjustment_Tool.UI.MapCanvas.Rendering
     public sealed class MapCanvasRenderer : IDisposable
     {
         private const int LevelOfDetailDirectRenderThreshold = 20_000;
+        private const float GridFontSizePx = 10.67f;
+        private const float AxisFontSizePx = 12.0f;
+        private static readonly MapRenderSurfaceOptions OverlaySurfaceOptions = new()
+        {
+            ApplyInitialQuality = false
+        };
+        private static readonly MapRenderSurfaceOptions RasterFrameSurfaceOptions = new()
+        {
+            InitialQuality = RenderQuality.RasterHighSpeed
+        };
 
         private readonly record struct MapCanvasRenderViewport(
             RectangleD VisibleWorldBounds,
             RectangleF VisibleScreenBounds);
 
-        private readonly Font _gridFont = new("Arial", 8.0f, FontStyle.Regular);
-        private readonly Font _axisFont = new("Arial", 9.0f, FontStyle.Regular);
         private readonly MapCanvasEngine _engine;
         private readonly MapCanvasRenderOrderService _renderOrderService;
-        private readonly CanvasVectorRenderer _vectorRenderer = new();
+        private readonly IMapRenderSurfaceFactory _renderSurfaceFactory;
+        private readonly CanvasVectorRenderer _vectorRenderer;
         private readonly VectorDeferredRenderer _vectorDeferredRenderer = new();
         private double _lastAdaptiveMinorSize;
         private MapCanvasRenderSettings _settings;
         private IReadOnlyList<IRasterRenderLayer> _rasterLayers = [];
         private bool _debugOverlayRequested;
+        private Bitmap? _skiaBackingBitmap;
 
         /// <summary>
         /// Creates a renderer for drawing the map canvas using the supplied engine and settings.
@@ -39,16 +54,24 @@ namespace Land_Readjustment_Tool.UI.MapCanvas.Rendering
         /// <param name="engine">Viewport engine providing world/screen transforms.</param>
         /// <param name="settings">Rendering options and theme colors.</param>
         /// <param name="renderOrderService">Optional service that defines canvas render-pass order.</param>
+        /// <param name="renderSurfaceFactory">
+        /// Optional backend-neutral surface factory used by migrated render paths.
+        /// </param>
         public MapCanvasRenderer(
             MapCanvasEngine engine,
             MapCanvasRenderSettings settings,
-            MapCanvasRenderOrderService? renderOrderService = null)
+            MapCanvasRenderOrderService? renderOrderService = null,
+            IMapRenderSurfaceFactory? renderSurfaceFactory = null)
         {
             _engine = engine ?? throw new ArgumentNullException(nameof(engine));
             _settings = settings?.Clone()
                 ?? throw new ArgumentNullException(nameof(settings));
             _renderOrderService = renderOrderService
                 ?? new MapCanvasRenderOrderService();
+            _renderSurfaceFactory = renderSurfaceFactory
+                ?? MapRenderSurfaceFactory.Default;
+            _vectorRenderer = new CanvasVectorRenderer(_renderSurfaceFactory);
+            _vectorRenderer.UpdateRenderBackend(_settings.RenderBackend);
         }
 
         /// <summary>
@@ -59,6 +82,7 @@ namespace Land_Readjustment_Tool.UI.MapCanvas.Rendering
         {
             _settings = settings?.Clone()
                 ?? throw new ArgumentNullException(nameof(settings));
+            _vectorRenderer.UpdateRenderBackend(_settings.RenderBackend);
         }
 
         /// <summary>
@@ -149,10 +173,12 @@ namespace Land_Readjustment_Tool.UI.MapCanvas.Rendering
         {
             ArgumentNullException.ThrowIfNull(graphics);
             _debugOverlayRequested = showDebugOverlay;
+            using IDisposable? gpuFrameScope = BeginGpuFrameScopeIfNeeded(graphics);
 
             if (!suppressBackgroundClear)
             {
-                graphics.Clear(_settings.BackgroundColor);
+                using IMapRenderSurface surface = CreateFrameSurface(graphics);
+                surface.Clear(_settings.BackgroundColor);
             }
 
             MapCanvasRenderViewport viewport = CreateViewport(graphics);
@@ -204,6 +230,120 @@ namespace Land_Readjustment_Tool.UI.MapCanvas.Rendering
             }
         }
 
+        public bool RenderCachedDirect(
+            IMapRenderSurface surface,
+            RasterRenderFrame? rasterFrame,
+            bool interactiveRaster,
+            RasterRenderFrame? vectorFrame,
+            bool interactiveVector,
+            bool suppressGridLabels,
+            bool suppressFixedReferenceLayers,
+            RasterRenderFrame? fixedReferenceFrame = null,
+            bool suppressBackgroundClear = false,
+            Rectangle? zoomWindowRectangle = null)
+        {
+            ArgumentNullException.ThrowIfNull(surface);
+
+            MapCanvasRenderViewport viewport = CreateViewport(surface.PixelSize);
+            if (!CanRenderCachedDirect(
+                rasterFrame,
+                interactiveRaster,
+                vectorFrame,
+                interactiveVector,
+                fixedReferenceFrame,
+                suppressFixedReferenceLayers))
+            {
+                return false;
+            }
+
+            if (!suppressBackgroundClear)
+            {
+                surface.Clear(_settings.BackgroundColor);
+            }
+
+            foreach (MapCanvasRenderStage stage in _renderOrderService.GetFrameStages())
+            {
+                switch (stage)
+                {
+                    case MapCanvasRenderStage.FixedReference:
+                        surface.SetQuality(RenderQuality.VectorHighQuality);
+                        RenderFixedReferenceContent(
+                            surface,
+                            viewport,
+                            fixedReferenceFrame,
+                            suppressGridLabels,
+                            suppressFixedReferenceLayers);
+                        fixedReferenceFrame = null;
+                        break;
+
+                    case MapCanvasRenderStage.RasterContent:
+                        surface.SetQuality(RenderQuality.RasterHighSpeed);
+                        RenderRasterContent(
+                            surface,
+                            viewport,
+                            rasterFrame,
+                            interactiveRaster);
+                        rasterFrame = null;
+                        break;
+
+                    case MapCanvasRenderStage.VectorContent:
+                        surface.SetQuality(
+                            _settings.AntiAliasingEnabled
+                                ? RenderQuality.VectorHighQuality
+                                : RenderQuality.VectorHighSpeed);
+                        RenderVectorContent(
+                            surface,
+                            viewport,
+                            vectorFrame,
+                            interactiveVector);
+                        vectorFrame = null;
+                        break;
+
+                    case MapCanvasRenderStage.InteractionOverlay:
+                        surface.SetQuality(RenderQuality.VectorHighQuality);
+                        RenderInteractionOverlay(
+                            surface,
+                            viewport,
+                            zoomWindowRectangle,
+                            suppressDecorations: suppressFixedReferenceLayers);
+                        break;
+                }
+            }
+
+            return true;
+        }
+
+        private bool CanRenderCachedDirect(
+            RasterRenderFrame? rasterFrame,
+            bool interactiveRaster,
+            RasterRenderFrame? vectorFrame,
+            bool interactiveVector,
+            RasterRenderFrame? fixedReferenceFrame,
+            bool suppressFixedReferenceLayers)
+        {
+            if (!vectorFrame.HasValue &&
+                interactiveVector &&
+                _vectorRenderer.FeatureCount > 0)
+            {
+                return false;
+            }
+
+            return true;
+        }
+
+        private IDisposable? BeginGpuFrameScopeIfNeeded(Graphics graphics)
+        {
+            if (_settings.RenderBackend != MapRenderBackend.SkiaGpu ||
+                !_renderSurfaceFactory.IsBackendAvailable(MapRenderBackend.SkiaGpu))
+            {
+                return null;
+            }
+
+            Size pixelSize = Size.Round(graphics.VisibleClipBounds.Size);
+            pixelSize = new Size(Math.Max(1, pixelSize.Width), Math.Max(1, pixelSize.Height));
+            return new SkiaGpuFrameRenderScope(graphics, pixelSize);
+        }
+
         public void ResizeVectorCache(Size canvasSize)
         {
             _vectorDeferredRenderer.Resize(canvasSize);
@@ -232,6 +372,58 @@ namespace Land_Readjustment_Tool.UI.MapCanvas.Rendering
                 forceUnselected: forceUnselected);
         }
 
+        public void RenderTransientShape(
+            IMapRenderSurface surface,
+            IShape? shape,
+            CanvasLayer? layer = null,
+            CanvasObject? canvasObject = null,
+            bool forceUnselected = false)
+        {
+            if (shape == null)
+            {
+                return;
+            }
+
+            using Bitmap metricsBitmap = new(1, 1, PixelFormat.Format32bppPArgb);
+            using Graphics fallbackGraphics = Graphics.FromImage(metricsBitmap);
+            ConfigureVectorGraphics(fallbackGraphics);
+            _vectorRenderer.RenderPreview(
+                surface,
+                fallbackGraphics,
+                _engine,
+                shape,
+                layer,
+                canvasObject,
+                drawAsPreview: false,
+                forceUnselected: forceUnselected);
+        }
+
+        public void RenderPreviewShape(
+            IMapRenderSurface surface,
+            IShape? shape,
+            CanvasLayer? layer = null,
+            CanvasObject? canvasObject = null,
+            bool forceUnselected = false)
+        {
+            if (shape == null)
+            {
+                return;
+            }
+
+            using Bitmap metricsBitmap = new(1, 1, PixelFormat.Format32bppPArgb);
+            using Graphics fallbackGraphics = Graphics.FromImage(metricsBitmap);
+            ConfigureVectorGraphics(fallbackGraphics);
+            _vectorRenderer.RenderPreview(
+                surface,
+                fallbackGraphics,
+                _engine,
+                shape,
+                layer,
+                canvasObject,
+                drawAsPreview: true,
+                forceUnselected: forceUnselected);
+        }
+
         /// <summary>
         /// Live-renders a batch of transient shapes (e.g. all shapes being moved)
         /// with one shared render context.
@@ -248,6 +440,22 @@ namespace Land_Readjustment_Tool.UI.MapCanvas.Rendering
 
             ConfigureVectorGraphics(graphics);
             _vectorRenderer.RenderTransientShapes(graphics, _engine, shapes, forceUnselected);
+        }
+
+        public void RenderTransientShapes(
+            IMapRenderSurface surface,
+            IReadOnlyList<(IShape Shape, CanvasLayer? Layer, CanvasObject? CanvasObject)> shapes,
+            bool forceUnselected = false)
+        {
+            if (shapes == null || shapes.Count == 0)
+            {
+                return;
+            }
+
+            using Bitmap metricsBitmap = new(1, 1, PixelFormat.Format32bppPArgb);
+            using Graphics fallbackGraphics = Graphics.FromImage(metricsBitmap);
+            ConfigureVectorGraphics(fallbackGraphics);
+            _vectorRenderer.RenderTransientShapes(surface, fallbackGraphics, _engine, shapes, forceUnselected);
         }
 
         public void RenderTransientShapes(
@@ -290,6 +498,30 @@ namespace Land_Readjustment_Tool.UI.MapCanvas.Rendering
             ConfigureVectorGraphics(graphics);
             _vectorRenderer.RenderSelectionDecoration(
                 graphics,
+                _engine,
+                shape,
+                layer,
+                feature,
+                _settings.AntiAliasingEnabled);
+        }
+
+        public void RenderSelectionDecoration(
+            IMapRenderSurface surface,
+            IShape? shape,
+            CanvasLayer? layer,
+            CanvasFeature? feature)
+        {
+            if (shape == null)
+            {
+                return;
+            }
+
+            using Bitmap metricsBitmap = new(1, 1, PixelFormat.Format32bppPArgb);
+            using Graphics fallbackGraphics = Graphics.FromImage(metricsBitmap);
+            ConfigureVectorGraphics(fallbackGraphics);
+            _vectorRenderer.RenderSelectionDecoration(
+                surface,
+                fallbackGraphics,
                 _engine,
                 shape,
                 layer,
@@ -379,6 +611,74 @@ namespace Land_Readjustment_Tool.UI.MapCanvas.Rendering
                 graphics.VisibleClipBounds);
         }
 
+        private MapCanvasRenderViewport CreateViewport(Size pixelSize)
+        {
+            return new MapCanvasRenderViewport(
+                _engine.GetVisibleWorldBounds(),
+                new RectangleF(0, 0, Math.Max(1, pixelSize.Width), Math.Max(1, pixelSize.Height)));
+        }
+
+        /// <summary>
+        /// Creates a backend-neutral surface for the current frame graphics target.
+        /// For the Skia CPU backend a shared backing bitmap is reused across passes
+        /// within a frame to avoid the per-call unmanaged allocation cost.
+        /// </summary>
+        /// <param name="graphics">Native graphics target supplied by WinForms.</param>
+        /// <param name="options">Surface creation and quality options.</param>
+        private IMapRenderSurface CreateFrameSurface(
+            Graphics graphics,
+            MapRenderSurfaceOptions? options = null)
+        {
+            MapRenderSurfaceOptions resolvedOptions = CreateSurfaceOptions(options);
+            if (resolvedOptions.RequestedBackend == MapRenderBackend.SkiaCpu)
+            {
+                Size size = Size.Round(graphics.VisibleClipBounds.Size);
+                size = new Size(Math.Max(1, size.Width), Math.Max(1, size.Height));
+                if (_skiaBackingBitmap == null ||
+                    _skiaBackingBitmap.Width != size.Width ||
+                    _skiaBackingBitmap.Height != size.Height)
+                {
+                    _skiaBackingBitmap?.Dispose();
+                    _skiaBackingBitmap = new Bitmap(size.Width, size.Height, PixelFormat.Format32bppPArgb);
+                }
+
+                SkiaCpuMapRenderSurface surface = new(_skiaBackingBitmap, graphics);
+                if (resolvedOptions.ApplyInitialQuality)
+                {
+                    surface.SetQuality(resolvedOptions.InitialQuality);
+                }
+
+                return surface;
+            }
+
+            return _renderSurfaceFactory.CreateForGraphics(
+                graphics,
+                Size.Round(graphics.VisibleClipBounds.Size),
+                resolvedOptions);
+        }
+
+        /// <summary>
+        /// Copies a surface option template while injecting the backend selected
+        /// by the current render settings.
+        /// </summary>
+        private MapRenderSurfaceOptions CreateSurfaceOptions(MapRenderSurfaceOptions? options)
+        {
+            MapRenderSurfaceOptions template = options ?? OverlaySurfaceOptions;
+            return new MapRenderSurfaceOptions
+            {
+                RequestedBackend = _settings.RenderBackend,
+                InitialQuality = template.InitialQuality,
+                ApplyInitialQuality = template.ApplyInitialQuality,
+                FallbackToGdiPlusWhenUnavailable = template.FallbackToGdiPlusWhenUnavailable
+            };
+        }
+
+        /// <summary>
+        /// Creates a backend-neutral image wrapper for a cached bitmap frame.
+        /// </summary>
+        private IMapImage CreateFrameImage(Bitmap bitmap) =>
+            _renderSurfaceFactory.CreateImage(bitmap, ownsImage: false);
+
         /// <summary>
         /// Draws fixed reference visuals that should be placed before map content.
         /// </summary>
@@ -390,9 +690,31 @@ namespace Land_Readjustment_Tool.UI.MapCanvas.Rendering
             bool suppressGridLabels = false,
             double? gridMinorWorldSize = null)
         {
+            // The only fixed-reference content is the grid, so skip allocating a
+            // surface entirely when the grid is hidden (avoids a wasted GPU/CPU
+            // surface per frame).
+            if (!_settings.ShowGrid)
+            {
+                return;
+            }
+
+            using IMapRenderSurface surface = CreateFrameSurface(graphics);
+            RenderFixedReferenceLayers(
+                surface,
+                viewport,
+                suppressGridLabels,
+                gridMinorWorldSize);
+        }
+
+        private void RenderFixedReferenceLayers(
+            IMapRenderSurface surface,
+            MapCanvasRenderViewport viewport,
+            bool suppressGridLabels = false,
+            double? gridMinorWorldSize = null)
+        {
             if (_settings.ShowGrid)
             {
-                RenderGrid(graphics, viewport, suppressGridLabels, gridMinorWorldSize);
+                RenderGrid(surface, viewport, suppressGridLabels, gridMinorWorldSize);
             }
         }
 
@@ -429,6 +751,42 @@ namespace Land_Readjustment_Tool.UI.MapCanvas.Rendering
             ConfigureVectorGraphics(graphics);
             RenderFixedReferenceLayers(
                 graphics,
+                viewport,
+                suppressGridLabels);
+        }
+
+        private void RenderFixedReferenceContent(
+            IMapRenderSurface surface,
+            MapCanvasRenderViewport viewport,
+            RasterRenderFrame? fixedReferenceFrame,
+            bool suppressGridLabels,
+            bool suppressFixedReferenceLayers)
+        {
+            if (fixedReferenceFrame.HasValue)
+            {
+                RasterRenderFrame frame = fixedReferenceFrame.Value;
+                try
+                {
+                    DrawCachedFrame(
+                        surface,
+                        frame,
+                        InterpolationMode.NearestNeighbor);
+                }
+                finally
+                {
+                    frame.Dispose();
+                }
+
+                return;
+            }
+
+            if (suppressFixedReferenceLayers)
+            {
+                return;
+            }
+
+            RenderFixedReferenceLayers(
+                surface,
                 viewport,
                 suppressGridLabels);
         }
@@ -580,7 +938,34 @@ namespace Land_Readjustment_Tool.UI.MapCanvas.Rendering
                     graphics,
                     viewport,
                     interactiveRaster,
-                    cachedOnly: false);
+                cachedOnly: false);
+            }
+        }
+
+        private void RenderRasterContent(
+            IMapRenderSurface surface,
+            MapCanvasRenderViewport viewport,
+            RasterRenderFrame? rasterFrame,
+            bool interactiveRaster)
+        {
+            if (rasterFrame.HasValue)
+            {
+                RasterRenderFrame frame = rasterFrame.Value;
+                try
+                {
+                    DrawCachedFrame(
+                        surface,
+                        frame,
+                        InterpolationMode.NearestNeighbor);
+                }
+                finally
+                {
+                    frame.Dispose();
+                }
+            }
+            else if (!interactiveRaster)
+            {
+                RenderRasterLayers(surface, viewport, interactive: false);
             }
         }
 
@@ -622,6 +1007,48 @@ namespace Land_Readjustment_Tool.UI.MapCanvas.Rendering
                 antiAliasingEnabled: _settings.AntiAliasingEnabled);
         }
 
+        private void RenderVectorContent(
+            IMapRenderSurface surface,
+            MapCanvasRenderViewport viewport,
+            RasterRenderFrame? vectorFrame,
+            bool interactiveVector)
+        {
+            if (vectorFrame.HasValue)
+            {
+                RasterRenderFrame frame = vectorFrame.Value;
+                try
+                {
+                    DrawCachedFrame(
+                        surface,
+                        frame,
+                        InterpolationMode.NearestNeighbor);
+                }
+                finally
+                {
+                    frame.Dispose();
+                }
+
+                return;
+            }
+
+            if (interactiveVector)
+            {
+                return;
+            }
+
+            using Bitmap metricsBitmap = new(1, 1, PixelFormat.Format32bppPArgb);
+            using Graphics fallbackGraphics = Graphics.FromImage(metricsBitmap);
+            ConfigureVectorGraphics(fallbackGraphics);
+            _vectorRenderer.Render(
+                surface,
+                fallbackGraphics,
+                _engine,
+                viewport.VisibleWorldBounds,
+                useLevelOfDetail: _vectorRenderer.FeatureCount > LevelOfDetailDirectRenderThreshold,
+                canvasSize: Size.Round(viewport.VisibleScreenBounds.Size),
+                antiAliasingEnabled: _settings.AntiAliasingEnabled);
+        }
+
         /// <summary>
         /// Draws temporary interaction feedback that must stay visible above map content.
         /// </summary>
@@ -650,7 +1077,40 @@ namespace Land_Readjustment_Tool.UI.MapCanvas.Rendering
             }
         }
 
+        private void RenderInteractionOverlay(
+            IMapRenderSurface surface,
+            MapCanvasRenderViewport viewport,
+            Rectangle? zoomWindowRectangle,
+            bool suppressDecorations = false)
+        {
+            if (zoomWindowRectangle.HasValue)
+            {
+                RenderZoomWindow(surface, zoomWindowRectangle.Value);
+            }
+
+            if (!suppressDecorations && (_settings.ShowAxisLines || _settings.ShowOriginMarker))
+            {
+                RenderAxisAndOriginMarker(surface, viewport);
+            }
+
+            if (!suppressDecorations && _settings.ShowNorthMarker)
+            {
+                RenderNorthMarker(surface, viewport.VisibleScreenBounds);
+            }
+        }
+
+        /// <summary>
+        /// Draws the north marker overlay through the backend-neutral render surface.
+        /// </summary>
+        /// <param name="graphics">Target graphics surface.</param>
+        /// <param name="clientRect">Visible canvas bounds in screen pixels.</param>
         private void RenderNorthMarker(Graphics graphics, RectangleF clientRect)
+        {
+            using IMapRenderSurface surface = CreateFrameSurface(graphics);
+            RenderNorthMarker(surface, clientRect);
+        }
+
+        private void RenderNorthMarker(IMapRenderSurface surface, RectangleF clientRect)
         {
             float minSide = Math.Min(clientRect.Width, clientRect.Height);
             float size = Math.Max(36.0f, Math.Min(60.0f, minSide * 0.10f));
@@ -681,23 +1141,45 @@ namespace Land_Readjustment_Tool.UI.MapCanvas.Rendering
             PointF leftBase = new(centerX - arrowHalf, arrowBottom);
             PointF rightBase = new(centerX + arrowHalf, arrowBottom);
 
-            using SolidBrush leftBrush = new(leftFillColor);
-            using SolidBrush rightBrush = new(rightFillColor);
-            using Pen outlinePen = new(lineColor, Math.Max(1.4f, size * 0.035f))
-            {
-                LineJoin = LineJoin.Miter
-            };
+            using IMapPath leftTriangle = CreatePolygonPath(surface, [tip, spine, leftBase]);
+            using IMapPath rightTriangle = CreatePolygonPath(surface, [tip, rightBase, spine]);
+            using IMapPath outline = CreatePolygonPath(surface, [tip, rightBase, spine, leftBase]);
 
-            graphics.FillPolygon(leftBrush, new[] { tip, spine, leftBase });
-            graphics.FillPolygon(rightBrush, new[] { tip, rightBase, spine });
-            graphics.DrawPolygon(outlinePen, new[] { tip, rightBase, spine, leftBase });
-            graphics.DrawLine(outlinePen, tip, spine);
+            FillStyle leftFill = new(leftFillColor);
+            FillStyle rightFill = new(rightFillColor);
+            StrokeStyle outlineStroke = new(
+                lineColor,
+                Math.Max(1.4f, size * 0.035f),
+                Cap: LineCapKind.Flat,
+                Join: LineJoinKind.Miter);
+
+            surface.FillPath(leftTriangle, leftFill);
+            surface.FillPath(rightTriangle, rightFill);
+            surface.DrawPath(outline, outlineStroke);
+            surface.DrawLine(tip, spine, outlineStroke);
 
             float labelTop = arrowBottom + Math.Max(2.0f, size * 0.04f);
-            using Font labelFont = new("Segoe UI", Math.Max(10f, size * 0.26f), FontStyle.Bold);
-            using SolidBrush labelBrush = new(lineColor);
-            using StringFormat sf = new() { Alignment = StringAlignment.Center };
-            graphics.DrawString("N", labelFont, labelBrush, new PointF(centerX, labelTop), sf);
+            TextStyle labelStyle = new(
+                "Segoe UI",
+                Math.Max(10f, size * 0.26f),
+                lineColor,
+                Bold: true,
+                HorizontalAlign: TextAlign.Center,
+                VerticalAlign: TextAlign.Near);
+            surface.DrawText(
+                "N",
+                new RectangleF(centerX - size * 0.5f, labelTop, size, Math.Max(14.0f, size * 0.35f)),
+                labelStyle);
+        }
+
+        /// <summary>
+        /// Creates a backend-owned closed polygon path for screen-space overlay geometry.
+        /// </summary>
+        private static IMapPath CreatePolygonPath(IMapRenderSurface surface, ReadOnlySpan<PointF> points)
+        {
+            IMapPathBuilder builder = surface.CreatePath();
+            builder.AddPolygon(points);
+            return builder.Build();
         }
         /// <summary>
         /// Draws all visible raster layer tiles that intersect the current viewport.
@@ -726,6 +1208,27 @@ namespace Land_Readjustment_Tool.UI.MapCanvas.Rendering
                     graphics,
                     _engine,
                     viewport.VisibleWorldBounds,
+                    interactive,
+                    _settings.RenderBackend);
+            }
+        }
+
+        private void RenderRasterLayers(
+            IMapRenderSurface surface,
+            MapCanvasRenderViewport viewport,
+            bool interactive)
+        {
+            if (_rasterLayers.Count == 0)
+            {
+                return;
+            }
+
+            foreach (IRasterRenderLayer layer in _rasterLayers)
+            {
+                layer.RenderVisible(
+                    surface,
+                    _engine,
+                    viewport.VisibleWorldBounds,
                     interactive);
             }
         }
@@ -735,7 +1238,7 @@ namespace Land_Readjustment_Tool.UI.MapCanvas.Rendering
         /// </summary>
         /// <param name="graphics">Target graphics surface.</param>
         /// <param name="rasterFrame">Cached raster bitmap and its screen destination.</param>
-        private static void DrawCachedFrame(
+        private void DrawCachedFrame(
             Graphics graphics,
             RasterRenderFrame rasterFrame,
             InterpolationMode interpolationMode)
@@ -752,21 +1255,17 @@ namespace Land_Readjustment_Tool.UI.MapCanvas.Rendering
                     return;
                 }
 
-                GraphicsState state = graphics.Save();
                 try
                 {
-                    graphics.SmoothingMode = SmoothingMode.None;
-                    graphics.InterpolationMode = interpolationMode;
-                    graphics.PixelOffsetMode = PixelOffsetMode.None;
-                    graphics.CompositingQuality = CompositingQuality.HighSpeed;
-                    graphics.DrawImage(
-                        rasterFrame.Bitmap,
-                        Rectangle.Round(destination),
-                        source.X,
-                        source.Y,
-                        source.Width,
-                        source.Height,
-                        GraphicsUnit.Pixel);
+                    using IMapRenderSurface surface = CreateFrameSurface(
+                        graphics,
+                        RasterFrameSurfaceOptions);
+                    using IMapImage image = CreateFrameImage(rasterFrame.Bitmap);
+                    surface.DrawImage(
+                        image,
+                        destination,
+                        source,
+                        new ImageStyle(1.0f, ToImageInterpolation(interpolationMode)));
                 }
                 catch (ArgumentException ex)
                 {
@@ -778,12 +1277,44 @@ namespace Land_Readjustment_Tool.UI.MapCanvas.Rendering
                     System.Diagnostics.Debug.WriteLine(
                         $"Skipped GDI raster cache frame draw: {ex.Message}");
                 }
-                finally
-                {
-                    graphics.Restore(state);
-                }
             }
         }
+
+        private static void DrawCachedFrame(
+            IMapRenderSurface surface,
+            RasterRenderFrame rasterFrame,
+            InterpolationMode interpolationMode)
+        {
+            lock (rasterFrame.SyncRoot)
+            {
+                RectangleF clipBounds = new(0, 0, surface.PixelSize.Width, surface.PixelSize.Height);
+                if (!TryCreateClippedRasterDraw(
+                    rasterFrame.Bitmap,
+                    rasterFrame.Destination,
+                    clipBounds,
+                    out RectangleF destination,
+                    out RectangleF source))
+                {
+                    return;
+                }
+
+                using GdiMapImage image = new(rasterFrame.Bitmap);
+                surface.SetQuality(RenderQuality.RasterHighSpeed);
+                surface.DrawImage(
+                    image,
+                    destination,
+                    source,
+                    new ImageStyle(1.0f, ToImageInterpolation(interpolationMode)));
+            }
+        }
+
+        /// <summary>
+        /// Converts a GDI+ interpolation mode into the backend-neutral image mode.
+        /// </summary>
+        private static ImageInterpolation ToImageInterpolation(InterpolationMode interpolationMode) =>
+            interpolationMode == InterpolationMode.HighQualityBicubic
+                ? ImageInterpolation.HighQuality
+                : ImageInterpolation.NearestNeighbor;
 
         private static bool TryCreateClippedRasterDraw(
             Bitmap bitmap,
@@ -886,10 +1417,10 @@ namespace Land_Readjustment_Tool.UI.MapCanvas.Rendering
         /// </summary>
         public void Dispose()
         {
-            _gridFont.Dispose();
-            _axisFont.Dispose();
             _vectorRenderer.Dispose();
             _vectorDeferredRenderer.Dispose();
+            _skiaBackingBitmap?.Dispose();
+            _skiaBackingBitmap = null;
         }
 
         /// <summary>
@@ -948,6 +1479,20 @@ namespace Land_Readjustment_Tool.UI.MapCanvas.Rendering
             bool suppressLabels = false,
             double? gridMinorWorldSize = null)
         {
+            using IMapRenderSurface surface = CreateFrameSurface(graphics);
+            RenderGrid(
+                surface,
+                viewport,
+                suppressLabels,
+                gridMinorWorldSize);
+        }
+
+        private void RenderGrid(
+            IMapRenderSurface surface,
+            MapCanvasRenderViewport viewport,
+            bool suppressLabels = false,
+            double? gridMinorWorldSize = null)
+        {
             double zoomScale = _engine.ZoomScale;
             if (zoomScale < 0.001 || zoomScale > 100000)
             {
@@ -1001,9 +1546,20 @@ namespace Land_Readjustment_Tool.UI.MapCanvas.Rendering
                 zoomScale < 10000 &&
                 estimatedVerticalLines < 500;
 
-            using Pen minorPen = new(_settings.MinorGridColor, 0.25f);
-            using Pen majorPen = new(_settings.MajorGridColor, 0.25f);
-            using Brush gridTextBrush = new SolidBrush(_settings.GridLabelColor);
+            StrokeStyle minorStroke = new(_settings.MinorGridColor, 0.25f, Cap: LineCapKind.Flat);
+            StrokeStyle majorStroke = new(_settings.MajorGridColor, 0.25f, Cap: LineCapKind.Flat);
+            TextStyle xLabelStyle = new(
+                "Arial",
+                GridFontSizePx,
+                _settings.GridLabelColor,
+                HorizontalAlign: TextAlign.Center,
+                VerticalAlign: TextAlign.Far);
+            TextStyle yLabelStyle = new(
+                "Arial",
+                GridFontSizePx,
+                _settings.GridLabelColor,
+                HorizontalAlign: TextAlign.Near,
+                VerticalAlign: TextAlign.Center);
 
             for (double x = startX; x <= endX; x += adaptiveMinorSize)
             {
@@ -1013,32 +1569,24 @@ namespace Land_Readjustment_Tool.UI.MapCanvas.Rendering
                     continue;
                 }
 
-                Pen pen = isMajor ? majorPen : minorPen;
+                StrokeStyle stroke = isMajor ? majorStroke : minorStroke;
                 PointD screenStart = _engine.WorldToScreen(new PointD(x, worldBottom));
                 PointD screenEnd = _engine.WorldToScreen(new PointD(x, worldTop));
 
                 DrawClippedScreenLine(
-                    graphics,
-                    pen,
+                    surface,
+                    stroke,
                     screenStart,
                     screenEnd,
                     viewport.VisibleScreenBounds);
 
                 if (isMajor && showLabels)
                 {
-                    using StringFormat sf = new()
-                    {
-                        Alignment = StringAlignment.Center,
-                        LineAlignment = StringAlignment.Far
-                    };
-
-                    graphics.DrawString(
+                    DrawPointLabel(
+                        surface,
                         FormatGridLabel(x, adaptiveMajorSize),
-                        _gridFont,
-                        gridTextBrush,
-                        (float)screenStart.X,
-                        (float)screenStart.Y,
-                        sf);
+                        new PointF((float)screenStart.X, (float)screenStart.Y),
+                        xLabelStyle);
                 }
             }
 
@@ -1050,35 +1598,67 @@ namespace Land_Readjustment_Tool.UI.MapCanvas.Rendering
                     continue;
                 }
 
-                Pen pen = isMajor ? majorPen : minorPen;
+                StrokeStyle stroke = isMajor ? majorStroke : minorStroke;
                 PointD screenStart = _engine.WorldToScreen(new PointD(worldLeft, y));
                 PointD screenEnd = _engine.WorldToScreen(new PointD(worldRight, y));
 
                 DrawClippedScreenLine(
-                    graphics,
-                    pen,
+                    surface,
+                    stroke,
                     screenStart,
                     screenEnd,
                     viewport.VisibleScreenBounds);
 
                 if (isMajor && showLabels)
                 {
-                    using StringFormat sf = new()
-                    {
-                        Alignment = StringAlignment.Near,
-                        LineAlignment = StringAlignment.Center
-                    };
-
-                    graphics.DrawString(
+                    DrawPointLabel(
+                        surface,
                         FormatGridLabel(y, adaptiveMajorSize),
-                        _gridFont,
-                        gridTextBrush,
-                        10,
-                        (float)screenStart.Y,
-                        sf);
+                        new PointF(10.0f, (float)screenStart.Y),
+                        yLabelStyle);
                 }
             }
         }
+
+        /// <summary>
+        /// Draws a text label anchored at one screen point using backend text metrics.
+        /// </summary>
+        private static void DrawPointLabel(
+            IMapRenderSurface surface,
+            string text,
+            PointF anchor,
+            in TextStyle style)
+        {
+            SizeF size = surface.MeasureText(text, style);
+            RectangleF layout = new(
+                anchor.X - ResolveHorizontalAnchorOffset(size.Width, style.HorizontalAlign),
+                anchor.Y - ResolveVerticalAnchorOffset(size.Height, style.VerticalAlign),
+                Math.Max(1.0f, size.Width),
+                Math.Max(1.0f, size.Height));
+            surface.DrawText(text, layout, style);
+        }
+
+        /// <summary>
+        /// Resolves how much a point-anchored label should move left for alignment.
+        /// </summary>
+        private static float ResolveHorizontalAnchorOffset(float width, TextAlign align) =>
+            align switch
+            {
+                TextAlign.Center => width / 2.0f,
+                TextAlign.Far => width,
+                _ => 0.0f
+            };
+
+        /// <summary>
+        /// Resolves how much a point-anchored label should move up for alignment.
+        /// </summary>
+        private static float ResolveVerticalAnchorOffset(float height, TextAlign align) =>
+            align switch
+            {
+                TextAlign.Center => height / 2.0f,
+                TextAlign.Far => height,
+                _ => 0.0f
+            };
 
         private double ResolveAdaptiveMinorSize(
             double zoomScale,
@@ -1119,19 +1699,46 @@ namespace Land_Readjustment_Tool.UI.MapCanvas.Rendering
         /// <param name="rectangle">Screen-space zoom-window rectangle.</param>
         private void RenderZoomWindow(Graphics graphics, Rectangle rectangle)
         {
+            using IMapRenderSurface surface = CreateFrameSurface(graphics);
+            RenderZoomWindow(surface, rectangle);
+        }
+
+        private void RenderZoomWindow(IMapRenderSurface surface, Rectangle rectangle)
+        {
             if (rectangle.Width < 2 || rectangle.Height < 2)
             {
                 return;
             }
 
-            using Brush fill = new SolidBrush(_settings.ZoomWindowFillColor);
-            using Pen border = new(_settings.ZoomWindowBorderColor, _settings.ZoomWindowLineWidth)
-            {
-                DashStyle = _settings.ZoomWindowLineType
-            };
-            graphics.FillRectangle(fill, rectangle);
-            graphics.DrawRectangle(border, rectangle);
+            RectangleF screenRectangle = new(
+                rectangle.X,
+                rectangle.Y,
+                rectangle.Width,
+                rectangle.Height);
+            FillStyle fill = new(_settings.ZoomWindowFillColor);
+            StrokeStyle border = new(
+                _settings.ZoomWindowBorderColor,
+                _settings.ZoomWindowLineWidth,
+                ToDashPatternKind(_settings.ZoomWindowLineType),
+                Cap: LineCapKind.Flat,
+                Join: LineJoinKind.Miter);
+
+            surface.FillRectangle(screenRectangle, fill);
+            surface.DrawRectangle(screenRectangle, border);
         }
+
+        /// <summary>
+        /// Converts existing GDI+ dash settings into the backend-neutral dash model.
+        /// </summary>
+        private static DashPatternKind ToDashPatternKind(DashStyle dashStyle) =>
+            dashStyle switch
+            {
+                DashStyle.Dash => DashPatternKind.Dashed,
+                DashStyle.Dot => DashPatternKind.Dotted,
+                DashStyle.DashDot => DashPatternKind.DashDot,
+                DashStyle.DashDotDot => DashPatternKind.DashDoubleDot,
+                _ => DashPatternKind.Solid
+            };
 
         /// <summary>
         /// Renders world-origin axis lines and the origin marker/labels according to visibility settings.
@@ -1139,6 +1746,14 @@ namespace Land_Readjustment_Tool.UI.MapCanvas.Rendering
         /// <param name="graphics">Target graphics surface.</param>
         private void RenderAxisAndOriginMarker(
             Graphics graphics,
+            MapCanvasRenderViewport viewport)
+        {
+            using IMapRenderSurface surface = CreateFrameSurface(graphics);
+            RenderAxisAndOriginMarker(surface, viewport);
+        }
+
+        private void RenderAxisAndOriginMarker(
+            IMapRenderSurface surface,
             MapCanvasRenderViewport viewport)
         {
             RectangleF clientRect = viewport.VisibleScreenBounds;
@@ -1154,19 +1769,19 @@ namespace Land_Readjustment_Tool.UI.MapCanvas.Rendering
 
             if (_settings.ShowAxisLines)
             {
-                using Pen xAxisPen = new(_settings.AxisXColor, _settings.AxisLineWidth);
-                using Pen yAxisPen = new(_settings.AxisYColor, _settings.AxisLineWidth);
+                StrokeStyle xAxisStroke = new(_settings.AxisXColor, _settings.AxisLineWidth, Cap: LineCapKind.Flat);
+                StrokeStyle yAxisStroke = new(_settings.AxisYColor, _settings.AxisLineWidth, Cap: LineCapKind.Flat);
 
                 DrawClippedScreenLine(
-                    graphics,
-                    xAxisPen,
+                    surface,
+                    xAxisStroke,
                     xAxisStart,
                     xAxisEnd,
                     viewport.VisibleScreenBounds);
 
                 DrawClippedScreenLine(
-                    graphics,
-                    yAxisPen,
+                    surface,
+                    yAxisStroke,
                     yAxisStart,
                     yAxisEnd,
                     viewport.VisibleScreenBounds);
@@ -1184,10 +1799,15 @@ namespace Land_Readjustment_Tool.UI.MapCanvas.Rendering
 
             float markerLength = _settings.AxisMarkerLengthPx;
             float markerSquareSize = _settings.AxisMarkerSquareSizePx;
-
-            using Pen markerPen = new(_settings.AxisMarkerColor, _settings.AxisMarkerLineWidth);
-            using Brush markerBrush = new SolidBrush(_settings.AxisMarkerColor);
-            using Brush markerTextBrush = new SolidBrush(_settings.AxisLabelColor);
+            StrokeStyle markerStroke = new(
+                _settings.AxisMarkerColor,
+                _settings.AxisMarkerLineWidth,
+                Cap: LineCapKind.Flat);
+            FillStyle markerFill = new(_settings.AxisMarkerColor);
+            TextStyle markerText = new(
+                "Arial",
+                AxisFontSizePx,
+                _settings.AxisLabelColor);
 
             if (!originInViewport)
             {
@@ -1195,20 +1815,15 @@ namespace Land_Readjustment_Tool.UI.MapCanvas.Rendering
                 float x = clientRect.Left + edgePadding;
                 float y = clientRect.Bottom - edgePadding;
 
-                graphics.DrawLine(markerPen, x, y, x + markerLength, y);
-                graphics.DrawLine(markerPen, x, y, x, y - markerLength);
-                graphics.FillRectangle(
-                    markerBrush,
-                    x - markerSquareSize / 2.0f,
-                    y - markerSquareSize / 2.0f,
+                DrawOriginMarker(
+                    surface,
+                    new PointF(x, y),
+                    markerLength,
                     markerSquareSize,
-                    markerSquareSize);
-
-                if (_settings.ShowAxisLabels)
-                {
-                    graphics.DrawString("X", _axisFont, markerTextBrush, x + markerLength + 4.0f, y - 10.0f);
-                    graphics.DrawString("Y", _axisFont, markerTextBrush, x - 14.0f, y - markerLength - 12.0f);
-                }
+                    markerStroke,
+                    markerFill,
+                    markerText,
+                    _settings.ShowAxisLabels);
 
                 return;
             }
@@ -1216,20 +1831,55 @@ namespace Land_Readjustment_Tool.UI.MapCanvas.Rendering
             float ox = (float)originScreen.X;
             float oy = (float)originScreen.Y;
 
-            graphics.DrawLine(markerPen, ox, oy, ox + markerLength, oy);
-            graphics.DrawLine(markerPen, ox, oy, ox, oy - markerLength);
-            graphics.FillRectangle(
-                markerBrush,
-                ox - markerSquareSize / 2.0f,
-                oy - markerSquareSize / 2.0f,
+            DrawOriginMarker(
+                surface,
+                new PointF(ox, oy),
+                markerLength,
                 markerSquareSize,
-                markerSquareSize);
+                markerStroke,
+                markerFill,
+                markerText,
+                _settings.ShowAxisLabels);
+        }
 
-            if (_settings.ShowAxisLabels)
+        /// <summary>
+        /// Draws the small X/Y origin marker through the backend surface.
+        /// </summary>
+        private static void DrawOriginMarker(
+            IMapRenderSurface surface,
+            PointF origin,
+            float markerLength,
+            float markerSquareSize,
+            in StrokeStyle markerStroke,
+            in FillStyle markerFill,
+            in TextStyle markerText,
+            bool showLabels)
+        {
+            surface.DrawLine(origin, new PointF(origin.X + markerLength, origin.Y), markerStroke);
+            surface.DrawLine(origin, new PointF(origin.X, origin.Y - markerLength), markerStroke);
+            surface.FillRectangle(
+                new RectangleF(
+                    origin.X - markerSquareSize / 2.0f,
+                    origin.Y - markerSquareSize / 2.0f,
+                    markerSquareSize,
+                    markerSquareSize),
+                markerFill);
+
+            if (!showLabels)
             {
-                graphics.DrawString("X", _axisFont, markerTextBrush, ox + markerLength + 4.0f, oy - 10.0f);
-                graphics.DrawString("Y", _axisFont, markerTextBrush, ox - 14.0f, oy - markerLength - 12.0f);
+                return;
             }
+
+            DrawPointLabel(
+                surface,
+                "X",
+                new PointF(origin.X + markerLength + 4.0f, origin.Y - 10.0f),
+                markerText);
+            DrawPointLabel(
+                surface,
+                "Y",
+                new PointF(origin.X - 14.0f, origin.Y - markerLength - 12.0f),
+                markerText);
         }
 
         /// <summary>
@@ -1256,8 +1906,8 @@ namespace Land_Readjustment_Tool.UI.MapCanvas.Rendering
         /// Draws a screen-space segment after clipping it to the visible canvas.
         /// </summary>
         private static void DrawClippedScreenLine(
-            Graphics graphics,
-            Pen pen,
+            IMapRenderSurface surface,
+            in StrokeStyle stroke,
             PointD start,
             PointD end,
             RectangleF visibleScreenBounds)
@@ -1274,7 +1924,7 @@ namespace Land_Readjustment_Tool.UI.MapCanvas.Rendering
                 return;
             }
 
-            graphics.DrawLine(pen, clippedStart, clippedEnd);
+            surface.DrawLine(clippedStart, clippedEnd, stroke);
         }
 
         /// <summary>

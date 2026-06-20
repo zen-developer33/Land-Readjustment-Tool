@@ -14,8 +14,13 @@ using Land_Readjustment_Tool.UI.MapCanvas.Core;
 using Land_Readjustment_Tool.UI.MapCanvas.Models.Shapes;
 using Land_Readjustment_Tool.UI.MapCanvas.Models.Snapping;
 using Land_Readjustment_Tool.UI.MapCanvas.Rendering;
+using Land_Readjustment_Tool.UI.MapCanvas.Rendering.Abstractions;
+using Land_Readjustment_Tool.UI.MapCanvas.Rendering.Gdi;
+using Land_Readjustment_Tool.UI.MapCanvas.Rendering.Skia;
 using Land_Readjustment_Tool.UI.MapCanvas.Services;
 using Land_Readjustment_Tool.Services.Canvas;
+using SkiaSharp;
+using SkiaSharp.Views.Desktop;
 using NtsCoordinate = NetTopologySuite.Geometries.Coordinate;
 using NtsGeometry = NetTopologySuite.Geometries.Geometry;
 using NtsGeometryFactory = NetTopologySuite.Geometries.GeometryFactory;
@@ -161,6 +166,7 @@ namespace Land_Readjustment_Tool.UI.CustomControls
         private long _debugFrameNumber;
         private double _lastDebugFrameElapsedMs;
         private double _averageDebugFrameElapsedMs;
+        private bool _lastDebugFrameWasDirectGpu;
         private bool _blockPanUntilZoomSettle;
         private bool _holdZoomStartFrameUntilRasterRefresh;
         private bool _suppressStaleRasterFrameUntilFreshRender;
@@ -252,6 +258,7 @@ namespace Land_Readjustment_Tool.UI.CustomControls
             ConfigureGraphicsPipeline();
             _engine = new MapCanvasEngine(canvasSurface.Size);
             _renderSettings = MapCanvasRenderSettings.CreateLightDefaults();
+            ApplyConfiguredRenderBackend(_renderSettings);
             _renderer = new MapCanvasRenderer(_engine, _renderSettings);
             _zoomingStatusTimer.Tick += ZoomingStatusTimer_Tick;
             _objectSelectionContextMenu.Renderer = ElegantMenuRenderer.Instance;
@@ -619,6 +626,21 @@ namespace Land_Readjustment_Tool.UI.CustomControls
             RequestRender();
         }
 
+        /// <summary>
+        /// Applies and persists the requested map render backend. Skia GPU can
+        /// be selected here for stable settings compatibility, but it falls back
+        /// to GDI+ until the GPU adapter is implemented.
+        /// </summary>
+        public void ApplyRenderBackend(MapRenderBackend backend)
+        {
+            _renderSettings.RenderBackend = backend;
+            Properties.Settings.Default.Canvas_RenderBackend = backend.ToString();
+            Properties.Settings.Default.Save();
+            _renderer.UpdateSettings(_renderSettings);
+            RefreshVectorCacheForCurrentViewAsync();
+            RequestRender();
+        }
+
         public void ApplyBackgroundColor(Color color)
         {
             _renderSettings.BackgroundColor = color;
@@ -646,6 +668,29 @@ namespace Land_Readjustment_Tool.UI.CustomControls
         public MapCanvasRenderSettings GetRenderSettings()
         {
             return _renderSettings;
+        }
+
+        /// <summary>
+        /// Applies the persisted renderer backend choice to the supplied settings.
+        /// </summary>
+        private static void ApplyConfiguredRenderBackend(MapCanvasRenderSettings settings)
+        {
+            settings.RenderBackend = ResolveConfiguredRenderBackend();
+        }
+
+        /// <summary>
+        /// Parses the persisted backend name, keeping GDI+ as the safe default
+        /// when a user configuration file contains an unknown value.
+        /// </summary>
+        private static MapRenderBackend ResolveConfiguredRenderBackend()
+        {
+            string? configuredBackend = Properties.Settings.Default.Canvas_RenderBackend;
+            return Enum.TryParse(
+                configuredBackend,
+                ignoreCase: true,
+                out MapRenderBackend backend)
+                ? backend
+                : MapRenderBackend.GdiPlus;
         }
 
         public void ApplyNorthMarkerVisible(bool visible)
@@ -718,6 +763,8 @@ namespace Land_Readjustment_Tool.UI.CustomControls
                 }
 
                 _showDebugOverlay = value;
+                Land_Readjustment_Tool.UI.MapCanvas.Rendering.Diagnostics
+                    .RenderBackendTelemetry.Enabled = value;
                 RequestRender();
             }
         }
@@ -1768,6 +1815,176 @@ namespace Land_Readjustment_Tool.UI.CustomControls
             }
         }
 
+        private void canvasSurface_PaintSurface(object? sender, SKPaintGLSurfaceEventArgs e)
+        {
+            SKCanvas canvas = e.Surface.Canvas;
+            Size pixelSize = new(
+                Math.Max(1, e.Info.Width),
+                Math.Max(1, e.Info.Height));
+
+            if (DesignMode ||
+                LicenseManager.UsageMode == LicenseUsageMode.Designtime ||
+                _suppressContentUntilReady)
+            {
+                canvas.Clear(ToSkiaColor(canvasSurface.BackColor));
+                return;
+            }
+
+            if (ShouldDrawRefreshHoldFrame())
+            {
+                canvas.Clear(ToSkiaColor(canvasSurface.BackColor));
+                DrawBitmapToSkiaCanvas(canvas, _refreshHoldFrame, pixelSize);
+                return;
+            }
+
+            bool renderedDirect = TryRenderCachedGpuFrame(canvas, pixelSize);
+            if (!renderedDirect)
+            {
+                RenderGdiFrameToSkiaCanvas(canvas, pixelSize);
+            }
+
+            bool contentSettled =
+                _renderUpdateBatchDepth == 0 &&
+                !_rasterCacheRefreshPending &&
+                !_vectorCacheRefreshPending;
+
+            if (contentSettled)
+            {
+                _hasShownContentFrame = true;
+                _settledRenderWaiter?.TrySetResult(true);
+                _settledRenderWaiter = null;
+            }
+
+            if (_refreshHoldFrame != null && contentSettled)
+            {
+                ClearRefreshHoldFrame();
+            }
+        }
+
+        private bool TryRenderCachedGpuFrame(SKCanvas canvas, Size pixelSize)
+        {
+            if (!CanUseDirectGpuCachedFrame())
+            {
+                return false;
+            }
+
+            Stopwatch frameStopwatch = Stopwatch.StartNew();
+            RasterRenderFrame? rasterFrame = GetRasterRenderFrame(out CanvasFrameSource rasterFrameSource);
+            RasterRenderFrame? vectorFrame = GetVectorRenderFrame(out CanvasFrameSource vectorFrameSource);
+            RasterRenderFrame? fixedReferenceFrame = GetFixedReferenceRenderFrame();
+            bool deferDirectRasterRendering = ShouldDeferDirectRasterRendering;
+            bool deferDirectVectorRendering = ShouldDeferDirectVectorRendering;
+
+            if (rasterFrameSource == CanvasFrameSource.None &&
+                !deferDirectRasterRendering)
+            {
+                rasterFrameSource = CanvasFrameSource.Direct;
+            }
+
+            if (vectorFrameSource == CanvasFrameSource.None &&
+                !deferDirectVectorRendering)
+            {
+                vectorFrameSource = CanvasFrameSource.Direct;
+            }
+
+            using SkiaCanvasMapRenderSurface surface = new(canvas, pixelSize);
+            bool rendered = _renderer.RenderCachedDirect(
+                surface,
+                rasterFrame,
+                deferDirectRasterRendering,
+                vectorFrame,
+                deferDirectVectorRendering,
+                suppressGridLabels: IsInteractiveNavigation,
+                suppressFixedReferenceLayers: IsInteractiveNavigation && fixedReferenceFrame == null,
+                fixedReferenceFrame: fixedReferenceFrame,
+                zoomWindowRectangle: GetZoomWindowRectangle());
+
+            if (!rendered)
+            {
+                rasterFrame?.Dispose();
+                vectorFrame?.Dispose();
+                fixedReferenceFrame?.Dispose();
+                return false;
+            }
+
+            DrawDirectGpuOverlayContent(surface);
+            frameStopwatch.Stop();
+            UpdateDebugFrameTiming(frameStopwatch.Elapsed.TotalMilliseconds);
+            _lastDebugFrameWasDirectGpu = true;
+            DrawDebugOverlayIfNeeded(canvas, pixelSize, rasterFrameSource, vectorFrameSource);
+            return true;
+        }
+
+        private bool CanUseDirectGpuCachedFrame()
+        {
+            return _renderSettings.RenderBackend == MapRenderBackend.SkiaGpu &&
+                   _activeTextEditor == null;
+        }
+
+        private void RenderGdiFrameToSkiaCanvas(SKCanvas canvas, Size pixelSize)
+        {
+            using Bitmap frame = new(pixelSize.Width, pixelSize.Height, PixelFormat.Format32bppPArgb);
+            MapRenderBackend previousBackend = _renderSettings.RenderBackend;
+            bool temporarilyForcedGdi = previousBackend == MapRenderBackend.SkiaGpu;
+            if (temporarilyForcedGdi)
+            {
+                _renderSettings.RenderBackend = MapRenderBackend.GdiPlus;
+                _renderer.UpdateSettings(_renderSettings);
+            }
+
+            try
+            {
+                using Graphics graphics = Graphics.FromImage(frame);
+                graphics.Clear(canvasSurface.BackColor);
+                RenderCanvasFrame(graphics, updateDebugTiming: true);
+            }
+            finally
+            {
+                if (temporarilyForcedGdi)
+                {
+                    _renderSettings.RenderBackend = previousBackend;
+                    _renderer.UpdateSettings(_renderSettings);
+                }
+            }
+
+            DrawBitmapToSkiaCanvas(canvas, frame, pixelSize);
+        }
+
+        private static void DrawBitmapToSkiaCanvas(SKCanvas canvas, Bitmap? bitmap, Size destinationSize)
+        {
+            if (bitmap == null ||
+                bitmap.Width <= 0 ||
+                bitmap.Height <= 0)
+            {
+                return;
+            }
+
+            Rectangle lockRect = new(0, 0, bitmap.Width, bitmap.Height);
+            BitmapData data = bitmap.LockBits(lockRect, ImageLockMode.ReadOnly, PixelFormat.Format32bppPArgb);
+            try
+            {
+                SKImageInfo info = new(bitmap.Width, bitmap.Height, SKColorType.Bgra8888, SKAlphaType.Premul);
+                using SKBitmap skBitmap = new();
+                skBitmap.InstallPixels(info, data.Scan0, data.Stride);
+                using SKPaint paint = new()
+                {
+                    IsAntialias = false
+                };
+                canvas.DrawBitmap(
+                    skBitmap,
+                    new SKRect(0, 0, bitmap.Width, bitmap.Height),
+                    new SKRect(0, 0, destinationSize.Width, destinationSize.Height),
+                    paint);
+            }
+            finally
+            {
+                bitmap.UnlockBits(data);
+            }
+        }
+
+        private static SKColor ToSkiaColor(Color color) =>
+            new(color.R, color.G, color.B, color.A);
+
         private void RenderCanvasFrame(Graphics graphics, bool updateDebugTiming)
         {
             Stopwatch frameStopwatch = Stopwatch.StartNew();
@@ -1834,6 +2051,7 @@ namespace Land_Readjustment_Tool.UI.CustomControls
             {
                 frameStopwatch.Stop();
                 UpdateDebugFrameTiming(frameStopwatch.Elapsed.TotalMilliseconds);
+                _lastDebugFrameWasDirectGpu = false;
                 DrawDebugOverlayIfNeeded(graphics, rasterFrameSource, vectorFrameSource);
             }
         }
@@ -6331,6 +6549,44 @@ namespace Land_Readjustment_Tool.UI.CustomControls
             }
         }
 
+        private void DrawDirectGpuOverlayContent(IMapRenderSurface surface)
+        {
+            if (!ShouldSuppressLiveVectorObjectOverlays)
+            {
+                DrawImmediateEditedFeatureOverlay(surface);
+                DrawJustCompletedShapeOverlay(surface);
+                DrawSelectedFeatureDecorations(surface);
+                DrawActiveGripOriginalOverlay(surface);
+                DrawSelectionGrips(surface);
+            }
+
+            DrawObjectSelectionRectangle(surface);
+            DrawSelectionSketchPreview(surface);
+            if (!IsSelectionSketchTool(_activeTool))
+            {
+                DrawPreviewShape(surface);
+            }
+            DrawActiveGripEditOverlay(surface);
+            DrawMoveOperationOverlay(surface);
+            DrawSnapGlyph(surface);
+            DrawCenterHintMarks(surface);
+        }
+
+        private void DrawSelectionGrips(IMapRenderSurface surface)
+        {
+            if (!IsSelectionInteractionTool(_activeTool) || _selectedShapeIds.Count == 0)
+            {
+                return;
+            }
+
+            foreach (SelectionGrip grip in EnumerateSelectionGrips())
+            {
+                bool isHot = SameSelectionGrip(grip, _hoveredSelectionGrip) ||
+                             (_activeGripEdit != null && SameSelectionGrip(grip, _activeGripEdit.Grip));
+                DrawSelectionGrip(surface, grip, isHot);
+            }
+        }
+
         private void DrawActiveGripEditOverlay(Graphics graphics)
         {
             if (_activeGripEdit == null)
@@ -6368,8 +6624,64 @@ namespace Land_Readjustment_Tool.UI.CustomControls
                     feature.Shape,
                     ResolveFeatureLayer(feature),
                     feature.CanvasObject,
+                forceUnselected: true);
+            }
+        }
+
+        private void DrawImmediateEditedFeatureOverlay(IMapRenderSurface surface)
+        {
+            if (_immediateEditedOverlayFeatures.Count == 0)
+            {
+                return;
+            }
+
+            foreach (CanvasFeature feature in _immediateEditedOverlayFeatures)
+            {
+                _renderer.RenderTransientShape(
+                    surface,
+                    feature.Shape,
+                    ResolveFeatureLayer(feature),
+                    feature.CanvasObject,
                     forceUnselected: true);
             }
+        }
+
+        private void DrawActiveGripEditOverlay(IMapRenderSurface surface)
+        {
+            if (_activeGripEdit == null)
+            {
+                return;
+            }
+
+            _renderer.RenderTransientShape(
+                surface,
+                _activeGripEdit.PreviewShape,
+                ResolveFeatureLayer(_activeGripEdit.Grip.Feature),
+                _activeGripEdit.Grip.Feature.CanvasObject,
+                forceUnselected: true);
+
+            foreach (LinkedGripEdit linkedEdit in _activeGripEdit.LinkedEdits)
+            {
+                _renderer.RenderTransientShape(
+                    surface,
+                    linkedEdit.PreviewShape,
+                    ResolveFeatureLayer(linkedEdit.Grip.Feature),
+                    linkedEdit.Grip.Feature.CanvasObject,
+                    forceUnselected: true);
+            }
+        }
+
+        private void DrawPreviewShape(IMapRenderSurface surface)
+        {
+            if (_previewShape == null)
+            {
+                return;
+            }
+
+            _renderer.RenderPreviewShape(
+                surface,
+                _previewShape,
+                GetEffectiveDrawingLayer());
         }
 
         private void DrawSelectedFeatureDecorations(Graphics graphics)
@@ -6393,6 +6705,33 @@ namespace Land_Readjustment_Tool.UI.CustomControls
 
                 _renderer.RenderSelectionDecoration(
                     graphics,
+                    feature.Shape,
+                    ResolveFeatureLayer(feature),
+                feature);
+            }
+        }
+
+        private void DrawSelectedFeatureDecorations(IMapRenderSurface surface)
+        {
+            if (_selectedShapeIds.Count == 0)
+            {
+                return;
+            }
+
+            foreach (CanvasFeature feature in EnumerateSelectedFeatures())
+            {
+                if (!IsSelectableDrawingFeature(feature))
+                {
+                    continue;
+                }
+
+                if (IsActiveGripEditedShape(feature.Shape))
+                {
+                    continue;
+                }
+
+                _renderer.RenderSelectionDecoration(
+                    surface,
                     feature.Shape,
                     ResolveFeatureLayer(feature),
                     feature);
@@ -6434,6 +6773,31 @@ namespace Land_Readjustment_Tool.UI.CustomControls
             }
         }
 
+        private void DrawJustCompletedShapeOverlay(IMapRenderSurface surface)
+        {
+            IShape? shape = _justCompletedShape;
+            if (shape == null && _justCompletedShapeOverlays.Count == 0)
+            {
+                return;
+            }
+
+            if (shape != null)
+            {
+                _renderer.RenderTransientShape(
+                    surface,
+                    shape,
+                    _justCompletedShapeLayer);
+            }
+
+            foreach ((IShape copiedShape, CanvasLayer? copiedLayer) in _justCompletedShapeOverlays)
+            {
+                _renderer.RenderTransientShape(
+                    surface,
+                    copiedShape,
+                    copiedLayer);
+            }
+        }
+
         private void DrawActiveGripOriginalOverlay(Graphics graphics)
         {
             if (_activeGripEdit == null)
@@ -6459,6 +6823,32 @@ namespace Land_Readjustment_Tool.UI.CustomControls
             }
         }
 
+        private void DrawActiveGripOriginalOverlay(IMapRenderSurface surface)
+        {
+            if (_activeGripEdit == null)
+            {
+                return;
+            }
+
+            if (_activeGripEdit.Grip.Kind == SelectionGripKind.GeometricCenter)
+            {
+                return;
+            }
+
+            DrawActiveGripOriginalShape(
+                surface,
+                _activeGripEdit.Grip.Feature,
+                _activeGripEdit.Grip.Shape);
+
+            foreach (LinkedGripEdit linkedEdit in _activeGripEdit.LinkedEdits)
+            {
+                DrawActiveGripOriginalShape(
+                    surface,
+                    linkedEdit.Grip.Feature,
+                    linkedEdit.Grip.Shape);
+            }
+        }
+
         private void DrawActiveGripOriginalShape(
             Graphics graphics,
             CanvasFeature feature,
@@ -6473,6 +6863,25 @@ namespace Land_Readjustment_Tool.UI.CustomControls
 
             _renderer.RenderSelectionDecoration(
                 graphics,
+                shape,
+                ResolveFeatureLayer(feature),
+                feature);
+        }
+
+        private void DrawActiveGripOriginalShape(
+            IMapRenderSurface surface,
+            CanvasFeature feature,
+            IShape shape)
+        {
+            _renderer.RenderTransientShape(
+                surface,
+                shape,
+                ResolveFeatureLayer(feature),
+                feature.CanvasObject,
+                forceUnselected: true);
+
+            _renderer.RenderSelectionDecoration(
+                surface,
                 shape,
                 ResolveFeatureLayer(feature),
                 feature);
@@ -6509,12 +6918,57 @@ namespace Land_Readjustment_Tool.UI.CustomControls
             }
         }
 
+        private void DrawSelectionGrip(IMapRenderSurface surface, SelectionGrip grip, bool isHot)
+        {
+            PointD screen = _engine.WorldToScreen(grip.Position);
+            if (!double.IsFinite(screen.X) || !double.IsFinite(screen.Y))
+            {
+                return;
+            }
+
+            Color fillColor = isHot
+                ? Color.FromArgb(255, 255, 96, 32)
+                : Color.FromArgb(255, 0, 122, 204);
+            Color outlineColor = isHot
+                ? Color.FromArgb(255, 120, 36, 0)
+                : Color.FromArgb(255, 0, 60, 115);
+
+            FillStyle fill = new(fillColor);
+            StrokeStyle stroke = new(outlineColor, 1.0f, Cap: LineCapKind.Flat, Join: LineJoinKind.Miter);
+            PointF center = new((float)screen.X, (float)screen.Y);
+
+            switch (grip.Glyph)
+            {
+                case SelectionGripGlyph.Diamond:
+                    DrawDiamondGrip(surface, center, fill, stroke);
+                    break;
+                case SelectionGripGlyph.SegmentRectangle:
+                    DrawSegmentRectangleGrip(surface, grip, center, fill, stroke);
+                    break;
+                default:
+                    DrawSquareGrip(surface, center, fill, stroke);
+                    break;
+            }
+        }
+
         private static void DrawSquareGrip(Graphics graphics, PointF center, Brush brush, Pen pen)
         {
             float half = GripSquareSizePixels / 2.0f;
             RectangleF rect = new(center.X - half, center.Y - half, GripSquareSizePixels, GripSquareSizePixels);
             graphics.FillRectangle(brush, rect);
             graphics.DrawRectangle(pen, rect.X, rect.Y, rect.Width, rect.Height);
+        }
+
+        private static void DrawSquareGrip(
+            IMapRenderSurface surface,
+            PointF center,
+            in FillStyle fill,
+            in StrokeStyle stroke)
+        {
+            float half = GripSquareSizePixels / 2.0f;
+            RectangleF rect = new(center.X - half, center.Y - half, GripSquareSizePixels, GripSquareSizePixels);
+            surface.FillRectangle(rect, fill);
+            surface.DrawRectangle(rect, stroke);
         }
 
         private static void DrawDiamondGrip(Graphics graphics, PointF center, Brush brush, Pen pen)
@@ -6529,6 +6983,23 @@ namespace Land_Readjustment_Tool.UI.CustomControls
             ];
             graphics.FillPolygon(brush, points);
             graphics.DrawPolygon(pen, points);
+        }
+
+        private static void DrawDiamondGrip(
+            IMapRenderSurface surface,
+            PointF center,
+            in FillStyle fill,
+            in StrokeStyle stroke)
+        {
+            float half = GripSquareSizePixels / 2.0f;
+            PointF[] points =
+            [
+                new(center.X, center.Y - half),
+                new(center.X + half, center.Y),
+                new(center.X, center.Y + half),
+                new(center.X - half, center.Y)
+            ];
+            DrawGripPolygon(surface, points, fill, stroke);
         }
 
         private void DrawSegmentRectangleGrip(Graphics graphics, SelectionGrip grip, PointF center, Brush brush, Pen pen)
@@ -6559,6 +7030,64 @@ namespace Land_Readjustment_Tool.UI.CustomControls
             ];
             graphics.FillPolygon(brush, points);
             graphics.DrawPolygon(pen, points);
+        }
+
+        private void DrawSegmentRectangleGrip(
+            IMapRenderSurface surface,
+            SelectionGrip grip,
+            PointF center,
+            in FillStyle fill,
+            in StrokeStyle stroke)
+        {
+            PointF start = ToScreenPointF(grip.SegmentStart);
+            PointF end = ToScreenPointF(grip.SegmentEnd);
+            double dx = end.X - start.X;
+            double dy = end.Y - start.Y;
+            double length = Math.Sqrt(dx * dx + dy * dy);
+            if (length <= 0.0001)
+            {
+                DrawSquareGrip(surface, center, fill, stroke);
+                return;
+            }
+
+            float ux = (float)(dx / length);
+            float uy = (float)(dy / length);
+            float nx = -uy;
+            float ny = ux;
+            float halfLength = GripSegmentLengthPixels / 2.0f;
+            float halfThickness = GripSegmentThicknessPixels / 2.0f;
+            PointF[] points =
+            [
+                new(center.X - ux * halfLength - nx * halfThickness, center.Y - uy * halfLength - ny * halfThickness),
+                new(center.X + ux * halfLength - nx * halfThickness, center.Y + uy * halfLength - ny * halfThickness),
+                new(center.X + ux * halfLength + nx * halfThickness, center.Y + uy * halfLength + ny * halfThickness),
+                new(center.X - ux * halfLength + nx * halfThickness, center.Y - uy * halfLength + ny * halfThickness)
+            ];
+            DrawGripPolygon(surface, points, fill, stroke);
+        }
+
+        private static void DrawGripPolygon(
+            IMapRenderSurface surface,
+            PointF[] points,
+            in FillStyle fill,
+            in StrokeStyle stroke)
+        {
+            IMapPathBuilder builder = surface.CreatePath();
+            builder.AddPolygon(points);
+            using IMapPath path = builder.Build();
+            surface.FillPath(path, fill);
+            surface.DrawPath(path, stroke);
+        }
+
+        private static void DrawOutlinePolygon(
+            IMapRenderSurface surface,
+            PointF[] points,
+            in StrokeStyle stroke)
+        {
+            IMapPathBuilder builder = surface.CreatePath();
+            builder.AddPolygon(points);
+            using IMapPath path = builder.Build();
+            surface.DrawPath(path, stroke);
         }
 
         private static bool SameSelectionGrip(SelectionGrip? first, SelectionGrip? second)
@@ -6710,6 +7239,89 @@ namespace Land_Readjustment_Tool.UI.CustomControls
                     // Simple L: vertical bar on the left, horizontal bar at the bottom.
                     graphics.DrawLine(pen, center.X - half, center.Y - half, center.X - half, center.Y + half);
                     graphics.DrawLine(pen, center.X - half, center.Y + half, center.X + half, center.Y + half);
+                    break;
+            }
+        }
+
+        private void DrawSnapGlyph(IMapRenderSurface surface)
+        {
+            if (_currentSnapPoint == null || IsActiveGripSnapPoint(_currentSnapPoint))
+            {
+                return;
+            }
+
+            PointD screen = _engine.WorldToScreen(_currentSnapPoint.Position);
+            if (!double.IsFinite(screen.X) || !double.IsFinite(screen.Y))
+            {
+                return;
+            }
+
+            float size = _snapGlyphSizePixels;
+            float half = size / 2f;
+            PointF center = new((float)screen.X, (float)screen.Y);
+            StrokeStyle stroke = new(
+                Color.FromArgb(255, 120, 185, 20),
+                2.35f,
+                Cap: LineCapKind.Flat,
+                Join: LineJoinKind.Miter);
+
+            switch (_currentSnapPoint.Type)
+            {
+                case SnapType.Endpoint:
+                    surface.DrawRectangle(
+                        new RectangleF(center.X - half, center.Y - half, size, size),
+                        stroke);
+                    break;
+
+                case SnapType.Midpoint:
+                    DrawOutlinePolygon(
+                        surface,
+                        [
+                            new(center.X, center.Y - half),
+                            new(center.X + half, center.Y + half),
+                            new(center.X - half, center.Y + half)
+                        ],
+                        stroke);
+                    break;
+
+                case SnapType.Center:
+                    surface.DrawEllipse(
+                        new RectangleF(center.X - half, center.Y - half, size, size),
+                        stroke);
+                    break;
+
+                case SnapType.Quadrant:
+                    DrawOutlinePolygon(
+                        surface,
+                        [
+                            new(center.X, center.Y - half),
+                            new(center.X + half, center.Y),
+                            new(center.X, center.Y + half),
+                            new(center.X - half, center.Y)
+                        ],
+                        stroke);
+                    break;
+
+                case SnapType.Intersection:
+                    surface.DrawLine(
+                        new PointF(center.X - half, center.Y - half),
+                        new PointF(center.X + half, center.Y + half),
+                        stroke);
+                    surface.DrawLine(
+                        new PointF(center.X - half, center.Y + half),
+                        new PointF(center.X + half, center.Y - half),
+                        stroke);
+                    break;
+
+                case SnapType.Perpendicular:
+                    surface.DrawLine(
+                        new PointF(center.X - half, center.Y - half),
+                        new PointF(center.X - half, center.Y + half),
+                        stroke);
+                    surface.DrawLine(
+                        new PointF(center.X - half, center.Y + half),
+                        new PointF(center.X + half, center.Y + half),
+                        stroke);
                     break;
             }
         }
@@ -6960,6 +7572,44 @@ namespace Land_Readjustment_Tool.UI.CustomControls
             }
         }
 
+        private void DrawCenterHintMarks(IMapRenderSurface surface)
+        {
+            if (_centerHintMarks.Count == 0 || _centerHintTool != _activeTool || !ShouldShowCenterHints())
+            {
+                return;
+            }
+
+            bool isDarkCanvas = CanvasThemeColorService.IsDarkCanvas(canvasSurface.BackColor);
+            Color strokeColor = isDarkCanvas ? Color.White : Color.Black;
+            float half = CurveCenterHintSizePixels / 2.0f;
+            StrokeStyle stroke = new(
+                strokeColor,
+                CurveCenterHintStrokeWidthPixels,
+                Cap: LineCapKind.Flat,
+                Join: LineJoinKind.Miter);
+
+            foreach (CenterHintMark mark in _centerHintMarks)
+            {
+                PointD screen = _engine.WorldToScreen(mark.World);
+                if (!double.IsFinite(screen.X) || !double.IsFinite(screen.Y))
+                {
+                    continue;
+                }
+
+                float x = (float)Math.Round(screen.X);
+                float y = (float)Math.Round(screen.Y);
+                if (mark.Kind == CenterHintKind.Curve)
+                {
+                    surface.DrawLine(new PointF(x - half, y), new PointF(x + half, y), stroke);
+                    surface.DrawLine(new PointF(x, y - half), new PointF(x, y + half), stroke);
+                }
+                else
+                {
+                    DrawAsteriskMark(surface, stroke, x, y, half);
+                }
+            }
+        }
+
         private void ClearCenterHintMarks()
         {
             _centerHintMarks.Clear();
@@ -7183,6 +7833,26 @@ namespace Land_Readjustment_Tool.UI.CustomControls
             graphics.DrawLine(pen, cx - half, cy, cx + half, cy);
             graphics.DrawLine(pen, cx - half * cos60, cy - half * sin60, cx + half * cos60, cy + half * sin60);
             graphics.DrawLine(pen, cx + half * cos60, cy - half * sin60, cx - half * cos60, cy + half * sin60);
+        }
+
+        private static void DrawAsteriskMark(
+            IMapRenderSurface surface,
+            in StrokeStyle stroke,
+            float cx,
+            float cy,
+            float half)
+        {
+            const float cos60 = 0.5f;
+            const float sin60 = 0.8660254f;
+            surface.DrawLine(new PointF(cx - half, cy), new PointF(cx + half, cy), stroke);
+            surface.DrawLine(
+                new PointF(cx - half * cos60, cy - half * sin60),
+                new PointF(cx + half * cos60, cy + half * sin60),
+                stroke);
+            surface.DrawLine(
+                new PointF(cx + half * cos60, cy - half * sin60),
+                new PointF(cx - half * cos60, cy + half * sin60),
+                stroke);
         }
 
         private void DrawCircleDiameterPreview(Graphics graphics)
@@ -8737,6 +9407,43 @@ namespace Land_Readjustment_Tool.UI.CustomControls
                 (int)Math.Round(dy));
         }
 
+        private void DrawMoveOperationOverlay(IMapRenderSurface surface)
+        {
+            if (_activeMoveOperation == null ||
+                _activeMoveOperation.Phase != MoveOperationPhase.AwaitingDestination ||
+                !_currentMouseWorld.HasValue)
+            {
+                return;
+            }
+
+            if (_movePreviewBitmap == null ||
+                Math.Abs(_engine.ZoomScale - _movePreviewBitmapScale) > _movePreviewBitmapScale * 1e-9)
+            {
+                CaptureMovePreviewBitmap();
+            }
+
+            if (_movePreviewBitmap == null)
+            {
+                return;
+            }
+
+            PointD cursorScreen = _engine.WorldToScreen(_currentMouseWorld.Value);
+            float dx = (float)cursorScreen.X - _movePreviewBitmapReferenceScreen.X;
+            float dy = (float)cursorScreen.Y - _movePreviewBitmapReferenceScreen.Y;
+            RectangleF destination = new(
+                (float)Math.Round(dx),
+                (float)Math.Round(dy),
+                _movePreviewBitmap.Width,
+                _movePreviewBitmap.Height);
+
+            using GdiMapImage image = new(_movePreviewBitmap);
+            surface.DrawImage(
+                image,
+                destination,
+                null,
+                new ImageStyle(1.0f, ImageInterpolation.NearestNeighbor));
+        }
+
         private bool HandleMoveOperationClick(Point screenPoint)
         {
             if (_activeMoveOperation == null)
@@ -9380,6 +10087,39 @@ namespace Land_Readjustment_Tool.UI.CustomControls
             graphics.DrawRectangle(borderPen, rect);
         }
 
+        private void DrawObjectSelectionRectangle(IMapRenderSurface surface)
+        {
+            if (!_isSelectingObjects || _activeTextEditor != null)
+            {
+                return;
+            }
+
+            Rectangle rect = CreateScreenRectangle(_objectSelectionStart, _objectSelectionCurrent);
+            if (rect.Width <= 0 || rect.Height <= 0)
+            {
+                return;
+            }
+
+            bool isWindowSelection = _objectSelectionCurrent.X >= _objectSelectionStart.X;
+            Color borderColor = isWindowSelection
+                ? WindowSelectionBorderColor
+                : CrossingSelectionBorderColor;
+            Color fillColor = isWindowSelection
+                ? WindowSelectionFillColor
+                : CrossingSelectionFillColor;
+
+            RectangleF rectF = new(rect.X, rect.Y, rect.Width, rect.Height);
+            surface.FillRectangle(rectF, new FillStyle(fillColor));
+            surface.DrawRectangle(
+                rectF,
+                new StrokeStyle(
+                    borderColor,
+                    1.0f,
+                    isWindowSelection ? DashPatternKind.Solid : DashPatternKind.Dashed,
+                    Cap: LineCapKind.Flat,
+                    Join: LineJoinKind.Miter));
+        }
+
         private void DrawSelectionSketchPreview(Graphics graphics)
         {
             if (!IsSelectionSketchTool(_activeTool) ||
@@ -9416,6 +10156,43 @@ namespace Land_Readjustment_Tool.UI.CustomControls
             }
 
             graphics.DrawPath(borderPen, path);
+        }
+
+        private void DrawSelectionSketchPreview(IMapRenderSurface surface)
+        {
+            if (!IsSelectionSketchTool(_activeTool) ||
+                _activeTextEditor != null ||
+                _previewShape is not PolylineShape preview ||
+                preview.Vertices.Count < 2)
+            {
+                return;
+            }
+
+            bool isWindowSelection = _activeTool == MapCanvasTool.SelectionPolygon;
+            GraphicsPath graphicsPath = preview.CreateScreenPath(_engine.WorldToScreen);
+            if (graphicsPath.PointCount == 0)
+            {
+                graphicsPath.Dispose();
+                return;
+            }
+
+            using GdiMapPath path = new(graphicsPath, FillRule.Winding);
+            FillStyle fill = new(isWindowSelection
+                ? WindowSelectionFillColor
+                : CrossingSelectionFillColor);
+            StrokeStyle stroke = new(
+                isWindowSelection ? WindowSelectionBorderColor : CrossingSelectionBorderColor,
+                1.0f,
+                isWindowSelection ? DashPatternKind.Solid : DashPatternKind.Dashed,
+                Cap: LineCapKind.Round,
+                Join: LineJoinKind.Round);
+
+            if (preview.IsClosed && preview.Vertices.Count >= 3)
+            {
+                surface.FillPath(path, fill);
+            }
+
+            surface.DrawPath(path, stroke);
         }
 
         private Rectangle? GetZoomWindowRectangle()
@@ -10035,6 +10812,29 @@ namespace Land_Readjustment_Tool.UI.CustomControls
                 return;
             }
 
+            IReadOnlyList<string> lines = BuildDebugOverlayLines(rasterFrameSource, vectorFrameSource);
+            DrawDebugOverlayPanel(graphics, lines);
+        }
+
+        private void DrawDebugOverlayIfNeeded(
+            SKCanvas canvas,
+            Size pixelSize,
+            CanvasFrameSource rasterFrameSource,
+            CanvasFrameSource vectorFrameSource)
+        {
+            if (!_showDebugOverlay)
+            {
+                return;
+            }
+
+            IReadOnlyList<string> lines = BuildDebugOverlayLines(rasterFrameSource, vectorFrameSource);
+            DrawDebugOverlayPanel(canvas, pixelSize, lines);
+        }
+
+        private IReadOnlyList<string> BuildDebugOverlayLines(
+            CanvasFrameSource rasterFrameSource,
+            CanvasFrameSource vectorFrameSource)
+        {
             MapCanvasRendererDebugState rendererState = _renderer.GetDebugState();
             DeferredRendererDebugState rasterState = _rasterDeferredRenderer.GetDebugState();
             VectorRenderStats vectorStats = rendererState.VectorStats;
@@ -10054,6 +10854,19 @@ namespace Land_Readjustment_Tool.UI.CustomControls
                 $"Interaction tool {_activeTool}  pan {_isPanning}  zoom {_isZooming} {_zoomDirection ?? ""}  raster deferred {ShouldDeferDirectRasterRendering}  vector deferred {ShouldDeferDirectVectorRendering}  live pending {_liveTileRefreshPending}"
             ];
 
+            Land_Readjustment_Tool.UI.MapCanvas.Rendering.Diagnostics.RenderSurfaceWindow surf =
+                Land_Readjustment_Tool.UI.MapCanvas.Rendering.Diagnostics
+                    .RenderBackendTelemetry.SnapshotAndReset();
+            string actualBackend = surf.SurfaceCount > 0
+                ? surf.Backend.ToString()
+                : _lastDebugFrameWasDirectGpu
+                    ? "SkiaGpu direct canvas"
+                : "(idle)";
+            lines.Add(
+                $"Backend req {_renderSettings.RenderBackend} / actual {actualBackend}  surfaces/paint {surf.SurfaceCount}  " +
+                $"create {surf.CreateMs:0.0} ms  readback {surf.ReadbackMs:0.0} ms (max {surf.MaxReadbackMs:0.0})  " +
+                $"blit {surf.BlitMs:0.0} ms  | lifetime {surf.LifetimeSurfaces} surf / {surf.LifetimeReadbackMs:0} ms readback");
+
             string watch = BuildDebugWatchLine(
                 rasterFrameSource,
                 vectorFrameSource,
@@ -10064,7 +10877,7 @@ namespace Land_Readjustment_Tool.UI.CustomControls
                 lines.Add(watch);
             }
 
-            DrawDebugOverlayPanel(graphics, lines);
+            return lines;
         }
 
         private double GetFramesPerSecond()
@@ -10160,6 +10973,65 @@ namespace Land_Readjustment_Tool.UI.CustomControls
                     TextFormatFlags.EndEllipsis |
                     TextFormatFlags.NoPadding);
             }
+        }
+
+        private void DrawDebugOverlayPanel(SKCanvas canvas, Size pixelSize, IReadOnlyList<string> lines)
+        {
+            if (lines.Count == 0)
+            {
+                return;
+            }
+
+            const float padding = 8.0f;
+            const float margin = 8.0f;
+            using SKTypeface typeface = SKTypeface.FromFamilyName(_debugOverlayFont.FontFamily.Name);
+            using SKFont font = new(typeface, Math.Max(10.0f, _debugOverlayFont.SizeInPoints * 96.0f / 72.0f))
+            {
+                Edging = SKFontEdging.Alias
+            };
+            float lineHeight = Math.Max(14.0f, font.Size * 1.2f);
+            float panelWidth = Math.Min(
+                Math.Max(420.0f, pixelSize.Width - margin * 2.0f),
+                980.0f);
+            float panelHeight = padding * 2.0f + lineHeight * lines.Count;
+            float panelX = margin;
+            float panelY = Math.Max(margin, pixelSize.Height - panelHeight - margin);
+            SKRect panelBounds = new(panelX, panelY, panelX + panelWidth, panelY + panelHeight);
+
+            using SKPaint backgroundPaint = new()
+            {
+                Color = new SKColor(24, 28, 34, 218),
+                Style = SKPaintStyle.Fill,
+                IsAntialias = false
+            };
+            using SKPaint borderPaint = new()
+            {
+                Color = new SKColor(0, 170, 255, 170),
+                Style = SKPaintStyle.Stroke,
+                StrokeWidth = 1.0f,
+                IsAntialias = false
+            };
+            using SKPaint textPaint = new()
+            {
+                Color = new SKColor(236, 244, 248),
+                IsAntialias = false
+            };
+
+            canvas.DrawRect(panelBounds, backgroundPaint);
+            canvas.DrawRect(panelBounds, borderPaint);
+            canvas.Save();
+            canvas.ClipRect(panelBounds);
+            for (int i = 0; i < lines.Count; i++)
+            {
+                float baseline = panelY + padding + (i + 1) * lineHeight - 3.0f;
+                canvas.DrawText(
+                    lines[i],
+                    panelX + padding,
+                    baseline,
+                    font,
+                    textPaint);
+            }
+            canvas.Restore();
         }
 
         private void ZoomingStatusTimer_Tick(object? sender, EventArgs e)
@@ -10550,7 +11422,8 @@ namespace Land_Readjustment_Tool.UI.CustomControls
                 _rasterDeferredRenderer.RenderNow(
                     canvasSurface.Size,
                     _rasterRenderLayers,
-                    _engine);
+                    _engine,
+                    _renderSettings.RenderBackend);
             }
             catch (OperationCanceledException)
             {
@@ -10694,6 +11567,7 @@ namespace Land_Readjustment_Tool.UI.CustomControls
                     canvasSurface.Size,
                     _rasterRenderLayers,
                     _engine,
+                    _renderSettings.RenderBackend,
                     token);
 
                 if (token.IsCancellationRequested ||

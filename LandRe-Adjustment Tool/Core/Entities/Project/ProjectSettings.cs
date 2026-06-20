@@ -78,6 +78,10 @@ namespace Land_Readjustment_Tool.Core.Entities.Project
         // Enable anti-aliased vector/reference drawing
         public bool CanvasAntiAliasingEnabled { get; set; } = true;
 
+        // Render backend: "GdiPlus", "SkiaCpu", or "SkiaGpu"
+        [Required]
+        public string CanvasRenderBackend { get; set; } = "GdiPlus";
+
         // Enable snap to geometry points
         public bool SnapEnabled { get; set; } = true;
 

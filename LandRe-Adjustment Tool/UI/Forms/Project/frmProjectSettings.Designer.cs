@@ -39,6 +39,8 @@ namespace Land_Readjustment_Tool.UI.Forms.Project
             nudTraditionalDecimalPlaces = new NumericUpDown();
             tabMapCanvas = new TabPage();
             grpGraphics = new GroupBox();
+            lblRenderBackend = new Label();
+            cmbRenderBackend = new ComboBox();
             chkAntiAliasing = new CheckBox();
             grpSnap = new GroupBox();
             chkSnapEnabled = new CheckBox();
@@ -381,6 +383,8 @@ namespace Land_Readjustment_Tool.UI.Forms.Project
             // 
             // grpGraphics
             // 
+            grpGraphics.Controls.Add(lblRenderBackend);
+            grpGraphics.Controls.Add(cmbRenderBackend);
             grpGraphics.Controls.Add(chkAntiAliasing);
             grpGraphics.Font = new Font("Segoe UI", 9F, FontStyle.Bold, GraphicsUnit.Point, 0);
             grpGraphics.Location = new Point(281, 190);
@@ -389,6 +393,26 @@ namespace Land_Readjustment_Tool.UI.Forms.Project
             grpGraphics.TabIndex = 14;
             grpGraphics.TabStop = false;
             grpGraphics.Text = "Graphics";
+            // 
+            // lblRenderBackend
+            // 
+            lblRenderBackend.Font = new Font("Segoe UI", 9F);
+            lblRenderBackend.Location = new Point(10, 90);
+            lblRenderBackend.Name = "lblRenderBackend";
+            lblRenderBackend.Size = new Size(120, 22);
+            lblRenderBackend.TabIndex = 15;
+            lblRenderBackend.Text = "Render backend";
+            // 
+            // cmbRenderBackend
+            // 
+            cmbRenderBackend.DropDownStyle = ComboBoxStyle.DropDownList;
+            cmbRenderBackend.Font = new Font("Segoe UI", 9F);
+            cmbRenderBackend.FormattingEnabled = true;
+            cmbRenderBackend.Items.AddRange(new object[] { "GDI+ (default)", "Skia CPU", "Skia GPU (OpenGL / D3D11)" });
+            cmbRenderBackend.Location = new Point(10, 115);
+            cmbRenderBackend.Name = "cmbRenderBackend";
+            cmbRenderBackend.Size = new Size(236, 28);
+            cmbRenderBackend.TabIndex = 16;
             // 
             // chkAntiAliasing
             // 
@@ -1130,6 +1154,8 @@ namespace Land_Readjustment_Tool.UI.Forms.Project
         private ComboBox cmbGridMode;
         private CheckBox chkStandardZoomBehavior;
         private GroupBox grpGraphics;
+        private Label lblRenderBackend;
+        private ComboBox cmbRenderBackend;
         private CheckBox chkAntiAliasing;
     }
 }

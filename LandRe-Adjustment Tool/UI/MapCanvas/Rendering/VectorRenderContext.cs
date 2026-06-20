@@ -1,4 +1,5 @@
 using System.Drawing.Drawing2D;
+using Land_Readjustment_Tool.UI.MapCanvas.Rendering.Abstractions;
 using Land_Readjustment_Tool.UI.MapCanvas.Models.Shapes;
 
 namespace Land_Readjustment_Tool.UI.MapCanvas.Rendering
@@ -9,6 +10,7 @@ namespace Land_Readjustment_Tool.UI.MapCanvas.Rendering
         private readonly BrushCache _brushCache;
 
         public VectorRenderContext(
+            IMapRenderSurface surface,
             PenCache penCache,
             BrushCache brushCache,
             double zoomScale,
@@ -17,6 +19,7 @@ namespace Land_Readjustment_Tool.UI.MapCanvas.Rendering
             bool selectionDecorationOnly = false,
             RectangleD? clipWorldBounds = null)
         {
+            Surface = surface ?? throw new ArgumentNullException(nameof(surface));
             _penCache = penCache;
             _brushCache = brushCache;
             ZoomScale = zoomScale;
@@ -27,6 +30,11 @@ namespace Land_Readjustment_Tool.UI.MapCanvas.Rendering
         }
 
         public double ZoomScale { get; }
+
+        /// <summary>
+        /// Backend-neutral drawing surface for migrated vector geometry paths.
+        /// </summary>
+        public IMapRenderSurface Surface { get; }
 
         public bool AntiAliasingEnabled { get; }
 

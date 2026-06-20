@@ -2,6 +2,7 @@ using System.Drawing;
 using Land_Readjustment_Tool.Core.Entities.Project;
 using Land_Readjustment_Tool.UI.MapCanvas.Core;
 using Land_Readjustment_Tool.UI.MapCanvas.Rendering;
+using Land_Readjustment_Tool.UI.MapCanvas.Rendering.Abstractions;
 
 namespace Land_Readjustment_Tool.UI.MapCanvas.Services
 {
@@ -66,6 +67,12 @@ namespace Land_Readjustment_Tool.UI.MapCanvas.Services
             settings.ShowNorthMarker = projectSettings.CanvasNorthMarkerVisible;
             settings.AntiAliasingEnabled = projectSettings.CanvasAntiAliasingEnabled;
             settings.ZoomBehavior = ParseZoomBehavior(projectSettings.CanvasZoomBehavior);
+            settings.RenderBackend = Enum.TryParse(
+                projectSettings.CanvasRenderBackend,
+                ignoreCase: true,
+                out MapRenderBackend backend)
+                ? backend
+                : MapRenderBackend.GdiPlus;
 
             return settings;
         }

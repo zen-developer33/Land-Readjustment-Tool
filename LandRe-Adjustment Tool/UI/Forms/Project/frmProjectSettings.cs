@@ -7,6 +7,8 @@ using Land_Readjustment_Tool.Repositories.Spatial;
 using Land_Readjustment_Tool.Services.Project;
 using Land_Readjustment_Tool.UI.Helpers;
 using Land_Readjustment_Tool.UI.MapCanvas.Core;
+using Land_Readjustment_Tool.UI.MapCanvas.Rendering.Abstractions;
+using Land_Readjustment_Tool.UI.MapCanvas.Rendering.Skia;
 
 namespace Land_Readjustment_Tool.UI.Forms.Project
 {
@@ -260,6 +262,7 @@ namespace Land_Readjustment_Tool.UI.Forms.Project
             chkOriginAxisMarkerVisible.Checked = s.CanvasAxisMarkerVisible;
             chkNorthMarker.Checked = s.CanvasNorthMarkerVisible;
             chkAntiAliasing.Checked = s.CanvasAntiAliasingEnabled;
+            SelectRenderBackend(s.CanvasRenderBackend);
             chkSnapEnabled.Checked = s.SnapEnabled;
             nudSnapTolerance.Value = (decimal)s.SnapTolerancePx;
             nudSnapGlyphSize.Value = (decimal)s.SnapGlyphSizePx;
@@ -310,6 +313,7 @@ namespace Land_Readjustment_Tool.UI.Forms.Project
             s.CanvasAxisMarkerVisible = chkOriginAxisMarkerVisible.Checked;
             s.CanvasNorthMarkerVisible = chkNorthMarker.Checked;
             s.CanvasAntiAliasingEnabled = chkAntiAliasing.Checked;
+            s.CanvasRenderBackend = GetSelectedRenderBackend().ToString();
             s.SnapEnabled = chkSnapEnabled.Checked;
             s.SnapTolerancePx = (double)nudSnapTolerance.Value;
             s.SnapGlyphSizePx = (double)nudSnapGlyphSize.Value;
@@ -472,6 +476,18 @@ namespace Land_Readjustment_Tool.UI.Forms.Project
                 SetFormEnabled(false);
 
                 CollectFormData(_settings);
+
+                if (GetSelectedRenderBackend() == MapRenderBackend.SkiaGpu &&
+                    !SkiaGlContext.IsAvailable)
+                {
+                    MessageBox.Show(
+                        "Skia GPU is not available on this system (OpenGL driver initialisation failed).\n\n" +
+                        "The setting has been saved but the canvas will fall back to GDI+ at runtime.",
+                        "GPU Backend Unavailable",
+                        MessageBoxButtons.OK,
+                        MessageBoxIcon.Warning);
+                }
+
                 bool projectCrsChanged =
                     _settings.CoordinateSystemId != _loadedCoordinateSystemId ||
                     _settings.DatumTransformationId != _loadedDatumTransformationId;
@@ -675,6 +691,7 @@ namespace Land_Readjustment_Tool.UI.Forms.Project
             chkOriginAxisMarkerVisible.Checked = false;
             chkNorthMarker.Checked = false;
             chkAntiAliasing.Checked = true;
+            SelectRenderBackend(MapRenderBackend.GdiPlus.ToString());
             chkSnapEnabled.Checked = true;
             nudSnapTolerance.Value = ClampToRange(nudSnapTolerance, 8m);
             nudSnapGlyphSize.Value = ClampToRange(nudSnapGlyphSize, 14m);
@@ -913,6 +930,60 @@ namespace Land_Readjustment_Tool.UI.Forms.Project
             return chkStandardZoomBehavior.Checked
                 ? MapCanvasZoomBehavior.StandardScaleSteps.ToString()
                 : MapCanvasZoomBehavior.Normal.ToString();
+        }
+
+        /// <summary>
+        /// Selects the render-backend combo item from the persisted setting value.
+        /// </summary>
+        /// <param name="backendName">
+        /// String value saved in user settings. Unknown or empty values fall back
+        /// to the stable GDI+ backend.
+        /// </param>
+        private void SelectRenderBackend(string? backendName)
+        {
+            MapRenderBackend backend = Enum.TryParse(
+                backendName,
+                ignoreCase: true,
+                out MapRenderBackend parsed)
+                ? parsed
+                : MapRenderBackend.GdiPlus;
+
+            cmbRenderBackend.SelectedIndex = backend switch
+            {
+                MapRenderBackend.SkiaCpu => 1,
+                MapRenderBackend.SkiaGpu => 2,
+                _ => 0
+            };
+        }
+
+        /// <summary>
+        /// Converts the selected render-backend combo item into the backend enum.
+        /// </summary>
+        /// <returns>
+        /// The selected backend. The default is GDI+ so the settings form remains
+        /// safe if the combo box has no selection.
+        /// </returns>
+        private MapRenderBackend GetSelectedRenderBackend() =>
+            cmbRenderBackend.SelectedIndex switch
+            {
+                1 => MapRenderBackend.SkiaCpu,
+                2 => MapRenderBackend.SkiaGpu,
+                _ => MapRenderBackend.GdiPlus
+            };
+
+        /// <summary>
+        /// Persists the selected map render backend to user settings.
+        /// </summary>
+        /// <remarks>
+        /// Skia GPU is allowed to be saved as a future option, but the render
+        /// factory still resolves it through the current fallback/unavailable
+        /// behavior until the GPU adapter is implemented.
+        /// </remarks>
+        private void SaveRenderBackendSetting()
+        {
+            Properties.Settings.Default.Canvas_RenderBackend =
+                GetSelectedRenderBackend().ToString();
+            Properties.Settings.Default.Save();
         }
 
         private void pnlHeader_Paint(object sender, PaintEventArgs e)

@@ -4,6 +4,8 @@ using System.Diagnostics;
 using System.Threading;
 using Land_Readjustment_Tool.UI.MapCanvas.Core;
 using Land_Readjustment_Tool.UI.MapCanvas.Models.Shapes;
+using Land_Readjustment_Tool.UI.MapCanvas.Rendering.Abstractions;
+using Land_Readjustment_Tool.UI.MapCanvas.Rendering.Gdi;
 
 namespace Land_Readjustment_Tool.UI.MapCanvas.Rendering
 {
@@ -53,6 +55,7 @@ namespace Land_Readjustment_Tool.UI.MapCanvas.Rendering
             Size canvasSize,
             IReadOnlyList<IRasterRenderLayer> rasterLayers,
             MapCanvasEngine engine,
+            MapRenderBackend renderBackend = MapRenderBackend.GdiPlus,
             CancellationToken cancellationToken = default)
         {
             Stopwatch stopwatch = Stopwatch.StartNew();
@@ -60,6 +63,7 @@ namespace Land_Readjustment_Tool.UI.MapCanvas.Rendering
                 canvasSize,
                 rasterLayers,
                 engine,
+                renderBackend,
                 cancellationToken);
 
             if (renderResult == null)
@@ -149,7 +153,7 @@ namespace Land_Readjustment_Tool.UI.MapCanvas.Rendering
                 try
                 {
                     using Graphics graphics = Graphics.FromImage(recomposed);
-                    graphics.Clear(Color.Transparent);
+                    ClearSurface(graphics, Color.Transparent);
                     ConfigureRasterQuality(graphics);
 
                     foreach (IRasterRenderLayer rasterLayer in rasterLayers)
@@ -162,7 +166,7 @@ namespace Land_Readjustment_Tool.UI.MapCanvas.Rendering
                             continue;
                         }
 
-                        graphics.DrawImageUnscaled(layerBitmap, 0, 0);
+                        DrawBitmapUnscaled(graphics, layerBitmap);
                     }
 
                     Bitmap? previousCache = _rasterCache;
@@ -185,6 +189,7 @@ namespace Land_Readjustment_Tool.UI.MapCanvas.Rendering
             Size canvasSize,
             IReadOnlyList<IRasterRenderLayer> rasterLayers,
             MapCanvasEngine engine,
+            MapRenderBackend renderBackend = MapRenderBackend.GdiPlus,
             CancellationToken cancellationToken = default)
         {
             MapCanvasEngine engineSnapshot = engine.CreateSnapshot();
@@ -196,6 +201,7 @@ namespace Land_Readjustment_Tool.UI.MapCanvas.Rendering
                     sizeSnapshot,
                     layerSnapshot,
                     engineSnapshot,
+                    renderBackend,
                     cancellationToken));
         }
 
@@ -220,16 +226,16 @@ namespace Land_Readjustment_Tool.UI.MapCanvas.Rendering
                     return false;
 
                 using Graphics graphics = Graphics.FromImage(_panBuffer);
-                graphics.Clear(Color.Transparent);
+                ClearSurface(graphics, Color.Transparent);
                 graphics.CompositingMode = CompositingMode.SourceOver;
                 ConfigureRasterQuality(graphics);
                 if (TryCalculateZoomDestination(engine, out RectangleF zoomDestination))
                 {
-                    graphics.DrawImage(_rasterCache, zoomDestination);
+                    DrawBitmap(graphics, _rasterCache, zoomDestination);
                 }
                 else
                 {
-                    graphics.DrawImageUnscaled(_rasterCache, 0, 0);
+                    DrawBitmapUnscaled(graphics, _rasterCache);
                 }
 
                 _panBufferValid = true;
@@ -395,6 +401,7 @@ namespace Land_Readjustment_Tool.UI.MapCanvas.Rendering
             Size canvasSize,
             IReadOnlyList<IRasterRenderLayer> rasterLayers,
             MapCanvasEngine engine,
+            MapRenderBackend renderBackend,
             CancellationToken cancellationToken)
         {
             Size clampedSize = ClampSize(canvasSize);
@@ -407,7 +414,7 @@ namespace Land_Readjustment_Tool.UI.MapCanvas.Rendering
             try
             {
                 using Graphics graphics = Graphics.FromImage(compositeBitmap);
-                graphics.Clear(Color.Transparent);
+                ClearSurface(graphics, Color.Transparent);
                 ConfigureRasterQuality(graphics);
 
                 if (rasterLayers.Count > 0)
@@ -438,7 +445,7 @@ namespace Land_Readjustment_Tool.UI.MapCanvas.Rendering
                         {
                             using Graphics layerGraphics =
                                 Graphics.FromImage(layerBitmap);
-                            layerGraphics.Clear(Color.Transparent);
+                            ClearSurface(layerGraphics, Color.Transparent);
                             ConfigureRasterQuality(layerGraphics);
 
                             layerRendered = rasterLayer.RenderVisible(
@@ -446,6 +453,7 @@ namespace Land_Readjustment_Tool.UI.MapCanvas.Rendering
                                 engine,
                                 visibleBounds,
                                 interactive: false,
+                                renderBackend,
                                 cancellationToken);
 
                             if (cancellationToken.IsCancellationRequested)
@@ -458,7 +466,7 @@ namespace Land_Readjustment_Tool.UI.MapCanvas.Rendering
 
                             if (layerRendered)
                             {
-                                graphics.DrawImageUnscaled(layerBitmap, 0, 0);
+                                DrawBitmapUnscaled(graphics, layerBitmap);
                                 layerCaches[rasterLayer.LayerId] = layerBitmap;
                             }
                             else if (rasterLayer is XyzLiveTileRenderLayer)
@@ -631,6 +639,52 @@ namespace Land_Readjustment_Tool.UI.MapCanvas.Rendering
                 Math.Max(1, size.Width),
                 Math.Max(1, size.Height));
         }
+
+        /// <summary>
+        /// Clears an internal raster cache target through the backend surface
+        /// abstraction.
+        /// </summary>
+        private static void ClearSurface(Graphics graphics, Color color)
+        {
+            using GdiMapRenderSurface surface = CreateSurface(graphics);
+            surface.Clear(color);
+        }
+
+        /// <summary>
+        /// Draws a cached bitmap at native size through the backend image path.
+        /// </summary>
+        private static void DrawBitmapUnscaled(Graphics graphics, Bitmap bitmap)
+        {
+            DrawBitmap(
+                graphics,
+                bitmap,
+                new RectangleF(0, 0, bitmap.Width, bitmap.Height));
+        }
+
+        /// <summary>
+        /// Draws a cached bitmap into the requested destination rectangle
+        /// through the backend image path.
+        /// </summary>
+        private static void DrawBitmap(
+            Graphics graphics,
+            Bitmap bitmap,
+            RectangleF destination)
+        {
+            using GdiMapRenderSurface surface = CreateSurface(graphics);
+            using GdiMapImage image = new(bitmap);
+            surface.DrawImage(
+                image,
+                destination,
+                new RectangleF(0, 0, bitmap.Width, bitmap.Height),
+                new ImageStyle(1.0f, ImageInterpolation.NearestNeighbor));
+        }
+
+        /// <summary>
+        /// Creates the current GDI-backed render surface for an internal raster
+        /// cache bitmap target.
+        /// </summary>
+        private static GdiMapRenderSurface CreateSurface(Graphics graphics) =>
+            new(graphics, Size.Round(graphics.VisibleClipBounds.Size));
 
         private readonly record struct RasterViewSnapshot(
             PointD ViewOriginWorld,

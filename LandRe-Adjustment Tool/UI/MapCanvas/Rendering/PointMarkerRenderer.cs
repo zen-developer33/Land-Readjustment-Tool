@@ -1,9 +1,26 @@
-using System.Drawing.Drawing2D;
+using System.Drawing;
+using Land_Readjustment_Tool.UI.MapCanvas.Rendering.Abstractions;
+using Land_Readjustment_Tool.UI.MapCanvas.Rendering.Gdi;
 
 namespace Land_Readjustment_Tool.UI.MapCanvas.Rendering
 {
+    /// <summary>
+    /// Describes one named point marker symbol available for canvas point
+    /// layers.
+    /// </summary>
+    /// <param name="Key">Stable marker key stored on layer/style settings.</param>
+    /// <param name="Name">User-facing marker name.</param>
     public sealed record PointMarkerDefinition(string Key, string Name);
 
+    /// <summary>
+    /// Draws small point marker symbols through the map render surface.
+    /// </summary>
+    /// <remarks>
+    /// The renderer keeps a <see cref="Graphics"/> overload for existing UI
+    /// preview swatches, but the core implementation uses
+    /// <see cref="IMapRenderSurface"/> so map rendering can move to SkiaSharp
+    /// without marker-specific GDI calls.
+    /// </remarks>
     public static class PointMarkerRenderer
     {
         private static readonly IReadOnlyList<PointMarkerDefinition> Definitions =
@@ -20,8 +37,14 @@ namespace Land_Readjustment_Tool.UI.MapCanvas.Rendering
             new("Star", "Star")
         ];
 
+        /// <summary>
+        /// Gets all marker definitions in picker/display order.
+        /// </summary>
         public static IReadOnlyList<PointMarkerDefinition> GetMarkers() => Definitions;
 
+        /// <summary>
+        /// Normalizes a stored marker key to a known marker definition key.
+        /// </summary>
         public static string Normalize(string? key)
         {
             string normalized = (key ?? string.Empty).Trim();
@@ -32,6 +55,10 @@ namespace Land_Readjustment_Tool.UI.MapCanvas.Rendering
                 : "Dot";
         }
 
+        /// <summary>
+        /// Draws a marker to a WinForms/GDI target by wrapping it in the current
+        /// production render surface.
+        /// </summary>
         public static void Draw(
             Graphics graphics,
             RectangleF bounds,
@@ -39,6 +66,23 @@ namespace Land_Readjustment_Tool.UI.MapCanvas.Rendering
             Color color,
             float lineWeight = 1.5f)
         {
+            ArgumentNullException.ThrowIfNull(graphics);
+            using GdiMapRenderSurface surface = new(graphics, Size.Round(graphics.VisibleClipBounds.Size));
+            Draw(surface, bounds, markerKey, color, lineWeight);
+        }
+
+        /// <summary>
+        /// Draws a marker symbol through the active backend-neutral render
+        /// surface.
+        /// </summary>
+        public static void Draw(
+            IMapRenderSurface surface,
+            RectangleF bounds,
+            string? markerKey,
+            Color color,
+            float lineWeight = 1.5f)
+        {
+            ArgumentNullException.ThrowIfNull(surface);
             if (bounds.Width <= 0 || bounds.Height <= 0)
                 return;
 
@@ -51,66 +95,81 @@ namespace Land_Readjustment_Tool.UI.MapCanvas.Rendering
                 size,
                 size);
 
-            using Pen pen = new(color, Math.Max(1f, lineWeight))
-            {
-                StartCap = LineCap.Round,
-                EndCap = LineCap.Round,
-                LineJoin = LineJoin.Round
-            };
-            using SolidBrush brush = new(color);
+            StrokeStyle stroke = new(color, Math.Max(1f, lineWeight));
 
             switch (marker)
             {
                 case "Circle":
-                    graphics.DrawEllipse(pen, square);
+                    surface.DrawEllipse(square, stroke);
                     break;
                 case "Cross":
-                    DrawPlus(graphics, pen, square);
+                    DrawPlus(surface, stroke, square);
                     break;
                 case "X":
-                    DrawX(graphics, pen, square);
+                    DrawX(surface, stroke, square);
                     break;
                 case "Square":
-                    graphics.DrawRectangle(pen, square.X, square.Y, square.Width, square.Height);
+                    surface.DrawRectangle(square, stroke);
                     break;
                 case "Diamond":
-                    graphics.DrawPolygon(pen, CreateDiamond(square));
+                    DrawPolygon(surface, CreateDiamond(square), stroke);
                     break;
                 case "Triangle":
-                    graphics.DrawPolygon(pen, CreateTriangle(square));
+                    DrawPolygon(surface, CreateTriangle(square), stroke);
                     break;
                 case "PlusCircle":
-                    graphics.DrawEllipse(pen, square);
-                    DrawPlus(graphics, pen, RectangleF.Inflate(square, -size * 0.22f, -size * 0.22f));
+                    surface.DrawEllipse(square, stroke);
+                    DrawPlus(surface, stroke, RectangleF.Inflate(square, -size * 0.22f, -size * 0.22f));
                     break;
                 case "CircleCross":
-                    graphics.DrawEllipse(pen, square);
-                    DrawX(graphics, pen, RectangleF.Inflate(square, -size * 0.22f, -size * 0.22f));
+                    surface.DrawEllipse(square, stroke);
+                    DrawX(surface, stroke, RectangleF.Inflate(square, -size * 0.22f, -size * 0.22f));
                     break;
                 case "Star":
-                    graphics.DrawPolygon(pen, CreateStar(center, size / 2f, size * 0.22f));
+                    DrawPolygon(surface, CreateStar(center, size / 2f, size * 0.22f), stroke);
                     break;
                 default:
-                    graphics.FillEllipse(brush, RectangleF.Inflate(square, -size * 0.28f, -size * 0.28f));
+                    surface.FillEllipse(
+                        RectangleF.Inflate(square, -size * 0.28f, -size * 0.28f),
+                        new FillStyle(color));
                     break;
             }
-
         }
 
-        private static void DrawPlus(Graphics graphics, Pen pen, RectangleF rect)
+        /// <summary>
+        /// Draws a plus sign using two backend line segments.
+        /// </summary>
+        private static void DrawPlus(IMapRenderSurface surface, in StrokeStyle stroke, RectangleF rect)
         {
             float centerX = rect.Left + rect.Width / 2f;
             float centerY = rect.Top + rect.Height / 2f;
-            graphics.DrawLine(pen, centerX, rect.Top, centerX, rect.Bottom);
-            graphics.DrawLine(pen, rect.Left, centerY, rect.Right, centerY);
+            surface.DrawLine(new PointF(centerX, rect.Top), new PointF(centerX, rect.Bottom), stroke);
+            surface.DrawLine(new PointF(rect.Left, centerY), new PointF(rect.Right, centerY), stroke);
         }
 
-        private static void DrawX(Graphics graphics, Pen pen, RectangleF rect)
+        /// <summary>
+        /// Draws an X sign using two backend line segments.
+        /// </summary>
+        private static void DrawX(IMapRenderSurface surface, in StrokeStyle stroke, RectangleF rect)
         {
-            graphics.DrawLine(pen, rect.Left, rect.Top, rect.Right, rect.Bottom);
-            graphics.DrawLine(pen, rect.Right, rect.Top, rect.Left, rect.Bottom);
+            surface.DrawLine(new PointF(rect.Left, rect.Top), new PointF(rect.Right, rect.Bottom), stroke);
+            surface.DrawLine(new PointF(rect.Right, rect.Top), new PointF(rect.Left, rect.Bottom), stroke);
         }
 
+        /// <summary>
+        /// Builds and strokes one closed marker polygon.
+        /// </summary>
+        private static void DrawPolygon(IMapRenderSurface surface, PointF[] points, in StrokeStyle stroke)
+        {
+            IMapPathBuilder builder = surface.CreatePath();
+            builder.AddPolygon(points);
+            using IMapPath path = builder.Build();
+            surface.DrawPath(path, stroke);
+        }
+
+        /// <summary>
+        /// Creates the diamond marker vertices inside the supplied square.
+        /// </summary>
         private static PointF[] CreateDiamond(RectangleF rect)
         {
             float centerX = rect.Left + rect.Width / 2f;
@@ -124,6 +183,9 @@ namespace Land_Readjustment_Tool.UI.MapCanvas.Rendering
             ];
         }
 
+        /// <summary>
+        /// Creates the triangle marker vertices inside the supplied square.
+        /// </summary>
         private static PointF[] CreateTriangle(RectangleF rect)
         {
             return
@@ -134,6 +196,9 @@ namespace Land_Readjustment_Tool.UI.MapCanvas.Rendering
             ];
         }
 
+        /// <summary>
+        /// Creates alternating outer/inner vertices for the star marker.
+        /// </summary>
         private static PointF[] CreateStar(PointF center, float outerRadius, float innerRadius)
         {
             PointF[] points = new PointF[10];

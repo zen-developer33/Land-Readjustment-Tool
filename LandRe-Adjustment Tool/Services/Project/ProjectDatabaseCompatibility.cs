@@ -72,6 +72,13 @@ namespace Land_Readjustment_Tool.Services.Project
                     "ALTER TABLE tblProjectSettings ADD COLUMN ApplicationEditLocked INTEGER NOT NULL DEFAULT 0;",
                     ct);
             }
+
+            if (!columns.Contains("CanvasRenderBackend"))
+            {
+                await context.Database.ExecuteSqlRawAsync(
+                    "ALTER TABLE tblProjectSettings ADD COLUMN CanvasRenderBackend TEXT NOT NULL DEFAULT 'GdiPlus';",
+                    ct);
+            }
         }
 
         private static async Task EnsureCanvasLayerColumnsAsync(

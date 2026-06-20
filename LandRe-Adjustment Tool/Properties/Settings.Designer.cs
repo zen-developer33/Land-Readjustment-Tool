@@ -272,6 +272,18 @@ namespace Land_Readjustment_Tool.Properties {
             }
         }
         
+        [global::System.Configuration.UserScopedSettingAttribute()]
+        [global::System.Diagnostics.DebuggerNonUserCodeAttribute()]
+        [global::System.Configuration.DefaultSettingValueAttribute("GdiPlus")]
+        public string Canvas_RenderBackend {
+            get {
+                return ((string)(this["Canvas_RenderBackend"]));
+            }
+            set {
+                this["Canvas_RenderBackend"] = value;
+            }
+        }
+        
         [global::System.Configuration.ApplicationScopedSettingAttribute()]
         [global::System.Diagnostics.DebuggerNonUserCodeAttribute()]
         [global::System.Configuration.DefaultSettingValueAttribute("30")]

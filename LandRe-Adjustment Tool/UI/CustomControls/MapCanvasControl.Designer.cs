@@ -153,7 +153,7 @@ namespace Land_Readjustment_Tool.UI.CustomControls
             canvasSurface.Name = "canvasSurface";
             canvasSurface.Size = new Size(800, 500);
             canvasSurface.TabIndex = 0;
-            canvasSurface.Paint += canvasSurface_Paint;
+            canvasSurface.GpuPaintSurface += canvasSurface_PaintSurface;
             canvasSurface.Resize += canvasSurface_Resize;
             // 
             // MapCanvasControl

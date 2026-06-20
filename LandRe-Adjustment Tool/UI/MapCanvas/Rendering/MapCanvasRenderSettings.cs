@@ -2,9 +2,13 @@ using System.Drawing;
 using System.Drawing.Drawing2D;
 using Land_Readjustment_Tool.Core.Entities.Project;
 using Land_Readjustment_Tool.UI.MapCanvas.Core;
+using Land_Readjustment_Tool.UI.MapCanvas.Rendering.Abstractions;
 
 namespace Land_Readjustment_Tool.UI.MapCanvas.Rendering
 {
+    /// <summary>
+    /// Stores visual and backend choices used when drawing the map canvas.
+    /// </summary>
     public sealed class MapCanvasRenderSettings
     {
         public Color BackgroundColor { get; set; }
@@ -41,6 +45,13 @@ namespace Land_Readjustment_Tool.UI.MapCanvas.Rendering
         public bool ShowNorthMarker { get; set; } = false;
         public bool AntiAliasingEnabled { get; set; } = true;
         public MapCanvasZoomBehavior ZoomBehavior { get; set; } = MapCanvasZoomBehavior.StandardScaleSteps;
+
+        /// <summary>
+        /// Gets or sets the renderer backend requested for backend-neutral map
+        /// drawing. GDI+ remains the default; Skia CPU can be selected through
+        /// user settings, while Skia GPU is reserved for a later adapter.
+        /// </summary>
+        public MapRenderBackend RenderBackend { get; set; } = MapRenderBackend.GdiPlus;
 
         /// <summary>
         /// Creates render settings from project settings entity.
@@ -102,6 +113,7 @@ namespace Land_Readjustment_Tool.UI.MapCanvas.Rendering
                 ShowNorthMarker = projectSettings.CanvasNorthMarkerVisible,
                 AntiAliasingEnabled = projectSettings.CanvasAntiAliasingEnabled,
                 ZoomBehavior = ParseZoomBehavior(projectSettings.CanvasZoomBehavior),
+                RenderBackend = ParseRenderBackend(projectSettings.CanvasRenderBackend),
             };
         }
 
@@ -182,6 +194,13 @@ namespace Land_Readjustment_Tool.UI.MapCanvas.Rendering
             return Enum.TryParse(value, ignoreCase: true, out MapCanvasZoomBehavior behavior)
                 ? behavior
                 : MapCanvasZoomBehavior.StandardScaleSteps;
+        }
+
+        private static MapRenderBackend ParseRenderBackend(string? value)
+        {
+            return Enum.TryParse(value, ignoreCase: true, out MapRenderBackend backend)
+                ? backend
+                : MapRenderBackend.GdiPlus;
         }
 
         private static bool ShouldShowMinorGridLines(string? gridMode)

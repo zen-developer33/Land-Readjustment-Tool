@@ -3,6 +3,8 @@ using System.Drawing.Imaging;
 using System.Diagnostics;
 using Land_Readjustment_Tool.UI.MapCanvas.Core;
 using Land_Readjustment_Tool.UI.MapCanvas.Models.Shapes;
+using Land_Readjustment_Tool.UI.MapCanvas.Rendering.Abstractions;
+using Land_Readjustment_Tool.UI.MapCanvas.Rendering.Gdi;
 
 namespace Land_Readjustment_Tool.UI.MapCanvas.Rendering
 {
@@ -83,7 +85,7 @@ namespace Land_Readjustment_Tool.UI.MapCanvas.Rendering
             try
             {
                 using Graphics graphics = Graphics.FromImage(bitmap);
-                graphics.Clear(Color.Transparent);
+                ClearSurface(graphics, Color.Transparent);
                 ConfigureVectorCacheQuality(
                     graphics,
                     vectorRenderer.FeatureCount,
@@ -166,10 +168,10 @@ namespace Land_Readjustment_Tool.UI.MapCanvas.Rendering
                 }
 
                 using Graphics graphics = Graphics.FromImage(_panBuffer);
-                graphics.Clear(Color.Transparent);
+                ClearSurface(graphics, Color.Transparent);
                 graphics.CompositingMode = CompositingMode.SourceOver;
                 graphics.InterpolationMode = InterpolationMode.NearestNeighbor;
-                graphics.DrawImageUnscaled(_vectorCache, 0, 0);
+                DrawBitmapUnscaled(graphics, _vectorCache);
                 renderOverlay?.Invoke(graphics);
                 _panBufferValid = true;
                 return true;
@@ -196,10 +198,10 @@ namespace Land_Readjustment_Tool.UI.MapCanvas.Rendering
                 }
 
                 using Graphics graphics = Graphics.FromImage(_zoomBuffer);
-                graphics.Clear(Color.Transparent);
+                ClearSurface(graphics, Color.Transparent);
                 graphics.CompositingMode = CompositingMode.SourceCopy;
                 graphics.InterpolationMode = InterpolationMode.NearestNeighbor;
-                graphics.DrawImageUnscaled(_vectorCache, 0, 0);
+                DrawBitmapUnscaled(graphics, _vectorCache);
                 graphics.CompositingMode = CompositingMode.SourceOver;
                 renderOverlay?.Invoke(graphics);
 
@@ -467,5 +469,37 @@ namespace Land_Readjustment_Tool.UI.MapCanvas.Rendering
                 Math.Max(1, size.Width),
                 Math.Max(1, size.Height));
         }
+
+        /// <summary>
+        /// Clears an internally owned cache bitmap through the backend surface
+        /// abstraction.
+        /// </summary>
+        private static void ClearSurface(Graphics graphics, Color color)
+        {
+            using GdiMapRenderSurface surface = CreateSurface(graphics);
+            surface.Clear(color);
+        }
+
+        /// <summary>
+        /// Draws a cached bitmap at its native size through the backend image
+        /// abstraction.
+        /// </summary>
+        private static void DrawBitmapUnscaled(Graphics graphics, Bitmap bitmap)
+        {
+            using GdiMapRenderSurface surface = CreateSurface(graphics);
+            using GdiMapImage image = new(bitmap);
+            surface.DrawImage(
+                image,
+                new RectangleF(0, 0, bitmap.Width, bitmap.Height),
+                new RectangleF(0, 0, bitmap.Width, bitmap.Height),
+                new ImageStyle(1.0f, ImageInterpolation.NearestNeighbor));
+        }
+
+        /// <summary>
+        /// Creates the current GDI-backed render surface for an internal cache
+        /// bitmap target.
+        /// </summary>
+        private static GdiMapRenderSurface CreateSurface(Graphics graphics) =>
+            new(graphics, Size.Round(graphics.VisibleClipBounds.Size));
     }
 }

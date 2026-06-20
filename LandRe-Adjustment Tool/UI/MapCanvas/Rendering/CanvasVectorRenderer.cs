@@ -9,11 +9,18 @@ using Land_Readjustment_Tool.Core.Models.Import;
 using Land_Readjustment_Tool.Services;
 using Land_Readjustment_Tool.UI.MapCanvas.Core;
 using Land_Readjustment_Tool.UI.MapCanvas.Models.Shapes;
+using Land_Readjustment_Tool.UI.MapCanvas.Rendering.Abstractions;
+using Land_Readjustment_Tool.UI.MapCanvas.Rendering.Backends;
+using Land_Readjustment_Tool.UI.MapCanvas.Rendering.Gdi;
 using Land_Readjustment_Tool.UI.MapCanvas.Services;
 using NetTopologySuite.Geometries;
 
 namespace Land_Readjustment_Tool.UI.MapCanvas.Rendering
 {
+    /// <summary>
+    /// Draws vector canvas features, labels, previews, and selection decoration
+    /// through backend-neutral render surfaces.
+    /// </summary>
     public sealed class CanvasVectorRenderer : IDisposable
     {
         private const string DefaultCanvasLabelFontName = "Nirmala UI";
@@ -36,6 +43,7 @@ namespace Land_Readjustment_Tool.UI.MapCanvas.Rendering
         private const float ParcelSelectionGlowWidthPx = 6.0f;
         private static readonly Color SelectionStrokeColor = Color.FromArgb(0, 120, 212);
         private readonly Font _previewFont = new("Segoe UI", 8.0f, FontStyle.Bold);
+        private readonly IMapRenderSurfaceFactory _renderSurfaceFactory;
         private readonly VectorFeatureSpatialIndex _featureSpatialIndex = new();
         private IReadOnlyList<CanvasFeature> _features = Array.Empty<CanvasFeature>();
         private IReadOnlyDictionary<int, CanvasLayer> _layersById =
@@ -44,14 +52,54 @@ namespace Land_Readjustment_Tool.UI.MapCanvas.Rendering
         private VectorRenderStats _lastRenderStats = VectorRenderStats.Empty;
         private readonly ConcurrentDictionary<Guid, PointD> _labelAnchorCache = new();
         private static readonly GeometryFactory LabelGeometryFactory = new(new PrecisionModel(), 0);
+        private MapRenderBackend _renderBackend = MapRenderBackend.GdiPlus;
         private int _sqmPrecision = 3;
         private int _traditionalPrecision = 2;
+
+        /// <summary>
+        /// Creates the vector renderer using the current production surface factory.
+        /// </summary>
+        public CanvasVectorRenderer()
+            : this(MapRenderSurfaceFactory.Default)
+        {
+        }
+
+        /// <summary>
+        /// Creates the vector renderer with an injectable backend surface factory for tests and future backends.
+        /// </summary>
+        public CanvasVectorRenderer(IMapRenderSurfaceFactory renderSurfaceFactory)
+        {
+            _renderSurfaceFactory = renderSurfaceFactory
+                ?? throw new ArgumentNullException(nameof(renderSurfaceFactory));
+        }
 
         public int FeatureCount => _features.Count;
 
         public int LayerCount => _layersById.Count;
 
         public VectorRenderStats LastRenderStats => _lastRenderStats;
+
+        /// <summary>
+        /// Updates the backend requested for vector drawing surfaces created by
+        /// this renderer.
+        /// </summary>
+        public void UpdateRenderBackend(MapRenderBackend backend)
+        {
+            _renderBackend = backend;
+        }
+
+        /// <summary>
+        /// Creates a backend-neutral vector surface around the current GDI paint target.
+        /// </summary>
+        private IMapRenderSurface CreateSurface(Graphics graphics) =>
+            _renderSurfaceFactory.CreateForGraphics(
+                graphics,
+                Size.Round(graphics.VisibleClipBounds.Size),
+                new MapRenderSurfaceOptions
+                {
+                    RequestedBackend = _renderBackend,
+                    ApplyInitialQuality = false
+                });
 
         public void UpdateFeatures(IEnumerable<CanvasFeature>? features)
         {
@@ -136,6 +184,39 @@ namespace Land_Readjustment_Tool.UI.MapCanvas.Rendering
             Size? canvasSize = null,
             bool antiAliasingEnabled = true)
         {
+            // Avoid allocating a render surface (which on the GPU backend is a real
+            // GPU surface) when there is nothing to draw.
+            if (_features.Count == 0)
+            {
+                _lastRenderStats = new VectorRenderStats
+                {
+                    TotalFeatureCount = 0,
+                    SpatialIndexEntryCount = 0,
+                    VisibleWorldBounds = visibleWorldBounds
+                };
+                return;
+            }
+
+            using IMapRenderSurface surface = CreateSurface(graphics);
+            Render(
+                surface,
+                graphics,
+                engine,
+                visibleWorldBounds,
+                useLevelOfDetail,
+                canvasSize,
+                antiAliasingEnabled);
+        }
+
+        public void Render(
+            IMapRenderSurface surface,
+            Graphics fallbackGraphics,
+            MapCanvasEngine engine,
+            RectangleD visibleWorldBounds,
+            bool useLevelOfDetail = false,
+            Size? canvasSize = null,
+            bool antiAliasingEnabled = true)
+        {
             if (_features.Count == 0)
             {
                 _lastRenderStats = new VectorRenderStats
@@ -161,6 +242,7 @@ namespace Land_Readjustment_Tool.UI.MapCanvas.Rendering
             using BrushCache brushCache = new();
             using LabelFontCache labelFontCache = new();
             VectorRenderContext context = new(
+                surface,
                 penCache,
                 brushCache,
                 engine.ZoomScale,
@@ -212,7 +294,7 @@ namespace Land_Readjustment_Tool.UI.MapCanvas.Rendering
                 // The cache is intentionally selection-free; selection
                 // decoration is drawn later as a small interaction overlay.
                 DrawShape(
-                    graphics,
+                    fallbackGraphics,
                     engine,
                     feature.Shape,
                     ResolveStyle(feature, layer),
@@ -221,7 +303,7 @@ namespace Land_Readjustment_Tool.UI.MapCanvas.Rendering
                     layer,
                     suppressParcelHighlight: true,
                     forceUnselected: true);
-                DrawLabelIfNeeded(graphics, engine, visibleWorldBounds, feature, layer, context, labelFontCache);
+                DrawLabelIfNeeded(fallbackGraphics, engine, visibleWorldBounds, feature, layer, context, labelFontCache);
                 renderedCount++;
             }
 
@@ -256,9 +338,37 @@ namespace Land_Readjustment_Tool.UI.MapCanvas.Rendering
                 return;
             }
 
+            using IMapRenderSurface surface = CreateSurface(graphics);
+            RenderPreview(
+                surface,
+                graphics,
+                engine,
+                previewShape,
+                previewLayer,
+                canvasObject,
+                drawAsPreview,
+                forceUnselected);
+        }
+
+        public void RenderPreview(
+            IMapRenderSurface surface,
+            Graphics fallbackGraphics,
+            MapCanvasEngine engine,
+            IShape? previewShape,
+            CanvasLayer? previewLayer,
+            CanvasObject? canvasObject = null,
+            bool drawAsPreview = true,
+            bool forceUnselected = false)
+        {
+            if (previewShape == null)
+            {
+                return;
+            }
+
             using PenCache penCache = new();
             using BrushCache brushCache = new();
             VectorRenderContext context = new(
+                surface,
                 penCache,
                 brushCache,
                 engine.ZoomScale,
@@ -267,7 +377,7 @@ namespace Land_Readjustment_Tool.UI.MapCanvas.Rendering
                 clipWorldBounds: CreateClipWorldBounds(engine));
 
             DrawShape(
-                graphics,
+                fallbackGraphics,
                 engine,
                 previewShape,
                 ResolveStyle(previewShape, previewLayer, canvasObject),
@@ -277,7 +387,7 @@ namespace Land_Readjustment_Tool.UI.MapCanvas.Rendering
 
             if (drawAsPreview && previewShape is CircleShape circle)
             {
-                DrawCircleRadiusPreview(graphics, engine, circle, context);
+                DrawCircleRadiusPreview(engine, circle, context);
             }
         }
 
@@ -297,9 +407,31 @@ namespace Land_Readjustment_Tool.UI.MapCanvas.Rendering
                 return;
             }
 
+            using IMapRenderSurface surface = CreateSurface(graphics);
+            RenderTransientShapes(
+                surface,
+                graphics,
+                engine,
+                shapes,
+                forceUnselected);
+        }
+
+        public void RenderTransientShapes(
+            IMapRenderSurface surface,
+            Graphics fallbackGraphics,
+            MapCanvasEngine engine,
+            IReadOnlyList<(IShape Shape, CanvasLayer? Layer, CanvasObject? CanvasObject)> shapes,
+            bool forceUnselected = false)
+        {
+            if (shapes == null || shapes.Count == 0)
+            {
+                return;
+            }
+
             using PenCache penCache = new();
             using BrushCache brushCache = new();
             VectorRenderContext context = new(
+                surface,
                 penCache,
                 brushCache,
                 engine.ZoomScale,
@@ -315,7 +447,7 @@ namespace Land_Readjustment_Tool.UI.MapCanvas.Rendering
                 }
 
                 DrawShape(
-                    graphics,
+                    fallbackGraphics,
                     engine,
                     shape,
                     ResolveStyle(shape, layer, canvasObject),
@@ -346,9 +478,35 @@ namespace Land_Readjustment_Tool.UI.MapCanvas.Rendering
                 return;
             }
 
+            using IMapRenderSurface surface = CreateSurface(graphics);
+            RenderSelectionDecoration(
+                surface,
+                graphics,
+                engine,
+                shape,
+                layer,
+                feature,
+                antiAliasingEnabled);
+        }
+
+        public void RenderSelectionDecoration(
+            IMapRenderSurface surface,
+            Graphics fallbackGraphics,
+            MapCanvasEngine engine,
+            IShape? shape,
+            CanvasLayer? layer,
+            CanvasFeature? feature,
+            bool antiAliasingEnabled)
+        {
+            if (shape == null || !shape.IsSelected)
+            {
+                return;
+            }
+
             using PenCache penCache = new();
             using BrushCache brushCache = new();
             VectorRenderContext context = new(
+                surface,
                 penCache,
                 brushCache,
                 engine.ZoomScale,
@@ -358,7 +516,7 @@ namespace Land_Readjustment_Tool.UI.MapCanvas.Rendering
                 clipWorldBounds: CreateClipWorldBounds(engine));
 
             DrawShape(
-                graphics,
+                fallbackGraphics,
                 engine,
                 shape,
                 ResolveStyle(shape, layer, feature?.CanvasObject),
@@ -369,7 +527,6 @@ namespace Land_Readjustment_Tool.UI.MapCanvas.Rendering
         }
 
         private void DrawCircleRadiusPreview(
-            Graphics graphics,
             MapCanvasEngine engine,
             CircleShape circle,
             VectorRenderContext context)
@@ -388,11 +545,9 @@ namespace Land_Readjustment_Tool.UI.MapCanvas.Rendering
                 diameterEndpoints.Length == 2)
             {
                 DrawDiameterPreview(
-                    graphics,
                     context,
                     diameterEndpoints[0],
                     diameterEndpoints[1],
-                    center,
                     engine);
                 return;
             }
@@ -403,11 +558,9 @@ namespace Land_Readjustment_Tool.UI.MapCanvas.Rendering
             if (circle.Properties.TryGetValue("CenterDiameterEndpoint", out object? endpointObj) && endpointObj is PointD endpointWorld)
             {
                 DrawDiameterPreview(
-                    graphics,
                     context,
                     circle.Center,
                     endpointWorld,
-                    center,
                     engine);
                 return;
             }
@@ -419,44 +572,25 @@ namespace Land_Readjustment_Tool.UI.MapCanvas.Rendering
                 return;
             }
 
-            using GraphicsPath pathDefault = new();
-            pathDefault.AddLine(center, edgeDefault);
-            graphics.DrawPath(
-                context.GetPen(Color.FromArgb(232, 224, 172, 36), 1.1f, DashStyle.Dash),
-                pathDefault);
+            context.Surface.DrawLine(
+                center,
+                edgeDefault,
+                CreatePreviewMeasurementStroke());
 
             string radiusText = circle.GetRadius().ToString("0.###", CultureInfo.CurrentCulture);
-            SizeF textSizeDefault = graphics.MeasureString(radiusText, _previewFont);
             PointF midpointDefault = new(
                 (center.X + edgeDefault.X) / 2.0f,
                 (center.Y + edgeDefault.Y) / 2.0f);
-            RectangleF labelBoundsDefault = new(
-                midpointDefault.X - textSizeDefault.Width / 2.0f - 4.0f,
-                midpointDefault.Y - textSizeDefault.Height / 2.0f - 2.0f,
-                textSizeDefault.Width + 8.0f,
-                textSizeDefault.Height + 4.0f);
-
-            graphics.FillRectangle(context.GetSolidBrush(Color.White), labelBoundsDefault);
-            graphics.DrawRectangle(
-                context.GetPen(Color.FromArgb(90, 90, 90), 1.0f),
-                labelBoundsDefault.X,
-                labelBoundsDefault.Y,
-                labelBoundsDefault.Width,
-                labelBoundsDefault.Height);
-            graphics.DrawString(
-                radiusText,
-                _previewFont,
-                context.GetSolidBrush(Color.FromArgb(32, 32, 32)),
-                labelBoundsDefault.X + 4.0f,
-                labelBoundsDefault.Y + 2.0f);
+            DrawPreviewMeasurementLabel(context, radiusText, midpointDefault);
         }
 
+        /// <summary>
+        /// Draws the temporary diameter helper shown while a circle is being created or edited.
+        /// </summary>
         private void DrawDiameterPreview(
-            Graphics graphics,
             VectorRenderContext context,
             PointD startWorld,
             PointD endWorld,
-            PointF? center,
             MapCanvasEngine engine)
         {
             PointF start = ToScreenPointF(engine.WorldToScreen(startWorld));
@@ -466,40 +600,58 @@ namespace Land_Readjustment_Tool.UI.MapCanvas.Rendering
                 return;
             }
 
-            using GraphicsPath path = new();
-            path.AddLine(start, end);
-            graphics.DrawPath(
-                context.GetPen(Color.FromArgb(232, 224, 172, 36), 1.1f, DashStyle.Dash),
-                path);
+            context.Surface.DrawLine(
+                start,
+                end,
+                CreatePreviewMeasurementStroke());
 
             double dx = startWorld.X - endWorld.X;
             double dy = startWorld.Y - endWorld.Y;
             double diameter = Math.Sqrt(dx * dx + dy * dy);
 
             string diameterText = diameter.ToString("0.###", CultureInfo.CurrentCulture);
-            SizeF textSize = graphics.MeasureString(diameterText, _previewFont);
             PointF midpoint = new(
                 (start.X + end.X) / 2.0f,
                 (start.Y + end.Y) / 2.0f);
+            DrawPreviewMeasurementLabel(context, diameterText, midpoint);
+        }
+
+        /// <summary>
+        /// Creates the dashed stroke used by radius and diameter preview helper lines.
+        /// </summary>
+        private static StrokeStyle CreatePreviewMeasurementStroke() =>
+            new(Color.FromArgb(232, 224, 172, 36), 1.1f, DashPatternKind.Dashed);
+
+        /// <summary>
+        /// Draws the small white measurement callout through the active render backend.
+        /// </summary>
+        private void DrawPreviewMeasurementLabel(
+            VectorRenderContext context,
+            string text,
+            PointF center)
+        {
+            TextStyle textStyle = CreateTextStyle(
+                _previewFont,
+                Color.FromArgb(32, 32, 32),
+                StringAlignment.Near,
+                StringAlignment.Near);
+            SizeF textSize = context.Surface.MeasureText(text, textStyle);
             RectangleF labelBounds = new(
-                midpoint.X - textSize.Width / 2.0f - 4.0f,
-                midpoint.Y - textSize.Height / 2.0f - 2.0f,
+                center.X - textSize.Width / 2.0f - 4.0f,
+                center.Y - textSize.Height / 2.0f - 2.0f,
                 textSize.Width + 8.0f,
                 textSize.Height + 4.0f);
-
-            graphics.FillRectangle(context.GetSolidBrush(Color.White), labelBounds);
-            graphics.DrawRectangle(
-                context.GetPen(Color.FromArgb(90, 90, 90), 1.0f),
-                labelBounds.X,
-                labelBounds.Y,
-                labelBounds.Width,
-                labelBounds.Height);
-            graphics.DrawString(
-                diameterText,
-                _previewFont,
-                context.GetSolidBrush(Color.FromArgb(32, 32, 32)),
+            RectangleF textLayout = new(
                 labelBounds.X + 4.0f,
-                labelBounds.Y + 2.0f);
+                labelBounds.Y + 2.0f,
+                textSize.Width,
+                textSize.Height);
+
+            context.Surface.FillRectangle(labelBounds, new FillStyle(Color.White));
+            context.Surface.DrawRectangle(
+                labelBounds,
+                new StrokeStyle(Color.FromArgb(90, 90, 90), 1.0f));
+            context.Surface.DrawText(text, textLayout, textStyle);
         }
 
         private static bool IsRenderable(
@@ -695,6 +847,57 @@ namespace Land_Readjustment_Tool.UI.MapCanvas.Rendering
             };
         }
 
+        /// <summary>
+        /// Converts the existing vector stroke settings into the backend-neutral stroke style.
+        /// </summary>
+        private static StrokeStyle CreateStrokeStyle(VectorShapeStyle style, float width) =>
+            new(
+                style.StrokeColor,
+                Math.Max(0.25f, width),
+                ToDashPatternKind(style.LineStyleKey),
+                Math.Clamp(style.LineTypeScale, 0.1f, 100.0f));
+
+        /// <summary>
+        /// Converts normalized RePlot line-style keys into backend-neutral dash identifiers.
+        /// </summary>
+        private static DashPatternKind ToDashPatternKind(string? lineStyle)
+        {
+            return NormalizeLineStyleKey(lineStyle) switch
+            {
+                "DASHED" => DashPatternKind.Dashed,
+                "DOTTED" => DashPatternKind.Dotted,
+                "DASHDOT" => DashPatternKind.DashDot,
+                "DASHDOUBLEDOT" => DashPatternKind.DashDoubleDot,
+                "CENTERLINE" => DashPatternKind.CenterLine,
+                _ => DashPatternKind.Solid
+            };
+        }
+
+        /// <summary>
+        /// Converts vector fill settings into a backend-neutral fill style.
+        /// </summary>
+        private static FillStyle CreateFillStyle(VectorShapeStyle style)
+        {
+            if (style.FillMode == FillMode.Hatched)
+            {
+                Color hatchColor = ResolveHatchColor(style);
+                return new FillStyle(
+                    style.FillColor,
+                    FillPatternKind.TextureHatch,
+                    hatchColor,
+                    style.HatchScale,
+                    style.HatchPattern);
+            }
+
+            return new FillStyle(style.FillColor);
+        }
+
+        /// <summary>
+        /// Transfers ownership of a GDI path into the current GDI-backed map path wrapper.
+        /// </summary>
+        private static GdiMapPath OwnGdiPath(GraphicsPath path) =>
+            new(path, FillRule.Winding);
+
         private static void DrawShape(
             Graphics graphics,
             MapCanvasEngine engine,
@@ -713,7 +916,7 @@ namespace Land_Readjustment_Tool.UI.MapCanvas.Rendering
 
             if (style.IsPointStyle && shape is CircleShape pointCircle)
             {
-                DrawPointMarker(graphics, engine, pointCircle.Center, style, effectiveSelected);
+                DrawPointMarker(engine, pointCircle.Center, style, context, effectiveSelected);
                 return;
             }
 
@@ -734,6 +937,9 @@ namespace Land_Readjustment_Tool.UI.MapCanvas.Rendering
 
             bool shouldStroke = style.HasStroke;
             float width = Math.Max(0.25f, style.LineWidth);
+            StrokeStyle? stroke = shouldStroke
+                ? CreateStrokeStyle(style, width)
+                : null;
             Pen? pen = shouldStroke
                 ? context.GetPen(
                     style.StrokeColor,
@@ -752,6 +958,7 @@ namespace Land_Readjustment_Tool.UI.MapCanvas.Rendering
                         style,
                         context,
                         pen,
+                        stroke,
                         drawReplotSelectionFill);
                     break;
                 case PolylineShape polyline:
@@ -762,11 +969,12 @@ namespace Land_Readjustment_Tool.UI.MapCanvas.Rendering
                         style,
                         context,
                         pen,
+                        stroke,
                         drawReplotSelectionFill,
                         effectiveSelected);
                     break;
                 case LineShape line:
-                    DrawLine(graphics, engine, line, context, pen);
+                    DrawLine(graphics, engine, line, context, stroke);
                     break;
                 case RectangleShape rectangle:
                     DrawRectangle(
@@ -776,16 +984,17 @@ namespace Land_Readjustment_Tool.UI.MapCanvas.Rendering
                         style,
                         context,
                         pen,
+                        stroke,
                         drawReplotSelectionFill);
                     break;
                 case CircleShape circle:
-                    DrawCircle(graphics, engine, circle, style, context, pen);
+                    DrawCircle(graphics, engine, circle, style, context, stroke);
                     break;
                 case ArcShape arc:
-                    DrawArc(graphics, engine, arc, context, pen);
+                    DrawArc(graphics, engine, arc, context, stroke);
                     break;
                 case EllipseShape ellipse:
-                    DrawEllipse(graphics, engine, ellipse, style, context, pen);
+                    DrawEllipse(graphics, engine, ellipse, style, context, stroke);
                     break;
                 case TextShape text:
                     DrawText(graphics, engine, text, style, context, layer, effectiveSelected);
@@ -833,47 +1042,52 @@ namespace Land_Readjustment_Tool.UI.MapCanvas.Rendering
             float strokeWidth,
             bool useCurveStyleSelection)
         {
-            using GraphicsPath? path = TryBuildSelectionOutlinePath(
+            GraphicsPath? path = TryBuildSelectionOutlinePath(
                 shape,
                 engine,
                 context.ClipWorldBounds,
                 outerBoundaryOnly: layer != null && CanvasLayerTreeService.IsProjectBoundaryLayer(layer));
             if (path == null || path.PointCount == 0)
             {
+                path?.Dispose();
                 return;
             }
 
-            RectangleF bounds = path.GetBounds();
+            using GdiMapPath mapPath = OwnGdiPath(path);
+            RectangleF bounds = mapPath.Bounds;
             if (!IsValidPathBounds(bounds))
             {
                 return;
             }
 
             DrawSelectionOutlineGlow(
-                graphics,
-                path,
+                mapPath,
                 context,
                 style,
                 strokeWidth,
                 useCurveStyleSelection);
         }
 
+        /// <summary>
+        /// Draws the selected-shape outline halo through the active render
+        /// surface while preserving the existing dash scaling rules.
+        /// </summary>
         private static void DrawSelectionOutlineGlow(
-            Graphics graphics,
-            GraphicsPath path,
+            GdiMapPath path,
             VectorRenderContext context,
             VectorShapeStyle style,
             float strokeWidth,
             bool useCurveStyleSelection)
         {
-            GraphicsState state = graphics.Save();
+            using IDisposable state = context.Surface.SaveState();
             try
             {
-                graphics.SmoothingMode = context.AntiAliasingEnabled
-                    ? SmoothingMode.AntiAlias
-                    : SmoothingMode.None;
+                context.Surface.SetQuality(
+                    context.AntiAliasingEnabled
+                        ? RenderQuality.VectorHighQuality
+                        : RenderQuality.VectorHighSpeed);
                 float effectiveStroke = Math.Max(0.25f, strokeWidth);
-                bool isLinearSelection = IsLinearSelectionOutline(path);
+                bool isLinearSelection = IsLinearSelectionOutline(path.Path);
                 float selectionStroke = effectiveStroke +
                                         (useCurveStyleSelection || isLinearSelection
                                             ? LinearSelectionStrokeWidthExtraPx
@@ -883,29 +1097,25 @@ namespace Land_Readjustment_Tool.UI.MapCanvas.Rendering
                     foreach ((float extraWidth, int alpha) in SelectionOutlineGlowBands)
                     {
                         float selectionWidth = selectionStroke + extraWidth;
-                        Pen glowPen = context.GetPen(
+                        StrokeStyle glowStroke = new(
                             Color.FromArgb(alpha, SelectionGlowColor),
                             selectionWidth,
-                            style.LineStyleKey,
+                            ToDashPatternKind(style.LineStyleKey),
                             GetSelectionDashScale(style.LineTypeScale, effectiveStroke, selectionWidth));
-                        graphics.DrawPath(glowPen, path);
+                        context.Surface.DrawPath(path, glowStroke);
                     }
                 }
 
-                Pen centerPen = context.GetPen(
+                StrokeStyle centerStroke = new(
                     SelectionStrokeColor,
                     selectionStroke,
-                    style.LineStyleKey,
+                    ToDashPatternKind(style.LineStyleKey),
                     GetSelectionDashScale(style.LineTypeScale, effectiveStroke, selectionStroke));
-                graphics.DrawPath(centerPen, path);
+                context.Surface.DrawPath(path, centerStroke);
             }
             catch (OutOfMemoryException)
             {
                 // Ignore the glow pass for degenerate paths.
-            }
-            finally
-            {
-                graphics.Restore(state);
             }
         }
 
@@ -1078,9 +1288,9 @@ namespace Land_Readjustment_Tool.UI.MapCanvas.Rendering
             MapCanvasEngine engine,
             ArcShape arc,
             VectorRenderContext context,
-            Pen? pen)
+            StrokeStyle? stroke)
         {
-            if (pen == null ||
+            if (!stroke.HasValue ||
                 arc.Radius <= 0.0 ||
                 !double.IsFinite(arc.Radius))
             {
@@ -1089,11 +1299,11 @@ namespace Land_Readjustment_Tool.UI.MapCanvas.Rendering
 
             if (context.IsPreview)
             {
-                DrawScreenArcPreview(graphics, engine, arc, context, pen);
+                DrawScreenArcPreview(graphics, engine, arc, context, stroke.Value);
                 return;
             }
 
-            using GraphicsPath? path = CreateCircularCurvePath(
+            GraphicsPath? path = CreateCircularCurvePath(
                 engine,
                 arc.Center,
                 arc.Radius,
@@ -1107,7 +1317,8 @@ namespace Land_Readjustment_Tool.UI.MapCanvas.Rendering
                 return;
             }
 
-            graphics.DrawPath(pen, path);
+            using GdiMapPath mapPath = OwnGdiPath(path);
+            context.Surface.DrawPath(mapPath, stroke.Value);
         }
 
         private static void DrawScreenArcPreview(
@@ -1115,7 +1326,7 @@ namespace Land_Readjustment_Tool.UI.MapCanvas.Rendering
             MapCanvasEngine engine,
             ArcShape arc,
             VectorRenderContext context,
-            Pen pen)
+            StrokeStyle stroke)
         {
             PointF center = ToScreenPointF(engine.WorldToScreen(arc.Center));
             PointF radiusPoint = ToScreenPointF(engine.WorldToScreen(
@@ -1125,7 +1336,7 @@ namespace Land_Readjustment_Tool.UI.MapCanvas.Rendering
                 radius <= 0.5f ||
                 !float.IsFinite(radius))
             {
-                DrawLine(graphics, engine, new LineShape(arc.StartPoint, arc.EndPoint), context, pen);
+                DrawLine(graphics, engine, new LineShape(arc.StartPoint, arc.EndPoint), context, stroke);
                 return;
             }
 
@@ -1141,11 +1352,11 @@ namespace Land_Readjustment_Tool.UI.MapCanvas.Rendering
                 !float.IsFinite(sweepAngleDegrees) ||
                 Math.Abs(sweepAngleDegrees) < 0.001f)
             {
-                DrawLine(graphics, engine, new LineShape(arc.StartPoint, arc.EndPoint), context, pen);
+                DrawLine(graphics, engine, new LineShape(arc.StartPoint, arc.EndPoint), context, stroke);
                 return;
             }
 
-            graphics.DrawArc(pen, bounds, startAngleDegrees, sweepAngleDegrees);
+            context.Surface.DrawArc(bounds, startAngleDegrees, sweepAngleDegrees, stroke);
         }
 
         private static void DrawPolyline(
@@ -1155,12 +1366,13 @@ namespace Land_Readjustment_Tool.UI.MapCanvas.Rendering
             VectorShapeStyle style,
             VectorRenderContext context,
             Pen? pen,
+            StrokeStyle? stroke,
             bool drawParcelSelectionHighlight = false,
             bool effectiveSelected = false)
         {
             if (polyline.Vertices.Count == 1)
             {
-                DrawPointMarker(graphics, engine, polyline.Vertices[0], style, effectiveSelected);
+                DrawPointMarker(engine, polyline.Vertices[0], style, context, effectiveSelected);
                 return;
             }
 
@@ -1169,15 +1381,18 @@ namespace Land_Readjustment_Tool.UI.MapCanvas.Rendering
                 return;
             }
 
-            using GraphicsPath path = polyline.CreateScreenPath(
+            GraphicsPath path = polyline.CreateScreenPath(
                 engine.WorldToScreen,
                 context.ClipWorldBounds);
             if (path.PointCount == 0)
             {
+                path.Dispose();
                 return;
             }
 
-            RectangleF bounds = path.GetBounds();
+            using GdiMapPath mapPath = OwnGdiPath(path);
+
+            RectangleF bounds = mapPath.Bounds;
             if (!IsValidPathBounds(bounds))
             {
                 return;
@@ -1188,7 +1403,7 @@ namespace Land_Readjustment_Tool.UI.MapCanvas.Rendering
                 style.FillMode != FillMode.None &&
                 IsValidRectangle(bounds))
             {
-                FillClosedPath(graphics, path, bounds, style, context);
+                FillClosedPath(mapPath, bounds, style, context);
             }
 
             if (polyline.IsClosed &&
@@ -1197,17 +1412,17 @@ namespace Land_Readjustment_Tool.UI.MapCanvas.Rendering
                 IsValidRectangle(bounds))
             {
                 DrawCadastralParcelSelectionHighlight(
-                    graphics,
-                    path,
+                    context,
+                    mapPath,
                     bounds);
             }
 
-            if (pen == null)
+            if (!stroke.HasValue)
             {
                 return;
             }
 
-            graphics.DrawPath(pen, path);
+            context.Surface.DrawPath(mapPath, stroke.Value);
         }
 
         private static void DrawDonutPolygon(
@@ -1217,6 +1432,7 @@ namespace Land_Readjustment_Tool.UI.MapCanvas.Rendering
             VectorShapeStyle style,
             VectorRenderContext context,
             Pen? pen,
+            StrokeStyle? stroke,
             bool drawParcelSelectionHighlight = false)
         {
             if (donut.ExteriorRing.Count < 3)
@@ -1224,15 +1440,18 @@ namespace Land_Readjustment_Tool.UI.MapCanvas.Rendering
                 return;
             }
 
-            using GraphicsPath path = donut.CreateScreenPath(
+            GraphicsPath path = donut.CreateScreenPath(
                 engine.WorldToScreen,
                 context.ClipWorldBounds);
             if (path.PointCount == 0)
             {
+                path.Dispose();
                 return;
             }
 
-            RectangleF bounds = path.GetBounds();
+            using GdiMapPath mapPath = OwnGdiPath(path);
+
+            RectangleF bounds = mapPath.Bounds;
             if (!IsValidPathBounds(bounds))
             {
                 return;
@@ -1240,20 +1459,20 @@ namespace Land_Readjustment_Tool.UI.MapCanvas.Rendering
 
             if (style.FillMode != FillMode.None && IsValidRectangle(bounds))
             {
-                FillClosedPath(graphics, path, bounds, style, context);
+                FillClosedPath(mapPath, bounds, style, context);
             }
 
             if (drawParcelSelectionHighlight && IsValidRectangle(bounds))
             {
                 DrawCadastralParcelSelectionHighlight(
-                    graphics,
-                    path,
+                    context,
+                    mapPath,
                     bounds);
             }
 
-            if (pen != null)
+            if (stroke.HasValue)
             {
-                graphics.DrawPath(pen, path);
+                context.Surface.DrawPath(mapPath, stroke.Value);
             }
         }
 
@@ -1262,9 +1481,9 @@ namespace Land_Readjustment_Tool.UI.MapCanvas.Rendering
             MapCanvasEngine engine,
             LineShape line,
             VectorRenderContext context,
-            Pen? pen)
+            StrokeStyle? stroke)
         {
-            if (pen == null)
+            if (!stroke.HasValue)
                 return;
 
             PointD startWorld = line.Start;
@@ -1279,7 +1498,7 @@ namespace Land_Readjustment_Tool.UI.MapCanvas.Rendering
             PointF end = ToScreenPointF(engine.WorldToScreen(endWorld));
             if (IsValidPoint(start) && IsValidPoint(end))
             {
-                graphics.DrawLine(pen, start, end);
+                context.Surface.DrawLine(start, end, stroke.Value);
             }
         }
 
@@ -1290,18 +1509,21 @@ namespace Land_Readjustment_Tool.UI.MapCanvas.Rendering
             VectorShapeStyle style,
             VectorRenderContext context,
             Pen? pen,
+            StrokeStyle? stroke,
             bool drawParcelSelectionHighlight = false)
         {
-            using GraphicsPath? path = CreateRectanglePath(
+            GraphicsPath? path = CreateRectanglePath(
                 engine,
                 rectangle,
                 context.ClipWorldBounds);
             if (path == null || path.PointCount == 0)
             {
+                path?.Dispose();
                 return;
             }
+            using GdiMapPath mapPath = OwnGdiPath(path);
 
-            RectangleF rect = path.GetBounds();
+            RectangleF rect = mapPath.Bounds;
             if (!IsValidPathBounds(rect) || !IsValidRectangle(rect))
             {
                 return;
@@ -1309,27 +1531,27 @@ namespace Land_Readjustment_Tool.UI.MapCanvas.Rendering
 
             if (style.FillMode != FillMode.None)
             {
-                FillClosedPath(graphics, path, rect, style, context);
+                FillClosedPath(mapPath, rect, style, context);
 
                 if (drawParcelSelectionHighlight)
                 {
                     DrawCadastralParcelSelectionHighlight(
-                        graphics,
-                        path,
+                        context,
+                        mapPath,
                         rect);
                 }
             }
             else if (drawParcelSelectionHighlight)
             {
                 DrawCadastralParcelSelectionHighlight(
-                    graphics,
-                    path,
+                    context,
+                    mapPath,
                     rect);
             }
 
-            if (pen != null)
+            if (stroke.HasValue)
             {
-                graphics.DrawPath(pen, path);
+                context.Surface.DrawPath(mapPath, stroke.Value);
             }
         }
 
@@ -1349,9 +1571,14 @@ namespace Land_Readjustment_Tool.UI.MapCanvas.Rendering
         // High-contrast selection blue, tuned to stay visible over pastel map fills.
         private static readonly Color SelectionHighlightColor = SelectionStrokeColor;
 
+        /// <summary>
+        /// Draws the filled cadastral parcel selection treatment through the
+        /// active render surface, clipping the border bands to the selected
+        /// parcel interior.
+        /// </summary>
         private static void DrawCadastralParcelSelectionHighlight(
-            Graphics graphics,
-            GraphicsPath path,
+            VectorRenderContext context,
+            IMapPath path,
             RectangleF bounds)
         {
             if (!IsValidRectangle(bounds))
@@ -1359,85 +1586,32 @@ namespace Land_Readjustment_Tool.UI.MapCanvas.Rendering
                 return;
             }
 
-            GraphicsState state = graphics.Save();
-            try
+            const int fillAlpha = 128;
+            const int outerAlpha = 125;
+            const int innerAlpha = 255;
+
+            // Subtle transparent fill keeps selected parcels readable.
+            context.Surface.FillPath(
+                path,
+                new FillStyle(Color.FromArgb(fillAlpha, SelectionHighlightColor)));
+
+            using (context.Surface.SaveState())
             {
-                const int fillAlpha = 128;
-                const int outerAlpha = 125;
-                const int innerAlpha = 255;
-
-                // Subtle transparent fill keeps selected parcels readable.
-                using SolidBrush fillBrush = new(Color.FromArgb(fillAlpha, SelectionHighlightColor));
-                graphics.FillPath(fillBrush, path);
-
-                graphics.SetClip(path, System.Drawing.Drawing2D.CombineMode.Intersect);
+                context.Surface.ClipPath(path);
 
                 // Outer zone: faint transition band inward from the border.
-                using Pen outerPen = new(Color.FromArgb(outerAlpha, SelectionHighlightColor), ParcelSelectionGlowWidthPx)
-                {
-                    Alignment = PenAlignment.Center,
-                    LineJoin = LineJoin.Round,
-                    StartCap = LineCap.Round,
-                    EndCap = LineCap.Round
-                };
-                graphics.DrawPath(outerPen, path);
+                context.Surface.DrawPath(
+                    path,
+                    new StrokeStyle(
+                        Color.FromArgb(outerAlpha, SelectionHighlightColor),
+                        ParcelSelectionGlowWidthPx));
 
                 // Near-border zone: narrow crisp edge for selection recognition.
-                using Pen innerPen = new(Color.FromArgb(innerAlpha, SelectionHighlightColor), ParcelSelectionOuterStrokeWidthPx)
-                {
-                    Alignment = PenAlignment.Center,
-                    LineJoin = LineJoin.Round,
-                    StartCap = LineCap.Round,
-                    EndCap = LineCap.Round
-                };
-                graphics.DrawPath(innerPen, path);
-            }
-            finally
-            {
-                graphics.Restore(state);
-            }
-        }
-
-        private static void DrawCadastralParcelHighlightOnly(
-            Graphics graphics,
-            MapCanvasEngine engine,
-            IShape shape)
-        {
-            switch (shape)
-            {
-                case DonutPolygonShape donut:
-                {
-                    if (donut.ExteriorRing.Count < 3) return;
-                    RectangleD clipWorldBounds = CreateClipWorldBounds(engine);
-                    using GraphicsPath path = donut.CreateScreenPath(engine.WorldToScreen, clipWorldBounds);
-                    if (path.PointCount == 0) return;
-                    RectangleF bounds = path.GetBounds();
-                    if (IsValidPathBounds(bounds) && IsValidRectangle(bounds))
-                        DrawCadastralParcelSelectionHighlight(graphics, path, bounds);
-                    break;
-                }
-                case PolylineShape polyline:
-                {
-                    if (!polyline.IsClosed || polyline.Vertices.Count <= 2) return;
-                    RectangleD clipWorldBounds = CreateClipWorldBounds(engine);
-                    using GraphicsPath path = polyline.CreateScreenPath(engine.WorldToScreen, clipWorldBounds);
-                    if (path.PointCount == 0) return;
-                    RectangleF bounds = path.GetBounds();
-                    if (IsValidPathBounds(bounds) && IsValidRectangle(bounds))
-                        DrawCadastralParcelSelectionHighlight(graphics, path, bounds);
-                    break;
-                }
-                case RectangleShape rectangle:
-                {
-                    PointF start = ToScreenPointF(engine.WorldToScreen(rectangle.Start));
-                    PointF end = ToScreenPointF(engine.WorldToScreen(rectangle.End));
-                    RectangleF rect = CreateScreenRectangle(start, end);
-                    if (!IsValidRectangle(rect)) return;
-                    using GraphicsPath path = new();
-                    path.AddRectangle(rect);
-                    DrawCadastralParcelSelectionHighlight(graphics, path, rect);
-                    break;
-                }
+                context.Surface.DrawPath(
+                    path,
+                    new StrokeStyle(
+                        Color.FromArgb(innerAlpha, SelectionHighlightColor),
+                        ParcelSelectionOuterStrokeWidthPx));
             }
         }
 
@@ -1447,7 +1621,7 @@ namespace Land_Readjustment_Tool.UI.MapCanvas.Rendering
             CircleShape circle,
             VectorShapeStyle style,
             VectorRenderContext context,
-            Pen? pen)
+            StrokeStyle? stroke)
         {
             double radius = circle.GetRadius();
             if (!double.IsFinite(radius) || radius <= 0.0)
@@ -1457,7 +1631,7 @@ namespace Land_Readjustment_Tool.UI.MapCanvas.Rendering
 
             if (style.FillMode != FillMode.None)
             {
-                using GraphicsPath? fillPath = CreateCircularCurvePath(
+                GraphicsPath? fillPath = CreateCircularCurvePath(
                     engine,
                     circle.Center,
                     radius,
@@ -1468,20 +1642,21 @@ namespace Land_Readjustment_Tool.UI.MapCanvas.Rendering
                     maxSegments: context.IsPreview ? MaxCircularCurvePreviewSegments : MaxCircularCurveSegments);
                 if (fillPath != null)
                 {
-                    RectangleF bounds = fillPath.GetBounds();
+                    using GdiMapPath mapFillPath = OwnGdiPath(fillPath);
+                    RectangleF bounds = mapFillPath.Bounds;
                     if (IsValidPathBounds(bounds))
                     {
-                        FillClosedPath(graphics, fillPath, bounds, style, context);
+                        FillClosedPath(mapFillPath, bounds, style, context);
                     }
                 }
             }
 
-            if (pen == null)
+            if (!stroke.HasValue)
             {
                 return;
             }
 
-            using GraphicsPath? strokePath = CreateCircularCurvePath(
+            GraphicsPath? strokePath = CreateCircularCurvePath(
                 engine,
                 circle.Center,
                 radius,
@@ -1492,7 +1667,12 @@ namespace Land_Readjustment_Tool.UI.MapCanvas.Rendering
                 maxSegments: context.IsPreview ? MaxCircularCurvePreviewSegments : MaxCircularCurveSegments);
             if (strokePath != null && strokePath.PointCount > 0)
             {
-                graphics.DrawPath(pen, strokePath);
+                using GdiMapPath mapStrokePath = OwnGdiPath(strokePath);
+                context.Surface.DrawPath(mapStrokePath, stroke.Value);
+            }
+            else
+            {
+                strokePath?.Dispose();
             }
         }
 
@@ -1502,7 +1682,7 @@ namespace Land_Readjustment_Tool.UI.MapCanvas.Rendering
             EllipseShape ellipse,
             VectorShapeStyle style,
             VectorRenderContext context,
-            Pen? pen)
+            StrokeStyle? stroke)
         {
             PointF start = ToScreenPointF(engine.WorldToScreen(ellipse.Start));
             PointF end = ToScreenPointF(engine.WorldToScreen(ellipse.End));
@@ -1514,20 +1694,27 @@ namespace Land_Readjustment_Tool.UI.MapCanvas.Rendering
 
             if (style.FillMode != FillMode.None)
             {
-                using GraphicsPath path = new();
-                path.AddEllipse(rect);
-                FillClosedPath(graphics, path, rect, style, context);
+                if (style.FillMode == FillMode.Hatched)
+                {
+                    GraphicsPath path = new();
+                    path.AddEllipse(rect);
+                    using GdiMapPath mapPath = OwnGdiPath(path);
+                    FillClosedPath(mapPath, rect, style, context);
+                }
+                else
+                {
+                    context.Surface.FillEllipse(rect, CreateFillStyle(style));
+                }
             }
 
-            if (pen != null)
+            if (stroke.HasValue)
             {
-                graphics.DrawEllipse(pen, rect);
+                context.Surface.DrawEllipse(rect, stroke.Value);
             }
         }
 
         private static void FillClosedPath(
-            Graphics graphics,
-            GraphicsPath path,
+            GdiMapPath path,
             RectangleF bounds,
             VectorShapeStyle style,
             VectorRenderContext context)
@@ -1547,48 +1734,14 @@ namespace Land_Readjustment_Tool.UI.MapCanvas.Rendering
 
             if (style.FillColor.A > 0 && style.FillMode != FillMode.Hatched)
             {
-                graphics.FillPath(context.GetSolidBrush(style.FillColor), path);
+                context.Surface.FillPath(path, CreateFillStyle(style));
             }
 
             if (style.FillMode == FillMode.Hatched)
             {
-                DrawHatchPattern(graphics, path, style, context);
+                context.Surface.FillPath(path, CreateFillStyle(style));
             }
         }
-
-        private static void DrawHatchPattern(
-            Graphics graphics,
-            GraphicsPath path,
-            VectorShapeStyle style,
-            VectorRenderContext context)
-        {
-            Color foreColor = ResolveHatchColor(style);
-            TextureBrush brush = context.GetTextureHatchBrush(
-                style.HatchPattern,
-                foreColor,
-                style.HatchScale);
-            brush.ResetTransform();
-            graphics.FillPath(brush, path);
-        }
-
-        private static HatchStyle ResolveGdipHatchStyle(string hatchPattern) =>
-            hatchPattern.Trim().ToUpperInvariant() switch
-            {
-                "ANSI31" => HatchStyle.ForwardDiagonal,
-                "ANSI32" or "DIAGONAL-CROSS" => HatchStyle.DiagonalCross,
-                "ANSI33" => HatchStyle.LightUpwardDiagonal,
-                "ANSI34" => HatchStyle.LightDownwardDiagonal,
-                "HORIZONTAL" => HatchStyle.Horizontal,
-                "VERTICAL" => HatchStyle.Vertical,
-                "CROSS" => HatchStyle.Cross,
-                "DOTS" or "SAND" => HatchStyle.DottedGrid,
-                "GRAVEL" or "CONCRETE" => HatchStyle.SmallGrid,
-                "BRICK" => HatchStyle.HorizontalBrick,
-                "NET" => HatchStyle.DiagonalCross,
-                "EARTH" => HatchStyle.Weave,
-                "WATER" or "WOOD" or "WAVE" => HatchStyle.Wave,
-                _ => HatchStyle.ForwardDiagonal
-            };
 
         private static Color ResolveHatchColor(VectorShapeStyle style)
         {
@@ -1596,20 +1749,15 @@ namespace Land_Readjustment_Tool.UI.MapCanvas.Rendering
             return Color.FromArgb(220, baseColor.R, baseColor.G, baseColor.B);
         }
 
+        /// <summary>
+        /// Draws a point feature marker and its optional selection ring through
+        /// the active render surface.
+        /// </summary>
         private static void DrawPointMarker(
-            Graphics graphics,
-            MapCanvasEngine engine,
-            CircleShape circle,
-            VectorShapeStyle style)
-        {
-            DrawPointMarker(graphics, engine, circle.Center, style, circle.IsSelected);
-        }
-
-        private static void DrawPointMarker(
-            Graphics graphics,
             MapCanvasEngine engine,
             PointD worldPoint,
             VectorShapeStyle style,
+            VectorRenderContext context,
             bool isSelected = false)
         {
             PointF center = ToScreenPointF(engine.WorldToScreen(worldPoint));
@@ -1625,15 +1773,15 @@ namespace Land_Readjustment_Tool.UI.MapCanvas.Rendering
 
             if (isSelected)
             {
-                using Pen selectionPen = new(Color.FromArgb(0, 122, 204), Math.Max(1.5f, style.LineWidth + 0.75f))
-                {
-                    Alignment = PenAlignment.Center
-                };
-                graphics.DrawEllipse(selectionPen, RectangleF.Inflate(markerRect, 4.0f, 4.0f));
+                context.Surface.DrawEllipse(
+                    RectangleF.Inflate(markerRect, 4.0f, 4.0f),
+                    new StrokeStyle(
+                        Color.FromArgb(0, 122, 204),
+                        Math.Max(1.5f, style.LineWidth + 0.75f)));
             }
 
             PointMarkerRenderer.Draw(
-                graphics,
+                context.Surface,
                 markerRect,
                 style.PointSymbol,
                 isSelected ? Color.FromArgb(0, 170, 255) : style.StrokeColor,
@@ -1671,30 +1819,13 @@ namespace Land_Readjustment_Tool.UI.MapCanvas.Rendering
 
             string combinedAlignment = layer?.TextAlignment ?? text.HorizontalAlignment;
             (StringAlignment hAlign, StringAlignment vAlign) = ParseCombinedTextAlignment(combinedAlignment);
-            using StringFormat format = new()
-            {
-                Alignment = hAlign,
-                LineAlignment = vAlign,
-                FormatFlags = StringFormatFlags.NoClip
-            };
 
             Font effectiveFont = layerFont ?? text.Font;
-            SizeF textSize = graphics.MeasureString(string.IsNullOrEmpty(text.Text) ? " " : text.Text, effectiveFont);
-            float left = hAlign switch
-            {
-                StringAlignment.Center => position.X - textSize.Width / 2f,
-                StringAlignment.Far => position.X - textSize.Width,
-                _ => position.X
-            };
-            float top = vAlign switch
-            {
-                StringAlignment.Center => position.Y - textSize.Height / 2f,
-                StringAlignment.Far => position.Y - textSize.Height,
-                _ => position.Y
-            };
-            text.SetLastRenderedBounds(new RectangleF(left, top, textSize.Width, textSize.Height));
-
-            graphics.DrawString(text.Text, effectiveFont, context.GetSolidBrush(color), position, format);
+            TextStyle textStyle = CreateTextStyle(effectiveFont, color, hAlign, vAlign);
+            SizeF textSize = context.Surface.MeasureText(text.Text, textStyle);
+            RectangleF layout = CreateAnchoredTextLayout(position, textSize, hAlign, vAlign);
+            text.SetLastRenderedBounds(layout);
+            context.Surface.DrawText(text.Text, layout, textStyle);
         }
 
         private static (StringAlignment Horizontal, StringAlignment Vertical) ParseCombinedTextAlignment(string? alignment)
@@ -1716,6 +1847,72 @@ namespace Land_Readjustment_Tool.UI.MapCanvas.Rendering
                 _ => StringAlignment.Near
             };
             return (h, v);
+        }
+
+        /// <summary>
+        /// Converts an existing GDI font and alignment tuple into backend-neutral text styling.
+        /// </summary>
+        private static TextStyle CreateTextStyle(
+            Font font,
+            Color color,
+            StringAlignment horizontalAlign,
+            StringAlignment verticalAlign)
+        {
+            return new TextStyle(
+                font.FontFamily.Name,
+                FontSizeToPixels(font),
+                color,
+                font.Bold,
+                ToTextAlign(horizontalAlign),
+                ToTextAlign(verticalAlign));
+        }
+
+        /// <summary>
+        /// Converts a GDI font size to the pixel-sized text model used by render surfaces.
+        /// </summary>
+        private static float FontSizeToPixels(Font font)
+        {
+            return font.Unit == GraphicsUnit.Pixel
+                ? font.Size
+                : Math.Max(1.0f, font.SizeInPoints * 96.0f / 72.0f);
+        }
+
+        /// <summary>
+        /// Converts GDI string alignment to the backend-neutral text alignment enum.
+        /// </summary>
+        private static TextAlign ToTextAlign(StringAlignment alignment) =>
+            alignment switch
+            {
+                StringAlignment.Center => TextAlign.Center,
+                StringAlignment.Far => TextAlign.Far,
+                _ => TextAlign.Near
+            };
+
+        /// <summary>
+        /// Builds a layout rectangle whose requested alignment keeps the text anchored at the supplied point.
+        /// </summary>
+        private static RectangleF CreateAnchoredTextLayout(
+            PointF anchor,
+            SizeF textSize,
+            StringAlignment horizontalAlign,
+            StringAlignment verticalAlign)
+        {
+            float width = Math.Max(1.0f, textSize.Width);
+            float height = Math.Max(1.0f, textSize.Height);
+            float left = horizontalAlign switch
+            {
+                StringAlignment.Center => anchor.X - width / 2.0f,
+                StringAlignment.Far => anchor.X - width,
+                _ => anchor.X
+            };
+            float top = verticalAlign switch
+            {
+                StringAlignment.Center => anchor.Y - height / 2.0f,
+                StringAlignment.Far => anchor.Y - height,
+                _ => anchor.Y
+            };
+
+            return new RectangleF(left, top, width, height);
         }
 
         private static Font? CreateAnnotationTextFont(CanvasLayer? layer, double zoomScale)
@@ -1819,89 +2016,41 @@ namespace Land_Readjustment_Tool.UI.MapCanvas.Rendering
             Color labelColor = ParseColor(layer.LabelColor, Color.Black);
 
             Font labelFont = labelFontCache.Get(layer, context.ZoomScale);
-            System.Drawing.Text.TextRenderingHint previousTextRenderingHint = graphics.TextRenderingHint;
-            graphics.TextRenderingHint = context.AntiAliasingEnabled
-                ? System.Drawing.Text.TextRenderingHint.AntiAliasGridFit
-                : System.Drawing.Text.TextRenderingHint.SingleBitPerPixelGridFit;
-            try
-            {
-                string alignStr = string.IsNullOrWhiteSpace(layer.TextAlignment)
-                    ? "Center Middle"
-                    : layer.TextAlignment;
-                (StringAlignment hAlign, StringAlignment vAlign) = ParseCombinedTextAlignment(alignStr);
+            string alignStr = string.IsNullOrWhiteSpace(layer.TextAlignment)
+                ? "Center Middle"
+                : layer.TextAlignment;
+            (StringAlignment hAlign, StringAlignment vAlign) = ParseCombinedTextAlignment(alignStr);
 
-                using StringFormat sf = new()
-                {
-                    Alignment     = hAlign,
-                    LineAlignment = vAlign,
-                    FormatFlags   = StringFormatFlags.NoClip
-                };
-
-                SizeF size = graphics.MeasureString(labelText, labelFont);
-                // Use a layout rectangle wide enough that the chosen horizontal alignment
-                // independently aligns each line of text around the anchor point.
-                float layoutWidth = Math.Max(size.Width * 2f, 400f);
-                float layoutX = hAlign switch
-                {
-                    StringAlignment.Center => position.X - layoutWidth / 2f,
-                    StringAlignment.Far    => position.X - layoutWidth,
-                    _                      => position.X,
-                };
-                float layoutY = vAlign switch
-                {
-                    StringAlignment.Center => position.Y - size.Height / 2f,
-                    StringAlignment.Far    => position.Y - size.Height,
-                    _                      => position.Y,
-                };
-                RectangleF layoutRect = new(layoutX, layoutY, layoutWidth, size.Height);
-                if (TryResolveLinearLabelAngle(feature, labelAnchor, engine, out float labelAngleDegrees))
-                {
-                    DrawRotatedLabel(
-                        graphics,
-                        labelText,
-                        labelFont,
-                        context.GetSolidBrush(labelColor),
-                        position,
-                        layoutRect,
-                        sf,
-                        labelAngleDegrees);
-                }
-                else
-                {
-                    graphics.DrawString(labelText, labelFont, context.GetSolidBrush(labelColor), layoutRect, sf);
-                }
-            }
-            finally
+            TextStyle labelStyle = CreateTextStyle(labelFont, labelColor, hAlign, vAlign);
+            SizeF size = context.Surface.MeasureText(labelText, labelStyle);
+            // Use a layout rectangle wide enough that the chosen horizontal alignment
+            // independently aligns each line of text around the anchor point.
+            float layoutWidth = Math.Max(size.Width * 2f, 400f);
+            float layoutX = hAlign switch
             {
-                graphics.TextRenderingHint = previousTextRenderingHint;
-            }
-        }
-
-        private static void DrawRotatedLabel(
-            Graphics graphics,
-            string text,
-            Font font,
-            Brush brush,
-            PointF position,
-            RectangleF layoutRect,
-            StringFormat format,
-            float angleDegrees)
-        {
-            GraphicsState state = graphics.Save();
-            try
+                StringAlignment.Center => position.X - layoutWidth / 2f,
+                StringAlignment.Far    => position.X - layoutWidth,
+                _                      => position.X,
+            };
+            float layoutY = vAlign switch
             {
-                graphics.TranslateTransform(position.X, position.Y);
-                graphics.RotateTransform(angleDegrees);
-                RectangleF localRect = new(
-                    layoutRect.X - position.X,
-                    layoutRect.Y - position.Y,
-                    layoutRect.Width,
-                    layoutRect.Height);
-                graphics.DrawString(text, font, brush, localRect, format);
-            }
-            finally
+                StringAlignment.Center => position.Y - size.Height / 2f,
+                StringAlignment.Far    => position.Y - size.Height,
+                _                      => position.Y,
+            };
+            RectangleF layoutRect = new(layoutX, layoutY, layoutWidth, size.Height);
+            if (TryResolveLinearLabelAngle(feature, labelAnchor, engine, out float labelAngleDegrees))
             {
-                graphics.Restore(state);
+                TextStyle rotatedStyle = labelStyle with
+                {
+                    RotationDegrees = labelAngleDegrees,
+                    RotationOrigin = position
+                };
+                context.Surface.DrawText(labelText, layoutRect, rotatedStyle);
+            }
+            else
+            {
+                context.Surface.DrawText(labelText, layoutRect, labelStyle);
             }
         }
 

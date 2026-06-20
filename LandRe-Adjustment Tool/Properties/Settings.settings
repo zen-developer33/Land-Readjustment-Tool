@@ -150,6 +150,12 @@
 			<Value Profile="(Default)">3</Value>
 		</Setting>
 
+		<Setting Name="Canvas_RenderBackend"
+				 Type="System.String"
+				 Scope="User">
+			<Value Profile="(Default)">GdiPlus</Value>
+		</Setting>
+
 		<!-- ═══════════════════════════════════════
          GROUP 5 — VALIDATION THRESHOLDS
          ═══════════════════════════════════════ -->
