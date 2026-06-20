@@ -1392,16 +1392,14 @@ namespace Land_Readjustment_Tool.UI.MapCanvas.Rendering
                 return;
             }
 
-            GraphicsPath path = polyline.CreateScreenPath(
+            using IMapPath mapPath = polyline.CreateScreenPath(
+                context.Surface.CreatePath(),
                 engine.WorldToScreen,
                 context.ClipWorldBounds);
-            if (path.PointCount == 0)
+            if (mapPath.PointCount == 0)
             {
-                path.Dispose();
                 return;
             }
-
-            using GdiMapPath mapPath = OwnGdiPath(path);
 
             RectangleF bounds = mapPath.Bounds;
             if (!IsValidPathBounds(bounds))
@@ -1451,16 +1449,14 @@ namespace Land_Readjustment_Tool.UI.MapCanvas.Rendering
                 return;
             }
 
-            GraphicsPath path = donut.CreateScreenPath(
+            using IMapPath mapPath = donut.CreateScreenPath(
+                context.Surface.CreatePath(FillRule.Alternate),
                 engine.WorldToScreen,
                 context.ClipWorldBounds);
-            if (path.PointCount == 0)
+            if (mapPath.PointCount == 0)
             {
-                path.Dispose();
                 return;
             }
-
-            using GdiMapPath mapPath = OwnGdiPath(path);
 
             RectangleF bounds = mapPath.Bounds;
             if (!IsValidPathBounds(bounds))
@@ -1725,7 +1721,7 @@ namespace Land_Readjustment_Tool.UI.MapCanvas.Rendering
         }
 
         private static void FillClosedPath(
-            GdiMapPath path,
+            IMapPath path,
             RectangleF bounds,
             VectorShapeStyle style,
             VectorRenderContext context)

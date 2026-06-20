@@ -26,14 +26,16 @@ Branch: `skia-cpu-rendering-implementation`
 - [x] Kept one-off image and hatch paints locally scoped.
 - [x] Added tests proving repeated stroke styles reuse the same `SKPaint`.
 - [x] Added tests proving different render-quality states use different cached paints.
+- [x] Migrated live polyline rendering to active-backend `IMapPathBuilder` construction.
+- [x] Migrated live donut polygon rendering to active-backend `IMapPathBuilder` construction.
+- [x] Added debug-overlay telemetry for `GdiMapPath` fallback conversions on Skia CPU.
 - [x] Verified `dotnet build "LandRe-Adjustment Tool.sln"` succeeds.
 - [x] Verified targeted `SkiaCpuMapRenderSurfaceTests` pass.
 
 ## Remaining guide phases
 
 - [ ] Finish shape-level legacy `Draw(Graphics, ...)` migration to `IMapRenderSurface` for non-live fallback paths.
-- [ ] Replace remaining `GraphicsPath` helpers in `CanvasVectorRenderer` with direct `IMapPathBuilder` construction.
+- [ ] Replace remaining arc/circle/rectangle/selection `GraphicsPath` helpers in `CanvasVectorRenderer` with direct `IMapPathBuilder` construction.
 - [ ] Add fallback hit diagnostics for Skia conversion from `GdiMapPath`.
 - [ ] Consider extracting shared Skia surface code only after CPU behavior is stable.
 - [ ] Run manual GDI+ and Skia CPU visual regression with a real `.lpp` project.
-

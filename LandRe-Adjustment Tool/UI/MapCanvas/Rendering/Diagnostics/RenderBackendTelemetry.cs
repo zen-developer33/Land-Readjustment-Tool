@@ -14,6 +14,7 @@ namespace Land_Readjustment_Tool.UI.MapCanvas.Rendering.Diagnostics
         double ReadbackMs,
         double BlitMs,
         double MaxReadbackMs,
+        int GdiPathFallbackCount,
         long LifetimeSurfaces,
         double LifetimeReadbackMs);
 
@@ -45,10 +46,27 @@ namespace Land_Readjustment_Tool.UI.MapCanvas.Rendering.Diagnostics
         private static double _readbackMs;
         private static double _blitMs;
         private static double _maxReadbackMs;
+        private static int _gdiPathFallbackCount;
 
         // Lifetime totals (never reset) for log summaries.
         private static long _lifetimeSurfaces;
         private static double _lifetimeReadbackMs;
+
+        /// <summary>
+        /// Records that a Skia backend had to convert a legacy GDI path.
+        /// </summary>
+        public static void RecordGdiPathFallback()
+        {
+            if (!Enabled)
+            {
+                return;
+            }
+
+            lock (Sync)
+            {
+                _gdiPathFallbackCount++;
+            }
+        }
 
         /// <summary>
         /// Records one render surface's lifecycle timings.
@@ -109,6 +127,7 @@ namespace Land_Readjustment_Tool.UI.MapCanvas.Rendering.Diagnostics
                     _readbackMs,
                     _blitMs,
                     _maxReadbackMs,
+                    _gdiPathFallbackCount,
                     _lifetimeSurfaces,
                     _lifetimeReadbackMs);
 
@@ -117,6 +136,7 @@ namespace Land_Readjustment_Tool.UI.MapCanvas.Rendering.Diagnostics
                 _readbackMs = 0;
                 _blitMs = 0;
                 _maxReadbackMs = 0;
+                _gdiPathFallbackCount = 0;
 
                 return snapshot;
             }

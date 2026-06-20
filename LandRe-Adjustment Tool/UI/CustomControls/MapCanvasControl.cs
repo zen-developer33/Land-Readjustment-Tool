@@ -11353,7 +11353,8 @@ namespace Land_Readjustment_Tool.UI.CustomControls
             lines.Add(
                 $"Backend req {_renderSettings.RenderBackend} / actual {actualBackend}  surfaces/paint {surf.SurfaceCount}  " +
                 $"create {surf.CreateMs:0.0} ms  readback {surf.ReadbackMs:0.0} ms (max {surf.MaxReadbackMs:0.0})  " +
-                $"blit {surf.BlitMs:0.0} ms{backgroundTelemetry}  | lifetime {surf.LifetimeSurfaces} surf / {surf.LifetimeReadbackMs:0} ms readback");
+                $"blit {surf.BlitMs:0.0} ms  gdi->skia paths {surf.GdiPathFallbackCount}{backgroundTelemetry}  " +
+                $"| lifetime {surf.LifetimeSurfaces} surf / {surf.LifetimeReadbackMs:0} ms readback");
 
             SkiaCanvasImageCacheStats imageCacheStats =
                 SkiaCanvasMapRenderSurface.SnapshotAndResetImageCacheStats();

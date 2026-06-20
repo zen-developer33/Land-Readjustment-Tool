@@ -1,5 +1,6 @@
 using System.Drawing.Drawing2D;
 using Land_Readjustment_Tool.UI.MapCanvas.Models.Snapping;
+using Land_Readjustment_Tool.UI.MapCanvas.Rendering.Abstractions;
 using NetTopologySuite.Geometries;
 
 namespace Land_Readjustment_Tool.UI.MapCanvas.Models.Shapes
@@ -59,6 +60,23 @@ namespace Land_Readjustment_Tool.UI.MapCanvas.Models.Shapes
             }
 
             return path;
+        }
+
+        public IMapPath CreateScreenPath(
+            IMapPathBuilder builder,
+            Func<PointD, PointD> worldToScreen,
+            RectangleD? clipWorldBounds = null)
+        {
+            ArgumentNullException.ThrowIfNull(builder);
+
+            AddRing(builder, ExteriorRing, worldToScreen, clipWorldBounds);
+
+            foreach (List<PointD> ring in InteriorRings)
+            {
+                AddRing(builder, ring, worldToScreen, clipWorldBounds);
+            }
+
+            return builder.Build();
         }
 
         public Polygon ToGeometry()
@@ -171,6 +189,37 @@ namespace Land_Readjustment_Tool.UI.MapCanvas.Models.Shapes
             if (points.Length >= 3)
             {
                 path.AddPolygon(points);
+            }
+        }
+
+        private static void AddRing(
+            IMapPathBuilder builder,
+            IReadOnlyList<PointD> ring,
+            Func<PointD, PointD> worldToScreen,
+            RectangleD? clipWorldBounds)
+        {
+            if (ring.Count < 3)
+            {
+                return;
+            }
+
+            IReadOnlyList<PointD> worldPoints = clipWorldBounds.HasValue
+                ? ViewportClip.ClipPolygon(ring, clipWorldBounds.Value)
+                : ring;
+            if (worldPoints.Count < 3)
+            {
+                return;
+            }
+
+            PointF[] points = worldPoints
+                .Select(worldToScreen)
+                .Select(point => new PointF((float)Math.Round(point.X), (float)Math.Round(point.Y)))
+                .Where(point => float.IsFinite(point.X) && float.IsFinite(point.Y))
+                .ToArray();
+
+            if (points.Length >= 3)
+            {
+                builder.AddPolygon(points);
             }
         }
 

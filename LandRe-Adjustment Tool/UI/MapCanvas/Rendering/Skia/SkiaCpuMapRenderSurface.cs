@@ -587,6 +587,7 @@ namespace Land_Readjustment_Tool.UI.MapCanvas.Rendering.Skia
 
             if (path is GdiMapPath gdiPath)
             {
+                RenderBackendTelemetry.RecordGdiPathFallback();
                 return ConvertGdiPath(gdiPath.Path, gdiPath.FillRule);
             }
 
