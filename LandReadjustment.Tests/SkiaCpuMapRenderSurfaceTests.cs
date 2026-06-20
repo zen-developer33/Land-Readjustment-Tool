@@ -1,8 +1,10 @@
 using System.Drawing;
 using System.Drawing.Drawing2D;
+using System.Reflection;
 using Land_Readjustment_Tool.UI.MapCanvas.Rendering.Abstractions;
 using Land_Readjustment_Tool.UI.MapCanvas.Rendering.Gdi;
 using Land_Readjustment_Tool.UI.MapCanvas.Rendering.Skia;
+using SkiaSharp;
 using Xunit;
 
 namespace LandReadjustment.Tests;
@@ -18,6 +20,9 @@ namespace LandReadjustment.Tests;
 /// </remarks>
 public sealed class SkiaCpuMapRenderSurfaceTests
 {
+    private static readonly BindingFlags PrivateInstance =
+        BindingFlags.Instance | BindingFlags.NonPublic;
+
     /// <summary>
     /// Verifies that primitive drawing methods produce visible output after the
     /// Skia surface is flushed back to the wrapped GDI+ target.
@@ -187,6 +192,50 @@ public sealed class SkiaCpuMapRenderSurfaceTests
     }
 
     /// <summary>
+    /// Verifies that repeated stroke style resolution reuses the cached paint
+    /// instead of allocating one Skia paint per draw call.
+    /// </summary>
+    [Fact]
+    public void CreateStrokePaint_WithSameStyle_ReusesCachedPaint()
+    {
+        using Bitmap bitmap = new(32, 24);
+        using Graphics graphics = Graphics.FromImage(bitmap);
+        using SkiaCpuMapRenderSurface surface = new(graphics, bitmap.Size);
+        surface.SetQuality(RenderQuality.VectorHighQuality);
+
+        StrokeStyle style = new(Color.Red, 2.0f, DashPatternKind.Dashed);
+
+        SKPaint first = InvokeCreateStrokePaint(surface, style);
+        SKPaint second = InvokeCreateStrokePaint(surface, style);
+
+        Assert.Same(first, second);
+    }
+
+    /// <summary>
+    /// Verifies that antialiasing participates in the cache key, so high-speed
+    /// and high-quality render passes never share a paint with stale quality.
+    /// </summary>
+    [Fact]
+    public void CreateStrokePaint_WithDifferentQuality_UsesDifferentCachedPaint()
+    {
+        using Bitmap bitmap = new(32, 24);
+        using Graphics graphics = Graphics.FromImage(bitmap);
+        using SkiaCpuMapRenderSurface surface = new(graphics, bitmap.Size);
+
+        StrokeStyle style = new(Color.Red, 2.0f);
+
+        surface.SetQuality(RenderQuality.VectorHighQuality);
+        SKPaint highQuality = InvokeCreateStrokePaint(surface, style);
+
+        surface.SetQuality(RenderQuality.VectorHighSpeed);
+        SKPaint highSpeed = InvokeCreateStrokePaint(surface, style);
+
+        Assert.NotSame(highQuality, highSpeed);
+        Assert.True(highQuality.IsAntialias);
+        Assert.False(highSpeed.IsAntialias);
+    }
+
+    /// <summary>
     /// Creates a triangle path through the same surface interface production
     /// code uses.
     /// </summary>
@@ -210,6 +259,17 @@ public sealed class SkiaCpuMapRenderSurfaceTests
         IMapPathBuilder builder = surface.CreatePath();
         builder.AddRectangle(rectangle);
         return builder.Build();
+    }
+
+    private static SKPaint InvokeCreateStrokePaint(SkiaCpuMapRenderSurface surface, StrokeStyle style)
+    {
+        MethodInfo method = typeof(SkiaCpuMapRenderSurface).GetMethod(
+            "CreateStrokePaint",
+            PrivateInstance)
+            ?? throw new MissingMethodException(nameof(SkiaCpuMapRenderSurface), "CreateStrokePaint");
+
+        object?[] parameters = [style];
+        return Assert.IsType<SKPaint>(method.Invoke(surface, parameters));
     }
 
     /// <summary>
