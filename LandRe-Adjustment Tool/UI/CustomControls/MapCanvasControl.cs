@@ -2011,36 +2011,27 @@ namespace Land_Readjustment_Tool.UI.CustomControls
 
             Stopwatch frameStopwatch = Stopwatch.StartNew();
             bool shouldUseInteractionCache = ShouldUseGpuInteractionFrameCache;
-            CanvasFrameSource rasterFrameSource = shouldUseInteractionCache
-                ? CanvasFrameSource.PanCache
-                : CanvasFrameSource.Direct;
-            CanvasFrameSource vectorFrameSource = rasterFrameSource;
-            bool interactiveRasterRendering = IsInteractiveNavigation;
-            bool interactiveVectorRendering = IsInteractiveNavigation;
+            CanvasFrameSource rasterFrameSource;
+            CanvasFrameSource vectorFrameSource;
 
             using SkiaCanvasMapRenderSurface surface = new(canvas, pixelSize);
             bool rendered;
             bool usedInteractionCache = false;
+            bool bakedNavigationSnapshotOverlay = false;
             if (shouldUseInteractionCache &&
                 TryDrawGpuInteractionFrameCache(canvas, pixelSize))
             {
+                rasterFrameSource = CanvasFrameSource.PanCache;
+                vectorFrameSource = CanvasFrameSource.PanCache;
                 rendered = true;
                 usedInteractionCache = true;
             }
             else
             {
-                rasterFrameSource = CanvasFrameSource.Direct;
-                vectorFrameSource = CanvasFrameSource.Direct;
-                rendered = _renderer.RenderCachedDirect(
+                rendered = RenderSafeGpuCachedFrame(
                     surface,
-                    rasterFrame: null,
-                    interactiveRaster: interactiveRasterRendering,
-                    vectorFrame: null,
-                    interactiveVector: interactiveVectorRendering,
-                    suppressGridLabels: IsInteractiveNavigation,
-                    suppressFixedReferenceLayers: IsInteractiveNavigation,
-                    fixedReferenceFrame: null,
-                    zoomWindowRectangle: null);
+                    out rasterFrameSource,
+                    out vectorFrameSource);
             }
 
             if (!rendered)
@@ -2048,23 +2039,27 @@ namespace Land_Readjustment_Tool.UI.CustomControls
                 return false;
             }
 
+            if (!usedInteractionCache && HasGpuNavigationSnapshotOverlayContent)
+            {
+                DrawSelectedNavigationSnapshotOverlay(surface);
+                bakedNavigationSnapshotOverlay = true;
+            }
+
             if (!usedInteractionCache)
             {
                 CaptureGpuViewportFrameCache(gpuSurface, pixelSize);
             }
 
-            // The cached snapshot above intentionally excludes the screen
-            // decorations (axis lines, origin marker, north marker). Redraw them
-            // fresh on top of the (possibly shifted/scaled) map content every
-            // frame so they stay crisp and correctly positioned during pan/zoom,
-            // matching the GDI path. The north marker stays pinned to the corner
-            // instead of drifting with the panned snapshot.
+            // Screen decorations (axis lines, origin/north markers) are drawn
+            // fresh on top each frame, never baked into a cache, matching GDI.
             if (_activeTextEditor == null)
             {
                 _renderer.RenderScreenDecorations(surface);
             }
 
-            DrawDirectGpuOverlayContent(surface);
+            DrawDirectGpuOverlayContent(
+                surface,
+                suppressNavigationSnapshotOverlay: usedInteractionCache || bakedNavigationSnapshotOverlay);
 
             frameStopwatch.Stop();
             UpdateDebugFrameTiming(frameStopwatch.Elapsed.TotalMilliseconds);
@@ -2074,26 +2069,66 @@ namespace Land_Readjustment_Tool.UI.CustomControls
             return true;
         }
 
+        private bool RenderSafeGpuCachedFrame(
+            SkiaCanvasMapRenderSurface surface,
+            out CanvasFrameSource rasterFrameSource,
+            out CanvasFrameSource vectorFrameSource)
+        {
+            // Mirror the GDI RenderCanvasFrame pipeline for the source frame:
+            // raster/vector bitmap caches first, direct live rendering only when
+            // the GDI path would also allow it. The GPU interaction snapshot is
+            // captured from this safe frame, so XYZ tile seams are not baked in.
+            RasterRenderFrame? rasterFrame = GetRasterRenderFrame(out rasterFrameSource);
+            RasterRenderFrame? vectorFrame = GetVectorRenderFrame(out vectorFrameSource);
+            RasterRenderFrame? fixedReferenceFrame = GetFixedReferenceRenderFrame();
+            bool deferDirectRasterRendering = ShouldDeferDirectRasterRendering;
+            bool deferDirectVectorRendering = ShouldDeferDirectVectorRendering;
+            bool suppressLiveFixedReferences = ShouldSuppressLiveFixedReferenceLayers(fixedReferenceFrame);
+
+            if (vectorFrameSource == CanvasFrameSource.None &&
+                _vectorCacheRefreshPending &&
+                !IsInteractiveNavigation &&
+                _activeGripEdit == null &&
+                !_holdVectorPanFrameUntilRefresh &&
+                !_holdVectorZoomFrameUntilRefresh)
+            {
+                deferDirectVectorRendering = false;
+            }
+
+            if (rasterFrameSource == CanvasFrameSource.None &&
+                !deferDirectRasterRendering)
+            {
+                rasterFrameSource = CanvasFrameSource.Direct;
+            }
+
+            if (vectorFrameSource == CanvasFrameSource.None &&
+                !deferDirectVectorRendering)
+            {
+                vectorFrameSource = CanvasFrameSource.Direct;
+            }
+
+            return _renderer.RenderCachedDirect(
+                surface,
+                rasterFrame,
+                deferDirectRasterRendering,
+                vectorFrame,
+                deferDirectVectorRendering,
+                suppressGridLabels: IsInteractiveNavigation,
+                suppressFixedReferenceLayers: suppressLiveFixedReferences,
+                fixedReferenceFrame: fixedReferenceFrame,
+                zoomWindowRectangle: null);
+        }
+
         private bool ShouldUseGpuInteractionFrameCache =>
             UseGpuCanvasSurface &&
             (_isPanning ||
              _isZooming ||
-             HasDynamicGpuOverlayContent);
+             _holdVectorPanFrameUntilRefresh ||
+             _holdVectorZoomFrameUntilRefresh);
 
-        private bool HasDynamicGpuOverlayContent =>
-            _isSelectingZoomWindow ||
-            _isSelectingObjects ||
-            _previewShape != null ||
-            _drawingVertices.Count > 0 ||
-            _activeGripEdit != null ||
-            _activeMoveOperation != null ||
-            _currentSnapPoint != null ||
-            _hoveredSelectionGrip != null ||
+        private bool HasGpuNavigationSnapshotOverlayContent =>
             _selectedShapeIds.Count > 0 ||
-            _immediateEditedOverlayFeatures.Count > 0 ||
-            _justCompletedShape != null ||
-            _justCompletedShapeOverlays.Count > 0 ||
-            (_centerHintMarks.Count > 0 && _centerHintTool == _activeTool);
+            _activeGripEdit != null;
 
         private bool TryDrawGpuInteractionFrameCache(
             SKCanvas canvas,
@@ -2176,6 +2211,18 @@ namespace Land_Readjustment_Tool.UI.CustomControls
             _gpuInteractionFrameCacheInvalid = true;
         }
 
+        private void RequestSettledGpuFrameRebuild()
+        {
+            InvalidateGpuInteractionFrameCache();
+            if (UseGpuCanvasSurface &&
+                IsHandleCreated &&
+                !IsDisposed &&
+                !Disposing)
+            {
+                BeginInvoke((MethodInvoker)RequestRender);
+            }
+        }
+
         private void DisposeGpuInteractionFrameCache()
         {
             _gpuInteractionFrameCache?.Dispose();
@@ -2236,6 +2283,7 @@ namespace Land_Readjustment_Tool.UI.CustomControls
             RasterRenderFrame? fixedReferenceFrame = GetFixedReferenceRenderFrame();
             bool deferDirectRasterRendering = ShouldDeferDirectRasterRendering;
             bool deferDirectVectorRendering = ShouldDeferDirectVectorRendering;
+            bool suppressLiveFixedReferences = ShouldSuppressLiveFixedReferenceLayers(fixedReferenceFrame);
 
             if (vectorFrameSource == CanvasFrameSource.None &&
                 _vectorCacheRefreshPending &&
@@ -2271,7 +2319,7 @@ namespace Land_Readjustment_Tool.UI.CustomControls
                 _showDebugOverlay,
                 suppressDecorations: _activeTextEditor != null,
                 suppressGridLabels: IsInteractiveNavigation,
-                suppressFixedReferenceLayers: IsInteractiveNavigation && fixedReferenceFrame == null,
+                suppressFixedReferenceLayers: suppressLiveFixedReferences,
                 fixedReferenceFrame: fixedReferenceFrame);
 
             if (!ShouldSuppressLiveVectorObjectOverlays)
@@ -2681,8 +2729,6 @@ namespace Land_Readjustment_Tool.UI.CustomControls
         {
             CancelPendingRasterRender();
             CancelPendingVectorRender();
-            CancelLiveTileLoading();
-            SetLiveTileInternetFetchingSuspended(true);
 
             _lastPanPoint = location;
             _totalPanDelta = PointF.Empty;
@@ -2701,6 +2747,9 @@ namespace Land_Readjustment_Tool.UI.CustomControls
             }
             else
             {
+                // GPU panning is driven by the already-captured viewport texture.
+                // Avoid building CPU pan bitmaps here; that was freezing the UI on
+                // large projects before the first mouse-move frame could present.
                 DisposeCompositePanBitmap();
             }
 
@@ -6805,7 +6854,9 @@ namespace Land_Readjustment_Tool.UI.CustomControls
             }
         }
 
-        private void DrawDirectGpuOverlayContent(IMapRenderSurface surface)
+        private void DrawDirectGpuOverlayContent(
+            IMapRenderSurface surface,
+            bool suppressNavigationSnapshotOverlay)
         {
             DrawZoomWindowOverlay(surface);
 
@@ -6813,9 +6864,12 @@ namespace Land_Readjustment_Tool.UI.CustomControls
             {
                 DrawImmediateEditedFeatureOverlay(surface);
                 DrawJustCompletedShapeOverlay(surface);
-                DrawSelectedFeatureDecorations(surface);
-                DrawActiveGripOriginalOverlay(surface);
-                DrawSelectionGrips(surface);
+                if (!suppressNavigationSnapshotOverlay)
+                {
+                    DrawSelectedFeatureDecorations(surface);
+                    DrawActiveGripOriginalOverlay(surface);
+                    DrawSelectionGrips(surface);
+                }
             }
 
             DrawObjectSelectionRectangle(surface);
@@ -7041,6 +7095,13 @@ namespace Land_Readjustment_Tool.UI.CustomControls
             DrawSelectedFeatureDecorations(graphics);
             DrawActiveGripOriginalOverlay(graphics);
             DrawSelectionGrips(graphics);
+        }
+
+        private void DrawSelectedNavigationSnapshotOverlay(IMapRenderSurface surface)
+        {
+            DrawSelectedFeatureDecorations(surface);
+            DrawActiveGripOriginalOverlay(surface);
+            DrawSelectionGrips(surface);
         }
 
         private void DrawJustCompletedShapeOverlay(Graphics graphics)
@@ -8797,6 +8858,8 @@ namespace Land_Readjustment_Tool.UI.CustomControls
                     _selectedShapeIds.Contains(feature.Shape.Id) &&
                     IsSelectableDrawingFeature(feature);
             }
+
+            InvalidateGpuInteractionFrameCache();
         }
 
         private void RequestDeleteSelectedObjects()
@@ -10943,6 +11006,9 @@ namespace Land_Readjustment_Tool.UI.CustomControls
         private bool IsInteractiveNavigation =>
             _isPanning || _isZooming || _isSelectingZoomWindow;
 
+        private bool ShouldSuppressLiveFixedReferenceLayers(RasterRenderFrame? fixedReferenceFrame) =>
+            (_isPanning || _holdVectorPanFrameUntilRefresh) && fixedReferenceFrame == null;
+
         private bool ShouldSuppressLiveVectorObjectOverlays =>
             _isPanning ||
             _isZooming ||
@@ -10950,20 +11016,18 @@ namespace Land_Readjustment_Tool.UI.CustomControls
             _holdVectorZoomFrameUntilRefresh;
 
         private bool ShouldDeferDirectRasterRendering =>
-            !UseGpuCanvasSurface &&
-            (IsInteractiveNavigation ||
-             (_compositePanBitmap != null && _holdVectorPanFrameUntilRefresh) ||
-             (_rasterCacheRefreshPending &&
-              !_suppressStaleRasterFrameUntilFreshRender));
+            IsInteractiveNavigation ||
+            (_compositePanBitmap != null && _holdVectorPanFrameUntilRefresh) ||
+            (_rasterCacheRefreshPending &&
+             !_suppressStaleRasterFrameUntilFreshRender);
 
         private bool ShouldDeferDirectVectorRendering =>
-            !UseGpuCanvasSurface &&
-            (_isPanning ||
-             _isZooming ||
-             _activeGripEdit != null ||
-             _vectorCacheRefreshPending ||
-             _holdVectorPanFrameUntilRefresh ||
-             _holdVectorZoomFrameUntilRefresh);
+            _isPanning ||
+            _isZooming ||
+            _activeGripEdit != null ||
+            _vectorCacheRefreshPending ||
+            _holdVectorPanFrameUntilRefresh ||
+            _holdVectorZoomFrameUntilRefresh;
 
         private RasterRenderFrame? GetRasterRenderFrame(out CanvasFrameSource source)
         {
@@ -10981,7 +11045,8 @@ namespace Land_Readjustment_Tool.UI.CustomControls
                     _compositePanBitmap,
                     new RectangleF(delta.X, delta.Y, _compositePanBitmap.Width, _compositePanBitmap.Height),
                     _compositePanBitmap,
-                    () => { });
+                    () => { },
+                    CacheableOnGpu: true);
             }
 
             // Fallback: separate raster pan frame when the composite was not available.
@@ -11045,7 +11110,8 @@ namespace Land_Readjustment_Tool.UI.CustomControls
                     _gridPanBitmap.Width,
                     _gridPanBitmap.Height),
                 _gridPanBitmap,
-                () => { });
+                () => { },
+                CacheableOnGpu: true);
         }
 
         private RasterRenderFrame? GetVectorRenderFrame(out CanvasFrameSource source)
@@ -11402,8 +11468,6 @@ namespace Land_Readjustment_Tool.UI.CustomControls
         private void BeginZoomNavigation(string direction)
         {
             CancelActiveCanvasGesture(preserveActiveEdit: true);
-            CancelLiveTileLoading();
-            SetLiveTileInternetFetchingSuspended(true);
             _suppressStaleRasterFrameUntilFreshRender = false;
 
             if (!_isZooming)
@@ -11411,8 +11475,7 @@ namespace Land_Readjustment_Tool.UI.CustomControls
                 CancelPendingRasterRender();
                 CancelPendingVectorRender();
                 bool reuseHeldVectorZoomFrame = false;
-                if (!UseGpuCanvasSurface &&
-                    _holdVectorZoomFrameUntilRefresh &&
+                if (_holdVectorZoomFrameUntilRefresh &&
                     _renderer.TryGetVectorZoomFrame(out RasterRenderFrame heldVectorZoomFrame))
                 {
                     heldVectorZoomFrame.Dispose();
@@ -11420,23 +11483,14 @@ namespace Land_Readjustment_Tool.UI.CustomControls
                 }
 
                 _holdZoomStartFrameUntilRasterRefresh = false;
-                if (!UseGpuCanvasSurface)
-                {
-                    _rasterDeferredRenderer.BeginZoom(
-                        ActiveCanvasSize,
-                        _rasterRenderLayers,
-                        _engine);
-                    if (!reuseHeldVectorZoomFrame)
-                    {
-                        _holdVectorZoomFrameUntilRefresh = false;
-                        EnsureVectorZoomSnapshot();
-                    }
-                }
-                else
+                _rasterDeferredRenderer.BeginZoom(
+                    ActiveCanvasSize,
+                    _rasterRenderLayers,
+                    _engine);
+                if (!reuseHeldVectorZoomFrame)
                 {
                     _holdVectorZoomFrameUntilRefresh = false;
-                    _rasterDeferredRenderer.EndZoom();
-                    _renderer.EndVectorZoom();
+                    EnsureVectorZoomSnapshot();
                 }
             }
             else if (_rasterCacheRefreshPending || _vectorCacheRefreshPending)
@@ -11494,12 +11548,6 @@ namespace Land_Readjustment_Tool.UI.CustomControls
 
         private void EnsureVectorPanSnapshot()
         {
-            if (UseGpuCanvasSurface)
-            {
-                InvalidateGpuInteractionFrameCache();
-                return;
-            }
-
             if (_renderer.BeginVectorPan(ActiveCanvasSize, DrawSelectedNavigationSnapshotOverlay))
             {
                 return;
@@ -11631,14 +11679,25 @@ namespace Land_Readjustment_Tool.UI.CustomControls
             _gridPanPadding = GridPanPadding.Empty;
         }
 
-        private void EnsureVectorZoomSnapshot()
+        private void ReleasePanHoldFrameIfRefreshComplete()
         {
-            if (UseGpuCanvasSurface)
+            if (!_holdVectorPanFrameUntilRefresh ||
+                _isPanning ||
+                _rasterCacheRefreshPending ||
+                _vectorCacheRefreshPending ||
+                _suppressStaleRasterFrameUntilFreshRender)
             {
-                InvalidateGpuInteractionFrameCache();
                 return;
             }
 
+            _holdVectorPanFrameUntilRefresh = false;
+            _heldVectorPanDelta = PointF.Empty;
+            DisposeCompositePanBitmap();
+            RequestSettledGpuFrameRebuild();
+        }
+
+        private void EnsureVectorZoomSnapshot()
+        {
             if (_renderer.BeginVectorZoom(ActiveCanvasSize, DrawSelectedNavigationSnapshotOverlay))
             {
                 return;
@@ -11791,17 +11850,6 @@ namespace Land_Readjustment_Tool.UI.CustomControls
                 return;
             }
 
-            if (UseGpuCanvasSurface)
-            {
-                CancelPendingRasterRender();
-                _rasterRenderGeneration++;
-                _rasterCacheRefreshPending = false;
-                _rasterDeferredRenderer.EndZoom();
-                InvalidateGpuInteractionFrameCache();
-                RequestRender();
-                return;
-            }
-
             CancelPendingRasterRender();
             _rasterRenderGeneration++;
 
@@ -11836,25 +11884,6 @@ namespace Land_Readjustment_Tool.UI.CustomControls
         {
             if (IsDisposed || Disposing)
             {
-                return;
-            }
-
-            if (UseGpuCanvasSurface)
-            {
-                CancelPendingVectorRender();
-                _vectorRenderGeneration++;
-                _vectorCacheRefreshPending = false;
-                _vectorCacheRefreshDeferred = false;
-                _vectorCacheRefreshWaiter?.TrySetResult(true);
-                _vectorCacheRefreshWaiter = null;
-                _renderer.EndVectorZoom();
-                _holdVectorPanFrameUntilRefresh = false;
-                _holdVectorZoomFrameUntilRefresh = false;
-                _heldVectorPanDelta = PointF.Empty;
-                _immediateEditedOverlayFeatures = Array.Empty<CanvasFeature>();
-                InvalidateGpuInteractionFrameCache();
-                RequestRefreshHoldReleaseRenderIfReady();
-                RequestRender();
                 return;
             }
 
@@ -11895,14 +11924,17 @@ namespace Land_Readjustment_Tool.UI.CustomControls
                 }
 
                 _renderer.EndVectorZoom();
-                _holdVectorPanFrameUntilRefresh = false;
+                ReleasePanHoldFrameIfRefreshComplete();
+                bool releasedZoomHold = _holdVectorZoomFrameUntilRefresh;
                 _holdVectorZoomFrameUntilRefresh = false;
-                _heldVectorPanDelta = PointF.Empty;
+                if (releasedZoomHold)
+                {
+                    RequestSettledGpuFrameRebuild();
+                }
                 _immediateEditedOverlayFeatures = Array.Empty<CanvasFeature>();
                 // Note: the selection decoration overlay is intentionally NOT
                 // cleared here. The scene cache is rendered selection-free, so
                 // the overlay remains the single live source of selection.
-                DisposeCompositePanBitmap();
 
                 if (IsHandleCreated)
                 {
@@ -11930,6 +11962,7 @@ namespace Land_Readjustment_Tool.UI.CustomControls
                     _vectorCacheRefreshPending = false;
                     _vectorCacheRefreshWaiter?.TrySetResult(true);
                     _vectorCacheRefreshWaiter = null;
+                    ReleasePanHoldFrameIfRefreshComplete();
                     RequestRefreshHoldReleaseRenderIfReady();
                 }
 
@@ -11941,35 +11974,6 @@ namespace Land_Readjustment_Tool.UI.CustomControls
         {
             if (IsDisposed || Disposing)
             {
-                return;
-            }
-
-            if (UseGpuCanvasSurface)
-            {
-                CancelPendingRasterRender();
-                _rasterRenderGeneration++;
-                _rasterCacheRefreshPending = false;
-                _rasterCacheRefreshDeferred = false;
-                _deferredRasterEndZoomWhenComplete = false;
-                _suppressStaleRasterFrameUntilFreshRender = false;
-                InvalidateGpuInteractionFrameCache();
-
-                if (endZoomWhenComplete)
-                {
-                    _rasterDeferredRenderer.EndZoom();
-                    _renderer.EndVectorZoom();
-                    SetLiveTileInternetFetchingSuspended(false);
-                    _blockPanUntilZoomSettle = false;
-                    _isZooming = false;
-                    _zoomDirection = null;
-                    _holdZoomStartFrameUntilRasterRefresh = false;
-                    _holdVectorZoomFrameUntilRefresh = false;
-                    UpdateCanvasCursor();
-                    UpdateStatusBar();
-                }
-
-                RequestRefreshHoldReleaseRenderIfReady();
-                RequestRender();
                 return;
             }
 
@@ -12032,6 +12036,7 @@ namespace Land_Readjustment_Tool.UI.CustomControls
                 }
 
                 _suppressStaleRasterFrameUntilFreshRender = false;
+                ReleasePanHoldFrameIfRefreshComplete();
 
                 if (IsHandleCreated)
                 {
@@ -12071,6 +12076,7 @@ namespace Land_Readjustment_Tool.UI.CustomControls
 
                     _rasterRenderCancellation = null;
                     _rasterCacheRefreshPending = false;
+                    ReleasePanHoldFrameIfRefreshComplete();
                     RequestRefreshHoldReleaseRenderIfReady();
 
                     if (endZoomWhenComplete && !IsDisposed && !Disposing)

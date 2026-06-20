@@ -51,6 +51,11 @@ namespace Land_Readjustment_Tool.UI.MapCanvas.Rendering
         private IReadOnlySet<Guid> _excludedShapeIds = new HashSet<Guid>();
         private VectorRenderStats _lastRenderStats = VectorRenderStats.Empty;
         private readonly ConcurrentDictionary<Guid, PointD> _labelAnchorCache = new();
+        // Resolved label text per feature. Independent of viewport/zoom, so it is
+        // reused across cache rebuilds; recomputing it (area math + template +
+        // string formatting for every visible feature) was a large slice of the
+        // per-rebuild CPU cost. Invalidated when features, layers, or precision change.
+        private readonly ConcurrentDictionary<Guid, string?> _labelTextCache = new();
         private static readonly GeometryFactory LabelGeometryFactory = new(new PrecisionModel(), 0);
         private MapRenderBackend _renderBackend = MapRenderBackend.GdiPlus;
         private int _sqmPrecision = 3;
@@ -106,6 +111,7 @@ namespace Land_Readjustment_Tool.UI.MapCanvas.Rendering
             _features = features?.ToArray() ?? [];
             _featureSpatialIndex.Rebuild(_features);
             _labelAnchorCache.Clear();
+            _labelTextCache.Clear();
             _lastRenderStats = VectorRenderStats.Empty;
         }
 
@@ -115,6 +121,8 @@ namespace Land_Readjustment_Tool.UI.MapCanvas.Rendering
                 .GroupBy(layer => layer.Id)
                 .ToDictionary(group => group.Key, group => group.First())
                 ?? new Dictionary<int, CanvasLayer>();
+            // Label text depends on each layer's LabelField, so drop the cache.
+            _labelTextCache.Clear();
         }
 
         public void UpdateLayer(CanvasLayer layer)
@@ -124,12 +132,15 @@ namespace Land_Readjustment_Tool.UI.MapCanvas.Rendering
                 [layer.Id] = layer
             };
             _layersById = copy;
+            _labelTextCache.Clear();
         }
 
         public void UpdateAreaPrecisionSettings(int sqmPrecision, int traditionalPrecision)
         {
             _sqmPrecision = sqmPrecision;
             _traditionalPrecision = traditionalPrecision;
+            // Area-based labels embed the precision, so recompute them next pass.
+            _labelTextCache.Clear();
         }
 
         public void SetExcludedShapeIds(IEnumerable<Guid>? shapeIds)
@@ -1995,7 +2006,12 @@ namespace Land_Readjustment_Tool.UI.MapCanvas.Rendering
                 return;
             }
 
-            string? labelText = ResolveLabelText(feature, layer, _sqmPrecision, _traditionalPrecision);
+            if (!_labelTextCache.TryGetValue(feature.Shape.Id, out string? labelText))
+            {
+                labelText = ResolveLabelText(feature, layer, _sqmPrecision, _traditionalPrecision);
+                _labelTextCache[feature.Shape.Id] = labelText;
+            }
+
             if (string.IsNullOrWhiteSpace(labelText))
             {
                 return;

@@ -5,6 +5,7 @@ using Land_Readjustment_Tool.UI.MapCanvas.Core;
 using Land_Readjustment_Tool.UI.MapCanvas.Models.Shapes;
 using Land_Readjustment_Tool.UI.MapCanvas.Rendering.Abstractions;
 using Land_Readjustment_Tool.UI.MapCanvas.Rendering.Gdi;
+using Land_Readjustment_Tool.UI.MapCanvas.Rendering.Skia;
 
 namespace Land_Readjustment_Tool.UI.MapCanvas.Rendering
 {
@@ -84,18 +85,30 @@ namespace Land_Readjustment_Tool.UI.MapCanvas.Rendering
 
             try
             {
-                using Graphics graphics = Graphics.FromImage(bitmap);
-                ClearSurface(graphics, Color.Transparent);
-                ConfigureVectorCacheQuality(
-                    graphics,
-                    vectorRenderer.FeatureCount,
-                    antiAliasingEnabled);
-
                 if (!cancellationToken.IsCancellationRequested)
                 {
                     RectangleD visibleBounds = engine.GetVisibleWorldBounds();
+
+                    // Rasterize the cache straight into the bitmap pixels with Skia
+                    // CPU. The cache target is a CPU bitmap, so it must NOT use the
+                    // GPU surface (that would do a GPU->CPU read-back and create a
+                    // per-thread GL context here on a background thread). The GPU is
+                    // used only for the on-screen present of this bitmap.
+                    using IMapRenderSurface surface = SkiaCpuMapRenderSurface.CreateInPlace(bitmap);
+                    surface.SetQuality(
+                        antiAliasingEnabled
+                            ? RenderQuality.VectorHighQuality
+                            : RenderQuality.VectorHighSpeed);
+
+                    // The vector renderer draws exclusively through the surface; the
+                    // graphics argument is an unused fallback, so a 1x1 throwaway is
+                    // enough and avoids touching the locked cache bitmap.
+                    using Bitmap fallbackBitmap = new(1, 1, PixelFormat.Format32bppPArgb);
+                    using Graphics fallbackGraphics = Graphics.FromImage(fallbackBitmap);
+
                     vectorRenderer.Render(
-                        graphics,
+                        surface,
+                        fallbackGraphics,
                         engine,
                         visibleBounds,
                         useLevelOfDetail: vectorRenderer.FeatureCount > LevelOfDetailThreshold,
@@ -191,25 +204,41 @@ namespace Land_Readjustment_Tool.UI.MapCanvas.Rendering
                     return false;
 
                 _zoomBufferValid = false;
-                if (!_cacheValid || _vectorCache == null || _zoomBuffer == null)
+                if (!_cacheValid || _vectorCache == null)
                 {
                     _zoomStartView = null;
                     return false;
                 }
 
-                using Graphics graphics = Graphics.FromImage(_zoomBuffer);
-                ClearSurface(graphics, Color.Transparent);
-                graphics.CompositingMode = CompositingMode.SourceCopy;
-                graphics.InterpolationMode = InterpolationMode.NearestNeighbor;
-                DrawBitmapUnscaled(graphics, _vectorCache);
-                graphics.CompositingMode = CompositingMode.SourceOver;
-                renderOverlay?.Invoke(graphics);
+                Bitmap zoomBuffer = new(
+                    _canvasSize.Width,
+                    _canvasSize.Height,
+                    PixelFormat.Format32bppPArgb);
+
+                try
+                {
+                    using Graphics graphics = Graphics.FromImage(zoomBuffer);
+                    ClearSurface(graphics, Color.Transparent);
+                    graphics.CompositingMode = CompositingMode.SourceCopy;
+                    graphics.InterpolationMode = InterpolationMode.NearestNeighbor;
+                    DrawBitmapUnscaled(graphics, _vectorCache);
+                    graphics.CompositingMode = CompositingMode.SourceOver;
+                    renderOverlay?.Invoke(graphics);
+                }
+                catch
+                {
+                    zoomBuffer.Dispose();
+                    throw;
+                }
 
                 _zoomStartView = new ViewSnapshot(
                     engine.ViewOriginWorld,
                     engine.ZoomScale,
                     _canvasSize);
+                Bitmap? previousZoomBuffer = _zoomBuffer;
+                _zoomBuffer = zoomBuffer;
                 _zoomBufferValid = true;
+                RetireBitmap(previousZoomBuffer);
                 return true;
             }
         }
@@ -223,6 +252,8 @@ namespace Land_Readjustment_Tool.UI.MapCanvas.Rendering
 
                 _zoomStartView = null;
                 _zoomBufferValid = false;
+                RetireBitmap(_zoomBuffer);
+                _zoomBuffer = null;
             }
         }
 
@@ -249,7 +280,7 @@ namespace Land_Readjustment_Tool.UI.MapCanvas.Rendering
                 frame = CreateFrameLease(
                     _zoomBuffer,
                     destination,
-                    cacheableOnGpu: false);
+                    cacheableOnGpu: true);
                 return true;
             }
         }

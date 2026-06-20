@@ -19,8 +19,13 @@ namespace Land_Readjustment_Tool.UI.MapCanvas.Rendering.Skia
         private readonly SKCanvas _canvas;
         private readonly Dictionary<TextKey, SKTypeface> _typefaceCache = new();
         private static readonly ConditionalWeakTable<Image, CachedSkiaImage> ImageCache = new();
-        private const int MaximumCachedImageDimension = 512;
-        private const int MaximumCachedImagePixels = MaximumCachedImageDimension * MaximumCachedImageDimension;
+        // The cap must be large enough to cache the full-canvas vector/raster cache
+        // frames — those are the images presented on every frame, so excluding them
+        // (the old 512 cap did) meant re-uploading the whole canvas to the GPU each
+        // paint. Only images that explicitly opt in (AllowSkiaImageCache) and are
+        // immutable per instance reach this check, so a generous cap is safe.
+        private const int MaximumCachedImageDimension = 8192;
+        private const long MaximumCachedImagePixels = (long)MaximumCachedImageDimension * MaximumCachedImageDimension;
         private static long _imageCacheHits;
         private static long _imageCacheMisses;
         private static long _uncachedImages;

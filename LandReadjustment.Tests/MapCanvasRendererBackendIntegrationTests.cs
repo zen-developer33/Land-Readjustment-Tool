@@ -1,8 +1,13 @@
 using System.Drawing;
+using Land_Readjustment_Tool.Core.Entities.Canvas;
 using Land_Readjustment_Tool.UI.MapCanvas.Core;
+using Land_Readjustment_Tool.UI.MapCanvas.Models.Shapes;
 using Land_Readjustment_Tool.UI.MapCanvas.Rendering;
 using Land_Readjustment_Tool.UI.MapCanvas.Rendering.Abstractions;
 using Land_Readjustment_Tool.UI.MapCanvas.Rendering.Backends;
+using Land_Readjustment_Tool.UI.MapCanvas.Rendering.Gdi;
+using Land_Readjustment_Tool.UI.MapCanvas.Services;
+using NetTopologySuite.Geometries;
 using Xunit;
 
 namespace LandReadjustment.Tests;
@@ -166,7 +171,9 @@ public sealed class MapCanvasRendererBackendIntegrationTests
             fixedReferenceFrame: frame);
 
         Assert.Equal(2, factory.CreateForGraphicsCallCount);
-        Assert.Equal(1, factory.CreateImageCallCount);
+        // Cached frames are now wrapped via a directly-constructed GdiMapImage so
+        // the per-frame GPU-cacheable flag can be set, so they no longer route
+        // through the injected factory's CreateImage. The frame is still drawn.
         Assert.True(CountPixels(bitmap, Color.Red) > 250);
     }
 
@@ -246,6 +253,101 @@ public sealed class MapCanvasRendererBackendIntegrationTests
         Assert.Equal(2, factory.CreateForGraphicsCallCount);
         Assert.True(CountNonWhitePixels(bitmap) > 250);
         Assert.True(CountDarkPixels(bitmap) > 50);
+    }
+
+    /// <summary>
+    /// Verifies that the backend-neutral canvas path skips live raster layer
+    /// rendering during interactive cache frames when no cache frame is available.
+    /// </summary>
+    [Fact]
+    public void RenderCachedDirect_WithInteractiveRasterAndNoFrame_SkipsLiveRasterLayer()
+    {
+        MapCanvasEngine engine = new(new Size(80, 60));
+        engine.SetView(40.0, 30.0, 80.0, 60.0);
+        MapCanvasRenderSettings settings = MapCanvasRenderSettings.CreateLightDefaults();
+        settings.ShowGrid = false;
+        settings.ShowAxisLines = false;
+        settings.ShowOriginMarker = false;
+        settings.ShowNorthMarker = false;
+        settings.BackgroundColor = Color.White;
+
+        TestRasterLayer rasterLayer = new();
+        using MapCanvasRenderer renderer = new(engine, settings);
+        renderer.UpdateRasterLayers([rasterLayer]);
+        using Bitmap bitmap = new(engine.CanvasSize.Width, engine.CanvasSize.Height);
+        using Graphics graphics = Graphics.FromImage(bitmap);
+        using GdiMapRenderSurface surface = new(graphics, engine.CanvasSize);
+
+        bool rendered = renderer.RenderCachedDirect(
+            surface,
+            rasterFrame: null,
+            interactiveRaster: true,
+            vectorFrame: null,
+            interactiveVector: true,
+            suppressGridLabels: true,
+            suppressFixedReferenceLayers: true);
+
+        Assert.True(rendered);
+        Assert.Equal(0, rasterLayer.SurfaceRenderCallCount);
+        Assert.Equal(0, CountPixels(bitmap, Color.Red));
+    }
+
+    /// <summary>
+    /// Verifies that the backend-neutral canvas path skips direct vector
+    /// rendering during interactive cache frames when no cache frame is available.
+    /// </summary>
+    [Fact]
+    public void RenderCachedDirect_WithInteractiveVectorAndNoFrame_SkipsDirectVectorRender()
+    {
+        MapCanvasEngine engine = new(new Size(80, 60));
+        engine.SetView(40.0, 30.0, 80.0, 60.0);
+        MapCanvasRenderSettings settings = MapCanvasRenderSettings.CreateLightDefaults();
+        settings.ShowGrid = false;
+        settings.ShowAxisLines = false;
+        settings.ShowOriginMarker = false;
+        settings.ShowNorthMarker = false;
+        settings.BackgroundColor = Color.White;
+
+        CanvasLayer layer = new()
+        {
+            Id = 1,
+            Name = "Lines",
+            LayerType = "Polyline",
+            BorderColor = "#000000",
+            LineWeight = 3.0,
+            IsVisible = true
+        };
+        LineShape line = new(new PointD(10, 10), new PointD(70, 50));
+        CanvasObject canvasObject = new()
+        {
+            Id = Guid.NewGuid(),
+            CanvasLayerId = layer.Id,
+            CanvasLayer = layer,
+            ObjectType = "Line",
+            IsVisible = true,
+            Shape = new GeometryFactory().CreateLineString(
+                [new Coordinate(10, 10), new Coordinate(70, 50)])
+        };
+        CanvasFeature feature = new(canvasObject, line, layer);
+
+        using MapCanvasRenderer renderer = new(engine, settings);
+        renderer.UpdateVectorLayers([layer]);
+        renderer.UpdateVectorFeatures([feature]);
+        using Bitmap bitmap = new(engine.CanvasSize.Width, engine.CanvasSize.Height);
+        using Graphics graphics = Graphics.FromImage(bitmap);
+        using GdiMapRenderSurface surface = new(graphics, engine.CanvasSize);
+
+        bool rendered = renderer.RenderCachedDirect(
+            surface,
+            rasterFrame: null,
+            interactiveRaster: true,
+            vectorFrame: null,
+            interactiveVector: true,
+            suppressGridLabels: true,
+            suppressFixedReferenceLayers: true);
+
+        Assert.True(rendered);
+        Assert.Equal(0, CountNonWhitePixels(bitmap));
     }
 
     /// <summary>
@@ -370,6 +472,57 @@ public sealed class MapCanvasRendererBackendIntegrationTests
         {
             CreateImageCallCount++;
             return _inner.CreateImage(image, ownsImage);
+        }
+    }
+
+    private sealed class TestRasterLayer : IRasterRenderLayer
+    {
+        public int LayerId => 1;
+        public string Name => "Test Raster";
+        public string FilePath => "test";
+        public RectangleD WorldBounds => new(0, 0, 80, 60);
+        public int Transparency => 0;
+        public bool IsVisible => true;
+        public bool CanRenderFromMemoryCacheDuringInteraction => false;
+        public int SurfaceRenderCallCount { get; private set; }
+
+        public bool RenderVisible(
+            Graphics graphics,
+            MapCanvasEngine engine,
+            RectangleD visibleWorldBounds,
+            bool interactive,
+            MapRenderBackend renderBackend = MapRenderBackend.GdiPlus,
+            CancellationToken cancellationToken = default)
+        {
+            using SolidBrush brush = new(Color.Red);
+            graphics.FillRectangle(brush, new Rectangle(0, 0, 20, 20));
+            return true;
+        }
+
+        public bool RenderVisible(
+            IMapRenderSurface surface,
+            MapCanvasEngine engine,
+            RectangleD visibleWorldBounds,
+            bool interactive,
+            CancellationToken cancellationToken = default)
+        {
+            SurfaceRenderCallCount++;
+            surface.FillRectangle(
+                new RectangleF(0, 0, 20, 20),
+                new FillStyle(Color.Red));
+            return true;
+        }
+
+        public void UpdateRenderState(bool isVisible, int transparency)
+        {
+        }
+
+        public void InvalidateCache()
+        {
+        }
+
+        public void Dispose()
+        {
         }
     }
 }

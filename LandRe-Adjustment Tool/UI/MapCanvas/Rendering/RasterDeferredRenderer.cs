@@ -58,6 +58,16 @@ namespace Land_Readjustment_Tool.UI.MapCanvas.Rendering
             MapRenderBackend renderBackend = MapRenderBackend.GdiPlus,
             CancellationToken cancellationToken = default)
         {
+            // The raster cache renders into offscreen CPU bitmaps on a background
+            // thread. Using the GPU backend here would force a GPU->CPU read-back
+            // and create a per-thread GL context. Raster content is image blitting,
+            // which GDI+ does natively and fastest, so render the cache with GDI+.
+            // The GPU is used only for the on-screen present of the cached bitmap.
+            if (renderBackend == MapRenderBackend.SkiaGpu)
+            {
+                renderBackend = MapRenderBackend.GdiPlus;
+            }
+
             Stopwatch stopwatch = Stopwatch.StartNew();
             RasterRenderResult? renderResult = RenderBitmap(
                 canvasSize,

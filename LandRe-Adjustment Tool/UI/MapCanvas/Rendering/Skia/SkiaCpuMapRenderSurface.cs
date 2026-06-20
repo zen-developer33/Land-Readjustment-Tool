@@ -21,7 +21,7 @@ namespace Land_Readjustment_Tool.UI.MapCanvas.Rendering.Skia
     /// </remarks>
     public sealed class SkiaCpuMapRenderSurface : IMapRenderSurface
     {
-        private readonly Graphics _targetGraphics;
+        private readonly Graphics? _targetGraphics;
         private readonly bool _ownsGraphics;
         private readonly bool _ownsBitmap;
         private readonly Bitmap _targetBitmap;
@@ -68,6 +68,35 @@ namespace Land_Readjustment_Tool.UI.MapCanvas.Rendering.Skia
             _ownsBitmap = false;
             _targetBitmap = backingBitmap;
             PixelSize = ClampPixelSize(new Size(backingBitmap.Width, backingBitmap.Height));
+            Rectangle lockRect = new(0, 0, PixelSize.Width, PixelSize.Height);
+            _bitmapData = _targetBitmap.LockBits(lockRect, ImageLockMode.ReadWrite, PixelFormat.Format32bppPArgb);
+            SKImageInfo info = new(PixelSize.Width, PixelSize.Height, SKColorType.Bgra8888, SKAlphaType.Premul);
+            _surface = SKSurface.Create(info, _bitmapData.Scan0, _bitmapData.Stride)
+                ?? throw new InvalidOperationException("Unable to create the Skia CPU surface.");
+            _canvas = _surface.Canvas;
+            _canvas.Clear(SKColors.Transparent);
+        }
+
+        /// <summary>
+        /// Creates a CPU Skia surface that rasterizes directly into the supplied
+        /// bitmap's pixels with NO final composite blit. Use this for offscreen
+        /// cache bitmaps that are themselves the final target — it avoids the
+        /// GPU read-back and per-thread GL context that the GPU surface would
+        /// incur when rendering a cache on a background thread.
+        /// </summary>
+        public static SkiaCpuMapRenderSurface CreateInPlace(Bitmap targetBitmap)
+        {
+            ArgumentNullException.ThrowIfNull(targetBitmap);
+            return new SkiaCpuMapRenderSurface(targetBitmap);
+        }
+
+        private SkiaCpuMapRenderSurface(Bitmap targetBitmap)
+        {
+            _targetGraphics = null;
+            _ownsGraphics = false;
+            _ownsBitmap = false;
+            _targetBitmap = targetBitmap;
+            PixelSize = ClampPixelSize(new Size(targetBitmap.Width, targetBitmap.Height));
             Rectangle lockRect = new(0, 0, PixelSize.Width, PixelSize.Height);
             _bitmapData = _targetBitmap.LockBits(lockRect, ImageLockMode.ReadWrite, PixelFormat.Format32bppPArgb);
             SKImageInfo info = new(PixelSize.Width, PixelSize.Height, SKColorType.Bgra8888, SKAlphaType.Premul);
@@ -360,9 +389,15 @@ namespace Land_Readjustment_Tool.UI.MapCanvas.Rendering.Skia
             _surface.Dispose();
             _targetBitmap.UnlockBits(_bitmapData);
 
-            long tBlit = Stopwatch.GetTimestamp();
-            _targetGraphics.DrawImageUnscaled(_targetBitmap, 0, 0);
-            double blitMs = ElapsedMs(tBlit);
+            // In-place mode (no target graphics): the bitmap IS the final target,
+            // so there is nothing to composite — just unlock above.
+            double blitMs = 0.0;
+            if (_targetGraphics != null)
+            {
+                long tBlit = Stopwatch.GetTimestamp();
+                _targetGraphics.DrawImageUnscaled(_targetBitmap, 0, 0);
+                blitMs = ElapsedMs(tBlit);
+            }
 
             if (_ownsBitmap)
             {
@@ -375,7 +410,7 @@ namespace Land_Readjustment_Tool.UI.MapCanvas.Rendering.Skia
             }
 
             _typefaceCache.Clear();
-            if (_ownsGraphics)
+            if (_ownsGraphics && _targetGraphics != null)
             {
                 _targetGraphics.Dispose();
             }

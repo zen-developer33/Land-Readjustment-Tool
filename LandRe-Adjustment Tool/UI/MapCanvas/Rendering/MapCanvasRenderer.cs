@@ -965,6 +965,10 @@ namespace Land_Readjustment_Tool.UI.MapCanvas.Rendering
                     frame.Dispose();
                 }
             }
+            else if (interactiveRaster)
+            {
+                return;
+            }
             else
             {
                 RenderRasterLayers(surface, viewport, interactiveRaster);
@@ -1030,6 +1034,11 @@ namespace Land_Readjustment_Tool.UI.MapCanvas.Rendering
                     frame.Dispose();
                 }
 
+                return;
+            }
+
+            if (interactiveVector)
+            {
                 return;
             }
 
@@ -1325,7 +1334,7 @@ namespace Land_Readjustment_Tool.UI.MapCanvas.Rendering
                     return;
                 }
 
-                using GdiMapImage image = new(rasterFrame.Bitmap);
+                using IMapImage image = CreateFrameImage(rasterFrame);
                 surface.SetQuality(RenderQuality.RasterHighSpeed);
                 surface.DrawImage(
                     image,
