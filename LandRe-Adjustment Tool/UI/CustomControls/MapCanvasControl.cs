@@ -2084,7 +2084,10 @@ namespace Land_Readjustment_Tool.UI.CustomControls
                 bakedNavigationSnapshotOverlay = true;
             }
 
-            if (UseGpuCanvasSurface && !usedInteractionCache)
+            // Both Skia backends (GPU and CPU) capture a native SKImage viewport
+            // snapshot here so pan/zoom can redraw it translated/scaled instead of
+            // re-rasterizing all vectors or re-uploading the GDI cache bitmap.
+            if (UseSkiaCanvasSurface && !usedInteractionCache)
             {
                 CaptureGpuViewportFrameCache(
                     gpuSurface,
@@ -2133,7 +2136,7 @@ namespace Land_Readjustment_Tool.UI.CustomControls
             bool deferDirectRasterRendering = ShouldDeferDirectRasterRendering;
             bool deferDirectVectorRendering = ShouldDeferDirectVectorRendering;
             bool suppressLiveFixedReferences = ShouldSuppressLiveFixedReferenceLayers(fixedReferenceFrame);
-            if (UseGpuCanvasSurface &&
+            if (UseSkiaCanvasSurface &&
                 (_isPanning ||
                  _isZooming ||
                  _holdVectorPanFrameUntilRefresh ||
@@ -2179,7 +2182,7 @@ namespace Land_Readjustment_Tool.UI.CustomControls
         }
 
         private bool ShouldUseGpuInteractionFrameCache =>
-            UseGpuCanvasSurface &&
+            UseSkiaCanvasSurface &&
             (_isPanning ||
              _isZooming ||
              _holdVectorPanFrameUntilRefresh ||
@@ -2261,6 +2264,22 @@ namespace Land_Readjustment_Tool.UI.CustomControls
                     0,
                     pixelSize.Width,
                     pixelSize.Height));
+
+            // The CPU SKControl rasterizes into a backing buffer that it reuses on
+            // the next paint, so a snapshot that shares those pixels would be
+            // overwritten mid-pan and show corruption. Force an independent raster
+            // copy that nothing else mutates. The GPU snapshot stays GPU-resident
+            // (forcing a raster copy there would trigger a costly read-back).
+            if (UseSkiaCpuCanvasSurface)
+            {
+                SKImage independentSnapshot = snapshot.ToRasterImage(ensurePixelData: true);
+                if (!ReferenceEquals(independentSnapshot, snapshot))
+                {
+                    snapshot.Dispose();
+                    snapshot = independentSnapshot;
+                }
+            }
+
             DisposeGpuInteractionFrameCache();
             _gpuInteractionFrameCache = new GpuInteractionFrameCache(
                 snapshot,
@@ -2278,7 +2297,7 @@ namespace Land_Readjustment_Tool.UI.CustomControls
         }
 
         private bool ShouldRenderGpuFixedReferencesLive(bool usedInteractionCache) =>
-            UseGpuCanvasSurface &&
+            UseSkiaCanvasSurface &&
             (usedInteractionCache ||
              _captureGpuNavigationFrameWithoutFixedReferences ||
              _isPanning ||
@@ -2297,7 +2316,7 @@ namespace Land_Readjustment_Tool.UI.CustomControls
         private void RequestSettledGpuFrameRebuild()
         {
             InvalidateGpuInteractionFrameCache();
-            if (UseGpuCanvasSurface &&
+            if (UseSkiaCanvasSurface &&
                 IsHandleCreated &&
                 !IsDisposed &&
                 !Disposing)
@@ -2308,7 +2327,7 @@ namespace Land_Readjustment_Tool.UI.CustomControls
 
         private void PrepareGpuNavigationFrameCacheIfNeeded()
         {
-            if (!UseGpuCanvasSurface ||
+            if (!UseSkiaCanvasSurface ||
                 !CanUseDirectGpuCachedFrame() ||
                 !IsHandleCreated ||
                 IsDisposed ||
@@ -11408,10 +11427,11 @@ namespace Land_Readjustment_Tool.UI.CustomControls
                     $"uncached {imageCacheStats.UncachedImages}");
             }
 
-            if (UseGpuCanvasSurface && _gpuInteractionFrameCache != null)
+            if (UseSkiaCanvasSurface && _gpuInteractionFrameCache != null)
             {
+                string snapshotBackend = UseSkiaCpuCanvasSurface ? "CPU" : "GPU";
                 lines.Add(
-                    $"GPU interaction cache {_gpuInteractionFrameCache.PixelSize.Width}x{_gpuInteractionFrameCache.PixelSize.Height}  " +
+                    $"{snapshotBackend} interaction cache {_gpuInteractionFrameCache.PixelSize.Width}x{_gpuInteractionFrameCache.PixelSize.Height}  " +
                     $"valid {!_gpuInteractionFrameCacheInvalid}");
             }
 
