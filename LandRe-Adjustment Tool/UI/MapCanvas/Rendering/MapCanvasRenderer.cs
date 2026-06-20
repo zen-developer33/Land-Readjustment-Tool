@@ -813,6 +813,21 @@ namespace Land_Readjustment_Tool.UI.MapCanvas.Rendering
                 gridMinorWorldSize);
         }
 
+        public void RenderFixedReferences(
+            IMapRenderSurface surface,
+            bool suppressGridLabels = false,
+            double? gridMinorWorldSize = null)
+        {
+            ArgumentNullException.ThrowIfNull(surface);
+
+            surface.SetQuality(RenderQuality.VectorHighQuality);
+            RenderFixedReferenceLayers(
+                surface,
+                CreateViewport(surface.PixelSize),
+                suppressGridLabels,
+                gridMinorWorldSize);
+        }
+
         public double GetCurrentGridMinorWorldSize()
         {
             if (!_settings.ShowGrid ||

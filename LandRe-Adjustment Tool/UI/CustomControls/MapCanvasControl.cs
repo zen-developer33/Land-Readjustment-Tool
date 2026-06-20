@@ -181,6 +181,8 @@ namespace Land_Readjustment_Tool.UI.CustomControls
         private Bitmap? _refreshHoldFrame;
         private GpuInteractionFrameCache? _gpuInteractionFrameCache;
         private bool _gpuInteractionFrameCacheInvalid = true;
+        private bool _gpuInteractionFrameCacheExcludesFixedReferences;
+        private bool _captureGpuNavigationFrameWithoutFixedReferences;
         private string _gpuInteractionFrameCacheExclusionKey = string.Empty;
         private bool _suppressContentUntilReady = true;
         private bool _hasShownContentFrame;
@@ -2047,7 +2049,15 @@ namespace Land_Readjustment_Tool.UI.CustomControls
 
             if (!usedInteractionCache)
             {
-                CaptureGpuViewportFrameCache(gpuSurface, pixelSize);
+                CaptureGpuViewportFrameCache(
+                    gpuSurface,
+                    pixelSize,
+                    excludesFixedReferences: _captureGpuNavigationFrameWithoutFixedReferences);
+            }
+
+            if (ShouldRenderGpuFixedReferencesLive(usedInteractionCache))
+            {
+                DrawLiveGpuFixedReferences(surface);
             }
 
             // Screen decorations (axis lines, origin/north markers) are drawn
@@ -2084,6 +2094,14 @@ namespace Land_Readjustment_Tool.UI.CustomControls
             bool deferDirectRasterRendering = ShouldDeferDirectRasterRendering;
             bool deferDirectVectorRendering = ShouldDeferDirectVectorRendering;
             bool suppressLiveFixedReferences = ShouldSuppressLiveFixedReferenceLayers(fixedReferenceFrame);
+            if (UseGpuCanvasSurface &&
+                (_isPanning ||
+                 _isZooming ||
+                 _holdVectorPanFrameUntilRefresh ||
+                 _holdVectorZoomFrameUntilRefresh))
+            {
+                suppressLiveFixedReferences = true;
+            }
 
             if (vectorFrameSource == CanvasFrameSource.None &&
                 _vectorCacheRefreshPending &&
@@ -2114,7 +2132,9 @@ namespace Land_Readjustment_Tool.UI.CustomControls
                 vectorFrame,
                 deferDirectVectorRendering,
                 suppressGridLabels: IsInteractiveNavigation,
-                suppressFixedReferenceLayers: suppressLiveFixedReferences,
+                suppressFixedReferenceLayers:
+                    suppressLiveFixedReferences ||
+                    _captureGpuNavigationFrameWithoutFixedReferences,
                 fixedReferenceFrame: fixedReferenceFrame,
                 zoomWindowRectangle: null);
         }
@@ -2137,6 +2157,8 @@ namespace Land_Readjustment_Tool.UI.CustomControls
             string exclusionKey = BuildGpuInteractionFrameCacheExclusionKey();
             if (_gpuInteractionFrameCacheInvalid ||
                 _gpuInteractionFrameCache == null ||
+                (ShouldUseGpuInteractionFrameCache &&
+                 !_gpuInteractionFrameCacheExcludesFixedReferences) ||
                 _gpuInteractionFrameCacheExclusionKey != exclusionKey ||
                 _gpuInteractionFrameCache.PixelSize.Width != pixelSize.Width ||
                 _gpuInteractionFrameCache.PixelSize.Height != pixelSize.Height)
@@ -2174,7 +2196,10 @@ namespace Land_Readjustment_Tool.UI.CustomControls
             return true;
         }
 
-        private void CaptureGpuViewportFrameCache(SKSurface gpuSurface, Size pixelSize)
+        private void CaptureGpuViewportFrameCache(
+            SKSurface gpuSurface,
+            Size pixelSize,
+            bool excludesFixedReferences)
         {
             if (pixelSize.Width <= 0 || pixelSize.Height <= 0)
             {
@@ -2184,6 +2209,7 @@ namespace Land_Readjustment_Tool.UI.CustomControls
             string exclusionKey = BuildGpuInteractionFrameCacheExclusionKey();
             if (!_gpuInteractionFrameCacheInvalid &&
                 _gpuInteractionFrameCache != null &&
+                _gpuInteractionFrameCacheExcludesFixedReferences == excludesFixedReferences &&
                 _gpuInteractionFrameCacheExclusionKey == exclusionKey &&
                 _gpuInteractionFrameCache.MatchesViewportState(_engine, pixelSize))
             {
@@ -2203,12 +2229,30 @@ namespace Land_Readjustment_Tool.UI.CustomControls
                 _engine.ZoomScale,
                 pixelSize);
             _gpuInteractionFrameCacheInvalid = false;
+            _gpuInteractionFrameCacheExcludesFixedReferences = excludesFixedReferences;
             _gpuInteractionFrameCacheExclusionKey = exclusionKey;
         }
 
         private void InvalidateGpuInteractionFrameCache()
         {
             _gpuInteractionFrameCacheInvalid = true;
+        }
+
+        private bool ShouldRenderGpuFixedReferencesLive(bool usedInteractionCache) =>
+            UseGpuCanvasSurface &&
+            (usedInteractionCache ||
+             _captureGpuNavigationFrameWithoutFixedReferences ||
+             _isPanning ||
+             _isZooming ||
+             _holdVectorPanFrameUntilRefresh ||
+             _holdVectorZoomFrameUntilRefresh);
+
+        private void DrawLiveGpuFixedReferences(IMapRenderSurface surface)
+        {
+            _renderer.RenderFixedReferences(
+                surface,
+                suppressGridLabels: false,
+                gridMinorWorldSize: null);
         }
 
         private void RequestSettledGpuFrameRebuild()
@@ -2223,11 +2267,49 @@ namespace Land_Readjustment_Tool.UI.CustomControls
             }
         }
 
+        private void PrepareGpuNavigationFrameCacheIfNeeded()
+        {
+            if (!UseGpuCanvasSurface ||
+                !CanUseDirectGpuCachedFrame() ||
+                !IsHandleCreated ||
+                IsDisposed ||
+                Disposing ||
+                ActiveCanvasSurface.IsDisposed ||
+                ActiveCanvasSize.Width <= 0 ||
+                ActiveCanvasSize.Height <= 0 ||
+                IsInteractiveNavigation ||
+                _renderUpdateBatchDepth > 0)
+            {
+                return;
+            }
+
+            string exclusionKey = BuildGpuInteractionFrameCacheExclusionKey();
+            if (!_gpuInteractionFrameCacheInvalid &&
+                _gpuInteractionFrameCache != null &&
+                _gpuInteractionFrameCacheExcludesFixedReferences &&
+                _gpuInteractionFrameCacheExclusionKey == exclusionKey)
+            {
+                return;
+            }
+
+            _captureGpuNavigationFrameWithoutFixedReferences = true;
+            try
+            {
+                RequestRender();
+                ActiveCanvasSurface.Update();
+            }
+            finally
+            {
+                _captureGpuNavigationFrameWithoutFixedReferences = false;
+            }
+        }
+
         private void DisposeGpuInteractionFrameCache()
         {
             _gpuInteractionFrameCache?.Dispose();
             _gpuInteractionFrameCache = null;
             _gpuInteractionFrameCacheInvalid = true;
+            _gpuInteractionFrameCacheExcludesFixedReferences = false;
             _gpuInteractionFrameCacheExclusionKey = string.Empty;
         }
 
@@ -2727,6 +2809,8 @@ namespace Land_Readjustment_Tool.UI.CustomControls
 
         private void HandlePanStart(Point location)
         {
+            PrepareGpuNavigationFrameCacheIfNeeded();
+
             CancelPendingRasterRender();
             CancelPendingVectorRender();
 
@@ -11468,29 +11552,38 @@ namespace Land_Readjustment_Tool.UI.CustomControls
         private void BeginZoomNavigation(string direction)
         {
             CancelActiveCanvasGesture(preserveActiveEdit: true);
+            PrepareGpuNavigationFrameCacheIfNeeded();
             _suppressStaleRasterFrameUntilFreshRender = false;
 
             if (!_isZooming)
             {
                 CancelPendingRasterRender();
                 CancelPendingVectorRender();
-                bool reuseHeldVectorZoomFrame = false;
-                if (_holdVectorZoomFrameUntilRefresh &&
-                    _renderer.TryGetVectorZoomFrame(out RasterRenderFrame heldVectorZoomFrame))
+                if (UseGpuCanvasSurface)
                 {
-                    heldVectorZoomFrame.Dispose();
-                    reuseHeldVectorZoomFrame = true;
-                }
-
-                _holdZoomStartFrameUntilRasterRefresh = false;
-                _rasterDeferredRenderer.BeginZoom(
-                    ActiveCanvasSize,
-                    _rasterRenderLayers,
-                    _engine);
-                if (!reuseHeldVectorZoomFrame)
-                {
+                    _holdZoomStartFrameUntilRasterRefresh = false;
                     _holdVectorZoomFrameUntilRefresh = false;
-                    EnsureVectorZoomSnapshot();
+                }
+                else
+                {
+                    bool reuseHeldVectorZoomFrame = false;
+                    if (_holdVectorZoomFrameUntilRefresh &&
+                        _renderer.TryGetVectorZoomFrame(out RasterRenderFrame heldVectorZoomFrame))
+                    {
+                        heldVectorZoomFrame.Dispose();
+                        reuseHeldVectorZoomFrame = true;
+                    }
+
+                    _holdZoomStartFrameUntilRasterRefresh = false;
+                    _rasterDeferredRenderer.BeginZoom(
+                        ActiveCanvasSize,
+                        _rasterRenderLayers,
+                        _engine);
+                    if (!reuseHeldVectorZoomFrame)
+                    {
+                        _holdVectorZoomFrameUntilRefresh = false;
+                        EnsureVectorZoomSnapshot();
+                    }
                 }
             }
             else if (_rasterCacheRefreshPending || _vectorCacheRefreshPending)
