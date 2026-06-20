@@ -19,16 +19,27 @@ namespace Land_Readjustment_Tool.UI.MapCanvas.Rendering.Gdi
         /// Whether this wrapper should dispose the native image when the wrapper
         /// is disposed.
         /// </param>
-        public GdiMapImage(Image image, bool ownsImage = false)
+        public GdiMapImage(
+            Image image,
+            bool ownsImage = false,
+            bool allowSkiaImageCache = true)
         {
             Image = image ?? throw new ArgumentNullException(nameof(image));
             _ownsImage = ownsImage;
+            AllowSkiaImageCache = allowSkiaImageCache;
         }
 
         /// <summary>
         /// Gets the native GDI+ image used by <see cref="GdiMapRenderSurface"/>.
         /// </summary>
         public Image Image { get; }
+
+        /// <summary>
+        /// Gets whether direct Skia surfaces may cache an immutable Skia image
+        /// for this native image. Full-frame interaction buffers opt out because
+        /// their pixels can be rewritten while the bitmap instance is reused.
+        /// </summary>
+        public bool AllowSkiaImageCache { get; }
 
         /// <summary>
         /// Gets the native image size in pixels.

@@ -246,7 +246,10 @@ namespace Land_Readjustment_Tool.UI.MapCanvas.Rendering
                     return false;
                 }
 
-                frame = CreateFrameLease(_zoomBuffer, destination);
+                frame = CreateFrameLease(
+                    _zoomBuffer,
+                    destination,
+                    cacheableOnGpu: false);
                 return true;
             }
         }
@@ -263,7 +266,8 @@ namespace Land_Readjustment_Tool.UI.MapCanvas.Rendering
 
                 frame = CreateFrameLease(
                     _vectorCache,
-                    new RectangleF(0, 0, _vectorCache.Width, _vectorCache.Height));
+                    new RectangleF(0, 0, _vectorCache.Width, _vectorCache.Height),
+                    cacheableOnGpu: true);
                 return true;
             }
         }
@@ -284,7 +288,8 @@ namespace Land_Readjustment_Tool.UI.MapCanvas.Rendering
                         totalPanDelta.X,
                         totalPanDelta.Y,
                         _panBuffer.Width,
-                        _panBuffer.Height));
+                        _panBuffer.Height),
+                    cacheableOnGpu: false);
                 return true;
             }
         }
@@ -372,14 +377,16 @@ namespace Land_Readjustment_Tool.UI.MapCanvas.Rendering
 
         private RasterRenderFrame CreateFrameLease(
             Bitmap bitmap,
-            RectangleF destination)
+            RectangleF destination,
+            bool cacheableOnGpu)
         {
             _activeFrameLeases++;
             return new RasterRenderFrame(
                 bitmap,
                 destination,
                 _sync,
-                ReleaseFrameLease);
+                ReleaseFrameLease,
+                cacheableOnGpu);
         }
 
         private void ReleaseFrameLease()

@@ -4,6 +4,7 @@ namespace Land_Readjustment_Tool.UI.CustomControls
     {
         private System.ComponentModel.IContainer components = null;
         private Land_Readjustment_Tool.UI.MapCanvas.CanvasPanel canvasSurface;
+        private Land_Readjustment_Tool.UI.MapCanvas.GpuCanvasPanel gpuCanvasSurface;
         private ContextMenuStrip _objectSelectionContextMenu;
         private ContextMenuStrip _drawingOptionsContextMenu;
         private ContextMenuStrip _selectionOptionsContextMenu;
@@ -40,6 +41,7 @@ namespace Land_Readjustment_Tool.UI.CustomControls
                 _debugOverlayFont?.Dispose();
                 _compositePanBitmap?.Dispose();
                 _refreshHoldFrame?.Dispose();
+                _gpuInteractionFrameCache?.Dispose();
                 _movePreviewBitmap?.Dispose();
             }
 
@@ -52,6 +54,7 @@ namespace Land_Readjustment_Tool.UI.CustomControls
         {
             components = new System.ComponentModel.Container();
             canvasSurface = new Land_Readjustment_Tool.UI.MapCanvas.CanvasPanel();
+            gpuCanvasSurface = new Land_Readjustment_Tool.UI.MapCanvas.GpuCanvasPanel();
             _objectSelectionContextMenu = new ContextMenuStrip(components);
             _mnuEditText = new ToolStripMenuItem();
             _mnuObjectSelectionSeparator1 = new ToolStripSeparator();
@@ -153,13 +156,26 @@ namespace Land_Readjustment_Tool.UI.CustomControls
             canvasSurface.Name = "canvasSurface";
             canvasSurface.Size = new Size(800, 500);
             canvasSurface.TabIndex = 0;
-            canvasSurface.GpuPaintSurface += canvasSurface_PaintSurface;
+            canvasSurface.Paint += canvasSurface_Paint;
             canvasSurface.Resize += canvasSurface_Resize;
+            // 
+            // gpuCanvasSurface
+            // 
+            gpuCanvasSurface.BackColor = Color.White;
+            gpuCanvasSurface.Dock = DockStyle.Fill;
+            gpuCanvasSurface.Location = new Point(0, 0);
+            gpuCanvasSurface.Name = "gpuCanvasSurface";
+            gpuCanvasSurface.Size = new Size(800, 500);
+            gpuCanvasSurface.TabIndex = 1;
+            gpuCanvasSurface.Visible = false;
+            gpuCanvasSurface.GpuPaintSurface += canvasSurface_PaintSurface;
+            gpuCanvasSurface.Resize += canvasSurface_Resize;
             // 
             // MapCanvasControl
             // 
             AutoScaleMode = AutoScaleMode.None;
             BackColor = Color.White;
+            Controls.Add(gpuCanvasSurface);
             Controls.Add(canvasSurface);
             Name = "MapCanvasControl";
             Size = new Size(800, 500);

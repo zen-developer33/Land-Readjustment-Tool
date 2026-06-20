@@ -300,12 +300,18 @@ namespace Land_Readjustment_Tool.UI.MapCanvas.Rendering
                         break;
 
                     case MapCanvasRenderStage.InteractionOverlay:
+                        // Screen decorations (axis lines, origin marker, north
+                        // marker) are intentionally NOT drawn here so they are
+                        // excluded from the captured GPU viewport snapshot. The
+                        // caller redraws them fresh each frame via
+                        // RenderScreenDecorations, matching GDI behavior where
+                        // these overlays are never baked into a frame cache.
                         surface.SetQuality(RenderQuality.VectorHighQuality);
                         RenderInteractionOverlay(
                             surface,
                             viewport,
                             zoomWindowRectangle,
-                            suppressDecorations: suppressFixedReferenceLayers);
+                            suppressDecorations: true);
                         break;
                 }
             }
@@ -321,13 +327,6 @@ namespace Land_Readjustment_Tool.UI.MapCanvas.Rendering
             RasterRenderFrame? fixedReferenceFrame,
             bool suppressFixedReferenceLayers)
         {
-            if (!vectorFrame.HasValue &&
-                interactiveVector &&
-                _vectorRenderer.FeatureCount > 0)
-            {
-                return false;
-            }
-
             return true;
         }
 
@@ -676,8 +675,11 @@ namespace Land_Readjustment_Tool.UI.MapCanvas.Rendering
         /// <summary>
         /// Creates a backend-neutral image wrapper for a cached bitmap frame.
         /// </summary>
-        private IMapImage CreateFrameImage(Bitmap bitmap) =>
-            _renderSurfaceFactory.CreateImage(bitmap, ownsImage: false);
+        private static IMapImage CreateFrameImage(RasterRenderFrame frame) =>
+            new GdiMapImage(
+                frame.Bitmap,
+                ownsImage: false,
+                allowSkiaImageCache: frame.CacheableOnGpu);
 
         /// <summary>
         /// Draws fixed reference visuals that should be placed before map content.
@@ -963,9 +965,9 @@ namespace Land_Readjustment_Tool.UI.MapCanvas.Rendering
                     frame.Dispose();
                 }
             }
-            else if (!interactiveRaster)
+            else
             {
-                RenderRasterLayers(surface, viewport, interactive: false);
+                RenderRasterLayers(surface, viewport, interactiveRaster);
             }
         }
 
@@ -1031,11 +1033,6 @@ namespace Land_Readjustment_Tool.UI.MapCanvas.Rendering
                 return;
             }
 
-            if (interactiveVector)
-            {
-                return;
-            }
-
             using Bitmap metricsBitmap = new(1, 1, PixelFormat.Format32bppPArgb);
             using Graphics fallbackGraphics = Graphics.FromImage(metricsBitmap);
             ConfigureVectorGraphics(fallbackGraphics);
@@ -1094,6 +1091,36 @@ namespace Land_Readjustment_Tool.UI.MapCanvas.Rendering
             }
 
             if (!suppressDecorations && _settings.ShowNorthMarker)
+            {
+                RenderNorthMarker(surface, viewport.VisibleScreenBounds);
+            }
+        }
+
+        /// <summary>
+        /// Draws screen-anchored decorations (world axis lines, origin marker and
+        /// north marker) fresh for the current viewport, without the zoom-window
+        /// rectangle. The GPU path calls this every frame on top of the cached
+        /// map snapshot so these overlays are never baked into the snapshot and
+        /// stay crisp and correctly positioned during pan/zoom, exactly as the
+        /// GDI path redraws them each frame.
+        /// </summary>
+        /// <param name="surface">Target render surface.</param>
+        public void RenderScreenDecorations(IMapRenderSurface surface)
+        {
+            ArgumentNullException.ThrowIfNull(surface);
+
+            MapCanvasRenderViewport viewport = CreateViewport(surface.PixelSize);
+            surface.SetQuality(
+                _settings.AntiAliasingEnabled
+                    ? RenderQuality.VectorHighQuality
+                    : RenderQuality.VectorHighSpeed);
+
+            if (_settings.ShowAxisLines || _settings.ShowOriginMarker)
+            {
+                RenderAxisAndOriginMarker(surface, viewport);
+            }
+
+            if (_settings.ShowNorthMarker)
             {
                 RenderNorthMarker(surface, viewport.VisibleScreenBounds);
             }
@@ -1260,7 +1287,7 @@ namespace Land_Readjustment_Tool.UI.MapCanvas.Rendering
                     using IMapRenderSurface surface = CreateFrameSurface(
                         graphics,
                         RasterFrameSurfaceOptions);
-                    using IMapImage image = CreateFrameImage(rasterFrame.Bitmap);
+                    using IMapImage image = CreateFrameImage(rasterFrame);
                     surface.DrawImage(
                         image,
                         destination,
@@ -2174,7 +2201,8 @@ namespace Land_Readjustment_Tool.UI.MapCanvas.Rendering
         Bitmap Bitmap,
         RectangleF Destination,
         object SyncRoot,
-        Action? Release) : IDisposable
+        Action? Release,
+        bool CacheableOnGpu = false) : IDisposable
     {
         public void Dispose()
         {

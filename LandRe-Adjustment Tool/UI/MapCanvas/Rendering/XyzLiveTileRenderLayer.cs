@@ -517,27 +517,20 @@ namespace Land_Readjustment_Tool.UI.MapCanvas.Rendering
                 fetchWebMercatorBounds = clippedWebMercatorBounds;
                 fetchZoom = zoom;
 
-                Size canvasSize = engine.CanvasSize;
+                using IDisposable asiaClip = ApplyAsiaSurfaceClip(surface, engine);
                 using RasterImageRenderContext imageContext = new(surface);
-
-                if (interactive)
-                {
-                    drawnAny = _compositeBitmap != null &&
-                               _compositeCanvasSize == canvasSize &&
-                               DrawCompositeCache(imageContext, engine);
-                }
-                else
+                if (!interactive)
                 {
                     fallbackFetchCandidates = new HashSet<TileKey>();
-                    drawnAny = RebuildCompositeAndDraw(
-                        imageContext,
-                        engine,
-                        visibleWorldBounds,
-                        tileRange,
-                        canvasSize,
-                        cancellationToken,
-                        fallbackFetchCandidates);
                 }
+
+                drawnAny = DrawVisibleTiles(
+                    imageContext,
+                    engine,
+                    visibleWorldBounds,
+                    tileRange,
+                    cancellationToken,
+                    interactive ? null : fallbackFetchCandidates);
             }
 
             if (!_disposed && !fetchSuspended)
@@ -818,6 +811,32 @@ namespace Land_Readjustment_Tool.UI.MapCanvas.Rendering
         /// </summary>
         private void ApplyAsiaScreenClip(Graphics g, MapCanvasEngine engine)
         {
+            if (!TryGetAsiaScreenClipRectangle(engine, out RectangleF clipRectangle))
+            {
+                return;
+            }
+
+            g.SetClip(clipRectangle, CombineMode.Intersect);
+        }
+
+        private IDisposable ApplyAsiaSurfaceClip(IMapRenderSurface surface, MapCanvasEngine engine)
+        {
+            IDisposable state = surface.SaveState();
+            if (!TryGetAsiaScreenClipRectangle(engine, out RectangleF clipRectangle))
+            {
+                return state;
+            }
+
+            IMapPathBuilder pathBuilder = surface.CreatePath();
+            pathBuilder.AddRectangle(clipRectangle);
+            using IMapPath clipPath = pathBuilder.Build();
+            surface.ClipPath(clipPath);
+            return state;
+        }
+
+        private bool TryGetAsiaScreenClipRectangle(MapCanvasEngine engine, out RectangleF clipRectangle)
+        {
+            clipRectangle = RectangleF.Empty;
             RectangleD asiaBoundsProject;
             if (_projectIsWebMercator)
             {
@@ -828,7 +847,7 @@ namespace Land_Readjustment_Tool.UI.MapCanvas.Rendering
                          AsiaWebMercatorBounds,
                          out asiaBoundsProject))
             {
-                return;
+                return false;
             }
 
             PointD tl = engine.WorldToScreen(
@@ -839,22 +858,21 @@ namespace Land_Readjustment_Tool.UI.MapCanvas.Rendering
             if (!IsFiniteD(tl.X) || !IsFiniteD(tl.Y) ||
                 !IsFiniteD(br.X) || !IsFiniteD(br.Y))
             {
-                return;
+                return false;
             }
 
-            float left   = (float)Math.Min(tl.X, br.X);
-            float top    = (float)Math.Min(tl.Y, br.Y);
-            float right  = (float)Math.Max(tl.X, br.X);
+            float left = (float)Math.Min(tl.X, br.X);
+            float top = (float)Math.Min(tl.Y, br.Y);
+            float right = (float)Math.Max(tl.X, br.X);
             float bottom = (float)Math.Max(tl.Y, br.Y);
 
             if (right <= left || bottom <= top)
             {
-                return;
+                return false;
             }
 
-            g.SetClip(
-                new RectangleF(left, top, right - left, bottom - top),
-                CombineMode.Intersect);
+            clipRectangle = new RectangleF(left, top, right - left, bottom - top);
+            return true;
         }
 
         public void UpdateRenderState(bool isVisible, int transparency)
@@ -1295,7 +1313,8 @@ namespace Land_Readjustment_Tool.UI.MapCanvas.Rendering
             MapCanvasEngine engine,
             RectangleD visibleWorldBounds,
             TileRange tileRange,
-            CancellationToken cancellationToken)
+            CancellationToken cancellationToken,
+            HashSet<TileKey>? fallbackFetchCandidates = null)
         {
             bool drawnAny = false;
 
@@ -1325,6 +1344,9 @@ namespace Land_Readjustment_Tool.UI.MapCanvas.Rendering
                             drawnAny = true;
                         }
 
+                        CollectParentFallbackFetchCandidates(
+                            key,
+                            fallbackFetchCandidates);
                         continue;
                     }
 

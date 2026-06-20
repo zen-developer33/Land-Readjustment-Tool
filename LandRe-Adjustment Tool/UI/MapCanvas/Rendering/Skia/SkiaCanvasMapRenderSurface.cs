@@ -1,5 +1,7 @@
 using System.Drawing.Drawing2D;
 using System.Drawing.Imaging;
+using System.Runtime.CompilerServices;
+using System.Threading;
 using Land_Readjustment_Tool.UI.MapCanvas.Rendering.Abstractions;
 using Land_Readjustment_Tool.UI.MapCanvas.Rendering.Gdi;
 using SkiaSharp;
@@ -16,6 +18,12 @@ namespace Land_Readjustment_Tool.UI.MapCanvas.Rendering.Skia
     {
         private readonly SKCanvas _canvas;
         private readonly Dictionary<TextKey, SKTypeface> _typefaceCache = new();
+        private static readonly ConditionalWeakTable<Image, CachedSkiaImage> ImageCache = new();
+        private const int MaximumCachedImageDimension = 512;
+        private const int MaximumCachedImagePixels = MaximumCachedImageDimension * MaximumCachedImageDimension;
+        private static long _imageCacheHits;
+        private static long _imageCacheMisses;
+        private static long _uncachedImages;
         private RenderQuality _quality = RenderQuality.VectorHighQuality;
         private bool _disposed;
 
@@ -26,6 +34,14 @@ namespace Land_Readjustment_Tool.UI.MapCanvas.Rendering.Skia
         }
 
         public Size PixelSize { get; }
+
+        public static SkiaCanvasImageCacheStats SnapshotAndResetImageCacheStats()
+        {
+            long hits = Interlocked.Exchange(ref _imageCacheHits, 0);
+            long misses = Interlocked.Exchange(ref _imageCacheMisses, 0);
+            long uncached = Interlocked.Exchange(ref _uncachedImages, 0);
+            return new SkiaCanvasImageCacheStats(hits, misses, uncached);
+        }
 
         public void Clear(Color color) => _canvas.Clear(ToSkiaColor(color));
 
@@ -194,12 +210,12 @@ namespace Land_Readjustment_Tool.UI.MapCanvas.Rendering.Skia
                 return;
             }
 
-            using SKBitmap bitmap = AsSkiaBitmap(image);
+            using SkiaImageLease imageLease = AsSkiaImage(image);
             SKRect source = src.HasValue
                 ? SkiaMapPathBuilder.ToSkiaRect(src.Value)
-                : new SKRect(0, 0, bitmap.Width, bitmap.Height);
+                : new SKRect(0, 0, imageLease.Width, imageLease.Height);
             using SKPaint paint = CreateImagePaint(style);
-            _canvas.DrawBitmap(bitmap, source, SkiaMapPathBuilder.ToSkiaRect(dest), paint);
+            _canvas.DrawImage(imageLease.Image, source, SkiaMapPathBuilder.ToSkiaRect(dest), paint);
         }
 
         public void DrawImage(IMapImage image, ReadOnlySpan<PointF> destPoints, RectangleF src, in ImageStyle style)
@@ -219,13 +235,13 @@ namespace Land_Readjustment_Tool.UI.MapCanvas.Rendering.Skia
                 return;
             }
 
-            using SKBitmap bitmap = AsSkiaBitmap(image);
+            using SkiaImageLease imageLease = AsSkiaImage(image);
             SKRect source = SkiaMapPathBuilder.ToSkiaRect(src);
             using SKPaint paint = CreateImagePaint(style);
             using IDisposable state = SaveState();
             SKMatrix matrix = CreateSourceToParallelogramMatrix(src, upperLeft, upperRight, lowerLeft);
             _canvas.Concat(in matrix);
-            _canvas.DrawBitmap(bitmap, source, source, paint);
+            _canvas.DrawImage(imageLease.Image, source, source, paint);
         }
 
         public void Dispose()
@@ -336,14 +352,49 @@ namespace Land_Readjustment_Tool.UI.MapCanvas.Rendering.Skia
             throw new ArgumentException("Path type not supported by Skia canvas surface.", nameof(path));
         }
 
-        private static SKBitmap AsSkiaBitmap(IMapImage image)
+        private static SkiaImageLease AsSkiaImage(IMapImage image)
         {
             if (image is GdiMapImage gdiImage)
             {
-                return CopyBitmapToSkia(gdiImage.Image);
+                if (CanCacheSkiaImage(gdiImage))
+                {
+                    CachedSkiaImage cached;
+                    if (ImageCache.TryGetValue(gdiImage.Image, out CachedSkiaImage? existing))
+                    {
+                        Interlocked.Increment(ref _imageCacheHits);
+                        cached = existing;
+                    }
+                    else
+                    {
+                        Interlocked.Increment(ref _imageCacheMisses);
+                        cached = ImageCache.GetValue(
+                            gdiImage.Image,
+                            static source => new CachedSkiaImage(CopyBitmapToSkia(source)));
+                    }
+
+                    return SkiaImageLease.Borrow(cached);
+                }
+
+                Interlocked.Increment(ref _uncachedImages);
+                return SkiaImageLease.Own(CopyBitmapToSkia(gdiImage.Image));
             }
 
             throw new ArgumentException("Image type not supported by Skia canvas surface.", nameof(image));
+        }
+
+        private static bool CanCacheSkiaImage(GdiMapImage image)
+        {
+            if (!image.AllowSkiaImageCache ||
+                image.PixelSize.Width <= 0 ||
+                image.PixelSize.Height <= 0 ||
+                image.PixelSize.Width > MaximumCachedImageDimension ||
+                image.PixelSize.Height > MaximumCachedImageDimension)
+            {
+                return false;
+            }
+
+            long pixels = (long)image.PixelSize.Width * image.PixelSize.Height;
+            return pixels <= MaximumCachedImagePixels;
         }
 
         private static SKPath ConvertGdiPath(GraphicsPath source, FillRule fillRule)
@@ -557,7 +608,65 @@ namespace Land_Readjustment_Tool.UI.MapCanvas.Rendering.Skia
         }
 
         private readonly record struct TextKey(string Family, bool Bold);
+
+        private sealed class CachedSkiaImage
+        {
+            public CachedSkiaImage(SKBitmap bitmap)
+            {
+                Bitmap = bitmap;
+                Image = SKImage.FromBitmap(bitmap);
+            }
+
+            public SKBitmap Bitmap { get; }
+
+            public SKImage Image { get; }
+
+            ~CachedSkiaImage()
+            {
+                Image.Dispose();
+                Bitmap.Dispose();
+            }
+        }
+
+        private readonly struct SkiaImageLease : IDisposable
+        {
+            private readonly SKBitmap? _ownedBitmap;
+            private readonly SKImage? _ownedImage;
+
+            private SkiaImageLease(SKImage image, SKBitmap? ownedBitmap, SKImage? ownedImage)
+            {
+                Image = image;
+                _ownedBitmap = ownedBitmap;
+                _ownedImage = ownedImage;
+            }
+
+            public SKImage Image { get; }
+
+            public int Width => Image.Width;
+
+            public int Height => Image.Height;
+
+            public static SkiaImageLease Borrow(CachedSkiaImage cached) =>
+                new(cached.Image, ownedBitmap: null, ownedImage: null);
+
+            public static SkiaImageLease Own(SKBitmap bitmap)
+            {
+                SKImage image = SKImage.FromBitmap(bitmap);
+                return new SkiaImageLease(image, bitmap, image);
+            }
+
+            public void Dispose()
+            {
+                _ownedImage?.Dispose();
+                _ownedBitmap?.Dispose();
+            }
+        }
     }
+
+    public readonly record struct SkiaCanvasImageCacheStats(
+        long Hits,
+        long Misses,
+        long UncachedImages);
 }
 
 #pragma warning restore CS0618
