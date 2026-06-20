@@ -168,6 +168,7 @@ namespace Land_Readjustment_Tool.UI.CustomControls
         private double _lastDebugFrameElapsedMs;
         private double _averageDebugFrameElapsedMs;
         private bool _lastDebugFrameWasDirectGpu;
+        private bool _lastDebugFrameWasDirectSkiaCpu;
         private bool _lastDebugFrameUsedGpuInteractionCache;
         private long _lastStatusBarUpdateTick;
         private bool _blockPanUntilZoomSettle;
@@ -409,12 +410,14 @@ namespace Land_Readjustment_Tool.UI.CustomControls
             DoubleBuffered = true;
             ResizeRedraw = true;
             canvasSurface.TabStop = true;
+            skiaCpuCanvasSurface.TabStop = true;
             gpuCanvasSurface.TabStop = true;
         }
 
         private void WireInteractionEvents()
         {
             WireCanvasSurfaceInteractionEvents(canvasSurface);
+            WireCanvasSurfaceInteractionEvents(skiaCpuCanvasSurface);
             WireCanvasSurfaceInteractionEvents(gpuCanvasSurface);
         }
 
@@ -435,8 +438,18 @@ namespace Land_Readjustment_Tool.UI.CustomControls
         private bool UseGpuCanvasSurface =>
             _renderSettings?.RenderBackend == MapRenderBackend.SkiaGpu;
 
+        private bool UseSkiaCpuCanvasSurface =>
+            _renderSettings?.RenderBackend == MapRenderBackend.SkiaCpu;
+
+        private bool UseSkiaCanvasSurface =>
+            UseSkiaCpuCanvasSurface || UseGpuCanvasSurface;
+
         private Control ActiveCanvasSurface =>
-            UseGpuCanvasSurface ? gpuCanvasSurface : canvasSurface;
+            UseGpuCanvasSurface
+                ? gpuCanvasSurface
+                : UseSkiaCpuCanvasSurface
+                    ? skiaCpuCanvasSurface
+                    : canvasSurface;
 
         private Size ActiveCanvasSize => ActiveCanvasSurface.Size;
 
@@ -470,6 +483,7 @@ namespace Land_Readjustment_Tool.UI.CustomControls
             if (!capture)
             {
                 canvasSurface.Capture = false;
+                skiaCpuCanvasSurface.Capture = false;
                 gpuCanvasSurface.Capture = false;
                 return;
             }
@@ -480,20 +494,30 @@ namespace Land_Readjustment_Tool.UI.CustomControls
         private void SetCanvasCursor(Cursor cursor)
         {
             canvasSurface.Cursor = cursor;
+            skiaCpuCanvasSurface.Cursor = cursor;
             gpuCanvasSurface.Cursor = cursor;
         }
 
         private void ApplyCanvasSurfaceForRenderBackend()
         {
+            bool useCpu = UseSkiaCpuCanvasSurface;
             bool useGpu = UseGpuCanvasSurface;
-            canvasSurface.Visible = !useGpu;
-            canvasSurface.Enabled = !useGpu;
+            bool useGdi = !useCpu && !useGpu;
+
+            canvasSurface.Visible = useGdi;
+            canvasSurface.Enabled = useGdi;
+            skiaCpuCanvasSurface.Visible = useCpu;
+            skiaCpuCanvasSurface.Enabled = useCpu;
             gpuCanvasSurface.Visible = useGpu;
             gpuCanvasSurface.Enabled = useGpu;
 
             if (useGpu)
             {
                 gpuCanvasSurface.BringToFront();
+            }
+            else if (useCpu)
+            {
+                skiaCpuCanvasSurface.BringToFront();
             }
             else
             {
@@ -729,6 +753,7 @@ namespace Land_Readjustment_Tool.UI.CustomControls
             _renderer.UpdateSettings(_renderSettings);
             BackColor = _renderSettings.BackgroundColor;
             canvasSurface.BackColor = _renderSettings.BackgroundColor;
+            skiaCpuCanvasSurface.BackColor = _renderSettings.BackgroundColor;
             gpuCanvasSurface.BackColor = _renderSettings.BackgroundColor;
             ApplyCanvasSurfaceForRenderBackend();
             InvalidateGpuInteractionFrameCache();
@@ -759,6 +784,7 @@ namespace Land_Readjustment_Tool.UI.CustomControls
             _renderer.UpdateSettings(_renderSettings);
             BackColor = color;
             canvasSurface.BackColor = color;
+            skiaCpuCanvasSurface.BackColor = color;
             gpuCanvasSurface.BackColor = color;
             InvalidateGpuInteractionFrameCache();
             RequestRender();
@@ -1908,7 +1934,7 @@ namespace Land_Readjustment_Tool.UI.CustomControls
 
         private void canvasSurface_Paint(object? sender, PaintEventArgs e)
         {
-            if (UseGpuCanvasSurface)
+            if (UseSkiaCanvasSurface)
             {
                 return;
             }
@@ -1949,14 +1975,25 @@ namespace Land_Readjustment_Tool.UI.CustomControls
 
         private void canvasSurface_PaintSurface(object? sender, SKPaintGLSurfaceEventArgs e)
         {
-            SKCanvas canvas = e.Surface.Canvas;
-            Size pixelSize = new(
-                Math.Max(1, e.Info.Width),
-                Math.Max(1, e.Info.Height));
+            RenderSkiaCanvasSurface(
+                e.Surface.Canvas,
+                new Size(Math.Max(1, e.Info.Width), Math.Max(1, e.Info.Height)),
+                e.Surface);
+        }
 
-            if (!UseGpuCanvasSurface)
+        private void canvasSurface_PaintSurface(object? sender, SKPaintSurfaceEventArgs e)
+        {
+            RenderSkiaCanvasSurface(
+                e.Surface.Canvas,
+                new Size(Math.Max(1, e.Info.Width), Math.Max(1, e.Info.Height)),
+                e.Surface);
+        }
+
+        private void RenderSkiaCanvasSurface(SKCanvas canvas, Size pixelSize, SKSurface surface)
+        {
+            if (!UseSkiaCanvasSurface)
             {
-                canvas.Clear(ToSkiaColor(gpuCanvasSurface.BackColor));
+                canvas.Clear(ToSkiaColor(ActiveCanvasBackColor));
                 return;
             }
 
@@ -1973,7 +2010,7 @@ namespace Land_Readjustment_Tool.UI.CustomControls
                 ClearRefreshHoldFrame();
             }
 
-            if (!TryRenderCachedGpuFrame(canvas, pixelSize, e.Surface))
+            if (!TryRenderCachedGpuFrame(canvas, pixelSize, surface))
             {
                 canvas.Clear(ToSkiaColor(ActiveCanvasBackColor));
                 DrawDebugOverlayIfNeeded(
@@ -2047,7 +2084,7 @@ namespace Land_Readjustment_Tool.UI.CustomControls
                 bakedNavigationSnapshotOverlay = true;
             }
 
-            if (!usedInteractionCache)
+            if (UseGpuCanvasSurface && !usedInteractionCache)
             {
                 CaptureGpuViewportFrameCache(
                     gpuSurface,
@@ -2074,7 +2111,8 @@ namespace Land_Readjustment_Tool.UI.CustomControls
 
             frameStopwatch.Stop();
             UpdateDebugFrameTiming(frameStopwatch.Elapsed.TotalMilliseconds);
-            _lastDebugFrameWasDirectGpu = true;
+            _lastDebugFrameWasDirectGpu = UseGpuCanvasSurface;
+            _lastDebugFrameWasDirectSkiaCpu = UseSkiaCpuCanvasSurface;
             _lastDebugFrameUsedGpuInteractionCache = usedInteractionCache;
             DrawDebugOverlayIfNeeded(canvas, pixelSize, rasterFrameSource, vectorFrameSource);
             return true;
@@ -2352,7 +2390,7 @@ namespace Land_Readjustment_Tool.UI.CustomControls
 
         private bool CanUseDirectGpuCachedFrame()
         {
-            return _renderSettings.RenderBackend == MapRenderBackend.SkiaGpu;
+            return UseSkiaCanvasSurface;
         }
 
         private static SKColor ToSkiaColor(Color color) =>
@@ -2426,6 +2464,7 @@ namespace Land_Readjustment_Tool.UI.CustomControls
                 frameStopwatch.Stop();
                 UpdateDebugFrameTiming(frameStopwatch.Elapsed.TotalMilliseconds);
                 _lastDebugFrameWasDirectGpu = false;
+                _lastDebugFrameWasDirectSkiaCpu = false;
                 _lastDebugFrameUsedGpuInteractionCache = false;
                 DrawDebugOverlayIfNeeded(graphics, rasterFrameSource, vectorFrameSource);
             }
@@ -2510,7 +2549,7 @@ namespace Land_Readjustment_Tool.UI.CustomControls
         private void CaptureRefreshHoldFrame()
         {
             if (_suppressContentUntilReady ||
-                UseGpuCanvasSurface ||
+                UseSkiaCanvasSurface ||
                 !_hasShownContentFrame ||
                 _refreshHoldFrame != null ||
                 IsDisposed ||
@@ -2822,7 +2861,7 @@ namespace Land_Readjustment_Tool.UI.CustomControls
             _panStartWorldOrigin = _engine.ViewOriginWorld;
             _currentMouseWorld = _panStartWorld;
 
-            if (!UseGpuCanvasSurface)
+            if (!UseSkiaCanvasSurface)
             {
                 // Snapshot exactly what is on screen right now into one composite bitmap.
                 // _isPanning is still false here so GetRasterRenderFrame / GetVectorRenderFrame
@@ -2844,7 +2883,7 @@ namespace Land_Readjustment_Tool.UI.CustomControls
             _holdZoomStartFrameUntilRasterRefresh = false;
             _isPanning = true;
 
-            if (!UseGpuCanvasSurface)
+            if (!UseSkiaCanvasSurface)
             {
                 // Keep the separate deferred buffers as fallback for when the composite
                 // build failed (e.g. insufficient memory).
@@ -9865,7 +9904,7 @@ namespace Land_Readjustment_Tool.UI.CustomControls
                 return;
             }
 
-            if (UseGpuCanvasSurface)
+            if (UseSkiaCanvasSurface)
             {
                 PointD delta = new(
                     _currentMouseWorld.Value.X - _activeMoveOperation.ReferenceWorld.X,
@@ -9949,7 +9988,7 @@ namespace Land_Readjustment_Tool.UI.CustomControls
             _activeMoveOperation.Phase = MoveOperationPhase.AwaitingDestination;
             _currentMouseWorld = referenceWorld;
 
-            if (UseGpuCanvasSurface)
+            if (UseSkiaCanvasSurface)
             {
                 DisposeMovePreviewBitmap();
                 InvalidateGpuInteractionFrameCache();
@@ -11344,6 +11383,8 @@ namespace Land_Readjustment_Tool.UI.CustomControls
                 ? _lastDebugFrameUsedGpuInteractionCache
                     ? "SkiaGpu cached canvas"
                     : "SkiaGpu direct canvas"
+                : _lastDebugFrameWasDirectSkiaCpu
+                    ? "SkiaCpu direct canvas"
                 : surf.SurfaceCount > 0
                     ? surf.Backend.ToString()
                     : "(idle)";
@@ -11561,7 +11602,7 @@ namespace Land_Readjustment_Tool.UI.CustomControls
             {
                 CancelPendingRasterRender();
                 CancelPendingVectorRender();
-                if (UseGpuCanvasSurface)
+                if (UseSkiaCanvasSurface)
                 {
                     _holdZoomStartFrameUntilRasterRefresh = false;
                     _holdVectorZoomFrameUntilRefresh = false;

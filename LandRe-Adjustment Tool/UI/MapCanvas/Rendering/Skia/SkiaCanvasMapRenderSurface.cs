@@ -1,8 +1,10 @@
+using System.Diagnostics;
 using System.Drawing.Drawing2D;
 using System.Drawing.Imaging;
 using System.Runtime.CompilerServices;
 using System.Threading;
 using Land_Readjustment_Tool.UI.MapCanvas.Rendering.Abstractions;
+using Land_Readjustment_Tool.UI.MapCanvas.Rendering.Diagnostics;
 using Land_Readjustment_Tool.UI.MapCanvas.Rendering.Gdi;
 using SkiaSharp;
 
@@ -17,6 +19,9 @@ namespace Land_Readjustment_Tool.UI.MapCanvas.Rendering.Skia
     public sealed class SkiaCanvasMapRenderSurface : IMapRenderSurface
     {
         private readonly SKCanvas _canvas;
+        private readonly Dictionary<StrokePaintKey, SKPaint> _strokePaintCache = new();
+        private readonly Dictionary<FillPaintKey, SKPaint> _fillPaintCache = new();
+        private readonly Dictionary<TextPaintKey, SKPaint> _textPaintCache = new();
         private readonly Dictionary<TextKey, SKTypeface> _typefaceCache = new();
         private static readonly ConditionalWeakTable<Image, CachedSkiaImage> ImageCache = new();
         // The cap must be large enough to cache the full-canvas vector/raster cache
@@ -31,6 +36,7 @@ namespace Land_Readjustment_Tool.UI.MapCanvas.Rendering.Skia
         private static long _uncachedImages;
         private RenderQuality _quality = RenderQuality.VectorHighQuality;
         private bool _disposed;
+        private const int MaxPaintCacheEntries = 512;
 
         public SkiaCanvasMapRenderSurface(SKCanvas canvas, Size pixelSize)
         {
@@ -70,7 +76,7 @@ namespace Land_Readjustment_Tool.UI.MapCanvas.Rendering.Skia
                 return;
             }
 
-            using SKPaint paint = CreateStrokePaint(stroke);
+            SKPaint paint = CreateStrokePaint(stroke);
             _canvas.DrawLine(a.X, a.Y, b.X, b.Y, paint);
         }
 
@@ -82,7 +88,7 @@ namespace Land_Readjustment_Tool.UI.MapCanvas.Rendering.Skia
                 return;
             }
 
-            using SKPaint paint = CreateStrokePaint(stroke);
+            SKPaint paint = CreateStrokePaint(stroke);
             _canvas.DrawPath(skiaPath, paint);
         }
 
@@ -96,7 +102,7 @@ namespace Land_Readjustment_Tool.UI.MapCanvas.Rendering.Skia
 
             if (fill.Pattern == FillPatternKind.Solid)
             {
-                using SKPaint paint = CreateFillPaint(fill.Color);
+                SKPaint paint = CreateFillPaint(fill.Color);
                 _canvas.DrawPath(skiaPath, paint);
                 return;
             }
@@ -111,7 +117,7 @@ namespace Land_Readjustment_Tool.UI.MapCanvas.Rendering.Skia
                 return;
             }
 
-            using SKPaint paint = CreateStrokePaint(stroke);
+            SKPaint paint = CreateStrokePaint(stroke);
             _canvas.DrawRect(SkiaMapPathBuilder.ToSkiaRect(rect), paint);
         }
 
@@ -122,7 +128,7 @@ namespace Land_Readjustment_Tool.UI.MapCanvas.Rendering.Skia
                 return;
             }
 
-            using SKPaint paint = CreateFillPaint(fill.Color);
+            SKPaint paint = CreateFillPaint(fill.Color);
             _canvas.DrawRect(SkiaMapPathBuilder.ToSkiaRect(rect), paint);
         }
 
@@ -133,7 +139,7 @@ namespace Land_Readjustment_Tool.UI.MapCanvas.Rendering.Skia
                 return;
             }
 
-            using SKPaint paint = CreateStrokePaint(stroke);
+            SKPaint paint = CreateStrokePaint(stroke);
             _canvas.DrawOval(SkiaMapPathBuilder.ToSkiaRect(rect), paint);
         }
 
@@ -144,7 +150,7 @@ namespace Land_Readjustment_Tool.UI.MapCanvas.Rendering.Skia
                 return;
             }
 
-            using SKPaint paint = CreateFillPaint(fill.Color);
+            SKPaint paint = CreateFillPaint(fill.Color);
             _canvas.DrawOval(SkiaMapPathBuilder.ToSkiaRect(rect), paint);
         }
 
@@ -158,13 +164,13 @@ namespace Land_Readjustment_Tool.UI.MapCanvas.Rendering.Skia
                 return;
             }
 
-            using SKPaint paint = CreateStrokePaint(stroke);
+            SKPaint paint = CreateStrokePaint(stroke);
             _canvas.DrawArc(SkiaMapPathBuilder.ToSkiaRect(rect), startDeg, sweepDeg, false, paint);
         }
 
         public SizeF MeasureText(string text, in TextStyle style)
         {
-            using SKPaint paint = CreateTextPaint(style);
+            SKPaint paint = CreateTextPaint(style);
             string[] lines = SplitLines(text);
             float width = 0.0f;
             foreach (string line in lines)
@@ -184,7 +190,7 @@ namespace Land_Readjustment_Tool.UI.MapCanvas.Rendering.Skia
                 return;
             }
 
-            using SKPaint paint = CreateTextPaint(style);
+            SKPaint paint = CreateTextPaint(style);
             string[] lines = SplitLines(text);
             SKFontMetrics metrics = paint.FontMetrics;
             float lineHeight = Math.Max(1.0f, metrics.Descent - metrics.Ascent + metrics.Leading);
@@ -257,6 +263,10 @@ namespace Land_Readjustment_Tool.UI.MapCanvas.Rendering.Skia
             }
 
             _disposed = true;
+            DisposePaintCache(_strokePaintCache);
+            DisposePaintCache(_fillPaintCache);
+            DisposePaintCache(_textPaintCache);
+
             foreach (SKTypeface typeface in _typefaceCache.Values)
             {
                 typeface.Dispose();
@@ -271,37 +281,86 @@ namespace Land_Readjustment_Tool.UI.MapCanvas.Rendering.Skia
 
         private SKPaint CreateStrokePaint(in StrokeStyle style)
         {
+            float width = Math.Max(0.1f, style.Width);
+            float dashScale = Math.Clamp(style.DashScale, 0.1f, 100.0f);
+            StrokePaintKey key = new(
+                style.Color.ToArgb(),
+                width,
+                style.DashPattern,
+                dashScale,
+                style.Cap,
+                style.Join,
+                IsAntialiasEnabled);
+
+            if (_strokePaintCache.TryGetValue(key, out SKPaint? cached))
+            {
+                return cached;
+            }
+
+            EnsurePaintCacheCapacity(_strokePaintCache, "stroke");
             SKPaint paint = new()
             {
                 Style = SKPaintStyle.Stroke,
                 Color = ToSkiaColor(style.Color),
-                StrokeWidth = Math.Max(0.1f, style.Width),
+                StrokeWidth = width,
                 StrokeCap = ToSkiaStrokeCap(style.Cap),
                 StrokeJoin = ToSkiaStrokeJoin(style.Join),
                 IsAntialias = IsAntialiasEnabled
             };
-            paint.PathEffect = CreateDashEffect(style);
+            paint.PathEffect = CreateDashEffect(style.DashPattern, dashScale);
+            _strokePaintCache[key] = paint;
             return paint;
         }
 
-        private SKPaint CreateFillPaint(Color color) =>
-            new()
+        private SKPaint CreateFillPaint(Color color)
+        {
+            FillPaintKey key = new(color.ToArgb(), IsAntialiasEnabled);
+            if (_fillPaintCache.TryGetValue(key, out SKPaint? cached))
+            {
+                return cached;
+            }
+
+            EnsurePaintCacheCapacity(_fillPaintCache, "fill");
+            SKPaint paint = new()
             {
                 Style = SKPaintStyle.Fill,
                 Color = ToSkiaColor(color),
                 IsAntialias = IsAntialiasEnabled
             };
+            _fillPaintCache[key] = paint;
+            return paint;
+        }
 
-        private SKPaint CreateTextPaint(in TextStyle style) =>
-            new()
+        private SKPaint CreateTextPaint(in TextStyle style)
+        {
+            string family = ResolveFontFamily(style.FontFamily);
+            float size = Math.Max(1.0f, style.SizePx);
+            TextPaintKey key = new(
+                family,
+                size,
+                style.Color.ToArgb(),
+                style.Bold,
+                style.HorizontalAlign,
+                IsAntialiasEnabled);
+
+            if (_textPaintCache.TryGetValue(key, out SKPaint? cached))
+            {
+                return cached;
+            }
+
+            EnsurePaintCacheCapacity(_textPaintCache, "text");
+            SKPaint paint = new()
             {
                 Style = SKPaintStyle.Fill,
                 Color = ToSkiaColor(style.Color),
                 IsAntialias = IsAntialiasEnabled,
-                TextSize = Math.Max(1.0f, style.SizePx),
-                Typeface = GetTypeface(style),
+                TextSize = size,
+                Typeface = GetTypeface(family, style.Bold),
                 TextAlign = ToSkiaTextAlign(style.HorizontalAlign)
             };
+            _textPaintCache[key] = paint;
+            return paint;
+        }
 
         private static SKPaint CreateImagePaint(in ImageStyle style) =>
             new()
@@ -318,7 +377,7 @@ namespace Land_Readjustment_Tool.UI.MapCanvas.Rendering.Skia
             using IDisposable state = SaveState();
             if (fill.Color.A > 0)
             {
-                using SKPaint background = CreateFillPaint(fill.Color);
+                SKPaint background = CreateFillPaint(fill.Color);
                 _canvas.DrawPath(path, background);
             }
 
@@ -351,6 +410,7 @@ namespace Land_Readjustment_Tool.UI.MapCanvas.Rendering.Skia
 
             if (path is GdiMapPath gdiPath)
             {
+                RenderBackendTelemetry.RecordGdiPathFallback();
                 return ConvertGdiPath(gdiPath.Path, gdiPath.FillRule);
             }
 
@@ -488,10 +548,9 @@ namespace Land_Readjustment_Tool.UI.MapCanvas.Rendering.Skia
             };
         }
 
-        private SKTypeface GetTypeface(in TextStyle style)
+        private SKTypeface GetTypeface(string family, bool bold)
         {
-            string family = string.IsNullOrWhiteSpace(style.FontFamily) ? "Segoe UI" : style.FontFamily;
-            TextKey key = new(family, style.Bold);
+            TextKey key = new(family, bold);
             if (_typefaceCache.TryGetValue(key, out SKTypeface? cached))
             {
                 return cached;
@@ -499,17 +558,16 @@ namespace Land_Readjustment_Tool.UI.MapCanvas.Rendering.Skia
 
             SKTypeface typeface = SKTypeface.FromFamilyName(
                 family,
-                style.Bold ? SKFontStyleWeight.Bold : SKFontStyleWeight.Normal,
+                bold ? SKFontStyleWeight.Bold : SKFontStyleWeight.Normal,
                 SKFontStyleWidth.Normal,
                 SKFontStyleSlant.Upright);
             _typefaceCache[key] = typeface;
             return typeface;
         }
 
-        private static SKPathEffect? CreateDashEffect(in StrokeStyle style)
+        private static SKPathEffect? CreateDashEffect(DashPatternKind dashPattern, float scale)
         {
-            float scale = Math.Clamp(style.DashScale, 0.1f, 100.0f);
-            float[]? intervals = style.DashPattern switch
+            float[]? intervals = dashPattern switch
             {
                 DashPatternKind.Dashed => [4f * scale, 2f * scale],
                 DashPatternKind.Dotted => [0.1f, Math.Max(1.5f, 2f * scale)],
@@ -521,6 +579,33 @@ namespace Land_Readjustment_Tool.UI.MapCanvas.Rendering.Skia
 
             return intervals == null ? null : SKPathEffect.CreateDash(intervals, 0.0f);
         }
+
+        private void EnsurePaintCacheCapacity<TKey>(Dictionary<TKey, SKPaint> cache, string cacheName)
+            where TKey : notnull
+        {
+            if (cache.Count < MaxPaintCacheEntries)
+            {
+                return;
+            }
+
+            Debug.WriteLine(
+                $"Skia canvas {cacheName} paint cache exceeded {MaxPaintCacheEntries} entries; clearing cached paints.");
+            DisposePaintCache(cache);
+        }
+
+        private static void DisposePaintCache<TKey>(Dictionary<TKey, SKPaint> cache)
+            where TKey : notnull
+        {
+            foreach (SKPaint paint in cache.Values)
+            {
+                paint.Dispose();
+            }
+
+            cache.Clear();
+        }
+
+        private static string ResolveFontFamily(string? fontFamily) =>
+            string.IsNullOrWhiteSpace(fontFamily) ? "Segoe UI" : fontFamily.Trim();
 
         private static string[] SplitLines(string text) =>
             string.IsNullOrEmpty(text)
@@ -613,6 +698,25 @@ namespace Land_Readjustment_Tool.UI.MapCanvas.Rendering.Skia
         }
 
         private readonly record struct TextKey(string Family, bool Bold);
+
+        private readonly record struct StrokePaintKey(
+            int ColorArgb,
+            float Width,
+            DashPatternKind DashPattern,
+            float DashScale,
+            LineCapKind Cap,
+            LineJoinKind Join,
+            bool AntiAlias);
+
+        private readonly record struct FillPaintKey(int ColorArgb, bool AntiAlias);
+
+        private readonly record struct TextPaintKey(
+            string Family,
+            float SizePx,
+            int ColorArgb,
+            bool Bold,
+            TextAlign HorizontalAlign,
+            bool AntiAlias);
 
         private sealed class CachedSkiaImage
         {

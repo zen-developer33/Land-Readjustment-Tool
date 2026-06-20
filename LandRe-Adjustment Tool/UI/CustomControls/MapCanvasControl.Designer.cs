@@ -4,6 +4,7 @@ namespace Land_Readjustment_Tool.UI.CustomControls
     {
         private System.ComponentModel.IContainer components = null;
         private Land_Readjustment_Tool.UI.MapCanvas.CanvasPanel canvasSurface;
+        private Land_Readjustment_Tool.UI.MapCanvas.SkiaCpuCanvasPanel skiaCpuCanvasSurface;
         private Land_Readjustment_Tool.UI.MapCanvas.GpuCanvasPanel gpuCanvasSurface;
         private ContextMenuStrip _objectSelectionContextMenu;
         private ContextMenuStrip _drawingOptionsContextMenu;
@@ -54,6 +55,7 @@ namespace Land_Readjustment_Tool.UI.CustomControls
         {
             components = new System.ComponentModel.Container();
             canvasSurface = new Land_Readjustment_Tool.UI.MapCanvas.CanvasPanel();
+            skiaCpuCanvasSurface = new Land_Readjustment_Tool.UI.MapCanvas.SkiaCpuCanvasPanel();
             gpuCanvasSurface = new Land_Readjustment_Tool.UI.MapCanvas.GpuCanvasPanel();
             _objectSelectionContextMenu = new ContextMenuStrip(components);
             _mnuEditText = new ToolStripMenuItem();
@@ -158,6 +160,18 @@ namespace Land_Readjustment_Tool.UI.CustomControls
             canvasSurface.TabIndex = 0;
             canvasSurface.Paint += canvasSurface_Paint;
             canvasSurface.Resize += canvasSurface_Resize;
+            //
+            // skiaCpuCanvasSurface
+            //
+            skiaCpuCanvasSurface.BackColor = Color.White;
+            skiaCpuCanvasSurface.Dock = DockStyle.Fill;
+            skiaCpuCanvasSurface.Location = new Point(0, 0);
+            skiaCpuCanvasSurface.Name = "skiaCpuCanvasSurface";
+            skiaCpuCanvasSurface.Size = new Size(800, 500);
+            skiaCpuCanvasSurface.TabIndex = 1;
+            skiaCpuCanvasSurface.Visible = false;
+            skiaCpuCanvasSurface.PaintSurface += canvasSurface_PaintSurface;
+            skiaCpuCanvasSurface.Resize += canvasSurface_Resize;
             // 
             // gpuCanvasSurface
             // 
@@ -166,7 +180,7 @@ namespace Land_Readjustment_Tool.UI.CustomControls
             gpuCanvasSurface.Location = new Point(0, 0);
             gpuCanvasSurface.Name = "gpuCanvasSurface";
             gpuCanvasSurface.Size = new Size(800, 500);
-            gpuCanvasSurface.TabIndex = 1;
+            gpuCanvasSurface.TabIndex = 2;
             gpuCanvasSurface.Visible = false;
             gpuCanvasSurface.GpuPaintSurface += canvasSurface_PaintSurface;
             gpuCanvasSurface.Resize += canvasSurface_Resize;
@@ -176,6 +190,7 @@ namespace Land_Readjustment_Tool.UI.CustomControls
             AutoScaleMode = AutoScaleMode.None;
             BackColor = Color.White;
             Controls.Add(gpuCanvasSurface);
+            Controls.Add(skiaCpuCanvasSurface);
             Controls.Add(canvasSurface);
             Name = "MapCanvasControl";
             Size = new Size(800, 500);

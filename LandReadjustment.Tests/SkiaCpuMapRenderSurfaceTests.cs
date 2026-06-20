@@ -236,6 +236,47 @@ public sealed class SkiaCpuMapRenderSurfaceTests
     }
 
     /// <summary>
+    /// Verifies that the direct Skia canvas surface used by SKControl/SKGLControl
+    /// shares the same paint-cache behavior as the bitmap-backed CPU bridge.
+    /// </summary>
+    [Fact]
+    public void DirectCanvasCreateStrokePaint_WithSameStyle_ReusesCachedPaint()
+    {
+        using SKSurface skSurface = SKSurface.Create(new SKImageInfo(32, 24));
+        using SkiaCanvasMapRenderSurface surface = new(skSurface.Canvas, new Size(32, 24));
+        surface.SetQuality(RenderQuality.VectorHighQuality);
+
+        StrokeStyle style = new(Color.Red, 2.0f, DashPatternKind.Dashed);
+
+        SKPaint first = InvokeCreateStrokePaint(surface, style);
+        SKPaint second = InvokeCreateStrokePaint(surface, style);
+
+        Assert.Same(first, second);
+    }
+
+    /// <summary>
+    /// Verifies that the direct Skia canvas surface keeps quality in its cache
+    /// key, preventing stale antialias state when users switch render presets.
+    /// </summary>
+    [Fact]
+    public void DirectCanvasCreateStrokePaint_WithDifferentQuality_UsesDifferentCachedPaint()
+    {
+        using SKSurface skSurface = SKSurface.Create(new SKImageInfo(32, 24));
+        using SkiaCanvasMapRenderSurface surface = new(skSurface.Canvas, new Size(32, 24));
+        StrokeStyle style = new(Color.Red, 2.0f);
+
+        surface.SetQuality(RenderQuality.VectorHighQuality);
+        SKPaint highQuality = InvokeCreateStrokePaint(surface, style);
+
+        surface.SetQuality(RenderQuality.VectorHighSpeed);
+        SKPaint highSpeed = InvokeCreateStrokePaint(surface, style);
+
+        Assert.NotSame(highQuality, highSpeed);
+        Assert.True(highQuality.IsAntialias);
+        Assert.False(highSpeed.IsAntialias);
+    }
+
+    /// <summary>
     /// Creates a triangle path through the same surface interface production
     /// code uses.
     /// </summary>
@@ -267,6 +308,17 @@ public sealed class SkiaCpuMapRenderSurfaceTests
             "CreateStrokePaint",
             PrivateInstance)
             ?? throw new MissingMethodException(nameof(SkiaCpuMapRenderSurface), "CreateStrokePaint");
+
+        object?[] parameters = [style];
+        return Assert.IsType<SKPaint>(method.Invoke(surface, parameters));
+    }
+
+    private static SKPaint InvokeCreateStrokePaint(SkiaCanvasMapRenderSurface surface, StrokeStyle style)
+    {
+        MethodInfo method = typeof(SkiaCanvasMapRenderSurface).GetMethod(
+            "CreateStrokePaint",
+            PrivateInstance)
+            ?? throw new MissingMethodException(nameof(SkiaCanvasMapRenderSurface), "CreateStrokePaint");
 
         object?[] parameters = [style];
         return Assert.IsType<SKPaint>(method.Invoke(surface, parameters));
