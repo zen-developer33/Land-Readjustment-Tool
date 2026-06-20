@@ -2069,7 +2069,8 @@ namespace Land_Readjustment_Tool.UI.CustomControls
 
             DrawDirectGpuOverlayContent(
                 surface,
-                suppressNavigationSnapshotOverlay: usedInteractionCache || bakedNavigationSnapshotOverlay);
+                suppressNavigationSnapshotOverlay:
+                    usedInteractionCache || bakedNavigationSnapshotOverlay);
 
             frameStopwatch.Stop();
             UpdateDebugFrameTiming(frameStopwatch.Elapsed.TotalMilliseconds);

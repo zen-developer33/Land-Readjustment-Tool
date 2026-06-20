@@ -7,8 +7,8 @@ namespace Land_Readjustment_Tool.UI.MapCanvas.Rendering
     {
         private static readonly IReadOnlyList<MapCanvasRenderStage> FrameStages =
         [
-            MapCanvasRenderStage.FixedReference,
             MapCanvasRenderStage.RasterContent,
+            MapCanvasRenderStage.FixedReference,
             MapCanvasRenderStage.VectorContent,
             MapCanvasRenderStage.InteractionOverlay
         ];
@@ -36,7 +36,7 @@ namespace Land_Readjustment_Tool.UI.MapCanvas.Rendering
     public enum MapCanvasRenderStage
     {
         /// <summary>
-        /// Draws fixed reference visuals such as grid lines and origin markers.
+        /// Draws fixed reference visuals such as grid lines and labels above raster content.
         /// </summary>
         FixedReference,
 
