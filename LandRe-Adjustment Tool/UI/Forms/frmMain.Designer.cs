@@ -658,18 +658,18 @@ namespace Land_Readjustment_Tool
             // roadDataToolStripMenuItem
             // 
             roadDataToolStripMenuItem.Name = "roadDataToolStripMenuItem";
-            roadDataToolStripMenuItem.Size = new Size(224, 26);
+            roadDataToolStripMenuItem.Size = new Size(212, 26);
             roadDataToolStripMenuItem.Text = "Define Road Data";
             // 
             // toolStripSeparator20
             // 
             toolStripSeparator20.Name = "toolStripSeparator20";
-            toolStripSeparator20.Size = new Size(221, 6);
+            toolStripSeparator20.Size = new Size(209, 6);
             // 
             // blockDataToolStripMenuItem
             // 
             blockDataToolStripMenuItem.Name = "blockDataToolStripMenuItem";
-            blockDataToolStripMenuItem.Size = new Size(224, 26);
+            blockDataToolStripMenuItem.Size = new Size(212, 26);
             blockDataToolStripMenuItem.Text = "Define Block Data";
             // 
             // assignmentToolStripMenuItem
@@ -2342,12 +2342,17 @@ namespace Land_Readjustment_Tool
             // 
             cboCurrentDrawingLayer.BackColor = SystemColors.ControlLight;
             cboCurrentDrawingLayer.DropDownStyle = ComboBoxStyle.DropDownList;
-            cboCurrentDrawingLayer.FlatStyle = FlatStyle.System;
             cboCurrentDrawingLayer.Name = "cboCurrentDrawingLayer";
             cboCurrentDrawingLayer.Size = new Size(180, 28);
             cboCurrentDrawingLayer.ToolTipText = "Current drawing/markup layer";
             cboCurrentDrawingLayer.SelectedIndexChanged += cboCurrentDrawingLayer_SelectedIndexChanged;
             cboCurrentDrawingLayer.Click += cboCurrentDrawingLayer_Click;
+            cboCurrentDrawingLayer.ComboBox.DrawMode = DrawMode.OwnerDrawFixed;
+            cboCurrentDrawingLayer.ComboBox.ItemHeight = CurrentDrawingLayerComboItemHeight;
+            cboCurrentDrawingLayer.ComboBox.DropDownHeight = (CurrentDrawingLayerComboItemHeight * 12) + 2;
+            cboCurrentDrawingLayer.ComboBox.DrawItem += CurrentDrawingLayerCombo_DrawItem;
+            cboCurrentDrawingLayer.ComboBox.GotFocus += CurrentDrawingLayerCombo_FocusChanged;
+            cboCurrentDrawingLayer.ComboBox.LostFocus += CurrentDrawingLayerCombo_FocusChanged;
             // 
             // mnuCanvasDebugOverlay
             // 
@@ -2366,7 +2371,7 @@ namespace Land_Readjustment_Tool
             mnuCanvasPerformanceOverlay.DisplayStyle = ToolStripItemDisplayStyle.Text;
             mnuCanvasPerformanceOverlay.ImageTransparentColor = Color.Magenta;
             mnuCanvasPerformanceOverlay.Name = "mnuCanvasPerformanceOverlay";
-            mnuCanvasPerformanceOverlay.Size = new Size(97, 25);
+            mnuCanvasPerformanceOverlay.Size = new Size(96, 25);
             mnuCanvasPerformanceOverlay.Text = "Performance";
             mnuCanvasPerformanceOverlay.ToolTipText = "Show canvas performance overlay";
             mnuCanvasPerformanceOverlay.Click += mnuCanvasPerformanceOverlay_Click;

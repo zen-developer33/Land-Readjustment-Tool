@@ -439,7 +439,6 @@ namespace Land_Readjustment_Tool
             mnuOSnapToggle.Checked = mapCanvasControlMain.SnapEnabled;
             mnuOrthoToggle.Checked = mapCanvasControlMain.OrthoModeEnabled;
             ConfigureLayerTree();
-            ConfigureCurrentDrawingLayerCombo();
             ConfigureLayerPropertiesPanel();
             MapCanvasControlMain_StatusChanged("E: --    N: --", "Ready", 0);
 
@@ -9646,14 +9645,12 @@ namespace Land_Readjustment_Tool
             ResetLayerTree();
         }
 
-        private void ConfigureCurrentDrawingLayerCombo()
+        private void CurrentDrawingLayerCombo_FocusChanged(object? sender, EventArgs e)
         {
-            ComboBox combo = cboCurrentDrawingLayer.ComboBox;
-            combo.DrawMode = DrawMode.OwnerDrawFixed;
-            combo.ItemHeight = Math.Max(combo.ItemHeight, CurrentDrawingLayerComboItemHeight);
-            combo.DropDownHeight = (CurrentDrawingLayerComboItemHeight * 12) + 2;
-            combo.DrawItem -= CurrentDrawingLayerCombo_DrawItem;
-            combo.DrawItem += CurrentDrawingLayerCombo_DrawItem;
+            if (sender is ComboBox combo)
+            {
+                combo.Invalidate();
+            }
         }
 
         private void CurrentDrawingLayerCombo_DrawItem(object? sender, DrawItemEventArgs e)
@@ -9661,7 +9658,14 @@ namespace Land_Readjustment_Tool
             if (sender is not ComboBox combo)
                 return;
 
-            bool selected = (e.State & DrawItemState.Selected) == DrawItemState.Selected;
+            // The closed display (edit portion) is drawn separately from the dropdown
+            // rows. It must NOT use the full-blue "selected" fill: that high-contrast
+            // repaint on focus is what flickered. Focus is shown as an accent border
+            // instead (drawn last). Only dropdown rows use the highlight fill.
+            bool isEditPortion =
+                (e.State & DrawItemState.ComboBoxEdit) == DrawItemState.ComboBoxEdit;
+            bool selected = !isEditPortion &&
+                            (e.State & DrawItemState.Selected) == DrawItemState.Selected;
             bool disabled = (e.State & DrawItemState.Disabled) == DrawItemState.Disabled || !combo.Enabled;
             Color backgroundColor = selected ? SystemColors.Highlight : combo.BackColor;
             Color textColor = disabled
@@ -9673,64 +9677,77 @@ namespace Land_Readjustment_Tool
             using (SolidBrush backgroundBrush = new(backgroundColor))
                 e.Graphics.FillRectangle(backgroundBrush, e.Bounds);
 
-            if (e.Index < 0 || e.Index >= combo.Items.Count)
+            if (e.Index >= 0 && e.Index < combo.Items.Count)
+            {
+                object? item = combo.Items[e.Index];
+                if (item is DrawingLayerComboItem layerItem)
+                {
+                    CanvasLayer layer = layerItem.Layer;
+                    Color itemTextColor = textColor;
+                    if (layer.IsLocked && !selected && !disabled)
+                    {
+                        itemTextColor = BlendColor(combo.ForeColor, combo.BackColor, 0.48f);
+                    }
+
+                    int swatchSize = Math.Min(LayerNodeColorBoxSize, Math.Max(1, e.Bounds.Height - 6));
+                    Rectangle swatchRect = new(
+                        e.Bounds.Left + CurrentDrawingLayerComboPadding,
+                        e.Bounds.Top + Math.Max(0, (e.Bounds.Height - swatchSize) / 2),
+                        swatchSize,
+                        swatchSize);
+                    DrawCurrentDrawingLayerComboSwatch(e.Graphics, swatchRect, layer, combo.BackColor);
+
+                    int textLeft = swatchRect.Right + LayerNodeColorBoxGap;
+                    Rectangle textRect = new(
+                        textLeft,
+                        e.Bounds.Top,
+                        Math.Max(0, e.Bounds.Right - textLeft - CurrentDrawingLayerComboPadding),
+                        e.Bounds.Height);
+
+                    TextRenderer.DrawText(
+                        e.Graphics,
+                        layer.Name,
+                        combo.Font,
+                        textRect,
+                        itemTextColor,
+                        TextFormatFlags.Left |
+                        TextFormatFlags.SingleLine |
+                        TextFormatFlags.VerticalCenter |
+                        TextFormatFlags.EndEllipsis |
+                        TextFormatFlags.NoPrefix);
+                }
+                else
+                {
+                    TextRenderer.DrawText(
+                        e.Graphics,
+                        item?.ToString() ?? string.Empty,
+                        combo.Font,
+                        e.Bounds,
+                        textColor,
+                        TextFormatFlags.Left |
+                        TextFormatFlags.SingleLine |
+                        TextFormatFlags.VerticalCenter |
+                        TextFormatFlags.EndEllipsis |
+                        TextFormatFlags.NoPrefix);
+                }
+            }
+
+            if (isEditPortion)
+            {
+                // Show focus as a crisp accent border around the closed display.
+                if (combo.Focused && !disabled)
+                {
+                    Rectangle borderRect = e.Bounds;
+                    borderRect.Width -= 1;
+                    borderRect.Height -= 1;
+                    using Pen focusPen = new(SystemColors.Highlight, 1f);
+                    e.Graphics.DrawRectangle(focusPen, borderRect);
+                }
+            }
+            else
             {
                 e.DrawFocusRectangle();
-                return;
             }
-
-            object? item = combo.Items[e.Index];
-            if (item is not DrawingLayerComboItem layerItem)
-            {
-                TextRenderer.DrawText(
-                    e.Graphics,
-                    item?.ToString() ?? string.Empty,
-                    combo.Font,
-                    e.Bounds,
-                    textColor,
-                    TextFormatFlags.Left |
-                    TextFormatFlags.SingleLine |
-                    TextFormatFlags.VerticalCenter |
-                    TextFormatFlags.EndEllipsis |
-                    TextFormatFlags.NoPrefix);
-                e.DrawFocusRectangle();
-                return;
-            }
-
-            CanvasLayer layer = layerItem.Layer;
-            if (layer.IsLocked && !selected && !disabled)
-            {
-                textColor = BlendColor(combo.ForeColor, combo.BackColor, 0.48f);
-            }
-
-            int swatchSize = Math.Min(LayerNodeColorBoxSize, Math.Max(1, e.Bounds.Height - 6));
-            Rectangle swatchRect = new(
-                e.Bounds.Left + CurrentDrawingLayerComboPadding,
-                e.Bounds.Top + Math.Max(0, (e.Bounds.Height - swatchSize) / 2),
-                swatchSize,
-                swatchSize);
-            DrawCurrentDrawingLayerComboSwatch(e.Graphics, swatchRect, layer, combo.BackColor);
-
-            int textLeft = swatchRect.Right + LayerNodeColorBoxGap;
-            Rectangle textRect = new(
-                textLeft,
-                e.Bounds.Top,
-                Math.Max(0, e.Bounds.Right - textLeft - CurrentDrawingLayerComboPadding),
-                e.Bounds.Height);
-
-            TextRenderer.DrawText(
-                e.Graphics,
-                layer.Name,
-                combo.Font,
-                textRect,
-                textColor,
-                TextFormatFlags.Left |
-                TextFormatFlags.SingleLine |
-                TextFormatFlags.VerticalCenter |
-                TextFormatFlags.EndEllipsis |
-                TextFormatFlags.NoPrefix);
-
-            e.DrawFocusRectangle();
         }
 
         private void DrawCurrentDrawingLayerComboSwatch(

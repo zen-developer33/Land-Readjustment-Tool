@@ -19,6 +19,7 @@ using Land_Readjustment_Tool.UI.MapCanvas.Rendering.Gdi;
 using Land_Readjustment_Tool.UI.MapCanvas.Rendering.Skia;
 using Land_Readjustment_Tool.UI.MapCanvas.Services;
 using Land_Readjustment_Tool.Services.Canvas;
+using NetTopologySuite.Geometries.Prepared;
 using SkiaSharp;
 using SkiaSharp.Views.Desktop;
 using NtsCoordinate = NetTopologySuite.Geometries.Coordinate;
@@ -224,6 +225,7 @@ namespace Land_Readjustment_Tool.UI.CustomControls
         private List<CanvasLayer> _vectorLayers = new List<CanvasLayer>();
         private Dictionary<int, CanvasLayer> _vectorLayersById = new();
         private Dictionary<Guid, CanvasFeature> _vectorFeaturesByShapeId = new();
+        private Dictionary<Guid, CanvasFeature> _vectorFeaturesByCanvasObjectId = new();
         private readonly HashSet<Guid> _selectedShapeIds = new HashSet<Guid>();
         private bool _isSelectingObjects;
         private Point _objectSelectionStart;
@@ -251,6 +253,9 @@ namespace Land_Readjustment_Tool.UI.CustomControls
         private MoveOperation? _activeMoveOperation;
         private IReadOnlyList<CopiedShapeItem> _copiedShapeBuffer = Array.Empty<CopiedShapeItem>();
         private PointD _copiedShapeReferenceWorld;
+        private bool _moveOperationPreparationInProgress;
+        private bool _copyBufferPreparationInProgress;
+        private bool _pastePreparationInProgress;
         private Bitmap? _movePreviewBitmap;
         private PointF _movePreviewBitmapReferenceScreen;
         private double _movePreviewBitmapScale;
@@ -1080,6 +1085,9 @@ namespace Land_Readjustment_Tool.UI.CustomControls
             _vectorFeaturesByShapeId = _vectorFeatures
                 .GroupBy(feature => feature.Shape.Id)
                 .ToDictionary(group => group.Key, group => group.First());
+            _vectorFeaturesByCanvasObjectId = _vectorFeatures
+                .GroupBy(feature => feature.CanvasObject.Id)
+                .ToDictionary(group => group.Key, group => group.First());
         }
 
         private IEnumerable<CanvasFeature> EnumerateSelectedFeatures()
@@ -1090,6 +1098,39 @@ namespace Land_Readjustment_Tool.UI.CustomControls
             }
 
             foreach (Guid shapeId in _selectedShapeIds)
+            {
+                if (_vectorFeaturesByShapeId.TryGetValue(shapeId, out CanvasFeature? feature))
+                {
+                    yield return feature;
+                }
+            }
+        }
+
+        private IEnumerable<CanvasFeature> EnumerateFeaturesByCanvasOrShapeIds(IEnumerable<Guid> ids)
+        {
+            HashSet<Guid> yieldedShapeIds = new();
+            foreach (Guid id in ids)
+            {
+                if (id == Guid.Empty)
+                    continue;
+
+                if (_vectorFeaturesByCanvasObjectId.TryGetValue(id, out CanvasFeature? canvasFeature) &&
+                    yieldedShapeIds.Add(canvasFeature.Shape.Id))
+                {
+                    yield return canvasFeature;
+                }
+
+                if (_vectorFeaturesByShapeId.TryGetValue(id, out CanvasFeature? shapeFeature) &&
+                    yieldedShapeIds.Add(shapeFeature.Shape.Id))
+                {
+                    yield return shapeFeature;
+                }
+            }
+        }
+
+        private IEnumerable<CanvasFeature> EnumerateFeaturesByShapeIds(IEnumerable<Guid> shapeIds)
+        {
+            foreach (Guid shapeId in shapeIds)
             {
                 if (_vectorFeaturesByShapeId.TryGetValue(shapeId, out CanvasFeature? feature))
                 {
@@ -1337,15 +1378,10 @@ namespace Land_Readjustment_Tool.UI.CustomControls
 
         public void PreviewSelectCanvasObject(Guid canvasObjectId, bool zoomToObject)
         {
-            CanvasFeature? feature = _vectorFeatures
-                .FirstOrDefault(item =>
-                    item.CanvasObject.Id == canvasObjectId ||
-                    item.Shape.Id == canvasObjectId);
-
-            CanvasFeature[] features =
-                feature != null && IsSelectableDrawingFeature(feature)
-                    ? [feature]
-                    : [];
+            CanvasFeature[] features = EnumerateFeaturesByCanvasOrShapeIds([canvasObjectId])
+                .Where(IsSelectableDrawingFeature)
+                .Take(1)
+                .ToArray();
 
             if (zoomToObject && features.Length > 0)
             {
@@ -1363,8 +1399,7 @@ namespace Land_Readjustment_Tool.UI.CustomControls
                 .ToHashSet();
             List<CanvasFeature> features = ids.Count == 0
                 ? []
-                : _vectorFeatures
-                    .Where(item => ids.Contains(item.CanvasObject.Id) || ids.Contains(item.Shape.Id))
+                : EnumerateFeaturesByCanvasOrShapeIds(ids)
                     .Where(IsSelectableDrawingFeature)
                     .ToList();
 
@@ -1393,16 +1428,14 @@ namespace Land_Readjustment_Tool.UI.CustomControls
 
             List<CanvasFeature> candidateFeatures = ids.Count == 0
                 ? []
-                : _vectorFeatures
-                    .Where(item => ids.Contains(item.CanvasObject.Id) || ids.Contains(item.Shape.Id))
+                : EnumerateFeaturesByCanvasOrShapeIds(ids)
                     .Where(IsSelectableDrawingFeature)
                     .ToList();
             HashSet<Guid> candidateShapeIds = candidateFeatures
                 .Select(feature => feature.Shape.Id)
                 .ToHashSet();
             HashSet<Guid> finalShapeIds = GetSelectionResultShapeIds(mode, candidateShapeIds);
-            List<CanvasFeature> finalSelectedFeatures = _vectorFeatures
-                .Where(feature => finalShapeIds.Contains(feature.Shape.Id))
+            List<CanvasFeature> finalSelectedFeatures = EnumerateFeaturesByShapeIds(finalShapeIds)
                 .Where(IsSelectableDrawingFeature)
                 .ToList();
 
@@ -1448,8 +1481,7 @@ namespace Land_Readjustment_Tool.UI.CustomControls
             if (ids.Count == 0)
                 return;
 
-            List<CanvasFeature> features = _vectorFeatures
-                .Where(item => ids.Contains(item.CanvasObject.Id) || ids.Contains(item.Shape.Id))
+            List<CanvasFeature> features = EnumerateFeaturesByCanvasOrShapeIds(ids)
                 .ToList();
 
             if (TryGetCombinedFeatureBounds(features, out RectangleD bounds))
@@ -2323,6 +2355,9 @@ namespace Land_Readjustment_Tool.UI.CustomControls
             string exclusionKey = BuildGpuInteractionFrameCacheExclusionKey();
             if (_gpuInteractionFrameCacheInvalid ||
                 _gpuInteractionFrameCache == null ||
+                // Grid/fixed references are intentionally not baked into Skia
+                // CPU/GPU interaction snapshots. They are redrawn live below so
+                // grid lines and labels keep their current tested behavior.
                 (ShouldUseGpuInteractionFrameCache &&
                  !_gpuInteractionFrameCacheExcludesFixedReferences) ||
                 _gpuInteractionFrameCacheExclusionKey != exclusionKey ||
@@ -2421,6 +2456,8 @@ namespace Land_Readjustment_Tool.UI.CustomControls
         }
 
         private bool ShouldRenderGpuFixedReferencesLive(bool usedInteractionCache) =>
+            // Keep Skia CPU/GPU grid rendering on the live fixed-reference path.
+            // Baking it into the interaction cache changes pan/zoom grid labels.
             UseSkiaCanvasSurface &&
             (usedInteractionCache ||
              _captureGpuNavigationFrameWithoutFixedReferences ||
@@ -2474,6 +2511,9 @@ namespace Land_Readjustment_Tool.UI.CustomControls
                 return;
             }
 
+            // This forced pre-pan/pre-zoom snapshot deliberately excludes grid
+            // and other fixed references. The live overlay path is the locked
+            // implementation for Skia CPU/GPU grid lines and labels.
             _captureGpuNavigationFrameWithoutFixedReferences = true;
             try
             {
@@ -2594,12 +2634,12 @@ namespace Land_Readjustment_Tool.UI.CustomControls
                 DrawImmediateEditedFeatureOverlay(graphics);
                 DrawJustCompletedShapeOverlay(graphics);
                 DrawSelectedFeatureDecorations(graphics);
+                DrawActiveGripEditOverlay(graphics);
                 DrawActiveGripOriginalOverlay(graphics);
                 DrawSelectionGrips(graphics);
             }
             DrawObjectSelectionRectangle(graphics);
             DrawSelectionSketchPreview(graphics);
-            DrawActiveGripEditOverlay(graphics);
             DrawMoveOperationOverlay(graphics);
             DrawSnapGlyph(graphics);
             DrawCenterHintMarks(graphics);
@@ -4737,7 +4777,9 @@ namespace Land_Readjustment_Tool.UI.CustomControls
             }
 
             bool requireCovered = selectionTool == MapCanvasTool.SelectionPolygon;
-            return _vectorFeatures
+            RectangleD selectionBounds = CreateWorldRectangle(selectionGeometry.EnvelopeInternal);
+            IPreparedGeometry preparedSelectionGeometry = PreparedGeometryFactory.Prepare(selectionGeometry);
+            return _renderer.QueryVectorFeatures(selectionBounds)
                 .Where(IsSelectableDrawingFeature)
                 .Where(feature =>
                 {
@@ -4746,8 +4788,8 @@ namespace Land_Readjustment_Tool.UI.CustomControls
                         return false;
 
                     return requireCovered
-                        ? selectionGeometry.Covers(featureGeometry)
-                        : featureGeometry.Intersects(selectionGeometry);
+                        ? preparedSelectionGeometry.Covers(featureGeometry)
+                        : preparedSelectionGeometry.Intersects(featureGeometry);
                 })
                 .ToList();
         }
@@ -5083,32 +5125,6 @@ namespace Land_Readjustment_Tool.UI.CustomControls
             RectangleD worldQuery = CreateWorldRectangle(screenQuery);
             PointD mouseWorld = _engine.ScreenToWorld(screenPoint);
             SnapPoint? previousSnapPoint = _currentSnapPoint;
-
-            if (_activeGripEdit != null)
-            {
-                List<SnapPoint> gripCandidates = _activeGripEdit.SnapCandidates
-                    .Where(snapPoint => ScreenQueryContainsSnapPoint(screenQuery, snapPoint))
-                    .ToList();
-                AppendVisibleCenterSnapPoints(gripCandidates);
-
-                _currentSnapPoint = _snapManager.FindNearestSnapPointFromList(
-                    gripCandidates,
-                    screenPoint,
-                    _engine,
-                    _snapPickTolerancePixels);
-
-                stopwatch.Stop();
-                _lastSnapQueryFeatureCount = 0;
-                _lastSnapCandidateCount = gripCandidates.Count;
-                _lastSnapQueryElapsedMs = stopwatch.Elapsed.TotalMilliseconds;
-
-                if (!SameSnapPoint(previousSnapPoint, _currentSnapPoint))
-                {
-                    RequestRender();
-                }
-
-                return;
-            }
 
             // Use the spatial index to fetch only the handful of features near
             // the cursor instead of scanning every feature on each mouse move
@@ -6036,7 +6052,7 @@ namespace Land_Readjustment_Tool.UI.CustomControls
             _isSelectingObjects = false;
             SetCanvasCapture(true);
             _pendingEditedShapeIds.Clear();
-            _activeGripEdit.SnapCandidates = BuildGripEditSnapCandidates();
+            _activeGripEdit.SnapCandidates = Array.Empty<SnapPoint>();
 
             ApplyGripEditVectorRenderExclusions();
             RefreshVectorCacheForGripEditBase();
@@ -7132,6 +7148,7 @@ namespace Land_Readjustment_Tool.UI.CustomControls
             {
                 DrawImmediateEditedFeatureOverlay(surface);
                 DrawJustCompletedShapeOverlay(surface);
+                DrawActiveGripEditOverlay(surface);
                 if (!suppressNavigationSnapshotOverlay)
                 {
                     DrawSelectedFeatureDecorations(surface);
@@ -7146,7 +7163,6 @@ namespace Land_Readjustment_Tool.UI.CustomControls
             {
                 DrawPreviewShape(surface);
             }
-            DrawActiveGripEditOverlay(surface);
             DrawMoveOperationOverlay(surface);
             DrawSnapGlyph(surface);
             DrawCenterHintMarks(surface);
@@ -7481,13 +7497,6 @@ namespace Land_Readjustment_Tool.UI.CustomControls
             CanvasFeature feature,
             IShape shape)
         {
-            _renderer.RenderTransientShape(
-                graphics,
-                shape,
-                ResolveFeatureLayer(feature),
-                feature.CanvasObject,
-                forceUnselected: true);
-
             _renderer.RenderSelectionDecoration(
                 graphics,
                 shape,
@@ -7500,13 +7509,6 @@ namespace Land_Readjustment_Tool.UI.CustomControls
             CanvasFeature feature,
             IShape shape)
         {
-            _renderer.RenderTransientShape(
-                surface,
-                shape,
-                ResolveFeatureLayer(feature),
-                feature.CanvasObject,
-                forceUnselected: true);
-
             _renderer.RenderSelectionDecoration(
                 surface,
                 shape,
@@ -8557,7 +8559,13 @@ namespace Land_Readjustment_Tool.UI.CustomControls
 
             bool isWindowSelection = mouseUpLocation.X >= _objectSelectionStart.X;
             RectangleD worldRectangle = CreateWorldRectangle(selectionRectangle);
-            List<CanvasFeature> selectedFeatures = _vectorFeatures
+            NtsGeometry selectionGeometry = CreateSelectionPolygonFromBounds(worldRectangle);
+            IPreparedGeometry preparedSelectionGeometry = PreparedGeometryFactory.Prepare(selectionGeometry);
+            IEnumerable<CanvasFeature> candidateFeatures = _renderer.QueryVectorFeatures(worldRectangle)
+                .Where(feature => feature.Shape is not TextShape)
+                .Concat(_vectorFeatures.Where(feature => feature.Shape is TextShape));
+
+            List<CanvasFeature> selectedFeatures = candidateFeatures
                 .Where(IsSelectableDrawingFeature)
                 .Where(feature => feature.Shape is TextShape textShape
                     ? IsTextShapeSelectedByScreenRectangle(
@@ -8565,8 +8573,8 @@ namespace Land_Readjustment_Tool.UI.CustomControls
                         selectionRectangle,
                         requireContained: isWindowSelection)
                     : isWindowSelection
-                        ? ContainsSelectionGeometry(worldRectangle, feature.Shape)
-                        : IntersectsSelectionRectangle(worldRectangle, feature.Shape))
+                        ? IsSelectionGeometryCovered(preparedSelectionGeometry, feature.Shape)
+                        : IntersectsSelectionGeometry(preparedSelectionGeometry, feature.Shape))
                 .ToList();
 
             if (additiveSelection)
@@ -8645,12 +8653,21 @@ namespace Land_Readjustment_Tool.UI.CustomControls
 
         private CanvasFeature? FindClickHitFeature(PointD worldPoint, double toleranceWorld)
         {
+            if (!double.IsFinite(toleranceWorld) || toleranceWorld <= 0d)
+                return null;
+
+            RectangleD queryBounds = new(
+                worldPoint.X - toleranceWorld,
+                worldPoint.Y - toleranceWorld,
+                toleranceWorld * 2d,
+                toleranceWorld * 2d);
+
             NtsGeometry pickPoint = SelectionGeometryFactory.CreatePoint(
                 new NtsCoordinate(worldPoint.X, worldPoint.Y));
 
             // Build candidates in the inverse of vector render order so the visually
             // topmost selectable layer receives the first hit opportunity.
-            List<(CanvasFeature Feature, NtsGeometry Geometry)> candidates = _vectorFeatures
+            List<(CanvasFeature Feature, NtsGeometry Geometry)> candidates = _renderer.QueryVectorFeatures(queryBounds)
                 .Where(IsSelectableDrawingFeature)
                 .Where(feature => feature.Shape is not TextShape)
                 .OrderByDescending(GetSelectionDrawingMarkupRenderPass)
@@ -8813,13 +8830,14 @@ namespace Land_Readjustment_Tool.UI.CustomControls
         {
             CancelActiveGripEdit(restoreOriginal: true);
             _hoveredSelectionGrip = null;
+            HashSet<Guid> previousSelectedShapeIds = new(_selectedShapeIds);
             _selectedShapeIds.Clear();
             foreach (CanvasFeature feature in selectedFeatures.Where(IsSelectableDrawingFeature))
             {
                 _selectedShapeIds.Add(feature.Shape.Id);
             }
 
-            ApplySelectedShapeFlags();
+            ApplySelectedShapeFlags(previousSelectedShapeIds);
             RequestRender();
             UpdateStatusBar();
             NotifySelectedCanvasObjectsChanged();
@@ -8860,13 +8878,14 @@ namespace Land_Readjustment_Tool.UI.CustomControls
         {
             CancelActiveGripEdit(restoreOriginal: true);
             _hoveredSelectionGrip = null;
+            HashSet<Guid> previousSelectedShapeIds = new(_selectedShapeIds);
             _selectedShapeIds.Clear();
             foreach (Guid shapeId in shapeIds.Where(id => id != Guid.Empty))
             {
                 _selectedShapeIds.Add(shapeId);
             }
 
-            ApplySelectedShapeFlags();
+            ApplySelectedShapeFlags(previousSelectedShapeIds);
             RequestRender();
             UpdateStatusBar();
             NotifySelectedCanvasObjectsChanged();
@@ -9035,6 +9054,7 @@ namespace Land_Readjustment_Tool.UI.CustomControls
         private void AddSelectedObjects(IEnumerable<CanvasFeature> selectedFeatures)
         {
             _hoveredSelectionGrip = null;
+            HashSet<Guid> previousSelectedShapeIds = new(_selectedShapeIds);
             bool changed = false;
             foreach (CanvasFeature feature in selectedFeatures.Where(IsSelectableDrawingFeature))
             {
@@ -9046,7 +9066,7 @@ namespace Land_Readjustment_Tool.UI.CustomControls
                 return;
             }
 
-            ApplySelectedShapeFlags();
+            ApplySelectedShapeFlags(previousSelectedShapeIds);
             RequestRender();
             UpdateStatusBar();
             NotifySelectedCanvasObjectsChanged();
@@ -9058,11 +9078,12 @@ namespace Land_Readjustment_Tool.UI.CustomControls
                 return;
 
             _hoveredSelectionGrip = null;
+            HashSet<Guid> previousSelectedShapeIds = new(_selectedShapeIds);
             bool changed = _selectedShapeIds.RemoveWhere(shapeIds.Contains) > 0;
             if (!changed)
                 return;
 
-            ApplySelectedShapeFlags();
+            ApplySelectedShapeFlags(previousSelectedShapeIds);
             RequestRender();
             UpdateStatusBar();
             NotifySelectedCanvasObjectsChanged();
@@ -9071,11 +9092,12 @@ namespace Land_Readjustment_Tool.UI.CustomControls
         private void SubsetSelectedObjects(IReadOnlySet<Guid> shapeIds)
         {
             _hoveredSelectionGrip = null;
+            HashSet<Guid> previousSelectedShapeIds = new(_selectedShapeIds);
             int removedCount = _selectedShapeIds.RemoveWhere(id => !shapeIds.Contains(id));
             if (removedCount == 0)
                 return;
 
-            ApplySelectedShapeFlags();
+            ApplySelectedShapeFlags(previousSelectedShapeIds);
             RequestRender();
             UpdateStatusBar();
             NotifySelectedCanvasObjectsChanged();
@@ -9084,6 +9106,7 @@ namespace Land_Readjustment_Tool.UI.CustomControls
         private void SwitchSelectedObjects(IEnumerable<CanvasFeature> candidateFeatures)
         {
             _hoveredSelectionGrip = null;
+            HashSet<Guid> previousSelectedShapeIds = new(_selectedShapeIds);
             bool changed = false;
             foreach (CanvasFeature feature in candidateFeatures.Where(IsSelectableDrawingFeature))
             {
@@ -9098,7 +9121,7 @@ namespace Land_Readjustment_Tool.UI.CustomControls
             if (!changed)
                 return;
 
-            ApplySelectedShapeFlags();
+            ApplySelectedShapeFlags(previousSelectedShapeIds);
             RequestRender();
             UpdateStatusBar();
             NotifySelectedCanvasObjectsChanged();
@@ -9111,8 +9134,9 @@ namespace Land_Readjustment_Tool.UI.CustomControls
 
             CancelActiveGripEdit(restoreOriginal: true);
             _hoveredSelectionGrip = null;
+            HashSet<Guid> previousSelectedShapeIds = new(_selectedShapeIds);
             _selectedShapeIds.Clear();
-            ApplySelectedShapeFlags();
+            ApplySelectedShapeFlags(previousSelectedShapeIds);
             RequestRender();
             UpdateStatusBar();
             NotifySelectedCanvasObjectsChanged();
@@ -9125,6 +9149,24 @@ namespace Land_Readjustment_Tool.UI.CustomControls
                 feature.Shape.IsSelected =
                     _selectedShapeIds.Contains(feature.Shape.Id) &&
                     IsSelectableDrawingFeature(feature);
+            }
+
+            InvalidateGpuInteractionFrameCache();
+        }
+
+        private void ApplySelectedShapeFlags(IReadOnlySet<Guid> previousSelectedShapeIds)
+        {
+            HashSet<Guid> affectedShapeIds = new(previousSelectedShapeIds);
+            affectedShapeIds.UnionWith(_selectedShapeIds);
+
+            foreach (Guid shapeId in affectedShapeIds)
+            {
+                if (_vectorFeaturesByShapeId.TryGetValue(shapeId, out CanvasFeature? feature))
+                {
+                    feature.Shape.IsSelected =
+                        _selectedShapeIds.Contains(feature.Shape.Id) &&
+                        IsSelectableDrawingFeature(feature);
+                }
             }
 
             InvalidateGpuInteractionFrameCache();
@@ -9514,18 +9556,7 @@ namespace Land_Readjustment_Tool.UI.CustomControls
                 return;
             }
 
-            if (_activeMoveOperation != null || _activeGripEdit != null)
-                return;
-
-            List<MoveItem> items = CreateSelectedObjectMoveItems();
-            if (items.Count == 0)
-                return;
-
-            _activeMoveOperation = new MoveOperation { Items = items };
-            ClearCenterHintMarks();
-            FocusActiveCanvasSurface();
-            UpdateStatusBar();
-            RequestRender();
+            TryStartMoveOperationPreparation(isCopy: false, destinationReferenceWorld: null);
         }
 
         private void BeginCopySelectedObjectsFromContextMenu()
@@ -9536,38 +9567,39 @@ namespace Land_Readjustment_Tool.UI.CustomControls
                 return;
             }
 
-            if (_activeMoveOperation != null || _activeGripEdit != null)
-                return;
-
-            List<MoveItem> items = CreateSelectedObjectMoveItems();
-            if (items.Count == 0)
-                return;
-
             // Like "Move object(s)", ask for the reference (base) and destination
             // points instead of copying from the geometric center.
-            _activeMoveOperation = new MoveOperation { Items = items, IsCopy = true };
-            ClearCenterHintMarks();
-            FocusActiveCanvasSurface();
-            UpdateStatusBar();
-            RequestRender();
+            TryStartMoveOperationPreparation(isCopy: true, destinationReferenceWorld: null);
         }
 
         public bool CopySelectedObjectsToBuffer()
         {
-            List<CopiedShapeItem> copiedItems = CreateSelectedObjectCopyItems();
-            if (copiedItems.Count == 0 ||
-                !TryGetCombinedShapeBounds(copiedItems.Select(item => item.Shape), out RectangleD bounds))
+            if (_copyBufferPreparationInProgress)
+            {
+                _commandService.SetPrompt("Copy is still preparing...");
+                return true;
+            }
+
+            List<(IShape Shape, CanvasLayer Layer)> copySources = CreateSelectedObjectCopySources();
+            if (copySources.Count == 0 ||
+                !TryGetCombinedShapeBounds(copySources.Select(item => item.Shape), out RectangleD bounds))
             {
                 return false;
             }
 
-            _copiedShapeBuffer = copiedItems;
+            _copyBufferPreparationInProgress = true;
             _copiedShapeReferenceWorld = new PointD(
                 bounds.Left + bounds.Width / 2.0,
                 bounds.Top + bounds.Height / 2.0);
-            _commandService.SetPrompt(copiedItems.Count == 1
-                ? "Copied object. Press Ctrl+V to paste."
-                : $"Copied {copiedItems.Count} objects. Press Ctrl+V to paste.");
+            _commandService.SetPrompt(copySources.Count == 1
+                ? "Preparing copied object..."
+                : $"Preparing {copySources.Count:N0} copied objects...");
+            LongOperationProgressChanged?.Invoke(
+                4,
+                copySources.Count == 1
+                    ? "Preparing copied object"
+                    : $"Preparing {copySources.Count:N0} copied objects");
+            _ = PrepareCopyBufferAsync(copySources);
             return true;
         }
 
@@ -9579,6 +9611,18 @@ namespace Land_Readjustment_Tool.UI.CustomControls
                 return true;
             }
 
+            if (_copyBufferPreparationInProgress)
+            {
+                _commandService.SetPrompt("Copy is still preparing. Paste will be available when it finishes.");
+                return true;
+            }
+
+            if (_pastePreparationInProgress)
+            {
+                _commandService.SetPrompt("Paste preview is still preparing...");
+                return true;
+            }
+
             if (_copiedShapeBuffer.Count == 0 ||
                 _activeMoveOperation != null ||
                 _activeGripEdit != null)
@@ -9586,29 +9630,100 @@ namespace Land_Readjustment_Tool.UI.CustomControls
                 return false;
             }
 
-            List<MoveItem> items = _copiedShapeBuffer
-                .Select(item => new MoveItem
-                {
-                    OriginalShape = item.Shape.Clone(),
-                    Layer = item.Layer
-                })
-                .ToList();
-
-            if (items.Count == 0)
-                return false;
-
-            _activeMoveOperation = new MoveOperation
-            {
-                Items = items,
-                IsCopy = true
-            };
-            ClearCenterHintMarks();
-            FocusActiveCanvasSurface();
-            BeginMoveOperationDestinationPhase(_copiedShapeReferenceWorld);
-            _currentMouseWorld = GetPastePreviewStartWorld();
-            UpdateStatusBar();
-            RequestRender();
+            IReadOnlyList<CopiedShapeItem> bufferSnapshot = _copiedShapeBuffer.ToArray();
+            _pastePreparationInProgress = true;
+            _commandService.SetPrompt(bufferSnapshot.Count == 1
+                ? "Preparing paste preview..."
+                : $"Preparing paste preview for {bufferSnapshot.Count:N0} objects...");
+            LongOperationProgressChanged?.Invoke(
+                4,
+                bufferSnapshot.Count == 1
+                    ? "Preparing paste preview"
+                    : $"Preparing paste preview for {bufferSnapshot.Count:N0} objects");
+            _ = BeginPasteCopiedObjectsAsync(bufferSnapshot);
             return true;
+        }
+
+        private async Task PrepareCopyBufferAsync(
+            IReadOnlyList<(IShape Shape, CanvasLayer Layer)> copySources)
+        {
+            try
+            {
+                IReadOnlyList<CopiedShapeItem> copiedItems = await Task.Run(
+                    () => CreateCopiedShapeItems(copySources));
+
+                if (IsDisposed || Disposing)
+                {
+                    return;
+                }
+
+                _copiedShapeBuffer = copiedItems;
+                _commandService.SetPrompt(copiedItems.Count == 1
+                    ? "Copied object. Press Ctrl+V to paste."
+                    : $"Copied {copiedItems.Count:N0} objects. Press Ctrl+V to paste.");
+                LongOperationProgressChanged?.Invoke(100, "Copy ready");
+            }
+            catch (Exception ex)
+            {
+                _commandService.SetPrompt("Copy failed.");
+                MessageBox.Show(
+                    $"Failed to prepare copied objects: {ex.Message}",
+                    "Copy Objects",
+                    MessageBoxButtons.OK,
+                    MessageBoxIcon.Error);
+            }
+            finally
+            {
+                _copyBufferPreparationInProgress = false;
+                LongOperationProgressCompleted?.Invoke();
+            }
+        }
+
+        private async Task BeginPasteCopiedObjectsAsync(
+            IReadOnlyList<CopiedShapeItem> bufferSnapshot)
+        {
+            try
+            {
+                List<MoveItem> items = await Task.Run(
+                    () => bufferSnapshot
+                        .Select(item => new MoveItem
+                        {
+                            OriginalShape = item.Shape.Clone(),
+                            Layer = item.Layer
+                        })
+                        .ToList());
+
+                if (IsDisposed || Disposing || items.Count == 0)
+                {
+                    return;
+                }
+
+                _activeMoveOperation = new MoveOperation
+                {
+                    Items = items,
+                    IsCopy = true
+                };
+                ClearCenterHintMarks();
+                FocusActiveCanvasSurface();
+                BeginMoveOperationDestinationPhase(_copiedShapeReferenceWorld);
+                _currentMouseWorld = GetPastePreviewStartWorld();
+                UpdateStatusBar();
+                RequestRender();
+            }
+            catch (Exception ex)
+            {
+                _commandService.SetPrompt("Paste failed.");
+                MessageBox.Show(
+                    $"Failed to prepare paste preview: {ex.Message}",
+                    "Paste Objects",
+                    MessageBoxButtons.OK,
+                    MessageBoxIcon.Error);
+            }
+            finally
+            {
+                _pastePreparationInProgress = false;
+                LongOperationProgressCompleted?.Invoke();
+            }
         }
 
         private bool BeginMoveSelectedObjectsFromGeometricCenterGrip(SelectionGrip grip)
@@ -9619,31 +9734,114 @@ namespace Land_Readjustment_Tool.UI.CustomControls
                 return true;
             }
 
-            if (grip.Kind != SelectionGripKind.GeometricCenter ||
-                _activeMoveOperation != null ||
-                _activeGripEdit != null)
+            if (grip.Kind != SelectionGripKind.GeometricCenter)
             {
                 return false;
             }
 
-            List<MoveItem> items = CreateSelectedObjectMoveItems();
-            if (items.Count == 0)
-                return false;
-
             bool copyWithCtrl = (ModifierKeys & Keys.Control) == Keys.Control;
-            _activeMoveOperation = new MoveOperation
+            return TryStartMoveOperationPreparation(copyWithCtrl, grip.Position);
+        }
+
+        private bool TryStartMoveOperationPreparation(bool isCopy, PointD? destinationReferenceWorld)
+        {
+            if (_moveOperationPreparationInProgress)
             {
-                Items = items,
-                IsCopy = copyWithCtrl
-            };
-            FocusActiveCanvasSurface();
-            BeginMoveOperationDestinationPhase(grip.Position);
+                _commandService.SetPrompt("Move/copy is still preparing...");
+                return true;
+            }
+
+            if (_activeMoveOperation != null || _activeGripEdit != null)
+            {
+                return false;
+            }
+
+            List<(CanvasFeature Feature, IShape Shape, CanvasLayer Layer, CanvasObject CanvasObject)> moveSources =
+                CreateSelectedObjectMoveSources();
+            if (moveSources.Count == 0)
+            {
+                return false;
+            }
+
+            _moveOperationPreparationInProgress = true;
+            string action = isCopy ? "copy" : "move";
+            _commandService.SetPrompt(moveSources.Count == 1
+                ? $"Preparing {action}..."
+                : $"Preparing {action} for {moveSources.Count:N0} objects...");
+            LongOperationProgressChanged?.Invoke(
+                4,
+                moveSources.Count == 1
+                    ? $"Preparing {action}"
+                    : $"Preparing {action} for {moveSources.Count:N0} objects");
+            _ = PrepareMoveOperationAsync(moveSources, isCopy, destinationReferenceWorld);
             return true;
+        }
+
+        private async Task PrepareMoveOperationAsync(
+            IReadOnlyList<(CanvasFeature Feature, IShape Shape, CanvasLayer Layer, CanvasObject CanvasObject)> moveSources,
+            bool isCopy,
+            PointD? destinationReferenceWorld)
+        {
+            try
+            {
+                List<MoveItem> items = await Task.Run(
+                    () => CreateMoveItems(moveSources));
+
+                if (IsDisposed || Disposing || items.Count == 0)
+                {
+                    return;
+                }
+
+                if (_activeMoveOperation != null || _activeGripEdit != null)
+                {
+                    _commandService.SetPrompt("Move/copy preparation was cancelled.");
+                    return;
+                }
+
+                _activeMoveOperation = new MoveOperation
+                {
+                    Items = items,
+                    IsCopy = isCopy
+                };
+                ClearCenterHintMarks();
+                FocusActiveCanvasSurface();
+
+                if (destinationReferenceWorld.HasValue)
+                {
+                    BeginMoveOperationDestinationPhase(destinationReferenceWorld.Value);
+                }
+
+                UpdateStatusBar();
+                RequestRender();
+                _commandService.SetPrompt(destinationReferenceWorld.HasValue
+                    ? (isCopy ? "Pick copy destination." : "Pick move destination.")
+                    : (isCopy ? "Pick copy reference point." : "Pick move reference point."));
+                LongOperationProgressChanged?.Invoke(100, isCopy ? "Copy ready" : "Move ready");
+            }
+            catch (Exception ex)
+            {
+                _commandService.SetPrompt(isCopy ? "Copy failed." : "Move failed.");
+                MessageBox.Show(
+                    $"Failed to prepare selected objects: {ex.Message}",
+                    isCopy ? "Copy Objects" : "Move Objects",
+                    MessageBoxButtons.OK,
+                    MessageBoxIcon.Error);
+            }
+            finally
+            {
+                _moveOperationPreparationInProgress = false;
+                LongOperationProgressCompleted?.Invoke();
+            }
         }
 
         private List<MoveItem> CreateSelectedObjectMoveItems()
         {
-            List<MoveItem> items = new();
+            return CreateMoveItems(CreateSelectedObjectMoveSources());
+        }
+
+        private List<(CanvasFeature Feature, IShape Shape, CanvasLayer Layer, CanvasObject CanvasObject)> CreateSelectedObjectMoveSources()
+        {
+            List<(CanvasFeature Feature, IShape Shape, CanvasLayer Layer, CanvasObject CanvasObject)> items = new();
             foreach (CanvasFeature feature in EnumerateSelectedFeatures())
             {
                 if (!IsSelectableDrawingFeature(feature))
@@ -9656,12 +9854,24 @@ namespace Land_Readjustment_Tool.UI.CustomControls
                 if (!CanvasLayerTreeService.IsDrawingMarkupLayer(layer))
                     continue;
 
+                items.Add((feature, feature.Shape, layer, feature.CanvasObject));
+            }
+
+            return items;
+        }
+
+        private static List<MoveItem> CreateMoveItems(
+            IReadOnlyList<(CanvasFeature Feature, IShape Shape, CanvasLayer Layer, CanvasObject CanvasObject)> moveSources)
+        {
+            List<MoveItem> items = new(moveSources.Count);
+            foreach ((CanvasFeature feature, IShape shape, CanvasLayer layer, CanvasObject canvasObject) in moveSources)
+            {
                 items.Add(new MoveItem
                 {
                     Feature = feature,
-                    OriginalShape = feature.Shape.Clone(),
+                    OriginalShape = shape.Clone(),
                     Layer = layer,
-                    CanvasObject = feature.CanvasObject
+                    CanvasObject = canvasObject
                 });
             }
 
@@ -9684,6 +9894,47 @@ namespace Land_Readjustment_Tool.UI.CustomControls
                     continue;
 
                 IShape copiedShape = feature.Shape.Clone();
+                copiedShape.LayerName = layer.Name;
+                copiedShape.Properties[CanvasFeatureService.CanvasLayerIdPropertyKey] = layer.Id;
+                copiedShape.IsSelected = false;
+                items.Add(new CopiedShapeItem
+                {
+                    Shape = copiedShape,
+                    Layer = layer
+                });
+            }
+
+            return items;
+        }
+
+        private List<(IShape Shape, CanvasLayer Layer)> CreateSelectedObjectCopySources()
+        {
+            List<(IShape Shape, CanvasLayer Layer)> items = new();
+            foreach (CanvasFeature feature in EnumerateSelectedFeatures())
+            {
+                if (!IsSelectableDrawingFeature(feature))
+                    continue;
+                if (IsSelectableImportedCadastralParcel(feature))
+                    continue;
+                CanvasLayer? layer = ResolveFeatureLayer(feature);
+                if (layer == null || layer.IsLocked == true)
+                    continue;
+                if (!CanvasLayerTreeService.IsDrawingMarkupLayer(layer))
+                    continue;
+
+                items.Add((feature.Shape, layer));
+            }
+
+            return items;
+        }
+
+        private static IReadOnlyList<CopiedShapeItem> CreateCopiedShapeItems(
+            IReadOnlyList<(IShape Shape, CanvasLayer Layer)> copySources)
+        {
+            List<CopiedShapeItem> items = new(copySources.Count);
+            foreach ((IShape sourceShape, CanvasLayer layer) in copySources)
+            {
+                IShape copiedShape = sourceShape.Clone();
                 copiedShape.LayerName = layer.Name;
                 copiedShape.Properties[CanvasFeatureService.CanvasLayerIdPropertyKey] = layer.Id;
                 copiedShape.IsSelected = false;
@@ -10463,44 +10714,38 @@ namespace Land_Readjustment_Tool.UI.CustomControls
             return new RectangleD(left, bottom, right - left, top - bottom);
         }
 
-        private static bool IntersectsSelectionRectangle(RectangleD selectionBounds, IShape shape)
+        private static RectangleD CreateWorldRectangle(NetTopologySuite.Geometries.Envelope envelope)
         {
-            NtsGeometry selectionGeometry = CreateSelectionTestGeometry(shape);
-            if (selectionGeometry.IsEmpty)
-            {
-                return false;
-            }
+            if (envelope.IsNull)
+                return new RectangleD();
 
-            NtsPolygon selectionPolygon = SelectionGeometryFactory.CreatePolygon(
-                [
-                    new NtsCoordinate(selectionBounds.Left, selectionBounds.Top),
-                    new NtsCoordinate(selectionBounds.Right, selectionBounds.Top),
-                    new NtsCoordinate(selectionBounds.Right, selectionBounds.Bottom),
-                    new NtsCoordinate(selectionBounds.Left, selectionBounds.Bottom),
-                    new NtsCoordinate(selectionBounds.Left, selectionBounds.Top)
-                ]);
-
-            return selectionGeometry.Intersects(selectionPolygon);
+            return new RectangleD(
+                envelope.MinX,
+                envelope.MinY,
+                envelope.Width,
+                envelope.Height);
         }
 
-        private static bool ContainsSelectionGeometry(RectangleD selectionBounds, IShape shape)
+        private static bool IntersectsSelectionGeometry(IPreparedGeometry selectionGeometry, IShape shape)
         {
-            NtsGeometry selectionGeometry = CreateSelectionTestGeometry(shape);
-            if (selectionGeometry.IsEmpty)
+            NtsGeometry shapeSelectionGeometry = CreateSelectionTestGeometry(shape);
+            if (shapeSelectionGeometry.IsEmpty)
             {
                 return false;
             }
 
-            NtsPolygon selectionPolygon = SelectionGeometryFactory.CreatePolygon(
-                [
-                    new NtsCoordinate(selectionBounds.Left, selectionBounds.Top),
-                    new NtsCoordinate(selectionBounds.Right, selectionBounds.Top),
-                    new NtsCoordinate(selectionBounds.Right, selectionBounds.Bottom),
-                    new NtsCoordinate(selectionBounds.Left, selectionBounds.Bottom),
-                    new NtsCoordinate(selectionBounds.Left, selectionBounds.Top)
-                ]);
+            return selectionGeometry.Intersects(shapeSelectionGeometry);
+        }
 
-            return selectionPolygon.Covers(selectionGeometry);
+        private static bool IsSelectionGeometryCovered(IPreparedGeometry selectionGeometry, IShape shape)
+        {
+            NtsGeometry shapeSelectionGeometry = CreateSelectionTestGeometry(shape);
+            if (shapeSelectionGeometry.IsEmpty)
+            {
+                return false;
+            }
+
+            return selectionGeometry.Covers(shapeSelectionGeometry);
         }
 
         private static NtsGeometry CreateSelectionTestGeometry(IShape shape)
@@ -11321,7 +11566,9 @@ namespace Land_Readjustment_Tool.UI.CustomControls
                 MessageBoxIcon.Information);
         }
 
-        private bool IsCanvasInteractionLocked => _activeTextEditor != null;
+        private bool IsCanvasInteractionLocked =>
+            _activeTextEditor != null ||
+            _moveOperationPreparationInProgress;
         private bool IsPanBlockedByZoomDebounce =>
             _blockPanUntilZoomSettle ||
             _isZooming ||
@@ -11987,6 +12234,9 @@ namespace Land_Readjustment_Tool.UI.CustomControls
                 using MapCanvasRenderer gridRenderer = new(gridEngine, _renderSettings);
                 using Graphics g = Graphics.FromImage(gridBitmap);
                 g.Clear(Color.Transparent);
+                // GDI keeps grid/fixed references in a separate padded pan
+                // buffer. Do not merge this into the main pan buffer without
+                // checking grid-line and grid-label behavior against Skia.
                 gridRenderer.RenderFixedReferences(
                     g,
                     suppressGridLabels: true,
