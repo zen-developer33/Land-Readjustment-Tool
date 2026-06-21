@@ -461,7 +461,7 @@ namespace Land_Readjustment_Tool.UI.MapCanvas.Rendering.Skia
                 StrokeJoin = ToSkiaStrokeJoin(style.Join),
                 IsAntialias = IsAntialiasEnabled
             };
-            paint.PathEffect = CreateDashEffect(style.DashPattern, dashScale);
+            paint.PathEffect = CreateDashEffect(style.DashPattern, dashScale, width);
             _strokePaintCache[key] = paint;
             return paint;
         }
@@ -702,15 +702,16 @@ namespace Land_Readjustment_Tool.UI.MapCanvas.Rendering.Skia
         /// <summary>
         /// Creates a dash effect for a stroke style, or null for solid strokes.
         /// </summary>
-        private static SKPathEffect? CreateDashEffect(DashPatternKind dashPattern, float scale)
+        private static SKPathEffect? CreateDashEffect(DashPatternKind dashPattern, float scale, float strokeWidth)
         {
+            float effectiveScale = scale * Math.Max(0.1f, strokeWidth);
             float[]? intervals = dashPattern switch
             {
-                DashPatternKind.Dashed => [4f * scale, 2f * scale],
-                DashPatternKind.Dotted => [0.1f, Math.Max(1.5f, 2f * scale)],
-                DashPatternKind.DashDot => [4f * scale, 2f * scale, 1f * scale, 2f * scale],
-                DashPatternKind.DashDoubleDot => [4f * scale, 2f * scale, 1f * scale, 2f * scale, 1f * scale, 2f * scale],
-                DashPatternKind.CenterLine => [8f * scale, 3f * scale, 2f * scale, 3f * scale],
+                DashPatternKind.Dashed => [4f * effectiveScale, 2f * effectiveScale],
+                DashPatternKind.Dotted => [0.1f * Math.Max(0.1f, strokeWidth), Math.Max(1.5f, 2f * scale) * Math.Max(0.1f, strokeWidth)],
+                DashPatternKind.DashDot => [4f * effectiveScale, 2f * effectiveScale, 1f * effectiveScale, 2f * effectiveScale],
+                DashPatternKind.DashDoubleDot => [4f * effectiveScale, 2f * effectiveScale, 1f * effectiveScale, 2f * effectiveScale, 1f * effectiveScale, 2f * effectiveScale],
+                DashPatternKind.CenterLine => [8f * effectiveScale, 3f * effectiveScale, 2f * effectiveScale, 3f * effectiveScale],
                 _ => null
             };
 

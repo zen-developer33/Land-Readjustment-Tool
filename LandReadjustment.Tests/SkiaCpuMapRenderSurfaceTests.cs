@@ -60,6 +60,34 @@ public sealed class SkiaCpuMapRenderSurfaceTests
         Assert.True(CountPixels(bitmap, Color.Blue) > 400);
     }
 
+    [Fact]
+    public void DrawLine_DashDoubleDot_UsesLineWidthScaledDashPattern()
+    {
+        using Bitmap bitmap = new(220, 60);
+        using Graphics graphics = Graphics.FromImage(bitmap);
+
+        using (SkiaCpuMapRenderSurface surface = new(graphics, bitmap.Size))
+        {
+            surface.Clear(Color.Black);
+            surface.SetQuality(RenderQuality.VectorHighSpeed);
+            StrokeStyle boundaryStroke = new(
+                Color.Red,
+                2.0f,
+                DashPatternKind.DashDoubleDot,
+                DashScale: 2.0f);
+
+            surface.DrawLine(new PointF(20, 30), new PointF(200, 30), boundaryStroke);
+        }
+
+        int firstDashLength = CountFirstColorRun(
+            bitmap,
+            y: 30,
+            startX: 15,
+            pixel => pixel.R > 150 && pixel.G < 80 && pixel.B < 80);
+
+        Assert.InRange(firstDashLength, 14, 22);
+    }
+
     /// <summary>
     /// Verifies that Skia can draw legacy GDI paths produced by still-migrating
     /// renderer code.
@@ -375,5 +403,27 @@ public sealed class SkiaCpuMapRenderSurfaceTests
         }
 
         return count;
+    }
+
+    private static int CountFirstColorRun(
+        Bitmap bitmap,
+        int y,
+        int startX,
+        Func<Color, bool> isMatch)
+    {
+        int x = startX;
+        while (x < bitmap.Width && !isMatch(bitmap.GetPixel(x, y)))
+        {
+            x++;
+        }
+
+        int run = 0;
+        while (x < bitmap.Width && isMatch(bitmap.GetPixel(x, y)))
+        {
+            run++;
+            x++;
+        }
+
+        return run;
     }
 }

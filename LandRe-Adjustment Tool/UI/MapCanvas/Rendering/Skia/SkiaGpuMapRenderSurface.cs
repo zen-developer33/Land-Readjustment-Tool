@@ -477,14 +477,16 @@ namespace Land_Readjustment_Tool.UI.MapCanvas.Rendering.Skia
 
         private static SKPathEffect? CreateDashEffect(in StrokeStyle style)
         {
+            float width = Math.Max(0.1f, style.Width);
             float s = Math.Clamp(style.DashScale, 0.1f, 100.0f);
+            float effectiveScale = s * width;
             float[]? iv = style.DashPattern switch
             {
-                DashPatternKind.Dashed      => [4f * s, 2f * s],
-                DashPatternKind.Dotted      => [0.1f, Math.Max(1.5f, 2f * s)],
-                DashPatternKind.DashDot     => [4f * s, 2f * s, 1f * s, 2f * s],
-                DashPatternKind.DashDoubleDot => [4f * s, 2f * s, 1f * s, 2f * s, 1f * s, 2f * s],
-                DashPatternKind.CenterLine  => [8f * s, 3f * s, 2f * s, 3f * s],
+                DashPatternKind.Dashed      => [4f * effectiveScale, 2f * effectiveScale],
+                DashPatternKind.Dotted      => [0.1f * width, Math.Max(1.5f, 2f * s) * width],
+                DashPatternKind.DashDot     => [4f * effectiveScale, 2f * effectiveScale, 1f * effectiveScale, 2f * effectiveScale],
+                DashPatternKind.DashDoubleDot => [4f * effectiveScale, 2f * effectiveScale, 1f * effectiveScale, 2f * effectiveScale, 1f * effectiveScale, 2f * effectiveScale],
+                DashPatternKind.CenterLine  => [8f * effectiveScale, 3f * effectiveScale, 2f * effectiveScale, 3f * effectiveScale],
                 _ => null
             };
             return iv == null ? null : SKPathEffect.CreateDash(iv, 0.0f);

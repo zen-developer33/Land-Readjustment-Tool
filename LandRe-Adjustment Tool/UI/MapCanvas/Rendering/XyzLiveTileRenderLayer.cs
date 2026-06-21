@@ -68,7 +68,11 @@ namespace Land_Readjustment_Tool.UI.MapCanvas.Rendering
         private const int MaxTilesPerFrame = 256;
         private const int MaxBootstrapTilesPerFrame = 16;
         private const int MaxFallbackTilesPerFrame = 64;
-        private const int MaxConcurrentFetches = 6;
+        private const int MaxConcurrentFetches = 10;
+        // Prefetch budgets keep look-ahead fetching from starving the visible
+        // viewport: only a bounded ring/next-zoom slice is pulled per settle.
+        private const int MaxPrefetchTilesPerFrame = 48;
+        private const double PrefetchRingFactor = 0.5;
         private const int DebounceMilliseconds = 50;
         private const int FetchCompleteQuietMilliseconds = 500;
         private const int InternetProbeTimeoutMilliseconds = 2500;
@@ -1742,7 +1746,56 @@ namespace Land_Readjustment_Tool.UI.MapCanvas.Rendering
                 return;
             }
 
-            _ = FetchMissingTilesAsync(webMercatorBounds, zoom, newCts.Token);
+            _ = FetchVisibleThenPrefetchAsync(webMercatorBounds, zoom, newCts.Token);
+        }
+
+        /// <summary>
+        /// Fetches the visible tiles first, then proactively warms the cache with a
+        /// one-ring border at the current zoom and a slice of the next zoom level so
+        /// panning and zooming into adjacent areas shows fresh tiles immediately.
+        /// Prefetch work is bounded and shares the viewport cancellation token, so a
+        /// new pan/zoom cancels it before it can compete with the next visible fetch.
+        /// </summary>
+        private async Task FetchVisibleThenPrefetchAsync(
+            RectangleD webMercatorBounds,
+            int zoom,
+            CancellationToken cancellationToken)
+        {
+            // Visible tiles always come first and uncapped.
+            await FetchMissingTilesAsync(webMercatorBounds, zoom, cancellationToken)
+                .ConfigureAwait(false);
+
+            if (cancellationToken.IsCancellationRequested)
+            {
+                return;
+            }
+
+            // Ring prefetch at the current zoom. Center tiles are already cached and
+            // skipped by the missing-tile check, so only the surrounding border is
+            // pulled.
+            RectangleD ringBounds = ExpandExtent(webMercatorBounds, PrefetchRingFactor);
+            await FetchMissingTilesAsync(
+                    ringBounds,
+                    zoom,
+                    cancellationToken,
+                    MaxPrefetchTilesPerFrame)
+                .ConfigureAwait(false);
+
+            if (cancellationToken.IsCancellationRequested)
+            {
+                return;
+            }
+
+            // Next zoom level prefetch so zooming in is instant.
+            if (zoom < _maxSourceZoom)
+            {
+                await FetchMissingTilesAsync(
+                        webMercatorBounds,
+                        zoom + 1,
+                        cancellationToken,
+                        MaxPrefetchTilesPerFrame)
+                    .ConfigureAwait(false);
+            }
         }
 
         private static RectangleD ExpandExtent(RectangleD bounds, double paddingFactor)
@@ -2133,73 +2186,77 @@ namespace Land_Readjustment_Tool.UI.MapCanvas.Rendering
             Bitmap? bitmap = null;
             try
             {
-                await FetchSemaphore
-                    .WaitAsync(cancellationToken)
+                // Disk-cached tiles must not consume a network concurrency slot:
+                // read the disk cache first (async, off the semaphore) and only take
+                // the fetch semaphore for an actual network download.
+                byte[]? bytes = await TryReadDiskCacheAsync(key, cancellationToken)
                     .ConfigureAwait(false);
+                bool bytesFromDiskCache = bytes != null && bytes.Length > 0;
+                bool bytesDownloaded = false;
 
-                try
+                if (!bytesFromDiskCache)
                 {
-                    if (cancellationToken.IsCancellationRequested)
+                    await FetchSemaphore
+                        .WaitAsync(cancellationToken)
+                        .ConfigureAwait(false);
+                    try
                     {
-                        return;
-                    }
+                        if (cancellationToken.IsCancellationRequested)
+                        {
+                            return;
+                        }
 
-                    // Disk cache avoids re-downloading valid imagery the user has already seen.
-                    byte[]? bytes = TryReadDiskCache(key);
-                    bool bytesFromDiskCache = bytes != null && bytes.Length > 0;
-                    bool bytesDownloaded = false;
-
-                    if (bytes == null || bytes.Length == 0)
-                    {
                         string url = BuildTileUrl(key);
                         bytes = await SharedHttpClient
                             .GetByteArrayAsync(url, cancellationToken)
                             .ConfigureAwait(false);
                         bytesDownloaded = bytes != null && bytes.Length > 0;
                     }
-
-                    if (bytes == null || bytes.Length == 0)
+                    finally
                     {
-                        return;
-                    }
-
-                    // Decode on thread pool — keeps byte[] alive for only the decode duration.
-                    byte[] capturedBytes = bytes;
-                    bitmap = await Task
-                        .Run(() => DecodeTileBitmap(capturedBytes), cancellationToken)
-                        .ConfigureAwait(false);
-
-                    if (bitmap != null && IsLikelyNoDataTile(bitmap))
-                    {
-                        bitmap.Dispose();
-                        bitmap = null;
-
-                        if (bytesFromDiskCache)
-                        {
-                            TryDeleteDiskCache(key);
-                        }
-
-                        lock (_renderSync)
-                        {
-                            _noDataTiles.Add(key);
-                            if (_noDataTiles.Count > MaxCachedTiles * 8)
-                            {
-                                _noDataTiles.Clear();
-                                _noDataTiles.Add(key);
-                            }
-                        }
-
-                        return;
-                    }
-
-                    if (bytesDownloaded && bytes.Length > 0)
-                    {
-                        TryWriteDiskCache(key, bytes);
+                        FetchSemaphore.Release();
                     }
                 }
-                finally
+
+                if (bytes == null || bytes.Length == 0)
                 {
-                    FetchSemaphore.Release();
+                    return;
+                }
+
+                // Decode on thread pool — keeps byte[] alive for only the decode
+                // duration. Decoding now happens off the network semaphore so a slot
+                // is freed for the next download as soon as bytes arrive.
+                byte[] capturedBytes = bytes;
+                bitmap = await Task
+                    .Run(() => DecodeTileBitmap(capturedBytes), cancellationToken)
+                    .ConfigureAwait(false);
+
+                if (bitmap != null && IsLikelyNoDataTile(bitmap))
+                {
+                    bitmap.Dispose();
+                    bitmap = null;
+
+                    if (bytesFromDiskCache)
+                    {
+                        TryDeleteDiskCache(key);
+                    }
+
+                    lock (_renderSync)
+                    {
+                        _noDataTiles.Add(key);
+                        if (_noDataTiles.Count > MaxCachedTiles * 8)
+                        {
+                            _noDataTiles.Clear();
+                            _noDataTiles.Add(key);
+                        }
+                    }
+
+                    return;
+                }
+
+                if (bytesDownloaded && bytes.Length > 0)
+                {
+                    TryWriteDiskCache(key, bytes);
                 }
 
                 if (bitmap == null || cancellationToken.IsCancellationRequested)
@@ -2634,10 +2691,30 @@ namespace Land_Readjustment_Tool.UI.MapCanvas.Rendering
                     useEmbeddedColorManagement: false,
                     validateImageData: false);
 
-                using Bitmap sourceBitmap = new(image);
-                return sourceBitmap.Clone(
-                    new Rectangle(0, 0, sourceBitmap.Width, sourceBitmap.Height),
+                // Render once straight into a 32bpp surface. The old path built an
+                // intermediate Bitmap(image) and then Clone()- d it, decoding the
+                // pixels into two extra full-tile bitmaps on every tile.
+                Bitmap result = new(
+                    image.Width,
+                    image.Height,
                     PixelFormat.Format32bppPArgb);
+                try
+                {
+                    using Graphics graphics = Graphics.FromImage(result);
+                    graphics.CompositingMode = CompositingMode.SourceCopy;
+                    graphics.InterpolationMode = InterpolationMode.NearestNeighbor;
+                    graphics.PixelOffsetMode = PixelOffsetMode.None;
+                    graphics.DrawImage(
+                        image,
+                        new Rectangle(0, 0, image.Width, image.Height));
+                }
+                catch
+                {
+                    result.Dispose();
+                    throw;
+                }
+
+                return result;
             }
             catch
             {
@@ -2647,21 +2724,45 @@ namespace Land_Readjustment_Tool.UI.MapCanvas.Rendering
 
         private static bool IsLikelyNoDataTile(Bitmap bitmap)
         {
-            int step = Math.Max(1, Math.Min(bitmap.Width, bitmap.Height) / 32);
+            int width = bitmap.Width;
+            int height = bitmap.Height;
+            int step = Math.Max(1, Math.Min(width, height) / 32);
             int total = 0;
             int neutral = 0;
             int brightNeutral = 0;
             double sum = 0.0;
             double sumSq = 0.0;
 
-            for (int y = 0; y < bitmap.Height; y += step)
+            // Sample over a single LockBits snapshot instead of calling GetPixel
+            // per sample. GetPixel locks/unlocks the bitmap on every call, which
+            // ran on every decoded tile; one Marshal.Copy is 20-50x faster here.
+            BitmapData data = bitmap.LockBits(
+                new Rectangle(0, 0, width, height),
+                ImageLockMode.ReadOnly,
+                PixelFormat.Format32bppArgb);
+            int stride = Math.Abs(data.Stride) / 4;
+            int[] pixels = new int[stride * height];
+            try
             {
-                for (int x = 0; x < bitmap.Width; x += step)
+                Marshal.Copy(data.Scan0, pixels, 0, pixels.Length);
+            }
+            finally
+            {
+                bitmap.UnlockBits(data);
+            }
+
+            for (int y = 0; y < height; y += step)
+            {
+                int rowBase = y * stride;
+                for (int x = 0; x < width; x += step)
                 {
-                    Color color = bitmap.GetPixel(x, y);
-                    int max = Math.Max(color.R, Math.Max(color.G, color.B));
-                    int min = Math.Min(color.R, Math.Min(color.G, color.B));
-                    int brightness = (color.R + color.G + color.B) / 3;
+                    int px = pixels[rowBase + x];
+                    int r = (px >> 16) & 0xFF;
+                    int g = (px >> 8) & 0xFF;
+                    int b = px & 0xFF;
+                    int max = Math.Max(r, Math.Max(g, b));
+                    int min = Math.Min(r, Math.Min(g, b));
+                    int brightness = (r + g + b) / 3;
 
                     if (max - min <= 14 &&
                         brightness >= 120 &&
@@ -2818,6 +2919,32 @@ namespace Land_Readjustment_Tool.UI.MapCanvas.Rendering
             {
                 string path = GetDiskCachePath(key);
                 return File.Exists(path) ? File.ReadAllBytes(path) : null;
+            }
+            catch
+            {
+                return null;
+            }
+        }
+
+        private async Task<byte[]?> TryReadDiskCacheAsync(
+            TileKey key,
+            CancellationToken cancellationToken)
+        {
+            try
+            {
+                string path = GetDiskCachePath(key);
+                if (!File.Exists(path))
+                {
+                    return null;
+                }
+
+                return await File
+                    .ReadAllBytesAsync(path, cancellationToken)
+                    .ConfigureAwait(false);
+            }
+            catch (OperationCanceledException)
+            {
+                throw;
             }
             catch
             {
@@ -3360,7 +3487,11 @@ namespace Land_Readjustment_Tool.UI.MapCanvas.Rendering
 
             HttpClient client = new HttpClient(handler, disposeHandler: true)
             {
-                Timeout = TimeSpan.FromSeconds(20)
+                Timeout = TimeSpan.FromSeconds(20),
+                // Prefer HTTP/2 so many tile requests multiplex over a single
+                // connection; fall back to HTTP/1.1 for servers that lack it.
+                DefaultRequestVersion = HttpVersion.Version20,
+                DefaultVersionPolicy = System.Net.Http.HttpVersionPolicy.RequestVersionOrLower
             };
 
             client.DefaultRequestHeaders.UserAgent.ParseAdd(
