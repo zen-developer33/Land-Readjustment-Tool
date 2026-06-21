@@ -423,6 +423,8 @@ namespace Land_Readjustment_Tool
                 if (!IsDisposed && !Disposing)
                     lblStatusMessage.Text = prompt;
             };
+            mapCanvasControlMain.LongOperationProgressChanged += MapCanvasControlMain_LongOperationProgressChanged;
+            mapCanvasControlMain.LongOperationProgressCompleted += MapCanvasControlMain_LongOperationProgressCompleted;
             mapCanvasControlMain.ShapeCompleted += MapCanvasControlMain_ShapeCompleted;
             mapCanvasControlMain.ShapesCompleted += MapCanvasControlMain_ShapesCompleted;
             mapCanvasControlMain.ShapesEdited += MapCanvasControlMain_ShapesEdited;
@@ -14060,7 +14062,9 @@ namespace Land_Readjustment_Tool
 
             try
             {
+                SetOperationProgress(5, $"Undo {description}", showProgressForm: false);
                 await _canvasUndoManager.UndoAsync(this);
+                SetOperationProgress(100, $"Undo {description} complete", showProgressForm: false);
                 SetCanvasCommandStatus($"Undo {description}");
             }
             catch (Exception ex)
@@ -14075,6 +14079,7 @@ namespace Land_Readjustment_Tool
             {
                 _canvasUndoRedoOperationInProgress = false;
                 UpdateCanvasUndoRedoToolbar();
+                HideOperationProgress();
             }
         }
 
@@ -14097,7 +14102,9 @@ namespace Land_Readjustment_Tool
 
             try
             {
+                SetOperationProgress(5, $"Redo {description}", showProgressForm: false);
                 await _canvasUndoManager.RedoAsync(this);
+                SetOperationProgress(100, $"Redo {description} complete", showProgressForm: false);
                 SetCanvasCommandStatus($"Redo {description}");
             }
             catch (Exception ex)
@@ -14112,6 +14119,7 @@ namespace Land_Readjustment_Tool
             {
                 _canvasUndoRedoOperationInProgress = false;
                 UpdateCanvasUndoRedoToolbar();
+                HideOperationProgress();
             }
         }
 
@@ -14128,6 +14136,12 @@ namespace Land_Readjustment_Tool
 
             Stopwatch totalStopwatch = Stopwatch.StartNew();
             Stopwatch databaseStopwatch = Stopwatch.StartNew();
+            SetOperationProgress(
+                18,
+                snapshots.Count == 1
+                    ? "Preparing object restore"
+                    : $"Preparing restore for {snapshots.Count:N0} objects",
+                showProgressForm: false);
             AppDbContext context = AppServices.Context.Session.GetDbContext();
             var objectRepository =
                 _projectScopedFactory.CreateCanvasObjectRepository(AppServices.Context.Session);
@@ -14150,17 +14164,26 @@ namespace Land_Readjustment_Tool
                 }
             }
 
+            SetOperationProgress(
+                46,
+                snapshots.Count == 1
+                    ? "Writing restored object to database"
+                    : $"Writing {snapshots.Count:N0} restored objects to database",
+                showProgressForm: false);
             await objectRepository.UpdateRangeAsync(entitiesToUpdate);
             await objectRepository.AddRangeAsync(entitiesToAdd);
+            SetOperationProgress(66, "Restoring object links", showProgressForm: false);
             await RestoreCanvasBackLinksAsync(context, snapshots);
             if (await CanvasObjectSnapshotsAffectGeneratedRoadParcelAsync(context, snapshots))
             {
+                SetOperationProgress(76, "Refreshing generated road parcel", showProgressForm: false);
                 await RefreshGeneratedRoadParcelAsync(context);
             }
             databaseStopwatch.Stop();
 
             MarkProjectModifiedIfOpen();
             Stopwatch canvasStopwatch = Stopwatch.StartNew();
+            SetOperationProgress(86, "Refreshing canvas after restore", showProgressForm: false);
             await RefreshVectorCanvasFeaturesAsync();
             canvasStopwatch.Stop();
             totalStopwatch.Stop();
@@ -14184,6 +14207,12 @@ namespace Land_Readjustment_Tool
             }
 
             Stopwatch totalStopwatch = Stopwatch.StartNew();
+            SetOperationProgress(
+                18,
+                canvasObjectIds.Count == 1
+                    ? "Preparing object delete"
+                    : $"Preparing delete for {canvasObjectIds.Count:N0} objects",
+                showProgressForm: false);
             CanvasFeatureService featureService =
                 _projectScopedFactory.CreateCanvasFeatureService(AppServices.Context.Session);
             AppDbContext context = AppServices.Context.Session.GetDbContext();
@@ -14192,13 +14221,21 @@ namespace Land_Readjustment_Tool
                 await CanvasObjectIdsAffectGeneratedRoadParcelAsync(context, canvasObjectIds);
             Guid[] distinctIds = canvasObjectIds.Distinct().ToArray();
 
+            SetOperationProgress(
+                48,
+                distinctIds.Length == 1
+                    ? "Deleting object from database"
+                    : $"Deleting {distinctIds.Length:N0} objects from database",
+                showProgressForm: false);
             await featureService.DeleteShapesAsync(distinctIds);
 
             if (shouldRefreshRoadParcel)
             {
+                SetOperationProgress(72, "Refreshing generated road parcel", showProgressForm: false);
                 await RefreshGeneratedRoadParcelAsync(context);
                 databaseStopwatch.Stop();
                 Stopwatch refreshCanvasStopwatch = Stopwatch.StartNew();
+                SetOperationProgress(86, "Refreshing canvas after delete", showProgressForm: false);
                 await RefreshVectorCanvasFeaturesAsync();
                 refreshCanvasStopwatch.Stop();
                 totalStopwatch.Stop();
@@ -14213,6 +14250,7 @@ namespace Land_Readjustment_Tool
             {
                 databaseStopwatch.Stop();
                 Stopwatch canvasStopwatch = Stopwatch.StartNew();
+                SetOperationProgress(86, "Updating canvas after delete", showProgressForm: false);
                 mapCanvasControlMain.RemoveCanvasObjectsImmediatelyAfterDelete(distinctIds);
                 canvasStopwatch.Stop();
                 totalStopwatch.Stop();
@@ -14561,6 +14599,12 @@ namespace Land_Readjustment_Tool
 
             try
             {
+                SetOperationProgress(
+                    24,
+                    shapes.Count == 1
+                        ? "Saving copied object"
+                        : $"Saving {shapes.Count:N0} copied objects",
+                    showProgressForm: false);
                 CanvasFeatureService featureService =
                     _projectScopedFactory.CreateCanvasFeatureService(AppServices.Context.Session);
                 AppDbContext context = AppServices.Context.Session.GetDbContext();
@@ -14573,6 +14617,12 @@ namespace Land_Readjustment_Tool
                 IReadOnlyList<CanvasFeature> features = await featureService.SaveNewShapesAsync(
                     shapes,
                     GetSelectedCurrentDrawingLayer()?.Name ?? _currentDrawingLayer?.Name ?? "Features");
+                SetOperationProgress(
+                    58,
+                    features.Count == 1
+                        ? "Preparing copied object for canvas"
+                        : $"Preparing {features.Count:N0} copied objects for canvas",
+                    showProgressForm: false);
 
                 foreach (CanvasFeature feature in features)
                 {
@@ -14584,6 +14634,7 @@ namespace Land_Readjustment_Tool
 
                 if (anyAffectsRoadParcel)
                 {
+                    SetOperationProgress(72, "Refreshing generated road parcel", showProgressForm: false);
                     await RefreshGeneratedRoadParcelAsync(context);
                 }
                 databaseStopwatch.Stop();
@@ -14592,11 +14643,14 @@ namespace Land_Readjustment_Tool
                 Stopwatch canvasStopwatch = Stopwatch.StartNew();
                 if (anyAffectsRoadParcel)
                 {
+                    SetOperationProgress(84, "Reloading canvas after copy", showProgressForm: false);
                     await RefreshVectorCanvasFeaturesAsync();
+                    SetOperationProgress(92, "Selecting copied objects", showProgressForm: false);
                     mapCanvasControlMain.SelectCanvasObjects(createdObjectIds, zoomToSelection: false);
                 }
                 else
                 {
+                    SetOperationProgress(84, "Updating canvas with copied objects", showProgressForm: false);
                     mapCanvasControlMain.UpsertVectorFeatures(
                         features,
                         selectUpsertedFeatures: true);
@@ -14611,6 +14665,7 @@ namespace Land_Readjustment_Tool
                     totalStopwatch.Elapsed.TotalMilliseconds);
 
                 RegisterCanvasUndoCommand(new AddCanvasObjectsCommand(createdSnapshots));
+                SetOperationProgress(100, "Copy complete", showProgressForm: false);
                 SetCanvasCommandStatus(createdObjectIds.Count == 1
                     ? "Copied object"
                     : $"Copied {createdObjectIds.Count} objects");
@@ -14624,6 +14679,20 @@ namespace Land_Readjustment_Tool
                     MessageBoxButtons.OK,
                     MessageBoxIcon.Error);
             }
+            finally
+            {
+                HideOperationProgress();
+            }
+        }
+
+        private void MapCanvasControlMain_LongOperationProgressChanged(int percent, string status)
+        {
+            SetOperationProgress(percent, status, showProgressForm: false);
+        }
+
+        private void MapCanvasControlMain_LongOperationProgressCompleted()
+        {
+            HideOperationProgress();
         }
 
         private async void MapCanvasControlMain_ShapesEdited(IReadOnlyList<IShape> shapes)
@@ -14648,6 +14717,12 @@ namespace Land_Readjustment_Tool
             Stopwatch totalStopwatch = Stopwatch.StartNew();
             try
             {
+                SetOperationProgress(
+                    8,
+                    shapes.Count == 1
+                        ? "Saving moved object"
+                        : $"Saving {shapes.Count:N0} moved objects",
+                    showProgressForm: false);
                 AppDbContext context = AppServices.Context.Session.GetDbContext();
                 CanvasFeatureService featureService =
                     _projectScopedFactory.CreateCanvasFeatureService(AppServices.Context.Session);
@@ -14661,6 +14736,12 @@ namespace Land_Readjustment_Tool
                 Dictionary<Guid, CanvasObject> existingObjects =
                     await LoadCanvasObjectsForEditAsync(context, shapes.Select(shape => shape.Id));
                 databaseStopwatch.Stop();
+                SetOperationProgress(
+                    28,
+                    existingObjects.Count == 1
+                        ? "Preparing object update"
+                        : $"Preparing {existingObjects.Count:N0} object updates",
+                    showProgressForm: false);
                 List<(IShape Shape, CanvasObject ExistingObject)> saveItems = new();
 
                 // Persist every edited shape, but defer the (expensive) feature
@@ -14709,6 +14790,12 @@ namespace Land_Readjustment_Tool
                     return;
                 }
 
+                SetOperationProgress(
+                    48,
+                    saveItems.Count == 1
+                        ? "Writing moved object to database"
+                        : $"Writing {saveItems.Count:N0} moved objects to database",
+                    showProgressForm: false);
                 databaseStopwatch.Start();
                 IReadOnlyList<CanvasFeature> savedFeatures =
                     await featureService.SaveExistingShapesAsync(saveItems);
@@ -14719,6 +14806,7 @@ namespace Land_Readjustment_Tool
 
                 if (anyAffectsRoadParcel)
                 {
+                    SetOperationProgress(72, "Refreshing generated road parcel", showProgressForm: false);
                     await RefreshGeneratedRoadParcelAsync(context);
                 }
                 databaseStopwatch.Stop();
@@ -14727,10 +14815,17 @@ namespace Land_Readjustment_Tool
                 Stopwatch canvasStopwatch = Stopwatch.StartNew();
                 if (anyAffectsRoadParcel)
                 {
+                    SetOperationProgress(84, "Reloading canvas after move", showProgressForm: false);
                     await RefreshVectorCanvasFeaturesAsync();
                 }
                 else
                 {
+                    SetOperationProgress(
+                        84,
+                        savedFeatures.Count == 1
+                            ? "Updating moved object on canvas"
+                            : $"Updating {savedFeatures.Count:N0} moved objects on canvas",
+                        showProgressForm: false);
                     mapCanvasControlMain.UpsertVectorFeatures(savedFeatures);
                 }
                 canvasStopwatch.Stop();
@@ -14744,10 +14839,12 @@ namespace Land_Readjustment_Tool
 
                 if (firstSavedShapeId.HasValue)
                 {
+                    SetOperationProgress(94, "Refreshing selected object properties", showProgressForm: false);
                     await RefreshCurrentSelectedCanvasObjectPropertiesAsync(firstSavedShapeId.Value);
                 }
 
                 RegisterCanvasUndoCommand(new ModifyCanvasObjectsCommand(beforeSnapshots, afterSnapshots));
+                SetOperationProgress(100, "Move complete", showProgressForm: false);
                 SetCanvasCommandStatus(beforeSnapshots.Count == 1
                     ? $"Edited {lastSavedLabel}"
                     : $"Edited {beforeSnapshots.Count} objects");
@@ -14764,6 +14861,7 @@ namespace Land_Readjustment_Tool
             finally
             {
                 _shapeEditSaveLock.Release();
+                HideOperationProgress();
             }
         }
 
@@ -14794,6 +14892,12 @@ namespace Land_Readjustment_Tool
             Stopwatch totalStopwatch = Stopwatch.StartNew();
             try
             {
+                SetOperationProgress(
+                    4,
+                    shapeIds.Count == 1
+                        ? "Preparing selected object delete"
+                        : $"Preparing delete for {shapeIds.Count:N0} selected objects",
+                    showProgressForm: false);
                 AppDbContext context = AppServices.Context.Session.GetDbContext();
                 Stopwatch databaseStopwatch = Stopwatch.StartNew();
                 List<CanvasObject> selectedObjects =
@@ -16872,7 +16976,7 @@ namespace Land_Readjustment_Tool
         /// <summary>
         /// Shows operation progress in the map canvas status bar.
         /// </summary>
-        private void SetOperationProgress(int percent, string status, bool showProgressForm = true)
+        private void SetOperationProgress(int percent, string status, bool showProgressForm = false)
         {
             if (InvokeRequired)
             {

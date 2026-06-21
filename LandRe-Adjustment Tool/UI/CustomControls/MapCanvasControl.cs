@@ -94,6 +94,7 @@ namespace Land_Readjustment_Tool.UI.CustomControls
         private const double ObjectExtentZoomPadding = 0.86;
         private const double SelectionZoomBoundsMarginFactor = 0.18;
         private const double MinimumSelectionZoomWorldSpan = 100.0;
+        private const int MaxImmediateCopyOverlayFeatureCount = 500;
         private const bool DefaultShowDebugOverlay = false;
         private const string SelectionContextMenuItemTag = "__selection_context_menu_item";
         private static readonly double[] StandardScaleDenominators = BuildStandardScaleDenominators();
@@ -118,6 +119,8 @@ namespace Land_Readjustment_Tool.UI.CustomControls
         public CanvasCommandService CommandService => _commandService;
 
         public event Action<string, string, double>? StatusChanged;
+        public event Action<int, string>? LongOperationProgressChanged;
+        public event Action? LongOperationProgressCompleted;
         public event Action<IShape>? ShapeCompleted;
         public event Action<IReadOnlyList<IShape>>? ShapesCompleted;
         // Raised once for a whole batch of edited shapes (move/grip/text) so the
@@ -362,10 +365,44 @@ namespace Land_Readjustment_Tool.UI.CustomControls
 
         private sealed class MoveOperation
         {
+            private HashSet<Guid>? _movingShapeIds;
+            private string? _exclusionKey;
+
             public required IReadOnlyList<MoveItem> Items { get; init; }
             public MoveOperationPhase Phase { get; set; } = MoveOperationPhase.AwaitingReference;
             public PointD ReferenceWorld { get; set; }
             public bool IsCopy { get; init; }
+
+            public HashSet<Guid> GetMovingShapeIds()
+            {
+                if (_movingShapeIds != null)
+                {
+                    return _movingShapeIds;
+                }
+
+                _movingShapeIds = Items
+                    .Select(item => item.Feature?.Shape.Id ?? item.OriginalShape.Id)
+                    .Where(id => id != Guid.Empty)
+                    .ToHashSet();
+                return _movingShapeIds;
+            }
+
+            public string GetExclusionKey()
+            {
+                if (_exclusionKey != null)
+                {
+                    return _exclusionKey;
+                }
+
+                HashCode hash = new();
+                foreach (Guid id in GetMovingShapeIds())
+                {
+                    hash.Add(id);
+                }
+
+                _exclusionKey = $"{GetMovingShapeIds().Count}:{hash.ToHashCode():X8}";
+                return _exclusionKey;
+            }
         }
 
         private sealed class MoveItem
@@ -2469,11 +2506,7 @@ namespace Land_Readjustment_Tool.UI.CustomControls
                 _activeMoveOperation.Phase == MoveOperationPhase.AwaitingDestination &&
                 !_activeMoveOperation.IsCopy)
             {
-                return _activeMoveOperation.Items
-                    .Where(item => item.Feature != null)
-                    .Select(item => item.Feature!.Shape.Id)
-                    .Distinct()
-                    .ToArray();
+                return _activeMoveOperation.GetMovingShapeIds().ToArray();
             }
 
             return [];
@@ -2481,6 +2514,13 @@ namespace Land_Readjustment_Tool.UI.CustomControls
 
         private string BuildGpuInteractionFrameCacheExclusionKey()
         {
+            if (_activeMoveOperation != null &&
+                _activeMoveOperation.Phase == MoveOperationPhase.AwaitingDestination &&
+                !_activeMoveOperation.IsCopy)
+            {
+                return _activeMoveOperation.GetExclusionKey();
+            }
+
             IReadOnlyList<Guid> exclusions = GetGpuInteractionFrameCacheVectorExclusions();
             if (exclusions.Count == 0)
             {
@@ -5103,10 +5143,8 @@ namespace Land_Readjustment_Tool.UI.CustomControls
                 _activeMoveOperation.Phase == MoveOperationPhase.AwaitingDestination &&
                 _activeMoveOperation.Items.Count > 0)
             {
-                HashSet<Guid> movingShapeIds = _activeMoveOperation.Items
-                    .Select(item => item.Feature?.Shape.Id ?? item.OriginalShape.Id)
-                    .ToHashSet();
-                nearbyShapes.RemoveAll(s => movingShapeIds.Contains(s.Id));
+                HashSet<Guid> movingShapeIds = _activeMoveOperation.GetMovingShapeIds();
+                nearbyShapes.RemoveAll(shape => movingShapeIds.Contains(shape.Id));
             }
 
             PointD? fromPoint = _drawingVertices.Count > 0 ? _drawingVertices[^1] : null;
@@ -9679,6 +9717,29 @@ namespace Land_Readjustment_Tool.UI.CustomControls
                 : item.Layer;
         }
 
+        private static List<(IShape Shape, CanvasLayer? Layer)> CreateCopiedMoveShapes(
+            IReadOnlyList<MoveItem> items,
+            PointD delta)
+        {
+            List<(IShape Shape, CanvasLayer? Layer)> copiedShapes = new(items.Count);
+            foreach (MoveItem item in items)
+            {
+                IShape copiedShape = item.OriginalShape.Clone();
+                copiedShape.Translate(delta);
+                copiedShape.IsSelected = false;
+                CanvasLayer? layer = item.Layer ?? item.Feature?.Layer;
+                if (layer != null)
+                {
+                    copiedShape.LayerName = layer.Name;
+                    copiedShape.Properties[CanvasFeatureService.CanvasLayerIdPropertyKey] = layer.Id;
+                }
+
+                copiedShapes.Add((copiedShape, layer));
+            }
+
+            return copiedShapes;
+        }
+
         private void CaptureMovePreviewBitmap()
         {
             DisposeMovePreviewBitmap();
@@ -9788,10 +9849,32 @@ namespace Land_Readjustment_Tool.UI.CustomControls
             if (!hasBounds)
                 return false;
 
-            int x = (int)Math.Floor(left) - paddingPixels;
-            int y = (int)Math.Floor(top) - paddingPixels;
-            int width = Math.Max(1, (int)Math.Ceiling(right) - x + paddingPixels);
-            int height = Math.Max(1, (int)Math.Ceiling(bottom) - y + paddingPixels);
+            Size canvasSize = ActiveCanvasSize;
+            double captureLeft = Math.Floor(left) - paddingPixels;
+            double captureTop = Math.Floor(top) - paddingPixels;
+            double captureRight = Math.Ceiling(right) + paddingPixels;
+            double captureBottom = Math.Ceiling(bottom) + paddingPixels;
+
+            double viewportLeft = -paddingPixels;
+            double viewportTop = -paddingPixels;
+            double viewportRight = canvasSize.Width + paddingPixels;
+            double viewportBottom = canvasSize.Height + paddingPixels;
+
+            captureLeft = Math.Max(captureLeft, viewportLeft);
+            captureTop = Math.Max(captureTop, viewportTop);
+            captureRight = Math.Min(captureRight, viewportRight);
+            captureBottom = Math.Min(captureBottom, viewportBottom);
+
+            if (captureRight <= captureLeft ||
+                captureBottom <= captureTop)
+            {
+                return false;
+            }
+
+            int x = (int)Math.Floor(captureLeft);
+            int y = (int)Math.Floor(captureTop);
+            int width = Math.Max(1, (int)Math.Ceiling(captureRight) - x);
+            int height = Math.Max(1, (int)Math.Ceiling(captureBottom) - y);
 
             captureRectangle = new Rectangle(x, y, width, height);
             return true;
@@ -9821,48 +9904,29 @@ namespace Land_Readjustment_Tool.UI.CustomControls
             _movePreviewBitmap = null;
         }
 
-        private void CommitMoveOperation()
+        private async void CommitMoveOperation()
         {
             if (_activeMoveOperation == null ||
                 _activeMoveOperation.Phase != MoveOperationPhase.AwaitingDestination ||
                 !_currentMouseWorld.HasValue)
                 return;
 
+            MoveOperation moveOperation = _activeMoveOperation;
             PointD cursor = _currentMouseWorld.Value;
             PointD delta = new(
-                cursor.X - _activeMoveOperation.ReferenceWorld.X,
-                cursor.Y - _activeMoveOperation.ReferenceWorld.Y);
+                cursor.X - moveOperation.ReferenceWorld.X,
+                cursor.Y - moveOperation.ReferenceWorld.Y);
 
             List<IShape> editedShapes = new();
             List<CanvasFeature> movedFeatures = new();
             bool copyOperation =
-                _activeMoveOperation.IsCopy ||
+                moveOperation.IsCopy ||
                 (ModifierKeys & Keys.Control) == Keys.Control;
 
             if (copyOperation)
             {
-                List<IShape> copiedShapes = new();
-                List<(IShape Shape, CanvasLayer? Layer)> copiedOverlays = new();
-                foreach (MoveItem item in _activeMoveOperation.Items)
-                {
-                    IShape copiedShape = item.OriginalShape.Clone();
-                    copiedShape.Translate(delta);
-                    copiedShape.IsSelected = false;
-                    CanvasLayer? layer = GetMoveItemLayer(item);
-                    if (layer != null)
-                    {
-                        copiedShape.LayerName = layer.Name;
-                        copiedShape.Properties[CanvasFeatureService.CanvasLayerIdPropertyKey] = layer.Id;
-                    }
-
-                    copiedShapes.Add(copiedShape);
-                    copiedOverlays.Add((copiedShape, layer));
-                    _pendingDrawnShapeIds.Add(copiedShape.Id);
-                }
-
                 _justCompletedShape = null;
                 _justCompletedShapeLayer = null;
-                _justCompletedShapeOverlays = copiedOverlays;
                 _activeMoveOperation = null;
                 DisposeMovePreviewBitmap();
                 _renderer.SetVectorRenderExclusions(null, invalidateCache: false);
@@ -9872,18 +9936,76 @@ namespace Land_Readjustment_Tool.UI.CustomControls
                 UpdateStatusBar();
                 RequestRender();
 
-                if (copiedShapes.Count > 0)
+                _commandService.SetPrompt(moveOperation.Items.Count == 1
+                    ? "Preparing copied object..."
+                    : $"Preparing {moveOperation.Items.Count:N0} copied objects...");
+                LongOperationProgressChanged?.Invoke(
+                    8,
+                    moveOperation.Items.Count == 1
+                        ? "Preparing copied object"
+                        : $"Preparing {moveOperation.Items.Count:N0} copied objects");
+
+                List<(IShape Shape, CanvasLayer? Layer)> copiedOverlays;
+                try
+                {
+                    copiedOverlays = await Task.Run(
+                        () => CreateCopiedMoveShapes(moveOperation.Items, delta));
+                }
+                catch (Exception ex)
+                {
+                    MessageBox.Show(
+                        $"Failed to prepare copied objects: {ex.Message}",
+                        "Copy Objects",
+                        MessageBoxButtons.OK,
+                        MessageBoxIcon.Error);
+                    _commandService.SetPrompt("Copy failed.");
+                    LongOperationProgressCompleted?.Invoke();
+                    return;
+                }
+
+                if (IsDisposed || Disposing)
+                {
+                    LongOperationProgressCompleted?.Invoke();
+                    return;
+                }
+
+                LongOperationProgressChanged?.Invoke(
+                    22,
+                    copiedOverlays.Count == 1
+                        ? "Saving copied object"
+                        : $"Saving {copiedOverlays.Count:N0} copied objects");
+
+                IShape[] copiedShapes = copiedOverlays
+                    .Select(item => item.Shape)
+                    .ToArray();
+                bool showImmediateOverlay =
+                    copiedOverlays.Count <= MaxImmediateCopyOverlayFeatureCount;
+                _justCompletedShapeOverlays = showImmediateOverlay
+                    ? copiedOverlays
+                    : Array.Empty<(IShape Shape, CanvasLayer? Layer)>();
+
+                if (showImmediateOverlay)
+                {
+                    foreach ((IShape copiedShape, _) in copiedOverlays)
+                    {
+                        _pendingDrawnShapeIds.Add(copiedShape.Id);
+                    }
+                }
+
+                RequestRender();
+
+                if (copiedShapes.Length > 0)
                 {
                     ShapesCompleted?.Invoke(copiedShapes);
-                    _commandService.LogCommand(copiedShapes.Count > 1
-                        ? $"Copied {copiedShapes.Count} objects"
+                    _commandService.LogCommand(copiedShapes.Length > 1
+                        ? $"Copied {copiedShapes.Length} objects"
                         : "Copied object");
                 }
 
                 return;
             }
 
-            foreach (MoveItem item in _activeMoveOperation.Items)
+            foreach (MoveItem item in moveOperation.Items)
             {
                 if (item.Feature == null)
                     continue;
@@ -10010,26 +10132,6 @@ namespace Land_Readjustment_Tool.UI.CustomControls
                 return;
             }
 
-            if (UseSkiaCanvasSurface)
-            {
-                PointD delta = new(
-                    _currentMouseWorld.Value.X - _activeMoveOperation.ReferenceWorld.X,
-                    _currentMouseWorld.Value.Y - _activeMoveOperation.ReferenceWorld.Y);
-                List<(IShape Shape, CanvasLayer? Layer, CanvasObject? CanvasObject)> previews = new();
-                foreach (MoveItem item in _activeMoveOperation.Items)
-                {
-                    IShape preview = item.OriginalShape.Clone();
-                    preview.Translate(delta);
-                    previews.Add((preview, GetMoveItemLayer(item), item.CanvasObject));
-                }
-
-                _renderer.RenderTransientShapes(
-                    surface,
-                    previews,
-                    forceUnselected: true);
-                return;
-            }
-
             if (_movePreviewBitmap == null ||
                 Math.Abs(_engine.ZoomScale - _movePreviewBitmapScale) > _movePreviewBitmapScale * 1e-9)
             {
@@ -10094,23 +10196,15 @@ namespace Land_Readjustment_Tool.UI.CustomControls
             _activeMoveOperation.Phase = MoveOperationPhase.AwaitingDestination;
             _currentMouseWorld = referenceWorld;
 
-            if (UseSkiaCanvasSurface)
-            {
-                DisposeMovePreviewBitmap();
-                InvalidateGpuInteractionFrameCache();
-            }
-            else
-            {
-                // Capture shapes at their original positions into a bitmap.
-                // The originals remain visible in the vector cache (selection highlight + grips).
-                CaptureMovePreviewBitmap();
-            }
+            // Capture shapes at their original positions into a bitmap once.
+            // During drag we blit this single image instead of cloning/rendering
+            // every selected shape on every frame, which is critical for large
+            // moves such as 10,000 selected objects.
+            CaptureMovePreviewBitmap();
             if (!_activeMoveOperation.IsCopy)
             {
                 _renderer.SetVectorRenderExclusions(
-                    _activeMoveOperation.Items
-                        .Where(item => item.Feature != null)
-                        .Select(item => item.Feature!.Shape.Id),
+                    _activeMoveOperation.GetMovingShapeIds(),
                     invalidateCache: false);
                 InvalidateGpuInteractionFrameCache();
                 RefreshVectorCacheForCurrentViewAsync();

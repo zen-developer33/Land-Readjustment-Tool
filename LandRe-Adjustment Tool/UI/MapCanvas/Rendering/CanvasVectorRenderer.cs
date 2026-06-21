@@ -145,6 +145,12 @@ namespace Land_Readjustment_Tool.UI.MapCanvas.Rendering
 
         public void SetExcludedShapeIds(IEnumerable<Guid>? shapeIds)
         {
+            if (shapeIds is IReadOnlySet<Guid> shapeIdSet)
+            {
+                _excludedShapeIds = shapeIdSet;
+                return;
+            }
+
             _excludedShapeIds = shapeIds?
                 .Where(id => id != Guid.Empty)
                 .ToHashSet()
@@ -1112,7 +1118,7 @@ namespace Land_Readjustment_Tool.UI.MapCanvas.Rendering
                             Color.FromArgb(alpha, SelectionGlowColor),
                             selectionWidth,
                             ToDashPatternKind(style.LineStyleKey),
-                            GetSelectionDashScale(style.LineTypeScale, effectiveStroke, selectionWidth));
+                            GetSelectionDashScale(context, style.LineTypeScale, effectiveStroke, selectionWidth));
                         context.Surface.DrawPath(path, glowStroke);
                     }
                 }
@@ -1121,7 +1127,7 @@ namespace Land_Readjustment_Tool.UI.MapCanvas.Rendering
                     SelectionStrokeColor,
                     selectionStroke,
                     ToDashPatternKind(style.LineStyleKey),
-                    GetSelectionDashScale(style.LineTypeScale, effectiveStroke, selectionStroke));
+                    GetSelectionDashScale(context, style.LineTypeScale, effectiveStroke, selectionStroke));
                 context.Surface.DrawPath(path, centerStroke);
             }
             catch (OutOfMemoryException)
@@ -1143,10 +1149,16 @@ namespace Land_Readjustment_Tool.UI.MapCanvas.Rendering
         }
 
         private static float GetSelectionDashScale(
+            VectorRenderContext context,
             float objectLineTypeScale,
             float objectStrokeWidth,
             float selectionStrokeWidth)
         {
+            if (context.Surface is not GdiMapRenderSurface)
+            {
+                return objectLineTypeScale;
+            }
+
             if (selectionStrokeWidth <= 0.0f)
             {
                 return objectLineTypeScale;

@@ -111,8 +111,7 @@ namespace Land_Readjustment_Tool.UI.MapCanvas.Services
                 .GroupBy(layer => layer.Name, StringComparer.OrdinalIgnoreCase)
                 .ToDictionary(group => group.Key, group => group.First(), StringComparer.OrdinalIgnoreCase);
 
-            List<CanvasObject> entities = new(shapes.Count);
-            Dictionary<Guid, CanvasLayer> layersByShapeId = new(shapes.Count);
+            List<(IShape Shape, CanvasLayer Layer)> shapeLayers = new(shapes.Count);
 
             foreach (IShape shape in shapes)
             {
@@ -122,30 +121,52 @@ namespace Land_Readjustment_Tool.UI.MapCanvas.Services
                     layersById,
                     layersByName,
                     ct);
-
-                CanvasObject entity = GeometryShapeMapper.ToCanvasObject(shape, layer.Id);
-                if (CanvasLayerTreeService.IsBlockLayoutLayer(layer))
-                {
-                    CanvasGeometryMetricsService.StoreBlockDepthFromGeometry(entity);
-                }
-
-                entities.Add(entity);
-                layersByShapeId[shape.Id] = layer;
+                shapeLayers.Add((shape, layer));
             }
+
+            (List<CanvasObject> entities, Dictionary<Guid, CanvasLayer> layersByShapeId) =
+                await Task.Run(
+                    () =>
+                    {
+                        List<CanvasObject> mappedEntities = new(shapeLayers.Count);
+                        Dictionary<Guid, CanvasLayer> mappedLayersByShapeId = new(shapeLayers.Count);
+
+                        foreach ((IShape shape, CanvasLayer layer) in shapeLayers)
+                        {
+                            ct.ThrowIfCancellationRequested();
+                            CanvasObject entity = GeometryShapeMapper.ToCanvasObject(shape, layer.Id);
+                            if (CanvasLayerTreeService.IsBlockLayoutLayer(layer))
+                            {
+                                CanvasGeometryMetricsService.StoreBlockDepthFromGeometry(entity);
+                            }
+
+                            mappedEntities.Add(entity);
+                            mappedLayersByShapeId[shape.Id] = layer;
+                        }
+
+                        return (mappedEntities, mappedLayersByShapeId);
+                    },
+                    ct);
 
             await _canvasObjectRepository.AddRangeAsync(entities, ct);
 
-            List<CanvasFeature> features = new(entities.Count);
-            foreach (CanvasObject entity in entities)
-            {
-                CanvasLayer layer = layersByShapeId[entity.Id];
-                entity.CanvasLayer = layer;
-                IShape mappedShape = GeometryShapeMapper.ToShape(entity);
-                mappedShape.LayerName = layer.Name;
-                features.Add(new CanvasFeature(entity, mappedShape, layer));
-            }
+            return await Task.Run(
+                () =>
+                {
+                    List<CanvasFeature> features = new(entities.Count);
+                    foreach (CanvasObject entity in entities)
+                    {
+                        ct.ThrowIfCancellationRequested();
+                        CanvasLayer layer = layersByShapeId[entity.Id];
+                        entity.CanvasLayer = layer;
+                        IShape mappedShape = GeometryShapeMapper.ToShape(entity);
+                        mappedShape.LayerName = layer.Name;
+                        features.Add(new CanvasFeature(entity, mappedShape, layer));
+                    }
 
-            return features;
+                    return features;
+                },
+                ct);
         }
 
         public async Task<IReadOnlyList<CanvasFeature>> SaveExistingShapesAsync(
@@ -157,46 +178,61 @@ namespace Land_Readjustment_Tool.UI.MapCanvas.Services
                 return [];
             }
 
-            List<CanvasObject> entities = new(items.Count);
-            List<(CanvasObject Entity, CanvasLayer? Layer)> entityLayers = new(items.Count);
+            (List<CanvasObject> entities, List<(CanvasObject Entity, CanvasLayer? Layer)> entityLayers) =
+                await Task.Run(
+                    () =>
+                    {
+                        List<CanvasObject> mappedEntities = new(items.Count);
+                        List<(CanvasObject Entity, CanvasLayer? Layer)> mappedEntityLayers = new(items.Count);
 
-            foreach ((IShape shape, CanvasObject existingObject) in items)
-            {
-                CanvasLayer? layer = existingObject.CanvasLayer;
-                CanvasObject entity = GeometryShapeMapper.ToCanvasObject(
-                    shape,
-                    existingObject.CanvasLayerId,
-                    existingObject);
+                        foreach ((IShape shape, CanvasObject existingObject) in items)
+                        {
+                            ct.ThrowIfCancellationRequested();
+                            CanvasLayer? layer = existingObject.CanvasLayer;
+                            CanvasObject entity = GeometryShapeMapper.ToCanvasObject(
+                                shape,
+                                existingObject.CanvasLayerId,
+                                existingObject);
 
-                if (layer != null && CanvasLayerTreeService.IsBlockLayoutLayer(layer))
-                {
-                    CanvasGeometryMetricsService.StoreBlockDepthFromGeometry(entity);
-                }
+                            if (layer != null && CanvasLayerTreeService.IsBlockLayoutLayer(layer))
+                            {
+                                CanvasGeometryMetricsService.StoreBlockDepthFromGeometry(entity);
+                            }
 
-                entities.Add(entity);
-                entityLayers.Add((entity, layer));
-            }
+                            mappedEntities.Add(entity);
+                            mappedEntityLayers.Add((entity, layer));
+                        }
+
+                        return (mappedEntities, mappedEntityLayers);
+                    },
+                    ct);
 
             await _canvasObjectRepository.UpdateRangeAsync(entities, ct);
 
-            List<CanvasFeature> features = new(entities.Count);
-            foreach ((CanvasObject entity, CanvasLayer? layer) in entityLayers)
-            {
-                if (layer != null)
+            return await Task.Run(
+                () =>
                 {
-                    entity.CanvasLayer = layer;
-                }
+                    List<CanvasFeature> features = new(entities.Count);
+                    foreach ((CanvasObject entity, CanvasLayer? layer) in entityLayers)
+                    {
+                        ct.ThrowIfCancellationRequested();
+                        if (layer != null)
+                        {
+                            entity.CanvasLayer = layer;
+                        }
 
-                IShape mappedShape = GeometryShapeMapper.ToShape(entity);
-                if (layer != null)
-                {
-                    mappedShape.LayerName = layer.Name;
-                }
+                        IShape mappedShape = GeometryShapeMapper.ToShape(entity);
+                        if (layer != null)
+                        {
+                            mappedShape.LayerName = layer.Name;
+                        }
 
-                features.Add(new CanvasFeature(entity, mappedShape, layer));
-            }
+                        features.Add(new CanvasFeature(entity, mappedShape, layer));
+                    }
 
-            return features;
+                    return features;
+                },
+                ct);
         }
 
         public async Task DeleteShapeAsync(
