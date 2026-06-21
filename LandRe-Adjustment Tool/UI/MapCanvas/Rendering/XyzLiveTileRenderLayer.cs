@@ -159,6 +159,21 @@ namespace Land_Readjustment_Tool.UI.MapCanvas.Rendering
         private bool _compositeValid;
         private double _compositeZoomScale;   // engine zoom when composite was built
 
+        // Reuse-skip bookkeeping: the composite is rebuilt (and, for non-Web-Mercator
+        // projects, the whole canvas is reprojected) only when the viewport OR the
+        // set of cached tiles that feed it actually change. _tileCacheVersion bumps on
+        // every tile add/remove; a settle whose view + version match the last build
+        // reuses the composite verbatim and skips the mosaic assembly and warp.
+        private int _tileCacheVersion;
+        private int _compositeBuiltCacheVersion = -1;
+        private TileRange _compositeBuiltTileRange;
+        // Reused scratch buffers for the reprojection warp so a fresh canvas-sized
+        // mosaic/warp surface and two int[] frames are not allocated every settle.
+        private Bitmap? _mosaicBitmap;
+        private Bitmap? _warpedBitmap;
+        private int[]? _warpSourcePixels;
+        private int[]? _warpTargetPixels;
+
         private bool _lastRenderInteractive;
         private bool _lastViewportAllowed;
         private bool _internetFetchSuspended;
@@ -598,6 +613,45 @@ namespace Land_Readjustment_Tool.UI.MapCanvas.Rendering
         }
 
         /// <summary>
+        /// Returns true when the existing composite was built from the same viewport
+        /// and the same tile-cache state, so the caller can blit it as-is and skip the
+        /// mosaic assembly and (for non-Web-Mercator projects) the full-canvas
+        /// reprojection warp. Must be called under <see cref="_renderSync"/>.
+        /// </summary>
+        private bool CanReuseComposite(
+            Size canvasSize,
+            RectangleD visibleWorldBounds,
+            TileRange tileRange)
+        {
+            return _compositeValid &&
+                   _compositeBitmap != null &&
+                   _compositeBitmap.Width == canvasSize.Width &&
+                   _compositeBitmap.Height == canvasSize.Height &&
+                   _compositeCanvasSize == canvasSize &&
+                   _compositeBuiltCacheVersion == _tileCacheVersion &&
+                   _compositeBuiltTileRange.Equals(tileRange) &&
+                   _compositeWorldBounds.Equals(visibleWorldBounds);
+        }
+
+        /// <summary>
+        /// Records the viewport and tile-cache state a freshly built composite was
+        /// produced from, so a later identical settle can reuse it verbatim.
+        /// </summary>
+        private void MarkCompositeBuilt(
+            RectangleD visibleWorldBounds,
+            Size canvasSize,
+            double zoomScale,
+            TileRange tileRange)
+        {
+            _compositeWorldBounds = visibleWorldBounds;
+            _compositeCanvasSize = canvasSize;
+            _compositeZoomScale = zoomScale;
+            _compositeBuiltCacheVersion = _tileCacheVersion;
+            _compositeBuiltTileRange = tileRange;
+            _compositeValid = true;
+        }
+
+        /// <summary>
         /// Draws all cached tiles into an offscreen composite bitmap (applying the Asia clip
         /// and pixel-perfect alignment), then blits it 1:1 to the canvas.
         /// Sets <see cref="_compositeValid"/> so subsequent interactive frames can fast-path.
@@ -614,6 +668,34 @@ namespace Land_Readjustment_Tool.UI.MapCanvas.Rendering
             HashSet<TileKey>? fallbackFetchCandidates)
         {
             cancellationToken.ThrowIfCancellationRequested();
+
+            // Reuse fast-path: nothing that feeds the composite changed since it was
+            // last built, so blit it directly and skip the mosaic + reprojection warp.
+            if (_compositeBitmap != null &&
+                CanReuseComposite(canvasSize, visibleWorldBounds, tileRange))
+            {
+                GraphicsState reuseState = graphics.Save();
+                try
+                {
+                    graphics.CompositingMode = CompositingMode.SourceOver;
+                    graphics.CompositingQuality = CompositingQuality.HighQuality;
+                    graphics.InterpolationMode = InterpolationMode.NearestNeighbor;
+                    graphics.PixelOffsetMode = PixelOffsetMode.None;
+                    imageContext.DrawBitmap(
+                        _compositeBitmap,
+                        new RectangleF(0, 0, _compositeBitmap.Width, _compositeBitmap.Height),
+                        new RectangleF(0, 0, _compositeBitmap.Width, _compositeBitmap.Height),
+                        GetOpacityFactor(),
+                        ImageInterpolation.NearestNeighbor,
+                        tileFlipXY: false);
+                }
+                finally
+                {
+                    graphics.Restore(reuseState);
+                }
+
+                return true;
+            }
 
             // Allocate or resize the offscreen bitmap to match the canvas.
             if (_compositeBitmap == null ||
@@ -667,10 +749,11 @@ namespace Land_Readjustment_Tool.UI.MapCanvas.Rendering
                 // Store the viewport reference so interactive frames can remap it.
                 if (drawnAny)
                 {
-                    _compositeWorldBounds = visibleWorldBounds;
-                    _compositeCanvasSize = canvasSize;
-                    _compositeZoomScale = engine.ZoomScale;
-                    _compositeValid = true;
+                    MarkCompositeBuilt(
+                        visibleWorldBounds,
+                        canvasSize,
+                        engine.ZoomScale,
+                        tileRange);
                 }
 
                 // Blit composite to the canvas using SourceOver so transparent margins
@@ -737,6 +820,21 @@ namespace Land_Readjustment_Tool.UI.MapCanvas.Rendering
         {
             cancellationToken.ThrowIfCancellationRequested();
 
+            // Reuse fast-path: skip the mosaic + reprojection warp when nothing that
+            // feeds the composite has changed since the last build.
+            if (_compositeBitmap != null &&
+                CanReuseComposite(canvasSize, visibleWorldBounds, tileRange))
+            {
+                imageContext.DrawBitmap(
+                    _compositeBitmap,
+                    new RectangleF(0, 0, _compositeBitmap.Width, _compositeBitmap.Height),
+                    new RectangleF(0, 0, _compositeBitmap.Width, _compositeBitmap.Height),
+                    GetOpacityFactor(),
+                    ImageInterpolation.NearestNeighbor,
+                    tileFlipXY: false);
+                return true;
+            }
+
             if (_compositeBitmap == null ||
                 _compositeBitmap.Width != canvasSize.Width ||
                 _compositeBitmap.Height != canvasSize.Height)
@@ -780,10 +878,11 @@ namespace Land_Readjustment_Tool.UI.MapCanvas.Rendering
 
                 if (drawnAny)
                 {
-                    _compositeWorldBounds = visibleWorldBounds;
-                    _compositeCanvasSize = canvasSize;
-                    _compositeZoomScale = engine.ZoomScale;
-                    _compositeValid = true;
+                    MarkCompositeBuilt(
+                        visibleWorldBounds,
+                        canvasSize,
+                        engine.ZoomScale,
+                        tileRange);
 
                     imageContext.DrawBitmap(
                         _compositeBitmap,
@@ -1001,10 +1100,9 @@ namespace Land_Readjustment_Tool.UI.MapCanvas.Rendering
             int mosaicWidth = columns * TilePixelSize;
             int mosaicHeight = rows * TilePixelSize;
             bool allCellsCovered = true;
-            using Bitmap mosaic = new(
-                mosaicWidth,
-                mosaicHeight,
-                PixelFormat.Format32bppPArgb);
+            // Reused across settles (cleared below) to avoid a fresh tile-grid-sized
+            // bitmap allocation every rebuild.
+            Bitmap mosaic = GetReusableMosaicBitmap(mosaicWidth, mosaicHeight);
 
             bool hasPixels = false;
                 using (Graphics mosaicGraphics = Graphics.FromImage(mosaic))
@@ -1141,10 +1239,8 @@ namespace Land_Readjustment_Tool.UI.MapCanvas.Rendering
                 return false;
             }
 
-            using Bitmap warped = new(
-                canvasSize.Width,
-                canvasSize.Height,
-                PixelFormat.Format32bppPArgb);
+            // Reused canvas-sized warp surface to avoid a per-settle allocation.
+            Bitmap warped = GetReusableWarpedBitmap(canvasSize.Width, canvasSize.Height);
 
             BitmapData sourceData = mosaic.LockBits(
                 new Rectangle(0, 0, mosaic.Width, mosaic.Height),
@@ -1160,12 +1256,17 @@ namespace Land_Readjustment_Tool.UI.MapCanvas.Rendering
             // of four, with no change to the sampled value.
             int sourceStride = Math.Abs(sourceData.Stride) / 4;
             int targetStride = Math.Abs(targetData.Stride) / 4;
-            int[] sourcePixels = new int[sourceStride * mosaic.Height];
-            int[] targetPixels = new int[targetStride * warped.Height];
+            int sourceCount = sourceStride * mosaic.Height;
+            int targetCount = targetStride * warped.Height;
+            // Reused frame buffers (grown on demand). The target must be cleared
+            // because the warp leaves out-of-source pixels untouched.
+            int[] sourcePixels = EnsureWarpBuffer(ref _warpSourcePixels, sourceCount);
+            int[] targetPixels = EnsureWarpBuffer(ref _warpTargetPixels, targetCount);
+            Array.Clear(targetPixels, 0, targetCount);
 
             try
             {
-                Marshal.Copy(sourceData.Scan0, sourcePixels, 0, sourcePixels.Length);
+                Marshal.Copy(sourceData.Scan0, sourcePixels, 0, sourceCount);
                 cancellationToken.ThrowIfCancellationRequested();
                 FillWarpedMosaicPixels(
                     sourcePixels,
@@ -1180,7 +1281,7 @@ namespace Land_Readjustment_Tool.UI.MapCanvas.Rendering
                     webMercatorBounds,
                     cancellationToken);
                 cancellationToken.ThrowIfCancellationRequested();
-                Marshal.Copy(targetPixels, 0, targetData.Scan0, targetPixels.Length);
+                Marshal.Copy(targetPixels, 0, targetData.Scan0, targetCount);
             }
             finally
             {
@@ -1198,6 +1299,54 @@ namespace Land_Readjustment_Tool.UI.MapCanvas.Rendering
                 tileFlipXY: false);
 
             return true;
+        }
+
+        /// <summary>
+        /// Returns the reusable tile-grid mosaic bitmap, reallocating only when the
+        /// required dimensions change. Callers clear it before drawing.
+        /// </summary>
+        private Bitmap GetReusableMosaicBitmap(int width, int height)
+        {
+            if (_mosaicBitmap == null ||
+                _mosaicBitmap.Width != width ||
+                _mosaicBitmap.Height != height)
+            {
+                _mosaicBitmap?.Dispose();
+                _mosaicBitmap = new Bitmap(width, height, PixelFormat.Format32bppPArgb);
+            }
+
+            return _mosaicBitmap;
+        }
+
+        /// <summary>
+        /// Returns the reusable canvas-sized warp output bitmap, reallocating only
+        /// when the canvas size changes.
+        /// </summary>
+        private Bitmap GetReusableWarpedBitmap(int width, int height)
+        {
+            if (_warpedBitmap == null ||
+                _warpedBitmap.Width != width ||
+                _warpedBitmap.Height != height)
+            {
+                _warpedBitmap?.Dispose();
+                _warpedBitmap = new Bitmap(width, height, PixelFormat.Format32bppPArgb);
+            }
+
+            return _warpedBitmap;
+        }
+
+        /// <summary>
+        /// Returns a reusable pixel buffer of at least <paramref name="count"/> ints,
+        /// growing it only when the current buffer is too small.
+        /// </summary>
+        private static int[] EnsureWarpBuffer(ref int[]? buffer, int count)
+        {
+            if (buffer == null || buffer.Length < count)
+            {
+                buffer = new int[count];
+            }
+
+            return buffer;
         }
 
         private void FillWarpedMosaicPixels(
@@ -2281,6 +2430,7 @@ namespace Land_Readjustment_Tool.UI.MapCanvas.Rendering
                     bitmap = null; // ownership transferred to cache
                     // A new tile has arrived — the composite is stale and must be rebuilt.
                     _compositeValid = false;
+                    _tileCacheVersion++;
                     LinkedListNode<TileKey> node = _tileLru.AddLast(key);
                     _tileLruNodes[key] = node;
                     TrimTileCache();
@@ -2851,6 +3001,7 @@ namespace Land_Readjustment_Tool.UI.MapCanvas.Rendering
 
             _tileCache[key] = decoded;
             _noDataTiles.Remove(key);
+            _tileCacheVersion++;
             LinkedListNode<TileKey> node = _tileLru.AddLast(key);
             _tileLruNodes[key] = node;
             TrimTileCache();
@@ -2870,6 +3021,7 @@ namespace Land_Readjustment_Tool.UI.MapCanvas.Rendering
                 if (_tileCache.Remove(evicted, out Bitmap? bm))
                 {
                     bm.Dispose();
+                    _tileCacheVersion++;
                 }
             }
         }
@@ -2905,10 +3057,18 @@ namespace Land_Readjustment_Tool.UI.MapCanvas.Rendering
             _pendingFetchGeneration++;
             _noDataTiles.Clear();
             _projectTileBoundsCache.Clear();
+            _tileCacheVersion++;
 
             _compositeValid = false;
+            _compositeBuiltCacheVersion = -1;
             _compositeBitmap?.Dispose();
             _compositeBitmap = null;
+            _mosaicBitmap?.Dispose();
+            _mosaicBitmap = null;
+            _warpedBitmap?.Dispose();
+            _warpedBitmap = null;
+            _warpSourcePixels = null;
+            _warpTargetPixels = null;
         }
 
         // ── Disk cache ─────────────────────────────────────────────────────────

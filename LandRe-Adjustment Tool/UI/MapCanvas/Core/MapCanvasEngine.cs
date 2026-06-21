@@ -14,6 +14,11 @@ namespace Land_Readjustment_Tool.UI.MapCanvas.Core
         // pixels per world metre, and scale denominator = (96 DPI / 0.0254) / ZoomScale,
         // so denominator 0.001 corresponds to this ZoomScale. Do not allow more.
         public const double MaxZoom = 96.0 / 0.0254 / 0.001;
+        // Maximum zoom-out is capped at map scale 1:25,000,000. Using the same
+        // denominator relationship as above, that scale corresponds to this minimum
+        // ZoomScale; the user cannot zoom out past it (the displayed scale stops here).
+        public const double MaxScaleDenominator = 25_000_000.0;
+        public const double MinScaleZoom = 96.0 / 0.0254 / MaxScaleDenominator;
         public const double ZoomStep = 1.4;
         private const double DefaultInitialCenterX = 245426.0206;
         private const double DefaultInitialCenterY = 3121303.7884;
@@ -148,7 +153,7 @@ namespace Land_Readjustment_Tool.UI.MapCanvas.Core
                 return;
             }
 
-            _zoomScale = Math.Clamp(zoomScale, GetMinZoomForWorldBounds(), MaxZoom);
+            _zoomScale = Math.Clamp(zoomScale, GetEffectiveMinZoom(), MaxZoom);
 
             _viewOriginWorld = new PointD(
                 centerWorld.X - (_canvasSize.Width / 2.0) / _zoomScale,
@@ -200,7 +205,7 @@ namespace Land_Readjustment_Tool.UI.MapCanvas.Core
             }
 
             PointD worldBeforeZoom = ScreenToWorld(screenPoint);
-            double newZoom = Math.Clamp(zoomScale, GetMinZoomForWorldBounds(), MaxZoom);
+            double newZoom = Math.Clamp(zoomScale, GetEffectiveMinZoom(), MaxZoom);
 
             if (Math.Abs(newZoom - _zoomScale) < 0.000000001)
             {
@@ -238,7 +243,7 @@ namespace Land_Readjustment_Tool.UI.MapCanvas.Core
 
             double zoomX = _canvasSize.Width / worldBounds.Width;
             double zoomY = _canvasSize.Height / worldBounds.Height;
-            _zoomScale = Math.Clamp(Math.Min(zoomX, zoomY) * padding, GetMinZoomForWorldBounds(), MaxZoom);
+            _zoomScale = Math.Clamp(Math.Min(zoomX, zoomY) * padding, GetEffectiveMinZoom(), MaxZoom);
 
             double centerX = worldBounds.X + worldBounds.Width / 2.0;
             double centerY = worldBounds.Y + worldBounds.Height / 2.0;
@@ -257,7 +262,7 @@ namespace Land_Readjustment_Tool.UI.MapCanvas.Core
 
             double zoomX = _canvasSize.Width / worldWidth;
             double zoomY = _canvasSize.Height / worldHeight;
-            _zoomScale = Math.Clamp(Math.Min(zoomX, zoomY) * 0.9, GetMinZoomForWorldBounds(), MaxZoom);
+            _zoomScale = Math.Clamp(Math.Min(zoomX, zoomY) * 0.9, GetEffectiveMinZoom(), MaxZoom);
 
             double screenCenterX = _canvasSize.Width / 2.0;
             double screenCenterY = _canvasSize.Height / 2.0;
@@ -304,6 +309,16 @@ namespace Land_Readjustment_Tool.UI.MapCanvas.Core
         public string GetScaleLabel()
         {
             return $"Scale: 1:{(1.0 / _zoomScale):F2}";
+        }
+
+        /// <summary>
+        /// Lower bound applied to every zoom operation. It is the more restrictive
+        /// (larger) of the fit-to-world-bounds zoom and the 1:25,000,000 scale cap, so
+        /// the user can never zoom out past that scale.
+        /// </summary>
+        private double GetEffectiveMinZoom()
+        {
+            return Math.Max(GetMinZoomForWorldBounds(), MinScaleZoom);
         }
 
         private double GetMinZoomForWorldBounds()
