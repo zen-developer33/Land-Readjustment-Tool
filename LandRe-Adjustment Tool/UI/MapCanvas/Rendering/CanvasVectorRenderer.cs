@@ -965,60 +965,67 @@ namespace Land_Readjustment_Tool.UI.MapCanvas.Rendering
                     style.LineTypeScale)
                 : null;
 
-            switch (shape)
+            bool skipBaseShapeForGdiSelectionOverlay = context.SelectionDecorationOnly &&
+                                                       drawSelectionGlow &&
+                                                       isProjectBoundaryLayer &&
+                                                       context.Surface is GdiMapRenderSurface;
+            if (!skipBaseShapeForGdiSelectionOverlay)
             {
-                case DonutPolygonShape donut:
-                    DrawDonutPolygon(
-                        graphics,
-                        engine,
-                        donut,
-                        style,
-                        context,
-                        pen,
-                        stroke,
-                        drawReplotSelectionFill);
-                    break;
-                case PolylineShape polyline:
-                    DrawPolyline(
-                        graphics,
-                        engine,
-                        polyline,
-                        style,
-                        context,
-                        pen,
-                        stroke,
-                        drawReplotSelectionFill,
-                        effectiveSelected);
-                    break;
-                case LineShape line:
-                    DrawLine(graphics, engine, line, context, stroke);
-                    break;
-                case RectangleShape rectangle:
-                    DrawRectangle(
-                        graphics,
-                        engine,
-                        rectangle,
-                        style,
-                        context,
-                        pen,
-                        stroke,
-                        drawReplotSelectionFill);
-                    break;
-                case CircleShape circle:
-                    DrawCircle(graphics, engine, circle, style, context, stroke);
-                    break;
-                case ArcShape arc:
-                    DrawArc(graphics, engine, arc, context, stroke);
-                    break;
-                case EllipseShape ellipse:
-                    DrawEllipse(graphics, engine, ellipse, style, context, stroke);
-                    break;
-                case TextShape text:
-                    DrawText(graphics, engine, text, style, context, layer, effectiveSelected);
-                    break;
-                default:
-                    shape.Draw(graphics, engine.WorldToScreen, context.IsPreview);
-                    break;
+                switch (shape)
+                {
+                    case DonutPolygonShape donut:
+                        DrawDonutPolygon(
+                            graphics,
+                            engine,
+                            donut,
+                            style,
+                            context,
+                            pen,
+                            stroke,
+                            drawReplotSelectionFill);
+                        break;
+                    case PolylineShape polyline:
+                        DrawPolyline(
+                            graphics,
+                            engine,
+                            polyline,
+                            style,
+                            context,
+                            pen,
+                            stroke,
+                            drawReplotSelectionFill,
+                            effectiveSelected);
+                        break;
+                    case LineShape line:
+                        DrawLine(graphics, engine, line, context, stroke);
+                        break;
+                    case RectangleShape rectangle:
+                        DrawRectangle(
+                            graphics,
+                            engine,
+                            rectangle,
+                            style,
+                            context,
+                            pen,
+                            stroke,
+                            drawReplotSelectionFill);
+                        break;
+                    case CircleShape circle:
+                        DrawCircle(graphics, engine, circle, style, context, stroke);
+                        break;
+                    case ArcShape arc:
+                        DrawArc(graphics, engine, arc, context, stroke);
+                        break;
+                    case EllipseShape ellipse:
+                        DrawEllipse(graphics, engine, ellipse, style, context, stroke);
+                        break;
+                    case TextShape text:
+                        DrawText(graphics, engine, text, style, context, layer, effectiveSelected);
+                        break;
+                    default:
+                        shape.Draw(graphics, engine.WorldToScreen, context.IsPreview);
+                        break;
+                }
             }
 
             // Draw the selection glow ON TOP of the shape (AutoCAD-style), as a
@@ -1105,29 +1112,36 @@ namespace Land_Readjustment_Tool.UI.MapCanvas.Rendering
                         : RenderQuality.VectorHighSpeed);
                 float effectiveStroke = Math.Max(0.25f, strokeWidth);
                 bool isLinearSelection = IsLinearSelectionOutline(path.Path);
-                float selectionStroke = effectiveStroke +
-                                        (useCurveStyleSelection || isLinearSelection
-                                            ? LinearSelectionStrokeWidthExtraPx
-                                            : SelectionStrokeWidthExtraPx);
+                float glowBaseStroke = effectiveStroke +
+                                       (useCurveStyleSelection || isLinearSelection
+                                           ? LinearSelectionStrokeWidthExtraPx
+                                           : SelectionStrokeWidthExtraPx);
                 if (!useCurveStyleSelection && !isLinearSelection)
                 {
                     foreach ((float extraWidth, int alpha) in SelectionOutlineGlowBands)
                     {
-                        float selectionWidth = selectionStroke + extraWidth;
+                        float selectionWidth = glowBaseStroke + extraWidth;
                         StrokeStyle glowStroke = new(
                             Color.FromArgb(alpha, SelectionGlowColor),
                             selectionWidth,
                             ToDashPatternKind(style.LineStyleKey),
-                            GetSelectionDashScale(context, style.LineTypeScale, effectiveStroke, selectionWidth));
+                            GetSelectionDashScale(style.LineTypeScale, effectiveStroke, selectionWidth));
                         context.Surface.DrawPath(path, glowStroke);
                     }
                 }
 
+                float centerSelectionWidth = effectiveStroke + 1.0f;
+                // Selection center stroke intentionally stays only 1px wider
+                // than the layer/object stroke. Its linetype comes from the
+                // layer, and the dash scale is compensated so the wider
+                // selection stroke does not stretch the visible dash spacing.
+                // This is intentional for project boundary, road centerline,
+                // drafting, and external layers; do not widen this further.
                 StrokeStyle centerStroke = new(
                     SelectionStrokeColor,
-                    selectionStroke,
+                    centerSelectionWidth,
                     ToDashPatternKind(style.LineStyleKey),
-                    GetSelectionDashScale(context, style.LineTypeScale, effectiveStroke, selectionStroke));
+                    GetSelectionDashScale(style.LineTypeScale, effectiveStroke, centerSelectionWidth));
                 context.Surface.DrawPath(path, centerStroke);
             }
             catch (OutOfMemoryException)
@@ -1149,24 +1163,20 @@ namespace Land_Readjustment_Tool.UI.MapCanvas.Rendering
         }
 
         private static float GetSelectionDashScale(
-            VectorRenderContext context,
             float objectLineTypeScale,
             float objectStrokeWidth,
             float selectionStrokeWidth)
         {
-            if (context.Surface is not GdiMapRenderSurface)
-            {
-                return objectLineTypeScale;
-            }
-
             if (selectionStrokeWidth <= 0.0f)
             {
                 return objectLineTypeScale;
             }
 
-            // GDI+ dash pattern values are multiplied by pen width. The selection
-            // glow pen is wider than the object pen, so compensate to preserve
-            // the object's effective linetype scale on screen.
+            // Selection highlight strokes are wider than the layer/object
+            // stroke. Current GDI and Skia backends scale dash intervals by
+            // stroke width, so compensate to keep the layer's effective
+            // linetype spacing for project boundary, road centerline, drafting,
+            // and external layers.
             return objectLineTypeScale * (objectStrokeWidth / selectionStrokeWidth);
         }
 

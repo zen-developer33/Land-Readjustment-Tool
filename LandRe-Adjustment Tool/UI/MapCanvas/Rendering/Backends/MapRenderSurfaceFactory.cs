@@ -9,9 +9,8 @@ namespace Land_Readjustment_Tool.UI.MapCanvas.Rendering.Backends
     /// Default render-surface factory for the map canvas.
     /// </summary>
     /// <remarks>
-    /// GDI+ and Skia CPU are implemented today. Skia GPU is intentionally
-    /// represented in the resolver so settings can reserve that option without
-    /// pretending a GPU adapter exists before it is implemented.
+    /// GDI+, Skia CPU, and Skia GPU are represented here so callers can resolve
+    /// the backend selected by the project settings.
     /// </remarks>
     public sealed class MapRenderSurfaceFactory : IMapRenderSurfaceFactory
     {

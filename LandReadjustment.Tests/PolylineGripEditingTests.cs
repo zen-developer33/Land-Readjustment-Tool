@@ -115,6 +115,40 @@ public sealed class PolylineGripEditingTests
             collapsedGrip));
     }
 
+    [Fact]
+    public void OriginalEditedShapeSnapExclusion_RemovesOnlyDraggedVertex()
+    {
+        LineShape line = new(new PointD(0.0, 0.0), new PointD(10.0, 0.0));
+        object grip = CreateVertexGrip(line, line.Start, vertexIndex: 0);
+
+        Assert.True(InvokeIsGripEditExcludedSnapPoint(
+            new SnapPoint(SnapType.Endpoint, line.Start, line),
+            grip,
+            line));
+
+        Assert.False(InvokeIsGripEditExcludedSnapPoint(
+            new SnapPoint(SnapType.Endpoint, line.End, line),
+            grip,
+            line));
+    }
+
+    [Fact]
+    public void OriginalEditedShapeSnapExclusion_RemovesDraggedSegmentMidpoint()
+    {
+        LineShape line = new(new PointD(0.0, 0.0), new PointD(10.0, 0.0));
+        object grip = CreateSegmentMidpointGrip(line);
+
+        Assert.True(InvokeIsGripEditExcludedSnapPoint(
+            new SnapPoint(SnapType.Midpoint, new PointD(5.0, 0.0), line),
+            grip,
+            line));
+
+        Assert.False(InvokeIsGripEditExcludedSnapPoint(
+            new SnapPoint(SnapType.Endpoint, line.Start, line),
+            grip,
+            line));
+    }
+
     private static object CreateVertexGrip(PolylineShape shape, int vertexIndex)
         => CreateVertexGrip(shape, shape.Vertices[vertexIndex], vertexIndex);
 
@@ -137,6 +171,27 @@ public sealed class PolylineGripEditingTests
         return grip;
     }
 
+    private static object CreateSegmentMidpointGrip(LineShape line)
+    {
+        Type gripType = MapCanvasControlType.GetNestedType("SelectionGrip", BindingFlags.NonPublic)
+            ?? throw new InvalidOperationException("SelectionGrip type was not found.");
+        Type kindType = MapCanvasControlType.GetNestedType("SelectionGripKind", BindingFlags.NonPublic)
+            ?? throw new InvalidOperationException("SelectionGripKind type was not found.");
+        Type glyphType = MapCanvasControlType.GetNestedType("SelectionGripGlyph", BindingFlags.NonPublic)
+            ?? throw new InvalidOperationException("SelectionGripGlyph type was not found.");
+
+        object grip = Activator.CreateInstance(gripType)
+            ?? throw new InvalidOperationException("SelectionGrip could not be created.");
+        SetProperty(grip, "Shape", line);
+        SetProperty(grip, "Kind", Enum.Parse(kindType, "SegmentMidpoint"));
+        SetProperty(grip, "Glyph", Enum.Parse(glyphType, "SegmentRectangle"));
+        SetProperty(grip, "Position", new PointD(5.0, 0.0));
+        SetProperty(grip, "SegmentStart", line.Start);
+        SetProperty(grip, "SegmentEnd", line.End);
+        SetProperty(grip, "SegmentIndex", 0);
+        return grip;
+    }
+
     private static bool InvokeIsDraggedHandleSnapPoint(
         SnapPoint snapPoint,
         IShape previewShape,
@@ -148,6 +203,22 @@ public sealed class PolylineGripEditingTests
             ?? throw new InvalidOperationException("IsDraggedHandleSnapPoint method was not found.");
 
         return (bool)method.Invoke(null, [snapPoint, previewShape, grip])!;
+    }
+
+    private static bool InvokeIsGripEditExcludedSnapPoint(
+        SnapPoint snapPoint,
+        object grip,
+        IShape originalShape)
+    {
+        MethodInfo method = MapCanvasControlType.GetMethod(
+                "IsGripEditExcludedSnapPoint",
+                BindingFlags.NonPublic | BindingFlags.Static,
+                binder: null,
+                types: [typeof(SnapPoint), grip.GetType(), typeof(IShape)],
+                modifiers: null)
+            ?? throw new InvalidOperationException("IsGripEditExcludedSnapPoint method was not found.");
+
+        return (bool)method.Invoke(null, [snapPoint, grip, originalShape])!;
     }
 
     private static void InvokeApplyPolylineGrip(

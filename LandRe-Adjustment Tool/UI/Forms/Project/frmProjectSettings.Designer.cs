@@ -401,14 +401,14 @@ namespace Land_Readjustment_Tool.UI.Forms.Project
             lblRenderBackend.Name = "lblRenderBackend";
             lblRenderBackend.Size = new Size(120, 22);
             lblRenderBackend.TabIndex = 15;
-            lblRenderBackend.Text = "Render backend";
+            lblRenderBackend.Text = "Graphics mode";
             // 
             // cmbRenderBackend
             // 
             cmbRenderBackend.DropDownStyle = ComboBoxStyle.DropDownList;
             cmbRenderBackend.Font = new Font("Segoe UI", 9F);
             cmbRenderBackend.FormattingEnabled = true;
-            cmbRenderBackend.Items.AddRange(new object[] { "GDI+ (default)", "Skia CPU", "Skia GPU (OpenGL / D3D11)" });
+            cmbRenderBackend.Items.AddRange(new object[] { "Compatibility", "Balanced", "Performance" });
             cmbRenderBackend.Location = new Point(10, 115);
             cmbRenderBackend.Name = "cmbRenderBackend";
             cmbRenderBackend.Size = new Size(236, 28);

@@ -73,7 +73,8 @@ namespace Land_Readjustment_Tool.UI.CustomControls
             Diamond
         }
 
-        private const int ZoomSettleIntervalMs = 20;
+        private const int CompatibilityZoomSettleIntervalMs = 100;
+        private const int AcceleratedZoomSettleIntervalMs = 5;
         private const int ObjectSelectionTolerancePixels = 3;
         private const int SnapQueryBoxPixels = 10;
         private const double GripHitTolerancePixels = 8.0;
@@ -227,6 +228,8 @@ namespace Land_Readjustment_Tool.UI.CustomControls
         private Dictionary<Guid, CanvasFeature> _vectorFeaturesByShapeId = new();
         private Dictionary<Guid, CanvasFeature> _vectorFeaturesByCanvasObjectId = new();
         private readonly HashSet<Guid> _selectedShapeIds = new HashSet<Guid>();
+        private readonly HashSet<Guid> _selectedProjectBoundaryCacheExclusionIds = new();
+        private bool _selectedProjectBoundaryCacheExclusionsApplied;
         private bool _isSelectingObjects;
         private Point _objectSelectionStart;
         private Point _objectSelectionCurrent;
@@ -271,7 +274,7 @@ namespace Land_Readjustment_Tool.UI.CustomControls
         private CanvasFeature? _editingTextFeature;
         private readonly System.Windows.Forms.Timer _zoomingStatusTimer = new()
         {
-            Interval = Math.Max(1, ZoomSettleIntervalMs)
+            Interval = CompatibilityZoomSettleIntervalMs
         };
 
         public MapCanvasControl()
@@ -281,6 +284,7 @@ namespace Land_Readjustment_Tool.UI.CustomControls
             _engine = new MapCanvasEngine(ActiveCanvasSize);
             _renderSettings = MapCanvasRenderSettings.CreateLightDefaults();
             ApplyConfiguredRenderBackend(_renderSettings);
+            ApplyZoomSettleTimerInterval();
             _renderer = new MapCanvasRenderer(_engine, _renderSettings);
             _zoomingStatusTimer.Tick += ZoomingStatusTimer_Tick;
             _objectSelectionContextMenu.Renderer = ElegantMenuRenderer.Instance;
@@ -802,16 +806,16 @@ namespace Land_Readjustment_Tool.UI.CustomControls
             canvasSurface.BackColor = _renderSettings.BackgroundColor;
             skiaCpuCanvasSurface.BackColor = _renderSettings.BackgroundColor;
             gpuCanvasSurface.BackColor = _renderSettings.BackgroundColor;
+            ApplyZoomSettleTimerInterval();
             ApplyCanvasSurfaceForRenderBackend();
             InvalidateGpuInteractionFrameCache();
+            UpdateSelectedProjectBoundaryCacheExclusions(refreshCache: false);
             RefreshVectorCacheForCurrentViewAsync();
             RequestRender();
         }
 
         /// <summary>
-        /// Applies and persists the requested map render backend. Skia GPU can
-        /// be selected here for stable settings compatibility, but it falls back
-        /// to GDI+ until the GPU adapter is implemented.
+        /// Applies and persists the requested map render backend.
         /// </summary>
         public void ApplyRenderBackend(MapRenderBackend backend)
         {
@@ -819,11 +823,23 @@ namespace Land_Readjustment_Tool.UI.CustomControls
             Properties.Settings.Default.Canvas_RenderBackend = backend.ToString();
             Properties.Settings.Default.Save();
             _renderer.UpdateSettings(_renderSettings);
+            ApplyZoomSettleTimerInterval();
             ApplyCanvasSurfaceForRenderBackend();
             InvalidateGpuInteractionFrameCache();
+            UpdateSelectedProjectBoundaryCacheExclusions(refreshCache: false);
             RefreshVectorCacheForCurrentViewAsync();
             RequestRender();
         }
+
+        private void ApplyZoomSettleTimerInterval()
+        {
+            _zoomingStatusTimer.Interval = GetZoomSettleIntervalMs(_renderSettings.RenderBackend);
+        }
+
+        private static int GetZoomSettleIntervalMs(MapRenderBackend backend) =>
+            backend == MapRenderBackend.GdiPlus
+                ? CompatibilityZoomSettleIntervalMs
+                : AcceleratedZoomSettleIntervalMs;
 
         public void ApplyBackgroundColor(Color color)
         {
@@ -874,12 +890,14 @@ namespace Land_Readjustment_Tool.UI.CustomControls
         private static MapRenderBackend ResolveConfiguredRenderBackend()
         {
             string? configuredBackend = Properties.Settings.Default.Canvas_RenderBackend;
-            return Enum.TryParse(
+            MapRenderBackend parsedBackend = Enum.TryParse(
                 configuredBackend,
                 ignoreCase: true,
                 out MapRenderBackend backend)
                 ? backend
                 : MapRenderBackend.GdiPlus;
+
+            return parsedBackend;
         }
 
         public void ApplyNorthMarkerVisible(bool visible)
@@ -1275,7 +1293,9 @@ namespace Land_Readjustment_Tool.UI.CustomControls
                 // bakes the shape into the cache and the overlay is cleared when
                 // it lands — so the overlay never persists (no per-frame cost).
                 _renderer.SetVectorRenderExclusions(null, invalidateCache: false);
+                _selectedProjectBoundaryCacheExclusionsApplied = false;
                 _renderer.UpdateVectorFeatures(_vectorFeatures, invalidateCache: false);
+                UpdateSelectedProjectBoundaryCacheExclusions(refreshCache: false);
                 UpdateWorldBounds();
 
                 _immediateEditedOverlayFeatures = overlay;
@@ -1292,7 +1312,9 @@ namespace Land_Readjustment_Tool.UI.CustomControls
             _justCompletedShapeLayer = null;
             _justCompletedShapeOverlays = Array.Empty<(IShape Shape, CanvasLayer? Layer)>();
             _renderer.SetVectorRenderExclusions(null);
+            _selectedProjectBoundaryCacheExclusionsApplied = false;
             _renderer.UpdateVectorFeatures(_vectorFeatures);
+            UpdateSelectedProjectBoundaryCacheExclusions(refreshCache: false);
             UpdateWorldBounds();
             EnsureVectorZoomSnapshot();
             _holdVectorZoomFrameUntilRefresh = true;
@@ -5131,22 +5153,24 @@ namespace Land_Readjustment_Tool.UI.CustomControls
             // (O(log n + k) vs O(n)). This keeps snapping — and therefore
             // drawing/editing/moving — smooth on large cadastral scenes.
             List<IShape> nearbyShapes = _renderer.QueryVectorFeatures(worldQuery)
-                .Where(IsSnapCandidateFeature)
+                .Where(feature => isGripEditing
+                    ? IsVisibleSnapCandidateFeature(feature)
+                    : IsSnapCandidateFeature(feature))
                 .Select(feature => feature.Shape)
                 .Where(shape => ShapeIntersectsWorldQuery(shape, worldQuery))
                 .Take(250)
                 .ToList();
 
-            // Preview shapes are NEVER snap candidates — snapping only ever
-            // targets other, static geometry. So when grip editing, just remove
-            // the shape(s) being edited from the candidates and do NOT add their
-            // preview shapes back.
+            // During grip editing the original edited shapes stay snap candidates
+            // so their other vertices/midpoints/intersections remain available.
+            // The live preview geometry is not in this feature query; any preview
+            // snap points that arrive through another path are filtered below.
             if (_activeGripEdit != null)
             {
-                nearbyShapes.RemoveAll(s => ReferenceEquals(s, _activeGripEdit.Grip.Shape));
-                foreach (var linkedEdit in _activeGripEdit.LinkedEdits)
+                AddGripEditSnapShape(nearbyShapes, _activeGripEdit.Grip, worldQuery);
+                foreach (LinkedGripEdit linkedEdit in _activeGripEdit.LinkedEdits)
                 {
-                    nearbyShapes.RemoveAll(s => ReferenceEquals(s, linkedEdit.Grip.Shape));
+                    AddGripEditSnapShape(nearbyShapes, linkedEdit.Grip, worldQuery);
                 }
             }
 
@@ -5171,6 +5195,7 @@ namespace Land_Readjustment_Tool.UI.CustomControls
                     fromPoint)
                 .Where(snapPoint => ScreenQueryContainsSnapPoint(screenQuery, snapPoint))
                 .Where(snapPoint => !IsSuppressedPreviewSnapPoint(snapPoint))
+                .Where(snapPoint => !IsGripEditExcludedSnapPoint(snapPoint))
                 .Where(snapPoint => !IsActiveGripSnapPoint(snapPoint))
                 .ToList();
             AppendVisibleCenterSnapPoints(candidates);
@@ -6090,6 +6115,21 @@ namespace Land_Readjustment_Tool.UI.CustomControls
                    layer?.IsVisible == true;
         }
 
+        private void AddGripEditSnapShape(
+            List<IShape> candidates,
+            SelectionGrip grip,
+            RectangleD worldQuery)
+        {
+            if (!IsVisibleSnapCandidateFeature(grip.Feature) ||
+                !ShapeIntersectsWorldQuery(grip.Shape, worldQuery) ||
+                candidates.Any(shape => ReferenceEquals(shape, grip.Shape) || shape.Id == grip.Shape.Id))
+            {
+                return;
+            }
+
+            candidates.Add(grip.Shape);
+        }
+
         private bool IsGripEditExcludedSnapPoint(SnapPoint snapPoint)
         {
             if (_activeGripEdit == null)
@@ -6414,7 +6454,9 @@ namespace Land_Readjustment_Tool.UI.CustomControls
                 // bake the new position and avoid a ghost at the old spot.
                 _immediateEditedOverlayFeatures = Array.Empty<CanvasFeature>();
                 _renderer.SetVectorRenderExclusions(null, invalidateCache: false);
+                _selectedProjectBoundaryCacheExclusionsApplied = false;
                 _renderer.UpdateVectorFeatures(_vectorFeatures);
+                UpdateSelectedProjectBoundaryCacheExclusions(refreshCache: false);
                 UpdateWorldBounds();
                 EnsureVectorZoomSnapshot();
                 _holdVectorZoomFrameUntilRefresh = true;
@@ -6435,6 +6477,7 @@ namespace Land_Readjustment_Tool.UI.CustomControls
                 }
 
                 _renderer.SetVectorRenderExclusions(null, invalidateCache: false);
+                _selectedProjectBoundaryCacheExclusionsApplied = false;
                 _renderer.UpdateVectorFeatures(_vectorFeatures, invalidateCache: false);
                 UpdateWorldBounds();
             }
@@ -6487,6 +6530,8 @@ namespace Land_Readjustment_Tool.UI.CustomControls
             _lastSnapQueryElapsedMs = 0.0;
             SetCanvasCapture(false);
             _renderer.SetVectorRenderExclusions(null);
+            _selectedProjectBoundaryCacheExclusionsApplied = false;
+            UpdateSelectedProjectBoundaryCacheExclusions(refreshCache: false);
             EnsureVectorZoomSnapshot();
             _holdVectorZoomFrameUntilRefresh = true;
             RefreshVectorCacheForCurrentViewAsync();
@@ -6520,6 +6565,7 @@ namespace Land_Readjustment_Tool.UI.CustomControls
         private void ApplyGripEditVectorRenderExclusions()
         {
             _renderer.SetVectorRenderExclusions(GetActiveGripEditedShapeIds());
+            _selectedProjectBoundaryCacheExclusionsApplied = false;
             InvalidateGpuInteractionFrameCache();
         }
 
@@ -9152,6 +9198,7 @@ namespace Land_Readjustment_Tool.UI.CustomControls
             }
 
             InvalidateGpuInteractionFrameCache();
+            UpdateSelectedProjectBoundaryCacheExclusions();
         }
 
         private void ApplySelectedShapeFlags(IReadOnlySet<Guid> previousSelectedShapeIds)
@@ -9170,6 +9217,59 @@ namespace Land_Readjustment_Tool.UI.CustomControls
             }
 
             InvalidateGpuInteractionFrameCache();
+            UpdateSelectedProjectBoundaryCacheExclusions();
+        }
+
+        private bool UpdateSelectedProjectBoundaryCacheExclusions(bool refreshCache = true)
+        {
+            if (_activeGripEdit != null || _activeMoveOperation != null)
+            {
+                _selectedProjectBoundaryCacheExclusionsApplied = false;
+                return false;
+            }
+
+            HashSet<Guid> next = new();
+            if (_renderSettings.RenderBackend == MapRenderBackend.GdiPlus)
+            {
+                foreach (CanvasFeature feature in EnumerateSelectedFeatures())
+                {
+                    CanvasLayer? layer = ResolveFeatureLayer(feature);
+                    if (layer != null && CanvasLayerTreeService.IsProjectBoundaryLayer(layer))
+                    {
+                        next.Add(feature.Shape.Id);
+                    }
+                }
+            }
+
+            if (_selectedProjectBoundaryCacheExclusionsApplied &&
+                _selectedProjectBoundaryCacheExclusionIds.SetEquals(next))
+            {
+                return false;
+            }
+
+            _selectedProjectBoundaryCacheExclusionIds.Clear();
+            foreach (Guid shapeId in next)
+            {
+                _selectedProjectBoundaryCacheExclusionIds.Add(shapeId);
+            }
+
+            // GDI project-boundary selection must not leave the normal red
+            // dashed boundary baked into the vector cache underneath the blue
+            // selected dashed boundary. Otherwise their dash phases can both be
+            // visible, making the selected linetype look mismatched. The live
+            // selection overlay remains exactly layer LineWeight + 1px.
+            _renderer.SetVectorRenderExclusions(
+                _selectedProjectBoundaryCacheExclusionIds.Count == 0
+                    ? null
+                    : _selectedProjectBoundaryCacheExclusionIds.ToArray(),
+                invalidateCache: refreshCache);
+            _selectedProjectBoundaryCacheExclusionsApplied = true;
+            if (refreshCache)
+            {
+                RefreshVectorCacheForCurrentViewAsync();
+            }
+
+            return true;
         }
 
         private void RequestDeleteSelectedObjects()
@@ -10181,7 +10281,9 @@ namespace Land_Readjustment_Tool.UI.CustomControls
                 _activeMoveOperation = null;
                 DisposeMovePreviewBitmap();
                 _renderer.SetVectorRenderExclusions(null, invalidateCache: false);
+                _selectedProjectBoundaryCacheExclusionsApplied = false;
                 _renderer.UpdateVectorFeatures(_vectorFeatures, invalidateCache: false);
+                UpdateSelectedProjectBoundaryCacheExclusions(refreshCache: false);
                 InvalidateGpuInteractionFrameCache();
                 UpdateWorldBounds();
                 UpdateStatusBar();
@@ -10280,14 +10382,18 @@ namespace Land_Readjustment_Tool.UI.CustomControls
             {
                 _immediateEditedOverlayFeatures = movedFeatures;
                 _renderer.SetVectorRenderExclusions(null, invalidateCache: false);
+                _selectedProjectBoundaryCacheExclusionsApplied = false;
                 _renderer.UpdateVectorFeatures(_vectorFeatures, invalidateCache: false);
+                UpdateSelectedProjectBoundaryCacheExclusions(refreshCache: false);
                 UpdateWorldBounds();
             }
             else
             {
                 _immediateEditedOverlayFeatures = Array.Empty<CanvasFeature>();
                 _renderer.SetVectorRenderExclusions(null, invalidateCache: false);
+                _selectedProjectBoundaryCacheExclusionsApplied = false;
                 _renderer.UpdateVectorFeatures(_vectorFeatures);
+                UpdateSelectedProjectBoundaryCacheExclusions(refreshCache: false);
                 UpdateWorldBounds();
                 // Snapshot the committed state while the async cache rebuild runs.
                 EnsureVectorZoomSnapshot();
@@ -10328,7 +10434,9 @@ namespace Land_Readjustment_Tool.UI.CustomControls
             DisposeMovePreviewBitmap();
             _immediateEditedOverlayFeatures = Array.Empty<CanvasFeature>();
             _renderer.SetVectorRenderExclusions(null, invalidateCache: false);
+            _selectedProjectBoundaryCacheExclusionsApplied = false;
             _renderer.UpdateVectorFeatures(_vectorFeatures);
+            UpdateSelectedProjectBoundaryCacheExclusions(refreshCache: false);
             InvalidateGpuInteractionFrameCache();
             EnsureVectorZoomSnapshot();
             _holdVectorZoomFrameUntilRefresh = true;
@@ -10457,6 +10565,7 @@ namespace Land_Readjustment_Tool.UI.CustomControls
                 _renderer.SetVectorRenderExclusions(
                     _activeMoveOperation.GetMovingShapeIds(),
                     invalidateCache: false);
+                _selectedProjectBoundaryCacheExclusionsApplied = false;
                 InvalidateGpuInteractionFrameCache();
                 RefreshVectorCacheForCurrentViewAsync();
             }
@@ -10538,7 +10647,9 @@ namespace Land_Readjustment_Tool.UI.CustomControls
 
             RebuildVectorFeatureLookup();
             _renderer.SetVectorRenderExclusions(null, invalidateCache: false);
+            _selectedProjectBoundaryCacheExclusionsApplied = false;
             _renderer.UpdateVectorFeatures(_vectorFeatures);
+            UpdateSelectedProjectBoundaryCacheExclusions(refreshCache: false);
             UpdateWorldBounds();
             NotifySelectedCanvasObjectsChanged();
             RequestRender();
@@ -12095,6 +12206,7 @@ namespace Land_Readjustment_Tool.UI.CustomControls
         {
             _blockPanUntilZoomSettle = true;
             _zoomingStatusTimer.Stop();
+            ApplyZoomSettleTimerInterval();
             _zoomingStatusTimer.Start();
         }
 

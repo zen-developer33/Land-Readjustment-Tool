@@ -191,6 +191,7 @@ namespace Land_Readjustment_Tool.Repositories.Canvas
                 {
                     foreach (CanvasObject entity in batch)
                     {
+                        DetachTrackedCanvasObject(entity.Id);
                         ClearNavigationProperties(entity);
                     }
 
@@ -361,6 +362,11 @@ namespace Land_Readjustment_Tool.Repositories.Canvas
 
             try
             {
+                foreach (Guid id in distinctIds)
+                {
+                    DetachTrackedCanvasObject(id);
+                }
+
                 int deleted = 0;
                 foreach (Guid[] batch in Chunk(distinctIds, IdBatchSize))
                 {

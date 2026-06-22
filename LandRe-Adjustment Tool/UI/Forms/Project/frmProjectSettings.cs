@@ -477,17 +477,6 @@ namespace Land_Readjustment_Tool.UI.Forms.Project
 
                 CollectFormData(_settings);
 
-                if (GetSelectedRenderBackend() == MapRenderBackend.SkiaGpu &&
-                    !SkiaGlContext.IsAvailable)
-                {
-                    MessageBox.Show(
-                        "Skia GPU is not available on this system (OpenGL driver initialisation failed).\n\n" +
-                        "The setting has been saved but the canvas will fall back to GDI+ at runtime.",
-                        "GPU Backend Unavailable",
-                        MessageBoxButtons.OK,
-                        MessageBoxIcon.Warning);
-                }
-
                 bool projectCrsChanged =
                     _settings.CoordinateSystemId != _loadedCoordinateSystemId ||
                     _settings.DatumTransformationId != _loadedDatumTransformationId;
@@ -975,9 +964,7 @@ namespace Land_Readjustment_Tool.UI.Forms.Project
         /// Persists the selected map render backend to user settings.
         /// </summary>
         /// <remarks>
-        /// Skia GPU is allowed to be saved as a future option, but the render
-        /// factory still resolves it through the current fallback/unavailable
-        /// behavior until the GPU adapter is implemented.
+        /// The user-facing modes map to compatibility, balanced, and performance renderers.
         /// </remarks>
         private void SaveRenderBackendSetting()
         {

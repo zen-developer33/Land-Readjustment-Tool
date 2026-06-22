@@ -1423,14 +1423,26 @@ namespace Land_Readjustment_Tool.UI.MapCanvas.Rendering
             // result is identical to the single-threaded path (same mesh corners,
             // same bilinear interpolation, same nearest-neighbour sampling), so the
             // distortion is preserved exactly — only the throughput changes.
+            // Cancellation is cooperative (ParallelLoopState.Stop) rather than via
+            // ParallelOptions.CancellationToken: the latter makes Parallel.For raise
+            // OperationCanceledException from a worker thread, producing a noisy
+            // first-chance exception with a multi-threaded stack on every superseded
+            // frame. Stopping cleanly leaves the partial buffer in place; the caller's
+            // ThrowIfCancellationRequested right after this call performs the single,
+            // already-handled throw before the stale buffer is ever copied or drawn.
             ParallelOptions options = new()
             {
-                CancellationToken = cancellationToken,
                 MaxDegreeOfParallelism = Math.Max(1, Environment.ProcessorCount)
             };
 
-            Parallel.For(0, cellRows, options, cellRowIndex =>
+            Parallel.For(0, cellRows, options, (cellRowIndex, loopState) =>
             {
+                if (cancellationToken.IsCancellationRequested)
+                {
+                    loopState.Stop();
+                    return;
+                }
+
                 int cellTop = rowBoundaries[cellRowIndex];
                 int cellBottom = rowBoundaries[cellRowIndex + 1];
                 int cornerRowBase = cellRowIndex * cornerCols;
@@ -1438,7 +1450,11 @@ namespace Land_Readjustment_Tool.UI.MapCanvas.Rendering
 
                 for (int cellColIndex = 0; cellColIndex < cellCols; cellColIndex++)
                 {
-                    options.CancellationToken.ThrowIfCancellationRequested();
+                    if (cancellationToken.IsCancellationRequested)
+                    {
+                        loopState.Stop();
+                        return;
+                    }
 
                     int cellLeft = colBoundaries[cellColIndex];
                     int cellRight = colBoundaries[cellColIndex + 1];
