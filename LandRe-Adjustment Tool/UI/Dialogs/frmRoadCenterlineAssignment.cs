@@ -24,6 +24,7 @@ namespace Land_Readjustment_Tool.UI.Dialogs
         private readonly Dictionary<string, int> _typedRoadValueOverrides = new(StringComparer.OrdinalIgnoreCase);
         private bool _loading;
         private bool _resolvingComboText;
+        private bool _syncingSelectionFromCanvas;
 
         public event Action<Guid?, bool>? SelectedCanvasObjectChanged;
         public event Action? AssignmentCommitted;
@@ -684,7 +685,7 @@ namespace Land_Readjustment_Tool.UI.Dialogs
 
         private void ShowSelectedObjectOnCanvas()
         {
-            if (_loading)
+            if (_loading || _syncingSelectionFromCanvas)
                 return;
 
             RoadCenterlineAssignmentCandidate? candidate = GetSelectedCandidate();
@@ -700,9 +701,23 @@ namespace Land_Readjustment_Tool.UI.Dialogs
                 if (row.Tag is RoadCenterlineAssignmentCandidate candidate &&
                     candidate.CanvasObjectId == canvasObjectId)
                 {
-                    row.Selected = true;
-                    _dgvObjects.CurrentCell = row.Cells[0];
-                    _rdoObject.Checked = true;
+                    _syncingSelectionFromCanvas = true;
+                    try
+                    {
+                        _rdoObject.Checked = true;
+                        _dgvObjects.ClearSelection();
+                        _dgvObjects.CurrentCell = row.Cells[0];
+                        row.Selected = true;
+                        if (row.Index >= 0)
+                        {
+                            _dgvObjects.FirstDisplayedScrollingRowIndex = Math.Max(0, row.Index);
+                        }
+                    }
+                    finally
+                    {
+                        _syncingSelectionFromCanvas = false;
+                    }
+
                     if (previewOnCanvas)
                         ShowSelectedObjectOnCanvas();
                     return true;
