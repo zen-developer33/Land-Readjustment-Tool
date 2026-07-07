@@ -75,6 +75,37 @@ public sealed class GdiMapRenderSurfaceTests
         Assert.Equal(Color.Yellow.ToArgb(), bitmap.GetPixel(75, 25).ToArgb());
     }
 
+    [Fact]
+    public void FillPath_TextureHatch_UsesScreenScaleForPatternSpacing()
+    {
+        using Bitmap scaleOne = DrawHorizontalHatch(screenScale: 1.0);
+        using Bitmap scaleTwo = DrawHorizontalHatch(screenScale: 2.0);
+
+        int spacingAtScaleOne = FirstBrightRowGap(scaleOne);
+        int spacingAtScaleTwo = FirstBrightRowGap(scaleTwo);
+
+        Assert.InRange(spacingAtScaleOne, 7, 9);
+        Assert.InRange(spacingAtScaleTwo, 15, 17);
+    }
+
+    [Fact]
+    public void FillPath_TextureHatch_AppliesPatternOrigin()
+    {
+        using Bitmap bitmap = DrawHorizontalHatch(screenScale: 1.0, originY: 4.0f);
+
+        int firstBrightRow = FirstBrightRow(bitmap);
+
+        Assert.InRange(firstBrightRow, 3, 5);
+    }
+
+    [Fact]
+    public void FillPath_TextureHatch_ExtendsDiagonalLinesWhenOriginIsFarFromViewport()
+    {
+        using Bitmap bitmap = DrawDiagonalHatchWithFarOrigin();
+
+        Assert.True(CountBrightPixels(bitmap) > 200);
+    }
+
     /// <summary>
     /// Verifies text measurement, text drawing, and image drawing through the adapter.
     /// </summary>
@@ -126,6 +157,109 @@ public sealed class GdiMapRenderSurfaceTests
             new PointF(105, 150)
         ]);
         return builder.Build();
+    }
+
+    private static Bitmap DrawHorizontalHatch(double screenScale, float originY = 0.0f)
+    {
+        Bitmap bitmap = new(80, 80);
+        using Graphics graphics = Graphics.FromImage(bitmap);
+        using GdiMapRenderSurface surface = new(graphics, bitmap.Size);
+        surface.Clear(Color.Black);
+        surface.SetQuality(RenderQuality.VectorHighSpeed);
+
+        using IMapPath path = CreateRectanglePath(surface, new RectangleF(0, 0, bitmap.Width, bitmap.Height));
+        surface.FillPath(
+            path,
+            new FillStyle(
+                Color.Transparent,
+                FillPatternKind.TextureHatch,
+                Color.White,
+                PatternKey: "HORIZONTAL",
+                PatternScreenScale: screenScale,
+                PatternOriginScreen: new PointF(0.0f, originY)));
+
+        return bitmap;
+    }
+
+    private static Bitmap DrawDiagonalHatchWithFarOrigin()
+    {
+        Bitmap bitmap = new(240, 160);
+        using Graphics graphics = Graphics.FromImage(bitmap);
+        using GdiMapRenderSurface surface = new(graphics, bitmap.Size);
+        surface.Clear(Color.Black);
+        surface.SetQuality(RenderQuality.VectorHighSpeed);
+
+        using IMapPath path = CreateRectanglePath(surface, new RectangleF(20, 20, 200, 120));
+        surface.FillPath(
+            path,
+            new FillStyle(
+                Color.Transparent,
+                FillPatternKind.TextureHatch,
+                Color.White,
+                PatternKey: "ANSI31",
+                PatternScreenScale: 4.0,
+                PatternOriginScreen: new PointF(50_000.0f, -32_000.0f)));
+
+        return bitmap;
+    }
+
+    private static int CountBrightPixels(Bitmap bitmap)
+    {
+        int count = 0;
+        for (int y = 0; y < bitmap.Height; y++)
+        {
+            for (int x = 0; x < bitmap.Width; x++)
+            {
+                Color pixel = bitmap.GetPixel(x, y);
+                if (pixel.R > 180 && pixel.G > 180 && pixel.B > 180)
+                {
+                    count++;
+                }
+            }
+        }
+
+        return count;
+    }
+
+    private static int FirstBrightRowGap(Bitmap bitmap)
+    {
+        int first = FirstBrightRow(bitmap);
+        for (int y = first + 1; y < bitmap.Height; y++)
+        {
+            if (RowHasBrightPixel(bitmap, y))
+            {
+                return y - first;
+            }
+        }
+
+        return -1;
+    }
+
+    private static int FirstBrightRow(Bitmap bitmap)
+    {
+        for (int y = 0; y < bitmap.Height; y++)
+        {
+            if (RowHasBrightPixel(bitmap, y))
+            {
+                return y;
+            }
+        }
+
+        return -1;
+    }
+
+    private static bool RowHasBrightPixel(Bitmap bitmap, int y)
+    {
+        for (int x = 0; x < bitmap.Width; x++)
+        {
+            Color pixel = bitmap.GetPixel(x, y);
+            if (pixel.R > 180 && pixel.G > 180 && pixel.B > 180)
+            {
+                return true;
+            }
+        }
+
+        return false;
     }
 
     /// <summary>

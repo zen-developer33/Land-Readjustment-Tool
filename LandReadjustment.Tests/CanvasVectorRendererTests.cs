@@ -5,6 +5,7 @@ using Land_Readjustment_Tool.UI.MapCanvas.Models.Shapes;
 using Land_Readjustment_Tool.UI.MapCanvas.Rendering;
 using Land_Readjustment_Tool.UI.MapCanvas.Rendering.Abstractions;
 using Land_Readjustment_Tool.UI.MapCanvas.Rendering.Gdi;
+using Land_Readjustment_Tool.UI.MapCanvas.Services;
 using Xunit;
 
 namespace LandReadjustment.Tests;
@@ -141,6 +142,53 @@ public sealed class CanvasVectorRendererTests
 
         Assert.True(CountPixels(bitmap, IsSelectionBluePixel) > 0);
         Assert.Equal(0, CountPixels(bitmap, IsProjectBoundaryRedPixel));
+    }
+
+    [Fact]
+    public void Render_HatchedLayer_PassesWorldAnchoredPatternScaleToFill()
+    {
+        using Bitmap bitmap = new(200, 200);
+        using Graphics graphics = Graphics.FromImage(bitmap);
+        MapCanvasEngine engine = new(bitmap.Size);
+        engine.SetView(50.0, 50.0, 100.0, 100.0);
+
+        CanvasLayer layer = new()
+        {
+            Id = 21,
+            Name = "Hatched Parcels",
+            LayerType = "Polygon",
+            BorderColor = "#000000",
+            FillColor = "#80A0C0",
+            FillStyle = "Hatched",
+            HatchPattern = "ANSI31",
+            HatchScale = 5.0
+        };
+        CanvasObject canvasObject = new()
+        {
+            CanvasLayerId = layer.Id,
+            ObjectType = "Polygon",
+            IsVisible = true
+        };
+        RectangleShape shape = new(new PointD(10.0, 10.0), new PointD(90.0, 90.0));
+        CanvasFeature feature = new(canvasObject, shape, layer);
+        CapturingMapRenderSurface surface = new(bitmap.Size);
+
+        using CanvasVectorRenderer renderer = new();
+        renderer.UpdateLayers([layer]);
+        renderer.UpdateFeatures([feature]);
+        renderer.Render(
+            surface,
+            graphics,
+            engine,
+            engine.GetVisibleWorldBounds(),
+            antiAliasingEnabled: true);
+
+        FillStyle hatchFill = Assert.Single(surface.PathFills, fill => fill.Pattern == FillPatternKind.TextureHatch);
+        Assert.Equal("ANSI31", hatchFill.PatternKey);
+        Assert.Equal(Color.Transparent.ToArgb(), hatchFill.Color.ToArgb());
+        Assert.Equal(255, hatchFill.PatternColor.A);
+        Assert.Equal(layer.HatchScale * engine.ZoomScale, hatchFill.PatternScreenScale, precision: 5);
+        Assert.Equal(ToPointF(engine.WorldToScreen(new PointD(0.0, 0.0))), hatchFill.PatternOriginScreen);
     }
 
     [Fact]
@@ -363,6 +411,9 @@ public sealed class CanvasVectorRendererTests
     private static bool IsCenterSelectionStroke(StrokeStyle stroke) =>
         stroke.Color.ToArgb() == Color.FromArgb(0, 120, 212).ToArgb();
 
+    private static PointF ToPointF(PointD point) =>
+        new((float)point.X, (float)point.Y);
+
     private static void AssertSelectionStrokeMetrics(CanvasLayer layer, StrokeStyle selectionStroke)
     {
         // Regression lock: selection must use the selected object's layer
@@ -383,6 +434,7 @@ public sealed class CanvasVectorRendererTests
     private sealed class CapturingMapRenderSurface(Size pixelSize) : IMapRenderSurface
     {
         public List<StrokeStyle> PathStrokes { get; } = [];
+        public List<FillStyle> PathFills { get; } = [];
 
         public Size PixelSize { get; } = pixelSize;
 
@@ -412,6 +464,7 @@ public sealed class CanvasVectorRendererTests
 
         public void FillPath(IMapPath path, in FillStyle fill)
         {
+            PathFills.Add(fill);
         }
 
         public void DrawRectangle(RectangleF rect, in StrokeStyle stroke)
@@ -420,6 +473,7 @@ public sealed class CanvasVectorRendererTests
 
         public void FillRectangle(RectangleF rect, in FillStyle fill)
         {
+            PathFills.Add(fill);
         }
 
         public void DrawEllipse(RectangleF rect, in StrokeStyle stroke)
@@ -428,6 +482,7 @@ public sealed class CanvasVectorRendererTests
 
         public void FillEllipse(RectangleF rect, in FillStyle fill)
         {
+            PathFills.Add(fill);
         }
 
         public void DrawArc(RectangleF rect, float startDeg, float sweepDeg, in StrokeStyle stroke)

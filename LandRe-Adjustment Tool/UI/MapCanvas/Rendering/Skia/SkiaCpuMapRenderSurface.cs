@@ -4,6 +4,7 @@ using System.Drawing.Imaging;
 using Land_Readjustment_Tool.UI.MapCanvas.Rendering.Abstractions;
 using Land_Readjustment_Tool.UI.MapCanvas.Rendering.Diagnostics;
 using Land_Readjustment_Tool.UI.MapCanvas.Rendering.Gdi;
+using Land_Readjustment_Tool.UI.MapCanvas.Services;
 using SkiaSharp;
 
 #pragma warning disable CS0618 // SkiaSharp keeps these paint/text APIs available across supported target frameworks.
@@ -218,6 +219,14 @@ namespace Land_Readjustment_Tool.UI.MapCanvas.Rendering.Skia
         {
             if (IsValidRectangle(rect))
             {
+                if (fill.Pattern != FillPatternKind.Solid)
+                {
+                    using SKPath path = new();
+                    path.AddRect(SkiaMapPathBuilder.ToSkiaRect(rect));
+                    DrawHatchedFill(path, fill);
+                    return;
+                }
+
                 SKPaint paint = CreateFillPaint(fill.Color);
                 _canvas.DrawRect(SkiaMapPathBuilder.ToSkiaRect(rect), paint);
             }
@@ -242,6 +251,14 @@ namespace Land_Readjustment_Tool.UI.MapCanvas.Rendering.Skia
         {
             if (IsValidRectangle(rect))
             {
+                if (fill.Pattern != FillPatternKind.Solid)
+                {
+                    using SKPath path = new();
+                    path.AddOval(SkiaMapPathBuilder.ToSkiaRect(rect));
+                    DrawHatchedFill(path, fill);
+                    return;
+                }
+
                 SKPaint paint = CreateFillPaint(fill.Color);
                 _canvas.DrawOval(SkiaMapPathBuilder.ToSkiaRect(rect), paint);
             }
@@ -535,9 +552,6 @@ namespace Land_Readjustment_Tool.UI.MapCanvas.Rendering.Skia
                 Color = SKColors.White.WithAlpha((byte)(Math.Clamp(style.Opacity, 0.0f, 1.0f) * 255.0f))
             };
 
-        /// <summary>
-        /// Draws a simple clipped hatch approximation for non-solid fills.
-        /// </summary>
         private void DrawHatchedFill(SKPath path, in FillStyle fill)
         {
             using IDisposable state = SaveState();
@@ -548,23 +562,77 @@ namespace Land_Readjustment_Tool.UI.MapCanvas.Rendering.Skia
             }
 
             _canvas.ClipPath(path, SKClipOperation.Intersect, IsAntialiasEnabled);
-            SKRect bounds = path.Bounds;
-            SKColor hatchColor = ToSkiaColor(fill.PatternColor.IsEmpty ? Color.Black : fill.PatternColor);
-            float spacing = (float)Math.Clamp(8.0 * Math.Max(0.25, fill.PatternScale), 4.0, 64.0);
-            using SKPaint hatch = new()
+            if (SkiaHatchPatternRenderer.TryDrawLinePattern(_canvas, path, fill, IsAntialiasEnabled))
             {
-                Style = SKPaintStyle.Stroke,
-                Color = hatchColor,
-                StrokeWidth = 1.0f,
+                return;
+            }
+
+            using Bitmap tile = HatchPatternService.CreatePatternTile(
+                fill.PatternKey,
+                fill.PatternColor.IsEmpty ? Color.Black : fill.PatternColor,
+                ResolvePatternScreenScale(fill));
+            using SKBitmap skTile = CopyBitmapToSkia(tile);
+            using SKShader shader = CreateTextureHatchShader(skTile, fill.PatternOriginScreen);
+            using SKPaint hatchPaint = new()
+            {
+                Style = SKPaintStyle.Fill,
+                Shader = shader,
                 IsAntialias = IsAntialiasEnabled
             };
 
-            float start = bounds.Left - bounds.Height - spacing;
-            float end = bounds.Right + bounds.Height + spacing;
-            for (float x = start; x <= end; x += spacing)
+            _canvas.DrawPath(path, hatchPaint);
+        }
+
+        private static SKShader CreateTextureHatchShader(SKBitmap tile, PointF origin)
+        {
+            float offsetX = PositiveModulo(origin.X, Math.Max(1, tile.Width));
+            float offsetY = PositiveModulo(origin.Y, Math.Max(1, tile.Height));
+            SKMatrix localMatrix = SKMatrix.CreateTranslation(offsetX, offsetY);
+            return SKShader.CreateBitmap(
+                tile,
+                SKShaderTileMode.Repeat,
+                SKShaderTileMode.Repeat,
+                localMatrix);
+        }
+
+        private static SKBitmap CopyBitmapToSkia(Bitmap bitmap)
+        {
+            SKBitmap skBitmap = new(bitmap.Width, bitmap.Height, SKColorType.Bgra8888, SKAlphaType.Premul);
+            Rectangle rect = new(0, 0, bitmap.Width, bitmap.Height);
+            BitmapData data = bitmap.LockBits(rect, ImageLockMode.ReadOnly, PixelFormat.Format32bppPArgb);
+            try
             {
-                _canvas.DrawLine(x, bounds.Bottom + spacing, x + bounds.Height + spacing, bounds.Top - spacing, hatch);
+                skBitmap.InstallPixels(
+                    new SKImageInfo(bitmap.Width, bitmap.Height, SKColorType.Bgra8888, SKAlphaType.Premul),
+                    data.Scan0,
+                    data.Stride);
+                SKBitmap copy = skBitmap.Copy();
+                skBitmap.Dispose();
+                return copy;
             }
+            finally
+            {
+                bitmap.UnlockBits(data);
+            }
+        }
+
+        private static double ResolvePatternScreenScale(in FillStyle style)
+        {
+            if (!double.IsFinite(style.PatternScreenScale) || style.PatternScreenScale <= 0.0)
+            {
+                return style.PatternScale;
+            }
+
+            return style.PatternScreenScale;
+        }
+
+        private static float PositiveModulo(float value, float modulus)
+        {
+            if (!float.IsFinite(value) || modulus <= 0.0f)
+                return 0.0f;
+
+            float result = value % modulus;
+            return result < 0.0f ? result + modulus : result;
         }
 
         /// <summary>

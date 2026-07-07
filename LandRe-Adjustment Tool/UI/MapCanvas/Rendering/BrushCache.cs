@@ -43,8 +43,17 @@ namespace Land_Readjustment_Tool.UI.MapCanvas.Rendering
             Color hatchColor,
             double hatchScale)
         {
+            return GetTextureHatch(patternKey, hatchColor, hatchScale, hatchScale);
+        }
+
+        public TextureBrush GetTextureHatch(
+            string? patternKey,
+            Color hatchColor,
+            double hatchScale,
+            double screenScale)
+        {
             string normalizedPatternKey = HatchPatternService.NormalizePatternKey(patternKey);
-            int scaleKey = (int)Math.Round(Math.Clamp(hatchScale, 0.1, 25.0) * 1000.0);
+            int scaleKey = (int)Math.Round(Math.Clamp(screenScale, 0.01, 512.0) * 1000.0);
             TextureHatchBrushKey key = new(
                 normalizedPatternKey.ToUpperInvariant(),
                 hatchColor.ToArgb(),

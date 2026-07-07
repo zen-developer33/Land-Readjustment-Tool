@@ -1311,6 +1311,11 @@ namespace Land_Readjustment_Tool.UI.CustomControls
             _justCompletedShape = null;
             _justCompletedShapeLayer = null;
             _justCompletedShapeOverlays = Array.Empty<(IShape Shape, CanvasLayer? Layer)>();
+            if (hasPendingAddOrEdit && overlay.Count > 0)
+            {
+                _immediateEditedOverlayFeatures = overlay;
+            }
+
             _renderer.SetVectorRenderExclusions(null);
             _selectedProjectBoundaryCacheExclusionsApplied = false;
             _renderer.UpdateVectorFeatures(_vectorFeatures);
@@ -2651,9 +2656,13 @@ namespace Land_Readjustment_Tool.UI.CustomControls
                 suppressFixedReferenceLayers: suppressLiveFixedReferences,
                 fixedReferenceFrame: fixedReferenceFrame);
 
-            if (!ShouldSuppressLiveVectorObjectOverlays)
+            if (!ShouldSuppressImmediateEditedFeatureOverlay)
             {
                 DrawImmediateEditedFeatureOverlay(graphics);
+            }
+
+            if (!ShouldSuppressLiveVectorObjectOverlays)
+            {
                 DrawJustCompletedShapeOverlay(graphics);
                 DrawSelectedFeatureDecorations(graphics);
                 DrawActiveGripEditOverlay(graphics);
@@ -7190,9 +7199,13 @@ namespace Land_Readjustment_Tool.UI.CustomControls
         {
             DrawZoomWindowOverlay(surface);
 
-            if (!ShouldSuppressLiveVectorObjectOverlays)
+            if (!ShouldSuppressImmediateEditedFeatureOverlay)
             {
                 DrawImmediateEditedFeatureOverlay(surface);
+            }
+
+            if (!ShouldSuppressLiveVectorObjectOverlays)
+            {
                 DrawJustCompletedShapeOverlay(surface);
                 DrawActiveGripEditOverlay(surface);
                 if (!suppressNavigationSnapshotOverlay)
@@ -11696,6 +11709,11 @@ namespace Land_Readjustment_Tool.UI.CustomControls
             _isZooming ||
             _holdVectorPanFrameUntilRefresh ||
             _holdVectorZoomFrameUntilRefresh;
+
+        private bool ShouldSuppressImmediateEditedFeatureOverlay =>
+            _isPanning ||
+            _isZooming ||
+            _holdVectorPanFrameUntilRefresh;
 
         private bool ShouldDeferDirectRasterRendering =>
             IsInteractiveNavigation ||

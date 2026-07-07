@@ -893,17 +893,26 @@ namespace Land_Readjustment_Tool.UI.MapCanvas.Rendering
         /// <summary>
         /// Converts vector fill settings into a backend-neutral fill style.
         /// </summary>
-        private static FillStyle CreateFillStyle(VectorShapeStyle style)
+        private static FillStyle CreateFillStyle(VectorShapeStyle style, MapCanvasEngine? engine = null)
         {
             if (style.FillMode == FillMode.Hatched)
             {
                 Color hatchColor = ResolveHatchColor(style);
+                double patternScreenScale = engine == null
+                    ? style.HatchScale
+                    : Math.Max(0.0001, engine.ZoomScale * style.HatchScale);
+                PointF patternOriginScreen = engine == null
+                    ? PointF.Empty
+                    : ToScreenPointF(engine.WorldToScreen(new PointD(0.0, 0.0)));
+
                 return new FillStyle(
-                    style.FillColor,
+                    Color.Transparent,
                     FillPatternKind.TextureHatch,
                     hatchColor,
                     style.HatchScale,
-                    style.HatchPattern);
+                    style.HatchPattern,
+                    patternScreenScale,
+                    patternOriginScreen);
             }
 
             return new FillStyle(style.FillColor);
@@ -1434,7 +1443,7 @@ namespace Land_Readjustment_Tool.UI.MapCanvas.Rendering
                 style.FillMode != FillMode.None &&
                 IsValidRectangle(bounds))
             {
-                FillClosedPath(mapPath, bounds, style, context);
+                FillClosedPath(mapPath, bounds, style, context, engine);
             }
 
             if (polyline.IsClosed &&
@@ -1488,7 +1497,7 @@ namespace Land_Readjustment_Tool.UI.MapCanvas.Rendering
 
             if (style.FillMode != FillMode.None && IsValidRectangle(bounds))
             {
-                FillClosedPath(mapPath, bounds, style, context);
+                FillClosedPath(mapPath, bounds, style, context, engine);
             }
 
             if (drawParcelSelectionHighlight && IsValidRectangle(bounds))
@@ -1560,7 +1569,7 @@ namespace Land_Readjustment_Tool.UI.MapCanvas.Rendering
 
             if (style.FillMode != FillMode.None)
             {
-                FillClosedPath(mapPath, rect, style, context);
+                FillClosedPath(mapPath, rect, style, context, engine);
 
                 if (drawParcelSelectionHighlight)
                 {
@@ -1675,7 +1684,7 @@ namespace Land_Readjustment_Tool.UI.MapCanvas.Rendering
                     RectangleF bounds = mapFillPath.Bounds;
                     if (IsValidPathBounds(bounds))
                     {
-                        FillClosedPath(mapFillPath, bounds, style, context);
+                        FillClosedPath(mapFillPath, bounds, style, context, engine);
                     }
                 }
             }
@@ -1728,11 +1737,11 @@ namespace Land_Readjustment_Tool.UI.MapCanvas.Rendering
                     GraphicsPath path = new();
                     path.AddEllipse(rect);
                     using GdiMapPath mapPath = OwnGdiPath(path);
-                    FillClosedPath(mapPath, rect, style, context);
+                    FillClosedPath(mapPath, rect, style, context, engine);
                 }
                 else
                 {
-                    context.Surface.FillEllipse(rect, CreateFillStyle(style));
+                    context.Surface.FillEllipse(rect, CreateFillStyle(style, engine));
                 }
             }
 
@@ -1746,7 +1755,8 @@ namespace Land_Readjustment_Tool.UI.MapCanvas.Rendering
             IMapPath path,
             RectangleF bounds,
             VectorShapeStyle style,
-            VectorRenderContext context)
+            VectorRenderContext context,
+            MapCanvasEngine engine)
         {
             if (style.FillMode == FillMode.None ||
                 !IsValidRectangle(bounds))
@@ -1763,19 +1773,23 @@ namespace Land_Readjustment_Tool.UI.MapCanvas.Rendering
 
             if (style.FillColor.A > 0 && style.FillMode != FillMode.Hatched)
             {
-                context.Surface.FillPath(path, CreateFillStyle(style));
+                context.Surface.FillPath(path, CreateFillStyle(style, engine));
             }
 
             if (style.FillMode == FillMode.Hatched)
             {
-                context.Surface.FillPath(path, CreateFillStyle(style));
+                context.Surface.FillPath(path, CreateFillStyle(style, engine));
             }
         }
 
         private static Color ResolveHatchColor(VectorShapeStyle style)
         {
             Color baseColor = Color.FromArgb(255, style.FillColor.R, style.FillColor.G, style.FillColor.B);
-            return Color.FromArgb(220, baseColor.R, baseColor.G, baseColor.B);
+            int alpha = style.FillColor.A > 0
+                ? Math.Clamp((int)style.FillColor.A, 48, 255)
+                : 220;
+
+            return Color.FromArgb(alpha, baseColor.R, baseColor.G, baseColor.B);
         }
 
         /// <summary>

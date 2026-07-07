@@ -6,6 +6,7 @@ using System.Threading;
 using Land_Readjustment_Tool.UI.MapCanvas.Rendering.Abstractions;
 using Land_Readjustment_Tool.UI.MapCanvas.Rendering.Diagnostics;
 using Land_Readjustment_Tool.UI.MapCanvas.Rendering.Gdi;
+using Land_Readjustment_Tool.UI.MapCanvas.Services;
 using SkiaSharp;
 
 #pragma warning disable CS0618
@@ -128,6 +129,14 @@ namespace Land_Readjustment_Tool.UI.MapCanvas.Rendering.Skia
                 return;
             }
 
+            if (fill.Pattern != FillPatternKind.Solid)
+            {
+                using SKPath path = new();
+                path.AddRect(SkiaMapPathBuilder.ToSkiaRect(rect));
+                DrawHatchedFill(path, fill);
+                return;
+            }
+
             SKPaint paint = CreateFillPaint(fill.Color);
             _canvas.DrawRect(SkiaMapPathBuilder.ToSkiaRect(rect), paint);
         }
@@ -147,6 +156,14 @@ namespace Land_Readjustment_Tool.UI.MapCanvas.Rendering.Skia
         {
             if (!IsValidRectangle(rect))
             {
+                return;
+            }
+
+            if (fill.Pattern != FillPatternKind.Solid)
+            {
+                using SKPath path = new();
+                path.AddOval(SkiaMapPathBuilder.ToSkiaRect(rect));
+                DrawHatchedFill(path, fill);
                 return;
             }
 
@@ -382,23 +399,56 @@ namespace Land_Readjustment_Tool.UI.MapCanvas.Rendering.Skia
             }
 
             _canvas.ClipPath(path, SKClipOperation.Intersect, IsAntialiasEnabled);
-            SKRect bounds = path.Bounds;
-            SKColor hatchColor = ToSkiaColor(fill.PatternColor.IsEmpty ? Color.Black : fill.PatternColor);
-            float spacing = (float)Math.Clamp(8.0 * Math.Max(0.25, fill.PatternScale), 4.0, 64.0);
-            using SKPaint hatch = new()
+            if (SkiaHatchPatternRenderer.TryDrawLinePattern(_canvas, path, fill, IsAntialiasEnabled))
             {
-                Style = SKPaintStyle.Stroke,
-                Color = hatchColor,
-                StrokeWidth = 1.0f,
+                return;
+            }
+
+            using Bitmap tile = HatchPatternService.CreatePatternTile(
+                fill.PatternKey,
+                fill.PatternColor.IsEmpty ? Color.Black : fill.PatternColor,
+                ResolvePatternScreenScale(fill));
+            using SKBitmap skTile = CopyBitmapToSkia(tile);
+            using SKShader shader = CreateTextureHatchShader(skTile, fill.PatternOriginScreen);
+            using SKPaint hatchPaint = new()
+            {
+                Style = SKPaintStyle.Fill,
+                Shader = shader,
                 IsAntialias = IsAntialiasEnabled
             };
 
-            float start = bounds.Left - bounds.Height - spacing;
-            float end = bounds.Right + bounds.Height + spacing;
-            for (float x = start; x <= end; x += spacing)
+            _canvas.DrawPath(path, hatchPaint);
+        }
+
+        private static SKShader CreateTextureHatchShader(SKBitmap tile, PointF origin)
+        {
+            float offsetX = PositiveModulo(origin.X, Math.Max(1, tile.Width));
+            float offsetY = PositiveModulo(origin.Y, Math.Max(1, tile.Height));
+            SKMatrix localMatrix = SKMatrix.CreateTranslation(offsetX, offsetY);
+            return SKShader.CreateBitmap(
+                tile,
+                SKShaderTileMode.Repeat,
+                SKShaderTileMode.Repeat,
+                localMatrix);
+        }
+
+        private static double ResolvePatternScreenScale(in FillStyle style)
+        {
+            if (!double.IsFinite(style.PatternScreenScale) || style.PatternScreenScale <= 0.0)
             {
-                _canvas.DrawLine(x, bounds.Bottom + spacing, x + bounds.Height + spacing, bounds.Top - spacing, hatch);
+                return style.PatternScale;
             }
+
+            return style.PatternScreenScale;
+        }
+
+        private static float PositiveModulo(float value, float modulus)
+        {
+            if (!float.IsFinite(value) || modulus <= 0.0f)
+                return 0.0f;
+
+            float result = value % modulus;
+            return result < 0.0f ? result + modulus : result;
         }
 
         private static SKPath AsSkiaPath(IMapPath path)

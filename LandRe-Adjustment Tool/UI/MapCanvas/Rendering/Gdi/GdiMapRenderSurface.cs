@@ -2,6 +2,7 @@ using System.Drawing.Drawing2D;
 using System.Drawing.Imaging;
 using System.Drawing.Text;
 using Land_Readjustment_Tool.UI.MapCanvas.Rendering.Abstractions;
+using Land_Readjustment_Tool.UI.MapCanvas.Services;
 
 namespace Land_Readjustment_Tool.UI.MapCanvas.Rendering.Gdi
 {
@@ -138,6 +139,12 @@ namespace Land_Readjustment_Tool.UI.MapCanvas.Rendering.Gdi
             GdiMapPath gdiPath = AsGdiPath(path);
             if (gdiPath.PointCount > 0)
             {
+                if (fill.Pattern == FillPatternKind.TextureHatch)
+                {
+                    FillTextureHatchPath(gdiPath.Path, fill);
+                    return;
+                }
+
                 Graphics.FillPath(GetBrush(fill), gdiPath.Path);
             }
         }
@@ -160,6 +167,12 @@ namespace Land_Readjustment_Tool.UI.MapCanvas.Rendering.Gdi
         {
             if (IsValidRectangle(rect))
             {
+                if (fill.Pattern == FillPatternKind.TextureHatch)
+                {
+                    FillTextureHatchRectangle(rect, fill);
+                    return;
+                }
+
                 Graphics.FillRectangle(GetBrush(fill), rect);
             }
         }
@@ -182,6 +195,14 @@ namespace Land_Readjustment_Tool.UI.MapCanvas.Rendering.Gdi
         {
             if (IsValidRectangle(rect))
             {
+                if (fill.Pattern == FillPatternKind.TextureHatch)
+                {
+                    using GraphicsPath path = new();
+                    path.AddEllipse(rect);
+                    FillTextureHatchPath(path, fill);
+                    return;
+                }
+
                 Graphics.FillEllipse(GetBrush(fill), rect);
             }
         }
@@ -415,9 +436,87 @@ namespace Land_Readjustment_Tool.UI.MapCanvas.Rendering.Gdi
                 FillPatternKind.TextureHatch => _brushCache.GetTextureHatch(
                     style.PatternKey,
                     ResolvePatternColor(style),
-                    style.PatternScale),
+                    style.PatternScale,
+                    ResolvePatternScreenScale(style)),
                 _ => _brushCache.GetSolid(style.Color)
             };
+        }
+
+        private void FillTextureHatchPath(GraphicsPath path, in FillStyle style)
+        {
+            if (style.Color.A > 0)
+            {
+                Graphics.FillPath(_brushCache.GetSolid(style.Color), path);
+            }
+
+            if (HatchPatternService.TryDrawLinePattern(
+                    Graphics,
+                    path,
+                    style.PatternKey,
+                    ResolvePatternColor(style),
+                    ResolvePatternScreenScale(style),
+                    style.PatternOriginScreen))
+            {
+                return;
+            }
+
+            TextureBrush brush = GetTextureHatchBrush(style);
+            Graphics.FillPath(brush, path);
+        }
+
+        private void FillTextureHatchRectangle(RectangleF rect, in FillStyle style)
+        {
+            if (style.Color.A > 0)
+            {
+                Graphics.FillRectangle(_brushCache.GetSolid(style.Color), rect);
+            }
+
+            using GraphicsPath path = new();
+            path.AddRectangle(rect);
+            if (HatchPatternService.TryDrawLinePattern(
+                    Graphics,
+                    path,
+                    style.PatternKey,
+                    ResolvePatternColor(style),
+                    ResolvePatternScreenScale(style),
+                    style.PatternOriginScreen))
+            {
+                return;
+            }
+
+            TextureBrush brush = GetTextureHatchBrush(style);
+            Graphics.FillRectangle(brush, rect);
+        }
+
+        private TextureBrush GetTextureHatchBrush(in FillStyle style)
+        {
+            TextureBrush brush = _brushCache.GetTextureHatch(
+                style.PatternKey,
+                ResolvePatternColor(style),
+                style.PatternScale,
+                ResolvePatternScreenScale(style));
+
+            ApplyTextureHatchTransform(brush, style.PatternOriginScreen);
+            return brush;
+        }
+
+        private static void ApplyTextureHatchTransform(TextureBrush brush, PointF origin)
+        {
+            Size imageSize = brush.Image.Size;
+            float offsetX = PositiveModulo(origin.X, Math.Max(1, imageSize.Width));
+            float offsetY = PositiveModulo(origin.Y, Math.Max(1, imageSize.Height));
+
+            brush.ResetTransform();
+            brush.TranslateTransform(offsetX, offsetY, MatrixOrder.Append);
+        }
+
+        private static float PositiveModulo(float value, float modulus)
+        {
+            if (!float.IsFinite(value) || modulus <= 0.0f)
+                return 0.0f;
+
+            float result = value % modulus;
+            return result < 0.0f ? result + modulus : result;
         }
 
         /// <summary>
@@ -546,6 +645,16 @@ namespace Land_Readjustment_Tool.UI.MapCanvas.Rendering.Gdi
         /// </summary>
         private static Color ResolvePatternColor(in FillStyle style) =>
             style.PatternColor.IsEmpty ? Color.Black : style.PatternColor;
+
+        private static double ResolvePatternScreenScale(in FillStyle style)
+        {
+            if (!double.IsFinite(style.PatternScreenScale) || style.PatternScreenScale <= 0.0)
+            {
+                return style.PatternScale;
+            }
+
+            return style.PatternScreenScale;
+        }
 
         /// <summary>
         /// Creates a GDI+ string format matching the neutral text alignment.

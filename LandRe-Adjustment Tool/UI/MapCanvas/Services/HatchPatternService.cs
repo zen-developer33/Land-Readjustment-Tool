@@ -6,14 +6,17 @@ namespace Land_Readjustment_Tool.UI.MapCanvas.Services
     public sealed class HatchPatternService : IHatchPatternService
     {
         private const int TileSize = 32;
-        private const int MaxTileSize = 640;
+        private const int MinTileSize = 4;
+        private const int MaxTileSize = 2048;
+        private const float HatchStrokeWidth = 1.0f;
 
         private static readonly IReadOnlyList<HatchPatternDefinition> Patterns =
         [
             new("ANSI31", "ANSI31 - Diagonal", "AutoCAD-style 45 degree hatch for general parcel and boundary fills."),
-            new("ANSI32", "ANSI32 - Cross Diagonal", "AutoCAD-style diagonal cross hatch for stronger area separation."),
-            new("ANSI33", "ANSI33 - Dense Diagonal", "AutoCAD-style tighter diagonal hatch for compact polygons."),
-            new("ANSI34", "ANSI34 - Light Diagonal", "AutoCAD-style wider diagonal hatch for low-density fills."),
+            new("ANSI32", "ANSI32 - Steel", "AutoCAD-style paired 45 degree lines for steel/material hatching."),
+            new("ANSI33", "ANSI33 - Bronze / Copper", "AutoCAD-style diagonal hatch with alternating dashed companion lines."),
+            new("ANSI34", "ANSI34 - Plastic / Rubber", "AutoCAD-style grouped diagonal hatch for plastic, rubber, and similar areas."),
+            new("ANSI37", "ANSI37 - Diagonal Cross", "AutoCAD-style 45 and 135 degree cross hatch."),
             new("HORIZONTAL", "GIS Horizontal", "Common GIS horizontal line fill."),
             new("VERTICAL", "GIS Vertical", "Common GIS vertical line fill."),
             new("CROSS", "GIS Cross", "Common GIS horizontal and vertical cross fill."),
@@ -66,13 +69,29 @@ namespace Land_Readjustment_Tool.UI.MapCanvas.Services
             using SolidBrush fillBrush = new(visibleFill);
             graphics.FillRectangle(fillBrush, bounds);
 
+            string key = GetPatternOrDefault(patternKey).Key;
+            Color visibleHatchColor = Color.FromArgb(
+                Math.Max(0, (int)Math.Round(230 * (1f - clampedTransparency / 100f))),
+                hatchColor.R,
+                hatchColor.G,
+                hatchColor.B);
+
+            using GraphicsPath previewPath = new();
+            previewPath.AddRectangle(bounds);
+            if (TryDrawLinePattern(
+                    graphics,
+                    previewPath,
+                    key,
+                    visibleHatchColor,
+                    NormalizeHatchScale(hatchScale),
+                    new PointF(bounds.Left, bounds.Top)))
+            {
+                return;
+            }
+
             using Bitmap tile = CreatePatternTile(
-                GetPatternOrDefault(patternKey).Key,
-                Color.FromArgb(
-                    Math.Max(0, (int)Math.Round(230 * (1f - clampedTransparency / 100f))),
-                    hatchColor.R,
-                    hatchColor.G,
-                    hatchColor.B),
+                key,
+                visibleHatchColor,
                 NormalizeHatchScale(hatchScale));
 
             using TextureBrush patternBrush = new(tile, WrapMode.Tile);
@@ -111,9 +130,11 @@ namespace Land_Readjustment_Tool.UI.MapCanvas.Services
 
         private static Bitmap CreatePatternTile(string patternKey, Color hatchColor, float hatchScale)
         {
+            patternKey = NormalizePatternKey(patternKey).ToUpperInvariant();
+            float visualScale = Math.Max(0.01f, hatchScale * GetPatternScaleMultiplier(patternKey));
             int tileSize = Math.Clamp(
-                (int)Math.Ceiling(TileSize * hatchScale),
-                TileSize,
+                (int)Math.Round(TileSize * visualScale),
+                MinTileSize,
                 MaxTileSize);
             float effectiveScale = tileSize / (float)TileSize;
             Bitmap tile = new(tileSize, tileSize);
@@ -123,23 +144,40 @@ namespace Land_Readjustment_Tool.UI.MapCanvas.Services
             graphics.SmoothingMode = SmoothingMode.AntiAlias;
             graphics.ScaleTransform(effectiveScale, effectiveScale);
 
-            using Pen pen = new(hatchColor, 0.75f / effectiveScale)
+            float patternPenWidth = HatchStrokeWidth / effectiveScale;
+            using Pen pen = new(hatchColor, patternPenWidth)
             {
                 StartCap = LineCap.Flat,
                 EndCap = LineCap.Flat
             };
+            float markerRadius = Math.Max(1.0f / effectiveScale, 0.9f);
 
             switch (patternKey.ToUpperInvariant())
             {
+                case "ANSI31":
+                    DrawDiagonalLines(graphics, pen, spacing: 3.175f, forward: true);
+                    break;
                 case "ANSI32":
-                    DrawDiagonalLines(graphics, pen, spacing: 9, forward: true);
-                    DrawDiagonalLines(graphics, pen, spacing: 9, forward: false);
+                    DrawDiagonalLines(graphics, pen, spacing: 9.525f, forward: true);
+                    DrawDiagonalLines(graphics, pen, spacing: 9.525f, forward: true, offset: 4.49013f);
                     break;
                 case "ANSI33":
-                    DrawDiagonalLines(graphics, pen, spacing: 6, forward: true);
+                    DrawDiagonalLines(graphics, pen, spacing: 6.35f, forward: true);
+                    using (Pen dashedPen = (Pen)pen.Clone())
+                    {
+                        dashedPen.DashPattern = [3.175f, 1.5875f];
+                        DrawDiagonalLines(graphics, dashedPen, spacing: 6.35f, forward: true, offset: 4.49013f);
+                    }
                     break;
                 case "ANSI34":
-                    DrawDiagonalLines(graphics, pen, spacing: 14, forward: true);
+                    DrawDiagonalLines(graphics, pen, spacing: 19.05f, forward: true);
+                    DrawDiagonalLines(graphics, pen, spacing: 19.05f, forward: true, offset: 4.49013f);
+                    DrawDiagonalLines(graphics, pen, spacing: 19.05f, forward: true, offset: 8.98026f);
+                    DrawDiagonalLines(graphics, pen, spacing: 19.05f, forward: true, offset: 13.4704f);
+                    break;
+                case "ANSI37":
+                    DrawDiagonalLines(graphics, pen, spacing: 3.175f, forward: true);
+                    DrawDiagonalLines(graphics, pen, spacing: 3.175f, forward: false);
                     break;
                 case "HORIZONTAL":
                     DrawHorizontalLines(graphics, pen, spacing: 8);
@@ -159,22 +197,22 @@ namespace Land_Readjustment_Tool.UI.MapCanvas.Services
                     DrawDots(graphics, hatchColor, spacing: 8, radius: 1.3f);
                     break;
                 case "SAND":
-                    DrawSand(graphics, hatchColor);
+                    DrawSand(graphics, hatchColor, markerRadius);
                     break;
                 case "GRAVEL":
-                    DrawGravel(graphics, hatchColor);
+                    DrawGravel(graphics, hatchColor, patternPenWidth);
                     break;
                 case "GRASS":
-                    DrawGrass(graphics, hatchColor);
+                    DrawGrass(graphics, hatchColor, patternPenWidth);
                     break;
                 case "EARTH":
-                    DrawEarth(graphics, hatchColor);
+                    DrawEarth(graphics, hatchColor, patternPenWidth);
                     break;
                 case "WATER":
-                    DrawWater(graphics, hatchColor);
+                    DrawWater(graphics, hatchColor, patternPenWidth);
                     break;
                 case "CONCRETE":
-                    DrawConcrete(graphics, hatchColor);
+                    DrawConcrete(graphics, hatchColor, patternPenWidth);
                     break;
                 case "BRICK":
                     DrawBrick(graphics, pen);
@@ -206,6 +244,179 @@ namespace Land_Readjustment_Tool.UI.MapCanvas.Services
                 : pattern.Key;
         }
 
+        internal static bool TryDrawLinePattern(
+            Graphics graphics,
+            GraphicsPath clipPath,
+            string? patternKey,
+            Color hatchColor,
+            double screenScale,
+            PointF origin)
+        {
+            ArgumentNullException.ThrowIfNull(graphics);
+            ArgumentNullException.ThrowIfNull(clipPath);
+
+            string key = NormalizePatternKey(patternKey).ToUpperInvariant();
+            HatchLineDefinition[]? lines = GetLineDefinitions(key);
+            if (lines == null || lines.Length == 0)
+                return false;
+
+            float scale = ResolveScreenScale(screenScale);
+            if (scale <= 0.0f)
+                return true;
+
+            GraphicsState state = graphics.Save();
+            try
+            {
+                graphics.SetClip(clipPath, CombineMode.Intersect);
+
+                RectangleF bounds = clipPath.GetBounds();
+                if (bounds.Width <= 0.0f || bounds.Height <= 0.0f)
+                    return true;
+
+                foreach (HatchLineDefinition line in lines)
+                {
+                    DrawHatchLineFamily(graphics, bounds, line, hatchColor, scale, origin);
+                }
+            }
+            finally
+            {
+                graphics.Restore(state);
+            }
+
+            return true;
+        }
+
+        internal static HatchLineDefinition[]? GetLineDefinitions(string patternKey)
+        {
+            return patternKey switch
+            {
+                "ANSI31" => [new(45.0f, 0.0f, 0.0f, 3.175f)],
+                "ANSI32" =>
+                [
+                    new(45.0f, 0.0f, 0.0f, 9.525f),
+                    new(45.0f, 4.49013f, 0.0f, 9.525f)
+                ],
+                "ANSI33" =>
+                [
+                    new(45.0f, 0.0f, 0.0f, 6.35f),
+                    new(45.0f, 4.49013f, 0.0f, 6.35f, [3.175f, 1.5875f])
+                ],
+                "ANSI34" =>
+                [
+                    new(45.0f, 0.0f, 0.0f, 19.05f),
+                    new(45.0f, 4.49013f, 0.0f, 19.05f),
+                    new(45.0f, 8.98026f, 0.0f, 19.05f),
+                    new(45.0f, 13.4704f, 0.0f, 19.05f)
+                ],
+                "ANSI37" =>
+                [
+                    new(45.0f, 0.0f, 0.0f, 3.175f),
+                    new(135.0f, 0.0f, 0.0f, 3.175f)
+                ],
+                "HORIZONTAL" => [new(0.0f, 0.0f, 0.0f, 8.0f)],
+                "VERTICAL" => [new(90.0f, 0.0f, 0.0f, 8.0f)],
+                "CROSS" =>
+                [
+                    new(0.0f, 0.0f, 0.0f, 9.0f),
+                    new(90.0f, 0.0f, 0.0f, 9.0f)
+                ],
+                "DIAGONAL-CROSS" =>
+                [
+                    new(45.0f, 0.0f, 0.0f, 10.0f),
+                    new(135.0f, 0.0f, 0.0f, 10.0f)
+                ],
+                "NET" =>
+                [
+                    new(45.0f, 0.0f, 0.0f, 8.0f),
+                    new(135.0f, 0.0f, 0.0f, 8.0f)
+                ],
+                _ => null
+            };
+        }
+
+        private static void DrawHatchLineFamily(
+            Graphics graphics,
+            RectangleF bounds,
+            HatchLineDefinition line,
+            Color hatchColor,
+            float scale,
+            PointF origin)
+        {
+            float spacing = Math.Abs(line.Spacing * scale);
+            if (!float.IsFinite(spacing) || spacing <= 0.0f)
+                return;
+
+            float radians = line.AngleDegrees * MathF.PI / 180.0f;
+            PointF direction = new(MathF.Cos(radians), -MathF.Sin(radians));
+            PointF normal = new(-direction.Y, direction.X);
+
+            float familyOriginX = origin.X + line.OriginX * scale;
+            float familyOriginY = origin.Y - line.OriginY * scale;
+            float originDistance = Dot(familyOriginX, familyOriginY, normal);
+            float minDistance = MinDot(bounds, normal);
+            float maxDistance = MaxDot(bounds, normal);
+            float diagonal = MathF.Sqrt(bounds.Width * bounds.Width + bounds.Height * bounds.Height) + spacing * 2.0f + 32.0f;
+            float boundsCenterX = bounds.Left + bounds.Width / 2.0f;
+            float boundsCenterY = bounds.Top + bounds.Height / 2.0f;
+            float boundsCenterDistance = Dot(boundsCenterX, boundsCenterY, normal);
+            int firstIndex = (int)MathF.Floor((minDistance - originDistance) / spacing) - 1;
+            int lastIndex = (int)MathF.Ceiling((maxDistance - originDistance) / spacing) + 1;
+
+            using Pen pen = new(hatchColor, HatchStrokeWidth)
+            {
+                StartCap = LineCap.Flat,
+                EndCap = LineCap.Flat
+            };
+
+            if (line.DashPattern is { Length: > 0 })
+            {
+                pen.DashStyle = DashStyle.Custom;
+                pen.DashPattern = line.DashPattern
+                    .Select(value => Math.Max(0.1f, Math.Abs(value * scale)))
+                    .ToArray();
+            }
+
+            for (int index = firstIndex; index <= lastIndex; index++)
+            {
+                float distance = originDistance + index * spacing;
+                float centerOffset = distance - boundsCenterDistance;
+                PointF center = new(
+                    boundsCenterX + normal.X * centerOffset,
+                    boundsCenterY + normal.Y * centerOffset);
+                PointF a = new(
+                    center.X - direction.X * diagonal,
+                    center.Y - direction.Y * diagonal);
+                PointF b = new(
+                    center.X + direction.X * diagonal,
+                    center.Y + direction.Y * diagonal);
+                graphics.DrawLine(pen, a, b);
+            }
+        }
+
+        private static float ResolveScreenScale(double screenScale)
+        {
+            if (double.IsNaN(screenScale) || double.IsInfinity(screenScale) || screenScale <= 0.0)
+                return 1.0f;
+
+            if (screenScale > float.MaxValue)
+                return float.MaxValue;
+
+            return (float)screenScale;
+        }
+
+        private static float Dot(float x, float y, PointF normal) =>
+            x * normal.X + y * normal.Y;
+
+        private static float MinDot(RectangleF bounds, PointF normal) =>
+            Math.Min(
+                Math.Min(Dot(bounds.Left, bounds.Top, normal), Dot(bounds.Right, bounds.Top, normal)),
+                Math.Min(Dot(bounds.Left, bounds.Bottom, normal), Dot(bounds.Right, bounds.Bottom, normal)));
+
+        private static float MaxDot(RectangleF bounds, PointF normal) =>
+            Math.Max(
+                Math.Max(Dot(bounds.Left, bounds.Top, normal), Dot(bounds.Right, bounds.Top, normal)),
+                Math.Max(Dot(bounds.Left, bounds.Bottom, normal), Dot(bounds.Right, bounds.Bottom, normal)));
+
         private static void DrawHorizontalLines(Graphics graphics, Pen pen, int spacing)
         {
             for (int y = -TileSize; y <= TileSize * 2; y += spacing)
@@ -218,14 +429,19 @@ namespace Land_Readjustment_Tool.UI.MapCanvas.Services
                 graphics.DrawLine(pen, x, -TileSize, x, TileSize * 2);
         }
 
-        private static void DrawDiagonalLines(Graphics graphics, Pen pen, int spacing, bool forward)
+        private static void DrawDiagonalLines(
+            Graphics graphics,
+            Pen pen,
+            float spacing,
+            bool forward,
+            float offset = 0.0f)
         {
-            for (int offset = -TileSize * 2; offset <= TileSize * 2; offset += spacing)
+            for (float position = -TileSize * 2 + offset; position <= TileSize * 2; position += spacing)
             {
                 if (forward)
-                    graphics.DrawLine(pen, offset, TileSize, offset + TileSize, 0);
+                    graphics.DrawLine(pen, position, TileSize, position + TileSize, 0);
                 else
-                    graphics.DrawLine(pen, offset, 0, offset + TileSize, TileSize);
+                    graphics.DrawLine(pen, position, 0, position + TileSize, TileSize);
             }
         }
 
@@ -246,9 +462,9 @@ namespace Land_Readjustment_Tool.UI.MapCanvas.Services
             }
         }
 
-        private static void DrawGravel(Graphics graphics, Color hatchColor)
+        private static void DrawGravel(Graphics graphics, Color hatchColor, float penWidth)
         {
-            using Pen pen = new(hatchColor, 1.15f);
+            using Pen pen = new(hatchColor, penWidth);
             using SolidBrush brush = new(hatchColor);
 
             PointF[] centers =
@@ -271,7 +487,7 @@ namespace Land_Readjustment_Tool.UI.MapCanvas.Services
             graphics.FillEllipse(brush, 14, 26, 2.5f, 2.5f);
         }
 
-        private static void DrawSand(Graphics graphics, Color hatchColor)
+        private static void DrawSand(Graphics graphics, Color hatchColor, float radius)
         {
             using SolidBrush brush = new(hatchColor);
             PointF[] points =
@@ -283,12 +499,12 @@ namespace Land_Readjustment_Tool.UI.MapCanvas.Services
             ];
 
             foreach (PointF point in points)
-                graphics.FillEllipse(brush, point.X - 0.9f, point.Y - 0.9f, 1.8f, 1.8f);
+                graphics.FillEllipse(brush, point.X - radius, point.Y - radius, radius * 2.0f, radius * 2.0f);
         }
 
-        private static void DrawGrass(Graphics graphics, Color hatchColor)
+        private static void DrawGrass(Graphics graphics, Color hatchColor, float penWidth)
         {
-            using Pen pen = new(hatchColor, 1.05f)
+            using Pen pen = new(hatchColor, penWidth)
             {
                 StartCap = LineCap.Round,
                 EndCap = LineCap.Round
@@ -308,9 +524,9 @@ namespace Land_Readjustment_Tool.UI.MapCanvas.Services
             }
         }
 
-        private static void DrawEarth(Graphics graphics, Color hatchColor)
+        private static void DrawEarth(Graphics graphics, Color hatchColor, float penWidth)
         {
-            using Pen pen = new(hatchColor, 1.15f)
+            using Pen pen = new(hatchColor, penWidth)
             {
                 StartCap = LineCap.Round,
                 EndCap = LineCap.Round
@@ -324,9 +540,9 @@ namespace Land_Readjustment_Tool.UI.MapCanvas.Services
             graphics.DrawLine(pen, 17, 28, 28, 27);
         }
 
-        private static void DrawWater(Graphics graphics, Color hatchColor)
+        private static void DrawWater(Graphics graphics, Color hatchColor, float penWidth)
         {
-            using Pen pen = new(hatchColor, 1.2f)
+            using Pen pen = new(hatchColor, penWidth)
             {
                 StartCap = LineCap.Round,
                 EndCap = LineCap.Round
@@ -341,10 +557,10 @@ namespace Land_Readjustment_Tool.UI.MapCanvas.Services
             }
         }
 
-        private static void DrawConcrete(Graphics graphics, Color hatchColor)
+        private static void DrawConcrete(Graphics graphics, Color hatchColor, float penWidth)
         {
-            DrawGravel(graphics, hatchColor);
-            using Pen pen = new(hatchColor, 1.0f);
+            DrawGravel(graphics, hatchColor, penWidth);
+            using Pen pen = new(hatchColor, penWidth);
             graphics.DrawLine(pen, 2, 14, 9, 20);
             graphics.DrawLine(pen, 18, 9, 24, 3);
             graphics.DrawLine(pen, 21, 24, 30, 18);
@@ -398,5 +614,29 @@ namespace Land_Readjustment_Tool.UI.MapCanvas.Services
 
             return (float)Math.Clamp(hatchScale, 0.1, 20.0);
         }
+
+        private static float GetPatternScaleMultiplier(string patternKey)
+        {
+            return patternKey.ToUpperInvariant() switch
+            {
+                "BRICK" => 0.5f,
+                "GRASS" => 0.45f,
+                "GRAVEL" => 0.55f,
+                "SAND" => 0.55f,
+                "EARTH" => 0.55f,
+                "WATER" => 0.55f,
+                "CONCRETE" => 0.55f,
+                "WOOD" => 0.55f,
+                "DOTS" => 0.75f,
+                _ => 1.0f
+            };
+        }
+
+        internal readonly record struct HatchLineDefinition(
+            float AngleDegrees,
+            float OriginX,
+            float OriginY,
+            float Spacing,
+            float[]? DashPattern = null);
     }
 }
