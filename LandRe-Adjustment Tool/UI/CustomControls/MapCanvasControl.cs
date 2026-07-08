@@ -5256,16 +5256,6 @@ namespace Land_Readjustment_Tool.UI.CustomControls
                 }
             }
 
-            if (_activeTool == MapCanvasTool.Polygon && _drawingVertices.Count > 2)
-            {
-                PointD first = _drawingVertices[0];
-                PointD last = _drawingVertices[^1];
-                yield return new SnapPoint(
-                    SnapType.Midpoint,
-                    new PointD((first.X + last.X) / 2.0, (first.Y + last.Y) / 2.0),
-                    null);
-            }
-
             // --- Self-intersection snaps on committed vertices ---
             foreach (PointD intersection in _snapManager.GetPolylineSelfIntersections(_drawingVertices))
             {
